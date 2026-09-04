@@ -249,6 +249,39 @@ func (h *Handler) requireDeviceAction(w http.ResponseWriter, r *http.Request, ac
 	return false
 }
 
+// enforceCommandTargets applies the policy to a command's targets. For device
+// targets it drops what the user may not touch (403 if nothing is left); for a
+// group target it refuses when the group contains any device outside the policy,
+// since a group command is stored as one unit and can't be partially sent.
+// Returns the ids to use and false when it already wrote a response.
+func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, action, targetType string, ids []uuid.UUID) ([]uuid.UUID, bool) {
+	acc := h.access(r)
+	if acc.unrestricted() {
+		return ids, true
+	}
+	if targetType == "groups" {
+		devIDs, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), ids)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return nil, false
+		}
+		if _, dropped := acc.filterDevices(action, devIDs); dropped > 0 {
+			http.Error(w, "This group contains devices your access policy does not allow this command on. Pick devices individually from the Actions page.", http.StatusForbidden)
+			return nil, false
+		}
+		return ids, true
+	}
+	kept, dropped := acc.filterDevices(action, ids)
+	if len(kept) == 0 && len(ids) > 0 {
+		http.Error(w, "Your access policy does not allow this command on the selected devices.", http.StatusForbidden)
+		return nil, false
+	}
+	if dropped > 0 {
+		log.Printf("[access] %s: %s skipped %d device(s) outside their policy", acc.username, action, dropped)
+	}
+	return kept, true
+}
+
 // requireFleetAction guards fleet-level operator actions (QA, groups, alerts…).
 func (h *Handler) requireFleetAction(w http.ResponseWriter, r *http.Request, action string) bool {
 	if h.access(r).can(action, nil) {

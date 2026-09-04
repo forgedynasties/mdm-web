@@ -7244,6 +7244,9 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
 	}
 
+	if _, ok := h.enforceCommandTargets(w, r, policyActionForCommand(cmdType), "groups", []uuid.UUID{id}); !ok {
+		return
+	}
 	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id}, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -11193,6 +11196,9 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !h.requireDeviceAction(w, r, policyActionForCommand(cmd.Type), deviceIDs[0]) {
+		return
+	}
 	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -11220,6 +11226,10 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 	targetIDs, err := h.db.GetCommandTargetIDs(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	var ok bool
+	if targetIDs, ok = h.enforceCommandTargets(w, r, policyActionForCommand(cmd.Type), cmd.TargetType, targetIDs); !ok {
 		return
 	}
 	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs, h.currentUsername(r))
