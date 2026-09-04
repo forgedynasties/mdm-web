@@ -796,17 +796,23 @@ const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','
 // SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
 func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
 
-// StripLegacyCheckinKeys removes checkinStripKeys from the checkins rows of one UTC
-// day — the one-off cleanup for rows written before UpsertCheckin stripped them at
-// insert. One day at a time keeps each statement index-bounded (created_at) and its
-// write set small, so it is safe to run on a small production box between real
-// work; the caller walks the cursor forward across runs. Returns rows rewritten.
-func (d *DB) StripLegacyCheckinKeys(ctx context.Context, day time.Time) (int64, error) {
+// StripLegacyCheckinKeys removes checkinStripKeys from up to `limit` checkins rows
+// of one UTC day — the one-off cleanup for rows written before UpsertCheckin
+// stripped them at insert. Returns rows rewritten; fewer than `limit` means the
+// day is clean. Small batches matter: the affected rows are tens of KB each
+// (TOASTed crash traces), so rewriting a whole day at once was tens of GB of I/O
+// that starved every other query on a small production box. The caller paces
+// batches and walks the cursor.
+func (d *DB) StripLegacyCheckinKeys(ctx context.Context, day time.Time, limit int) (int64, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE checkins SET extra = extra - `+checkinStripKeys+`
-		WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
-		  AND extra ?| ARRAY['crash_events','wifi_scan']
-	`, day.Format("2006-01-02"))
+		WHERE ctid IN (
+			SELECT ctid FROM checkins
+			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
+			  AND extra ?| ARRAY['crash_events','wifi_scan']
+			LIMIT $2
+		)
+	`, day.Format("2006-01-02"), limit)
 	if err != nil {
 		return 0, err
 	}
@@ -1713,37 +1719,94 @@ type BuildChange struct {
 	To   string    `json:"to"`
 }
 
-// GetBuildChanges returns the build transitions in a device's recent check-in
-// history (last 90 days — the device graph's reachable range), oldest first. The
-// first check-in (no predecessor) and empty build ids are skipped. Bounded by time
-// on purpose: a window over a device's entire history is millions of rows on a
-// long-lived device, too much for the production box on every device-page load.
-// Full history belongs in a change-only build_history table (planned).
+// GetBuildChanges returns the build transitions in a device's check-in history,
+// oldest first, without scanning that history. device_daily_stats keeps the last
+// build seen per device-day, so a change between two consecutive days pins the
+// transition to a two-day window; only those windows (plus the last two days,
+// whose rollup is still moving) are read from checkins with LAG. A flip that
+// starts and ends inside one older day (A→B→A) is not visible at day granularity
+// and is skipped — acceptable for a chart marker; a change-only build_history
+// table is the eventual home for this.
 func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildChange, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT created_at, prev, build_id FROM (
-			SELECT created_at, build_id,
-			       LAG(build_id) OVER (ORDER BY created_at) AS prev
-			FROM checkins
-			WHERE device_id = $1 AND build_id <> ''
-			  AND created_at >= NOW() - INTERVAL '90 days'
-		) t
-		WHERE prev IS NOT NULL AND prev <> build_id
-		ORDER BY created_at
+		SELECT day, build_id FROM device_daily_stats
+		WHERE device_id = $1 AND build_id <> ''
+		ORDER BY day
 	`, deviceID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []BuildChange
+	type dayBuild struct {
+		day   time.Time
+		build string
+	}
+	var days []dayBuild
 	for rows.Next() {
-		var c BuildChange
-		if err := rows.Scan(&c.At, &c.From, &c.To); err != nil {
+		var db dayBuild
+		if err := rows.Scan(&db.day, &db.build); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		out = append(out, c)
+		days = append(days, db)
 	}
-	return out, rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Candidate windows: [prev day, day + 1) wherever the daily build differs, plus
+	// the last two days. Merge overlaps so each raw row is read once.
+	type win struct{ from, to time.Time }
+	var wins []win
+	for i := 1; i < len(days); i++ {
+		if days[i].build != days[i-1].build {
+			wins = append(wins, win{days[i-1].day, days[i].day.AddDate(0, 0, 1)})
+		}
+	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	wins = append(wins, win{today.AddDate(0, 0, -1), today.AddDate(0, 0, 1)})
+	sort.Slice(wins, func(i, j int) bool { return wins[i].from.Before(wins[j].from) })
+	merged := wins[:0]
+	for _, w := range wins {
+		if n := len(merged); n > 0 && !w.from.After(merged[n-1].to) {
+			if w.to.After(merged[n-1].to) {
+				merged[n-1].to = w.to
+			}
+			continue
+		}
+		merged = append(merged, w)
+	}
+
+	var out []BuildChange
+	for _, w := range merged {
+		r, err := d.pool.Query(ctx, `
+			SELECT created_at, prev, build_id FROM (
+				SELECT created_at, build_id,
+				       LAG(build_id) OVER (ORDER BY created_at) AS prev
+				FROM checkins
+				WHERE device_id = $1 AND build_id <> ''
+				  AND created_at >= $2 AND created_at < $3
+			) t
+			WHERE prev IS NOT NULL AND prev <> build_id
+			ORDER BY created_at
+		`, deviceID, w.from, w.to)
+		if err != nil {
+			return nil, err
+		}
+		for r.Next() {
+			var c BuildChange
+			if err := r.Scan(&c.At, &c.From, &c.To); err != nil {
+				r.Close()
+				return nil, err
+			}
+			out = append(out, c)
+		}
+		r.Close()
+		if err := r.Err(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time.Time) ([]Checkin, error) {

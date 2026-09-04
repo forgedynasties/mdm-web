@@ -13179,20 +13179,35 @@ func (h *Handler) stripLegacyCheckins(ctx context.Context) {
 	}
 	// Stop at yesterday: today's rows are already written stripped, and yesterday's
 	// may still be in flight across the UTC boundary — they get picked up next run.
+	//
+	// Pacing: small batches with a pause between them and a modest per-run budget.
+	// The rows being rewritten carry tens of KB each, so throughput here is I/O the
+	// dashboard and device traffic need too. Hourly runs finish the history in days,
+	// which is fine — this is a one-off.
+	const batch, maxRows = 1000, 20000
 	stop := time.Now().UTC().Truncate(24 * time.Hour)
-	deadline := time.Now().Add(4 * time.Minute)
+	deadline := time.Now().Add(3 * time.Minute)
 	var total int64
-	for days := 0; days < 14 && day.Before(stop) && time.Now().Before(deadline); days++ {
-		n, err := h.db.StripLegacyCheckinKeys(ctx, day)
+	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
+		n, err := h.db.StripLegacyCheckinKeys(ctx, day, batch)
 		if err != nil {
 			log.Printf("[legacy-strip] %s: %v", day.Format("2006-01-02"), err)
 			return
 		}
 		total += n
-		day = day.AddDate(0, 0, 1)
-		if err := h.cfg.SetLegacyStripCursor(day.Format("2006-01-02")); err != nil {
-			log.Printf("[legacy-strip] save cursor: %v", err)
+		if n < int64(batch) {
+			// Day is clean — advance the cursor.
+			day = day.AddDate(0, 0, 1)
+			if err := h.cfg.SetLegacyStripCursor(day.Format("2006-01-02")); err != nil {
+				log.Printf("[legacy-strip] save cursor: %v", err)
+				return
+			}
+			continue
+		}
+		select {
+		case <-ctx.Done():
 			return
+		case <-time.After(300 * time.Millisecond):
 		}
 	}
 	if !day.Before(stop) {
@@ -13201,7 +13216,7 @@ func (h *Handler) stripLegacyCheckins(ctx context.Context) {
 		return
 	}
 	if total > 0 {
-		log.Printf("[legacy-strip] rewrote %d row(s); cursor now %s", total, day.Format("2006-01-02"))
+		log.Printf("[legacy-strip] rewrote %d row(s); cursor at %s", total, day.Format("2006-01-02"))
 	}
 }
 
