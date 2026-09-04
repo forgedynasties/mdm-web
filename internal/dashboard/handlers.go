@@ -1822,7 +1822,7 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther bool) {
 	ctx := r.Context()
-	stats, err := h.db.UserStats(ctx, username)
+	stats, err := h.db.UserStats(ctx, username, h.user)
 	if err != nil {
 		log.Printf("[profile] stats for %q: %v", username, err)
 		stats = &db.UserStats{Username: username}
@@ -14568,7 +14568,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // WrappedPage renders "Fleet Wrapped" — a playful, full-screen year-in-review of
 // the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
 func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
-	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r))
+	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r), h.user)
 	topUsers, _ := h.db.TopActors(r.Context(), 5, h.user) // the env admin login is not a person on the team
 	wr, err := h.db.GetFleetWrapped(r.Context())
 	if err != nil {

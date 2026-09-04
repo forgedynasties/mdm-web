@@ -798,8 +798,15 @@ func (d *DB) ActorSummaries(ctx context.Context) (map[string]ActorSummary, error
 	return out, rows.Err()
 }
 
-func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error) {
+// excludeFromRank is a username left out of the rank population (the env admin
+// login, which is not a person on the team) — the same exclusion TopActors
+// applies, so "#1 of N" on a profile matches the Wrapped leaderboard. When the
+// excluded user asks for their own stats, they are ranked against everyone.
+func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*UserStats, error) {
 	st := &UserStats{Username: username}
+	if excludeFromRank == username {
+		excludeFromRank = ""
+	}
 	if username == "" {
 		return st, nil
 	}
@@ -829,8 +836,8 @@ func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error)
 	if st.Actions > 0 {
 		err = d.pool.QueryRow(ctx, `
 			WITH r AS (SELECT actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
-			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' AND action <> '`+PageViewAction+`' GROUP BY actor)
-			SELECT rk, n FROM r WHERE actor = $1`, username).Scan(&st.Rank, &st.Actors)
+			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' AND actor <> $2 AND action <> '`+PageViewAction+`' GROUP BY actor)
+			SELECT rk, n FROM r WHERE actor = $1`, username, excludeFromRank).Scan(&st.Rank, &st.Actors)
 		if err != nil && err != pgx.ErrNoRows {
 			return nil, err
 		}
