@@ -2177,6 +2177,19 @@ func timeSinceStr(t time.Time) string {
 	return fmt.Sprintf("%d days ago", int(d.Hours()/24))
 }
 
+// deliveryNicknames maps the devices of a command's deliveries to their nicknames.
+func (h *Handler) deliveryNicknames(ctx context.Context, ds []db.CommandDelivery) map[uuid.UUID]string {
+	ids := make([]uuid.UUID, 0, len(ds))
+	for _, d := range ds {
+		ids = append(ids, d.DeviceID)
+	}
+	m, err := h.db.GetNicknames(ctx, ids)
+	if err != nil || m == nil {
+		return map[uuid.UUID]string{}
+	}
+	return m
+}
+
 // DeviceSetNickname stores a friendly name for a device ("Table 4"), shown to
 // restaurant owners and next to the serial on the device page.
 func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
@@ -11451,6 +11464,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
+		"Nicknames":  h.deliveryNicknames(r.Context(), deliveries),
 		"Stats":      computeDeliveryStats(deliveries),
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
@@ -11951,11 +11965,13 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	nick := h.deliveryNicknames(r.Context(), deliveries)
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Action " + id.String()[:8],
 		"Command":    cmd,
 		"App":        app,
 		"Siblings":   siblings,
+		"Nicknames":  nick,
 		"Deliveries": deliveries,
 		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,
