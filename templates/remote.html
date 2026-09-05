@@ -33,6 +33,20 @@
 /* layout */
 .rc-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
 @media(max-width:900px){.rc-body{grid-template-columns:1fr}}
+/* Desktop: the cockpit fits the viewport — no page scroll. Height = viewport minus
+   the sticky app bar (~60px), the container's top padding (28px) and the bottom
+   dock clearance (104px). The stage fills the remaining row; the control dock
+   scrolls inside itself if it is ever taller than the stage. */
+@media(min-width:901px){
+  body:has(#rc){overflow:hidden}
+  .rc{display:flex;flex-direction:column;height:calc(100dvh - 226px);min-height:460px}
+  .rc-top{flex:none}
+  .rc-body{flex:1;min-height:0;align-items:stretch}
+  .rc-stage{height:auto;min-height:0}
+  .rc-dock{position:static;max-height:100%;overflow:auto;min-height:0;scrollbar-width:thin}
+  .rc-dock>*{flex:none}
+  .rc-screen canvas{max-height:calc(100dvh - 330px)}
+}
 
 /* stage */
 .rc-stage{position:relative;background:#0c0d10;border:1px solid rgba(255,255,255,.06);border-radius:18px;overflow:hidden;min-height:520px;height:calc(100vh - 250px);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-lg)}
