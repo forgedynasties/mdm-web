@@ -3471,6 +3471,27 @@ func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload 
 // CreateCommandBy is CreateCommand plus createdBy, a display name/email snapshotted
 // at creation time so "who ran this" survives even if the user account is later
 // renamed or deleted. Pass "" for system-initiated commands.
+// ListCommandsByBatch returns every command created by one multi-app send
+// (payload.batch), oldest first.
+func (d *DB) ListCommandsByBatch(ctx context.Context, batch string) ([]Command, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands
+		WHERE payload->>'batch' = $1 ORDER BY created_at`, batch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Command
+	for rows.Next() {
+		var c Command
+		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedBy, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID, createdBy string) (*Command, error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {

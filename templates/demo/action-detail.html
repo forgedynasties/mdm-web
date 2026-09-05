@@ -1,0 +1,237 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Action detail — three directions</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{--font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono','IBM Plex Mono',monospace;
+  --bg:#f6f5f2;--surface:#fff;--surface2:#f1efea;--ink:#171614;--ink2:#4a4741;--mute:#807a71;--line:#e4e0d8;--line2:#d2cdc3;
+  --ok:#1f7a4d;--ok-bg:#e2f2e8;--warn:#b0620f;--warn-bg:#fbead6;--bad:#b3261e;--bad-bg:#f9e3e1;--info:#2b5fb0;--info-bg:#e3ebf8;--accent:#f9674e;--accent-ink:#fff;
+  --dk-bg:#0f1216;--dk-s:#171b21;--dk-s2:#1e242c;--dk-ink:#e9ecf1;--dk-mute:#8b93a1;--dk-line:#2a313b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130f;--surface:#1d1a15;--surface2:#242019;--ink:#f1ede6;--ink2:#cdc6ba;--mute:#8f887c;--line:#2a2620;--line2:#3a352d;--ok-bg:#173224;--warn-bg:#3a2710;--bad-bg:#3a1c19;--info-bg:#1a2740}}
+:root[data-theme="dark"]{--bg:#15130f;--surface:#1d1a15;--surface2:#242019;--ink:#f1ede6;--ink2:#cdc6ba;--mute:#8f887c;--line:#2a2620;--line2:#3a352d;--ok-bg:#173224;--warn-bg:#3a2710;--bad-bg:#3a1c19;--info-bg:#1a2740}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font)}
+a{color:inherit}
+.pick{position:sticky;top:0;z-index:5;display:flex;gap:6px;align-items:center;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.pick b{font:700 12px var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-right:8px}
+.pick button{font:600 13px var(--font);border:1px solid var(--line);background:var(--surface);color:var(--ink2);border-radius:99px;padding:7px 14px;cursor:pointer}
+.pick button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pick .note{margin-left:auto;font-size:12.5px;color:var(--mute)}
+section.dir{display:none}section.dir.on{display:block}
+.tab{font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:6px;font:700 11px var(--font);letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:99px}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.info{background:var(--info-bg);color:var(--info)}.pill.mute{background:var(--surface2);color:var(--mute)}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.info i{animation:pulse 1.2s infinite}@keyframes pulse{50%{opacity:.3}}
+.btn{font:600 13px var(--font);border:1px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
+.btn.sm{font-size:12px;padding:4px 9px;border-radius:7px}
+.btn.danger{color:var(--bad)}
+.icon{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#ff3b30,#c9002b);display:grid;place-items:center;color:#fff;font:900 22px var(--font);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.mono{font-family:var(--mono)}
+
+/* ══ A · Ledger ══ */
+.A{max-width:1080px;margin:0 auto;padding:26px 22px 80px}
+.A .crumb{font-size:13px;color:var(--mute)}
+.A .hero{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;margin-top:14px}
+.A .kick{font:600 11px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.A h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:2px 0 0;line-height:1.15}
+.A h1 small{font-weight:500;color:var(--mute);font-size:15px;margin-left:8px}
+.A .meta{font-size:13px;color:var(--mute);margin-top:6px}
+.A .meta b{color:var(--ink2);font-weight:600}
+.A .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.A .seg{margin-top:22px}
+.A .segbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--surface2)}
+.A .segbar span{display:block;height:100%}
+.A .seglg{display:flex;gap:22px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--ink2)}
+.A .seglg i{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.A .seglg b{font-weight:700;color:var(--ink)}
+.A .grp{margin-top:26px}
+.A .grp h2{display:flex;align-items:baseline;gap:10px;font:700 12px var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.A .grp h2 span{font-weight:500;letter-spacing:0;text-transform:none;font-size:12.5px}
+.A .grp h2 .r{margin-left:auto}
+.A table{width:100%;border-collapse:collapse}
+.A td{padding:11px 10px 11px 0;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13.5px}
+.A td:last-child{text-align:right;padding-right:0}
+.A .dev{font-weight:600}.A .dev small{display:block;font:500 11.5px var(--mono);color:var(--mute);margin-top:1px}
+.A .prog{display:flex;align-items:center;gap:8px;color:var(--ink2);font:600 12px var(--mono);min-width:180px}
+.A .prog i{flex:1;height:5px;border-radius:3px;background:var(--surface2);position:relative;overflow:hidden}
+.A .prog i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--info);border-radius:3px}
+.A .prog.ok i::after{background:var(--ok)}.A .prog.bad i::after{background:var(--bad)}
+.A .when{color:var(--mute);font-size:12.5px;white-space:nowrap}
+.A .err{color:var(--bad);font-size:12.5px}
+.A .err code{font:500 12px var(--mono);background:var(--bad-bg);padding:1px 6px;border-radius:5px}
+
+/* ══ B · Timeline ══ */
+.B{max-width:1100px;margin:0 auto;padding:26px 22px 80px;display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+@media(max-width:860px){.B{grid-template-columns:1fr}}
+.B .head{display:flex;gap:16px;align-items:center}
+.B h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0;line-height:1.15}
+.B h1 small{display:block;font-size:13px;font-weight:500;color:var(--mute);margin-top:3px}
+.B .tl{margin-top:26px;position:relative;padding-left:26px}
+.B .tl::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.B .day{font:700 11px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:18px 0 10px;position:relative}
+.B .day::before{content:"";position:absolute;left:-24px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--line2)}
+.B .ev{position:relative;display:grid;grid-template-columns:64px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.B .ev::before{content:"";position:absolute;left:-22px;top:15px;width:6px;height:6px;border-radius:50%;background:var(--mute)}
+.B .ev.ok::before{background:var(--ok)}.B .ev.bad::before{background:var(--bad)}.B .ev.info::before{background:var(--info)}
+.B .ev time{font:600 12px var(--mono);color:var(--mute);padding-top:2px}
+.B .ev b{font-weight:600}.B .ev .d{color:var(--mute);font-size:13px}
+.B .ev .d code{font:500 12px var(--mono);background:var(--surface2);padding:1px 6px;border-radius:5px;color:var(--ink2)}
+.B .side{position:sticky;top:60px;display:grid;gap:14px}
+.B .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.B .card h3{margin:0 0 10px;font:700 11px var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.B .donut{display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center}
+.B .donut svg{transform:rotate(-90deg)}
+.B .donut .n{font:700 28px/1 var(--font);letter-spacing:-.03em}
+.B .kv{display:grid;gap:6px;font-size:13px}
+.B .kv div{display:flex;justify-content:space-between}
+.B .kv span:last-child{font-weight:600;font-variant-numeric:tabular-nums}
+.B .kv .ok{color:var(--ok)}.B .kv .bad{color:var(--bad)}.B .kv .info{color:var(--info)}.B .kv .mute{color:var(--mute)}
+.B .acts{display:grid;gap:8px}
+.B .acts .btn{justify-content:center}
+.B .attn{background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 25%,transparent)}
+.B .attn h3{color:var(--bad)}
+.B .attn ul{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:13px}
+.B .attn li b{display:block}.B .attn li span{color:var(--ink2)}
+
+/* ══ C · Board ══ */
+.C{background:var(--dk-bg);color:var(--dk-ink);padding:24px 22px 80px;min-height:100vh}
+.C .wrap{max-width:1180px;margin:0 auto}
+.C .head{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;background:var(--dk-s);border:1px solid var(--dk-line);border-radius:16px;padding:16px 18px}
+.C h1{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0;line-height:1.2}
+.C h1 small{display:block;font:500 12.5px var(--mono);color:var(--dk-mute);margin-top:4px;letter-spacing:.02em}
+.C .pct{text-align:right}
+.C .pct b{display:block;font:700 40px/1 var(--font);letter-spacing:-.04em}
+.C .pct span{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dk-mute)}
+.C .toolbar{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.C .btn{background:var(--dk-s);border-color:var(--dk-line);color:var(--dk-ink)}
+.C .btn.primary{background:var(--accent);border-color:transparent}
+.C .board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+@media(max-width:980px){.C .board{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.C .board{grid-template-columns:1fr}}
+.C .col{background:var(--dk-s);border:1px solid var(--dk-line);border-radius:14px;padding:12px;display:grid;gap:8px;align-content:start;min-height:200px}
+.C .col h2{margin:0 0 4px;display:flex;justify-content:space-between;align-items:center;font:700 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dk-mute);padding:4px 4px 8px;border-bottom:1px solid var(--dk-line)}
+.C .col h2 b{font:700 14px var(--font);color:var(--dk-ink);letter-spacing:0}
+.C .col.ok h2{border-color:var(--ok)}.C .col.info h2{border-color:var(--info)}.C .col.mute h2{border-color:var(--dk-mute)}.C .col.bad h2{border-color:var(--bad)}
+.C .chip{background:var(--dk-s2);border:1px solid var(--dk-line);border-radius:10px;padding:10px 12px;display:grid;gap:6px;text-decoration:none;color:inherit}
+.C .chip:hover{border-color:var(--dk-mute)}
+.C .chip .t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.C .chip .nm{font-weight:600;font-size:13.5px}.C .chip .sn{font:500 11px var(--mono);color:var(--dk-mute)}
+.C .chip .w{font:500 11.5px var(--mono);color:var(--dk-mute)}
+.C .chip .bar{height:4px;border-radius:2px;background:var(--dk-bg);position:relative;overflow:hidden}
+.C .chip .bar::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--info);border-radius:2px}
+.C .chip .err{font:500 12px var(--mono);color:var(--bad)}
+.C .chip .row{display:flex;gap:6px;justify-content:flex-end}
+.C .empty{color:var(--dk-mute);font-size:12.5px;padding:20px 8px;text-align:center}
+</style></head><body>
+<div class="pick" role="tablist" aria-label="Design directions">
+  <b>Direction</b>
+  <button aria-pressed="true" data-t="A">A · Ledger</button>
+  <button aria-pressed="false" data-t="B">B · Timeline</button>
+  <button aria-pressed="false" data-t="C">C · Board</button>
+  <span class="note">Same action in all three: Install Opera Mini v91 → 12 devices, 6:14 pm. Example data.</span>
+</div>
+
+<!-- ═══ A ═══ -->
+<section class="dir A on" data-dir="A">
+  <div class="crumb">← Actions</div>
+  <div class="hero">
+    <div class="icon">O</div>
+    <div>
+      <div class="kick">Install app · sent 6:14 pm by Aaron Paul · 12 devices</div>
+      <h1>Opera Mini <small>v91.0.2254 · 18.4 MB</small></h1>
+      <div class="meta">Targets: <b>Flights Vegas</b> (all 12). <b>9 installed</b>, 1 still downloading, 1 waiting for an offline device, <b>1 failed</b>.</div>
+    </div>
+    <div class="acts"><a class="btn sm" href="#">Duplicate &amp; edit</a><a class="btn sm" href="#">APK ↗</a><a class="btn sm primary" href="#">Retry 1 failed</a></div>
+  </div>
+  <div class="seg">
+    <div class="segbar"><span style="width:75%;background:var(--ok)"></span><span style="width:8.3%;background:var(--info)"></span><span style="width:8.3%;background:var(--line2)"></span><span style="width:8.3%;background:var(--bad)"></span></div>
+    <div class="seglg tab"><span><i style="background:var(--ok)"></i><b>9</b> installed</span><span><i style="background:var(--info)"></i><b>1</b> installing</span><span><i style="background:var(--line2)"></i><b>1</b> waiting · offline</span><span><i style="background:var(--bad)"></i><b>1</b> failed</span><span style="margin-left:auto">75% done · started 6:14 pm · last change 6:21 pm</span></div>
+  </div>
+
+  <div class="grp"><h2>Needs attention <span>1 device</span><span class="r"><a class="btn sm" href="#">Retry all failed</a></span></h2>
+  <table class="tab">
+    <tr><td class="dev">Table 6<small>AT070AABU00122</small></td><td><span class="pill bad"><i></i>Failed</span></td><td class="err">Not enough storage · <code>INSTALL_FAILED_INSUFFICIENT_STORAGE</code></td><td class="when">6:19 pm</td><td><a class="btn sm" href="#">Retry</a></td></tr>
+  </table></div>
+
+  <div class="grp"><h2>In progress <span>2 devices</span></h2>
+  <table class="tab">
+    <tr><td class="dev">Table 3<small>AT070AABU00673</small></td><td><span class="pill info"><i></i>Downloading</span></td><td><div class="prog" style="--p:62%"><i></i>62%</div></td><td class="when">now</td><td><a class="btn sm" href="#">Cancel</a></td></tr>
+    <tr><td class="dev">Bar<small>AT070AABU00080</small></td><td><span class="pill mute"><i></i>Waiting</span></td><td class="err" style="color:var(--mute)">Device offline since 4:10 pm · installs when it reconnects</td><td class="when">—</td><td><a class="btn sm" href="#">Remove</a></td></tr>
+  </table></div>
+
+  <div class="grp"><h2>Installed <span>9 devices</span><span class="r">avg 41 s from delivery to installed</span></h2>
+  <table class="tab">
+    <tr><td class="dev">Host stand<small>AT070AABU00077</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>38 s</div></td><td class="when">6:15 pm</td><td></td></tr>
+    <tr><td class="dev">Table 1<small>AT070AABU00089</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>44 s</div></td><td class="when">6:15 pm</td><td></td></tr>
+    <tr><td class="dev">Table 2<small>AT070AABU00318</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>36 s</div></td><td class="when">6:15 pm</td><td></td></tr>
+    <tr><td class="dev">Table 4<small>AT070AA2600026</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>52 s</div></td><td class="when">6:16 pm</td><td></td></tr>
+    <tr><td class="dev">Table 5<small>AT070AA2600031</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>40 s</div></td><td class="when">6:16 pm</td><td></td></tr>
+    <tr><td class="dev">Table 7<small>AT070AABU00190</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>39 s</div></td><td class="when">6:16 pm</td><td></td></tr>
+    <tr><td class="dev">Table 8<small>AT070AABU00242</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>47 s</div></td><td class="when">6:17 pm</td><td></td></tr>
+    <tr><td class="dev">Patio 1<small>AT070AABU00489</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>35 s</div></td><td class="when">6:17 pm</td><td></td></tr>
+    <tr><td class="dev">Patio 2<small>AT070AABU00537</small></td><td><span class="pill ok">Installed</span></td><td><div class="prog ok" style="--p:100%"><i></i>41 s</div></td><td class="when">6:21 pm</td><td></td></tr>
+  </table></div>
+</section>
+
+<!-- ═══ B ═══ -->
+<section class="dir B" data-dir="B">
+  <div>
+    <div class="head"><div class="icon">O</div><h1>Install Opera Mini v91<small>Sent 6:14 pm by Aaron Paul to 12 devices at Flights Vegas · 75% done</small></h1></div>
+    <div class="tl">
+      <div class="day">Today · 6:21 pm — latest</div>
+      <div class="ev ok"><time>6:21 pm</time><div><b>Patio 2 installed</b><div class="d">41 s after delivery · was offline until 6:20</div></div></div>
+      <div class="ev info"><time>6:20 pm</time><div><b>Table 3 downloading · 62%</b><div class="d">Slow Wi-Fi on this station, −74 dBm</div></div></div>
+      <div class="ev bad"><time>6:19 pm</time><div><b>Table 6 failed</b><div class="d">Not enough storage · <code>INSTALL_FAILED_INSUFFICIENT_STORAGE</code> · 412 MB free, needs 480 MB → <a href="#">Retry</a> · <a href="#">Open device</a></div></div></div>
+      <div class="ev ok"><time>6:17 pm</time><div><b>Table 8, Patio 1 installed</b><div class="d">47 s · 35 s</div></div></div>
+      <div class="ev ok"><time>6:16 pm</time><div><b>Table 4, Table 5, Table 7 installed</b><div class="d">52 s · 40 s · 39 s</div></div></div>
+      <div class="ev ok"><time>6:15 pm</time><div><b>Host stand, Table 1, Table 2 installed</b><div class="d">38 s · 44 s · 36 s — first three, all on the same access point</div></div></div>
+      <div class="ev info"><time>6:14 pm</time><div><b>Delivered to 11 devices</b><div class="d">Bar is offline since 4:10 pm, queued for reconnect</div></div></div>
+      <div class="ev"><time>6:14 pm</time><div><b>Sent by Aaron Paul</b><div class="d">Target: venue Flights Vegas · 12 devices · reason: “menu update”</div></div></div>
+    </div>
+  </div>
+  <aside class="side">
+    <div class="card"><h3>Progress</h3>
+      <div class="donut"><svg viewBox="0 0 96 96" width="96" height="96"><circle cx="48" cy="48" r="40" fill="none" stroke="var(--surface2)" stroke-width="10"/><circle cx="48" cy="48" r="40" fill="none" stroke="var(--ok)" stroke-width="10" stroke-dasharray="188.5 251.3" stroke-linecap="butt"/><circle cx="48" cy="48" r="40" fill="none" stroke="var(--info)" stroke-width="10" stroke-dasharray="20.9 251.3" stroke-dashoffset="-188.5"/><circle cx="48" cy="48" r="40" fill="none" stroke="var(--bad)" stroke-width="10" stroke-dasharray="20.9 251.3" stroke-dashoffset="-230.3"/></svg>
+      <div><div class="n tab">75%</div><div class="kv tab" style="margin-top:8px"><div><span class="ok">Installed</span><span>9</span></div><div><span class="info">Installing</span><span>1</span></div><div><span class="mute">Waiting</span><span>1</span></div><div><span class="bad">Failed</span><span>1</span></div></div></div></div>
+    </div>
+    <div class="card attn"><h3>Needs attention</h3><ul><li><b>Table 6 · not enough storage</b><span>Free 70 MB or retry with the smaller build.</span></li><li><b>Bar · offline 2 h</b><span>Will install on reconnect. Nothing to do unless it stays dark.</span></li></ul></div>
+    <div class="card acts"><a class="btn primary" href="#">Retry failed (1)</a><a class="btn" href="#">Duplicate &amp; edit</a><a class="btn" href="#">Download APK</a><a class="btn danger" href="#">Delete action</a></div>
+  </aside>
+</section>
+
+<!-- ═══ C ═══ -->
+<section class="dir C" data-dir="C"><div class="wrap">
+  <div class="head">
+    <div class="icon">O</div>
+    <h1>Install Opera Mini v91.0.2254<small>sent 18:14 · aaron.paul · venue Flights Vegas · 12 devices · reason “menu update”</small></h1>
+    <div class="pct tab"><b>75%</b><span>9 of 12 done</span></div>
+  </div>
+  <div class="toolbar"><a class="btn primary" href="#">Retry failed · 1</a><a class="btn" href="#">Resend to all</a><a class="btn" href="#">Duplicate &amp; edit</a><a class="btn" href="#">APK ↗</a><a class="btn danger" href="#" style="margin-left:auto">Delete</a></div>
+  <div class="board tab">
+    <div class="col bad"><h2>Failed <b>1</b></h2>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 6</span><span class="w">18:19</span></div><div class="sn">AT070AABU00122</div><div class="err">INSTALL_FAILED_INSUFFICIENT_STORAGE</div><div class="row"><a class="btn sm" href="#">Open</a><a class="btn sm primary" href="#">Retry</a></div></a>
+    </div>
+    <div class="col info"><h2>Installing <b>1</b></h2>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 3</span><span class="w">62% · −74 dBm</span></div><div class="sn">AT070AABU00673</div><div class="bar" style="--p:62%"></div><div class="row"><a class="btn sm" href="#">Cancel</a></div></a>
+    </div>
+    <div class="col mute"><h2>Waiting <b>1</b></h2>
+      <a class="chip" href="#"><div class="t"><span class="nm">Bar</span><span class="w">offline 2h 4m</span></div><div class="sn">AT070AABU00080</div><div class="w">Installs on reconnect</div><div class="row"><a class="btn sm" href="#">Remove</a></div></a>
+    </div>
+    <div class="col ok"><h2>Installed <b>9</b></h2>
+      <a class="chip" href="#"><div class="t"><span class="nm">Patio 2</span><span class="w">18:21 · 41 s</span></div><div class="sn">AT070AABU00537</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Patio 1</span><span class="w">18:17 · 35 s</span></div><div class="sn">AT070AABU00489</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 8</span><span class="w">18:17 · 47 s</span></div><div class="sn">AT070AABU00242</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 7</span><span class="w">18:16 · 39 s</span></div><div class="sn">AT070AABU00190</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 5</span><span class="w">18:16 · 40 s</span></div><div class="sn">AT070AA2600031</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 4</span><span class="w">18:16 · 52 s</span></div><div class="sn">AT070AA2600026</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 2</span><span class="w">18:15 · 36 s</span></div><div class="sn">AT070AABU00318</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Table 1</span><span class="w">18:15 · 44 s</span></div><div class="sn">AT070AABU00089</div></a>
+      <a class="chip" href="#"><div class="t"><span class="nm">Host stand</span><span class="w">18:15 · 38 s</span></div><div class="sn">AT070AABU00077</div></a>
+    </div>
+  </div>
+</div></section>
+
+<script>
+(function(){var b=document.querySelectorAll('.pick button');function show(t){b.forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.t===t))});document.querySelectorAll('.dir').forEach(function(s){s.classList.toggle('on',s.dataset.dir===t)});try{localStorage.setItem('ad-dir',t)}catch(e){}}
+b.forEach(function(x){x.addEventListener('click',function(){show(x.dataset.t)})});var s=null;try{s=localStorage.getItem('ad-dir')}catch(e){}if(s==='B'||s==='C')show(s);})();
+</script>
+</body></html>

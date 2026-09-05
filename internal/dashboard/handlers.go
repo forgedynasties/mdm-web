@@ -10948,6 +10948,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// Failures older than this stop being "needs attention" — they drop into
 	// Completed (still rendered as failed, just no longer flagged for triage).
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+	var batches map[uuid.UUID][]db.Command
+	cmds, summaries, batches = collapseBatches(cmds, summaries)
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	// The Actions page shows a capped triage preview of each bucket; "Show all →"
@@ -10998,6 +11000,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"FleetPackages":    fleetPackages,
 		"Recipes":          recipes,
 		"Summaries":        summaries,
+		"Batches":  batches,
+		"AppIcons": apkURLToIcon(apps),
 		"TargetSerials":    targetSerials,
 		"ShellRecent":      shellRecent,
 		"ShellPopular":     shellPopular,
@@ -11037,6 +11041,9 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 	h.resolveCommandActors(r.Context(), cmds)
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+	apps, _ := h.db.ListApps(r.Context())
+	var batches map[uuid.UUID][]db.Command
+	cmds, summaries, batches = collapseBatches(cmds, summaries)
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	status := r.URL.Query().Get("status")
@@ -11116,6 +11123,9 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"Rows":          pageRows,
 		"BucketByID":    bucketByID,
 		"Summaries":     summaries,
+		"Batches":  batches,
+		"AppIcons": apkURLToIcon(apps),
+		"AppNames": apkURLToName(apps),
 		"TargetSerials": targetSerials,
 		"AttnCount":     len(attn),
 		"ProgCount":     len(prog),
@@ -11916,10 +11926,36 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Sibling commands from the same multi-app send, with their apps resolved.
+	type sib struct {
+		ID   uuid.UUID
+		Name string
+		Icon string
+		Self bool
+	}
+	var siblings []sib
+	if b := batchOf(*cmd); b != "" {
+		if members, err := h.db.ListCommandsByBatch(r.Context(), b); err == nil && len(members) > 1 {
+			apps, _ := h.db.ListApps(r.Context())
+			byURL := map[string]db.App{}
+			for _, a := range apps {
+				byURL[a.ApkURL] = a
+			}
+			for _, m := range members {
+				a := byURL[m.ApkURL]
+				name := a.Name
+				if name == "" {
+					name = cmdTypeLabel(m.Type)
+				}
+				siblings = append(siblings, sib{ID: m.ID, Name: name, Icon: a.Icon, Self: m.ID == cmd.ID})
+			}
+		}
+	}
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Action " + id.String()[:8],
 		"Command":    cmd,
 		"App":        app,
+		"Siblings":   siblings,
 		"Deliveries": deliveries,
 		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,
@@ -12078,6 +12114,97 @@ func mayManageUser(actorRole, targetRole, newRole string) bool {
 		return false
 	}
 	return newRole == "" || roleLevel(newRole) < roleLevel(actorRole)
+}
+
+// withBatch adds "batch": id to a command payload (JSON object; empty → {}).
+func withBatch(payload json.RawMessage, id string) json.RawMessage {
+	m := map[string]json.RawMessage{}
+	if len(payload) > 0 {
+		_ = json.Unmarshal(payload, &m)
+	}
+	b, _ := json.Marshal(id)
+	m["batch"] = b
+	out, err := json.Marshal(m)
+	if err != nil {
+		return payload
+	}
+	return out
+}
+
+// batchOf returns the payload.batch id of a command, or "".
+func batchOf(c db.Command) string {
+	if len(c.Payload) == 0 {
+		return ""
+	}
+	var p struct {
+		Batch string `json:"batch"`
+	}
+	if json.Unmarshal(c.Payload, &p) != nil {
+		return ""
+	}
+	return p.Batch
+}
+
+// collapseBatches folds commands that share a payload.batch id into their first
+// member: the returned list has one representative per batch (others removed),
+// the representative's summary is the sum of the members', and batches maps the
+// representative's id to every member (itself first) so the history row can show
+// "Install 3 apps" with an icon cluster. Commands without a batch pass through.
+func collapseBatches(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary) ([]db.Command, map[uuid.UUID]db.CommandDeliverySummary, map[uuid.UUID][]db.Command) {
+	batches := map[uuid.UUID][]db.Command{}
+	rep := map[string]uuid.UUID{}
+	var out []db.Command
+	for _, c := range cmds {
+		b := batchOf(c)
+		if b == "" {
+			out = append(out, c)
+			continue
+		}
+		if r, ok := rep[b]; ok {
+			batches[r] = append(batches[r], c)
+			continue
+		}
+		rep[b] = c.ID
+		batches[c.ID] = []db.Command{c}
+		out = append(out, c)
+	}
+	if len(batches) == 0 {
+		return cmds, summaries, map[uuid.UUID][]db.Command{}
+	}
+	merged := make(map[uuid.UUID]db.CommandDeliverySummary, len(summaries))
+	for k, v := range summaries {
+		merged[k] = v
+	}
+	for r, members := range batches {
+		if len(members) < 2 {
+			delete(batches, r)
+			continue
+		}
+		var sum db.CommandDeliverySummary
+		sum.CommandID = r
+		for _, m := range members {
+			sm := summaries[m.ID]
+			sum.Pending += sm.Pending
+			sum.Delivered += sm.Delivered
+			sum.Completed += sm.Completed
+			sum.Failed += sm.Failed
+			sum.Downloading += sm.Downloading
+			sum.Installing += sm.Installing
+		}
+		merged[r] = sum
+	}
+	return out, merged, batches
+}
+
+// apkURLToIcon maps APK URL → base64 icon for the app library.
+func apkURLToIcon(apps []db.App) map[string]string {
+	m := make(map[string]string, len(apps))
+	for _, a := range apps {
+		if a.ApkURL != "" && a.Icon != "" {
+			m[a.ApkURL] = a.Icon
+		}
+	}
+	return m
 }
 
 // policyActionForCommand maps a command type to the access-policy action key.
@@ -13025,6 +13152,12 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cancel()
 	}
 
+	// Several apps in one send form one batch: every command carries the same
+	// payload.batch id, and the history shows them as one "Install N apps" row.
+	batchID := ""
+	if len(items) > 1 {
+		batchID = uuid.New().String()
+	}
 	for _, it := range items {
 		ids := targetIDs
 		if cmdType == "install_apk" && targetType == "devices" && len(ids) > 0 && !reinstall {
@@ -13072,6 +13205,9 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			if p, ok := augmentedPayload[it.apkURL]; ok {
 				payload = p
 			}
+		}
+		if batchID != "" {
+			payload = withBatch(payload, batchID)
 		}
 		cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, it.apkURL, payload, targetType, ids, h.currentUsername(r))
 		if err != nil {
@@ -13997,7 +14133,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
-		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home":
+		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail":
 	default:
 		http.NotFound(w, r)
 		return

@@ -172,10 +172,21 @@
     .ad-table-wrap{overflow-x:auto}
   }
 .ad-glyph.has-app{padding:0;overflow:hidden;background:var(--surface)}
+.ad-batch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.ad-batch .l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-right:4px}
+.ad-batch .ab{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 4px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none}
+.ad-batch .ab.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.ad-batch .ab img,.ad-batch .ab .ph{width:22px;height:22px;border-radius:7px;object-fit:cover;display:grid;place-items:center;background:var(--surface-3);font-size:11px;font-weight:700}
 </style>
 
 {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Actions</a>{{end}}
 
+{{if .Siblings}}
+<div class="ad-batch">
+  <span class="l">Sent together</span>
+  {{range .Siblings}}<a class="ab{{if .Self}} on{{end}}" href="/commands/{{.ID}}"{{if .Self}} aria-current="page"{{end}}>{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="ph">{{slice .Name 0 1}}</span>{{end}}<span>{{.Name}}</span></a>{{end}}
+</div>
+{{end}}
 <div class="ad-hero">
   <div class="ad-glyph{{if and .App .App.Icon}} has-app{{end}}">
     {{if and .App .App.Icon}}<img src="{{iconSrc .App.Icon}}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
