@@ -28,7 +28,7 @@
     <div class="pf-hero">
       <span class="pf-av">{{slice .Display 0 1}}</span>
       <div>
-        <div class="cc-eyebrow">{{if .ViewingOther}}Users · Access control{{else}}My profile{{end}}</div>
+        <div class="cc-eyebrow">{{if .CanManage}}Users · Access control{{else if .ViewingOther}}Profile{{else}}My profile{{end}}</div>
         <div class="pf-name">{{.Display}}</div>
         <div class="pf-meta">
           <span class="pf-role">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
@@ -39,13 +39,13 @@
       </div>
     </div>
     <div class="cc-actions">
-      {{if .ViewingOther}}<a class="cc-btn" href="/users/access">← Access control</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
-      {{if eq .Role "admin"}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
+      {{if .CanManage}}<a class="cc-btn" href="/users/access">← Access control</a>{{else if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+      {{if canManageUsers .Role}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
-  {{if .ViewingOther}}{{template "users-tabs" .}}{{end}}
+  {{if .CanManage}}{{template "users-tabs" .}}{{end}}
 
-  {{if and .ViewingOther .User}}
+  {{if and .ViewingOther .User .CanManage}}
   <div class="pf-grid" style="margin-top:0;margin-bottom:16px;">
     <div class="cc-card">
       <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><h3>Manage account</h3></div>

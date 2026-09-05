@@ -12,6 +12,7 @@
 .ac-detail{color:var(--muted);font-size:12.5px}
 .ac-detail a{color:var(--accent-text);text-decoration:none;font-family:var(--mono)}
 .ac-detail a:hover{text-decoration:underline}
+.ht-user{color:inherit;text-decoration:none}.ht-user:hover{color:var(--accent-text)}
 </style>
 
 <div class="cc-wrap">
@@ -67,7 +68,7 @@
           {{range .Entries}}
           <tr>
             <td class="ac-when">{{timeSince .CreatedAt}}</td>
-            <td><span class="ac-actor"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</span></td>
+            <td>{{$u := userURL .Actor}}{{if $u}}<a href="{{$u}}" class="ac-actor ht-user"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</a>{{else}}<span class="ac-actor"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</span>{{end}}</td>
             <td><span class="cc-tag">{{.Action}}</span></td>
             <td class="ac-target" title="{{.Target}}">{{.Target}}</td>
             <td class="ac-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{.Detail}}{{end}}</td>

@@ -189,7 +189,7 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
       {{range $i, $u := .TopUsers}}
       <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.12);{{if eq $i 0}}border-top:none;{{end}}">
         <span style="width:26px;font-weight:800;opacity:.7;">#{{add $i 1}}</span>
-        <span style="flex:1;font-weight:650;">{{$u.Name}}</span>
+        <span style="flex:1;font-weight:650;">{{$url := userURL $u.Name}}{{if $url}}<a href="{{$url}}" style="color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>
         <span style="flex:0 0 140px;height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;"><i style="display:block;height:100%;width:{{$u.Pct}}%;background:currentColor;opacity:.85;"></i></span>
         <span style="width:60px;text-align:right;font-variant-numeric:tabular-nums;">{{$u.Count}}</span>
       </div>

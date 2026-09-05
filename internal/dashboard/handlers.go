@@ -477,7 +477,40 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	store.MaxAge(cfg.SessionTimeout())
 
 	msLoginEnabled := os.Getenv("MS_CLIENT_ID") != "" && os.Getenv("MS_CLIENT_SECRET") != "" && os.Getenv("MS_TENANT_ID") != ""
+	// userURL resolves a person's username or display name (as snapshotted on
+	// commands / audit rows) to their profile page, or "" when unknown. Backed by
+	// a 30 s cache of the users table so templates can link every name cheaply.
+	var (
+		uuMu   sync.Mutex
+		uuAt   time.Time
+		uuMap  map[string]string
+	)
+	userURL := func(name string) string {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return ""
+		}
+		uuMu.Lock()
+		defer uuMu.Unlock()
+		if uuMap == nil || time.Since(uuAt) > 30*time.Second {
+			m := map[string]string{}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			if users, err := d.ListUsers(ctx); err == nil {
+				for _, u := range users {
+					url := "/users/" + u.ID.String() + "/profile"
+					m[strings.ToLower(u.Username)] = url
+					if dn := strings.ToLower(u.DisplayName()); dn != "" {
+						m[dn] = url
+					}
+				}
+			}
+			cancel()
+			uuMap, uuAt = m, time.Now()
+		}
+		return uuMap[strings.ToLower(name)]
+	}
 	funcMap := template.FuncMap{
+		"userURL": userURL,
 		// msLoginEnabled reports whether Microsoft sign-in is configured, so
 		// login.html only shows the button when it'll actually work.
 		"msLoginEnabled": func() bool { return msLoginEnabled },
@@ -2308,7 +2341,7 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 // ProfilePage shows the signed-in user their own account details and footprint:
 // actions, commands, devices touched, QA and release work, recent activity.
 func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
-	h.renderProfile(w, r, h.currentUsername(r), false)
+	h.renderProfile(w, r, h.currentUsername(r), false, false)
 }
 
 // UserProfilePage is an admin's view of another user's profile (Users → Stats).
@@ -2323,14 +2356,17 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
-	if !mayManageUser(h.role(r), u.Role, "") {
-		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
+	if u.Username == h.currentUsername(r) {
+		h.renderProfile(w, r, u.Username, false, false)
 		return
 	}
-	h.renderProfile(w, r, u.Username, true)
+	// Anyone signed in may look at a colleague's profile (stats, recent activity);
+	// the management and access cards appear only for those who may manage them.
+	canManage := roleManagesUsers(h.role(r)) && mayManageUser(h.role(r), u.Role, "")
+	h.renderProfile(w, r, u.Username, true, canManage)
 }
 
-func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther bool) {
+func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther, canManage bool) {
 	ctx := r.Context()
 	stats, err := h.db.UserStats(ctx, username, h.user)
 	if err != nil {
@@ -2369,7 +2405,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	var pol db.AccessPolicy
 	var groups []db.Group
 	var restaurants []db.Restaurant
-	if viewingOther && user != nil {
+	if viewingOther && canManage && user != nil {
 		pol, _ = h.db.GetUserAccess(ctx, user.Username)
 		groups, _ = h.db.ListGroups(ctx)
 		restaurants, _ = h.db.ListRestaurants(ctx)
@@ -2387,9 +2423,10 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Stats":        stats,
 		"Recent":       recent,
 		"ViewingOther": viewingOther,
+		"CanManage":    canManage,
 		"OwnerSelf":    !viewingOther && h.role(r) == "owner",
 		"OwnerVenues":  ownerVenues,
-		"UsersTab":     "access",
+		"UsersTab":     map[bool]string{true: "access", false: ""}[canManage],
 		"Assignable":   assignableRoles(h.role(r)),
 	})
 }
@@ -16740,7 +16777,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/delete", h.requireUserManager(h.UserDelete))
 	post("POST /users/merge", h.requireUserManager(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
-	mux.HandleFunc("GET /users/{id}/profile", h.requireUserManager(h.UserProfilePage))
+	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
 	post("POST /users/{id}/access", h.requireUserManager(h.UserSetAccess))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
