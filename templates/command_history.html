@@ -131,7 +131,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 #cmd-history-table .ht-meter i{display:block;height:100%;border-radius:99px;background:var(--accent-2)}
 #cmd-history-table .ht-meter i.ok{background:var(--ok)}#cmd-history-table .ht-meter i.fail{background:var(--danger)}
 #cmd-history-table .ht-by{display:block;font-size:11.5px;color:var(--text-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#cmd-history-table .ht-by:not(:has(.muted))::before{content:"by ";white-space:pre}
+#cmd-history-table .ht-by::before{content:"by ";white-space:pre}
+#cmd-history-table .ht-by.empty::before{content:none}
 #cmd-history-table .ht-when{font-size:11.5px;color:var(--muted);text-align:right}
 @media(max-width:480px){#cmd-history-table .htrow{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"ic body when" ". by act"}#cmd-history-table .ht-body{grid-area:body}#cmd-history-table .ht-by{grid-area:by;text-align:left}#cmd-history-table .ht-when{grid-area:when}#cmd-history-table .hact{grid-area:act}}
 </style>
