@@ -11052,6 +11052,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Summaries":        summaries,
 		"Batches":  batches,
 		"AppIcons": apkURLToIcon(apps),
+		"PkgIcons": pkgToIcon(apps),
 		"TargetSerials":    targetSerials,
 		"ShellRecent":      shellRecent,
 		"ShellPopular":     shellPopular,
@@ -11175,6 +11176,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"Summaries":     summaries,
 		"Batches":  batches,
 		"AppIcons": apkURLToIcon(apps),
+		"PkgIcons": pkgToIcon(apps),
 		"AppNames": apkURLToName(apps),
 		"TargetSerials": targetSerials,
 		"AttnCount":     len(attn),
@@ -12247,6 +12249,18 @@ func collapseBatches(cmds []db.Command, summaries map[uuid.UUID]db.CommandDelive
 		merged[r] = sum
 	}
 	return out, merged, batches
+}
+
+// pkgToIcon maps package name → base64 icon for the app library (uninstall rows
+// carry a package, not an APK URL).
+func pkgToIcon(apps []db.App) map[string]string {
+	m := make(map[string]string, len(apps))
+	for _, a := range apps {
+		if a.PackageName != "" && a.Icon != "" {
+			m[a.PackageName] = a.Icon
+		}
+	}
+	return m
 }
 
 // apkURLToIcon maps APK URL → base64 icon for the app library.

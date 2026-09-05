@@ -308,6 +308,9 @@
 .cmd-timeline .hgrp-h .cnt{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);font-weight:700}
 .cmd-timeline .hist-day{padding:8px 17px 4px;font-size:11px;font-weight:650;color:var(--text-faint)}
 .cmd-timeline .htrow{display:grid;grid-template-columns:36px minmax(0,1fr) 150px 64px auto;align-items:center;gap:12px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.cmd-timeline .ht-dotwrap{position:relative;z-index:1}
+.cmd-timeline .ht-dotwrap::before{content:none}
+.cmd-timeline .ht-dotwrap img,.cmd-timeline .ht-dotwrap .ci,.cmd-timeline .ht-dotwrap .dot{position:relative;z-index:1}
 .cmd-timeline .ht-dotwrap.app,.cmd-timeline .ht-dotwrap.cluster{position:relative;overflow:visible;text-decoration:none}
 .cmd-timeline .ht-dotwrap.app img{width:36px;height:36px;border-radius:10px;object-fit:cover;display:block}
 .cmd-timeline .ht-dotwrap .badge{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border:2px solid var(--surface);box-sizing:content-box}
@@ -1611,7 +1614,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
       {{if .InProgress}}
         {{$day := ""}}
-        {{range .InProgress}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" "prog")}}{{end}}
+        {{range .InProgress}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" "prog")}}{{end}}
         {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress" hx-target="main" hx-swap="outerHTML">Show all {{.ProgCount}} in progress →</a>{{end}}
       {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
@@ -1619,7 +1622,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
       {{$day := ""}}
-      {{range .Completed}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" "done")}}{{end}}
+      {{range .Completed}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" "done")}}{{end}}
       {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed" hx-target="main" hx-swap="outerHTML">Show all →</a>{{end}}
       {{end}}
     {{else}}
@@ -1651,6 +1654,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
   </a>
   {{else if .AppIcon}}
   <a class="ht-dotwrap {{$state}} app" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML"><img src="{{iconSrc .AppIcon}}" alt=""><span class="dot {{$state}} badge"></span></a>
+  {{else if and (eq $c.Type "uninstall") .PkgIcon}}
+  <a class="ht-dotwrap {{$state}} app" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML"><img src="{{iconSrc .PkgIcon}}" alt=""><span class="dot {{$state}} badge"></span></a>
   {{else}}
   <span class="ht-dotwrap {{$state}}"><span class="dot {{$state}}"></span></span>
   {{end}}

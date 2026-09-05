@@ -113,6 +113,9 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 #cmd-history-table .ht-dotwrap.ok{background:var(--ok-bg)}#cmd-history-table .ht-dotwrap.run{background:var(--accent-2-soft)}#cmd-history-table .ht-dotwrap.fail{background:var(--danger-bg)}
 #cmd-history-table .ht-dotwrap .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
 #cmd-history-table .ht-dotwrap .dot.ok{background:var(--ok)}#cmd-history-table .ht-dotwrap .dot.run{background:var(--accent-2)}#cmd-history-table .ht-dotwrap .dot.fail{background:var(--danger)}
+#cmd-history-table .ht-dotwrap{position:relative;z-index:1}
+#cmd-history-table .ht-dotwrap::before{content:none}
+#cmd-history-table .ht-dotwrap img,#cmd-history-table .ht-dotwrap .ci,#cmd-history-table .ht-dotwrap .dot{position:relative;z-index:1}
 #cmd-history-table .ht-dotwrap.app,#cmd-history-table .ht-dotwrap.cluster{position:relative;overflow:visible;text-decoration:none}
 #cmd-history-table .ht-dotwrap.app img{width:36px;height:36px;border-radius:10px;object-fit:cover;display:block}
 #cmd-history-table .ht-dotwrap .badge{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border:2px solid var(--surface);box-sizing:content-box}
@@ -172,7 +175,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   <div id="cmd-history-table">
     {{if .Rows}}
       {{$day := ""}}
-      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
+      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
         <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
