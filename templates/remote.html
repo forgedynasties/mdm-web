@@ -41,9 +41,9 @@
   body:has(#rc){overflow:hidden}
   .rc{display:flex;flex-direction:column;height:calc(100dvh - 226px);min-height:460px}
   .rc-top{flex:none}
-  .rc-body{flex:1;min-height:0;align-items:stretch}
+  .rc-body{flex:1;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
   .rc-stage{height:auto;min-height:0}
-  .rc-dock{position:static;max-height:100%;overflow:auto;min-height:0;scrollbar-width:thin}
+  .rc-dock{position:static;height:100%;max-height:100%;overflow:auto;min-height:0;scrollbar-width:thin;padding-right:2px}
   .rc-dock>*{flex:none}
   .rc-screen canvas{max-height:calc(100dvh - 330px)}
 }
