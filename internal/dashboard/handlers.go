@@ -2374,7 +2374,10 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		stats = &db.UserStats{Username: username}
 	}
 	user, _ := h.db.GetUserByUsername(ctx, username) // nil for the env dashboard login
-	recent, _ := h.db.ListAuditFiltered(ctx, username, 12)
+	var recent []db.AuditEntry
+	if !viewingOther || h.role(r) == "admin" {
+		recent, _ = h.db.ListAuditFiltered(ctx, username, 12)
+	}
 	display := username
 	if user != nil {
 		display = user.DisplayName()
@@ -2424,6 +2427,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Recent":       recent,
 		"ViewingOther": viewingOther,
 		"CanManage":    canManage,
+		"CanSeeActivity": !viewingOther || h.role(r) == "admin", // only a super admin reads someone else's activity
 		"OwnerSelf":    !viewingOther && h.role(r) == "owner",
 		"OwnerVenues":  ownerVenues,
 		"UsersTab":     map[bool]string{true: "access", false: ""}[canManage],

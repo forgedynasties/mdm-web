@@ -40,7 +40,7 @@
     </div>
     <div class="cc-actions">
       {{if .CanManage}}<a class="cc-btn" href="/users/access">← Access control</a>{{else if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
-      {{if canManageUsers .Role}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
+      {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
   {{if .CanManage}}{{template "users-tabs" .}}{{end}}
@@ -156,6 +156,7 @@
       {{else}}<div class="pf-empty">No commands sent yet.</div>{{end}}
     </div>
 
+    {{if .CanSeeActivity}}
     <div class="cc-card">
       <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Recent activity</h3></div>
       {{if .Recent}}
@@ -166,6 +167,7 @@
       </div>
       {{else}}<div class="pf-empty">Nothing yet.</div>{{end}}
     </div>
+    {{end}}
   </div>
   {{end}}
 </div>
