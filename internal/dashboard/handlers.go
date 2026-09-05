@@ -11894,9 +11894,32 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	single := []db.Command{*cmd}
 	h.resolveCommandActors(r.Context(), single)
 	*cmd = single[0]
+	// Resolve the app behind an install/uninstall so the page can show its icon
+	// and name instead of a download URL or package id.
+	var app *db.App
+	if cmd.Type == "install_apk" || cmd.Type == "uninstall" {
+		var pkg string
+		if cmd.Type == "uninstall" {
+			var p struct {
+				Package string `json:"package"`
+			}
+			if json.Unmarshal(cmd.Payload, &p) == nil {
+				pkg = p.Package
+			}
+		}
+		if apps, err := h.db.ListApps(r.Context()); err == nil {
+			for i := range apps {
+				if (cmd.ApkURL != "" && apps[i].ApkURL == cmd.ApkURL) || (pkg != "" && apps[i].PackageName == pkg) {
+					app = &apps[i]
+					break
+				}
+			}
+		}
+	}
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Action " + id.String()[:8],
 		"Command":    cmd,
+		"App":        app,
 		"Deliveries": deliveries,
 		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,

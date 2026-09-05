@@ -171,13 +171,15 @@
     .ad-list .ad-row,table.cc-table.ad-table td{padding:11px 14px}
     .ad-table-wrap{overflow-x:auto}
   }
+.ad-glyph.has-app{padding:0;overflow:hidden;background:var(--surface)}
 </style>
 
 {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Actions</a>{{end}}
 
 <div class="ad-hero">
-  <div class="ad-glyph">
-    {{if eq $cmd.Type "install_apk"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
+  <div class="ad-glyph{{if and .App .App.Icon}} has-app{{end}}">
+    {{if and .App .App.Icon}}<img src="{{iconSrc .App.Icon}}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">
+    {{else if eq $cmd.Type "install_apk"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
     {{else if eq $cmd.Type "uninstall"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
     {{else if eq $cmd.Type "shell"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
     {{else if eq $cmd.Type "screenshot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
@@ -186,7 +188,7 @@
   </div>
   <div class="ad-hid">
     <div class="ad-kick">{{cmdLabel $cmd.Type}}</div>
-    <h1>{{cmdLabel $cmd.Type}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}</h1>
+    <h1>{{cmdLabel $cmd.Type}}{{if .App}} <span class="sub">{{.App.Name}}{{if .App.VersionName}} <span style="opacity:.6;font-weight:500;">v{{.App.VersionName}}</span>{{end}}</span>{{else}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}{{end}}</h1>
     <div class="ad-meta">Sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} by <b>{{$cmd.CreatedBy}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group target{{else}}{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{end}}</div>
     {{if gt .Stats.Failed 0}}<span class="ad-status bad"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Stats.Failed}} failed</span>
     {{else if gt .Stats.Pending 0}}<span class="ad-status run"><span class="pd"></span>In progress · {{.Stats.Done}}/{{.Stats.Total}}</span>
