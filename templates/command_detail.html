@@ -118,6 +118,17 @@
   .ad-pct b{display:block;font-size:40px;font-weight:700;letter-spacing:-.04em;line-height:1}
   .ad-pct b.ok{color:var(--ok)}.ad-pct b.bad{color:var(--danger)}.ad-pct b.run{color:var(--accent-2)}
   .ad-pct span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .ad-seg{grid-column:1/-1;margin-top:4px}
+  .ad-segbar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--surface-3)}
+  .ad-segbar span{display:block;height:100%;transition:width .4s ease}
+  .ad-segbar .ok{background:var(--ok)}.ad-segbar .run{background:var(--accent-2)}.ad-segbar .off{background:var(--rule-2)}.ad-segbar .bad{background:var(--danger)}
+  .ad-seglg{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--text-2)}
+  .ad-seglg i{display:inline-block;width:9px;height:9px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+  .ad-seglg i.ok{background:var(--ok)}.ad-seglg i.run{background:var(--accent-2)}.ad-seglg i.off{background:var(--rule-2)}.ad-seglg i.bad{background:var(--danger)}
+  .ad-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 10px;border-radius:99px}
+  .ad-pill i{width:7px;height:7px;border-radius:50%;background:currentColor;margin:0}
+  .ad-pill.ok{background:var(--ok-bg);color:var(--ok)}.ad-pill.run{background:var(--accent-2-soft);color:var(--accent-2)}.ad-pill.bad{background:var(--danger-bg);color:var(--danger)}
+  .ad-pill.run i{animation:adpulse 1.2s infinite}@keyframes adpulse{50%{opacity:.3}}
   .ad-toolbar{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
   .ad-btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:8px 13px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
   .ad-btn:hover{border-color:var(--accent-edge);color:var(--accent)}
@@ -127,10 +138,15 @@
   @media(max-width:980px){.ad-board{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.ad-board{grid-template-columns:1fr}}
   .ad-col{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:grid;gap:8px;align-content:start;min-height:160px;box-shadow:var(--shadow-sm)}
   .ad-col h2{margin:0 0 4px;display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:4px 4px 8px;border-bottom:2px solid var(--border)}
-  .ad-col h2 b{font:700 14px var(--font);color:var(--text);letter-spacing:0}
-  .ad-col.ok h2{border-color:var(--ok)}.ad-col.info h2{border-color:var(--accent-2)}.ad-col.mute h2{border-color:var(--rule-2)}.ad-col.bad h2{border-color:var(--danger)}
-  .ad-chip{background:var(--surface2);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;display:grid;gap:6px;text-decoration:none;color:inherit}
-  a.ad-chip:hover{border-color:var(--accent-edge)}
+  .ad-col h2 b{font-size:12px;font-weight:700;color:var(--text);letter-spacing:0;min-width:22px;height:22px;padding:0 7px;border-radius:99px;background:var(--surface-3);display:inline-flex;align-items:center;justify-content:center}
+  .ad-col.ok h2{border-color:var(--ok);color:var(--ok)}.ad-col.ok h2 b{background:var(--ok-bg);color:var(--ok)}
+  .ad-col.info h2{border-color:var(--accent-2);color:var(--accent-2)}.ad-col.info h2 b{background:var(--accent-2-soft);color:var(--accent-2)}
+  .ad-col.mute h2{border-color:var(--rule-2)}
+  .ad-col.bad h2{border-color:var(--danger);color:var(--danger)}.ad-col.bad h2 b{background:var(--danger-bg);color:var(--danger)}
+  .ad-chip{position:relative;background:var(--surface2);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px 10px 14px;display:grid;gap:6px;text-decoration:none;color:inherit;transition:transform var(--dur),border-color var(--dur),box-shadow var(--dur)}
+  .ad-chip::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--rule-2)}
+  .ad-chip.ok::before{background:var(--ok)}.ad-chip.info::before{background:var(--accent-2)}.ad-chip.bad::before{background:var(--danger)}
+  .ad-chip:hover{transform:translateY(-1px);border-color:var(--accent-edge);box-shadow:var(--shadow-sm)}
   .ad-chip .t{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
   .ad-chip .nm{font-weight:650;font-size:13.5px;color:inherit;text-decoration:none}
   .ad-chip .sn{font:500 11px var(--mono);color:var(--muted)}
@@ -144,7 +160,7 @@
   .ad-chip .row form{display:contents}
   .ad-mini{font:inherit;font-size:11.5px;font-weight:600;border-radius:7px;padding:3px 9px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none}
   .ad-mini.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
-  .ad-none{color:var(--text-faint);font-size:12.5px;padding:18px 8px;text-align:center}
+  .ad-none{color:var(--text-faint);font-size:12.5px;padding:22px 8px;text-align:center;border:1px dashed var(--border);border-radius:10px}
   .ad-empty{padding:26px;color:var(--muted);text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:14px}
   .ad-shell{padding:16px 18px;display:flex;flex-direction:column;gap:11px;}
   .ad-term{background:var(--console-bg);border:1px solid var(--console-border);border-radius:10px;overflow:hidden;}
@@ -195,6 +211,20 @@
     <span class="ad-meta">sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} · <b>{{$cmd.CreatedBy}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group{{else}}{{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}}{{end}}</span>
   </div>
   <div class="ad-pct"><b class="{{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}">{{.Stats.Pct}}%</b><span>{{.Stats.Done}} of {{.Stats.Total}} done</span></div>
+  {{if gt .Stats.Total 0}}
+  <div class="ad-seg">
+    <div class="ad-segbar" title="{{.Stats.Done}} done · {{.Stats.Pending}} in flight · {{.Stats.Failed}} failed">
+      <span class="ok" style="width:{{pct .Stats.Done .Stats.Total}}%"></span><span class="run" style="width:{{pct (sub .Stats.Pending .Stats.Offline) .Stats.Total}}%"></span><span class="off" style="width:{{pct .Stats.Offline .Stats.Total}}%"></span><span class="bad" style="width:{{pct .Stats.Failed .Stats.Total}}%"></span>
+    </div>
+    <div class="ad-seglg">
+      <span class="ad-pill {{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}"><i></i>{{if gt .Stats.Failed 0}}{{.Stats.Failed}} failed{{else if gt .Stats.Pending 0}}In progress{{else}}All devices done{{end}}</span>
+      {{if gt .Stats.Done 0}}<span><i class="ok"></i>{{.Stats.Done}} done</span>{{end}}
+      {{if gt (sub .Stats.Pending .Stats.Offline) 0}}<span><i class="run"></i>{{sub .Stats.Pending .Stats.Offline}} in flight</span>{{end}}
+      {{if gt .Stats.Offline 0}}<span><i class="off"></i>{{.Stats.Offline}} waiting offline</span>{{end}}
+      {{if gt .Stats.Failed 0}}<span><i class="bad"></i>{{.Stats.Failed}} failed</span>{{end}}
+    </div>
+  </div>
+  {{end}}
 </div>
 
 <div class="ad-toolbar">
