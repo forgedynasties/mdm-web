@@ -335,7 +335,7 @@
 .cmd-timeline .ht-meter i.ok{background:var(--ok)}.cmd-timeline .ht-meter i.fail{background:var(--danger)}
 .cmd-timeline .ht-when{flex:none;font-size:11.5px;color:var(--muted)}
 .cmd-timeline .ht-by{display:block;font-size:11.5px;color:var(--text-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmd-timeline .ht-by::before{content:"by ";white-space:pre;color:var(--text-faint)}
+.cmd-timeline .ht-by:not(:has(.muted))::before{content:"by ";white-space:pre;color:var(--text-faint)}
 .cmd-timeline .ht-when{text-align:right}
 
 /* ── mobile (390px) ── */
@@ -1670,8 +1670,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       {{else}}{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}{{end}}
     </span>
     {{if gt $total 0}}<span class="ht-meter" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="{{$state}}" style="width:{{pct (add $s.Completed $s.Failed) $total}}%"></i></span>{{end}}
-    {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$c.CreatedBy}}</span>{{end}}
   </div>
+  <span class="ht-by" title="{{if $c.CreatedBy}}Sent by {{$c.CreatedBy}}{{end}}">{{if $c.CreatedBy}}{{$c.CreatedBy}}{{else}}<span class="muted">—</span>{{end}}</span>
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">
     {{if and (eq .Bucket "attn") (canOperate .Role)}}
