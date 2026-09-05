@@ -582,6 +582,13 @@ func (d *DB) MergeActor(ctx context.Context, from, to string) (int64, error) {
 	if _, err := tx.Exec(ctx, `DELETE FROM user_layouts WHERE username = $1`, from); err != nil {
 		return 0, err
 	}
+	// The account now owns history older than itself: date it from its first action.
+	if _, err := tx.Exec(ctx, `
+		UPDATE users u SET created_at = LEAST(u.created_at, s.first_at)
+		FROM (SELECT MIN(created_at) AS first_at FROM audit_log WHERE actor = $1) s
+		WHERE u.username = $1 AND s.first_at IS NOT NULL`, to); err != nil {
+		return 0, err
+	}
 	return total, tx.Commit(ctx)
 }
 
@@ -874,7 +881,12 @@ func (d *DB) ActorSummaries(ctx context.Context) (map[string]ActorSummary, error
 		out[u] = a
 	}
 	rows.Close()
-	rows, err = d.pool.Query(ctx, `SELECT created_by, COUNT(*), MAX(created_at) FROM commands WHERE created_by <> '' GROUP BY created_by`)
+	rows, err = d.pool.Query(ctx, `
+		SELECT u, GREATEST(MAX(n), MAX(m)), MAX(t) FROM (
+			SELECT created_by AS u, COUNT(*) AS n, 0 AS m, MAX(created_at) AS t FROM commands WHERE created_by <> '' GROUP BY created_by
+			UNION ALL
+			SELECT actor, 0, COUNT(*), MAX(created_at) FROM audit_log WHERE actor <> '' AND action = 'command.send' GROUP BY actor
+		) x GROUP BY u`)
 	if err != nil {
 		return nil, err
 	}
@@ -940,12 +952,16 @@ func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*
 			return nil, err
 		}
 	}
+	// "Commands sent" counts the sends the person made (audit command.send rows —
+	// the one record every era of the app wrote), while installs and devices
+	// touched come from the command rows that carry a sender.
 	err = d.pool.QueryRow(ctx, `
-		SELECT COUNT(*),
-		       COUNT(*) FILTER (WHERE type = 'install_apk'),
+		SELECT GREATEST(
+		         (SELECT COUNT(*) FROM audit_log WHERE actor = $1 AND action = 'command.send'),
+		         (SELECT COUNT(*) FROM commands WHERE created_by = $1)),
+		       (SELECT COUNT(*) FROM commands WHERE created_by = $1 AND type = 'install_apk'),
 		       (SELECT COUNT(DISTINCT ct.target_id) FROM commands c2 JOIN command_targets ct ON ct.command_id = c2.id
-		        WHERE c2.created_by = $1 AND c2.target_type = 'devices')
-		FROM commands WHERE created_by = $1`, username).Scan(&st.Commands, &st.Installs, &st.DevicesTouched)
+		        WHERE c2.created_by = $1 AND c2.target_type = 'devices')`, username).Scan(&st.Commands, &st.Installs, &st.DevicesTouched)
 	if err != nil {
 		return nil, err
 	}
@@ -9817,6 +9833,28 @@ CREATE TABLE IF NOT EXISTS device_nicknames (
 -- Per-user access policy (operators: which actions on which device groups /
 -- restaurants; viewers: which devices they see). See db.AccessPolicy.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS access JSONB NOT NULL DEFAULT '{}';
+
+-- Attribution normalisation. Early rows snapshotted the sender's DISPLAY NAME on
+-- commands.created_by / audit_log.actor; everything now keys on the username, so
+-- those rows never matched their account (a merged user showed 1 command sent
+-- against 125 "command.send" audit rows). Re-point them wherever a current
+-- account's display name matches. Idempotent: rows already holding a username
+-- don't match a display name.
+UPDATE commands c SET created_by = u.username FROM users u
+WHERE c.created_by <> '' AND c.created_by <> u.username
+  AND lower(c.created_by) = lower(trim(u.first_name || ' ' || u.last_name));
+UPDATE audit_log a SET actor = u.username FROM users u
+WHERE a.actor <> '' AND a.actor <> u.username
+  AND lower(a.actor) = lower(trim(u.first_name || ' ' || u.last_name));
+-- A merged account (Microsoft sign-in replacing an older login) inherits history
+-- older than itself: its "joined" date becomes its earliest recorded activity.
+UPDATE users u SET created_at = LEAST(u.created_at, s.first_at)
+FROM (
+	SELECT actor AS username, MIN(created_at) AS first_at FROM audit_log WHERE actor <> '' GROUP BY actor
+	UNION ALL
+	SELECT created_by, MIN(created_at) FROM commands WHERE created_by <> '' GROUP BY created_by
+) s
+WHERE s.username = u.username AND s.first_at < u.created_at;
 
 -- One row per build change per device (from → to, when). Written at check-in when
 -- the reported build differs from the stored one; backfilled from checkins by the
