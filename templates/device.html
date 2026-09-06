@@ -81,7 +81,7 @@
       {{range $i, $c := .Commands}}
       <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-cmd-id="{{$c.ID}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
         <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}{{if $c.CreatedBy}} <span class="muted">· {{$c.CreatedBy}}</span>{{end}}</span>
+        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}{{if $c.CreatedBy}} <span class="muted">· {{$c.CreatedBy}} {{template "ubub" (userBubble $c.CreatedBy)}}</span>{{end}}</span>
         <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
       </a>
       {{end}}
@@ -131,7 +131,7 @@
           {{else if eq $c.Status "cancelled"}}<span class="dq-pill">Cancelled</span>
           {{else if and (eq $i 0) $.Online}}<span class="dq-pill run">Running</span>
           {{else}}<span class="dq-pill">Queued</span>{{end}}
-          <span class="reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>{{if $c.CreatedBy}} · {{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="mono" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--rule-2);">{{$c.CreatedBy}}</a>{{else}}<span class="mono">{{$c.CreatedBy}}</span>{{end}}{{end}}
+          <span class="reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>{{if $c.CreatedBy}} · {{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="mono" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--rule-2);">{{$c.CreatedBy}}</a>{{else}}<span class="mono">{{$c.CreatedBy}}</span>{{end}} {{template "ubub" (userBubble $c.CreatedBy)}}{{end}}
         </span>
       </span>
       {{/* A command that already finished can't be removed — the button only makes sense

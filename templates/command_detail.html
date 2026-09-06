@@ -209,7 +209,7 @@
   </div>
   <div>
     <h1>{{cmdLabel $cmd.Type}}{{if .App}} <span class="sub">{{.App.Name}}</span>{{if .App.VersionName}} <span class="ver">v{{.App.VersionName}}</span>{{end}}{{else}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}{{end}}</h1>
-    <span class="ad-meta">sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} · <b class="ad-by">{{template "ubub" (userBubble $cmd.CreatedBy)}}{{$u := userURL $cmd.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user">{{$cmd.CreatedBy}}</a>{{else}}{{$cmd.CreatedBy}}{{end}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group{{else}}{{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}}{{end}}</span>
+    <span class="ad-meta">sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} · <b class="ad-by">{{$u := userURL $cmd.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user">{{$cmd.CreatedBy}}</a>{{else}}{{$cmd.CreatedBy}}{{end}}{{template "ubub" (userBubble $cmd.CreatedBy)}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group{{else}}{{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}}{{end}}</span>
   </div>
   <div class="ad-pct"><b class="{{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}">{{.Stats.Pct}}%</b><span>{{.Stats.Done}} of {{.Stats.Total}} done</span></div>
   {{if gt .Stats.Total 0}}

@@ -5947,7 +5947,8 @@ html[data-theme="dark"] .composer { background: var(--surface2); }
 .ht-meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .ht-by{font-size:12px;color:var(--text-faint);flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
 /* avatar bubble: initial, or a small subtle picture; used next to author names */
-.ubub{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;flex:none;overflow:hidden;background:var(--surface-3,var(--surface2));color:var(--text-2,var(--muted));font-size:10px;font-weight:750;text-transform:uppercase;line-height:1;vertical-align:-4px;box-shadow:inset 0 0 0 1px var(--border);}
+.ubub{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;flex:none;overflow:hidden;background:var(--surface-3,var(--surface2));color:var(--text-2,var(--muted));font-size:10px;font-weight:750;text-transform:uppercase;line-height:1;vertical-align:middle;position:relative;top:-1px;box-shadow:inset 0 0 0 1px var(--border);font-family:var(--font);}
+.ubub:not(:first-child){margin-left:5px;}
 .ubub img{width:100%;height:100%;object-fit:cover;display:block;opacity:.92;}
 .ad-by{display:inline-flex;align-items:center;gap:6px;}
 .appbar-acct .av{overflow:hidden;}.appbar-acct .av .av-img{width:100%;height:100%;object-fit:cover;display:block;}
