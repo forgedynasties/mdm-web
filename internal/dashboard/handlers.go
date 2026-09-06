@@ -2823,12 +2823,13 @@ func (h *Handler) UserAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Write(png)
 }
 
-// mayEditAvatar: your own picture, or a user you may manage.
+// mayEditAvatar: your own picture, or any user's if you are an admin.
 func (h *Handler) mayEditAvatar(r *http.Request, target *db.User) bool {
 	if strings.EqualFold(h.currentUsername(r), target.Username) {
 		return true
 	}
-	return roleManagesUsers(h.role(r)) && mayManageUser(h.role(r), target.Role, "")
+	role := h.role(r)
+	return role == "admin" || role == "dev"
 }
 
 // UserSetAvatar accepts an image upload (multipart field "avatar"), squares and
