@@ -2037,7 +2037,9 @@ function mdmBootCharts() {
     var si = document.getElementById("range-start"), ei = document.getElementById("range-end");
     if (si) si.value = toLocalISO(new Date(a));
     if (ei) ei.value = toLocalISO(new Date(b));
-    updateCharts();
+    // The arrows, zoom-out and drag can move the window before the oldest loaded
+    // check-in; pull that history first or the chart draws empty.
+    loadOlderWithSpinner(a, updateCharts);
   }
   function windowBounds(chart) {
     if (customMin !== null && customMax !== null) return [customMin, customMax];
