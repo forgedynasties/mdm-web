@@ -27,11 +27,14 @@
     .ld-navwrap { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid transparent; }
     .ld-navwrap.stuck { border-bottom-color: var(--border); }
     .ld-nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
-    .ld-glow { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-    .ld-glow i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; }
-    .ld-glow i:nth-child(1) { width: 640px; height: 640px; left: -160px; top: -200px; background: #f9674e; opacity: .22; }
-    .ld-glow i:nth-child(2) { width: 520px; height: 520px; right: -120px; top: 120px; background: #8f6fdb; opacity: .2; }
-    [data-theme="dark"] .ld-glow i:nth-child(1) { opacity: .16; } [data-theme="dark"] .ld-glow i:nth-child(2) { opacity: .16; }
+    /* soft glow behind the hero: painted on the page, not inside a box, so it has no edges */
+    .ld-body { position: relative; overflow-x: hidden; }
+    .ld-body::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1100px; pointer-events: none; z-index: 0;
+      background: radial-gradient(900px 620px at 8% -6%, rgba(249,103,78,.20), transparent 70%),
+                  radial-gradient(760px 560px at 96% 22%, rgba(143,111,219,.18), transparent 70%);
+      mask-image: linear-gradient(#000 60%, transparent 100%); -webkit-mask-image: linear-gradient(#000 60%, transparent 100%); }
+    [data-theme="dark"] .ld-body::before { background: radial-gradient(900px 620px at 8% -6%, rgba(249,103,78,.16), transparent 70%), radial-gradient(760px 560px at 96% 22%, rgba(143,111,219,.14), transparent 70%); }
+    .ld-navwrap, .ld-wrap { position: relative; z-index: 1; }
     .ld-hero { position: relative; }
     .ld-brand { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 22px; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
     .ld-brand b { color: var(--accent); font-weight: 700; }
@@ -175,7 +178,6 @@
   </div></div>
   <div class="ld-wrap">
     <section class="ld-hero">
-      <div class="ld-glow" aria-hidden="true"><i></i><i></i></div>
       <div>
         <div class="ld-kicker"><i></i> Built in-house · AIO</div>
         <h1 class="ld-h1">Every kiosk and tablet,<br><span>under control.</span></h1>
