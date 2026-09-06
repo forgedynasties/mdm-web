@@ -12264,7 +12264,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	// Mirrors filterAdminCommands: operators must not reach an admin-created
 	// command's detail page directly either.
-	if h.hideAdminActions(r) && h.isAdminAuthor(cmd.CreatedBy) {
+	if h.hideAdminActions(r) && h.isAdminAction(*cmd) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
@@ -12804,12 +12804,26 @@ func (h *Handler) filterAdminCommands(r *http.Request, cmds []db.Command) []db.C
 	}
 	out := make([]db.Command, 0, len(cmds))
 	for _, c := range cmds {
-		if h.isAdminAuthor(c.CreatedBy) {
+		if h.isAdminAction(c) {
 			continue
 		}
 		out = append(out, c)
 	}
 	return out
+}
+
+// isAdminAction: sent by an admin account, of a type only admins can send (shell,
+// boot logo), sent with the admin API key, or unattributed (rows from before
+// authorship was recorded — only admins existed then). Update reboots the OTA flow
+// sends on its own are the exception: they stay visible, labelled automatic.
+func (h *Handler) isAdminAction(c db.Command) bool {
+	if isSystemReboot(c) {
+		return false
+	}
+	if c.Type == "shell" || c.Type == "update_splash" || c.CreatedBy == "" || c.CreatedBy == "API key" {
+		return true
+	}
+	return h.isAdminAuthor(c.CreatedBy)
 }
 
 // showAdminActionsCookie is set by the "Show admin actions" toggle (admins only).
