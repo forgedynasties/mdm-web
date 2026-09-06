@@ -45,7 +45,7 @@ a.rl-ver:hover{color:var(--accent-text)}
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Updates hub</a>
-    {{if canRelease .Role}}<button type="button" class="cc-btn primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New release</button>{{end}}
+    <button type="button" class="cc-btn primary{{if not (canRelease .Role)}} role-locked{{end}}" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')"{{if not (canRelease .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New release</button>
   </div>
 </div>
 

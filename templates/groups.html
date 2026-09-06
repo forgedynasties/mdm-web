@@ -68,7 +68,7 @@
   <div class="cc-empty tall">
     <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>
     <div><b>No groups yet</b>Create a group to target actions and exports faster.</div>
-    {{if canAdminOrOperator .Role}}<a href="/groups/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create group</a>{{end}}
+    <a href="/groups/new" class="cc-btn primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" style="margin-top:6px"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create group</a>
   </div>
 </div>
 {{else}}

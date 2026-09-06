@@ -1,5 +1,8 @@
 {{/* ubub: avatar bubble — picture when the user has one, else the initial. Pass the
      result of (userBubble name). Add class "sm"/"lg" on the caller for other sizes. */}}
+{{/* role-locked: a control the viewer's role can't use. Rendered (so people see
+     what the product can do) but dimmed and inert; the guard in the header script
+     blocks clicks and explains which role is needed (data-role-need). */}}
 {{define "ubub"}}<span class="ubub" title="{{.Name}}">{{if .URL}}<img src="{{.URL}}" alt="" loading="lazy">{{else}}{{.Initial}}{{end}}</span>{{end}}
 {{define "header"}}
 {{if .Boosted}}{{/* boosted nav: return only <main>, plus a <title> so htmx updates the
@@ -563,6 +566,18 @@
   document.body.addEventListener('htmx:historyRestore', function () { mdmSyncDockActive(); });
   window.addEventListener('popstate', function () { setTimeout(function () { mdmSyncDockActive(); }, 0); });
 
+  // Role-locked controls: swallow the click (capture phase, so inline handlers and
+  // form submits never run) and say which role unlocks it.
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('.role-locked') : null;
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    var need = el.getAttribute('data-role-need') || 'operator';
+    var t = document.getElementById('role-lock-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'role-lock-toast'; document.body.appendChild(t); }
+    t.textContent = 'Needs the ' + need + ' role — ask an admin to raise your access.';
+    t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }, true);
   // Theme toggle: flip html[data-theme], persist, and notify listeners
   // (e.g. charts) so they can recolor without a reload.
   function toggleTheme() {

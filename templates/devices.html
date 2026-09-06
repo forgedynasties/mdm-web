@@ -156,24 +156,24 @@
   <button type="button" id="select-all-matching" class="link-btn" style="display:none;font-size:12.5px;" onclick="selectAllMatching()"></button>
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
-    {{if canAdmin .Role}}
+    {{if true}}
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
-      <button type="submit" class="btn-danger-sm">Mark Inactive</button>
+      <button type="submit" class="btn-danger-sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}>Mark Inactive</button>
     </form>
     <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
       <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Reactivate Selected</button>
     </form>
     {{end}}
-    {{if canAdminOrOperator .Role}}
-    <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 12px;font-size:12px;">Add to group</button>
-    <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 12px;font-size:12px;">Add to restaurant</button>
+    {{if true}}
+    <button type="button" class="btn-outline{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()" style="padding:3px 12px;font-size:12px;"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
+    <button type="button" class="btn-outline{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()" style="padding:3px 12px;font-size:12px;"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
     {{if .ActiveGroup}}
     <button type="button" class="btn-danger-sm" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')" style="padding:3px 10px;font-size:12px;">Remove from group</button>
     {{end}}
     {{end}}
-    {{if canAdminOrOperator .Role}}
-    <button type="button" class="btn-primary" onclick="bulkAction()" style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+    {{if true}}
+    <button type="button" class="btn-primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="bulkAction()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}} style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     {{end}}
   </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
@@ -325,7 +325,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-empty">None reporting</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     {{range .RailRestaurants}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}">
       <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
@@ -337,7 +337,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a>{{if canAdminOrOperator .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a><a href="/groups/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     {{range .RailGroups}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}">
       <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
@@ -372,7 +372,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-pane-head">
       <span class="t">{{if $isRest}}Restaurants{{else}}Groups{{end}}</span>
       <span class="c">· {{if $isRest}}{{len .RailRestaurants}} venue{{if ne (len .RailRestaurants) 1}}s{{end}}{{else}}{{len .RailGroups}} group{{if ne (len .RailGroups) 1}}s{{end}}{{end}}</span>
-      {{if canAdminOrOperator .Role}}<a class="btn-primary" style="margin-left:auto;" href="{{if $isRest}}/restaurants/new{{else}}/groups/new{{end}}">+ New {{if $isRest}}restaurant{{else}}group{{end}}</a>{{end}}
+      <a class="btn-primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" style="margin-left:auto;" href="{{if $isRest}}/restaurants/new{{else}}/groups/new{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>+ New {{if $isRest}}restaurant{{else}}group{{end}}</a>
     </div>
     {{$items := .RailRestaurants}}{{if not $isRest}}{{$items = .RailGroups}}{{end}}
     {{if $items}}
