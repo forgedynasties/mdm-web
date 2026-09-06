@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}} — Fleet management for our kiosks and tablets</title>
+  <meta name="description" content="AIO MDM: in-house device management for restaurant kiosks and tablets. Live fleet health, geolocation, remote control, OTA updates.">
+  <script>
+    // Set theme before first paint to avoid a flash of the wrong theme.
+    (function () {
+      try {
+        var t = localStorage.getItem('mdm-theme');
+        if (t !== 'light' && t !== 'dark') t = 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+  <style>
+    .ld-body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+    .ld-wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    .ld-nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+    .ld-brand { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 22px; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
+    .ld-brand b { color: var(--accent); font-weight: 700; }
+    .ld-nav-links { display: flex; align-items: center; gap: 10px; }
+    .ld-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; font-weight: 650; font-size: 14.5px; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
+    .ld-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+    .ld-btn.primary { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 10px 28px rgba(249,103,78,.35); }
+    .ld-btn.primary:hover { box-shadow: 0 14px 32px rgba(249,103,78,.45); }
+    .ld-btn.lg { padding: 15px 24px; font-size: 16.5px; border-radius: 14px; }
+    .ld-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ld-ghost { background: transparent; border-color: transparent; }
+    .ld-ghost:hover { background: var(--surface); }
+
+    .ld-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; padding: 56px 0 40px; }
+    .ld-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+    .ld-kicker i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(249,103,78,.18); }
+    .ld-h1 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: clamp(38px, 5vw, 62px); line-height: 1.04; letter-spacing: -.025em; margin: 0 0 18px; }
+    .ld-h1 span { background: linear-gradient(90deg, #f9674e, #d6608f 60%, #8f6fdb); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .ld-sub { font-size: 18px; line-height: 1.55; color: var(--muted); max-width: 52ch; margin: 0 0 30px; }
+    .ld-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .ld-cta-note { width: 100%; font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .ld-stats { display: flex; gap: 28px; margin-top: 34px; flex-wrap: wrap; }
+    .ld-stat b { display: block; font-family: 'Poppins', var(--font); font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+    .ld-stat span { font-size: 13px; color: var(--muted); }
+
+    .ld-shot { position: relative; border-radius: 24px; padding: 18px; background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%); box-shadow: 0 30px 80px rgba(120,80,160,.28); }
+    .ld-shot-card { background: var(--surface); border-radius: 16px; padding: 18px 18px 14px; color: var(--text); box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+    .ld-shot-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .ld-shot-head b { color: var(--text); font-size: 14px; }
+    .ld-ring { display: flex; align-items: center; gap: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; }
+    .ld-ring .r { width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#22a06b 0 68%, var(--border) 68% 100%); display: grid; place-items: center; }
+    .ld-ring .r i { width: 56px; height: 56px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-family: 'Poppins', var(--font); font-weight: 700; font-size: 20px; font-style: normal; }
+    .ld-ring .t b { display: block; font-size: 15px; } .ld-ring .t span { font-size: 12.5px; color: var(--muted); }
+    .ld-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+    .ld-tile { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+    .ld-tile span { font-size: 11.5px; color: var(--muted); display: block; } .ld-tile b { font-family: 'Poppins', var(--font); font-size: 22px; font-weight: 700; }
+    .ld-tile b.ok { color: #22a06b; } .ld-tile b.warn { color: #d9822b; } .ld-tile b.bad { color: #e0453b; }
+    .ld-pill { position: absolute; right: -14px; top: -16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 10px 14px; font-size: 13px; font-weight: 650; box-shadow: 0 12px 30px rgba(0,0,0,.16); display: flex; gap: 8px; align-items: center; }
+    .ld-pill i { width: 9px; height: 9px; border-radius: 50%; background: #22a06b; box-shadow: 0 0 0 4px rgba(34,160,107,.2); }
+
+    .ld-section { padding: 48px 0; }
+    .ld-h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; letter-spacing: -.02em; margin: 0 0 8px; }
+    .ld-lead { color: var(--muted); font-size: 16px; margin: 0 0 26px; max-width: 60ch; }
+    .ld-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .ld-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; }
+    .ld-card .ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(249,103,78,.12); display: grid; place-items: center; margin-bottom: 14px; }
+    .ld-card .ic svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ld-card h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
+    .ld-card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
+
+    .ld-stack { display: flex; flex-wrap: wrap; gap: 10px; }
+    .ld-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 9px 14px; font-size: 13.5px; font-weight: 600; }
+    .ld-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .ld-cmp .ld-card.us { border-color: rgba(249,103,78,.5); box-shadow: 0 0 0 4px rgba(249,103,78,.08); }
+    .ld-cmp h3 { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+    .ld-cmp .us h3 { color: var(--accent); }
+    .ld-cmp ul { margin: 12px 0 0; padding: 0; list-style: none; }
+    .ld-cmp li { padding: 9px 0; border-top: 1px solid var(--border); font-size: 15px; }
+    .ld-cmp .them li { color: var(--muted); }
+
+    .ld-final { border-radius: 24px; padding: 44px; background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .ld-final h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; margin: 0 0 6px; letter-spacing: -.02em; }
+    .ld-final p { margin: 0; opacity: .9; }
+    .ld-final .ld-btn { background: #fff; color: #1c1a18; border-color: transparent; }
+    .ld-foot { display: flex; justify-content: space-between; align-items: center; padding: 28px 0 36px; font-size: 13px; color: var(--muted); flex-wrap: wrap; gap: 10px; }
+    .ld-foot a { color: var(--muted); text-decoration: none; margin-left: 16px; }
+
+    @media (max-width: 900px) {
+      .ld-hero { grid-template-columns: 1fr; padding-top: 28px; }
+      .ld-grid, .ld-cmp { grid-template-columns: 1fr; }
+      .ld-tiles { grid-template-columns: repeat(3, 1fr); }
+      .ld-pill { display: none; }
+      .ld-nav-links .ld-ghost { display: none; }
+    }
+  </style>
+</head>
+<body class="ld-body">
+  <div class="ld-wrap">
+    <nav class="ld-nav" aria-label="Landing navigation">
+      <a class="ld-brand" href="/"><b>AIO</b> {{if .Brand}}{{.Brand}}{{else}}MDM{{end}}</a>
+      <div class="ld-nav-links">
+        <a class="ld-btn ld-ghost" href="/login">Sign in</a>
+        {{if .SignupEnabled}}<a class="ld-btn" href="/signup">Sign up</a>{{end}}
+        <a class="ld-btn primary" href="/login">Take me to the dashboard
+          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+      </div>
+    </nav>
+
+    <section class="ld-hero">
+      <div>
+        <div class="ld-kicker"><i></i> Built in-house · AIO</div>
+        <h1 class="ld-h1">Every kiosk and tablet,<br><span>under control.</span></h1>
+        <p class="ld-sub">AIO MDM is the fleet dashboard our team designed, wrote and runs for our own restaurant devices. Live health, geolocation, remote control and firmware updates, from one screen.</p>
+        <div class="ld-cta">
+          <a class="ld-btn primary lg" href="/login">Take me to the dashboard
+            <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+          <a class="ld-btn lg" href="/login">Sign in</a>
+          {{if .SignupEnabled}}<a class="ld-btn lg ld-ghost" href="/signup">Create an account</a>{{end}}
+          <div class="ld-cta-note">Staff accounts use an @aioapp.com email. Ask an admin for operator or admin rights.</div>
+        </div>
+        <div class="ld-stats">
+          <div class="ld-stat"><b>Live</b><span>WebSocket telemetry</span></div>
+          <div class="ld-stat"><b>A/B</b><span>seamless OTA</span></div>
+          <div class="ld-stat"><b>0</b><span>per-device fees</span></div>
+        </div>
+      </div>
+      <div class="ld-shot" aria-hidden="true">
+        <div class="ld-pill"><i></i> 55 of 58 online</div>
+        <div class="ld-shot-card">
+          <div class="ld-shot-head"><b>Overview</b><span>Sunday · 5 sites need a look</span></div>
+          <div class="ld-ring"><div class="r"><i>68</i></div><div class="t"><b>Fleet health</b><span>7-day window · steady vs prior week</span></div></div>
+          <div class="ld-tiles">
+            <div class="ld-tile"><span>Online</span><b class="ok">55</b></div>
+            <div class="ld-tile"><span>Offline</span><b class="warn">3</b></div>
+            <div class="ld-tile"><span>Low battery</span><b class="warn">2</b></div>
+            <div class="ld-tile"><span>Overheating</span><b>0</b></div>
+            <div class="ld-tile"><span>Crashes · 24h</span><b class="bad">1</b></div>
+            <div class="ld-tile"><span>Open alerts</span><b class="warn">8</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ld-section">
+      <h2 class="ld-h2">What it does</h2>
+      <p class="ld-lead">One place for the whole lifecycle of a device: from the day it is unboxed to the firmware it runs a year later.</p>
+      <div class="ld-grid">
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><h3>Fleet health, per venue</h3><p>A score built from our own telemetry: battery, temperature, memory, Wi-Fi, crashes, charging pads. Worst venue first, with the reasons.</p></div>
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s7-7.4 7-12a7 7 0 0 0-14 0c0 4.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></div><h3>Geolocation</h3><p>Position resolved from Wi-Fi scans. No GPS, works indoors, every device on a map clustered by restaurant.</p></div>
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><h3>Remote control</h3><p>Live screen, taps and keys from the browser, wherever the device is. Shell, screenshot and logs when you need to dig.</p></div>
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></div><h3>OTA updates</h3><p>Ship whole builds, not just apps. A/B seamless updates with per-device progress, reboot policy and a rollback slot.</p></div>
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></div><h3>Bulk actions</h3><p>Install, uninstall, reboot, kiosk lock. Target a venue, a group or a pasted serial list. Every device acknowledges live.</p></div>
+        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><h3>Alerts that say what to do</h3><p>Plain-language alerts with the fix, a daily briefing for the ops team, and filters that answer the question you actually have.</p></div>
+      </div>
+    </section>
+
+    <section class="ld-section">
+      <h2 class="ld-h2">Why not buy one?</h2>
+      <p class="ld-lead">Off-the-shelf MDMs manage generic Android and charge per seat. Ours knows our hardware and ships our firmware.</p>
+      <div class="ld-cmp">
+        <div class="ld-card them"><h3>Off-the-shelf MDM</h3><ul><li>Per-device, per-month fees</li><li>Generic Android, no idea what a charging pad is</li><li>Manages apps, not firmware</li><li>Alerts you have to decode</li><li>Your fleet data on their cloud</li></ul></div>
+        <div class="ld-card us"><h3>AIO MDM</h3><ul><li>No seat fees, ever</li><li>Knows our hardware: pads, kiosks, venues</li><li>Ships whole builds over the air</li><li>Alerts in plain language, with the fix</li><li>Our servers, our data</li></ul></div>
+      </div>
+    </section>
+
+    <section class="ld-section">
+      <h2 class="ld-h2">The stack</h2>
+      <p class="ld-lead">Small and fast. One box runs the fleet.</p>
+      <div class="ld-stack">
+        <span class="ld-chip">Go server</span><span class="ld-chip">PostgreSQL</span><span class="ld-chip">htmx dashboard</span><span class="ld-chip">WebSocket hub</span>
+        <span class="ld-chip">Android agent in our ROM</span><span class="ld-chip">A/B OTA via UpdateEngine</span><span class="ld-chip">Lock-task kiosk</span><span class="ld-chip">H.264 screen capture</span>
+        <span class="ld-chip">Docker Compose</span><span class="ld-chip">S3 for packages</span>
+      </div>
+    </section>
+
+    <section class="ld-section">
+      <div class="ld-final">
+        <div><h2>Ready to run the fleet?</h2><p>Sign in with your ops account, or create one with your @aioapp.com email.</p></div>
+        <div class="ld-cta">
+          <a class="ld-btn lg" href="/login">Take me to the dashboard <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+          {{if .SignupEnabled}}<a class="ld-btn lg" href="/signup">Sign up</a>{{end}}
+        </div>
+      </div>
+    </section>
+
+    <footer class="ld-foot">
+      <div>© 2026 AIO · AI for Restaurants</div>
+      <div><a href="/login">Sign in</a>{{if .SignupEnabled}}<a href="/signup">Sign up</a>{{end}}<a href="/forgot-password">Forgot password</a></div>
+    </footer>
+  </div>
+</body>
+</html>

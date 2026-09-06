@@ -1627,7 +1627,7 @@ var prefetchableTemplates = map[string]bool{
 
 // pageViewSkip are full-page templates that are not "the user looked at
 // something": auth screens, error pages, and pages that are their own record.
-var pageViewSkip = map[string]bool{"login.html": true, "404.html": true, "maintenance.html": true, "signup.html": true, "forgot_password.html": true, "reset_password.html": true, "verify_email.html": true}
+var pageViewSkip = map[string]bool{"landing.html": true, "login.html": true, "404.html": true, "maintenance.html": true, "signup.html": true, "forgot_password.html": true, "reset_password.html": true, "verify_email.html": true}
 
 // recentViews dedupes page-view audit rows: one per user+path per minute, so a
 // reload or a live-refresh doesn't multiply entries.
@@ -2721,6 +2721,26 @@ func (h *Handler) originAllowed(origin string, r *http.Request) bool {
 		return false
 	}
 	return u.Host == r.Host
+}
+
+// Root serves the public landing page to visitors without a session and the
+// Overview dashboard to everyone else. /login stays reachable directly.
+func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
+	if !h.isLoggedIn(r) {
+		h.Landing(w, r)
+		return
+	}
+	h.requireAuth(h.Overview)(w, r)
+}
+
+// Landing renders the marketing/entry page: what the MDM does, sign in, sign up.
+func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	h.tmpl.ExecuteTemplate(w, "landing.html", map[string]any{
+		"Brand":         h.cfg.CustomBrand(),
+		"AssetVer":      h.assetVer,
+		"SignupEnabled": true,
+	})
 }
 
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
@@ -16505,7 +16525,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reset-password", h.ResetPasswordPage)
 	post("POST /reset-password", h.ResetPasswordSubmit)
 
-	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
+	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/select-serials", h.requireAuth(h.DeviceSelectAllSerials))
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
