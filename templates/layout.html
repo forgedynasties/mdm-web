@@ -1,3 +1,6 @@
+{{/* ubub: avatar bubble — picture when the user has one, else the initial. Pass the
+     result of (userBubble name). Add class "sm"/"lg" on the caller for other sizes. */}}
+{{define "ubub"}}<span class="ubub" title="{{.Name}}">{{if .URL}}<img src="{{.URL}}" alt="" loading="lazy">{{else}}{{.Initial}}{{end}}</span>{{end}}
 {{define "header"}}
 {{if .Boosted}}{{/* boosted nav: return only <main>, plus a <title> so htmx updates the
      browser tab. The <head> (and its <title>) is not re-sent on a boosted swap, so
@@ -220,7 +223,7 @@
       <div class="nbar-wrap" id="acct-wrap">
         <button type="button" class="appbar-acct" onclick="navAcct(event)" aria-haspopup="true" aria-expanded="false">
           <span class="who"><span class="n">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown{{end}}</span><span class="r">{{if .Role}}{{roleLabel .Role}}{{else}}unknown{{end}}</span></span>
-          <span class="av">{{if .CurrentUser}}{{slice .CurrentUser 0 1}}{{else}}?{{end}}</span>
+          <span class="av">{{if and .CurrentBubble .CurrentBubble.URL}}<img class="av-img" src="{{.CurrentBubble.URL}}" alt="">{{else if .CurrentUser}}{{slice .CurrentUser 0 1}}{{else}}?{{end}}</span>
         </button>
         <div class="nbar-pop nbar-menu" id="acct-pop" hidden>
           <div class="nbar-mhead">

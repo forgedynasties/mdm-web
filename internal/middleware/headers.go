@@ -23,19 +23,24 @@ func buildCSP() string {
 	// APK uploads: the browser fetches (PUT) directly to the presigned S3 URL, so the
 	// bucket's virtual-hosted + regional endpoints must be allowed in connect-src.
 	connect := "connect-src 'self' https://maps.googleapis.com"
+	// Training videos + posters on the landing page stream straight from the bucket
+	// via presigned GET URLs, so the same hosts go into img-src and media-src.
+	s3 := ""
 	if bucket := os.Getenv("S3_BUCKET"); bucket != "" {
 		region := os.Getenv("AWS_REGION")
 		if region == "" {
 			region = "us-east-1"
 		}
-		connect += fmt.Sprintf(" https://%s.s3.%s.amazonaws.com https://s3.%s.amazonaws.com", bucket, region, region)
+		s3 = fmt.Sprintf(" https://%s.s3.%s.amazonaws.com https://s3.%s.amazonaws.com", bucket, region, region)
+		connect += s3
 	}
 	return "default-src 'self'; " +
 		// The overview fleet map uses the Google Maps JavaScript API (loader/worker
 		// scripts, image tiles/sprites, fonts, and connect telemetry).
 		"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; " +
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-		"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com; " +
+		"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com" + s3 + "; " +
+		"media-src 'self' blob:" + s3 + "; " +
 		"font-src 'self' https://fonts.gstatic.com; " +
 		connect + "; " +
 		// The in-browser APK parser (app-info-parser) spins up a blob-URL Web Worker to

@@ -1678,7 +1678,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     </span>
     {{if gt $total 0}}<span class="ht-meter" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="{{$state}}" style="width:{{pct (add $s.Completed $s.Failed) $total}}%"></i></span>{{end}}
   </div>
-  {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user" hx-target="main" hx-swap="outerHTML">{{$c.CreatedBy}}</a>{{else}}{{$c.CreatedBy}}{{end}}</span>{{else}}<span class="ht-by empty"></span>{{end}}
+  {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{template "ubub" (userBubble $c.CreatedBy)}}{{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user" hx-target="main" hx-swap="outerHTML">{{$c.CreatedBy}}</a>{{else}}{{$c.CreatedBy}}{{end}}</span>{{else}}<span class="ht-by empty"></span>{{end}}
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">
     {{if and (eq .Bucket "attn") (canOperate .Role)}}

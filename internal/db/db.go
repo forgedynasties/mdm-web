@@ -382,6 +382,24 @@ type User struct {
 	FirstName       string     `json:"first_name"`
 	LastName        string     `json:"last_name"`
 	CreatedAt       time.Time  `json:"created_at"`
+	// AvatarVer is the unix time the profile picture was set (0 = none); it versions
+	// the /users/{id}/avatar.png URL so browsers refetch after a change.
+	AvatarVer int64 `json:"avatar_ver"`
+}
+
+// HasAvatar reports whether a profile picture is on file.
+func (u User) HasAvatar() bool { return u.AvatarVer > 0 }
+
+// Initial is the single (upper-cased) letter shown in a user bubble without a picture.
+func (u User) Initial() string {
+	n := strings.TrimSpace(u.FirstName)
+	if n == "" {
+		n = u.Username
+	}
+	for _, r := range n {
+		return strings.ToUpper(string(r))
+	}
+	return "?"
 }
 
 // DisplayName returns "First Last" when a name is on file, else the username
@@ -408,9 +426,9 @@ func (d *DB) CreateUserNamed(ctx context.Context, username, passwordHash, role s
 	err := d.pool.QueryRow(ctx, `
 		INSERT INTO users (username, password_hash, role, email, email_verified_at, first_name, last_name)
 		VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN NOW() ELSE NULL END, $6, $7)
-		RETURNING id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+		RETURNING id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint
 	`, username, passwordHash, role, email, emailVerified, firstName, lastName).Scan(
-		&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
+		&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt, &u.AvatarVer)
 	if err != nil {
 		return nil, err
 	}
@@ -420,9 +438,9 @@ func (d *DB) CreateUserNamed(ctx context.Context, username, passwordHash, role s
 func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint
 		FROM users WHERE username = $1
-	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
+	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt, &u.AvatarVer)
 	if err != nil {
 		return nil, err
 	}
@@ -434,9 +452,9 @@ func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, err
 func (d *DB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint
 		FROM users WHERE lower(email) = lower($1)
-	`, email).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
+	`, email).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt, &u.AvatarVer)
 	if err != nil {
 		return nil, err
 	}
@@ -448,9 +466,9 @@ func (d *DB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 func (d *DB) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint
 		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt, &u.AvatarVer)
 	if err != nil {
 		return nil, err
 	}
@@ -464,9 +482,29 @@ func (d *DB) SetUserEmailVerified(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// SetUserAvatar stores a (already resized) PNG as the user's profile picture.
+func (d *DB) SetUserAvatar(ctx context.Context, id uuid.UUID, png []byte) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET avatar = $2, avatar_updated_at = now() WHERE id = $1`, id, png)
+	return err
+}
+
+// ClearUserAvatar removes the profile picture.
+func (d *DB) ClearUserAvatar(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET avatar = NULL, avatar_updated_at = NULL WHERE id = $1`, id)
+	return err
+}
+
+// GetUserAvatar returns the stored PNG and its version (unix seconds); nil when none.
+func (d *DB) GetUserAvatar(ctx context.Context, id uuid.UUID) ([]byte, int64, error) {
+	var png []byte
+	var ver int64
+	err := d.pool.QueryRow(ctx, `SELECT avatar, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint FROM users WHERE id = $1`, id).Scan(&png, &ver)
+	return png, ver, err
+}
+
 func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, username, role, email, email_verified_at, first_name, last_name, created_at FROM users ORDER BY created_at ASC
+		SELECT id, username, role, email, email_verified_at, first_name, last_name, created_at, COALESCE(EXTRACT(EPOCH FROM avatar_updated_at), 0)::bigint FROM users ORDER BY created_at ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -475,7 +513,7 @@ func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt, &u.AvatarVer); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -10199,6 +10237,11 @@ WHERE NOT EXISTS (SELECT 1 FROM device_queries);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHERE email IS NOT NULL;
+
+-- Profile pictures: a small PNG stored inline (≤128px, a few KB); avatar_updated_at
+-- doubles as the cache-busting version in avatar URLs.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ;
 
 -- (Historical) The dev role was once retired here with "DELETE FROM users WHERE
 -- role = 'dev'". Dev is a real role again (operator + releases + OTA), and this

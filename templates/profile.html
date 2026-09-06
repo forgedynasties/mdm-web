@@ -4,6 +4,8 @@
 <style>
 .pf-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .pf-av{width:64px;height:64px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:750;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
+.pf-av.has-img{overflow:hidden}.pf-av.has-img img{width:100%;height:100%;object-fit:cover;display:block}
+.pf-avforms{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}.pf-avform{margin:0}.pf-avform label{cursor:pointer}
 .pf-name{font-size:22px;font-weight:750;letter-spacing:-.015em}
 .pf-meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .pf-role{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:99px;background:var(--surface-3);color:var(--text-2)}
@@ -26,7 +28,7 @@
 <div class="cc-wrap">
   <div class="cc-top">
     <div class="pf-hero">
-      <span class="pf-av">{{slice .Display 0 1}}</span>
+      <span class="pf-av{{if and .Bubble .Bubble.URL}} has-img{{end}}">{{if and .Bubble .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{slice .Display 0 1}}{{end}}</span>
       <div>
         <div class="cc-eyebrow">{{if .CanManage}}Users · Access control{{else if .ViewingOther}}Profile{{else}}My profile{{end}}</div>
         <div class="pf-name">{{.Display}}</div>
@@ -36,6 +38,15 @@
           {{if .User}}{{if .User.Email}}<span>{{.User.Email}}{{if .User.EmailVerifiedAt}} · verified{{end}}</span>{{end}}<span>Joined {{shortDate .User.CreatedAt}}</span>{{end}}
           {{if and .Stats.FirstAt (not .OwnerSelf)}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
         </div>
+        {{if and .User .CanEditAvatar}}
+        <div class="pf-avforms">
+          <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" class="pf-avform">
+            <label class="cc-btn sm">{{if and .Bubble .Bubble.URL}}Change picture{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label>
+          </form>
+          {{if and .Bubble .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" class="pf-avform"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
+          <span class="muted small">PNG, JPEG or GIF · squared to 128 px</span>
+        </div>
+        {{end}}
       </div>
     </div>
     <div class="cc-actions">

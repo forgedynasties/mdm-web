@@ -20,6 +20,7 @@
 .uu-av.role-admin{background:var(--danger-bg);color:var(--danger)}
 .uu-av.role-operator{background:var(--info-bg);color:var(--info)}
 .uu-av.role-viewer{background:var(--surface2);color:var(--muted)}
+.uu-av.has-img{overflow:hidden;background:var(--surface2)}.uu-av.has-img img{width:100%;height:100%;object-fit:cover;display:block}
 .uu-id{flex:1;min-width:160px}
 .uu-name{font-size:13.5px;font-weight:650}
 .uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
@@ -84,7 +85,7 @@
     {{if .Users}}
     {{range .Users}}
     <div class="uu-row">
-      <span class="uu-av role-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
+      {{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}
       <div class="uu-id">
         <div class="uu-name">{{.DisplayName}}</div>
         <div class="uu-meta mono">
