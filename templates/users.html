@@ -23,6 +23,7 @@
 .uu-av.has-img{overflow:hidden;background:var(--surface2)}.uu-av.has-img img{width:100%;height:100%;object-fit:cover;display:block}
 .uu-id{flex:1;min-width:160px}
 .uu-name{font-size:13.5px;font-weight:650}
+.uu-open{color:inherit;text-decoration:none}.uu-open:hover .uu-av{box-shadow:0 0 0 3px var(--accent-soft,rgba(249,103,78,.2))}.uu-name .uu-open:hover{text-decoration:underline;text-underline-offset:3px}
 .uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
 .uu-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .user-role-sel{font-size:12.5px;padding:5px 8px}
@@ -85,9 +86,9 @@
     {{if .Users}}
     {{range .Users}}
     <div class="uu-row">
-      {{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}
+      <a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}</a>
       <div class="uu-id">
-        <div class="uu-name">{{.DisplayName}}</div>
+        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a></div>
         <div class="uu-meta mono">
           {{.Username}} · Joined {{shortDate .CreatedAt}}
           {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
