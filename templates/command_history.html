@@ -147,9 +147,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 <!-- Status context tabs -->
 
 <script>
-  // "Show admin actions" (admins only): admin-level action types — shell, boot logo,
-  // OTA — are hidden from the pill picker and the history lists unless switched on.
-  // Remembered per browser; default off.
+  // "Show admin actions" (admins only): actions sent by admin accounts are hidden
+  // from the history lists unless switched on. Remembered per browser; default off.
   (function () {
     var KEY = 'mdm-show-admin-actions';
     function apply(on) {
@@ -173,8 +172,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
   .adm-toggle input{margin:0}
   html.hide-admin-actions .pill[data-admin]{display:none}
-  html.hide-admin-actions .htrow[data-admin]{display:none}
-  html.hide-admin-actions #filter-type option[data-admin]{display:none}
+  html.hide-admin-actions .htrow[data-admin]{display:none !important} /* the search filter sets inline display */
 </style>
 <div class="hist-tabs">
   <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
@@ -187,7 +185,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   <div class="card-header cc-ch">
     <h3>{{.Heading}} <span class="muted small" style="font-weight:500;">· {{.Total}}</span></h3>
     <div class="right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      {{if canAdmin .Role}}<label class="adm-toggle" title="Shell, boot logo and OTA actions are admin-level; hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
+      {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
         <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
@@ -196,10 +194,10 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
         <option value="install_apk"{{if eq .FilterType "install_apk"}} selected{{end}}>Install app</option>
         <option value="uninstall"{{if eq .FilterType "uninstall"}} selected{{end}}>Uninstall</option>
-        <option value="shell" data-admin="1"{{if eq .FilterType "shell"}} selected{{end}}>Shell</option>
+        <option value="shell"{{if eq .FilterType "shell"}} selected{{end}}>Shell</option>
         <option value="screenshot"{{if eq .FilterType "screenshot"}} selected{{end}}>Screenshot</option>
         <option value="reboot"{{if eq .FilterType "reboot"}} selected{{end}}>Reboot</option>
-        <option value="update_splash" data-admin="1"{{if eq .FilterType "update_splash"}} selected{{end}}>Boot logo</option>
+        <option value="update_splash"{{if eq .FilterType "update_splash"}} selected{{end}}>Boot logo</option>
       </select>
     </div>
   </div>

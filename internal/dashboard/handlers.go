@@ -494,13 +494,14 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// (empty when none). Cached like userURL.
 	type bubble struct {
 		Initial, Name, URL string
+		Admin              bool // author has the admin/dev role (or is the env dashboard admin)
 	}
 	var ubMu sync.Mutex
 	var ubMap map[string]bubble
 	var ubAt time.Time
 	userBubble := func(name string) bubble {
 		name = strings.TrimSpace(name)
-		fallback := bubble{Initial: "?", Name: name}
+		fallback := bubble{Initial: "?", Name: name, Admin: strings.EqualFold(name, "admin")}
 		if name != "" {
 			for _, r := range name {
 				fallback.Initial = strings.ToUpper(string(r))
@@ -517,7 +518,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			if users, err := d.ListUsers(ctx); err == nil {
 				for _, u := range users {
-					b := bubble{Initial: u.Initial(), Name: u.DisplayName()}
+					b := bubble{Initial: u.Initial(), Name: u.DisplayName(), Admin: u.Role == "admin" || u.Role == "dev"}
 					if u.HasAvatar() {
 						b.URL = fmt.Sprintf("/users/%s/avatar.png?v=%d", u.ID, u.AvatarVer)
 					}
@@ -536,6 +537,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		return fallback
 	}
 	userBubbleFn = func(name string) any { return userBubble(name) }
+	// authorIsAdmin: was this action sent by an admin account? Drives the
+	// "Show admin actions" toggle on the Actions/History pages.
+	authorIsAdmin := func(name string) bool { return userBubble(name).Admin }
 
 	userURL := func(name string) string {
 		name = strings.TrimSpace(name)
@@ -562,8 +566,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		return uuMap[strings.ToLower(name)]
 	}
 	funcMap := template.FuncMap{
-		"userURL":    userURL,
-		"userBubble": userBubble,
+		"userURL":       userURL,
+		"userBubble":    userBubble,
+		"authorIsAdmin": authorIsAdmin,
 		// msLoginEnabled reports whether Microsoft sign-in is configured, so
 		// login.html only shows the button when it'll actually work.
 		"msLoginEnabled": func() bool { return msLoginEnabled },
