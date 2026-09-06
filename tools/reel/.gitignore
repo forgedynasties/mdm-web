@@ -1,0 +1,8 @@
+node_modules/
+out/
+music/*.mp3
+bin/
+voices/
+remotion/node_modules/
+remotion/out/
+remotion/public/
