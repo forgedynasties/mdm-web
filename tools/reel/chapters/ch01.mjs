@@ -43,9 +43,9 @@ export default {
     },
     {
       id: "dock",
-      text: "The dock at the bottom is the main navigation. Overview, Fleet, Actions, Policies, Alerts, Releases and Users.",
+      text: "The dock at the bottom is the main navigation. Overview, Fleet, Actions, Policies, Alerts and Releases.",
       run: async (s) => {
-        for (const t of ["Overview", "Fleet", "Actions", "Policies", "Alerts", "Releases", "Users"]) { await s.glide(`.dock >> text=${t}`, { dur: 450 }).catch(() => {}); await s.hold(200); }
+        for (const t of ["Overview", "Fleet", "Actions", "Policies", "Alerts", "Releases"]) { await s.glide(`.dock >> text=${t}`, { dur: 450 }).catch(() => {}); await s.hold(200); }
       },
     },
     {

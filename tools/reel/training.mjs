@@ -20,7 +20,9 @@ mkdirSync(DIR, { recursive: true });
 const narration = JSON.parse(readFileSync(`${DIR}narration.json`, "utf8"));
 const COMPOSE_DIR = new URL("../../", import.meta.url).pathname;
 const sql = (q) => execFileSync("docker", ["compose", "exec", "-T", "postgres", "sh", "-c", 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"'], { cwd: COMPOSE_DIR, input: q }).toString().trim();
-const HERO = sql(`SELECT d.serial_number FROM devices d WHERE restaurant_id IN (SELECT id FROM restaurants WHERE notes = 'reel-seed') AND product = 't7' AND last_seen_at > now() - interval '10 minutes' ORDER BY serial_number LIMIT 1`);
+const HERO = sql(`SELECT d.serial_number FROM devices d WHERE restaurant_id IN (SELECT id FROM restaurants WHERE notes = 'reel-seed') AND product = 't7'
+  AND last_seen_at > now() - interval '10 minutes' AND latest_battery_pct BETWEEN 30 AND 95
+  AND NOT EXISTS (SELECT 1 FROM alerts a WHERE a.device_id = d.id AND a.status <> 'resolved') ORDER BY serial_number LIMIT 1`);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -93,6 +95,17 @@ await ctx.addInitScript((theme) => { try { localStorage.setItem("mdm-theme", the
 await ctx.addInitScript(OVERLAY_JS);
 const page = await ctx.newPage();
 const s = new Scene(page, t0);
+// Chapters other than the first start signed in (chapter 1 films the sign-in itself).
+if (ch.login) {
+  // `login: true` = the ops (operator) account; `login: { user, pass }` for chapters
+  // that need another role (releases are admin-only).
+  const cred = typeof ch.login === "object" ? ch.login : { user: s.OPS_USER, pass: s.OPS_PASS };
+  await page.goto(BASE + "/login", { waitUntil: "load" });
+  await page.fill("#username", cred.user); await page.fill("#password", cred.pass);
+  await Promise.all([page.waitForURL((u) => !/\/login/.test(u.href)), page.click("button[type=submit]")]);
+  await s.reloaded();
+}
+if (ch.setup) { process.stdout.write("setup … "); await ch.setup(s); console.log("ok"); }
 const marks = [];
 for (const st of ch.steps) {
   const start = s.now();
@@ -107,6 +120,7 @@ for (const st of ch.steps) {
   marks.push({ id: st.id, text: st.text, in: start, out: s.now() });
   console.log(`${((s.now() - start) / 1000).toFixed(1)}s`);
 }
+if (ch.teardown) { try { await ch.teardown(s); } catch (e) { console.log("teardown:", e.message); } }
 await ctx.close(); await browser.close();
 const f = readdirSync(tmp).find((x) => x.endsWith(".webm"));
 renameSync(tmp + f, `${DIR}take.webm`); rmSync(tmp, { recursive: true, force: true });

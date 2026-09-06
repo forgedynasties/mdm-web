@@ -17,9 +17,9 @@ export default {
       run: async (s) => { await s.click("form[action$='/ack'] button >> nth=0").catch(() => {}); await s.reloaded(); await s.hold(1500); await s.glide("form[action$='/resolve'] button >> nth=0", { dur: 800 }).catch(() => {}); } },
     { id: "auto", text: "Most alerts resolve themselves: offline clears when the device reconnects, overheating when it cools, storage when space frees up.",
       run: async (s) => { await s.scroll(400, 900); await s.hold(1500); } },
-    { id: "rules", text: "Thresholds live under Alert rules, admins only. Service windows and peak hours are set per venue, so a device is not 'offline during peak' at three in the morning.",
+    { id: "rules", text: "Thresholds live in the alert rules. Service windows and peak hours are set per venue, so a device is not 'offline during peak' at three in the morning.",
       run: async (s) => { await s.scroll(-800, 600); await s.glide("a[href='/alert-config'], text=Alert rules >> nth=0", { dur: 900 }).catch(() => {}); await s.hold(1500); } },
-    { id: "channels", text: "Alerts also go to the notification channels an admin configured, so the ops channel gets the same line you see here.",
+    { id: "channels", text: "Alerts also go to the configured notification channels, so the ops channel gets the same line you see here.",
       run: async (s) => { await s.glide("text=Open alerts >> nth=0", { dur: 800 }).catch(() => {}); await s.hold(1200); } },
   ],
 };

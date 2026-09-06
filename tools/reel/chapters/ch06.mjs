@@ -16,7 +16,7 @@ export default {
     { id: "refine", text: "Refine narrows it: online only, low battery, in kiosk. Offline devices get the action when they reconnect.",
       run: async (s) => { await s.glide("text=Online only >> nth=0", { dur: 800 }).catch(() => {}); await s.hold(800); } },
     { id: "send", text: "Send. Each device acknowledges as it receives and completes the action, and the board updates live.",
-      run: async (s) => { await s.click("#send-btn"); await s.page.waitForURL(/\/commands\//, { timeout: 15000 }).catch(() => {}); await s.reloaded(); await s.hold(5000); } },
+      run: async (s) => { await s.click("#send-btn"); await s.page.waitForLoadState("load").catch(() => {}); const id = s.sql("SELECT id FROM commands ORDER BY created_at DESC LIMIT 1"); await s.page.goto(s.BASE + "/commands/" + id, { waitUntil: "load" }); await s.zoom(); await s.hold(6000); } },
     { id: "apps", text: "Install app works the same way. Choose the APK from the library, target, send. Progress shows download and install per device.",
       run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(500); await s.click(".pill[data-type='install_apk']"); await s.hold(500); await s.click("#apk-picker").catch(() => {}); await s.hold(2000); await s.page.keyboard.press("Escape"); } },
     { id: "history", text: "History keeps every action with who sent it and what each device answered. Resend or duplicate from there.",

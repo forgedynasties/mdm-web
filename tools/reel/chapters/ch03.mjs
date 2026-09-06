@@ -7,7 +7,7 @@ export default {
   intro: "Chapter three. A device goes offline. What you see, what you do, how you know it is fixed.",
   theme: "light",
   login: true,
-  setup: async (s) => { s.target = s.pick("product = 't7' AND last_seen_at > now() - interval '10 minutes'", 3); s.sim(`offline ${s.target}`); await s.hold(4000); s.alert(s.target, "offline", "warning", "Offline — last check-in 6m ago", { offline_minutes: 6 }); },
+  setup: async (s) => { s.target = s.pick("product = 't7' AND last_seen_at > now() - interval '10 minutes'", 3); s.sim(`offline ${s.target}`); await s.hold(38000); /* PresenceGrace is 30 s */ s.alert(s.target, "offline", "warning", "Offline — last check-in 6m ago", { offline_minutes: 6 }); },
   teardown: async (s) => { s.sim(`online ${s.target}`); },
   steps: [
     { id: "bell", text: "It starts with the bell. An offline alert means the agent's live connection dropped and stayed down past the grace period.",

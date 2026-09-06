@@ -18,10 +18,10 @@ export default {
     { id: "events", text: "On the device, the Alerts tab lists each crash with the exception. The first line usually names the screen that broke.",
       run: async (s) => { await s.page.goto(s.BASE + "/devices/" + s.target, { waitUntil: "load" }); await s.zoom(); await s.hold(600); await s.click("#dd-tab-alerts"); await s.hold(1800); await s.scroll(200, 700); } },
     { id: "trace", text: "Expand one to see the stack trace. Copy it into the ticket for the app team; they do not need device access to read it.",
-      run: async (s) => { await s.click("details summary >> nth=0").catch(() => {}); await s.hold(2200); } },
+      run: async (s) => { await s.click("#dd-panel-alerts details summary >> nth=0").catch(() => s.click("#dd-panel-alerts summary >> nth=0").catch(() => {})); await s.hold(2200); } },
     { id: "logcat", text: "Need more context? Request a logcat from the History tab. The device uploads the last few thousand lines within a minute.",
       run: async (s) => { await s.click("#dd-tab-history"); await s.hold(1500); await s.glide("button:has-text('Logcat'), a:has-text('Logcat'), text=logcat >> nth=0", { dur: 900 }).catch(() => {}); await s.hold(800); } },
     { id: "fix", text: "When the app team ships a fix, push it from Actions, Install app, targeted at that venue. The crash alert resolves once the count drops.",
-      run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(800); await s.click("#apk-picker").catch(() => {}); await s.hold(1800); await s.page.keyboard.press("Escape"); await s.hold(400); } },
+      run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(800); await s.click(".pill[data-type='install_apk']").catch(() => {}); await s.hold(600); await s.click("#apk-picker").catch(() => {}); await s.hold(1800); await s.page.keyboard.press("Escape"); await s.hold(400); } },
   ],
 };
