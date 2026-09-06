@@ -3,7 +3,7 @@ export default {
   id: "ch09",
   number: 9,
   title: "Onboard a new device",
-  intro: "Chapter nine. A new device out of the box. Naming it, placing it, and checking its policy.",
+  intro: "Chapter nine. A new device out of the box. Naming it, checking where it sits, and its policy.",
   theme: "light",
   login: true,
   setup: async (s) => {
@@ -22,18 +22,11 @@ export default {
       run: async (s) => { await s.page.goto(s.BASE + "/devices/" + s.target, { waitUntil: "load" }); await s.zoom(); await s.hold(1500); } },
     { id: "name", text: "Name it the way the venue talks about it: Front counter, Bar, Patio. Save.",
       run: async (s) => { await s.click(".dd-nick summary").catch(() => {}); await s.hold(500); await s.click(".dd-nick input[name=nickname]").catch(() => {}); await s.type("Front counter"); await s.hold(400); await s.click(".dd-nick button[type=submit] >> nth=0").catch(() => {}); await s.reloaded(); await s.hold(1000); } },
-    { id: "place", text: "Placement: pick the restaurant. Groups are optional; they are handy for staged rollouts.",
-      run: async (s) => {
-        const edit = s.page.locator("button.kv-edit").first();
-        await s.glide(edit, { dur: 900 }).catch(() => {}); await edit.click(); await s.hold(900);
-        const opt = s.page.locator("#pl-rest-pop label:has-text('Harbor')").first();
-        await s.glide(opt, { dur: 700 }).catch(() => {}); await opt.click(); await s.hold(600);
-        const save = s.page.locator("#pl-rest-pop .pl-pop-save").first();
-        await s.glide(save, { dur: 600 }).catch(() => {}); await save.click(); await s.reloaded(); await s.hold(1500);
-      } },
+    { id: "place", text: "Placement, the restaurant and group, is set when the unit is provisioned. If a device shows the wrong venue, flag it in the ops channel with the serial.",
+      run: async (s) => { await s.glide("text=Placement >> nth=0", { dur: 900 }).catch(() => {}); await s.hold(600); await s.glide("text=Restaurant >> nth=0", { dur: 700 }).catch(() => {}); await s.hold(900); } },
     { id: "policy", text: "Check the kiosk policy under Policies: which app it locks to and whether the offline exit is allowed. New units inherit the venue default.",
       run: async (s) => { await s.page.goto(s.BASE + "/manage", { waitUntil: "load" }); await s.zoom(); await s.hold(2000); await s.scroll(250, 800); } },
-    { id: "verify", text: "Back on the device page it now has a name, a venue and a lock. Ready for the counter.",
+    { id: "verify", text: "Back on the device page it now has a name and a lock, and shows where it sits. Ready for the counter.",
       run: async (s) => { await s.page.goto(s.BASE + "/devices/" + s.target, { waitUntil: "load" }); await s.zoom(); await s.hold(2000); } },
   ],
 };
