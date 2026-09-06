@@ -150,29 +150,21 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   // "Show admin actions" (admins only): actions sent by admin accounts are hidden
   // from the history lists unless switched on. Remembered per browser; default off.
   (function () {
-    var KEY = 'mdm-show-admin-actions';
-    function apply(on) {
-      document.querySelectorAll('.adm-toggle input').forEach(function (i) { i.checked = on; });
-      document.documentElement.classList.toggle('hide-admin-actions', !on);
-      // if the selected pill is an admin action being hidden, fall back to Install app
-      var sel = document.querySelector('.pill.on[data-admin]');
-      if (!on && sel && typeof selectType === 'function') { var d = document.querySelector('.pill[data-type="install_apk"]'); if (d) selectType('install_apk', d); }
-      if (typeof filterCommands === 'function') { try { filterCommands(); } catch (e) {} }
-      if (typeof filterHistory === 'function') { try { filterHistory(); } catch (e) {} }
-    }
-    window.mdmAdminActions = function (on) { try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(on); };
-    var on = false; try { on = localStorage.getItem(KEY) === '1'; } catch (e) {}
-    // the toggle may sit later in the page than this script: apply now (hides rows
-    // before first paint) and again once the DOM is complete (syncs the checkbox)
-    apply(on);
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(on); });
+    // "Show admin actions" (admins only): the server hides actions sent by admin
+    // accounts — from the lists and the counts — unless this cookie is "1".
+    var on = /(?:^|; )mdm_show_admin_actions=1(?:;|$)/.test(document.cookie);
+    function sync() { document.querySelectorAll('.adm-toggle input').forEach(function (i) { i.checked = on; }); }
+    window.mdmAdminActions = function (v) {
+      document.cookie = 'mdm_show_admin_actions=' + (v ? '1' : '0') + '; path=/; max-age=31536000; samesite=lax';
+      location.reload();
+    };
+    sync();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
   })();
 </script>
 <style>
   .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
   .adm-toggle input{margin:0}
-  html.hide-admin-actions .pill[data-admin]{display:none}
-  html.hide-admin-actions .htrow[data-admin]{display:none !important} /* the search filter sets inline display */
 </style>
 <div class="hist-tabs">
   <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
@@ -205,7 +197,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   <div id="cmd-history-table">
     {{if .Rows}}
       {{$day := ""}}
-      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
+      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Cluster" (index $.Clusters .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
         <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>

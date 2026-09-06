@@ -537,6 +537,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		return fallback
 	}
 	userBubbleFn = func(name string) any { return userBubble(name) }
+	userIsAdminFn = func(name string) bool { return userBubble(name).Admin }
 	// authorIsAdmin: was this action sent by an admin account? Drives the
 	// "Show admin actions" toggle on the Actions/History pages.
 	authorIsAdmin := func(name string) bool { return userBubble(name).Admin }
@@ -2799,6 +2800,10 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 // userBubbleFn is the template resolver for avatar bubbles, set when the template
 // func map is built; handlers use it for the layout chip and profile hero.
 var userBubbleFn func(name string) any
+
+// userIsAdminFn reports whether a command author (username or display name) is an
+// admin/dev account; set alongside userBubbleFn.
+var userIsAdminFn func(name string) bool
 
 // ---------------------------------------------------------------- profile pictures
 
@@ -11097,7 +11102,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c = filterShellCommands(h.role(r), c) // operators never see shell history
-		cmds = h.filterAdminCommands(h.role(r), c)
+		cmds = h.filterAdminCommands(r, c)
 	})
 	run(func() {
 		g, err := h.db.ListGroups(ctx)
@@ -11306,6 +11311,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	var batches map[uuid.UUID][]db.Command
 	cmds, summaries, batches = collapseBatches(cmds, summaries)
+	var clusters map[uuid.UUID][]db.Command
+	cmds, summaries, clusters = clusterSystemReboots(cmds, summaries)
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	// The Actions page shows a capped triage preview of each bucket; "Show all →"
@@ -11357,6 +11364,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Recipes":          recipes,
 		"Summaries":        summaries,
 		"Batches":  batches,
+		"Clusters": clusters,
 		"AppIcons": apkURLToIcon(apps),
 		"PkgIcons": pkgToIcon(apps),
 		"TargetSerials":    targetSerials,
@@ -11394,13 +11402,15 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmds = filterShellCommands(h.role(r), cmds) // operators never see shell history
-	cmds = h.filterAdminCommands(h.role(r), cmds)
+	cmds = h.filterAdminCommands(r, cmds)
 	h.resolveCommandActors(r.Context(), cmds)
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	apps, _ := h.db.ListApps(r.Context())
 	var batches map[uuid.UUID][]db.Command
 	cmds, summaries, batches = collapseBatches(cmds, summaries)
+	var clusters map[uuid.UUID][]db.Command
+	cmds, summaries, clusters = clusterSystemReboots(cmds, summaries)
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	status := r.URL.Query().Get("status")
@@ -11481,6 +11491,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"BucketByID":    bucketByID,
 		"Summaries":     summaries,
 		"Batches":  batches,
+		"Clusters": clusters,
 		"AppIcons": apkURLToIcon(apps),
 		"PkgIcons": pkgToIcon(apps),
 		"AppNames": apkURLToName(apps),
@@ -12253,7 +12264,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	// Mirrors filterAdminCommands: operators must not reach an admin-created
 	// command's detail page directly either.
-	if hideAdminCommandsForRole(h.role(r)) && cmd.CreatedBy == h.user {
+	if h.hideAdminActions(r) && h.isAdminAuthor(cmd.CreatedBy) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
@@ -12787,18 +12798,98 @@ func hideAdminCommandsForRole(role string) bool { return roleIsOperatorLike(role
 // Actions/history slice when the viewer must not see them
 // (hideAdminCommandsForRole). "admin" is env-configured only (never a DB
 // user, see validUserRole), so its username is always h.user.
-func (h *Handler) filterAdminCommands(role string, cmds []db.Command) []db.Command {
-	if !hideAdminCommandsForRole(role) {
+func (h *Handler) filterAdminCommands(r *http.Request, cmds []db.Command) []db.Command {
+	if !h.hideAdminActions(r) {
 		return cmds
 	}
 	out := make([]db.Command, 0, len(cmds))
 	for _, c := range cmds {
-		if c.CreatedBy == h.user {
+		if h.isAdminAuthor(c.CreatedBy) {
 			continue
 		}
 		out = append(out, c)
 	}
 	return out
+}
+
+// showAdminActionsCookie is set by the "Show admin actions" toggle (admins only).
+const showAdminActionsCookie = "mdm_show_admin_actions"
+
+// hideAdminActions: operators/viewers never see actions sent by admin accounts;
+// admins don't either unless they switched the toggle on. Server-side so the
+// counts and pagination on the Actions/History pages stay right.
+func (h *Handler) hideAdminActions(r *http.Request) bool {
+	if hideAdminCommandsForRole(h.role(r)) {
+		return true
+	}
+	c, err := r.Cookie(showAdminActionsCookie)
+	return err != nil || c.Value != "1"
+}
+
+// isAdminAuthor: the env dashboard admin, or any user with the admin/dev role
+// (matched by username or display name, as commands snapshot either).
+func (h *Handler) isAdminAuthor(name string) bool {
+	if name == "" {
+		return false // system-sent (e.g. OTA reboots) — shown, labelled automatic
+	}
+	if name == h.user || strings.EqualFold(name, "admin") {
+		return true
+	}
+	return userIsAdminFn != nil && userIsAdminFn(name)
+}
+
+// isSystemReboot: a reboot nobody typed — the OTA flow's post-install reboot.
+func isSystemReboot(c db.Command) bool { return c.Type == "reboot" && c.CreatedBy == "" }
+
+// clusterSystemReboots folds runs of OTA-sent reboots (each targets one device,
+// created within minutes of each other) into one representative row per run,
+// mirroring collapseBatches. Returns the reduced list, merged summaries and the
+// cluster members keyed by representative id.
+func clusterSystemReboots(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary) ([]db.Command, map[uuid.UUID]db.CommandDeliverySummary, map[uuid.UUID][]db.Command) {
+	const gap = 20 * time.Minute
+	clusters := map[uuid.UUID][]db.Command{}
+	var out []db.Command
+	var rep uuid.UUID
+	var last time.Time
+	for _, c := range cmds {
+		if !isSystemReboot(c) {
+			out = append(out, c)
+			continue
+		}
+		d := last.Sub(c.CreatedAt)
+		if d < 0 {
+			d = -d
+		}
+		if !last.IsZero() && d <= gap {
+			clusters[rep] = append(clusters[rep], c)
+		} else {
+			rep = c.ID
+			clusters[rep] = []db.Command{c}
+			out = append(out, c)
+		}
+		last = c.CreatedAt
+	}
+	merged := make(map[uuid.UUID]db.CommandDeliverySummary, len(summaries))
+	for k, v := range summaries {
+		merged[k] = v
+	}
+	for r, members := range clusters {
+		if len(members) < 2 {
+			delete(clusters, r)
+			continue
+		}
+		var sum db.CommandDeliverySummary
+		sum.CommandID = r
+		for _, m := range members {
+			sm := summaries[m.ID]
+			sum.Pending += sm.Pending
+			sum.Delivered += sm.Delivered
+			sum.Completed += sm.Completed
+			sum.Failed += sm.Failed
+		}
+		merged[r] = sum
+	}
+	return out, merged, clusters
 }
 
 // resolveTargetDeviceIDs turns a command target spec (all/devices/groups/scope) into

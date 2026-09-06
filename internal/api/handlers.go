@@ -970,10 +970,14 @@ func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, stat
 	h.pushRebootFor(ctx, upd, deviceID)
 }
 
+// otaRebootPayload marks reboots the OTA flow sends on its own (no operator behind
+// them); the dashboard clusters these and labels them "Sent automatically".
+var otaRebootPayload = json.RawMessage(`{"reason":"ota"}`)
+
 // pushRebootFor creates and pushes a reboot command for a device, recording
 // reboot_sent on its deployment row when one is attached.
 func (h *Handler) pushRebootFor(ctx context.Context, upd *db.Update, deviceID uuid.UUID) {
-	cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{deviceID})
+	cmd, err := h.db.CreateCommand(ctx, "reboot", "", otaRebootPayload, "devices", []uuid.UUID{deviceID})
 	if err != nil {
 		log.Printf("[ota] create reboot command error: %v", err)
 		return
@@ -1007,7 +1011,7 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 		return
 	}
 	for _, dr := range due {
-		cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{dr.DeviceID})
+		cmd, err := h.db.CreateCommand(ctx, "reboot", "", otaRebootPayload, "devices", []uuid.UUID{dr.DeviceID})
 		if err != nil {
 			log.Printf("[ota-scheduler] create reboot command error: %v", err)
 			continue
@@ -1044,7 +1048,7 @@ func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 		if !h.hub.IsConnected(dr.DeviceID) {
 			continue
 		}
-		cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{dr.DeviceID})
+		cmd, err := h.db.CreateCommand(ctx, "reboot", "", otaRebootPayload, "devices", []uuid.UUID{dr.DeviceID})
 		if err != nil {
 			log.Printf("[ota-scheduler] re-drive reboot command error: %v", err)
 			continue
