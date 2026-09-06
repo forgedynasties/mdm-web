@@ -145,6 +145,37 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
      hx-trigger="commands-feed-update from:body, every 30s">
 
 <!-- Status context tabs -->
+
+<script>
+  // "Show admin actions" (admins only): admin-level action types — shell, boot logo,
+  // OTA — are hidden from the pill picker and the history lists unless switched on.
+  // Remembered per browser; default off.
+  (function () {
+    var KEY = 'mdm-show-admin-actions';
+    function apply(on) {
+      document.querySelectorAll('.adm-toggle input').forEach(function (i) { i.checked = on; });
+      document.documentElement.classList.toggle('hide-admin-actions', !on);
+      // if the selected pill is an admin action being hidden, fall back to Install app
+      var sel = document.querySelector('.pill.on[data-admin]');
+      if (!on && sel && typeof selectType === 'function') { var d = document.querySelector('.pill[data-type="install_apk"]'); if (d) selectType('install_apk', d); }
+      if (typeof filterCommands === 'function') { try { filterCommands(); } catch (e) {} }
+      if (typeof filterHistory === 'function') { try { filterHistory(); } catch (e) {} }
+    }
+    window.mdmAdminActions = function (on) { try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(on); };
+    var on = false; try { on = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    // the toggle may sit later in the page than this script: apply now (hides rows
+    // before first paint) and again once the DOM is complete (syncs the checkbox)
+    apply(on);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(on); });
+  })();
+</script>
+<style>
+  .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .adm-toggle input{margin:0}
+  html.hide-admin-actions .pill[data-admin]{display:none}
+  html.hide-admin-actions .htrow[data-admin]{display:none}
+  html.hide-admin-actions #filter-type option[data-admin]{display:none}
+</style>
 <div class="hist-tabs">
   <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
   <a class="hist-tab{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention">Needs attention <span class="cnt">{{.AttnCount}}</span></a>
@@ -156,6 +187,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   <div class="card-header cc-ch">
     <h3>{{.Heading}} <span class="muted small" style="font-weight:500;">· {{.Total}}</span></h3>
     <div class="right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      {{if canAdmin .Role}}<label class="adm-toggle" title="Shell, boot logo and OTA actions are admin-level; hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
         <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
@@ -164,10 +196,10 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
         <option value="install_apk"{{if eq .FilterType "install_apk"}} selected{{end}}>Install app</option>
         <option value="uninstall"{{if eq .FilterType "uninstall"}} selected{{end}}>Uninstall</option>
-        <option value="shell"{{if eq .FilterType "shell"}} selected{{end}}>Shell</option>
+        <option value="shell" data-admin="1"{{if eq .FilterType "shell"}} selected{{end}}>Shell</option>
         <option value="screenshot"{{if eq .FilterType "screenshot"}} selected{{end}}>Screenshot</option>
         <option value="reboot"{{if eq .FilterType "reboot"}} selected{{end}}>Reboot</option>
-        <option value="update_splash"{{if eq .FilterType "update_splash"}} selected{{end}}>Boot logo</option>
+        <option value="update_splash" data-admin="1"{{if eq .FilterType "update_splash"}} selected{{end}}>Boot logo</option>
       </select>
     </div>
   </div>

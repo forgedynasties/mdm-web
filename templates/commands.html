@@ -406,17 +406,48 @@
 </div>
 {{end}}
 
+
+<script>
+  // "Show admin actions" (admins only): admin-level action types — shell, boot logo,
+  // OTA — are hidden from the pill picker and the history lists unless switched on.
+  // Remembered per browser; default off.
+  (function () {
+    var KEY = 'mdm-show-admin-actions';
+    function apply(on) {
+      document.querySelectorAll('.adm-toggle input').forEach(function (i) { i.checked = on; });
+      document.documentElement.classList.toggle('hide-admin-actions', !on);
+      // if the selected pill is an admin action being hidden, fall back to Install app
+      var sel = document.querySelector('.pill.on[data-admin]');
+      if (!on && sel && typeof selectType === 'function') { var d = document.querySelector('.pill[data-type="install_apk"]'); if (d) selectType('install_apk', d); }
+      if (typeof filterCommands === 'function') { try { filterCommands(); } catch (e) {} }
+      if (typeof filterHistory === 'function') { try { filterHistory(); } catch (e) {} }
+    }
+    window.mdmAdminActions = function (on) { try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {} apply(on); };
+    var on = false; try { on = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    // the toggle may sit later in the page than this script: apply now (hides rows
+    // before first paint) and again once the DOM is complete (syncs the checkbox)
+    apply(on);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { apply(on); });
+  })();
+</script>
+<style>
+  .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .adm-toggle input{margin:0}
+  html.hide-admin-actions .pill[data-admin]{display:none}
+  html.hide-admin-actions .htrow[data-admin]{display:none}
+  html.hide-admin-actions #filter-type option[data-admin]{display:none}
+</style>
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
   <!-- DISPATCH BAR — pick an action, command-palette style -->
   <!-- Inline pill picker — every action visible, one tap to switch -->
   <div class="pick-wrap dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
-    <div class="pick-cap">Choose an action</div>
+    <div class="pick-cap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">Choose an action {{if canAdmin .Role}}<label class="adm-toggle" title="Shell, boot logo and OTA actions are admin-level; hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}</div>
     <div class="pills" role="radiogroup" aria-label="Choose an action">
       <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
       {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
-      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
+      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" data-admin="1" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
       {{if canAdminOrOperator .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
     </div>
@@ -676,6 +707,7 @@
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg></span>
     <h3>History</h3>
     <div class="right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      {{if canAdmin .Role}}<label class="adm-toggle" title="Shell, boot logo and OTA actions are admin-level; hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
           <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
@@ -686,7 +718,7 @@
         <option value="">All Types</option>
         <option value="install_apk">Install APK</option>
         <option value="uninstall">Uninstall</option>
-        <option value="shell">Shell</option>
+        <option value="shell" data-admin="1">Shell</option>
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
       </select>
@@ -1645,7 +1677,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{$total := add (add $s.Completed $s.Failed) (add $s.Pending $s.Delivered)}}
 {{$rest := add $s.Pending $s.Delivered}}
 {{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
-<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
+<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}"{{if or (eq $c.Type "shell") (eq $c.Type "update_splash") (eq $c.Type "ota")}} data-admin="1"{{end}} data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   {{if .Batch}}
   <a class="ht-dotwrap {{$state}} cluster n{{len .Batch}}" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML" title="{{len .Batch}} apps in one send">
     {{range $i, $m := .Batch}}{{if lt $i 3}}{{$ic := index $.AppIcons $m.ApkURL}}<span class="ci">{{if $ic}}<img src="{{iconSrc $ic}}" alt="">{{else}}{{$nm := index $.AppNames $m.ApkURL}}{{if $nm}}{{slice $nm 0 1}}{{else}}·{{end}}{{end}}</span>{{end}}{{end}}

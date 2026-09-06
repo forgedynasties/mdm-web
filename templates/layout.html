@@ -226,9 +226,12 @@
           <span class="av">{{if and .CurrentBubble .CurrentBubble.URL}}<img class="av-img" src="{{.CurrentBubble.URL}}" alt="">{{else if .CurrentUser}}{{slice .CurrentUser 0 1}}{{else}}?{{end}}</span>
         </button>
         <div class="nbar-pop nbar-menu" id="acct-pop" hidden>
-          <div class="nbar-mhead">
+          <div class="nbar-mhead" style="display:flex;align-items:center;gap:10px;">
+            {{if and .CurrentBubble .CurrentBubble.URL}}<img src="{{.CurrentBubble.URL}}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none;">{{else}}<span class="ubub" style="width:34px;height:34px;font-size:15px;">{{if .CurrentUser}}{{slice .CurrentUser 0 1}}{{else}}?{{end}}</span>{{end}}
+            <div>
             <div class="n">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown User{{end}}</div>
             <div class="e">{{if .Role}}{{roleLabel .Role}}{{else}}unknown{{end}} · v{{.Version}}</div>
+            </div>
           </div>
           <a class="nbar-mi js-dest" data-cmdk-label="My profile" href="/profile">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
