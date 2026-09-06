@@ -2733,14 +2733,79 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 	h.requireAuth(h.Overview)(w, r)
 }
 
-// Landing renders the marketing/entry page: what the MDM does, sign in, sign up.
+// Landing renders the entry page for staff: what the MDM does, guides, FAQ, the
+// training videos (streamed from S3 via short-lived presigned URLs), sign in, sign up.
 func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	h.tmpl.ExecuteTemplate(w, "landing.html", map[string]any{
 		"Brand":         h.cfg.CustomBrand(),
 		"AssetVer":      h.assetVer,
 		"SignupEnabled": true,
+		"Training":      h.trainingVideos(r.Context()),
 	})
+}
+
+// trainingChapter is one entry of training/manifest.json in the S3 bucket (written by
+// tools/reel/publish-training.sh) plus presigned URLs for the page.
+type trainingChapter struct {
+	ID       string `json:"id"`
+	Number   int    `json:"number"`
+	Title    string `json:"title"`
+	Intro    string `json:"intro"`
+	Steps    int    `json:"steps"`
+	Duration int    `json:"duration"` // seconds
+	Video    string `json:"-"`
+	Poster   string `json:"-"`
+}
+
+const trainingPresignTTL = 6 * time.Hour
+
+var (
+	trainingMu     sync.Mutex
+	trainingCache  []trainingChapter
+	trainingCached time.Time
+)
+
+// trainingVideos returns the chapters with presigned URLs, cached for 5 minutes so the
+// landing page does not hit S3 on every visit. Empty when S3 is not configured or the
+// manifest is missing; the template hides the section then.
+func (h *Handler) trainingVideos(ctx context.Context) []trainingChapter {
+	if h.apk == nil {
+		return nil
+	}
+	trainingMu.Lock()
+	defer trainingMu.Unlock()
+	if time.Since(trainingCached) < 5*time.Minute {
+		return trainingCache
+	}
+	trainingCached = time.Now() // also caches a miss, so a missing manifest is cheap
+	body, _, _, _, err := h.apk.Get(ctx, "training/manifest.json", "")
+	if err != nil {
+		trainingCache = nil
+		return nil
+	}
+	defer body.Close()
+	var m struct{ Chapters []trainingChapter `json:"chapters"` }
+	if err := json.NewDecoder(body).Decode(&m); err != nil {
+		log.Printf("[landing] training manifest: %v", err)
+		trainingCache = nil
+		return nil
+	}
+	out := m.Chapters[:0]
+	for _, c := range m.Chapters {
+		v, err1 := h.apk.PresignGet(ctx, "training/"+c.ID+".mp4", trainingPresignTTL)
+		p, err2 := h.apk.PresignGet(ctx, "training/"+c.ID+".jpg", trainingPresignTTL)
+		if err1 != nil {
+			continue
+		}
+		c.Video = v
+		if err2 == nil {
+			c.Poster = p
+		}
+		out = append(out, c)
+	}
+	trainingCache = out
+	return out
 }
 
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {

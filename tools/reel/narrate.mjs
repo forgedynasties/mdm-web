@@ -13,7 +13,18 @@ mkdirSync(DIR, { recursive: true });
 const PIPER = new URL("./bin/piper/piper", import.meta.url).pathname;
 const VOICE = new URL(`./voices/${process.env.VOICE || "en_US-lessac-medium"}.onnx`, import.meta.url).pathname;
 
+// Pronunciation for the voice only; captions keep the written form.
+const spoken = (t) => t
+  .replace(/AIO MDM/g, "A I O app M D M")
+  .replace(/\bAIO\b/g, "A I O app")
+  .replace(/\bMDM\b/g, "M D M")
+  .replace(/\bOTA\b/g, "O T A")
+  .replace(/\bAPK\b/g, "A P K")
+  .replace(/\bA\/B\b/g, "A B")
+  .replace(/Wi-Fi/g, "wifi");
+
 const say = (name, text) => {
+  text = spoken(text);
   const wav = `${DIR}${name}.wav`;
   // small pause at the end so captions don't cut the last word
   execFileSync(PIPER, ["--model", VOICE, "--output_file", wav, "--sentence_silence", "0.35", "--length_scale", "1.05"], { input: text, stdio: ["pipe", "ignore", "ignore"] });

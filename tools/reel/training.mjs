@@ -6,13 +6,15 @@
 
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, renameSync, readdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdirSync, renameSync, readdirSync, rmSync, writeFileSync, readFileSync, appendFileSync } from "node:fs";
 
 const id = process.argv[2] || "ch01";
 const ch = (await import(`./chapters/${id}.mjs`)).default;
 const BASE = process.env.MDM_URL || "http://127.0.0.1:8082";
 const ZOOM = parseFloat(process.env.REEL_ZOOM || "1.45");
-const W = 1920, H = 1080;
+// Recorded at the exact size of the video slot in the Remotion layout, so nothing
+// (top bar, bottom dock) is cropped away.
+const W = 1792, H = 800;
 const DIR = new URL(`./out/training/${id}/`, import.meta.url).pathname;
 mkdirSync(DIR, { recursive: true });
 const narration = JSON.parse(readFileSync(`${DIR}narration.json`, "utf8"));
@@ -38,7 +40,7 @@ const OVERLAY_JS = `(() => {
 })();`;
 
 class Scene {
-  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.BASE = BASE; this.HERO = HERO; }
+  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.BASE = BASE; this.HERO = HERO; this.OPS_USER = process.env.OPS_USER || "ops@aioapp.com"; this.OPS_PASS = process.env.OPS_PASS || "OpsDemo2026!"; }
   now() { return Date.now() - this.t0; }
   locator(t) { return typeof t === "string" ? this.page.locator(t).first() : t; }
   async box(target) {
@@ -46,7 +48,7 @@ class Scene {
     await el.waitFor({ state: "visible", timeout: 10000 });
     await el.scrollIntoViewIfNeeded();
     let b = await el.boundingBox(); if (!b) return null;
-    if (b.y < 160 || b.y + b.height > H - 170) { await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "instant" })); await sleep(350); b = await el.boundingBox(); }
+    if (b.y < 150 || b.y + b.height > H - 150) { await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "instant" })); await sleep(350); b = await el.boundingBox(); }
     return b;
   }
   async glide(target, { dur = 900, offset = { x: 0, y: 0 } } = {}) { const b = await this.box(target); if (!b) return; await this.moveTo(b.x + b.width / 2 + offset.x, b.y + b.height / 2 + offset.y, dur); }
@@ -59,8 +61,28 @@ class Scene {
   async type(text, { secret = false } = {}) { for (const ch of text) { await this.page.keyboard.type(ch); await sleep(secret ? 70 : 90 + Math.random() * 60); } }
   async scroll(px, dur = 900) { const n = Math.max(10, Math.round(dur / 40)); for (let i = 0; i < n; i++) { await this.page.mouse.wheel(0, px / n); await sleep(dur / n); } }
   async zoom() { await this.page.evaluate((z) => { document.body.style.zoom = z; }, ZOOM).catch(() => {}); }
-  async reloaded() { await this.page.waitForLoadState("load").catch(() => {}); await this.zoom(); }
+  async reloaded() { await this.page.waitForLoadState("load").catch(() => {}); await this.zoom(); await this.noTour(); }
+  // a fresh account gets the guided tour on first load; skip it so it never covers a step
+  async noTour() {
+    const skip = this.page.locator(".tour-skip");
+    if (await skip.isVisible().catch(() => false)) { await skip.click().catch(() => {}); await sleep(400); }
+  }
   async hold(ms) { await sleep(ms); }
+  // ---- scenario helpers
+  sql(q) { return sql(q); }
+  sim(cmd) { appendFileSync(new URL("./out/sim.cmd", import.meta.url).pathname, cmd + "\n"); }
+  // a device of the demo fleet: healthy online tablet by default
+  pick(where = "product = 't7' AND last_seen_at > now() - interval '10 minutes'", offset = 0) {
+    return sql(`SELECT serial_number FROM devices WHERE restaurant_id IN (SELECT id FROM restaurants WHERE notes = 'reel-seed') AND ${where} ORDER BY serial_number OFFSET ${offset} LIMIT 1`);
+  }
+  // fire an alert now (the rule engine runs once a minute; on camera we don't wait)
+  alert(serial, type, severity, summary, detail = {}) {
+    sql(`INSERT INTO alerts (rule_id, type, device_id, severity, status, summary, detail)
+         SELECT r.id, '${type}', d.id, '${severity}', 'open', '${summary.replace(/'/g, "''")}', '${JSON.stringify(detail)}'
+         FROM devices d LEFT JOIN alert_rules r ON r.type = '${type}' WHERE d.serial_number = '${serial}' LIMIT 1
+         ON CONFLICT DO NOTHING`);
+  }
+  resolveAlerts(serial, type) { sql(`UPDATE alerts SET status='resolved', resolved_at=now() WHERE device_id=(SELECT id FROM devices WHERE serial_number='${serial}') AND type='${type}' AND status<>'resolved'`); }
 }
 
 const browser = await chromium.launch();
@@ -75,7 +97,9 @@ const marks = [];
 for (const st of ch.steps) {
   const start = s.now();
   process.stdout.write(`▶ ${st.id} … `);
+  await s.noTour();
   try { await st.run(s); } catch (e) { console.log(`\n   ! ${st.id}: ${e.message.split("\n")[0]}`); }
+  await s.noTour();
   // hold until the narration (which starts with the step) has finished, plus a beat
   const need = narration.steps[st.id].dur * 1000 + 700;
   const elapsed = s.now() - start;

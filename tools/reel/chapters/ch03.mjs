@@ -1,0 +1,26 @@
+// Chapter 3 — A device goes offline. Scenario: the simulator drops one tablet,
+// the alert fires, we find it, it comes back, the alert clears.
+export default {
+  id: "ch03",
+  number: 3,
+  title: "A device goes offline",
+  intro: "Chapter three. A device goes offline. What you see, what you do, how you know it is fixed.",
+  theme: "light",
+  login: true,
+  setup: async (s) => { s.target = s.pick("product = 't7' AND last_seen_at > now() - interval '10 minutes'", 3); s.sim(`offline ${s.target}`); await s.hold(4000); s.alert(s.target, "offline", "warning", "Offline — last check-in 6m ago", { offline_minutes: 6 }); },
+  teardown: async (s) => { s.sim(`online ${s.target}`); },
+  steps: [
+    { id: "bell", text: "It starts with the bell. An offline alert means the agent's live connection dropped and stayed down past the grace period.",
+      run: async (s) => { await s.page.goto(s.BASE + "/alerts", { waitUntil: "load" }); await s.zoom(); await s.hold(800); await s.glide("text=Offline >> nth=0", { dur: 1000 }).catch(() => {}); } },
+    { id: "open", text: "Open the device from the alert. The header confirms it: offline, and when it was last seen.",
+      run: async (s) => { await s.page.goto(s.BASE + "/devices/" + s.target, { waitUntil: "load" }); await s.zoom(); await s.hold(800); await s.glide("text=Offline >> nth=0", { dur: 900 }).catch(() => {}); } },
+    { id: "why", text: "Check the last vitals before it dropped. Wi-Fi signal and battery tell you whether it lost power, lost the network, or was carried out of range.",
+      run: async (s) => { await s.click("button:has-text('24h')").catch(() => {}); await s.hold(1500); await s.scroll(300, 800); await s.hold(800); } },
+    { id: "call", text: "If the venue is open, ask staff whether the unit is on its pad and the router has lights. That solves most cases without us touching anything.",
+      run: async (s) => { await s.click("#dd-tab-history").catch(() => {}); await s.hold(1800); } },
+    { id: "back", text: "When it reconnects, the header flips to online on its own, and the offline alert resolves itself. Nothing to close by hand.",
+      run: async (s) => { s.sim(`online ${s.target}`); await s.hold(5000); await s.page.reload({ waitUntil: "load" }); await s.zoom(); s.resolveAlerts(s.target, "offline"); await s.hold(1200); await s.glide("text=Online >> nth=0", { dur: 900 }).catch(() => {}); } },
+    { id: "still", text: "Still offline after the venue checked? Note it on the device and hand it to hardware. The note travels with the serial.",
+      run: async (s) => { await s.glide("textarea[name=notes]", { dur: 900 }).catch(() => {}); await s.hold(600); } },
+  ],
+};

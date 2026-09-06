@@ -1,0 +1,25 @@
+// Chapter 6 — Push an action to a venue (reboot + install app walkthrough).
+export default {
+  id: "ch06",
+  number: 6,
+  title: "Send an action to a venue",
+  intro: "Chapter six. Sending an action to a whole venue, and watching it land.",
+  theme: "light",
+  login: true,
+  steps: [
+    { id: "page", text: "Actions is where you send things to devices: install or uninstall an app, reboot, screenshot, a shell command, or a kiosk lock.",
+      run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(800); for (const t of ["install_apk", "uninstall", "screenshot", "reboot", "set_kiosk"]) { await s.glide(`.pill[data-type='${t}']`, { dur: 450 }).catch(() => {}); await s.hold(150); } } },
+    { id: "pick", text: "Pick the action first. We will reboot, which needs no configuration.",
+      run: async (s) => { await s.click(".pill[data-type='reboot']"); await s.hold(1200); } },
+    { id: "target", text: "Then the target. A restaurant, a group, or paste a list of serials. The count on the right tells you how many devices that reaches, online and offline.",
+      run: async (s) => { await s.click("#scope-rail .sri[data-mode='restaurant'] >> nth=1"); await s.hold(1500); await s.glide("#cmd-impact", { dur: 900 }).catch(() => {}); } },
+    { id: "refine", text: "Refine narrows it: online only, low battery, in kiosk. Offline devices get the action when they reconnect.",
+      run: async (s) => { await s.glide("text=Online only >> nth=0", { dur: 800 }).catch(() => {}); await s.hold(800); } },
+    { id: "send", text: "Send. Each device acknowledges as it receives and completes the action, and the board updates live.",
+      run: async (s) => { await s.click("#send-btn"); await s.page.waitForURL(/\/commands\//, { timeout: 15000 }).catch(() => {}); await s.reloaded(); await s.hold(5000); } },
+    { id: "apps", text: "Install app works the same way. Choose the APK from the library, target, send. Progress shows download and install per device.",
+      run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(500); await s.click(".pill[data-type='install_apk']"); await s.hold(500); await s.click("#apk-picker").catch(() => {}); await s.hold(2000); await s.page.keyboard.press("Escape"); } },
+    { id: "history", text: "History keeps every action with who sent it and what each device answered. Resend or duplicate from there.",
+      run: async (s) => { await s.page.goto(s.BASE + "/commands", { waitUntil: "load" }); await s.zoom(); await s.hold(400); await s.click("a:has-text('History')").catch(() => {}); await s.reloaded(); await s.hold(1800); } },
+  ],
+};

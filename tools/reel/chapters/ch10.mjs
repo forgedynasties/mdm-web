@@ -1,0 +1,25 @@
+// Chapter 10 — Alerts: triage, acknowledge, resolve, where the rules live.
+export default {
+  id: "ch10",
+  number: 10,
+  title: "Working the alerts",
+  intro: "Chapter ten. Working the alerts. Triage, acknowledge, resolve, and where the thresholds live.",
+  theme: "light",
+  login: true,
+  steps: [
+    { id: "page", text: "The Alerts page is the inbox. Open alerts first, sorted by severity. The counters at the top tell you how many need a decision now.",
+      run: async (s) => { await s.page.goto(s.BASE + "/alerts", { waitUntil: "load" }); await s.zoom(); await s.hold(1500); } },
+    { id: "read", text: "Each alert says what happened, on which device, at which venue, and what to do. That last line is the point: you should not need to decode anything.",
+      run: async (s) => { await s.glide("a:has-text('Open device') >> nth=0", { dur: 900 }).catch(() => {}); await s.hold(1200); } },
+    { id: "filters", text: "Filter by type, severity or venue when the list is long. The same filters work on the device page's Alerts tab.",
+      run: async (s) => { await s.glide("text=Needs action >> nth=0", { dur: 800 }).catch(() => {}); await s.hold(500); await s.glide("text=Watching >> nth=0", { dur: 700 }).catch(() => {}); await s.hold(500); } },
+    { id: "ack", text: "Acknowledge means I own this. It stays open but stops nagging the team. Resolve closes it by hand when the condition will not clear on its own.",
+      run: async (s) => { await s.click("form[action$='/ack'] button >> nth=0").catch(() => {}); await s.reloaded(); await s.hold(1500); await s.glide("form[action$='/resolve'] button >> nth=0", { dur: 800 }).catch(() => {}); } },
+    { id: "auto", text: "Most alerts resolve themselves: offline clears when the device reconnects, overheating when it cools, storage when space frees up.",
+      run: async (s) => { await s.scroll(400, 900); await s.hold(1500); } },
+    { id: "rules", text: "Thresholds live under Alert rules, admins only. Service windows and peak hours are set per venue, so a device is not 'offline during peak' at three in the morning.",
+      run: async (s) => { await s.scroll(-800, 600); await s.glide("a[href='/alert-config'], text=Alert rules >> nth=0", { dur: 900 }).catch(() => {}); await s.hold(1500); } },
+    { id: "channels", text: "Alerts also go to the notification channels an admin configured, so the ops channel gets the same line you see here.",
+      run: async (s) => { await s.glide("text=Open alerts >> nth=0", { dur: 800 }).catch(() => {}); await s.hold(1200); } },
+  ],
+};

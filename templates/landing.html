@@ -24,7 +24,15 @@
   <style>
     .ld-body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
     .ld-wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    .ld-navwrap { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid transparent; }
+    .ld-navwrap.stuck { border-bottom-color: var(--border); }
     .ld-nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+    .ld-glow { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+    .ld-glow i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; }
+    .ld-glow i:nth-child(1) { width: 640px; height: 640px; left: -160px; top: -200px; background: #f9674e; opacity: .22; }
+    .ld-glow i:nth-child(2) { width: 520px; height: 520px; right: -120px; top: 120px; background: #8f6fdb; opacity: .2; }
+    [data-theme="dark"] .ld-glow i:nth-child(1) { opacity: .16; } [data-theme="dark"] .ld-glow i:nth-child(2) { opacity: .16; }
+    .ld-hero { position: relative; }
     .ld-brand { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 22px; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
     .ld-brand b { color: var(--accent); font-weight: 700; }
     .ld-nav-links { display: flex; align-items: center; gap: 10px; }
@@ -64,7 +72,24 @@
     .ld-pill { position: absolute; right: -14px; top: -16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 10px 14px; font-size: 13px; font-weight: 650; box-shadow: 0 12px 30px rgba(0,0,0,.16); display: flex; gap: 8px; align-items: center; }
     .ld-pill i { width: 9px; height: 9px; border-radius: 50%; background: #22a06b; box-shadow: 0 0 0 4px rgba(34,160,107,.2); }
 
-    .ld-section { padding: 48px 0; }
+    .ld-frame { position: relative; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 40px 90px rgba(60,40,90,.22), 0 2px 6px rgba(0,0,0,.06); overflow: visible; transform: perspective(1600px) rotateY(-6deg) rotateX(2deg); transform-origin: 60% 50%; }
+    .ld-frame-bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; background: var(--surface); }
+    .ld-frame-bar i { width: 10px; height: 10px; border-radius: 50%; background: #e0453b; } .ld-frame-bar i:nth-child(2) { background: #d9a520; } .ld-frame-bar i:nth-child(3) { background: #22a06b; }
+    .ld-frame-bar span { margin-left: 10px; font-size: 12px; color: var(--muted); background: var(--bg); border-radius: 6px; padding: 3px 10px; }
+    .ld-frame-img { display: block; width: 100%; height: auto; border-radius: 0 0 16px 16px; }
+    .ld-img-dark { display: none; } [data-theme="dark"] .ld-img-dark { display: block; } [data-theme="dark"] .ld-img-light { display: none; }
+    .ld-frame picture { display: contents; }
+    .ld-frame-sm { transform: perspective(1600px) rotateY(6deg) rotateX(2deg); }
+    .ld-pill-2 { right: auto; left: -18px; top: auto; bottom: 36px; } .ld-pill-2::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+    .ld-band { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: center; }
+    .ld-band .ld-h2 { font-size: 36px; }
+    .ld-roles .ld-card { position: relative; }
+    .ld-role { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); background: rgba(249,103,78,.12); padding: 5px 10px; border-radius: 999px; margin-bottom: 12px; }
+    .ld-role-mid { border-color: rgba(249,103,78,.5); box-shadow: 0 0 0 4px rgba(249,103,78,.08); }
+    .ld-card { transition: transform .15s ease, box-shadow .15s ease; }
+    .ld-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,.08); }
+    .ld-h1 { text-wrap: balance; }
+    .ld-section { padding: 56px 0; }
     .ld-h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; letter-spacing: -.02em; margin: 0 0 8px; }
     .ld-lead { color: var(--muted); font-size: 16px; margin: 0 0 26px; max-width: 60ch; }
     .ld-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
@@ -84,6 +109,37 @@
     .ld-cmp li { padding: 9px 0; border-top: 1px solid var(--border); font-size: 15px; }
     .ld-cmp .them li { color: var(--muted); }
 
+    .ld-vids { grid-template-columns: repeat(3, 1fr); }
+    .ld-vid { text-align: left; cursor: pointer; padding: 0; overflow: hidden; font: inherit; color: inherit; transition: transform .15s ease, box-shadow .15s ease; }
+    .ld-vid:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,.14); }
+    .ld-vid-poster { position: relative; aspect-ratio: 16/9; background: #0f1115 center/cover no-repeat; }
+    .ld-vid-play { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; box-shadow: 0 10px 28px rgba(249,103,78,.45); }
+    .ld-vid-play svg { width: 26px; height: 26px; fill: #fff; margin-left: 3px; }
+    .ld-vid-dur { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+    .ld-vid-meta { padding: 16px 18px 18px; }
+    .ld-vid-num { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+    .ld-vid-meta h3 { margin: 4px 0 6px; font-size: 17px; }
+    .ld-vid-meta p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .ld-player[hidden] { display: none; }
+    .ld-player { position: fixed; inset: 0; z-index: 50; background: rgba(10,10,12,.78); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .ld-player-box { width: min(1200px, 100%); background: var(--surface); border-radius: 18px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.5); }
+    .ld-player-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 16px; }
+    .ld-player video { display: block; width: 100%; aspect-ratio: 16/9; background: #000; }
+    .ld-guide { position: relative; }
+    .ld-gnum { position: absolute; right: 18px; top: 16px; width: 30px; height: 30px; border-radius: 50%; background: rgba(249,103,78,.12); color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+    .ld-guide ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+    .ld-guide li + li { margin-top: 6px; }
+    .ld-guide em { font-style: normal; font-weight: 650; color: var(--text); }
+    .ld-guide kbd { font-family: var(--font); font-size: 12px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; background: var(--surface); }
+    .ld-faq { display: grid; gap: 10px; max-width: 900px; }
+    .ld-faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0 20px; }
+    .ld-faq summary { cursor: pointer; list-style: none; padding: 16px 0; font-weight: 650; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .ld-faq summary::-webkit-details-marker { display: none; }
+    .ld-faq summary::after { content: "+"; color: var(--accent); font-size: 22px; font-weight: 600; }
+    .ld-faq details[open] summary::after { content: "–"; }
+    .ld-faq p { margin: 0 0 16px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .ld-faq em { font-style: normal; font-weight: 650; color: var(--text); }
+    .ld-faq a { color: var(--accent); }
     .ld-final { border-radius: 24px; padding: 44px; background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
     .ld-final h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; margin: 0 0 6px; letter-spacing: -.02em; }
     .ld-final p { margin: 0; opacity: .9; }
@@ -92,6 +148,8 @@
     .ld-foot a { color: var(--muted); text-decoration: none; margin-left: 16px; }
 
     @media (max-width: 900px) {
+      .ld-vids, .ld-band, .ld-roles { grid-template-columns: 1fr; }
+      .ld-frame, .ld-frame-sm { transform: none; }
       .ld-hero { grid-template-columns: 1fr; padding-top: 28px; }
       .ld-grid, .ld-cmp { grid-template-columns: 1fr; }
       .ld-tiles { grid-template-columns: repeat(3, 1fr); }
@@ -101,49 +159,44 @@
   </style>
 </head>
 <body class="ld-body">
-  <div class="ld-wrap">
+  <div class="ld-navwrap" id="ld-navwrap"><div class="ld-wrap">
     <nav class="ld-nav" aria-label="Landing navigation">
       <a class="ld-brand" href="/"><b>AIO</b> {{if .Brand}}{{.Brand}}{{else}}MDM{{end}}</a>
       <div class="ld-nav-links">
+        <a class="ld-btn ld-ghost" href="#training">Training</a>
+        <a class="ld-btn ld-ghost" href="#guides">Guides</a>
+        <a class="ld-btn ld-ghost" href="#faq">FAQ</a>
         <a class="ld-btn ld-ghost" href="/login">Sign in</a>
         {{if .SignupEnabled}}<a class="ld-btn" href="/signup">Sign up</a>{{end}}
         <a class="ld-btn primary" href="/login">Take me to the dashboard
           <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
       </div>
     </nav>
-
+  </div></div>
+  <div class="ld-wrap">
     <section class="ld-hero">
+      <div class="ld-glow" aria-hidden="true"><i></i><i></i></div>
       <div>
         <div class="ld-kicker"><i></i> Built in-house · AIO</div>
         <h1 class="ld-h1">Every kiosk and tablet,<br><span>under control.</span></h1>
-        <p class="ld-sub">AIO MDM is the fleet dashboard our team designed, wrote and runs for our own restaurant devices. Live health, geolocation, remote control and firmware updates, from one screen.</p>
+        <p class="ld-sub">AIO MDM is the fleet dashboard for our restaurant kiosks and tablets. Live health, geolocation, remote control and firmware updates, from one screen. For AIO staff.</p>
         <div class="ld-cta">
           <a class="ld-btn primary lg" href="/login">Take me to the dashboard
             <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
           <a class="ld-btn lg" href="/login">Sign in</a>
           {{if .SignupEnabled}}<a class="ld-btn lg ld-ghost" href="/signup">Create an account</a>{{end}}
-          <div class="ld-cta-note">Staff accounts use an @aioapp.com email. Ask an admin for operator or admin rights.</div>
-        </div>
-        <div class="ld-stats">
-          <div class="ld-stat"><b>Live</b><span>WebSocket telemetry</span></div>
-          <div class="ld-stat"><b>A/B</b><span>seamless OTA</span></div>
-          <div class="ld-stat"><b>0</b><span>per-device fees</span></div>
+          <div class="ld-cta-note">Sign up with your @aioapp.com email. New accounts start as viewer; ask an admin for operator or admin rights.</div>
         </div>
       </div>
-      <div class="ld-shot" aria-hidden="true">
+      <div class="ld-frame" aria-hidden="true">
+        <div class="ld-frame-bar"><i></i><i></i><i></i><span>mdm.aioapp.com</span></div>
+        <picture>
+          <source srcset="/static/img/landing/overview-dark.png" media="(prefers-color-scheme: dark)" class="ld-src-dark">
+          <img class="ld-frame-img ld-img-light" src="/static/img/landing/overview-light.png" alt="" width="1440" height="900">
+        </picture>
+        <img class="ld-frame-img ld-img-dark" src="/static/img/landing/overview-dark.png" alt="" width="1440" height="900">
         <div class="ld-pill"><i></i> 55 of 58 online</div>
-        <div class="ld-shot-card">
-          <div class="ld-shot-head"><b>Overview</b><span>Sunday · 5 sites need a look</span></div>
-          <div class="ld-ring"><div class="r"><i>68</i></div><div class="t"><b>Fleet health</b><span>7-day window · steady vs prior week</span></div></div>
-          <div class="ld-tiles">
-            <div class="ld-tile"><span>Online</span><b class="ok">55</b></div>
-            <div class="ld-tile"><span>Offline</span><b class="warn">3</b></div>
-            <div class="ld-tile"><span>Low battery</span><b class="warn">2</b></div>
-            <div class="ld-tile"><span>Overheating</span><b>0</b></div>
-            <div class="ld-tile"><span>Crashes · 24h</span><b class="bad">1</b></div>
-            <div class="ld-tile"><span>Open alerts</span><b class="warn">8</b></div>
-          </div>
-        </div>
+        <div class="ld-pill ld-pill-2">Alert resolved · Harbor Grill</div>
       </div>
     </section>
 
@@ -160,28 +213,82 @@
       </div>
     </section>
 
-    <section class="ld-section">
-      <h2 class="ld-h2">Why not buy one?</h2>
-      <p class="ld-lead">Off-the-shelf MDMs manage generic Android and charge per seat. Ours knows our hardware and ships our firmware.</p>
-      <div class="ld-cmp">
-        <div class="ld-card them"><h3>Off-the-shelf MDM</h3><ul><li>Per-device, per-month fees</li><li>Generic Android, no idea what a charging pad is</li><li>Manages apps, not firmware</li><li>Alerts you have to decode</li><li>Your fleet data on their cloud</li></ul></div>
-        <div class="ld-card us"><h3>AIO MDM</h3><ul><li>No seat fees, ever</li><li>Knows our hardware: pads, kiosks, venues</li><li>Ships whole builds over the air</li><li>Alerts in plain language, with the fix</li><li>Our servers, our data</li></ul></div>
+
+
+    <section class="ld-section ld-band">
+      <div class="ld-band-text">
+        <div class="ld-kicker"><i></i> Geolocation</div>
+        <h2 class="ld-h2">Every device on the map</h2>
+        <p class="ld-lead">Position resolved from the Wi-Fi networks a device can see. No GPS, works indoors, clustered by venue. Click a device to fly to it.</p>
+        <a class="ld-btn" href="/login">Open the map <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <div class="ld-frame ld-frame-sm" aria-hidden="true">
+        <div class="ld-frame-bar"><i></i><i></i><i></i><span>mdm.aioapp.com/map</span></div>
+        <img class="ld-frame-img ld-img-light" src="/static/img/landing/map-light.png" alt="" width="1440" height="900">
+        <img class="ld-frame-img ld-img-dark" src="/static/img/landing/map-dark.png" alt="" width="1440" height="900">
       </div>
     </section>
 
     <section class="ld-section">
-      <h2 class="ld-h2">The stack</h2>
-      <p class="ld-lead">Small and fast. One box runs the fleet.</p>
-      <div class="ld-stack">
-        <span class="ld-chip">Go server</span><span class="ld-chip">PostgreSQL</span><span class="ld-chip">htmx dashboard</span><span class="ld-chip">WebSocket hub</span>
-        <span class="ld-chip">Android agent in our ROM</span><span class="ld-chip">A/B OTA via UpdateEngine</span><span class="ld-chip">Lock-task kiosk</span><span class="ld-chip">H.264 screen capture</span>
-        <span class="ld-chip">Docker Compose</span><span class="ld-chip">S3 for packages</span>
+      <h2 class="ld-h2">Who does what</h2>
+      <p class="ld-lead">Three roles. New accounts start as viewer; an admin raises you when you need more.</p>
+      <div class="ld-grid ld-roles">
+        <div class="ld-card"><span class="ld-role">Viewer</span><h3>See everything</h3><p>Dashboard, devices, alerts, history, map. No changes. Right for support and management.</p></div>
+        <div class="ld-card ld-role-mid"><span class="ld-role">Operator</span><h3>Run the day</h3><p>Send actions, acknowledge alerts, remote control, deploy updates, name and place devices. Ops team.</p></div>
+        <div class="ld-card"><span class="ld-role">Admin</span><h3>Own the setup</h3><p>Users, alert rules, kiosk policies, restaurants, releases, settings. A small group.</p></div>
+      </div>
+    </section>
+
+    {{if .Training}}
+    <section class="ld-section" id="training">
+      <h2 class="ld-h2">Training</h2>
+      <p class="ld-lead">Short chapters, one situation each. Watch the one you need; the whole course is under half an hour.</p>
+      <div class="ld-grid ld-vids">
+        {{range .Training}}
+        <button type="button" class="ld-card ld-vid" data-src="{{.Video}}" data-title="Chapter {{.Number}} · {{.Title}}" onclick="ldPlay(this)">
+          <div class="ld-vid-poster"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}><span class="ld-vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="ld-vid-dur">{{.Duration}}s</span></div>
+          <div class="ld-vid-meta"><span class="ld-vid-num">Chapter {{.Number}}</span><h3>{{.Title}}</h3><p>{{.Intro}}</p></div>
+        </button>
+        {{end}}
+      </div>
+    </section>
+    <div class="ld-player" id="ld-player" hidden onclick="if(event.target===this)ldClose()">
+      <div class="ld-player-box"><div class="ld-player-head"><b id="ld-player-title"></b><button type="button" class="ld-btn" onclick="ldClose()">Close</button></div><video id="ld-player-video" controls playsinline preload="metadata"></video></div>
+    </div>
+    {{end}}
+
+    <section class="ld-section" id="guides">
+      <h2 class="ld-h2">Guides</h2>
+      <p class="ld-lead">The five things people ask ops to do. Each takes a minute once you know where to click.</p>
+      <div class="ld-grid">
+        <div class="ld-card ld-guide"><span class="ld-gnum">1</span><h3>Find a device</h3><ol><li>Press <kbd>Ctrl</kbd> <kbd>K</kbd> or click <em>Search devices</em> in the top bar.</li><li>Type the serial, nickname or venue name.</li><li>Open the device page for vitals, apps, history and placement.</li></ol></div>
+        <div class="ld-card ld-guide"><span class="ld-gnum">2</span><h3>A device shows offline</h3><ol><li>Open the device page and check <em>Last seen</em> and the Wi-Fi history.</li><li>If the venue is open, ask staff whether the unit is on its charging pad.</li><li>Send <em>Reboot</em> from Actions. The alert resolves itself when it comes back.</li></ol></div>
+        <div class="ld-card ld-guide"><span class="ld-gnum">3</span><h3>Push an app to a venue</h3><ol><li>Actions → <em>Install app</em> → choose the APK.</li><li>Target: pick the restaurant, a group, or paste serials.</li><li>Send. Watch acknowledgements land; verify in the device's <em>Applications</em> tab.</li></ol></div>
+        <div class="ld-card ld-guide"><span class="ld-gnum">4</span><h3>Roll out a firmware update</h3><ol><li>Releases → open the release → <em>Deploy</em>.</li><li>Select all eligible devices, or narrow by venue or group.</li><li>Choose the reboot policy and push. Progress is per device; failed units can be retried.</li></ol></div>
+        <div class="ld-card ld-guide"><span class="ld-gnum">5</span><h3>Take over a screen</h3><ol><li>Device page → <em>Remote Control</em> (operator or admin role).</li><li>Tap and type in the browser; use the hardware keys panel for Home and Back.</li><li><em>End session</em> when done. The device returns to kiosk mode on its own.</li></ol></div>
+        <div class="ld-card ld-guide"><span class="ld-gnum">6</span><h3>Onboard a new device</h3><ol><li>Power it on; it checks in and appears under <em>Fleet</em> as unassigned.</li><li>Open it, set a nickname and assign the restaurant and group.</li><li>Confirm the kiosk policy under <em>Policies</em>. Done.</li></ol></div>
+      </div>
+    </section>
+
+    <section class="ld-section" id="faq">
+      <h2 class="ld-h2">FAQ</h2>
+      <p class="ld-lead">For AIO staff. If your question is not here, ask in the ops channel.</p>
+      <div class="ld-faq">
+        <details open><summary>How do I get an account?</summary><p>Sign up with your @aioapp.com email and confirm the verification link. New accounts start as <em>viewer</em>. Ask an admin to raise you to <em>operator</em> (send actions, remote control) or <em>admin</em> (users, policies, releases).</p></details>
+        <details><summary>What can each role do?</summary><p><em>Viewer</em> sees everything but changes nothing. <em>Operator</em> sends actions, acknowledges alerts, runs remote control and deployments. <em>Admin</em> also manages users, alert rules, policies, restaurants and releases. Restaurant owners get a reduced <em>owner</em> view of their own venue.</p></details>
+        <details><summary>What does "online" mean?</summary><p>A live WebSocket connection from the device agent right now. It is not "checked in recently". A device that lost Wi-Fi drops to offline within about a minute and an alert fires after the configured grace period.</p></details>
+        <details><summary>Where does the location come from?</summary><p>The agent reports nearby Wi-Fi networks; the server resolves them to a position. No GPS. Accuracy is roughly building level, which is enough to tell venues apart.</p></details>
+        <details><summary>Why can't I remote-control a device?</summary><p>You need the operator or admin role, the device must be online, and remote control must be enabled in Settings. Only one session per device at a time; a second viewer takes over the first.</p></details>
+        <details><summary>How do I exit kiosk mode on the device itself?</summary><p>Long-press <em>Back</em> and <em>Power</em> together. This is for technicians on site; the device re-locks according to its policy.</p></details>
+        <details><summary>An alert fired. What now?</summary><p>Open it. The text says what happened and what to do. <em>Open device</em> jumps to the unit, <em>Acknowledge</em> tells the team you own it. Alerts resolve on their own once the condition clears.</p></details>
+        <details><summary>Something looks wrong with the dashboard</summary><p>Refresh first. If it persists, note the page, the device serial and the time, and post in the ops channel. The audit log under Users records every action if you need to trace a change.</p></details>
+        <details><summary>I forgot my password</summary><p>Use <a href="/forgot-password">Forgot password</a> on the sign-in page. The reset link goes to your @aioapp.com inbox.</p></details>
       </div>
     </section>
 
     <section class="ld-section">
       <div class="ld-final">
-        <div><h2>Ready to run the fleet?</h2><p>Sign in with your ops account, or create one with your @aioapp.com email.</p></div>
+        <div><h2>Ready to run the fleet?</h2><p>Sign in, or create an account with your @aioapp.com email.</p></div>
         <div class="ld-cta">
           <a class="ld-btn lg" href="/login">Take me to the dashboard <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
           {{if .SignupEnabled}}<a class="ld-btn lg" href="/signup">Sign up</a>{{end}}
@@ -194,5 +301,15 @@
       <div><a href="/login">Sign in</a>{{if .SignupEnabled}}<a href="/signup">Sign up</a>{{end}}<a href="/forgot-password">Forgot password</a></div>
     </footer>
   </div>
+  <script>
+    function ldPlay(btn) {
+      var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video');
+      document.getElementById('ld-player-title').textContent = btn.getAttribute('data-title');
+      v.src = btn.getAttribute('data-src'); p.hidden = false; v.play().catch(function () {});
+    }
+    function ldClose() { var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video'); v.pause(); v.removeAttribute('src'); v.load(); p.hidden = true; }
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ldClose(); });
+    (function () { var n = document.getElementById('ld-navwrap'); function f() { n.classList.toggle('stuck', window.scrollY > 8); } window.addEventListener('scroll', f, { passive: true }); f(); })();
+  </script>
 </body>
 </html>

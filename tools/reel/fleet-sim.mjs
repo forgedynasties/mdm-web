@@ -35,12 +35,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let online = 0;
 
 function connect(d) {
+  if (d.forceOffline) return;
   const ws = new WebSocket(wsUrl + encodeURIComponent(d.serial), { headers: { "X-API-Key": API_KEY } });
+  d.ws = ws;
   const send = (o) => ws.readyState === 1 && ws.send(JSON.stringify(o));
+  d.send = send;
   const telemetry = () => {
     const e = { ...d.extra, uptime_seconds: (d.extra.uptime_seconds += 30) };
-    e.wifi_rssi = Math.max(-90, Math.min(-40, e.wifi_rssi + Math.round((Math.random() - 0.5) * 4)));
-    e.battery_temp_c = +(e.battery_temp_c + (Math.random() - 0.5) * 0.4).toFixed(1);
+    e.wifi_rssi = d.forceRssi ?? Math.max(-90, Math.min(-40, e.wifi_rssi + Math.round((Math.random() - 0.5) * 4)));
+    e.battery_temp_c = d.forceTemp ?? +(e.battery_temp_c + (Math.random() - 0.5) * 0.4).toFixed(1);
     const p = { type: "telemetry", serial_number: d.serial, build_id: d.build, product: d.product, extra: e };
     if (d.product === "t7") p.battery_pct = d.batt;
     send(p);
@@ -72,7 +75,7 @@ function connect(d) {
       default: break; // config, input_event, ...
     }
   });
-  ws.on("close", async () => { online--; clearInterval(d.capture); await sleep(3000 + Math.random() * 3000); if (!d.stale) connect(d); });
+  ws.on("close", async () => { online--; clearInterval(d.capture); d.ws = null; await sleep(3000 + Math.random() * 3000); if (!d.stale && !d.forceOffline) connect(d); });
   ws.on("error", () => {});
 
   async function handleCommand(m) {
@@ -106,6 +109,7 @@ function connect(d) {
         // ota_status; after "installed" the device reports the new build.
         const prog = (phase, percent) => send({ type: "ota_progress", command_id: id, phase, percent });
         for (let pct = 0; pct <= 100; pct += 10) { prog("downloading", pct); await sleep(500 + Math.random() * 500); }
+        if (d.otaFail) { await sleep(800); send({ type: "ota_status", command_id: id, status: "error", error_code: "PAYLOAD_HASH_MISMATCH" }); break; }
         send({ type: "ota_status", command_id: id, status: "downloaded" });
         prog("verifying", 100); await sleep(1200);
         for (let pct = 0; pct <= 100; pct += 25) { prog("installing", pct); await sleep(700 + Math.random() * 500); }
@@ -138,6 +142,34 @@ function fakeLogcat(d) {
     `${t()}   612   612 W WifiService: rssi ${d.extra.wifi_rssi} dBm on ${d.extra.wifi}`,
   ].join("\n");
 }
+
+// Scenario control for training chapters: append lines to out/sim.cmd, polled every
+// second. Commands:  offline SERIAL | online SERIAL | temp SERIAL 48 | storage SERIAL 0.6
+//                    ram SERIAL 92 | wifi SERIAL -85 | otafail SERIAL | reset SERIAL
+const CMD_FILE = new URL("./out/sim.cmd", import.meta.url).pathname;
+let cmdSeen = 0;
+const byId = (serial) => rows.find((r) => r.serial === serial);
+setInterval(() => {
+  if (!existsSync(CMD_FILE)) return;
+  const lines = readFileSync(CMD_FILE, "utf8").split("\n").filter(Boolean);
+  for (const line of lines.slice(cmdSeen)) {
+    const [cmd, serial, val] = line.trim().split(/\s+/);
+    const d = byId(serial); if (!d) { console.log("\ncmd: unknown device", serial); continue; }
+    switch (cmd) {
+      case "offline": d.forceOffline = true; if (d.ws) d.ws.close(); break;
+      case "online": d.forceOffline = false; d.stale = false; if (!d.ws || d.ws.readyState !== 1) connect(d); break;
+      case "temp": d.extra.battery_temp_c = parseFloat(val); d.forceTemp = parseFloat(val); break;
+      case "storage": d.extra.storage_free_gb = parseFloat(val); break;
+      case "ram": { const t = d.extra.ram_usage_mb.total; const u = Math.round(t * parseFloat(val) / 100); d.extra.ram_usage_mb = { used: u, total: t, available: t - u }; break; }
+      case "wifi": d.extra.wifi_rssi = parseInt(val, 10); d.forceRssi = parseInt(val, 10); break;
+      case "otafail": d.otaFail = true; break;
+      case "reset": d.forceTemp = undefined; d.forceRssi = undefined; d.otaFail = false; d.extra.storage_free_gb = 40 + Math.random() * 10; break;
+    }
+    if (d.send) d.send({ type: "telemetry", serial_number: d.serial, build_id: d.build, product: d.product, extra: d.extra, ...(d.product === "t7" ? { battery_pct: d.batt } : {}) });
+    console.log("\ncmd:", line.trim());
+  }
+  cmdSeen = lines.length;
+}, 1000);
 
 // SIGUSR1: re-read build_id from the DB (record.mjs resets builds before the
 // rollout scene so there is something to update).

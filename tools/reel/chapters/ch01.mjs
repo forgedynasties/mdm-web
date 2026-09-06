@@ -9,11 +9,12 @@ export default {
   steps: [
     {
       id: "login",
-      text: "This is AIO MDM, our in-house dashboard for the kiosk and tablet fleet. Sign in with your ops account.",
+      text: "This is AIO MDM, our in-house dashboard for the kiosk and tablet fleet. From the landing page, Take me to the dashboard leads to sign-in. Use your AIO ops account.",
       run: async (s) => {
-        await s.page.goto(s.BASE + "/login", { waitUntil: "load" }); await s.zoom(); await s.hold(800);
-        await s.click("#username"); await s.type("admin"); await s.hold(300);
-        await s.click("#password"); await s.type("admin", { secret: true }); await s.hold(400);
+        await s.page.goto(s.BASE + "/", { waitUntil: "load" }); await s.hold(1200);
+        await s.click("a.ld-btn.primary >> nth=0"); await s.page.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {}); await s.reloaded(); await s.hold(600);
+        await s.click("#username"); await s.type(s.OPS_USER); await s.hold(300);
+        await s.click("#password"); await s.type(s.OPS_PASS, { secret: true }); await s.hold(400);
         await s.click("button[type=submit]");
         await s.page.waitForURL((u) => !/\/login/.test(u.href)); await s.reloaded();
       },

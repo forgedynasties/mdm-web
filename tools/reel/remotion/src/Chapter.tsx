@@ -53,7 +53,7 @@ const StepView: React.FC<{ take: Take; step: Step; index: number; video: string 
     <AbsoluteFill style={{ background: "#0f1115", fontFamily: font }}>
       {/* the take, framed */}
       <div style={{ position: "absolute", left: 64, top: 84, width: 1792, height: 800, borderRadius: 18, overflow: "hidden", boxShadow: "0 30px 80px rgba(0,0,0,.55)", opacity: fadeIn }}>
-        <OffthreadVideo src={video} startFrom={secToF(step.in / 1000)} endAt={secToF(step.out / 1000) + 2} muted style={{ width: 1792, height: 1008, objectFit: "cover", objectPosition: "top" }} />
+        <OffthreadVideo src={video} startFrom={secToF(step.in / 1000)} endAt={secToF(step.out / 1000) + 2} muted style={{ width: 1792, height: 800 }} />
       </div>
       {/* chapter chip + progress */}
       <div style={{ position: "absolute", left: 64, top: 26, display: "flex", alignItems: "center", gap: 18, color: "#c9cdd6", fontSize: 24 }}>
