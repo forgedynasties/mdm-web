@@ -4472,7 +4472,7 @@ func (d *DB) ExpireOverdueCommands(ctx context.Context) ([]StalledInstall, error
 		  AND cs.status IN ('pending', 'delivered')
 		  AND c.type <> 'reboot'
 		  AND c.created_at <= NOW() - CASE
-				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory', 'mic_gain_read')
+				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory', 'mic_gain_read', 'mic_gain_set')
 					THEN INTERVAL '5 minutes'
 				ELSE INTERVAL '24 hours'
 			END

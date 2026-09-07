@@ -988,7 +988,7 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	// snapshot: fold it into latest_extra so the device page's Hardware row (which reads
 	// latest_extra.mic_gain) reflects the re-read without waiting for the next check-in.
 	if body.Status == "completed" && strings.HasPrefix(strings.TrimSpace(body.Output), "{") {
-		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.Type == "mic_gain_read" {
+		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && (cmd.Type == "mic_gain_read" || cmd.Type == "mic_gain_set") {
 			var mg map[string]json.RawMessage
 			if json.Unmarshal([]byte(body.Output), &mg) == nil {
 				if _, ok := mg["tx_dec"]; ok {
