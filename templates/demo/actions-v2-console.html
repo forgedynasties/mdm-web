@@ -1,0 +1,379 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions v2 · Target-first console — AIO MDM</title>
+<script>(function(){try{var t=localStorage.getItem('mdm-theme');if(t!=='light'&&t!=='dark')t='light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+.c-wrap{max-width:1340px;margin:0 auto;padding:20px 24px 90px}
+svg{display:block}button{font:inherit;cursor:pointer;color:inherit}input,select,textarea{font:inherit}
+
+.c-dbar{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--border-soft);margin-bottom:20px;flex-wrap:wrap}
+.c-dbar .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.c-dbar .back:hover{color:var(--accent-text)}
+.c-dbar .name{font-size:13.5px;font-weight:700}
+.c-dbar .name b{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+.c-dbar .sibs{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-faint)}
+.c-dbar .sibs a{color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:99px;padding:4px 11px;font-weight:600}
+.c-dbar .sibs a:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.c-dbar .sibs span.on{color:var(--accent-ink);background:var(--accent);border:1px solid transparent;border-radius:99px;padding:4px 11px;font-weight:700}
+.c-theme{border:1px solid var(--border);background:var(--surface);border-radius:99px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.c-theme svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.c-theme:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.c-head h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.c-head p{color:var(--muted);font-size:14px;margin-top:4px;max-width:80ch}
+
+.c-main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;margin-top:22px;align-items:start}
+@media(max-width:1000px){.c-main{grid-template-columns:1fr}}
+.c-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px}
+
+/* ── left rail: selection builder ── */
+.c-rail{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column}
+.c-r-b{padding:14px 14px 0}
+.c-srch{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--r-2);padding:0 11px;background:var(--surface);margin-bottom:10px}
+.c-srch svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
+.c-srch input{flex:1;border:none;outline:none;background:none;padding:9px 0;font-size:13px;color:var(--text)}
+.c-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.c-qf{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;background:var(--surface);padding:4px 11px;color:var(--text-2)}
+.c-qf:hover{border-color:var(--rule-2);background:var(--surface2)}
+.c-qf.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.c-qf .n{color:var(--text-faint);font-weight:600}
+.c-qf.on .n{color:var(--accent-text)}
+.c-r-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:6px 2px 7px}
+.c-scope{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:8px 11px;text-align:left;margin-bottom:6px;transition:border-color var(--dur)}
+.c-scope:hover{border-color:var(--rule-2)}
+.c-scope.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.c-scope .ic{width:24px;height:24px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.c-scope.on .ic{background:var(--surface);color:var(--accent)}
+.c-scope .ic svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9}
+.c-scope .n{font-size:12.5px;font-weight:650;line-height:1.25}
+.c-scope .m{font-size:10.5px;color:var(--muted)}
+.c-scope .add{margin-left:auto;font-size:11px;font-weight:700;color:var(--text-faint)}
+.c-scope.on .add{color:var(--accent-text)}
+.c-devlist{max-height:220px;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.c-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:5px;transition:border-color var(--dur)}
+.c-dev:hover{border-color:var(--rule-2)}
+.c-dev.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.c-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
+.c-dev.on .cb{background:var(--accent);border-color:var(--accent);color:#fff}
+.c-dev .cb svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:3}
+.c-dev .sn{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+.c-dev .mt{font-size:10.5px;color:var(--muted)}
+.c-dev .st{margin-left:auto;width:7px;height:7px;border-radius:50%;flex:none}
+.c-dev .st.on{background:var(--ok)}
+.c-dev .st.off{background:var(--rule)}
+.c-tag{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:var(--accent-2-soft);color:var(--accent-2);flex:none}
+.c-basket{border-top:1px solid var(--border-soft);background:var(--surface2);padding:12px 14px;margin-top:12px}
+.c-bk-top{display:flex;align-items:baseline;gap:7px}
+.c-bk-n{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.c-bk-t{font-size:12px;color:var(--muted)}
+.c-bk-clear{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);border:none;background:none;text-decoration:underline}
+.c-bk-clear:hover{color:var(--danger)}
+.c-bk-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.c-bk-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;color:var(--text-2)}
+.c-bk-pill .x{color:var(--text-faint);font-weight:700}
+.c-bk-mix{display:flex;gap:12px;margin-top:9px;font-size:11px;color:var(--muted)}
+.c-bk-mix b{color:var(--text);font-weight:650}
+.c-bk-mix .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:1px}
+
+/* ── right: action grid ── */
+.c-agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px}
+.c-act{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--shadow-sm);padding:12px 13px;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.c-act:hover{border-color:var(--rule-2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.c-act .ic{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.c-act .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8}
+.c-act .nm{font-size:13px;font-weight:650}
+.c-act .ds{font-size:11px;color:var(--muted);line-height:1.35}
+.c-act.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.c-act.on .ic{background:var(--surface);color:var(--accent)}
+.c-act.on .nm{color:var(--accent-text)}
+.c-act.dim{opacity:.62}
+.c-act.dim:hover{transform:none;box-shadow:var(--shadow-sm);border-color:var(--border)}
+.c-act .cav{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:650;color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:2px 7px;line-height:1.4}
+.c-act .cav.hard{color:var(--danger);background:var(--danger-bg)}
+.c-act .cav svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+.c-act.danger .ic{background:var(--danger-bg);color:var(--danger)}
+.c-act.danger.on{border-color:var(--danger);background:var(--danger-bg)}
+.c-act.danger.on .nm{color:var(--danger)}
+
+/* payload strip */
+.c-strip{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.c-strip .lab{display:flex;align-items:center;gap:9px;flex:none}
+.c-strip .lab .ic{width:30px;height:30px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+.c-strip .lab .ic svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.9}
+.c-strip .lab .t{font-size:13.5px;font-weight:700}
+.c-strip .lab .s{font-size:11px;color:var(--muted)}
+.c-in{border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:8px 12px;font-size:13px;color:var(--text);outline:none;flex:1;min-width:160px}
+.c-in:focus{border-color:var(--accent-edge);box-shadow:var(--ring)}
+.c-seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:3px;flex:none}
+.c-seg button{border:none;background:none;border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted)}
+.c-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
+.c-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.c-send svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2}
+.c-skip{font-size:11px;color:var(--muted);flex-basis:100%}
+.c-skip b{color:var(--warn);font-weight:650}
+
+/* ── bottom dock: recent sends ── */
+.c-dock{margin-top:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.c-dk-h{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--border-soft)}
+.c-dk-h .t{font-size:13px;font-weight:700}
+.c-live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ok)}
+.c-live .pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:c-pulse 1.6s ease infinite}
+@keyframes c-pulse{0%,100%{box-shadow:0 0 0 0 var(--ok-bg)}50%{box-shadow:0 0 0 5px var(--ok-bg)}}
+.c-dk-h .all{margin-left:auto;font-size:12px;color:var(--muted);text-decoration:none;font-weight:600}
+.c-dk-h .all:hover{color:var(--accent-text)}
+.c-row{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 16px;border-top:1px solid var(--border-soft)}
+.c-row:first-of-type{border-top:none}
+@media(max-width:760px){.c-row{grid-template-columns:1fr;gap:6px}}
+.c-row .who .a{font-size:13px;font-weight:650}
+.c-row .who .w{font-size:11px;color:var(--muted)}
+.c-row .who .w code{font-family:var(--mono);font-size:10.5px}
+.c-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex}
+.c-bar .sg{height:100%}
+.c-bar .sg.done{background:var(--ok)}
+.c-bar .sg.run{background:var(--accent-2)}
+.c-bar .sg.fail{background:var(--danger)}
+.c-legend{display:flex;gap:11px;font-size:10.5px;color:var(--muted);margin-top:5px;flex-wrap:wrap}
+.c-legend b{color:var(--text-2);font-weight:650}
+.c-legend .k{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;vertical-align:0}
+.c-when{font-size:11px;color:var(--text-faint);text-align:right;white-space:nowrap}
+.c-when .stat{display:block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+.c-when .stat.run{color:var(--accent-2)}
+.c-when .stat.ok{color:var(--ok)}
+.c-when .stat.warn{color:var(--warn)}
+
+#c-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;background:var(--text);color:var(--bg);font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-pop);z-index:70;transition:opacity var(--dur-slow),transform var(--dur-slow)}
+#c-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="c-wrap">
+  <div class="c-dbar">
+    <a class="back" href="/demo/index">&larr; All demos</a>
+    <span class="name"><b>Actions v2</b> &middot; Target-first console</span>
+    <div class="sibs">
+      <a href="/demo/actions-v2-flow">1 Flow</a>
+      <span class="on">2 Console</span>
+      <a href="/demo/actions-v2-palette">3 Palette</a>
+      <button class="c-theme" id="c-theme" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    </div>
+  </div>
+  <div class="c-head">
+    <h1>Target-first console</h1>
+    <p>Flip the flow: build the device selection first, and the action grid adapts to it — anything the selection can't fully run is dimmed with the exact count that would be skipped. Sending and monitoring live on the same screen, so the recent-sends dock replaces a separate history page for the everyday case.</p>
+  </div>
+
+  <div class="c-main">
+    <!-- left: selection builder -->
+    <div>
+      <div class="c-cap">1 &middot; Who</div>
+      <div class="c-rail">
+        <div class="c-r-b">
+          <div class="c-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial, restaurant, group&hellip;"></div>
+          <div class="c-quick">
+            <button class="c-qf on" onclick="this.classList.toggle('on')">Online <span class="n">62</span></button>
+            <button class="c-qf" onclick="this.classList.toggle('on')">Offline <span class="n">25</span></button>
+            <button class="c-qf" onclick="this.classList.toggle('on')">DPC <span class="n">9</span></button>
+            <button class="c-qf" onclick="this.classList.toggle('on')">Kiosk <span class="n">23</span></button>
+          </div>
+          <div class="c-r-cap">Scopes — one click adds all</div>
+          <button class="c-scope on" onclick="this.classList.toggle('on');cRecount()">
+            <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
+            <span><span class="n">Riverside &mdash; Bratislava</span><br><span class="m">restaurant &middot; 11 T7 + 3 DPC</span></span>
+            <span class="add" data-n="14">Added</span>
+          </button>
+          <button class="c-scope" onclick="this.classList.toggle('on');cRecount()">
+            <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
+            <span><span class="n">Old Town</span><br><span class="m">restaurant &middot; 9 T7</span></span>
+            <span class="add" data-n="9">+ Add</span>
+          </button>
+          <button class="c-scope" onclick="this.classList.toggle('on');cRecount()">
+            <span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16.5 5a3.5 3.5 0 0 1 0 6.5"/><path d="M21 20c0-2.6-1.7-4.8-4-5.7"/></svg></span>
+            <span><span class="n">Lobby kiosks</span><br><span class="m">group &middot; 8 T7</span></span>
+            <span class="add" data-n="8">+ Add</span>
+          </button>
+          <button class="c-scope" onclick="this.classList.toggle('on');cRecount()">
+            <span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16.5 5a3.5 3.5 0 0 1 0 6.5"/><path d="M21 20c0-2.6-1.7-4.8-4-5.7"/></svg></span>
+            <span><span class="n">Drive-thru</span><br><span class="m">group &middot; 6 T7</span></span>
+            <span class="add" data-n="6">+ Add</span>
+          </button>
+          <div class="c-r-cap">Devices</div>
+          <div class="c-devlist">
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">AT070223051200266</span><br><span class="mt">T7 &middot; Riverside &middot; lobby</span></span><span class="st on"></span></button>
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">AT070223051200417</span><br><span class="mt">T7 &middot; Riverside &middot; bar</span></span><span class="st off"></span></button>
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">AT070323051201044</span><br><span class="mt">T7 &middot; Old Town &middot; till 2</span></span><span class="st on"></span></button>
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">R92X205MPKR</span><br><span class="mt">Pixel 7a &middot; Riverside</span></span><span class="c-tag">DPC</span><span class="st on"></span></button>
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">R92X30AL7HD</span><br><span class="mt">Pixel 6 &middot; Airport T1</span></span><span class="c-tag">DPC</span><span class="st on"></span></button>
+            <button class="c-dev" onclick="this.classList.toggle('on');cRecount()"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="sn">R3CT40ABCDE</span><br><span class="mt">Pixel 6a &middot; Airport T1</span></span><span class="c-tag">DPC</span><span class="st off"></span></button>
+          </div>
+        </div>
+        <div class="c-basket">
+          <div class="c-bk-top"><span class="c-bk-n" id="c-count">14</span><span class="c-bk-t">devices selected</span><button class="c-bk-clear" onclick="cToast('Selection cleared (demo)')">Clear</button></div>
+          <div class="c-bk-pills">
+            <span class="c-bk-pill">Riverside &times;14 <span class="x">&times;</span></span>
+          </div>
+          <div class="c-bk-mix">
+            <span><span class="dot" style="background:var(--ok)"></span><b>12</b> online</span>
+            <span><span class="dot" style="background:var(--rule)"></span><b>2</b> offline</span>
+            <span><span class="dot" style="background:var(--accent-2)"></span><b>3</b> DPC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: capability-aware action grid + payload strip -->
+    <div>
+      <div class="c-cap">2 &middot; What — grid adapts to the selection</div>
+      <div class="c-agrid" id="c-agrid"></div>
+
+      <div class="c-strip" id="c-strip">
+        <div class="lab"><span class="ic" id="c-st-ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/></svg></span><span><span class="t" id="c-st-t">Reboot</span><br><span class="s" id="c-st-s">restart 14 devices</span></span></div>
+        <input class="c-in" id="c-st-in" placeholder="Reason — shown in history" value="post-update restart">
+        <div class="c-seg"><button class="on">Now</button><button>Next check-in</button></div>
+        <button class="c-send" onclick="cToast('Reboot sent to 14 devices — watch it land in the dock below')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send to 14</button>
+        <div class="c-skip" id="c-skip">12 delivered live over WebSocket &middot; 2 queued for next check-in</div>
+      </div>
+
+      <!-- bottom dock -->
+      <div class="c-dock">
+        <div class="c-dk-h"><span class="t">Recent sends</span><span class="c-live"><span class="pulse"></span>Live</span><a class="all" href="#">Full history &rarr;</a></div>
+
+        <div class="c-row">
+          <div class="who"><div class="a">Install Menu App v2.1</div><div class="w">Lobby kiosks + Drive-thru + <code>R92X205MPKR</code> &middot; 15 devices</div></div>
+          <div>
+            <div class="c-bar"><span class="sg done" style="width:60%"></span><span class="sg run" style="width:27%"></span><span class="sg fail" style="width:6%"></span></div>
+            <div class="c-legend"><span><span class="k" style="background:var(--ok)"></span><b>9</b> completed</span><span><span class="k" style="background:var(--accent-2)"></span><b>4</b> delivering</span><span><span class="k" style="background:var(--danger)"></span><b>1</b> failed</span><span><span class="k" style="background:var(--surface-3)"></span><b>1</b> queued</span></div>
+          </div>
+          <div class="c-when">2 min ago<span class="stat run">In progress</span></div>
+        </div>
+
+        <div class="c-row">
+          <div class="who"><div class="a">Reboot &mdash; nightly cache clear</div><div class="w">All devices &middot; 87 devices &middot; scheduled 04:00</div></div>
+          <div>
+            <div class="c-bar"><span class="sg done" style="width:97%"></span><span class="sg fail" style="width:3%"></span></div>
+            <div class="c-legend"><span><span class="k" style="background:var(--ok)"></span><b>84</b> completed</span><span><span class="k" style="background:var(--danger)"></span><b>3</b> failed &mdash; low battery</span></div>
+          </div>
+          <div class="c-when">today 04:00<span class="stat warn">3 failed</span></div>
+        </div>
+
+        <div class="c-row">
+          <div class="who"><div class="a">Log capture W &middot; 500 lines</div><div class="w"><code>AT070223051200417</code> &middot; 1 device</div></div>
+          <div>
+            <div class="c-bar"><span class="sg done" style="width:100%"></span></div>
+            <div class="c-legend"><span><span class="k" style="background:var(--ok)"></span><b>1</b> completed &middot; 512 lines attached</span></div>
+          </div>
+          <div class="c-when">38 min ago<span class="stat ok">Done</span></div>
+        </div>
+
+        <div class="c-row">
+          <div class="who"><div class="a">Factory wipe</div><div class="w"><code>R3CT40ABCDE</code> &middot; 1 device &middot; confirmed by admin</div></div>
+          <div>
+            <div class="c-bar"><span class="sg run" style="width:100%"></span></div>
+            <div class="c-legend"><span><span class="k" style="background:var(--accent-2)"></span>waiting &mdash; device offline, wipes at next contact</span></div>
+          </div>
+          <div class="c-when">1 h ago<span class="stat run">Queued</span></div>
+        </div>
+
+        <div class="c-row">
+          <div class="who"><div class="a">Screenshot</div><div class="w">Kitchen displays &middot; 5 devices</div></div>
+          <div>
+            <div class="c-bar"><span class="sg done" style="width:80%"></span><span class="sg fail" style="width:20%"></span></div>
+            <div class="c-legend"><span><span class="k" style="background:var(--ok)"></span><b>4</b> completed</span><span><span class="k" style="background:var(--danger)"></span><b>1</b> expired &mdash; missed the 5-min window</span></div>
+          </div>
+          <div class="c-when">yesterday<span class="stat ok">Done</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="c-toast"><span id="c-tm"></span></div>
+
+<script>
+var C_ICON={
+  install_apk:'<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',
+  reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/>',
+  kiosk:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4-4 3 3 3-3 4 4"/>',
+  ota:'<path d="M20 17a4 4 0 0 0-1-7.9A6 6 0 0 0 7 8a5 5 0 0 0-3 9"/><path d="M12 12v6"/><path d="m9 16 3 3 3-3"/>',
+  screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/>',
+  logcat:'<path d="M4 5h16M4 10h10M4 14h16M4 18h10"/>',
+  shell:'<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
+  query:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  wipe:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+};
+// selection: 14 devices — 11 system-app T7 + 3 DPC. cant = how many of the 14 can't run it.
+var C_ACTIONS=[
+  {t:'install_apk',n:'Install APK',d:'Push an app silently',cant:0},
+  {t:'uninstall',n:'Uninstall',d:'Remove a package',cant:0},
+  {t:'reboot',n:'Reboot',d:'Restart the device',cant:0},
+  {t:'kiosk',n:'Kiosk mode',d:'Pin one app in lock-task',cant:0},
+  {t:'query',n:'Device query',d:'Vetted diagnostics',cant:0},
+  {t:'logcat',n:'Log capture',d:'Pull a logcat buffer',cant:0},
+  {t:'screenshot',n:'Screenshot',d:'Capture the live screen',cant:3,why:'3 of 14 are DPC devices'},
+  {t:'shell',n:'Shell',d:'Raw shell command',cant:3,why:'3 of 14 are DPC devices'},
+  {t:'ota',n:'OTA update',d:'Ship a firmware build',cant:3,why:'3 of 14 are DPC devices'},
+  {t:'update_splash',n:'Boot splash',d:'Replace the boot logo',cant:3,why:'3 of 14 are DPC devices'},
+  {t:'wipe',n:'Factory wipe',d:'Erase completely',cant:11,why:'11 of 14 can’t run this · DPC only',danger:true}
+];
+var C_SEL=14,C_CUR='reboot';
+var C_STRIP={
+  install_apk:{s:'push to {n} devices',ph:'Pick an app from the library…',val:'Menu App v2.1'},
+  uninstall:{s:'remove from {n} devices',ph:'Package name…',val:'com.legacy.pay'},
+  reboot:{s:'restart {n} devices',ph:'Reason — shown in history',val:'post-update restart'},
+  kiosk:{s:'pin an app on {n} devices',ph:'Pinned app…',val:'Menu App (com.aioapp.menu)'},
+  query:{s:'query {n} devices',ph:'Pick from the vetted catalog…',val:'Storage breakdown'},
+  logcat:{s:'capture from {n} devices',ph:'Priority / lines / tag…',val:'W -t 500 -s MdmService'},
+  screenshot:{s:'capture {n} screens',ph:'No parameters',val:''},
+  shell:{s:'run on {n} devices',ph:'Shell command…',val:'df -h'},
+  ota:{s:'update {n} devices',ph:'OTA package…',val:'aio-t7-ota-2026-08-30.zip'},
+  update_splash:{s:'reflash {n} splash images',ph:'Image URL or upload…',val:''},
+  wipe:{s:'ERASE {n} devices',ph:'Type wipe to confirm…',val:''}
+};
+function cRender(){
+  document.getElementById('c-agrid').innerHTML=C_ACTIONS.map(function(a){
+    var runnable=C_SEL-a.cant;
+    var cls='c-act'+(a.t===C_CUR?' on':'')+(a.cant>0?' dim':'')+(a.danger?' danger':'');
+    var cav='';
+    if(a.cant>0){cav='<span class="cav'+(a.cant>=C_SEL/2?' hard':'')+'"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>'+a.why+'</span>'}
+    return '<button class="'+cls+'" data-t="'+a.t+'" onclick="cPick(\''+a.t+'\')">'
+      +'<span class="ic"><svg viewBox="0 0 24 24">'+C_ICON[a.t]+'</svg></span>'
+      +'<span class="nm">'+a.n+'</span><span class="ds">'+a.d+'</span>'+cav+'</button>';
+  }).join('');
+}
+function cPick(t){
+  var a=C_ACTIONS.find(function(x){return x.t===t});
+  C_CUR=t;
+  document.querySelectorAll('.c-act').forEach(function(c){c.classList.toggle('on',c.dataset.t===t)});
+  var st=C_STRIP[t],run=C_SEL-a.cant;
+  document.getElementById('c-st-ic').innerHTML='<svg viewBox="0 0 24 24">'+C_ICON[t]+'</svg>';
+  document.getElementById('c-st-t').textContent=a.n;
+  document.getElementById('c-st-s').textContent=st.s.replace('{n}',run);
+  var inp=document.getElementById('c-st-in');inp.placeholder=st.ph;inp.value=st.val;
+  document.querySelector('.c-send').innerHTML='<svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send to '+run;
+  document.getElementById('c-skip').innerHTML=a.cant>0
+    ?'<b>'+a.cant+' of '+C_SEL+' will be skipped</b> — '+a.why+' · the rest deliver live over WebSocket'
+    :'12 delivered live over WebSocket · 2 queued for next check-in';
+  if(a.cant>0)cToast(a.why+' — they will be skipped');
+}
+function cRecount(){
+  // demo-level approximation: base 0 + active scopes + individually ticked devices
+  var n=0;
+  document.querySelectorAll('.c-scope.on .add').forEach(function(s){n+=parseInt(s.dataset.n,10)});
+  n+=document.querySelectorAll('.c-dev.on').length;
+  if(n===0)n=0;
+  C_SEL=n||14;
+  document.getElementById('c-count').textContent=n;
+  cPick(C_CUR);
+}
+function cToast(m){var t=document.getElementById('c-toast');document.getElementById('c-tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},2400)}
+document.getElementById('c-theme').onclick=function(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',cur);
+  try{localStorage.setItem('mdm-theme',cur)}catch(e){}
+};
+cRender();
+</script>
+</body></html>

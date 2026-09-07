@@ -1,0 +1,524 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions v2 · Guided flow — AIO MDM</title>
+<script>(function(){try{var t=localStorage.getItem('mdm-theme');if(t!=='light'&&t!=='dark')t='light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+.f-wrap{max-width:1340px;margin:0 auto;padding:20px 24px 90px}
+svg{display:block}button{font:inherit;cursor:pointer;color:inherit}input,select,textarea{font:inherit}
+
+/* slim demo bar */
+.f-dbar{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--border-soft);margin-bottom:20px;flex-wrap:wrap}
+.f-dbar .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.f-dbar .back:hover{color:var(--accent-text)}
+.f-dbar .name{font-size:13.5px;font-weight:700}
+.f-dbar .name b{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+.f-dbar .sibs{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-faint)}
+.f-dbar .sibs a{color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:99px;padding:4px 11px;font-weight:600}
+.f-dbar .sibs a:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.f-dbar .sibs span.on{color:var(--accent-ink);background:var(--accent);border:1px solid transparent;border-radius:99px;padding:4px 11px;font-weight:700}
+.f-theme{border:1px solid var(--border);background:var(--surface);border-radius:99px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.f-theme svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.f-theme:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+
+.f-head h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.f-head p{color:var(--muted);font-size:14px;margin-top:4px;max-width:78ch}
+
+/* ── three lanes ── */
+.f-lanes{display:grid;grid-template-columns:296px minmax(0,1fr) 312px;gap:18px;margin-top:22px;align-items:start}
+@media(max-width:1080px){.f-lanes{grid-template-columns:1fr}}
+.f-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px}
+
+/* lane 1 — action cards */
+.f-grp{margin-bottom:16px}
+.f-grp .g-lbl{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 8px}
+.f-grp .g-lbl .ln{flex:1;height:1px;background:var(--border-soft)}
+.f-grp.danger .g-lbl{color:var(--danger)}
+.f-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.f-card{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--shadow-sm);padding:11px 12px;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.f-card:hover{border-color:var(--rule-2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.f-card .ic{width:26px;height:26px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.f-card .ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.f-card .nm{font-size:12.5px;font-weight:650;line-height:1.25}
+.f-card.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.f-card.on .ic{background:var(--surface);color:var(--accent)}
+.f-card.on .nm{color:var(--accent-text)}
+.f-card .chips{display:flex;flex-wrap:wrap;gap:4px}
+.f-chip{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:5px;padding:2px 6px;background:var(--accent-2-soft);color:var(--accent-2)}
+.f-chip.warn{background:var(--warn-bg);color:var(--warn)}
+.f-chip.adm{background:var(--surface2);color:var(--muted)}
+.f-grp.danger .f-card{border-color:var(--danger-edge)}
+.f-grp.danger .f-card .ic{background:var(--danger-bg);color:var(--danger)}
+.f-grp.danger .f-card.on{background:var(--danger-bg);border-color:var(--danger)}
+.f-grp.danger .f-card.on .nm{color:var(--danger)}
+
+/* lane 2 — payload sheet */
+.f-sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.f-sh-h{display:flex;align-items:center;gap:13px;padding:15px 20px;border-bottom:1px solid var(--border-soft)}
+.f-sh-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+.f-sh-ic svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:1.8}
+.f-sh-t{font-size:15px;font-weight:700}
+.f-sh-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.f-sh-b{padding:18px 20px 20px}
+.f-pane{display:none}.f-pane.on{display:block;animation:f-fade var(--dur-slow) var(--ease)}
+@keyframes f-fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.f-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.f-note{font-size:12.5px;color:var(--muted);margin-top:12px}
+.f-note b{color:var(--text-2);font-weight:600}
+
+.f-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.f-app{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:var(--r-3);background:var(--surface);padding:9px 11px;text-align:left;transition:border-color var(--dur) var(--ease)}
+.f-app:hover{border-color:var(--rule-2);background:var(--surface2)}
+.f-app.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.f-app .tile{width:32px;height:32px;flex:none;border-radius:9px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.f-app .an{font-size:13px;font-weight:650;line-height:1.2}
+.f-app .av{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.f-app .ok{margin-left:auto;color:var(--accent);display:none}
+.f-app.on .ok{display:block}
+.f-app .ok svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4}
+.f-updash{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.f-upbtn{display:inline-flex;align-items:center;gap:7px;border:1px dashed var(--rule);border-radius:var(--r-2);background:none;padding:8px 13px;color:var(--muted);font-size:12.5px;font-weight:600}
+.f-upbtn:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.f-upbtn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.f-tog{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:13px;color:var(--text-2)}
+.f-sw{width:32px;height:18px;border-radius:99px;background:var(--surface-3);position:relative;border:none;flex:none;transition:background var(--dur)}
+.f-sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left var(--dur);box-shadow:var(--shadow-sm)}
+.f-sw.on{background:var(--accent)}.f-sw.on::after{left:16px}
+
+.f-in{width:100%;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:9px 12px;font-size:13.5px;color:var(--text);outline:none}
+.f-in:focus{border-color:var(--accent-edge);box-shadow:var(--ring)}
+.f-in.mono{font-family:var(--mono);font-size:13px}
+.f-seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:3px}
+.f-seg button{border:none;background:none;border-radius:6px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.f-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
+.f-chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.f-cchip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 9px;color:var(--text-2)}
+.f-cchip:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.f-warn{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-edge);border-radius:var(--r-2);padding:10px 12px;margin-top:12px}
+.f-warn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;flex:none;margin-top:1px}
+.f-danger-box{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--danger);background:var(--danger-bg);border:1px solid var(--danger-edge);border-radius:var(--r-2);padding:10px 12px;margin-top:12px}
+.f-danger-box svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;flex:none;margin-top:1px}
+.f-qrow{display:flex;flex-direction:column;gap:6px}
+.f-q{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:8px 12px;text-align:left;font-size:13px}
+.f-q:hover{border-color:var(--rule-2);background:var(--surface2)}
+.f-q.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.f-q code{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);margin-left:auto}
+
+/* lane 3 — summary rail */
+.f-rail{position:sticky;top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-md);overflow:hidden}
+.f-rail-h{padding:13px 16px;border-bottom:1px solid var(--border-soft);font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
+.f-steps{padding:6px 0}
+.f-step{display:flex;gap:11px;padding:11px 16px;position:relative}
+.f-step+.f-step{border-top:1px solid var(--border-soft)}
+.f-dot{width:20px;height:20px;flex:none;border-radius:50%;background:var(--surface2);color:var(--text-faint);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;margin-top:1px}
+.f-step.done .f-dot{background:var(--ok-bg);color:var(--ok)}
+.f-step.done .f-dot svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.6}
+.f-st-k{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.f-st-v{font-size:13px;font-weight:650;margin-top:1px;line-height:1.3}
+.f-st-m{font-size:11.5px;color:var(--muted);margin-top:1px;line-height:1.35}
+.f-st-edit{margin-left:auto;align-self:center;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:4px 10px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.f-st-edit:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.f-tpills{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.f-tpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:2px 9px;color:var(--text-2)}
+.f-tpill.dev{font-family:var(--mono);font-size:10.5px}
+.f-blast{padding:12px 16px;border-top:1px solid var(--border-soft)}
+.f-bl-row{display:flex;align-items:baseline;gap:6px}
+.f-bl-n{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.f-bl-t{font-size:12px;color:var(--muted)}
+.f-meter{height:6px;border-radius:99px;background:var(--surface-3);margin:8px 0 6px;overflow:hidden}
+.f-meter .fill{height:100%;border-radius:99px;background:var(--brand-grad);width:17%;transition:width var(--dur-slow) var(--ease)}
+.f-meter.hot .fill{background:var(--danger)}
+.f-bl-m{font-size:11.5px;color:var(--muted)}
+.f-deliv{display:flex;gap:10px;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12px;color:var(--muted)}
+.f-deliv .d{display:flex;align-items:center;gap:6px}
+.f-deliv .dot{width:7px;height:7px;border-radius:50%}
+.f-deliv .dot.ok{background:var(--ok)}
+.f-deliv .dot.wait{background:var(--warn)}
+.f-deliv b{color:var(--text);font-weight:650}
+.f-send-w{padding:14px 16px 16px;border-top:1px solid var(--border-soft);background:var(--surface2)}
+.f-confirm{display:none;margin-bottom:10px}
+.f-confirm.on{display:block;animation:f-fade var(--dur-slow) var(--ease)}
+.f-confirm .cl{font-size:11.5px;color:var(--danger);font-weight:650;margin-bottom:6px}
+.f-confirm .cl code{font-family:var(--mono);background:var(--danger-bg);border-radius:4px;padding:1px 5px}
+.f-send{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:14px;font-weight:700;padding:12px 16px;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.f-send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+.f-send:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.f-send.danger{background:var(--danger)}
+.f-send-sub{text-align:center;font-size:11px;color:var(--text-faint);margin-top:8px}
+
+/* slide-over target picker */
+.f-ovl{position:fixed;inset:0;background:var(--overlay);opacity:0;pointer-events:none;transition:opacity var(--dur-slow) var(--ease);z-index:50}
+.f-ovl.on{opacity:1;pointer-events:auto}
+.f-so{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-pop);transform:translateX(102%);transition:transform var(--dur-slow) var(--ease);z-index:51;display:flex;flex-direction:column}
+.f-so.on{transform:none}
+.f-so-h{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+.f-so-h .t{font-size:15px;font-weight:700}
+.f-so-h .x{margin-left:auto;border:1px solid var(--border);background:var(--surface);border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.f-so-h .x:hover{color:var(--danger);border-color:var(--danger-edge)}
+.f-so-h .x svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2}
+.f-so-b{flex:1;overflow-y:auto;padding:16px 18px 22px}
+.f-so-cap{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:16px 0 8px}
+.f-so-cap:first-child{margin-top:0}
+.f-srch{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--r-2);padding:0 11px;background:var(--surface);margin-bottom:4px}
+.f-srch svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
+.f-srch input{flex:1;border:none;outline:none;background:none;padding:9px 0;font-size:13px;color:var(--text)}
+.f-so-row{width:100%;display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:9px 12px;text-align:left;margin-bottom:6px;transition:border-color var(--dur)}
+.f-so-row:hover{border-color:var(--rule-2)}
+.f-so-row.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.f-so-row .cb{width:16px;height:16px;flex:none;border-radius:5px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
+.f-so-row.on .cb{background:var(--accent);border-color:var(--accent);color:#fff}
+.f-so-row .cb svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:3}
+.f-so-row .n{font-size:13px;font-weight:650}
+.f-so-row .m{font-size:11.5px;color:var(--muted)}
+.f-so-row .c{margin-left:auto;font-size:11.5px;color:var(--text-faint);font-weight:600}
+.f-so-row .n.mono{font-family:var(--mono);font-size:12px;font-weight:500}
+.f-paste{width:100%;resize:vertical;border:1px dashed var(--rule);border-radius:var(--r-2);background:var(--surface);padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--text);min-height:52px;outline:none}
+.f-paste:focus{border-color:var(--accent-edge)}
+.f-so-f{padding:13px 18px;border-top:1px solid var(--border-soft);background:var(--surface2);display:flex;align-items:center;gap:10px}
+.f-so-f .sum{font-size:12.5px;color:var(--muted)}
+.f-so-f .sum b{color:var(--text)}
+.f-so-f .doneb{margin-left:auto;border:none;border-radius:var(--r-2);background:var(--accent);color:var(--accent-ink);font-size:13px;font-weight:700;padding:9px 18px}
+
+#f-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;background:var(--text);color:var(--bg);font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-pop);z-index:70;transition:opacity var(--dur-slow),transform var(--dur-slow)}
+#f-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="f-wrap">
+  <div class="f-dbar">
+    <a class="back" href="/demo/index">&larr; All demos</a>
+    <span class="name"><b>Actions v2</b> &middot; Guided flow</span>
+    <div class="sibs">
+      <span class="on">1 Flow</span>
+      <a href="/demo/actions-v2-console">2 Console</a>
+      <a href="/demo/actions-v2-palette">3 Palette</a>
+      <button class="f-theme" id="f-theme" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    </div>
+  </div>
+  <div class="f-head">
+    <h1>Guided flow</h1>
+    <p>One screen, three lanes: pick an action on the left, configure it in the middle, and watch the summary rail keep score on the right. Nothing is hidden behind steps — but the rail always tells you exactly what will happen when you press Send.</p>
+  </div>
+
+  <div class="f-lanes">
+    <!-- lane 1: action cards -->
+    <div>
+      <div class="f-cap">1 &middot; Choose an action</div>
+      <div id="f-groups"></div>
+    </div>
+
+    <!-- lane 2: payload -->
+    <div>
+      <div class="f-cap">2 &middot; Configure</div>
+      <div class="f-sheet">
+        <div class="f-sh-h"><span class="f-sh-ic" id="f-ic"></span><div><div class="f-sh-t" id="f-t"></div><div class="f-sh-s" id="f-s"></div></div></div>
+        <div class="f-sh-b">
+
+          <div class="f-pane" data-p="install_apk">
+            <div class="f-lbl">App library</div>
+            <div class="f-apps">
+              <button class="f-app on" onclick="fPickApp(this,'Menu App','v2.1')"><span class="tile">ME</span><span><span class="an">Menu App</span><br><span class="av">v2.1 &middot; 21.4 MB</span></span><span class="ok"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span></button>
+              <button class="f-app" onclick="fPickApp(this,'AIO POS','v4.2.0')"><span class="tile">PO</span><span><span class="an">AIO POS</span><br><span class="av">v4.2.0 &middot; 24 MB</span></span><span class="ok"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span></button>
+              <button class="f-app" onclick="fPickApp(this,'KioskGuard','v1.9.3')"><span class="tile">KG</span><span><span class="an">KioskGuard</span><br><span class="av">v1.9.3 &middot; 8 MB</span></span><span class="ok"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span></button>
+              <button class="f-app" onclick="fPickApp(this,'PrinterBridge','v2.0.1')"><span class="tile">PB</span><span><span class="an">PrinterBridge</span><br><span class="av">v2.0.1 &middot; 5 MB</span></span><span class="ok"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span></button>
+            </div>
+            <div class="f-updash">
+              <button class="f-upbtn" onclick="fToast('Upload an .apk')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Upload .apk</button>
+              <button class="f-upbtn" onclick="fToast('Paste a download URL')"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Paste URL</button>
+            </div>
+            <div class="f-tog"><button class="f-sw" onclick="this.classList.toggle('on')" aria-label="Reinstall toggle"></button>Reinstall even if the same version is already present</div>
+            <div class="f-note">Installs silently &middot; devices that are offline pick the install up at their next check-in.</div>
+          </div>
+
+          <div class="f-pane" data-p="uninstall">
+            <div class="f-lbl">Package to remove</div>
+            <div class="f-qrow">
+              <button class="f-q on" onclick="fPickRow(this);fSetParam('LegacyPay')">LegacyPay<code>com.legacy.pay &middot; on 640</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('OldLauncher')">OldLauncher<code>com.acme.oldlauncher &middot; on 88</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('DebugTool')">DebugTool<code>com.acme.debug &middot; on 12</code></button>
+            </div>
+            <div class="f-note">Devices that don't have the package simply skip it — no failure recorded.</div>
+          </div>
+
+          <div class="f-pane" data-p="reboot">
+            <div class="f-lbl">Reason (shown in history)</div>
+            <input class="f-in" placeholder="e.g. nightly cache clear" value="nightly cache clear" oninput="fSetParam(this.value||'no reason')">
+            <div class="f-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Screens go dark for ~40 s. Devices on very low battery may not come back up — the rail will ask you to confirm.</div>
+          </div>
+
+          <div class="f-pane" data-p="kiosk">
+            <div class="f-lbl">Lock-task mode</div>
+            <div class="f-seg"><button class="on" onclick="fSeg(this);fSetParam('Enable · Menu App')">Enable</button><button onclick="fSeg(this);fSetParam('Disable')">Disable</button></div>
+            <div class="f-lbl" style="margin-top:16px">Pinned app</div>
+            <select class="f-in" onchange="fSetParam('Enable · '+this.value)"><option>Menu App (com.aioapp.menu)</option><option>AIO POS (com.aioapp.pos)</option><option>KioskGuard (com.aioapp.kioskguard)</option></select>
+            <div class="f-note">The pinned app relaunches on boot and the status bar is locked down.</div>
+          </div>
+
+          <div class="f-pane" data-p="update_splash">
+            <div class="f-lbl">Splash image</div>
+            <input class="f-in mono" placeholder="https://cdn.aioapp.com/splash/summer-2026.img">
+            <div class="f-updash">
+              <button class="f-upbtn" onclick="fToast('Upload BMP / PNG / JPEG')"><svg viewBox="0 0 24 24"><path d="M7 8l5-5 5 5"/><path d="M12 3v13"/><path d="M5 21h14"/></svg>Upload image</button>
+            </div>
+            <div class="f-note">BMP passes through untouched; PNG/JPEG are converted to 24-bit BMP. Match the panel resolution (<b>720&times;1280</b>). Visible from the next boot.</div>
+          </div>
+
+          <div class="f-pane" data-p="ota">
+            <div class="f-lbl">OTA package</div>
+            <div class="f-qrow">
+              <button class="f-q on" onclick="fPickRow(this);fSetParam('build 2026-08-30')">aio-t7-ota-2026-08-30.zip<code>412 MB &middot; latest</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('build 2026-07-14')">aio-t7-ota-2026-07-14.zip<code>408 MB</code></button>
+            </div>
+            <div class="f-note">Downloads over Wi-Fi, verifies, then installs at the next idle window.</div>
+          </div>
+
+          <div class="f-pane" data-p="screenshot">
+            <div class="f-note" style="margin-top:0">No parameters. Each device captures its live screen within a <b>5-minute window</b> and the image lands on its device page.</div>
+          </div>
+
+          <div class="f-pane" data-p="logcat">
+            <div class="f-lbl">Priority &middot; lines &middot; tag</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <div class="f-seg"><button onclick="fSeg(this)">E</button><button class="on" onclick="fSeg(this)">W</button><button onclick="fSeg(this)">I</button><button onclick="fSeg(this)">D</button><button onclick="fSeg(this)">V</button></div>
+              <input class="f-in mono" style="width:90px" value="500">
+              <input class="f-in mono" style="width:150px" placeholder="tag filter" value="MdmService">
+            </div>
+            <div class="f-chiprow"><button class="f-cchip" onclick="fToast('Preset applied')">W -t 500 -s MdmService</button><button class="f-cchip" onclick="fToast('Preset applied')">E -t 1000</button></div>
+          </div>
+
+          <div class="f-pane" data-p="shell">
+            <div class="f-lbl">Command</div>
+            <input class="f-in mono" placeholder="type a shell command&hellip;" value="df -h" oninput="fSetParam(this.value)">
+            <div class="f-chiprow"><button class="f-cchip" onclick="fToast('ls /sdcard')">ls /sdcard</button><button class="f-cchip" onclick="fToast('getprop')">getprop ro.build.version</button><button class="f-cchip" onclick="fToast('pm list packages')">pm list packages</button><button class="f-cchip" onclick="fToast('df -h')">df -h</button></div>
+            <div class="f-note">Runs as the system app on next check-in &middot; output attached to the action.</div>
+          </div>
+
+          <div class="f-pane" data-p="query">
+            <div class="f-lbl">Vetted query catalog</div>
+            <div class="f-qrow">
+              <button class="f-q on" onclick="fPickRow(this);fSetParam('Storage breakdown')">Storage breakdown<code>df + du /sdcard</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('Battery health')">Battery health<code>dumpsys battery</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('Wi-Fi diagnostics')">Wi-Fi diagnostics<code>dumpsys wifi</code></button>
+              <button class="f-q" onclick="fPickRow(this);fSetParam('Foreground app')">Foreground app<code>dumpsys activity top</code></button>
+            </div>
+            <div class="f-note">Read-only, admin-vetted commands — safe for operators.</div>
+          </div>
+
+          <div class="f-pane" data-p="mic_gain_read">
+            <div class="f-note" style="margin-top:0">No parameters. Reads the current <b>TX_DEC0&ndash;7 Volume</b> values from the codec and refreshes the Hardware card on each device page.</div>
+          </div>
+
+          <div class="f-pane" data-p="wipe">
+            <div class="f-danger-box"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span><b>Full factory reset.</b> Every app, account and file on the device is erased and enrollment is removed. This cannot be undone — the rail requires a typed confirmation.</span></div>
+            <div class="f-tog"><button class="f-sw" onclick="this.classList.toggle('on')" aria-label="Wipe external storage"></button>Also wipe external storage (SD card)</div>
+            <div class="f-note">Only Device-Owner (DPC) devices accept this action. System-app T7 units in the current target are skipped automatically.</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- lane 3: summary rail -->
+    <div>
+      <div class="f-cap">3 &middot; Review &amp; send</div>
+      <div class="f-rail">
+        <div class="f-rail-h">Summary</div>
+        <div class="f-steps">
+          <div class="f-step done">
+            <span class="f-dot"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>
+            <div><div class="f-st-k">Action</div><div class="f-st-v" id="f-sum-a">Install APK</div></div>
+          </div>
+          <div class="f-step done">
+            <span class="f-dot"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>
+            <div><div class="f-st-k">Payload</div><div class="f-st-v" id="f-sum-p">Menu App v2.1</div><div class="f-st-m" id="f-sum-pm">silent install &middot; 21.4 MB</div></div>
+          </div>
+          <div class="f-step done">
+            <span class="f-dot"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>
+            <div style="min-width:0"><div class="f-st-k">Targets</div><div class="f-st-v">2 groups + 1 device</div>
+              <div class="f-tpills" id="f-tpills">
+                <span class="f-tpill">Lobby kiosks &times;8</span>
+                <span class="f-tpill">Drive-thru &times;6</span>
+                <span class="f-tpill dev">R92X205MPKR</span>
+              </div>
+            </div>
+            <button class="f-st-edit" onclick="fSlideOver(true)">Edit</button>
+          </div>
+        </div>
+        <div class="f-blast">
+          <div class="f-bl-row"><span class="f-bl-n" id="f-count">15</span><span class="f-bl-t">of 87 devices in the fleet</span></div>
+          <div class="f-meter" id="f-meter"><div class="fill" id="f-fill"></div></div>
+          <div class="f-bl-m" id="f-blm">17% of the fleet — a contained send.</div>
+        </div>
+        <div class="f-deliv">
+          <span class="d"><span class="dot ok"></span><b>12</b>&nbsp;online now</span>
+          <span class="d"><span class="dot wait"></span><b>3</b>&nbsp;at next check-in</span>
+        </div>
+        <div class="f-send-w">
+          <div class="f-confirm" id="f-confirm">
+            <div class="cl">Type <code id="f-cword">reboot</code> to arm the send</div>
+            <input class="f-in mono" id="f-cin" placeholder="" autocomplete="off" oninput="fCheckConfirm()">
+          </div>
+          <button class="f-send" id="f-send" onclick="fToast('Sent Install APK to 15 devices')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span id="f-send-t">Send to 15 devices</span></button>
+          <div class="f-send-sub" id="f-send-sub">Delivered live over WebSocket where connected</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- slide-over target picker -->
+<div class="f-ovl" id="f-ovl" onclick="fSlideOver(false)"></div>
+<aside class="f-so" id="f-so" aria-label="Choose targets">
+  <div class="f-so-h"><span class="t">Choose targets</span>
+    <button class="x" onclick="fSlideOver(false)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="f-so-b">
+    <div class="f-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search groups, restaurants, serials&hellip;"></div>
+
+    <div class="f-so-cap">Everything</div>
+    <button class="f-so-row" onclick="fToggleRow(this,87)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">All devices</span></span><span class="c">87</span></button>
+
+    <div class="f-so-cap">Restaurants</div>
+    <button class="f-so-row" onclick="fToggleRow(this,14)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Riverside &mdash; Bratislava</span><br><span class="m">11 T7 &middot; 3 DPC</span></span><span class="c">14</span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,9)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Old Town</span><br><span class="m">9 T7</span></span><span class="c">9</span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,11)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Airport T1</span><br><span class="m">8 T7 &middot; 3 DPC</span></span><span class="c">11</span></button>
+
+    <div class="f-so-cap">Groups</div>
+    <button class="f-so-row on" onclick="fToggleRow(this,8)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Lobby kiosks</span></span><span class="c">8</span></button>
+    <button class="f-so-row on" onclick="fToggleRow(this,6)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Drive-thru</span></span><span class="c">6</span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,5)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n">Kitchen displays</span></span><span class="c">5</span></button>
+
+    <div class="f-so-cap">Devices</div>
+    <button class="f-so-row on" onclick="fToggleRow(this,1)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n mono">R92X205MPKR</span><br><span class="m">Pixel 7a &middot; DPC &middot; online</span></span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,1)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n mono">AT070223051200266</span><br><span class="m">T7 &middot; system app &middot; online</span></span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,1)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n mono">AT070223051200417</span><br><span class="m">T7 &middot; system app &middot; offline 2 h</span></span></button>
+    <button class="f-so-row" onclick="fToggleRow(this,1)"><span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span><span><span class="n mono">AT070323051201044</span><br><span class="m">T7 &middot; system app &middot; online</span></span></button>
+
+    <div class="f-so-cap">Paste serials</div>
+    <textarea class="f-paste" placeholder="Paste a list of serials — commas, spaces or newlines"></textarea>
+  </div>
+  <div class="f-so-f"><span class="sum"><b id="f-so-count">15</b> devices selected</span><button class="doneb" onclick="fSlideOver(false)">Done</button></div>
+</aside>
+
+<div id="f-toast"><span id="f-tm"></span></div>
+
+<script>
+var F_ICON={
+  install_apk:'<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',
+  reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/>',
+  kiosk:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4-4 3 3 3-3 4 4"/>',
+  ota:'<path d="M20 17a4 4 0 0 0-1-7.9A6 6 0 0 0 7 8a5 5 0 0 0-3 9"/><path d="M12 12v6"/><path d="m9 16 3 3 3-3"/>',
+  screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/>',
+  logcat:'<path d="M4 5h16M4 10h10M4 14h16M4 18h10"/>',
+  shell:'<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
+  query:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  mic_gain_read:'<rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
+  wipe:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+};
+// chips: d = DPC only, s = system app only, a = admin only
+var F_ACTIONS=[
+  {t:'install_apk',n:'Install APK',s:'Push an app and install it silently',g:'Apps',chips:[],payload:'Menu App v2.1',pm:'silent install · 21.4 MB',danger:false},
+  {t:'uninstall',n:'Uninstall',s:'Remove a package across the target',g:'Apps',chips:[],payload:'LegacyPay',pm:'com.legacy.pay',danger:false},
+  {t:'reboot',n:'Reboot',s:'Restart every targeted device',g:'Device',chips:[],payload:'nightly cache clear',pm:'reason shown in history',danger:true,cw:'reboot'},
+  {t:'kiosk',n:'Kiosk mode',s:'Pin one app in lock-task mode',g:'Device',chips:[],payload:'Enable · Menu App',pm:'lock-task + boot relaunch',danger:false},
+  {t:'update_splash',n:'Boot splash',s:'Replace the boot logo image',g:'Device',chips:['s'],payload:'summer-2026.img',pm:'visible next boot',danger:true,cw:'splash'},
+  {t:'ota',n:'OTA update',s:'Ship a full firmware build',g:'Device',chips:['s'],payload:'build 2026-08-30',pm:'412 MB · installs when idle',danger:false},
+  {t:'screenshot',n:'Screenshot',s:'Capture the live screen',g:'Diagnostics',chips:['s'],payload:'no parameters',pm:'5-minute capture window',danger:false},
+  {t:'logcat',n:'Log capture',s:'Pull a logcat buffer',g:'Diagnostics',chips:[],payload:'W · 500 lines',pm:'tag MdmService',danger:false},
+  {t:'shell',n:'Shell',s:'Run a raw shell command',g:'Diagnostics',chips:['s','a'],payload:'df -h',pm:'output attached to the action',danger:false},
+  {t:'query',n:'Device query',s:'Run a vetted diagnostic',g:'Diagnostics',chips:[],payload:'Storage breakdown',pm:'read-only · operator safe',danger:false},
+  {t:'mic_gain_read',n:'Mic gain read',s:'Probe TX_DEC codec volumes',g:'Diagnostics',chips:['a'],payload:'no parameters',pm:'refreshes the Hardware card',danger:false},
+  {t:'wipe',n:'Factory wipe',s:'Erase the device completely',g:'Danger zone',chips:['d','a'],payload:'full reset',pm:'enrollment removed',danger:true,cw:'wipe'}
+];
+var F_CHIP={d:'<span class="f-chip">DPC only</span>',s:'<span class="f-chip warn">System app only</span>',a:'<span class="f-chip adm">Admin</span>'};
+var F_CUR=F_ACTIONS[0];
+
+function fRenderGroups(){
+  var groups=['Apps','Device','Diagnostics','Danger zone'];
+  var host=document.getElementById('f-groups');
+  host.innerHTML=groups.map(function(g){
+    var cards=F_ACTIONS.filter(function(a){return a.g===g}).map(function(a){
+      return '<button class="f-card'+(a.t===F_CUR.t?' on':'')+'" data-t="'+a.t+'" onclick="fGo(\''+a.t+'\')">'
+        +'<span class="ic"><svg viewBox="0 0 24 24">'+F_ICON[a.t]+'</svg></span>'
+        +'<span class="nm">'+a.n+'</span>'
+        +(a.chips.length?'<span class="chips">'+a.chips.map(function(c){return F_CHIP[c]}).join('')+'</span>':'')
+        +'</button>';
+    }).join('');
+    return '<div class="f-grp'+(g==='Danger zone'?' danger':'')+'"><div class="g-lbl">'+g+'<span class="ln"></span></div><div class="f-cards">'+cards+'</div></div>';
+  }).join('');
+}
+function fGo(t){
+  F_CUR=F_ACTIONS.find(function(a){return a.t===t});
+  document.querySelectorAll('.f-card').forEach(function(c){c.classList.toggle('on',c.dataset.t===t)});
+  document.getElementById('f-ic').innerHTML='<svg viewBox="0 0 24 24">'+F_ICON[t]+'</svg>';
+  document.getElementById('f-t').textContent=F_CUR.n;
+  document.getElementById('f-s').textContent=F_CUR.s;
+  document.querySelectorAll('.f-pane').forEach(function(p){p.classList.toggle('on',p.dataset.p===t)});
+  document.getElementById('f-sum-a').textContent=F_CUR.n;
+  document.getElementById('f-sum-p').textContent=F_CUR.payload;
+  document.getElementById('f-sum-pm').textContent=F_CUR.pm;
+  fUpdateSend();
+}
+function fUpdateSend(){
+  var n=parseInt(document.getElementById('f-count').textContent,10);
+  var send=document.getElementById('f-send');
+  var confirm=document.getElementById('f-confirm');
+  document.getElementById('f-send-t').textContent='Send to '+n+' device'+(n===1?'':'s');
+  if(F_CUR.danger){
+    confirm.classList.add('on');
+    document.getElementById('f-cword').textContent=F_CUR.cw;
+    document.getElementById('f-cin').value='';
+    send.classList.add('danger');send.disabled=true;
+    document.getElementById('f-send-sub').textContent='Destructive action — typed confirmation required';
+    document.getElementById('f-meter').classList.add('hot');
+  }else{
+    confirm.classList.remove('on');
+    send.classList.remove('danger');send.disabled=false;
+    document.getElementById('f-send-sub').textContent='Delivered live over WebSocket where connected';
+    document.getElementById('f-meter').classList.remove('hot');
+  }
+}
+function fCheckConfirm(){
+  var ok=document.getElementById('f-cin').value.trim().toLowerCase()===F_CUR.cw;
+  document.getElementById('f-send').disabled=!ok;
+}
+function fPickApp(el,name,ver){
+  el.parentNode.querySelectorAll('.f-app').forEach(function(a){a.classList.remove('on')});
+  el.classList.add('on');
+  F_CUR.payload=name+' '+ver;
+  document.getElementById('f-sum-p').textContent=F_CUR.payload;
+  fToast(name+' '+ver+' selected');
+}
+function fPickRow(el){el.parentNode.querySelectorAll('.f-q').forEach(function(a){a.classList.remove('on')});el.classList.add('on')}
+function fSetParam(v){F_CUR.payload=v;document.getElementById('f-sum-p').textContent=v}
+function fSeg(el){el.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on')});el.classList.add('on')}
+function fSlideOver(on){
+  document.getElementById('f-ovl').classList.toggle('on',on);
+  document.getElementById('f-so').classList.toggle('on',on);
+}
+function fToggleRow(el,n){
+  el.classList.toggle('on');
+  var total=0;
+  document.querySelectorAll('.f-so-row.on').forEach(function(r){
+    total+=parseInt((r.querySelector('.c')||{textContent:'1'}).textContent,10)||1;
+  });
+  document.getElementById('f-so-count').textContent=total;
+  document.getElementById('f-count').textContent=total;
+  var pct=Math.min(100,Math.round(total/87*100));
+  document.getElementById('f-fill').style.width=Math.max(2,pct)+'%';
+  document.getElementById('f-blm').textContent=pct>=60?pct+'% of the fleet — that is a big blast radius.':pct+'% of the fleet — a contained send.';
+  fUpdateSend();
+}
+function fToast(m){var t=document.getElementById('f-toast');document.getElementById('f-tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},2200)}
+document.getElementById('f-theme').onclick=function(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',cur);
+  try{localStorage.setItem('mdm-theme',cur)}catch(e){}
+};
+fRenderGroups();fGo('install_apk');
+</script>
+</body></html>

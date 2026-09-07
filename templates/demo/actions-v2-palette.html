@@ -1,0 +1,331 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions v2 · Command palette — AIO MDM</title>
+<script>(function(){try{var t=localStorage.getItem('mdm-theme');if(t!=='light'&&t!=='dark')t='light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+.p-wrap{max-width:1080px;margin:0 auto;padding:20px 24px 90px}
+svg{display:block}button{font:inherit;cursor:pointer;color:inherit}input{font:inherit}
+
+.p-dbar{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--border-soft);margin-bottom:20px;flex-wrap:wrap}
+.p-dbar .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.p-dbar .back:hover{color:var(--accent-text)}
+.p-dbar .name{font-size:13.5px;font-weight:700}
+.p-dbar .name b{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+.p-dbar .sibs{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-faint)}
+.p-dbar .sibs a{color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:99px;padding:4px 11px;font-weight:600}
+.p-dbar .sibs a:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.p-dbar .sibs span.on{color:var(--accent-ink);background:var(--accent);border:1px solid transparent;border-radius:99px;padding:4px 11px;font-weight:700}
+.p-theme{border:1px solid var(--border);background:var(--surface);border-radius:99px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.p-theme svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.p-theme:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.p-head{text-align:center;margin-top:26px}
+.p-head h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.p-head p{color:var(--muted);font-size:14px;margin-top:4px;max-width:66ch;margin-left:auto;margin-right:auto}
+
+/* ── the palette bar ── */
+.p-pal{position:relative;max-width:820px;margin:26px auto 0}
+.p-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent-edge);border-radius:16px;box-shadow:var(--shadow-pop),0 0 0 4px var(--accent-soft);padding:14px 18px;min-height:62px;flex-wrap:wrap;cursor:text}
+.p-bar .lead{width:26px;height:26px;flex:none;border-radius:8px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center}
+.p-bar .lead svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2}
+.p-tok{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:650;border-radius:9px;padding:6px 11px;border:1px solid transparent;line-height:1.2;transition:border-color var(--dur)}
+.p-tok.verb{background:var(--accent-soft);color:var(--accent-text)}
+.p-tok.arg{background:var(--accent-2-soft);color:var(--accent-2)}
+.p-tok.tgt{background:var(--surface2);color:var(--text-2);border-color:var(--border)}
+.p-tok.tgt.mono{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.p-tok:hover{border-color:currentColor}
+.p-tok .x{opacity:.55;font-weight:700}
+.p-tok .x:hover{opacity:1}
+.p-tok svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+.p-sep{color:var(--text-faint);font-size:13px}
+.p-add{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--text-faint);border:1px dashed var(--rule);border-radius:9px;padding:6px 10px;background:none}
+.p-add:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.p-add svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
+.p-go{margin-left:auto;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:11px;background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:9px 16px;box-shadow:0 4px 14px rgba(249,103,78,.28);flex:none}
+.p-go kbd{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.22);border-radius:5px;padding:1px 6px}
+.p-bar input.free{flex:1;min-width:120px;border:none;outline:none;background:none;font-size:15px;color:var(--text)}
+.p-bar input.free::placeholder{color:var(--text-faint)}
+
+/* dropdown (typing mode + token menus) */
+.p-drop{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none}
+.p-drop.on{display:block;animation:p-fade var(--dur-slow) var(--ease)}
+@keyframes p-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.p-d-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:10px 16px 5px}
+.p-opt{width:100%;display:flex;align-items:center;gap:11px;padding:9px 16px;border:none;background:none;text-align:left}
+.p-opt:hover,.p-opt.hot{background:var(--accent-soft)}
+.p-opt .ic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.p-opt:hover .ic,.p-opt.hot .ic{background:var(--surface);color:var(--accent)}
+.p-opt .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
+.p-opt .n{font-size:13.5px;font-weight:650}
+.p-opt .n mark{background:none;color:var(--accent-text);text-decoration:underline}
+.p-opt .m{font-size:11.5px;color:var(--muted)}
+.p-opt .k{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.p-opt .k.warn{color:var(--warn)}
+.p-opt .k.dpc{color:var(--accent-2)}
+.p-empty{padding:14px 16px;font-size:13px;color:var(--muted)}
+
+/* keymap row */
+.p-keys{display:flex;justify-content:center;gap:16px;margin-top:14px;font-size:11.5px;color:var(--text-faint);flex-wrap:wrap}
+.p-keys kbd{font-family:var(--mono);font-size:10.5px;background:var(--surface);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text-2)}
+
+/* preview line under the bar */
+.p-preview{max-width:820px;margin:16px auto 0;display:flex;align-items:center;gap:9px;justify-content:center;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.p-preview b{color:var(--text);font-weight:650}
+.p-preview .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+
+/* ── two columns below ── */
+.p-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:40px}
+@media(max-width:860px){.p-cols{grid-template-columns:1fr}}
+.p-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px;display:flex;align-items:center;gap:8px}
+.p-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:p-pulse 1.6s ease infinite}
+@keyframes p-pulse{0%,100%{box-shadow:0 0 0 0 var(--ok-bg)}50%{box-shadow:0 0 0 5px var(--ok-bg)}}
+.p-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.p-r{display:flex;align-items:center;gap:11px;padding:11px 15px;border-top:1px solid var(--border-soft)}
+.p-r:first-child{border-top:none}
+.p-r .ic{width:28px;height:28px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.p-r .ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.p-r .n{font-size:13px;font-weight:650;line-height:1.3}
+.p-r .m{font-size:11.5px;color:var(--muted);line-height:1.35}
+.p-r .m code{font-family:var(--mono);font-size:10.5px}
+.p-pin{color:var(--accent);width:13px;height:13px;flex:none}
+.p-pin svg{width:13px;height:13px;fill:currentColor;stroke:none}
+.p-resend{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2)}
+.p-resend:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.p-resend svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+.p-st{margin-left:auto;flex:none;text-align:right}
+.p-st .t{font-size:10.5px;color:var(--text-faint)}
+.p-st .s{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:1px}
+.p-st .s.run{color:var(--accent-2)}
+.p-st .s.ok{color:var(--ok)}
+.p-st .s.warn{color:var(--warn)}
+.p-st .s.bad{color:var(--danger)}
+.p-mini{height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex;margin-top:5px;width:130px}
+.p-mini .sg{height:100%}
+.p-mini .sg.done{background:var(--ok)}
+.p-mini .sg.run{background:var(--accent-2)}
+.p-mini .sg.fail{background:var(--danger)}
+
+#p-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;background:var(--text);color:var(--bg);font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--shadow-pop);z-index:70;transition:opacity var(--dur-slow),transform var(--dur-slow)}
+#p-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="p-wrap">
+  <div class="p-dbar">
+    <a class="back" href="/demo/index">&larr; All demos</a>
+    <span class="name"><b>Actions v2</b> &middot; Command palette</span>
+    <div class="sibs">
+      <a href="/demo/actions-v2-flow">1 Flow</a>
+      <a href="/demo/actions-v2-console">2 Console</a>
+      <span class="on">3 Palette</span>
+      <button class="p-theme" id="p-theme" title="Toggle theme" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+    </div>
+  </div>
+
+  <div class="p-head">
+    <h1>Command palette</h1>
+    <p>The whole Actions page collapses into one bar. Type to find an action, fill the tokens, hit Enter. Everything you send often lives one keystroke away in Pinned &amp; recent — and the activity feed keeps score without leaving the page.</p>
+  </div>
+
+  <!-- palette -->
+  <div class="p-pal">
+    <div class="p-bar" id="p-bar" onclick="pFocus(event)">
+      <span class="lead"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+      <span id="p-tokens">
+        <span class="p-tok verb" onclick="pMenu('actions',event)"><svg viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install APK</span>
+        <span class="p-sep">&middot;</span>
+        <span class="p-tok arg" onclick="pMenu('apps',event)">Menu App v2.1 <span class="x" onclick="pToast('Token cleared (demo)');event.stopPropagation()">&times;</span></span>
+        <span class="p-sep">to</span>
+        <span class="p-tok tgt" onclick="pMenu('targets',event)">Lobby kiosks &times;8 <span class="x" onclick="pToast('Target removed (demo)');event.stopPropagation()">&times;</span></span>
+        <span class="p-tok tgt mono" onclick="pMenu('targets',event)">R92X205MPKR <span class="x" onclick="pToast('Target removed (demo)');event.stopPropagation()">&times;</span></span>
+        <button class="p-add" onclick="pMenu('targets',event)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>target</button>
+      </span>
+      <button class="p-go" onclick="pSend();event.stopPropagation()">Send<kbd>&crarr;</kbd></button>
+    </div>
+
+    <!-- dropdown -->
+    <div class="p-drop" id="p-drop"></div>
+  </div>
+
+  <div class="p-keys">
+    <span><kbd>&#8984;K</kbd> focus</span>
+    <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+    <span><kbd>Tab</kbd> next token</span>
+    <span><kbd>&#9003;</kbd> remove token</span>
+    <span><kbd>&crarr;</kbd> send</span>
+    <span><kbd>Esc</kbd> clear</span>
+  </div>
+
+  <div class="p-preview" id="p-preview">
+    <span class="dot"></span><span><b>9</b> devices &middot; <b>8</b> online now, <b>1</b> at next check-in &middot; silent install, 21.4 MB</span>
+  </div>
+
+  <!-- two columns -->
+  <div class="p-cols">
+    <div>
+      <div class="p-cap">Pinned &amp; recent — one keystroke to resend</div>
+      <div class="p-col">
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/></svg></span>
+          <span style="min-width:0"><span class="n">Reboot &middot; Drive-thru &times;6 <span class="p-pin" style="display:inline-block;vertical-align:-1px"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><br><span class="m">pinned &middot; reason "nightly cache clear"</span></span>
+          <button class="p-resend" onclick="pToast('Reboot re-sent to Drive-thru ×6')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
+          <span style="min-width:0"><span class="n">Install KioskGuard v1.9.3 &middot; All devices &times;87 <span class="p-pin" style="display:inline-block;vertical-align:-1px"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><br><span class="m">pinned &middot; last sent 2 days ago</span></span>
+          <button class="p-resend" onclick="pToast('Install KioskGuard re-sent to 87 devices')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h10M4 14h16M4 18h10"/></svg></span>
+          <span style="min-width:0"><span class="n">Log capture W &middot; 500 lines</span><br><span class="m">to <code>AT070223051200417</code> &middot; 38 min ago</span></span>
+          <button class="p-resend" onclick="pToast('Log capture re-sent')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/></svg></span>
+          <span style="min-width:0"><span class="n">Screenshot &middot; Lobby kiosks &times;8</span><br><span class="m">yesterday 16:12</span></span>
+          <button class="p-resend" onclick="pToast('Screenshot re-sent to Lobby kiosks')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <span style="min-width:0"><span class="n">Device query &middot; Storage breakdown</span><br><span class="m">to Old Town &times;9 &middot; yesterday</span></span>
+          <button class="p-resend" onclick="pToast('Query re-sent to Old Town')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="p-cap"><span class="p-live-dot"></span>Live activity</div>
+      <div class="p-col" id="p-feed">
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
+          <span style="min-width:0"><span class="n">Install Menu App v2.1 &rarr; 15 devices</span><br><span class="m">9 done &middot; 4 delivering &middot; 1 failed &middot; 1 queued</span>
+            <span class="p-mini"><span class="sg done" style="width:60%"></span><span class="sg run" style="width:27%"></span><span class="sg fail" style="width:6%"></span></span></span>
+          <span class="p-st"><span class="t">2 min ago</span><span class="s run">In progress</span></span>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+          <span style="min-width:0"><span class="n">Factory wipe &rarr; <code style="font-family:var(--mono);font-size:11px">R3CT40ABCDE</code></span><br><span class="m">typed confirmation by admin &middot; device offline, wipes at next contact</span></span>
+          <span class="p-st"><span class="t">1 h ago</span><span class="s warn">Queued</span></span>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/></svg></span>
+          <span style="min-width:0"><span class="n">Reboot &rarr; All devices &times;87</span><br><span class="m">84 done &middot; 3 failed on low battery</span>
+            <span class="p-mini"><span class="sg done" style="width:97%"></span><span class="sg fail" style="width:3%"></span></span></span>
+          <span class="p-st"><span class="t">today 04:00</span><span class="s bad">3 failed</span></span>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h10M4 14h16M4 18h10"/></svg></span>
+          <span style="min-width:0"><span class="n">Log capture &rarr; <code style="font-family:var(--mono);font-size:11px">AT070223051200417</code></span><br><span class="m">512 lines attached to the action</span></span>
+          <span class="p-st"><span class="t">38 min ago</span><span class="s ok">Done</span></span>
+        </div>
+        <div class="p-r">
+          <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/></svg></span>
+          <span style="min-width:0"><span class="n">Screenshot &rarr; Kitchen displays &times;5</span><br><span class="m">4 captured &middot; 1 expired past the 5-min window</span></span>
+          <span class="p-st"><span class="t">yesterday</span><span class="s ok">Done</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="p-toast"><span id="p-tm"></span></div>
+
+<script>
+var P_ICON={
+  install_apk:'<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',
+  reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/>',
+  kiosk:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4-4 3 3 3-3 4 4"/>',
+  ota:'<path d="M20 17a4 4 0 0 0-1-7.9A6 6 0 0 0 7 8a5 5 0 0 0-3 9"/><path d="M12 12v6"/><path d="m9 16 3 3 3-3"/>',
+  screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/>',
+  logcat:'<path d="M4 5h16M4 10h10M4 14h16M4 18h10"/>',
+  shell:'<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
+  query:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  wipe:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>'
+};
+var P_ACTIONS=[
+  {t:'install_apk',n:'Install APK',m:'push an app silently',k:''},
+  {t:'uninstall',n:'Uninstall',m:'remove a package',k:''},
+  {t:'reboot',n:'Reboot',m:'restart devices — confirm to send',k:''},
+  {t:'kiosk',n:'Kiosk mode',m:'pin one app in lock-task',k:''},
+  {t:'screenshot',n:'Screenshot',m:'capture the live screen',k:'system app'},
+  {t:'logcat',n:'Log capture',m:'pull a logcat buffer',k:''},
+  {t:'shell',n:'Shell',m:'raw shell command',k:'system app'},
+  {t:'query',n:'Device query',m:'vetted read-only diagnostic',k:''},
+  {t:'ota',n:'OTA update',m:'ship a firmware build',k:'system app'},
+  {t:'update_splash',n:'Boot splash',m:'replace the boot logo',k:'system app'},
+  {t:'wipe',n:'Factory wipe',m:'erase completely — typed confirm',k:'DPC only'}
+];
+var P_APPS=[
+  {n:'Menu App v2.1',m:'com.aioapp.menu · 21.4 MB'},
+  {n:'AIO POS v4.2.0',m:'com.aioapp.pos · 24 MB'},
+  {n:'KioskGuard v1.9.3',m:'com.aioapp.kioskguard · 8 MB'},
+  {n:'PrinterBridge v2.0.1',m:'com.aioapp.printer · 5 MB'}
+];
+var P_TARGETS=[
+  {n:'All devices',m:'87 devices',k:''},
+  {n:'Riverside — Bratislava',m:'restaurant · 14 devices',k:''},
+  {n:'Old Town',m:'restaurant · 9 devices',k:''},
+  {n:'Lobby kiosks',m:'group · 8 devices',k:''},
+  {n:'Drive-thru',m:'group · 6 devices',k:''},
+  {n:'AT070223051200266',m:'T7 · Riverside · online',k:'',mono:true},
+  {n:'R92X205MPKR',m:'Pixel 7a · online',k:'DPC',mono:true},
+  {n:'R92X30AL7HD',m:'Pixel 6 · online',k:'DPC',mono:true}
+];
+function pDrop(){return document.getElementById('p-drop')}
+function pMenu(kind,ev){
+  if(ev)ev.stopPropagation();
+  var d=pDrop(),html='';
+  if(kind==='actions'){
+    html='<div class="p-d-cap">Actions</div>'+P_ACTIONS.map(function(a,i){return pOpt(P_ICON[a.t],a.n,a.m,a.k,i===0)}).join('');
+  }else if(kind==='apps'){
+    html='<div class="p-d-cap">App library</div>'+P_APPS.map(function(a,i){return pOpt(P_ICON.install_apk,a.n,a.m,'',i===0)}).join('');
+  }else{
+    html='<div class="p-d-cap">Add a target</div>'+P_TARGETS.map(function(t,i){return pOpt(t.mono?'<circle cx="12" cy="12" r="8"/>':'<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>',t.n,t.m,t.k,i===0,t.mono)}).join('');
+  }
+  d.innerHTML=html;d.classList.add('on');
+}
+function pOpt(icon,n,m,k,hot,mono){
+  return '<button class="p-opt'+(hot?' hot':'')+'" onclick="pPickOpt(\''+n.replace(/'/g,"\\'")+'\');event.stopPropagation()">'
+    +'<span class="ic"><svg viewBox="0 0 24 24">'+icon+'</svg></span>'
+    +'<span><span class="n"'+(mono?' style="font-family:var(--mono);font-size:12px;font-weight:500"':'')+'>'+n+'</span><br><span class="m">'+m+'</span></span>'
+    +(k?'<span class="k '+(k==='DPC only'||k==='DPC'?'dpc':'warn')+'">'+k+'</span>':'')+'</button>';
+}
+function pPickOpt(n){pDrop().classList.remove('on');pToast(n+' — token updated (demo)')}
+function pFilter(q){
+  var d=pDrop(),ql=q.toLowerCase();
+  var hits=P_ACTIONS.filter(function(a){return (a.n+' '+a.m).toLowerCase().indexOf(ql)>=0});
+  d.innerHTML='<div class="p-d-cap">Actions matching &ldquo;'+q+'&rdquo;</div>'+(hits.length
+    ?hits.map(function(a,i){return pOpt(P_ICON[a.t],a.n.replace(new RegExp('('+q+')','i'),'<mark>$1</mark>'),a.m,a.k,i===0)}).join('')
+    :'<div class="p-empty">Nothing matches — try &ldquo;install&rdquo;, &ldquo;reboot&rdquo;, &ldquo;log&rdquo;&hellip;</div>');
+  d.classList.add('on');
+}
+function pFocus(ev){pMenu('actions')}
+function pSend(){
+  pDrop().classList.remove('on');
+  pToast('Sent: Install Menu App v2.1 to 9 devices');
+  var feed=document.getElementById('p-feed');
+  var row=document.createElement('div');row.className='p-r';
+  row.innerHTML='<span class="ic"><svg viewBox="0 0 24 24">'+P_ICON.install_apk+'</svg></span>'
+    +'<span style="min-width:0"><span class="n">Install Menu App v2.1 &rarr; 9 devices</span><br><span class="m">0 done &middot; 8 delivering &middot; 1 queued</span>'
+    +'<span class="p-mini"><span class="sg run" style="width:89%"></span></span></span>'
+    +'<span class="p-st"><span class="t">just now</span><span class="s run">Sending</span></span>';
+  feed.insertBefore(row,feed.firstChild);
+}
+function pToast(m){var t=document.getElementById('p-toast');document.getElementById('p-tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},2400)}
+document.addEventListener('click',function(){pDrop().classList.remove('on')});
+document.addEventListener('keydown',function(e){
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();pMenu('actions')}
+  if(e.key==='Escape')pDrop().classList.remove('on');
+  if(e.key==='Enter'&&!pDrop().classList.contains('on'))pSend();
+});
+document.getElementById('p-theme').onclick=function(){
+  var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',cur);
+  try{localStorage.setItem('mdm-theme',cur)}catch(e){}
+};
+</script>
+</body></html>

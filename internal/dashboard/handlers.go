@@ -14913,6 +14913,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3",
 		"index", "report-flagship", "report-revamp", "report-redesign", "report-live", "report-gallery", "fleet-health",
 		"actions", "actions-launchpad", "actions-palette", "actions-flightdeck",
+		"actions-v2-flow", "actions-v2-console", "actions-v2-palette",
 		"actions-stepper", "actions-accordion", "actions-drawer",
 		"actions-pick-pills", "actions-pick-spotlight", "actions-pick-toolbar",
 		"actions-panes-studio", "actions-panes-console", "actions-panes-guided",
