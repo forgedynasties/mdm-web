@@ -518,7 +518,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			if users, err := d.ListUsers(ctx); err == nil {
 				for _, u := range users {
-					b := bubble{Initial: u.Initial(), Name: u.DisplayName(), Admin: u.Role == "admin" || u.Role == "dev"}
+					b := bubble{Initial: u.Initial(), Name: u.DisplayName(), Admin: false} // only the built-in admin login counts as "admin actions"
 					if u.HasAvatar() {
 						b.URL = fmt.Sprintf("/users/%s/avatar.png?v=%d", u.ID, u.AvatarVer)
 					}
@@ -2880,6 +2880,10 @@ func (h *Handler) UserSetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "user.avatar.set", target.Username, "")
+	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/users/"+id.String()+"/profile", http.StatusSeeOther)
 }
 
@@ -2901,6 +2905,10 @@ func (h *Handler) UserClearAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.db.ClearUserAvatar(r.Context(), id)
 	h.audit(r, "user.avatar.clear", target.Username, "")
+	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/users/"+id.String()+"/profile", http.StatusSeeOther)
 }
 
@@ -12928,7 +12936,9 @@ func (h *Handler) isAdminAction(c db.Command) bool {
 	if isSystemReboot(c) {
 		return false
 	}
-	if c.Type == "shell" || c.Type == "update_splash" || c.CreatedBy == "" || c.CreatedBy == "API key" {
+	// Unattributed or API-key commands count as admin actions; a shell or boot
+	// logo command sent by a named dev is that person's own action.
+	if c.CreatedBy == "" || c.CreatedBy == "API key" {
 		return true
 	}
 	return h.isAdminAuthor(c.CreatedBy)
@@ -12948,16 +12958,13 @@ func (h *Handler) hideAdminActions(r *http.Request) bool {
 	return err != nil || c.Value != "1"
 }
 
-// isAdminAuthor: the env dashboard admin, or any user with the admin/dev role
-// (matched by username or display name, as commands snapshot either).
+// isAdminAuthor: only the built-in (env-configured) super admin login. Team
+// accounts, whatever their role, are people whose actions always show.
 func (h *Handler) isAdminAuthor(name string) bool {
 	if name == "" {
 		return false // system-sent (e.g. OTA reboots) — shown, labelled automatic
 	}
-	if name == h.user || strings.EqualFold(name, "admin") {
-		return true
-	}
-	return userIsAdminFn != nil && userIsAdminFn(name)
+	return name == h.user || strings.EqualFold(name, "admin")
 }
 
 // isSystemReboot: a reboot nobody typed — the OTA flow's post-install reboot.
@@ -16681,6 +16688,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		"Orphans":   orphans,
 		"Summaries": summaries,
 		"Grants":    grantCounts,
+		"Roles":     roleOrder,
 		"UsersTab":  "people",
 		"Assignable": assignableRoles(h.role(r)),
 		"Restaurants": func() []db.Restaurant { rs, _ := h.db.ListRestaurants(r.Context()); return rs }(),
@@ -16913,7 +16921,7 @@ func (h *Handler) UserSetName(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/users", http.StatusFound)
+	h.usersRedirect(w, r)
 }
 
 func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
@@ -16969,7 +16977,7 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	invalidatePolicy(target.Username)
-	http.Redirect(w, r, "/users", http.StatusFound)
+	h.usersRedirect(w, r)
 }
 
 // UserSetPassword resets a team user's password (admin-only). The built-in admin
@@ -17004,7 +17012,7 @@ func (h *Handler) UserSetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "user.password_reset", id.String(), "")
-	http.Redirect(w, r, "/users", http.StatusFound)
+	h.usersRedirect(w, r)
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
@@ -17326,6 +17334,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
 	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.AccessScopeSearch))
 	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))
+	mux.HandleFunc("GET /users/{id}/manage", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/access/check", h.requireUserManager(h.UserAccessCheck))
 	post("POST /users/{id}/access/base", h.requireUserManager(h.UserAccessSetBase))
 	post("POST /users/{id}/access/grants", h.requireUserManager(h.UserAccessAddGrant))

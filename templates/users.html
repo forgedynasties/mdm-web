@@ -27,7 +27,12 @@
 .uu-open{color:inherit;text-decoration:none}.uu-open:hover .uu-av{box-shadow:0 0 0 3px var(--accent-soft,rgba(249,103,78,.2))}.uu-name .uu-open:hover{text-decoration:underline;text-underline-offset:3px}
 .uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
 .uu-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.user-role-sel{font-size:12.5px;padding:5px 8px}
+.uu-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 17px;border-bottom:1px solid var(--border-soft);background:var(--surface-3)}
+.uu-filters .form-input{width:auto;font-size:12.5px;padding:6px 10px}
+.uu-filters #uf-q{flex:1;min-width:200px}
+.uu-row[hidden]{display:none!important}
+.uu-none{padding:26px 17px;text-align:center;color:var(--muted);font-size:13px}
+.uu-manage{flex:none}
 .user-del{border:1px solid var(--border);background:var(--surface);color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer}
 .user-del:hover{border-color:var(--danger-edge);color:var(--danger);background:var(--danger-bg)}
 @media(max-width:600px){.uu-row{gap:9px}.uu-act{width:100%;justify-content:flex-start}}
@@ -84,53 +89,35 @@
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Team</h3><span class="m">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
 
+    <div class="uu-filters">
+      <input type="search" class="form-input" id="uf-q" placeholder="Search name, username or email…" aria-label="Search users">
+      <select class="form-input" id="uf-role" aria-label="Role"><option value="">Any role</option>{{range .Roles}}<option value="{{.}}">{{roleLabel .}}</option>{{end}}</select>
+      <select class="form-input" id="uf-access" aria-label="Access"><option value="">Any access</option><option value="default">Default for role</option><option value="custom">Custom rules</option><option value="sessions">Live sessions granted</option></select>
+      <select class="form-input" id="uf-status" aria-label="Status"><option value="">Any status</option><option value="active7">Active in the last 7 days</option><option value="idle30">Idle 30+ days</option><option value="never">Never active</option><option value="unverified">Email unverified</option></select>
+      <span class="muted small" id="uf-count"></span>
+      <button type="button" class="cc-btn sm" id="uf-clear" hidden onclick="ufClear()">Clear</button>
+    </div>
     {{if .Users}}
-    {{range .Users}}{{$uid := .ID}}
-    <div class="uu-row">
+    {{range .Users}}{{$uid := .ID}}{{$g := index $.Grants .ID}}{{$sm := index $.Summaries .Username}}
+    <div class="uu-row" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}" data-role="{{.Role}}" data-access="{{if $g.Grants}}custom{{else}}default{{end}}" data-sessions="{{if $g.Sensitive}}1{{else}}0{{end}}" data-verified="{{if .Email}}{{if .EmailVerifiedAt}}1{{else}}0{{end}}{{else}}1{{end}}" data-last="{{if and $sm $sm.LastAt}}{{timeISO (deref $sm.LastAt)}}{{end}}">
       <a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}</a>
       <div class="uu-id">
-        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a></div>
+        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a> <span class="cc-pill {{if eq .Role "admin"}}danger{{else if or (eq .Role "dev") (eq .Role "user_manager")}}warn{{else if eq .Role "operator"}}info{{else}}{{end}}" style="margin-left:6px;vertical-align:middle;">{{roleLabel .Role}}</span></div>
         <div class="uu-meta mono">
           {{.Username}} · Joined {{shortDate .CreatedAt}}
           {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
-          {{with index $.Grants .ID}}{{if .Grants}} · <a href="/users/{{$uid}}/access" class="js-dest" style="color:inherit">{{.Grants}} access rule{{if ne .Grants 1}}s{{end}}</a>{{if .Sensitive}} <span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-weight:700;">● sessions</span>{{end}}{{end}}{{end}}          {{with index $.Summaries .Username}} · {{.Actions}} action{{if ne .Actions 1}}s{{end}} · {{.Commands}} command{{if ne .Commands 1}}s{{end}}{{if .LastAt}} · active {{timeSince (deref .LastAt)}}{{end}}{{end}}
+          {{if $g.Grants}} · <a href="/users/{{$uid}}/manage#ua-rules" class="js-dest" style="color:inherit">{{$g.Grants}} access rule{{if ne $g.Grants 1}}s{{end}}</a>{{if $g.Sensitive}} <span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-weight:700;">● sessions</span>{{end}}{{end}}
+          {{with $sm}} · {{.Actions}} action{{if ne .Actions 1}}s{{end}} · {{.Commands}} command{{if ne .Commands 1}}s{{end}}{{if .LastAt}} · active {{timeSince (deref .LastAt)}}{{end}}{{end}}
         </div>
       </div>
-      <a class="user-pw-btn js-dest" href="/users/{{.ID}}/access" title="Rules: what this account may do and where"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Access control</a>
-      <details class="user-pw" style="margin-right:2px;">
-        <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
-        <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">
-          <input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.FirstName}}" style="width:110px;">
-          <input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.LastName}}" style="width:110px;">
-          <button type="submit" class="cc-btn sm primary">Save</button>
-        </form>
-      </details>
-      <span class="cc-pill {{if eq .Role "admin"}}danger{{else if or (eq .Role "dev") (eq .Role "user_manager")}}warn{{else if eq .Role "operator"}}info{{else}}{{end}}">{{roleLabel .Role}}</span>
-      <div class="uu-act">
-        {{if and (ne $.Role "admin") (ge (roleLevel .Role) (roleLevel $.Role))}}
-        <span class="muted small">at or above your level</span>
-        {{else}}
-        <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
-          <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
-            {{$cur := .Role}}{{range $.Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}</option>{{end}}
-            {{if not (hasStr $.Assignable .Role)}}<option value="{{.Role}}" selected>{{roleLabel .Role}}</option>{{end}}
-          </select>
-          <noscript><button type="submit" class="cc-btn sm">Save</button></noscript>
-        </form>
-        <details class="user-pw">
-          <summary class="user-pw-btn" title="Change password"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Password</summary>
-          <form action="/users/{{.ID}}/password" method="POST" class="user-pw-pop">
-            <input type="password" name="password" class="form-input" placeholder="New password" aria-label="New password" required autocomplete="new-password" minlength="6">
-            <button type="submit" class="cc-btn sm primary">Set</button>
-          </form>
-        </details>
-        <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete user {{.Username}}?">
-          <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
-        </form>
-        {{end}}
-      </div>
+      {{if or (eq $.Role "admin") (lt (roleLevel .Role) (roleLevel $.Role))}}
+      <a class="cc-btn sm js-dest uu-manage" href="/users/{{.ID}}/manage" title="Name, role, password, picture, access rules"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Manage</a>
+      {{else}}
+      <span class="muted small" title="At or above your level">view only</span>
+      {{end}}
     </div>
     {{end}}
+    <div class="uu-none" id="uf-none" hidden>No one matches these filters.</div>
     {{else}}
     <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><div><b>No users yet</b>Use "Add user" above to create the first one.</div></div>
     {{end}}
@@ -197,5 +184,40 @@ document.addEventListener('keydown', function (e) {
 });
 </script>
 
+<script>
+(function(){
+  var q=document.getElementById('uf-q'), role=document.getElementById('uf-role'), acc=document.getElementById('uf-access'), st=document.getElementById('uf-status');
+  if(!q) return;
+  var rows=Array.prototype.slice.call(document.querySelectorAll('.uu-row[data-q]'));
+  function apply(){
+    var t=q.value.trim().toLowerCase(), r=role.value, a=acc.value, s=st.value, n=0, now=Date.now();
+    rows.forEach(function(row){
+      var d=row.dataset, ok=true;
+      if(t && d.q.toLowerCase().indexOf(t)===-1) ok=false;
+      if(ok && r && d.role!==r) ok=false;
+      if(ok && a==='custom' && d.access!=='custom') ok=false;
+      if(ok && a==='default' && d.access!=='default') ok=false;
+      if(ok && a==='sessions' && d.sessions!=='1') ok=false;
+      if(ok && s){
+        var last=d.last?Date.parse(d.last):NaN, days=isNaN(last)?Infinity:(now-last)/864e5;
+        if(s==='active7' && !(days<=7)) ok=false;
+        if(s==='idle30' && !(days>30 && isFinite(days))) ok=false;
+        if(s==='never' && isFinite(days)) ok=false;
+        if(s==='unverified' && d.verified!=='0') ok=false;
+      }
+      row.hidden=!ok; if(ok)n++;
+    });
+    var any=!!(t||r||a||s);
+    document.getElementById('uf-count').textContent=any? n+' of '+rows.length : '';
+    document.getElementById('uf-clear').hidden=!any;
+    document.getElementById('uf-none').hidden=n>0;
+    try{ sessionStorage.setItem('uf', JSON.stringify({q:q.value,r:r,a:a,s:s})); }catch(e){}
+  }
+  window.ufClear=function(){ q.value=''; role.value=''; acc.value=''; st.value=''; apply(); };
+  [q,role,acc,st].forEach(function(el){ el.addEventListener('input',apply); el.addEventListener('change',apply); });
+  try{ var saved=JSON.parse(sessionStorage.getItem('uf')||'null'); if(saved){ q.value=saved.q||''; role.value=saved.r||''; acc.value=saved.a||''; st.value=saved.s||''; } }catch(e){}
+  apply();
+})();
+</script>
 {{template "footer" .}}
 {{end}}

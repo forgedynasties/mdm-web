@@ -12,6 +12,15 @@
 .ua-card .cc-ch .m{margin-left:auto;font-size:11.5px;color:var(--muted)}
 .ua-card .cc-ch .ic{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
 .ua-card .cc-ch .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ua-acct{display:flex;gap:18px;padding:14px 17px}
+@media(max-width:640px){.ua-acct{flex-direction:column}}
+.ua-acct-av{display:flex;flex-direction:column;align-items:center;gap:8px;flex:none}
+.ua-acct-av .ubub.big{width:72px;height:72px;font-size:28px}
+.ua-acct-forms{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.ua-f-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ua-f-row .form-input{flex:1;min-width:120px;max-width:220px}
+.ua-danger{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);background:var(--danger-bg)}
+.ua-danger b{font-size:13px}
 .ua-pad{padding:14px 17px}
 /* starting point tiles */
 .ua-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -121,22 +130,114 @@
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Users · Access control · <a href="/users/{{.User.ID}}/profile" class="js-dest" style="color:inherit">{{.User.DisplayName}}</a></div>
+      <div class="cc-eyebrow">Users · Manage · <a href="/users/{{.User.ID}}/profile" class="js-dest" style="color:inherit">{{.User.DisplayName}}</a></div>
       <h1 class="cc-h1 ua-h1">{{template "ubub" .Bubble}}<span>{{.User.DisplayName}} <span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}" style="vertical-align:middle;margin-left:6px">{{roleLabel .User.Role}}</span></span></h1>
       <div class="cc-sub">{{.RoleSentence}}</div>
     </div>
     <div class="cc-actions">
       <a class="cc-btn js-dest" href="/users/{{.User.ID}}/profile">Profile</a>
-      <a class="cc-btn js-dest" href="/users/access">All accounts</a>
+      <a class="cc-btn js-dest" href="/users">People</a>
     </div>
   </div>
   {{template "users-tabs" .}}
 
   {{if eq .User.Role "admin"}}
-  <div class="cc-card ua-card"><div class="ua-empty">Super admins have every permission everywhere. There is nothing to configure.</div></div>
+  <div class="cc-grid ua-grid"><div>
+      <div class="cc-card ua-card" id="ua-account">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h3>Account</h3><span class="m mono">{{.User.Username}}</span></div>
+        <div class="ua-acct">
+          <div class="ua-acct-av">
+            <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
+            {{if .CanEditAvatar}}
+            <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><label class="cc-btn sm">{{if .Bubble.URL}}Change{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label></form>
+            {{if .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
+            {{end}}
+          </div>
+          <div class="ua-acct-forms">
+            <form action="/users/{{.User.ID}}/name" method="POST" hx-boost="false" class="ua-f">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Name</label>
+              <div class="ua-f-row"><input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.User.FirstName}}"><input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.User.LastName}}"><button type="submit" class="cc-btn sm">Save</button></div>
+            </form>
+            <div class="ua-f">
+              <label class="ua-lbl">Email</label>
+              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{end}}</div>
+            </div>
+            <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
+              <div class="ua-f-row">
+                <select name="role" class="form-input" style="width:auto;min-width:220px;">
+                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
+                  {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
+                </select>
+                <button type="submit" class="cc-btn sm">Change role</button>
+              </div>
+            </form>
+            <form action="/users/{{.User.ID}}/password" method="POST" hx-boost="false" class="ua-f" autocomplete="off">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Password</label>
+              <div class="ua-f-row"><input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required style="max-width:260px;"><button type="submit" class="cc-btn sm">Set password</button></div>
+            </form>
+          </div>
+        </div>
+        {{if .CanDelete}}
+        <div class="ua-danger">
+          <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
+          <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
+        </div>
+        {{end}}
+      </div>
+  <div class="cc-card ua-card"><div class="ua-empty">Super admins have every permission everywhere. There are no access rules to configure.</div></div>
+  </div></div>
   {{else}}
   <div class="cc-grid ua-grid">
     <div>
+      <div class="cc-card ua-card" id="ua-account">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h3>Account</h3><span class="m mono">{{.User.Username}}</span></div>
+        <div class="ua-acct">
+          <div class="ua-acct-av">
+            <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
+            {{if .CanEditAvatar}}
+            <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><label class="cc-btn sm">{{if .Bubble.URL}}Change{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label></form>
+            {{if .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
+            {{end}}
+          </div>
+          <div class="ua-acct-forms">
+            <form action="/users/{{.User.ID}}/name" method="POST" hx-boost="false" class="ua-f">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Name</label>
+              <div class="ua-f-row"><input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.User.FirstName}}"><input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.User.LastName}}"><button type="submit" class="cc-btn sm">Save</button></div>
+            </form>
+            <div class="ua-f">
+              <label class="ua-lbl">Email</label>
+              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{end}}</div>
+            </div>
+            <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
+              <div class="ua-f-row">
+                <select name="role" class="form-input" style="width:auto;min-width:220px;">
+                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
+                  {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
+                </select>
+                <button type="submit" class="cc-btn sm">Change role</button>
+              </div>
+            </form>
+            <form action="/users/{{.User.ID}}/password" method="POST" hx-boost="false" class="ua-f" autocomplete="off">
+              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
+              <label class="ua-lbl">Password</label>
+              <div class="ua-f-row"><input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required style="max-width:260px;"><button type="submit" class="cc-btn sm">Set password</button></div>
+            </form>
+          </div>
+        </div>
+        {{if .CanDelete}}
+        <div class="ua-danger">
+          <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
+          <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
+        </div>
+        {{end}}
+      </div>
       {{if .HasBase}}
       <div class="cc-card ua-card">
         <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg></span><h3>Starting point</h3><span class="m" id="ua-base-state">saved</span></div>

@@ -257,7 +257,18 @@ func roleArticle(role string) string {
 	}
 }
 
-// UserAccessPage renders the editor.
+// usersRedirect returns to the Manage page when the form says so (redirect=
+// /users/…), else to the people list.
+func (h *Handler) usersRedirect(w http.ResponseWriter, r *http.Request) {
+	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+		http.Redirect(w, r, to, http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
+// UserAccessPage renders the Manage page: account settings plus the access
+// rule editor (also served at /users/{id}/access).
 func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.loadAccessTarget(w, r)
 	if !ok {
@@ -296,7 +307,11 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := h.accessFor(ctx, h.role(r), h.currentUsername(r))
 	h.render(w, r, "user_access.html", map[string]any{
-		"Title":        "Access · " + u.DisplayName(),
+		"Title":        "Manage · " + u.DisplayName(),
+		"Assignable":   assignableRoles(h.role(r)),
+		"CanEditAvatar": h.mayEditAvatar(r, u),
+		"CanDelete":    u.Username != h.user,
+		"Self":         u.Username == h.currentUsername(r),
 		"User":         u,
 		"Bubble":       userBubbleFn(u.Username),
 		"Policy":       pol,

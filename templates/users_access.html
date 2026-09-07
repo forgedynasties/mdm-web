@@ -33,7 +33,7 @@ a.ua-row:hover{background:var(--surface2)}
   </div>
   <div class="cc-card">
     {{range .Rows}}
-    {{if .CanEdit}}<a class="ua-row js-dest" href="/users/{{.User.ID}}/access">{{else}}<div class="ua-row">{{end}}
+    {{if .CanEdit}}<a class="ua-row js-dest" href="/users/{{.User.ID}}/manage">{{else}}<div class="ua-row">{{end}}
       {{template "ubub" .Bubble}}
       <div class="ua-id">
         <div class="ua-name">{{.User.DisplayName}}{{if .Sensitive}}<span class="ua-hot" title="Has a rule granting remote control, shell or OTA">sessions</span>{{end}}</div>
