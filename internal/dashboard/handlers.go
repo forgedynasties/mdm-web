@@ -283,6 +283,7 @@ type MicGainView struct {
 	Configured bool   `json:"configured"` // config source: at least one top-level default present
 	File       string `json:"file"`       // config source: xml file name
 	TS         int64  `json:"ts"`         // live source: probe epoch seconds
+	Target     *int   `json:"target"`     // live source: enforcement target set via mic_gain_set, if any
 }
 
 // Summary classifies the reading for the dashboard: "fixed" when every channel reads
@@ -12697,6 +12698,9 @@ var commandRoles = map[string][]string{
 	// Read-only mic capture gain (TX_DEC0..7 Volume) probe. Admin-only for now: the
 	// field it refreshes is only rendered for admins (see device.html Hardware card).
 	"mic_gain_read": {"admin"},
+	// Sets (or clears) the vendor daemon's TX_DEC enforcement target. Admin-only:
+	// it changes codec state on the device.
+	"mic_gain_set": {"admin"},
 }
 
 // ── Roles ────────────────────────────────────────────────────────────────────
@@ -13007,6 +13011,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "OTA Update"
 	case "mic_gain_read":
 		return "Mic gain read"
+	case "mic_gain_set":
+		return "Mic gain set"
 	default:
 		return cmdType
 	}
@@ -14345,6 +14351,10 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 		return json.RawMessage(b)
 	case "uninstall":
 		b, _ := json.Marshal(map[string]string{"package": strings.TrimSpace(r.FormValue("package"))})
+		return json.RawMessage(b)
+	case "mic_gain_set":
+		// value = TX_DEC Volume to enforce (e.g. 102); empty clears enforcement.
+		b, _ := json.Marshal(map[string]string{"value": strings.TrimSpace(r.FormValue("value"))})
 		return json.RawMessage(b)
 	case "update_splash":
 		// Client downloads url (a splash.img: 0x4000 zero filler + BMP), validates
