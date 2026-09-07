@@ -1625,7 +1625,8 @@
     function matchEntries(q) {
       var ql = q.toLowerCase();
       if (!ql) return dests.slice();
-      var sub = [], seq = [], all = dests.concat(entities);
+      var seenUrl = {}; entities.forEach(function(e){ seenUrl[e.url] = true; }); // indexed entries carry a subtitle; drop the bare page link for the same URL
+      var sub = [], seq = [], all = dests.filter(function(d){ return !seenUrl[d.url]; }).concat(entities);
       all.forEach(function (d) {
         var hay = (d.label + ' ' + d.sub).toLowerCase();
         if (hay.indexOf(ql) !== -1) sub.push(d);

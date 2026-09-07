@@ -55,23 +55,54 @@ Implemented in `internal/middleware/auth.go`:
 
 ## 4. Dashboard RBAC (surface 4)
 
-Roles (session `Role` field): **admin, dev, operator, tester, viewer** (plus a "strict admin" distinction applied to settings/user-management). Route guards in `internal/dashboard/handlers.go`:
+Two layers: a **role** (the ceiling: what an account can ever do) and per-account **access rules** (where). Code: `internal/dashboard/access.go` (engine), `access_admin.go` (editor), `internal/db/access.go` (storage). Design notes: `access-control-plan.md`.
 
-| Wrapper | Allowed roles | Governs |
+### 4.1 Roles
+
+| Role (session `Role`) | Ceiling | Rules editable by |
 |---|---|---|
-| `requireAuth` | any logged-in user | Read views: fleet, device detail, alerts, command history, exports |
-| `requireOperatorOrAdmin` | admin, dev, operator, tester | Ack/resolve alerts, edit notes, bulk ops |
-| `requireAdmin` | admin, dev | Device commands, hide/unhide, releases, OTA |
-| `requireAdminOrTester` | admin, dev, tester | Create groups/restaurants, assign devices, kiosk config |
-| `requireStrictAdmin` | **admin only** | Settings, **user management / role changes**, boot logo, changelog |
-| `requireDev` | dev | Release sign-off |
-| `requireTester` | tester | Record QA test results |
+| `admin` (super admin) | everything, everywhere; rules never apply | nobody |
+| `dev` | operator ceiling + `shell` + `ota` | admin |
+| `user_manager` (access admin) | operator ceiling + Users pages | admin |
+| `operator` | device actions, kiosk, notes, queue, logcat, fleet actions, `remote` (explicit only) | admin, access admin |
+| `viewer` | `view`, `screenshot` | admin, access admin |
+| `owner` | `view` on allowed venues only, owner home | admin, access admin |
+
+Route wrappers still gate by role first (`requireAuth`, `requireOperatorOrAdmin`, `requireAdminOrOperator`, `requireReleaseAdmin` = admin/dev, `requireUserManager` = admin/user_manager, `requireStrictAdmin` = admin, `requireDev`). Rules only ever narrow what a role permits.
+
+### 4.2 Access rules (`access_grants`)
+
+One row per rule: `effect` allow/deny · `scope_type` all/restaurant/group/device (+ foreign key, cascade on delete) · `actions[]` (keys, or `*`) · `note` · `expires_at` · `created_by`. `users.access` JSONB keeps only `base` (allow-then-exclude / deny-then-include) and `hide_out_of_scope`.
+
+Evaluation, `access.decide(action, device)`:
+
+1. admin → allow.
+2. action outside the role ceiling → deny (`shell`/`ota` for anyone but dev).
+3. any matching **deny** rule → deny. A deny of `*` covers everything, sensitive actions included.
+4. any matching **allow** rule → allow. An allow of `*` never covers `remote`, `shell` or `ota`.
+5. owner → deny. Sensitive action for a non-dev → deny (explicit rule required).
+6. viewer + `view` → allow. `base == deny` → deny. Otherwise allow.
+
+Scope match: `all` always; `restaurant`/`group` by the device's current membership (`DeviceScopes`, read per request); `device` by id. Fleet-level actions (`alerts`, `groups`, `qa`, `deploy`) match `all` rules only. Expired rows are excluded at load; a sweep deletes them every minute and audits `user.access.expired`.
+
+### 4.3 Where it is enforced
+
+- **Every `/devices/{serial}/...` route** is wrapped in `deviceRoute(action, …)`: device not viewable → `404` when the user hides out-of-scope devices, else read-only (writes `403`); the named action is checked otherwise. `routes_test.go` fails the build if a device route is registered without it.
+- **Lists** narrow to `visibleIDs()`: device list, map, search, select-all, target counts, alerts, group / venue members, actions history and detail, fleet SSE rows. Fleet-wide totals (overview, fleet health, alerts-by-venue report) redirect restricted users to their device list.
+- **Commands**: `commandRoles` is the role allowlist; `enforceCommandTargets` / `CommandCreate` drop devices outside the policy (group targets are narrowed to a device list). Zero devices left → `403`.
+- **OTA**: `resolveEligibleDevices` filters by the dev's `ota` rules; deployment retry / cancel-ota / remove need `ota` on the device; deployment reboots need `reboot`.
+- **Remote control**: page needs `remote` on the device; the WS token is single-use, device-bound, IP-bound, 2 min.
+- **Shell**: admin/dev routes, plus `shell` on the device.
+
+### 4.4 Editing rules
+
+`/users/{id}/access` (admin, access admin). The target must be below the actor's level (`mayManageUser`); actions must be inside the target's ceiling; a non-admin granter can only hand out actions and scopes their own access already covers (`checkGrantAllowed`); allowing `remote` / `shell` / `ota` requires an explicit confirmation field. Every change is audited (`user.access.grant|edit|revoke|base`). Refused attempts are logged and audited as `access.denied` (rate-limited per user and action).
 
 Auth-failure behaviour:
-- **Not logged in →** `302` redirect to `/login` (no body disclosure).
-- **Logged in but wrong role →** `403 Forbidden` (plaintext). No `401`, so "no session" and "insufficient privilege" are not distinguished.
+- **Not logged in →** `302` redirect to `/login`.
+- **Wrong role →** `403 Forbidden`. **Hidden device →** `404` (indistinguishable from a missing device, by design).
 
-Pen-test focus: vertical privilege escalation between roles (e.g. operator reaching `requireAdmin` mutations), and whether the same effect is reachable unprotected via the admin REST key.
+Pen-test focus: reaching a hidden device through any route not wrapped in `deviceRoute`; a list endpoint that skips `visibleIDs`; the admin REST key (surface 2), which bypasses all of this.
 
 ---
 

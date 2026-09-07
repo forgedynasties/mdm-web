@@ -764,3 +764,48 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		"UsersTab":  "access",
 	})
 }
+
+// whoHasAccess lists, for admins and access admins, every rule that covers a
+// device, grouped per user, so the device page can answer "who can touch this?".
+type accessHolder struct {
+	Username, Name, Role string
+	Bubble               any
+	Rules                []string
+	Sensitive            bool
+}
+
+func (h *Handler) whoHasAccess(r *http.Request, deviceID uuid.UUID) []accessHolder {
+	if !roleManagesUsers(h.role(r)) {
+		return nil
+	}
+	grants, err := h.db.AccessGrantsForDevice(r.Context(), deviceID)
+	if err != nil || len(grants) == 0 {
+		return nil
+	}
+	byUser := map[string]*accessHolder{}
+	var order []string
+	for _, g := range grants {
+		hd, ok := byUser[g.Username]
+		if !ok {
+			hd = &accessHolder{Username: g.Username, Name: g.Username, Bubble: userBubbleFn(g.Username)}
+			if u, err := h.db.GetUserByUsername(r.Context(), g.Username); err == nil && u != nil {
+				hd.Name, hd.Role = u.DisplayName(), roleLabel(u.Role)
+			}
+			byUser[g.Username] = hd
+			order = append(order, g.Username)
+		}
+		hd.Rules = append(hd.Rules, grantSentence(g))
+		if g.Effect == "allow" {
+			for _, a := range g.Actions {
+				if accessActionByKey[a].Sensitive {
+					hd.Sensitive = true
+				}
+			}
+		}
+	}
+	out := make([]accessHolder, 0, len(order))
+	for _, u := range order {
+		out = append(out, *byUser[u])
+	}
+	return out
+}

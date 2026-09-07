@@ -2342,6 +2342,20 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">
+    {{if .WhoHasAccess}}
+    <div class="ddc-card" id="dd-who">
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Who has access</h3><span class="m muted small">rules that cover this device</span></div>
+      {{range .WhoHasAccess}}
+      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+        {{template "ubub" .Bubble}}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><a href="{{userURL .Username}}" class="link-detail" style="font-weight:650;">{{.Name}}</a><span class="cc-pill" style="font-size:10px;">{{.Role}}</span>{{if .Sensitive}}<span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-size:11px;font-weight:700;">● sessions</span>{{end}}</div>
+          <div class="muted" style="font-size:12px;line-height:1.45;margin-top:3px;">{{range $i, $s := .Rules}}{{if $i}}<br>{{end}}{{$s}}{{end}}</div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
     <div class="ddc-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h3>Hardware</h3></div>
       {{$ram := ramUsage .Device.LatestExtra}}

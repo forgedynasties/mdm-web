@@ -4928,6 +4928,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
 		"IsOwner":             h.role(r) == "owner",
+		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"BuildChanges":        buildChanges,
 		"Commands":            commands,
@@ -8111,6 +8112,18 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 	if rs, err := h.db.ListRestaurants(r.Context()); err == nil {
 		for _, rest := range rs {
 			out = append(out, entry{rest.Name, "Restaurant", "/restaurants/" + rest.ID.String(), "Restaurant"})
+		}
+	}
+	// People: anyone signed in may open a colleague's profile (owners have no Users area).
+	if h.role(r) != "owner" {
+		if us, err := h.db.ListUsers(r.Context()); err == nil {
+			for _, u := range us {
+				sub := roleLabel(u.Role)
+				if u.Username != u.DisplayName() {
+					sub += " · " + u.Username
+				}
+				out = append(out, entry{u.DisplayName(), sub, "/users/" + u.ID.String() + "/profile", "User"})
+			}
 		}
 	}
 	// Releases are deliberately not indexed: dozens of version strings drowned
@@ -16660,10 +16673,12 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			i--
 		}
 	}
+	grantCounts, _ := h.db.CountAccessGrants(r.Context(), sensitiveActionKeys)
 	h.render(w, r, "users.html", map[string]any{
 		"Users":     users,
 		"Orphans":   orphans,
 		"Summaries": summaries,
+		"Grants":    grantCounts,
 		"UsersTab":  "people",
 		"Assignable": assignableRoles(h.role(r)),
 		"Restaurants": func() []db.Restaurant { rs, _ := h.db.ListRestaurants(r.Context()); return rs }(),

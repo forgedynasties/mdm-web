@@ -25,6 +25,7 @@ type AccessGrant struct {
 	ExpiresAt *time.Time `json:"expires_at"`
 	CreatedBy string     `json:"created_by"` // username of the granter
 	CreatedAt time.Time  `json:"created_at"`
+	Username  string     `json:"username"` // owner of the grant (joined)
 	// Expired is set by ListAccessGrants(includeExpired=true) for display.
 	Expired bool `json:"expired"`
 }
@@ -44,8 +45,10 @@ SELECT g.id, g.user_id, g.effect, g.scope_type,
        COALESCE(g.restaurant_id, g.group_id, g.device_id),
        COALESCE(r.name, gr.name, d.serial_number, ''),
        g.actions, g.note, g.expires_at, g.created_by, g.created_at,
-       (g.expires_at IS NOT NULL AND g.expires_at <= NOW())
+       (g.expires_at IS NOT NULL AND g.expires_at <= NOW()),
+       COALESCE(u.username, '')
 FROM access_grants g
+LEFT JOIN users u ON u.id = g.user_id
 LEFT JOIN restaurants r ON r.id = g.restaurant_id
 LEFT JOIN groups gr ON gr.id = g.group_id
 LEFT JOIN devices d ON d.id = g.device_id`
@@ -55,7 +58,7 @@ func scanGrants(rows pgx.Rows) ([]AccessGrant, error) {
 	var out []AccessGrant
 	for rows.Next() {
 		var g AccessGrant
-		if err := rows.Scan(&g.ID, &g.UserID, &g.Effect, &g.ScopeType, &g.ScopeID, &g.ScopeName, &g.Actions, &g.Note, &g.ExpiresAt, &g.CreatedBy, &g.CreatedAt, &g.Expired); err != nil {
+		if err := rows.Scan(&g.ID, &g.UserID, &g.Effect, &g.ScopeType, &g.ScopeID, &g.ScopeName, &g.Actions, &g.Note, &g.ExpiresAt, &g.CreatedBy, &g.CreatedAt, &g.Expired, &g.Username); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
