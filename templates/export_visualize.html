@@ -51,6 +51,36 @@ html[data-theme="dark"] .evz-root {
 .evz-dedupe { margin-left: auto; color: var(--text) !important; }
 .evz-table td.evz-ts { font-family: var(--font); color: var(--text-2, var(--text)); }
 .evz-table-wrap { overflow: auto; max-height: 480px; border-top: 1px solid var(--border); }
+.evz-tb { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border-soft, var(--border)); }
+.evz-seg { display: inline-flex; padding: 3px; background: var(--surface-3, var(--surface2)); border: 1px solid var(--border); border-radius: 10px; gap: 2px; }
+.evz-seg label { position: relative; padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.evz-seg input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.evz-seg label:has(input:checked) { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.evz-tb-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.evz-tb-group[hidden] { display: none !important; }
+.evz-tb-l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.evz-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.evz-chip { font: inherit; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-family: var(--mono); }
+.evz-chip.on { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+.evz-chip:hover { border-color: var(--rule-2, var(--border)); }
+.evz-chip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.evz-sel { font-size: 12px; padding: 4px 8px; width: auto; }
+.evz-dev { border-top: 1px solid var(--border); }
+.evz-dev > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-weight: 650; font-size: 13px; }
+.evz-dev > summary::-webkit-details-marker { display: none; }
+.evz-dev > summary .n { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+.evz-dev > summary .sw { width: 10px; height: 10px; border-radius: 50%; }
+.evz-dev > summary::after { content: "▾"; margin-left: auto; color: var(--text-faint); transition: transform var(--dur, .15s); }
+.evz-dev:not([open]) > summary::after { transform: rotate(-90deg); }
+.evz-dev .evz-table-wrap { max-height: 360px; border-top: 1px solid var(--border-soft, var(--border)); }
+.evz-cmp th.g { text-align: center; border-bottom: none; padding-bottom: 2px; }
+.evz-cmp th.g .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.evz-cmp th.sub { top: 31px; text-transform: none; letter-spacing: 0; font-family: var(--mono); font-weight: 600; color: var(--muted); }
+.evz-cmp td.empty { color: var(--text-faint); text-align: center; }
+.evz-cmp td.first { border-left: 1px solid var(--border); }
+.evz-cmp th.first { border-left: 1px solid var(--border); }
+.evz-cmp .delta { font-size: 10.5px; margin-left: 5px; }
+.evz-cmp .delta.up { color: var(--ok); } .evz-cmp .delta.down { color: var(--danger); }
 .evz-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .evz-table th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .evz-table td { padding: 7px 14px; border-bottom: 1px solid var(--border-soft, var(--border)); white-space: nowrap; font-family: var(--mono); }
@@ -109,13 +139,21 @@ html[data-theme="dark"] .evz-root {
     <div class="evz-charts" id="evz-charts"></div>
 
     <div class="cc-card" style="margin-top:16px;">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span><h3>Table</h3></div>
-      <div class="evz-table-wrap">
-        <table class="evz-table">
-          <thead><tr id="evz-thead"></tr></thead>
-          <tbody id="evz-tbody"></tbody>
-        </table>
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span><h3>Table</h3><span class="muted small m" id="evz-tbl-hint"></span></div>
+      <div class="evz-tb">
+        <div class="evz-seg" id="evz-view">
+          <label><input type="radio" name="evz-view" value="all" checked> All rows</label>
+          <label><input type="radio" name="evz-view" value="device"> Per device</label>
+          <label><input type="radio" name="evz-view" value="compare"> Compare</label>
+        </div>
+        <div class="evz-tb-group" id="evz-cols-wrap"><span class="evz-tb-l">Columns</span><div class="evz-chips" id="evz-cols"></div></div>
+        <div class="evz-tb-group" id="evz-devs-wrap" hidden><span class="evz-tb-l">Devices</span><div class="evz-chips" id="evz-devs"></div></div>
+        <div class="evz-tb-group" id="evz-bucket-wrap" hidden><span class="evz-tb-l">Align to</span>
+          <select class="form-input evz-sel" id="evz-bucket"><option value="0">exact time</option><option value="60000">1 min</option><option value="300000" selected>5 min</option><option value="900000">15 min</option><option value="3600000">1 hour</option></select>
+        </div>
       </div>
+      <div class="evz-note info" id="evz-tbl-note" hidden></div>
+      <div id="evz-tables"></div>
     </div>
   </div>
 </div>
@@ -335,7 +373,7 @@ html[data-theme="dark"] .evz-root {
     if (dedupe && dropped) { dn.hidden = false; dn.className = 'evz-note info'; dn.textContent = dropped + ' row' + (dropped === 1 ? '' : 's') + ' hidden: identical to the previous row for the same device except for the timestamp.'; }
     else dn.hidden = true;
     // table newest-first, like the export
-    renderTable(state.header, kept.slice().reverse().map(function (x) { return x.rec; }));
+    lastKept = kept; deviceOrderAll = deviceOrder; renderTables();
     renderCharts(charts);
   }
 
@@ -362,17 +400,124 @@ html[data-theme="dark"] .evz-root {
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
-  function renderTable(header, rows) {
-    var thead = document.getElementById('evz-thead'), tbody = document.getElementById('evz-tbody');
-    thead.innerHTML = header.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('');
-    var html = [];
+  // ---- table views: all rows / one table per device / compare columns across devices
+  var lastKept = [], deviceOrderAll = [];
+  var tbl = { view: 'all', cols: null, devs: null, bucket: 300000 };
+  try { var savedView = localStorage.getItem('evz-view'); if (savedView) tbl.view = savedView; } catch (e) {}
+  var tablesBox = document.getElementById('evz-tables');
+  document.querySelectorAll('#evz-view input').forEach(function (i) {
+    i.checked = i.value === tbl.view;
+    i.addEventListener('change', function () { tbl.view = i.value; try { localStorage.setItem('evz-view', tbl.view); } catch (e) {} tbl.cols = null; renderTables(); });
+  });
+  document.getElementById('evz-bucket').addEventListener('change', function () { tbl.bucket = +this.value; renderTables(); });
+
+  function dataCols() { // every column except serial + timestamp, in file order
+    return state.header.map(function (h, i) { return { name: h, i: i }; }).filter(function (c) { return c.i > 1; });
+  }
+  function chipList(host, items, selected, onToggle, swatch) {
+    host.innerHTML = '';
+    items.forEach(function (it, idx) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'evz-chip' + (selected.indexOf(it.key) !== -1 ? ' on' : '');
+      b.innerHTML = (swatch ? '<span class="sw" style="background:' + swatch(idx) + '"></span>' : '') + esc(it.label);
+      b.onclick = function () { onToggle(it.key); };
+      host.appendChild(b);
+    });
+  }
+  function palette(i) {
+    var root = document.querySelector('.evz-root');
+    return getComputedStyle(root).getPropertyValue('--evz-s' + ((i % 8) + 1)).trim() || '#888';
+  }
+  function fmtCell(c, ci) {
+    if (ci === 1) { var ms = Date.parse(c); if (!isNaN(ms)) return '<td class="evz-ts" title="' + esc(c) + '">' + esc(fmtFull(ms)) + '</td>'; }
+    return '<td>' + esc(c) + '</td>';
+  }
+  function tableHTML(cols, rows, withSerial) { // rows: [{rec, ts}], newest first
+    var head = (withSerial ? '<th>' + esc(state.header[0]) + '</th>' : '') + '<th>' + esc(state.header[1]) + '</th>' + cols.map(function (c) { return '<th>' + esc(c.name) + '</th>'; }).join('');
+    var body = [];
     for (var i = 0; i < rows.length; i++) {
-      html.push('<tr>' + rows[i].map(function (c, ci) {
-        if (ci === 1) { var ms = Date.parse(c); if (!isNaN(ms)) return '<td class="evz-ts" title="' + esc(c) + '">' + esc(fmtFull(ms)) + '</td>'; }
-        return '<td>' + esc(c) + '</td>';
-      }).join('') + '</tr>');
+      var rec = rows[i].rec;
+      body.push('<tr>' + (withSerial ? fmtCell(rec[0], 0) : '') + fmtCell(rec[1], 1) + cols.map(function (c) { return fmtCell(rec[c.i] || '', c.i); }).join('') + '</tr>');
     }
-    tbody.innerHTML = html.join('');
+    return '<div class="evz-table-wrap"><table class="evz-table"><thead><tr>' + head + '</tr></thead><tbody>' + body.join('') + '</tbody></table></div>';
+  }
+
+  function renderTables() {
+    if (!state) return;
+    var all = dataCols();
+    var metricDefault = all.filter(function (c) { return /battery_pct/i.test(c.name); }).map(function (c) { return c.i; });
+    if (!tbl.cols) tbl.cols = tbl.view === 'compare' ? (metricDefault.length ? metricDefault : all.slice(0, 1).map(function (c) { return c.i; })) : all.map(function (c) { return c.i; });
+    if (!tbl.devs) tbl.devs = deviceOrderAll.slice(0, 8);
+    tbl.devs = tbl.devs.filter(function (d) { return deviceOrderAll.indexOf(d) !== -1; });
+    var cols = all.filter(function (c) { return tbl.cols.indexOf(c.i) !== -1; });
+    chipList(document.getElementById('evz-cols'), all.map(function (c) { return { key: c.i, label: c.name }; }), tbl.cols, function (k) {
+      var at = tbl.cols.indexOf(k); if (at !== -1) { if (tbl.cols.length > 1) tbl.cols.splice(at, 1); } else tbl.cols.push(k); renderTables();
+    });
+    document.getElementById('evz-devs-wrap').hidden = tbl.view !== 'compare';
+    document.getElementById('evz-bucket-wrap').hidden = tbl.view !== 'compare';
+    var note = document.getElementById('evz-tbl-note'); note.hidden = true;
+    var hint = document.getElementById('evz-tbl-hint');
+    var newest = lastKept.slice().reverse();
+    if (tbl.view === 'all') {
+      hint.textContent = newest.length + ' rows, newest first';
+      tablesBox.innerHTML = tableHTML(cols, newest, true);
+      return;
+    }
+    if (tbl.view === 'device') {
+      var byDev = {};
+      newest.forEach(function (x) { (byDev[x.serial] = byDev[x.serial] || []).push(x); });
+      hint.textContent = deviceOrderAll.length + ' device' + (deviceOrderAll.length === 1 ? '' : 's') + ', one table each';
+      tablesBox.innerHTML = deviceOrderAll.map(function (serial, idx) {
+        var rows = byDev[serial] || [];
+        var last = rows.length ? fmtFull(rows[0].ts) : '';
+        return '<details class="evz-dev"' + (idx < 3 ? ' open' : '') + '><summary><span class="sw" style="background:' + palette(idx) + '"></span><span class="mono">' + esc(serial) + '</span><span class="n">' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + (last ? ' · latest ' + esc(last) : '') + '</span></summary>' + tableHTML(cols, rows, false) + '</details>';
+      }).join('');
+      return;
+    }
+    // compare: one column per (device × chosen column), rows aligned on a time bucket
+    chipList(document.getElementById('evz-devs'), deviceOrderAll.map(function (d) { return { key: d, label: d }; }), tbl.devs, function (k) {
+      var at = tbl.devs.indexOf(k); if (at !== -1) { if (tbl.devs.length > 1) tbl.devs.splice(at, 1); } else tbl.devs.push(k); renderTables();
+    }, function (i) { return palette(i); });
+    var devs = deviceOrderAll.filter(function (d) { return tbl.devs.indexOf(d) !== -1; });
+    var bucket = tbl.bucket;
+    var key = function (ts) { return bucket ? Math.floor(ts / bucket) * bucket : ts; };
+    var grid = {}, times = [];
+    lastKept.forEach(function (x) {
+      if (devs.indexOf(x.serial) === -1) return;
+      var k = key(x.ts);
+      if (!grid[k]) { grid[k] = {}; times.push(k); }
+      grid[k][x.serial] = x.rec; // last row in the bucket wins
+    });
+    times.sort(function (a, b) { return b - a; });
+    var head1 = '<th rowspan="2">' + esc(state.header[1]) + (bucket ? ' <span class="u" style="font-weight:500;text-transform:none;letter-spacing:0">(' + (bucket >= 3600000 ? bucket / 3600000 + ' h' : bucket / 60000 + ' min') + ' buckets)</span>' : '') + '</th>';
+    var head2 = '';
+    devs.forEach(function (d, di) {
+      head1 += '<th class="g first" colspan="' + cols.length + '"><span class="sw" style="background:' + palette(deviceOrderAll.indexOf(d)) + '"></span>' + esc(d) + '</th>';
+      cols.forEach(function (c, ci) { head2 += '<th class="sub' + (ci === 0 ? ' first' : '') + '">' + esc(c.name) + '</th>'; });
+    });
+    var body = [];
+    times.forEach(function (t, ri) {
+      var prev = times[ri + 1] ? grid[times[ri + 1]] : null;
+      var cells = '';
+      devs.forEach(function (d) {
+        var rec = grid[t][d];
+        cols.forEach(function (c, ci) {
+          var cls = ci === 0 ? ' class="first"' : '';
+          if (!rec) { cells += '<td class="empty' + (ci === 0 ? ' first' : '') + '">·</td>'; return; }
+          var v = rec[c.i] || '';
+          var delta = '';
+          if (prev && prev[d] && v !== '' && !isNaN(parseFloat(v)) && !isNaN(parseFloat(prev[d][c.i]))) {
+            var dv = parseFloat(v) - parseFloat(prev[d][c.i]);
+            if (dv !== 0) delta = '<span class="delta ' + (dv > 0 ? 'up' : 'down') + '">' + (dv > 0 ? '▲' : '▼') + Math.abs(Math.round(dv * 100) / 100) + '</span>';
+          }
+          cells += '<td' + cls + '>' + esc(v) + delta + '</td>';
+        });
+      });
+      body.push('<tr>' + '<td class="evz-ts">' + esc(fmtFull(t)) + '</td>' + cells + '</tr>');
+    });
+    hint.textContent = devs.length + ' device' + (devs.length === 1 ? '' : 's') + ' × ' + cols.length + ' column' + (cols.length === 1 ? '' : 's') + ', ' + times.length + ' time rows';
+    if (bucket) { note.hidden = false; note.textContent = 'Rows are aligned to ' + (bucket >= 3600000 ? bucket / 3600000 + '-hour' : bucket / 60000 + '-minute') + ' buckets; when a device reported more than once in a bucket the latest value is shown. ▲▼ is the change from the previous row.'; }
+    tablesBox.innerHTML = '<div class="evz-table-wrap"><table class="evz-table evz-cmp"><thead><tr>' + head1 + '</tr><tr>' + head2 + '</tr></thead><tbody>' + body.join('') + '</tbody></table></div>';
   }
 
   var chartsBox = document.getElementById('evz-charts');
