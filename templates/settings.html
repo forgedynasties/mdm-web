@@ -121,28 +121,26 @@
   <div>
     <div class="cc-eyebrow">Settings</div>
     <h1 class="cc-h1">Settings</h1>
-    <div class="cc-sub">Server-wide device management settings.</div>
+    <div class="cc-sub">Server-wide settings. Per-device and per-venue settings live on their own pages.</div>
   </div>
 </div>
 
 <div class="settings-wrap">
   <nav class="settings-nav" id="settings-nav">
     <button type="button" data-tab="general" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg>General</button>
-    <button type="button" data-tab="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>Devices &amp; check-in</button>
+    <button type="button" data-tab="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>Devices &amp; Kiosk</button>
     <button type="button" data-tab="commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</button>
     <button type="button" data-tab="alerts"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts</button>
-    <button type="button" data-tab="testing"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Testing</button>
-    <button type="button" data-tab="ai"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg>AI</button>
-    <button type="button" data-tab="google"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Google APIs</button>
-    <button type="button" data-tab="security"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Security</button>
+    <button type="button" data-tab="integrations"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>Integrations</button>
+    <button type="button" data-tab="data"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data</button>
     <button type="button" data-tab="applibrary"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</button>
     <button type="button" data-tab="productions"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>Productions</button>
-    <button type="button" data-tab="tools"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-3-3z"/></svg>Tools</button>
   </nav>
 
   <div class="settings-panels">
 
   <!-- ── General ─────────────────────────────────────── -->
+  <!-- ── General — dashboard defaults, sessions ── -->
   <section class="settings-tab active" data-tab="general">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h3>Dashboard</h3></div>
@@ -180,57 +178,30 @@
     <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
 </div>
-  </section>
-
-  <!-- ── Devices & check-in ──────────────────────────── -->
-  <section class="settings-tab" data-tab="devices">
-<style>
-.kioskfleet{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:220px;overflow-y:auto;padding:2px;}
-.kioskfleet-app{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;text-align:left;position:relative;}
-.kioskfleet-app:hover{border-color:var(--accent);background:var(--accent-soft,rgba(79,99,214,.1));}
-.kioskfleet-app.added{border-color:var(--accent);opacity:.6;}
-.kioskfleet-nm{font-size:12.5px;font-weight:600;}
-.kioskfleet-pk{font-size:10.5px;color:var(--muted);}
-.kioskfleet-ct{position:absolute;top:6px;right:8px;font-size:10px;color:var(--muted);}
-</style>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
-  <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:10px;">
-      Only apps matching these patterns appear in the kiosk locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
-    </div>
-    <form action="/settings/kiosk-allowlist" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
-      <textarea name="allowlist" id="kiosk-allowlist-ta" rows="5" class="form-input" spellcheck="false" placeholder="com.aioapp.*&#10;com.android.chrome" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{.KioskAllowlist}}</textarea>
-      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Sessions</h3></div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
+    <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" aria-label="Session timeout (seconds)" style="width:120px;">
+      <span class="muted small m">seconds</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
-    <div style="margin-top:16px;border-top:1px solid var(--border-soft);padding-top:14px;">
-      <strong class="small">Available apps across devices</strong>
-      <span class="muted small m"> · click to add to the allowlist</span>
-      {{if .KioskFleetApps}}
-      <div class="kioskfleet" id="kioskfleet">
-        {{range .KioskFleetApps}}
-        <button type="button" class="kioskfleet-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s)">
-          <span class="kioskfleet-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span>
-          <span class="kioskfleet-pk mono">{{.PackageName}}</span>
-          <span class="kioskfleet-ct">{{.DeviceCount}}</span>
-        </button>
-        {{end}}
-      </div>
-      {{else}}
-      <div class="muted small" style="margin-top:8px;">No apps have been reported by devices yet.</div>
-      {{end}}
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Log out all sessions</strong>
+      <div class="muted small">Immediately sign out every user on every device, including you.</div>
     </div>
+    <form action="/settings/logout-all" method="POST" hx-boost="false" onsubmit="return confirm('Log out all sessions now? You will need to sign in again.')">
+      <button type="submit" class="btn-danger-sm">Log out all</button>
+    </form>
   </div>
 </div>
-<script>
-function kioskAddPkg(pkg, el){
-  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return;
-  var lines=ta.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(Boolean);
-  if(lines.indexOf(pkg)===-1){ lines.push(pkg); ta.value=lines.join('\n'); }
-  if(el) el.classList.add('added');
-  ta.focus();
-}
-</script>
+  </section>
+
+  <!-- ── Devices — check-in, compatibility, boot logo, kiosk allowlist ── -->
+  <section class="settings-tab" data-tab="devices">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h3>Checkin Interval</h3></div>
   <div style="padding:16px;">
@@ -272,50 +243,61 @@ function kioskAddPkg(pkg, el){
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><h3>Data &amp; Maintenance</h3></div>
-  <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
-    <div class="form-group">
-      <label for="set-checkin-retention">Delete check-ins older than (days)</label>
-      <input type="number" name="checkin_retention_days" id="set-checkin-retention" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h3>Boot logo</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+      <strong>Custom boot logo</strong>
+      <div class="muted small">Upload the image devices show while booting.</div>
     </div>
-    <div class="form-group">
-      <label for="set-checkin-sample">Minimum seconds between stored check-in samples</label>
-      <input type="number" name="checkin_sample_sec" id="set-checkin-sample" value="{{.CheckinSampleSec}}" min="1" step="1" class="form-input">
-      <div class="muted small">A device's live state updates on every report. History rows are only added this often, unless something changed (battery level, build, charging, pad, kiosk, reboot), which is stored immediately. Default 30.</div>
-    </div>
-    <div class="form-group">
-      <label for="set-logcat-retention">Delete logcat results older than (days)</label>
-      <input type="number" name="logcat_retention_days" id="set-logcat-retention" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
-    </div>
-    <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
-  </form>
+    <a href="/boot-logo" class="btn-outline">Manage →</a>
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
   <div style="padding:16px;">
-    <div class="muted small">
-      Database: <strong>{{.DBStats.Devices}}</strong> devices ·
-      <strong>≈{{.DBStats.Checkins}}</strong> check-ins ·
-      <strong>{{.DBStats.Commands}}</strong> commands ·
-      <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
-      <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
+    <div class="muted small" style="margin-bottom:10px;">
+      Only apps matching these patterns appear in the kiosk locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
-      <div>
-        <strong>Maintenance mode</strong>
-        <div class="muted small">Non-admin users see a “MDM is under maintenance” page. Admins and devices are unaffected. Turn on before heavy database work.</div>
+    <form action="/settings/kiosk-allowlist" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      <textarea name="allowlist" id="kiosk-allowlist-ta" rows="5" class="form-input" spellcheck="false" placeholder="com.aioapp.*&#10;com.android.chrome" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{.KioskAllowlist}}</textarea>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
+    </form>
+    <div style="margin-top:16px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong class="small">Available apps across devices</strong>
+      <span class="muted small m"> · click to add to the allowlist</span>
+      {{if .KioskFleetApps}}<input type="search" class="form-input" placeholder="Filter by app or package…" aria-label="Filter apps" oninput="kioskFilter(this.value)" style="margin-top:8px;max-width:360px;font-size:12.5px;padding:6px 10px;">{{end}}
+      {{if .KioskFleetApps}}
+      <div class="kioskfleet" id="kioskfleet">
+        {{range .KioskFleetApps}}
+        <button type="button" class="kioskfleet-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s)">
+          <span class="kioskfleet-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span>
+          <span class="kioskfleet-pk mono">{{.PackageName}}</span>
+          <span class="kioskfleet-ct">{{.DeviceCount}}</span>
+        </button>
+        {{end}}
       </div>
-      {{template "settings-toggle" (dict "Action" "/settings/maintenance" "On" .MaintenanceMode)}}
-    </div>
-    <div class="muted small" style="margin-top:12px;">
-      Legacy check-in cleanup (removing bulky crash traces and Wi-Fi scans from old history rows):
-      {{if eq .LegacyStripCursor "done"}}<strong>complete</strong>{{else if .LegacyStripCursor}}<strong>{{.LegacyStripPct}}%</strong> — up to {{.LegacyStripCursor}} (runs hourly in the background)
-      <span style="display:inline-block;vertical-align:middle;width:140px;height:6px;border-radius:3px;background:var(--surface-3);margin-left:6px;overflow:hidden;"><i style="display:block;height:100%;width:{{.LegacyStripPct}}%;background:var(--accent);"></i></span>{{else}}{{end}}
-      {{if ne .LegacyStripCursor "done"}}<form method="POST" action="/settings/legacy-strip-done" hx-boost="true" style="display:inline;margin-left:8px;" hx-confirm="Mark the cleanup complete? Only do this after rebuilding the check-in history with tools/rebuild-checkins.sql."><button type="submit" class="cc-btn sm" style="font-size:11px;padding:2px 8px;">Mark complete</button></form>{{end}}{{if false}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
+      {{else}}
+      <div class="muted small" style="margin-top:8px;">No apps have been reported by devices yet.</div>
+      {{end}}
     </div>
   </div>
 </div>
+<script>
+function kioskFilter(q){
+  q=(q||'').trim().toLowerCase();
+  document.querySelectorAll('#kioskfleet .kioskfleet-app').forEach(function(b){ b.style.display = !q || b.textContent.toLowerCase().indexOf(q)!==-1 ? '' : 'none'; });
+}
+function kioskAddPkg(pkg, el){
+  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return;
+  var lines=ta.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  if(lines.indexOf(pkg)===-1){ lines.push(pkg); ta.value=lines.join('\n'); }
+  if(el) el.classList.add('added');
+  ta.focus();
+}
+</script>
   </section>
 
-  <!-- ── Commands ────────────────────────────────────── -->
+  <!-- ── Actions — governance, shell/remote, queries ── -->
   <section class="settings-tab" data-tab="commands">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Action Governance</h3></div>
@@ -361,6 +343,25 @@ function kioskAddPkg(pkg, el){
 .dq-add{border-top:1px solid var(--border-soft);padding-top:14px;margin-top:6px;}
 .form-input.mono{font-family:var(--mono);}
 </style>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Security &amp; Access</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
+    <div>
+      <strong>Interactive Shell</strong>
+      <div class="muted small">Allow operators to send one-off shell commands to devices. When off, the shell action is hidden and shell commands are rejected.</div>
+    </div>
+    {{template "settings-toggle" (dict "Action" "/settings/shell/toggle" "On" .ShellEnabled)}}
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Remote Control</strong>
+      <div class="muted small">Allow viewing and controlling device screens in real time. When off, the remote screen is blocked.</div>
+    </div>
+    {{template "settings-toggle" (dict "Action" "/settings/remote/toggle" "On" .RemoteEnabled)}}
+  </div>
+</div>
+
+
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><h3>Queries</h3><span class="muted small m">admin-curated read-only device property checks</span></div>
   <div style="padding:16px;">
@@ -410,52 +411,9 @@ function kioskAddPkg(pkg, el){
   </div>
 </div>
 
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Security &amp; Access</h3></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
-    <div>
-      <strong>Interactive Shell</strong>
-      <div class="muted small">Allow operators to send one-off shell commands to devices. When off, the shell action is hidden and shell commands are rejected.</div>
-    </div>
-    {{template "settings-toggle" (dict "Action" "/settings/shell/toggle" "On" .ShellEnabled)}}
-  </div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <strong>Remote Control</strong>
-      <div class="muted small">Allow viewing and controlling device screens in real time. When off, the remote screen is blocked.</div>
-    </div>
-    {{template "settings-toggle" (dict "Action" "/settings/remote/toggle" "On" .RemoteEnabled)}}
-  </div>
-</div>
-
-{{if canAdmin .Role}}
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="12" rx="4"/><path d="M7 10H3M21 10h-4M7 15H3M21 15h-4M9 3l1.5 3M15 3l-1.5 3"/></svg></span><h3>Debug tools</h3><span class="muted small m">admin only</span></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-    <div>
-      <strong>Test toasts</strong>
-      <div class="muted small">Fire a sample toast of each type to check how they look, without triggering a real action.</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test info toast.', 'info')">Info</button>
-      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test success toast.', 'success')">Success</button>
-      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test warning toast.', 'warn')">Warn</button>
-      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test error toast.', 'error')">Error</button>
-      <button type="button" class="btn-outline-sm" onclick="showToast('First toast.', 'info');showToast('Second toast.', 'warn');showToast('Third toast.', 'success')">Stack 3</button>
-    </div>
-  </div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-top:1px solid var(--border-soft);">
-    <div>
-      <strong>Test alert toast</strong>
-      <div class="muted small">Preview the pop-up shown when a new critical alert fires (top-bar bell), without waiting for a real one.</div>
-    </div>
-    <button type="button" class="btn-outline-sm" onclick="window.mdmShowAlertToast && mdmShowAlertToast({id:'test-'+Date.now(),severity:'critical',headline:'A device is overheating',sentence:'A device at Test Restaurant hit 72°C — above the 65°C limit.',href:'/devices/TEST01'})">Critical alert</button>
-  </div>
-</div>
-{{end}}
   </section>
 
-  <!-- ── Alerts ──────────────────────────────────────── -->
+  <!-- ── Alerts ── -->
   <section class="settings-tab" data-tab="alerts">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h3>Alert rules</h3><span class="muted small m">toggle what fires · Edit to tune thresholds</span></div>
@@ -578,65 +536,8 @@ function kioskAddPkg(pkg, el){
 </div>
   </section>
 
-  <!-- ── Testing ─────────────────────────────────────── -->
-  <section class="settings-tab" data-tab="testing">
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch">
-    <span class="ic ok"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-3-3z"/></svg></span>
-    <h3>Base test cases <span class="muted small m">{{len .BaseCases}}</span></h3>
-    <span class="muted small m">Standard cases applied to every release · operators mark them per-release</span>
-  </div>
-  <form action="/test-cases" method="POST" class="basecase-add" style="display:grid;gap:10px;padding:16px 20px;max-width:680px;border-bottom:1px solid var(--border-soft);">
-    <input type="hidden" name="redirect" value="/settings#testing">
-    <input name="title" class="form-input" placeholder="Title (e.g. Bluetooth pairing works)" required>
-    <input name="area" class="form-input" placeholder="Area (e.g. Connectivity)">
-    <textarea name="steps" class="form-input" rows="2" placeholder="Steps (optional)"></textarea>
-    <textarea name="expected" class="form-input" rows="2" placeholder="Expected result (optional)"></textarea>
-    <button type="submit" class="cc-btn primary" style="justify-self:start;">Add base test case</button>
-  </form>
-  {{if .BaseCases}}
-  <table class="table">
-    <thead>
-      <tr><th>Title</th><th>Area</th><th>Status</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .BaseCases}}
-      <tr {{if not .Active}}style="opacity:0.6;"{{end}}>
-        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
-        <td class="small">{{if .Area}}{{.Area}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td>{{if .Active}}<span class="status-badge ok">active</span>{{else}}<span class="status-badge muted">archived</span>{{end}}</td>
-        <td style="white-space:nowrap;">
-          <button type="button" class="btn-outline-sm" onclick="var e=document.getElementById('bc-edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
-          <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this base test case and its results?">
-            <input type="hidden" name="redirect" value="/settings#testing">
-            <button type="submit" class="btn-danger-sm">Delete</button>
-          </form>
-        </td>
-      </tr>
-      <tr id="bc-edit-{{.ID}}" style="display:none;">
-        <td colspan="4">
-          <form action="/test-cases/{{.ID}}/edit" method="POST" style="display:grid;gap:8px;padding:8px 0;max-width:680px;">
-            <input type="hidden" name="redirect" value="/settings#testing">
-            <input name="title" class="form-input" value="{{.Title}}" required>
-            <input name="area" class="form-input" value="{{.Area}}" placeholder="Area">
-            <textarea name="steps" class="form-input" rows="2" placeholder="Steps">{{.Steps}}</textarea>
-            <textarea name="expected" class="form-input" rows="2" placeholder="Expected result">{{.Expected}}</textarea>
-            <label class="small"><input type="checkbox" name="active" {{if .Active}}checked{{end}}> Active</label>
-            <button type="submit" class="cc-btn sm primary" style="justify-self:start;">Save</button>
-          </form>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:16px 20px;">No base test cases yet — add one above.</div>
-  {{end}}
-</div>
-  </section>
-
-  <!-- ── AI ──────────────────────────────────────────── -->
-  <section class="settings-tab" data-tab="ai">
+  <!-- ── Integrations — AI analysis, Google APIs ── -->
+  <section class="settings-tab" data-tab="integrations">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span><h3>AI Analysis</h3></div>
   <div style="padding:16px;">
@@ -683,10 +584,6 @@ function kioskAddPkg(pkg, el){
     </div>
   </div>
 </div>
-  </section>
-
-  <!-- ── Google APIs ─────────────────────────────────── -->
-  <section class="settings-tab" data-tab="google">
 <style>
 .gu-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:4px 0 2px;}
 .gu-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-1,transparent);display:flex;flex-direction:column;gap:10px;}
@@ -854,38 +751,60 @@ function kioskAddPkg(pkg, el){
   }
   // Poll only while this tab is visible and the page is focused.
   setInterval(function(){
-    var tab = document.querySelector('.settings-tab[data-tab="google"]');
+    var tab = document.querySelector('.settings-tab[data-tab="integrations"]');
     if(tab && tab.classList.contains('active') && !document.hidden) poll();
   }, 15000);
 })();
 </script>
   </section>
 
-  <!-- ── Security ────────────────────────────────────── -->
-  <section class="settings-tab" data-tab="security">
+  <!-- ── Data — retention, maintenance ── -->
+  <section class="settings-tab" data-tab="data">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Sessions</h3></div>
-  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
-    <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" aria-label="Session timeout (seconds)" style="width:120px;">
-      <span class="muted small m">seconds</span>
-      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-  </div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <strong>Log out all sessions</strong>
-      <div class="muted small">Immediately sign out every user on every device, including you.</div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><h3>Data &amp; Maintenance</h3></div>
+  <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
+    <div class="form-group">
+      <label for="set-checkin-retention">Delete check-ins older than (days)</label>
+      <input type="number" name="checkin_retention_days" id="set-checkin-retention" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
-    <form action="/settings/logout-all" method="POST" hx-boost="false" onsubmit="return confirm('Log out all sessions now? You will need to sign in again.')">
-      <button type="submit" class="btn-danger-sm">Log out all</button>
-    </form>
+    <div class="form-group">
+      <label for="set-checkin-sample">Minimum seconds between stored check-in samples</label>
+      <input type="number" name="checkin_sample_sec" id="set-checkin-sample" value="{{.CheckinSampleSec}}" min="1" step="1" class="form-input">
+      <div class="muted small">A device's live state updates on every report. History rows are only added this often, unless something changed (battery level, build, charging, pad, kiosk, reboot), which is stored immediately. Default 30.</div>
+    </div>
+    <div class="form-group">
+      <label for="set-logcat-retention">Delete logcat results older than (days)</label>
+      <input type="number" name="logcat_retention_days" id="set-logcat-retention" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+    </div>
+    <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+  </form>
+  <div style="padding:16px;">
+    <div class="muted small">
+      Database: <strong>{{.DBStats.Devices}}</strong> devices ·
+      <strong>≈{{.DBStats.Checkins}}</strong> check-ins ·
+      <strong>{{.DBStats.Commands}}</strong> commands ·
+      <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
+      <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
+      <div>
+        <strong>Maintenance mode</strong>
+        <div class="muted small">Non-admin users see a “MDM is under maintenance” page. Admins and devices are unaffected. Turn on before heavy database work.</div>
+      </div>
+      {{template "settings-toggle" (dict "Action" "/settings/maintenance" "On" .MaintenanceMode)}}
+    </div>
+    <div class="muted small" style="margin-top:12px;">
+      Legacy check-in cleanup (removing bulky crash traces and Wi-Fi scans from old history rows):
+      {{if eq .LegacyStripCursor "done"}}<strong>complete</strong>{{else if .LegacyStripCursor}}<strong>{{.LegacyStripPct}}%</strong> — up to {{.LegacyStripCursor}} (runs hourly in the background)
+      <span style="display:inline-block;vertical-align:middle;width:140px;height:6px;border-radius:3px;background:var(--surface-3);margin-left:6px;overflow:hidden;"><i style="display:block;height:100%;width:{{.LegacyStripPct}}%;background:var(--accent);"></i></span>{{else}}{{end}}
+      {{if ne .LegacyStripCursor "done"}}<form method="POST" action="/settings/legacy-strip-done" hx-boost="true" style="display:inline;margin-left:8px;" hx-confirm="Mark the cleanup complete? Only do this after rebuilding the check-in history with tools/rebuild-checkins.sql."><button type="submit" class="cc-btn sm" style="font-size:11px;padding:2px 8px;">Mark complete</button></form>{{end}}{{if false}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
+    </div>
   </div>
 </div>
   </section>
 
-  <!-- ── App library ─────────────────────────────────── -->
+  <!-- ── App library ── -->
   <section class="settings-tab" data-tab="applibrary">
 <style>
   .lib-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px;padding:16px;}
@@ -992,7 +911,7 @@ function kioskAddPkg(pkg, el){
 </div>
   </section>
 
-  <!-- ── Productions ─────────────────────────────────── -->
+  <!-- ── Productions ── -->
   <section class="settings-tab" data-tab="productions">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
@@ -1036,19 +955,6 @@ function kioskAddPkg(pkg, el){
 </div>
   </section>
 
-  <!-- ── Tools ───────────────────────────────────────── -->
-  <section class="settings-tab" data-tab="tools">
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h3>Boot logo</h3></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-    <div>
-      <strong>Custom boot logo</strong>
-      <div class="muted small">Upload the image devices show while booting.</div>
-    </div>
-    <a href="/boot-logo" class="btn-outline">Manage →</a>
-  </div>
-</div>
-  </section>
 
   </div><!-- /.settings-panels -->
 </div><!-- /.settings-wrap -->
@@ -1191,14 +1097,16 @@ window.__initAIChart = function () {
     var found = false;
     panels.forEach(function (p) { var on = p.getAttribute('data-tab') === key; p.classList.toggle('active', on); if (on) found = true; });
     btns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === key); });
-    if (found && key === 'ai' && window.__initAIChart) window.__initAIChart();
+    if (found && key === 'integrations' && window.__initAIChart) window.__initAIChart();
     return found;
   }
   btns.forEach(function (b) {
     b.addEventListener('click', function () { var k = b.getAttribute('data-tab'); if (show(k)) history.replaceState(null, '', '#' + k); });
   });
   var initial = (location.hash || '').replace('#', '');
-  if (initial === 'channels') initial = 'alerts'; // legacy deep-link
+  // legacy deep-links from older tabs
+  var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'general', tools: 'devices', testing: 'general' };
+  if (alias[initial]) initial = alias[initial];
   if (!initial || !show(initial)) show('general');
 })();
 </script>
