@@ -99,9 +99,15 @@
         </form>
       {{end}}
       {{if and (eq .Status "downloading") (canOperate $.Role)}}
+        {{if stalledFor .UpdatedAt 10}}
+        <span class="muted small" title="No progress reported for over 10 minutes (the device may have rebooted mid-download)">stalled</span>
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+          <button type="submit" class="btn-outline btn-sm" title="Start the download again">Retry</button>
+        </form>
+        {{end}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
-              hx-confirm="Cancel the download on {{.SerialNumber}}? Safe while still downloading — never aborts an install already in progress.">
-          <button type="submit" class="btn-outline btn-sm" title="Aborts the download only — a device already writing to the inactive slot finishes instead">Cancel</button>
+              hx-confirm="Cancel the download on {{.SerialNumber}}? Safe while still downloading — never aborts an install already in progress. The row is marked failed so you can retry.">
+          <button type="submit" class="btn-outline btn-sm" title="Aborts the download and marks the row failed (cancelled) so it can be retried">Cancel</button>
         </form>
       {{end}}
     </td>
@@ -169,6 +175,12 @@
           <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
                 hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
             <button type="submit" class="btn-outline btn-sm">Remove</button>
+          </form>
+          {{else if eq .Status "downloading"}}
+          {{if stalledFor .UpdatedAt 10}}<form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act"><button type="submit" class="btn-outline btn-sm" title="No progress for over 10 minutes — start the download again">Retry</button></form>{{end}}
+          <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="Cancel the download on {{.SerialNumber}}? The row is marked failed so you can retry.">
+            <button type="submit" class="btn-outline btn-sm">Cancel</button>
           </form>
           {{end}}
         </div>

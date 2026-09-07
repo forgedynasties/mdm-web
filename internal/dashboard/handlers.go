@@ -779,6 +779,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			fallback := t.UTC().Format("15:04")
 			return template.HTML(`<span class="js-local-time" data-utc="` + iso + `" data-format="short">` + fallback + `</span>`)
 		},
+		// stalledFor: true when t is older than n minutes (an in-flight OTA row with
+		// no progress that long is treated as stuck and offered Retry).
+		"stalledFor": func(t time.Time, mins int) bool { return time.Since(t) > time.Duration(mins)*time.Minute },
 		"nowUTC": func() time.Time {
 			return time.Now().UTC()
 		},
@@ -10865,6 +10868,13 @@ func (h *Handler) DeploymentCancelDeviceOTA(w http.ResponseWriter, r *http.Reque
 			h.hub.Push(device.ID, msg)
 		}
 	}
+	// The device may never answer (rebooted mid-download, offline): settle the
+	// row ourselves so it reads "failed · cancelled" and offers Retry, and clear
+	// the OTA guard so a later retry can re-issue the update.
+	_ = h.db.ClearPendingOTACommands(r.Context(), device.ID)
+	_ = h.db.SetUpdateDeviceFailed(r.Context(), did, device.ID, "CANCELLED")
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate()
 	h.audit(r, "deployment.cancel_ota", r.PathValue("serial"), strconv.Itoa(did))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
