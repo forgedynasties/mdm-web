@@ -5089,6 +5089,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
@@ -14925,6 +14926,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"ExtraColumns":         h.cfg.Columns(),
 		"LegacyCheckin":        h.cfg.LegacyCheckin(),
 		"LegacyBuilds":         h.cfg.LegacyBuilds(),
+		"WlcProducts":          h.cfg.WlcProducts(),
 		"CheckinInterval":      h.cfg.CheckinInterval(),
 		"ShellEnabled":         h.cfg.ShellEnabled(),
 		"RemoteEnabled":        h.cfg.RemoteEnabled(),
@@ -16623,6 +16625,26 @@ func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Requ
 	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to default — re-render the stored value
 }
 
+// SettingsSetWlcProducts saves which product keys have a wireless-charging pad
+// (one per line; blank resets to the default t7-only list).
+func (h *Handler) SettingsSetWlcProducts(w http.ResponseWriter, r *http.Request) {
+	var keys []string
+	seen := map[string]bool{}
+	for _, line := range strings.Split(r.FormValue("products"), "\n") {
+		k := strings.ToLower(strings.TrimSpace(line))
+		if k == "" || seen[k] {
+			continue
+		}
+		seen[k] = true
+		keys = append(keys, k)
+	}
+	if err := h.cfg.SetWlcProducts(keys); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/settings#devices", "WLC products saved", "success")
+}
+
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	key := strings.TrimSpace(r.FormValue("key"))
@@ -17834,6 +17856,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/session-timeout", h.requireStrictAdmin(h.SettingsSetSessionTimeout))
 	post("POST /settings/logout-all", h.requireStrictAdmin(h.SettingsLogoutAll))
 	post("POST /settings/checkin-interval", h.requireStrictAdmin(h.SettingsSetCheckinInterval))
+	post("POST /settings/wlc-products", h.requireStrictAdmin(h.SettingsSetWlcProducts))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	// Managed app configurations edit the fleet device_policy, so mutations are

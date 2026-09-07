@@ -416,7 +416,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
          ribbon (#wlc-chip). Defined here once; guarded so it only ships for devices
          that report a pad, matching the ribbon switch's own guard. */}}
     {{$wlc := extraField .Device.LatestExtra "wlc_status"}}
-    {{if and $wlc (ne $wlc "—")}}
+    {{if and .WlcApplicable $wlc (ne $wlc "—")}}
     <script>
     window.wlcToggle = function (btn) {
       var cur = btn.getAttribute('data-on') === '1';
@@ -512,7 +512,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{/* Charging pad — one widget combining the live occupancy status and the
        enable/disable control. Rendered only for devices that report a pad. */}}
   {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
-  {{if and $wlcS (ne $wlcS "—")}}
+  {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
   <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
     <div class="ddc-card-t pad-card-t cc-ch">
       <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h3>Charging pad</h3></span>

@@ -95,6 +95,10 @@ type Config struct {
 	// may be chosen as the locked kiosk app. Empty list = any installed app is allowed.
 	KioskAllowlistVal []string `json:"kiosk_allowlist"`
 
+	// Products whose hardware carries a wireless-charging guest pad (WLC). Pad
+	// UI/telemetry surfaces render only for these products. Absent = default {"t7"}.
+	WlcProductsVal []string `json:"wlc_products,omitempty"`
+
 	// Fleet-wide device policy, merged verbatim into every device's config channel
 	// (checkin response + WS config frames). Keys the agent understands today:
 	// update_policy{}, location_enabled, network{ca_certs,wifi_networks,vpn},
@@ -423,6 +427,42 @@ func (c *Config) SetDevicePolicyKey(key string, v any) error {
 }
 
 // KioskAllowlist returns the configured kiosk locked-app patterns.
+// WlcProducts returns the product keys that have a wireless-charging pad.
+// Nil/empty config falls back to the historical default: the T7.
+func (c *Config) WlcProducts() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.WlcProductsVal) == 0 {
+		return []string{"t7"}
+	}
+	out := make([]string, len(c.WlcProductsVal))
+	copy(out, c.WlcProductsVal)
+	return out
+}
+
+func (c *Config) SetWlcProducts(keys []string) error {
+	c.mu.Lock()
+	c.WlcProductsVal = keys
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// WlcApplies reports whether a device's product has a charging pad. An empty
+// product key counts as "t7" (legacy devices predate the product field).
+func (c *Config) WlcApplies(productKey string) bool {
+	key := strings.ToLower(strings.TrimSpace(productKey))
+	if key == "" {
+		key = "t7"
+	}
+	for _, p := range c.WlcProducts() {
+		if strings.EqualFold(strings.TrimSpace(p), key) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Config) KioskAllowlist() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
