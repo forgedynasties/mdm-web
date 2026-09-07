@@ -2542,7 +2542,7 @@ func (h *Handler) SettingsToggleMaintenance(w http.ResponseWriter, r *http.Reque
 func (h *Handler) SettingsLegacyStripDone(w http.ResponseWriter, r *http.Request) {
 	_ = h.cfg.SetLegacyStripCursor("done")
 	h.audit(r, "settings.legacy_strip_done", "", "")
-	h.hxRedirect(w, r, "/settings")
+	h.hxRedirect(w, r, h.settingsDest(r))
 }
 
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -2953,6 +2953,26 @@ func squareThumb(src image.Image, size int) *image.NRGBA {
 		}
 	}
 	return dst
+}
+
+// settingsRedirect sends a settings form back to the tab it came from: the page
+// injects redirect=/settings#<tab> into every settings form. Requests made with
+// fetch (X-Requested-With: fetch) get 204 instead so the page can stay put.
+func (h *Handler) settingsRedirect(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("X-Requested-With") == "fetch" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, h.settingsDest(r), http.StatusFound)
+}
+
+// settingsDest is the settings URL (with #tab) a form asked to return to.
+func (h *Handler) settingsDest(r *http.Request) string {
+	dest := strings.TrimSpace(r.FormValue("redirect"))
+	if !strings.HasPrefix(dest, "/settings") || strings.HasPrefix(dest, "//") {
+		dest = "/settings"
+	}
+	return dest
 }
 
 // Landing renders the entry page for staff: what the MDM does, guides, FAQ, the
@@ -14584,7 +14604,7 @@ func (h *Handler) settingsToggleResponse(w http.ResponseWriter, r *http.Request,
 		h.tmpl.ExecuteTemplate(w, "settings-toggle", map[string]any{"Action": action, "On": on})
 		return
 	}
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
@@ -14656,7 +14676,7 @@ func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Reques
 	h.cfg.SetCommandExpiry(sec)
 	// Redirect (not 204): the value may have been clamped to a default, so re-render
 	// the form to show the actually-stored value rather than the rejected input.
-	h.hxRedirect(w, r, "/settings")
+	h.hxRedirect(w, r, h.settingsDest(r))
 }
 
 func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) {
@@ -14666,7 +14686,7 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 		n = v
 	}
 	h.cfg.SetMaxTargets(n)
-	h.hxRedirect(w, r, "/settings") // may clamp to 0/default — re-render the stored value
+	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to 0/default — re-render the stored value
 }
 
 // ── Device diagnostics catalog ───────────────────────────────────────────────
@@ -14706,7 +14726,7 @@ func (h *Handler) SettingsQueryCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "query.create", q.Label, q.Command)
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsQueryEdit(w http.ResponseWriter, r *http.Request) {
@@ -14727,7 +14747,7 @@ func (h *Handler) SettingsQueryEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "query.edit", q.Label, q.Command)
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsQueryDelete(w http.ResponseWriter, r *http.Request) {
@@ -14738,7 +14758,7 @@ func (h *Handler) SettingsQueryDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	h.db.DeleteDeviceQuery(r.Context(), id)
 	h.audit(r, "query.delete", strconv.Itoa(id), "")
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
@@ -14748,7 +14768,7 @@ func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.db.SetDeviceQueryEnabled(r.Context(), id, r.FormValue("enabled") == "1")
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	h.settingsRedirect(w, r)
 }
 
 // RunRecentAlerts evaluates the recent-tier rules (point-in-time + rate/sustained T7
@@ -15185,7 +15205,7 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	h.db.SetCheckinSampleSec(h.cfg.CheckinSampleSec())
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
-	h.hxRedirect(w, r, "/settings") // retention fields may be normalized — re-render them
+	h.hxRedirect(w, r, h.settingsDest(r)) // retention fields may be normalized — re-render them
 }
 
 func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {
@@ -15205,7 +15225,7 @@ func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 		h.cfg.SetDensity(d)
 	}
 	h.cfg.SetUse24Hour(r.FormValue("time_format") == "24")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // SettingsSetKioskAllowlist replaces the kiosk locked-app allowlist from a free-form
@@ -15228,7 +15248,7 @@ func (h *Handler) SettingsSetKioskAllowlist(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request) {
@@ -15239,7 +15259,7 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 		h.cfg.SetAlertWebhookURL(u)
 	}
 	h.audit(r, "alerts.webhook", "", "")
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.hxDoneToast(w, r, h.settingsDest(r), "Settings saved", "success")
 }
 
 // hhmm renders minutes-past-midnight as a "HH:MM" string for <input type=time>.
@@ -15306,7 +15326,7 @@ func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Reques
 			_ = h.db.DeleteServiceWindow(r.Context(), gid)
 		}
 		h.audit(r, "alerts.service_window", gidStr, "reset")
-		http.Redirect(w, r, "/settings", http.StatusFound)
+		h.settingsRedirect(w, r)
 		return
 	}
 	sw := db.ServiceWindow{
@@ -15329,7 +15349,7 @@ func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.audit(r, "alerts.service_window", gidStr, "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // SettingsSaveChannel creates a channel (no id) or updates one (id present).
@@ -15398,7 +15418,7 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "alerts.channel", c.Name, "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // SettingsTestChannel sends a sample alert to one channel so the admin can confirm the
@@ -15440,7 +15460,7 @@ func (h *Handler) SettingsDeleteChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	h.audit(r, "alerts.channel.delete", id.String(), "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // alertParamField describes one tunable threshold of an alert rule.
@@ -15836,7 +15856,7 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 		return
 	}
 	h.audit(r, "alerts.rule", typ, "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // SettingsSetAI saves the Anthropic API key, model, and daily-digest toggle. An
@@ -15858,7 +15878,7 @@ func (h *Handler) SettingsSetAI(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetAIBaseURL(strings.TrimSpace(r.FormValue("ai_base_url")))
 	h.cfg.SetAIDigestEnabled(r.FormValue("ai_digest") == "on")
 	h.audit(r, "ai.settings", "", "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 // writeAIResult runs an analysis closure under a timeout, records token usage, and
@@ -15977,7 +15997,7 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 	}
 	h.cfg.SetSessionTimeout(sec)
 	h.store.MaxAge(sec)             // apply to cookie + codec at runtime
-	h.hxRedirect(w, r, "/settings") // may clamp to default — re-render the stored value
+	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to default — re-render the stored value
 }
 
 func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
@@ -16008,7 +16028,7 @@ func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	h.cfg.SetCheckinInterval(sec)
-	h.hxRedirect(w, r, "/settings") // may clamp to default — re-render the stored value
+	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to default — re-render the stored value
 }
 
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
@@ -16016,17 +16036,17 @@ func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimSpace(r.FormValue("key"))
 	label := strings.TrimSpace(r.FormValue("label"))
 	if key == "" || label == "" {
-		http.Redirect(w, r, "/settings", http.StatusFound)
+		h.settingsRedirect(w, r)
 		return
 	}
 	h.cfg.Add(config.ExtraColumn{Key: key, Label: label})
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsRemoveColumn(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	h.cfg.Remove(key)
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsAddLegacyBuild(w http.ResponseWriter, r *http.Request) {
@@ -16034,13 +16054,13 @@ func (h *Handler) SettingsAddLegacyBuild(w http.ResponseWriter, r *http.Request)
 	if id := strings.TrimSpace(r.FormValue("build_id")); id != "" {
 		h.cfg.AddLegacyBuild(id)
 	}
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsRemoveLegacyBuild(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	h.cfg.RemoveLegacyBuild(strings.TrimSpace(r.FormValue("build_id")))
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {

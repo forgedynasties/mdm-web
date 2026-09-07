@@ -82,6 +82,7 @@
 .settings-nav button.active{background:var(--accent-soft);color:var(--accent-text);font-weight:650;}
 .settings-nav button.active svg{color:var(--accent-text)}
 .settings-panels{flex:1;min-width:0;}
+[hidden]{display:none !important;}
 .settings-tab{display:none;}
 .settings-tab.active{display:block;}
 .sw-toggle{width:42px;height:24px;border-radius:99px;border:0;background:var(--surface2);position:relative;cursor:pointer;padding:0;flex:none;transition:background .15s;}
@@ -95,12 +96,24 @@
   .settings-nav button.active{border-color:var(--accent-edge);}
 }
 /* Compact alert-rule rows: one line each, expand to edit thresholds. */
-.rule-item{padding:9px 0;border-bottom:1px solid var(--border-soft);}
+.rule-item{padding:10px 0;border-bottom:1px solid var(--border-soft);}
+.rule-item:last-child{border-bottom:none;}
+.rule-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.rule-text{flex:1 1 260px;min-width:0;}
+.rule-desc{margin-top:2px;line-height:1.35;}
+.rule-fields{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.rule-f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);}
+.rule-in{display:inline-flex;align-items:center;gap:5px;}
+.rule-in input{width:78px;padding:4px 8px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
+.rule-in i{font-style:normal;font-size:11.5px;color:var(--text-faint);}
+.rule-f select{padding:4px 8px;font-size:12.5px;width:132px;}
+.rule-save{align-self:flex-end;}
+.rule-status{color:var(--ok,#22a06b);min-width:0;transition:opacity .4s;}
+.rule-status.err{color:var(--danger);}
+.rule-item.off .rule-fields{opacity:.55;}
 .rule-head{display:flex;align-items:center;gap:12px;}
 .rule-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rule-summary{white-space:nowrap;}
-.rule-body{display:none;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;padding-left:28px;}
-.rule-item.open .rule-body{display:flex;}
 .rule-item.off .rule-title{color:var(--muted);}
 .rule-group-head{margin:16px 0 2px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);}
 .rule-group-head:first-child{margin-top:4px;}
@@ -426,34 +439,31 @@ function kioskAddPkg(pkg, el){
     {{range $i, $g := .AlertRules}}
     <div class="alert-cat-panel{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">
     {{range $g.Rules}}
-    <form action="/settings/alert-rules/{{.ID}}" method="POST" class="rule-item{{if not .Enabled}} off{{end}}">
+    <form action="/settings/alert-rules/{{.ID}}" method="POST" hx-boost="false" class="rule-item{{if not .Enabled}} off{{end}}" data-name="{{.Name}}" onsubmit="return ruleSave(this, event)">
       <input type="hidden" name="type" value="{{.Type}}">
-      <div class="rule-head">
-        <input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}} title="Enabled">
-        <strong class="small rule-title">{{.Name}}</strong>
-        <span class="rule-summary muted small">{{range .Fields}}{{.Value}}{{.Unit}} {{end}}{{if and .Windowed .ActiveWindow}}· {{.ActiveWindow}}{{end}}</span>
-        {{if or .Fields .Windowed}}<button type="button" class="btn-outline" style="font-size:12px;padding:3px 10px;" onclick="this.closest('.rule-item').classList.toggle('open')">Edit</button>{{end}}
-        <button type="submit" class="cc-btn primary" style="font-size:12px;padding:3px 12px;">Save</button>
-      </div>
-      <div class="rule-body">
-        <div class="muted small" style="flex-basis:100%;margin:0;">{{.Desc}}</div>
-        {{range .Fields}}
-        <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
-          {{.Label}}{{if .Unit}} <span class="muted">({{.Unit}})</span>{{end}}
-          <input type="number" name="{{.Key}}" value="{{.Value}}" step="{{.Step}}" class="form-input" style="width:130px;">
-        </label>
-        {{end}}
-        {{if .Windowed}}
-        <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
-          Active window
-          <select name="active_window" class="form-input" style="width:140px;">
-            <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service hours</option>
-            <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
-            <option value="peak"{{if eq .ActiveWindow "peak"}} selected{{end}}>Peak hours</option>
-            <option value="always"{{if eq .ActiveWindow "always"}} selected{{end}}>Always</option>
-          </select>
-        </label>
-        {{end}}
+      <div class="rule-row">
+        <button type="button" class="sw-toggle{{if .Enabled}} on{{end}}" aria-pressed="{{if .Enabled}}true{{else}}false{{end}}" title="{{if .Enabled}}Disable{{else}}Enable{{end}}" onclick="ruleToggle(this)"><span class="sw-knob"></span></button>
+        <div class="rule-text">
+          <strong class="rule-title">{{.Name}}</strong>
+          <div class="muted small rule-desc">{{.Desc}}</div>
+        </div>
+        <div class="rule-fields">
+          {{range .Fields}}
+          <label class="rule-f"><span>{{.Label}}</span><span class="rule-in"><input type="number" name="{{.Key}}" value="{{.Value}}" step="{{.Step}}" class="form-input" oninput="ruleDirty(this)">{{if .Unit}}<i>{{.Unit}}</i>{{end}}</span></label>
+          {{end}}
+          {{if .Windowed}}
+          <label class="rule-f"><span>Active</span>
+            <select name="active_window" class="form-input" onchange="ruleDirty(this)">
+              <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service hours</option>
+              <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+              <option value="peak"{{if eq .ActiveWindow "peak"}} selected{{end}}>Peak hours</option>
+              <option value="always"{{if eq .ActiveWindow "always"}} selected{{end}}>Always</option>
+            </select>
+          </label>
+          {{end}}
+          {{if or .Fields .Windowed}}<button type="submit" class="cc-btn primary sm rule-save" hidden>Save</button>{{end}}
+          <span class="rule-status small" aria-live="polite"></span>
+        </div>
       </div>
     </form>
     {{end}}
@@ -1108,7 +1118,55 @@ window.__initAIChart = function () {
   var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'general', tools: 'devices', testing: 'general' };
   if (alias[initial]) initial = alias[initial];
   if (!initial || !show(initial)) show('general');
+  // in-page links to /settings#tab (and back/forward) switch tabs too
+  window.addEventListener('hashchange', function () { var k = (location.hash || '').replace('#', ''); if (alias[k]) k = alias[k]; if (k) show(k); });
 })();
+</script>
+<script>
+// Alert rules: switch = save immediately; thresholds show a Save button when edited.
+// Both post with fetch (the server answers 204 for X-Requested-With: fetch), so
+// the page never reloads and you stay on the tab.
+function ruleData(form) {
+  var fd = new URLSearchParams(); // the POST wrapper parses urlencoded bodies, not multipart
+  fd.append('type', form.querySelector('input[name=type]').value);
+  if (form.querySelector('.sw-toggle').classList.contains('on')) fd.append('enabled', 'on');
+  form.querySelectorAll('.rule-fields input, .rule-fields select').forEach(function (el) { fd.append(el.name, el.value); });
+  return fd;
+}
+function ruleStatus(form, text, err) {
+  var st = form.querySelector('.rule-status'); if (!st) return;
+  st.textContent = text; st.classList.toggle('err', !!err); st.style.opacity = 1;
+  clearTimeout(st._t); if (!err) st._t = setTimeout(function () { st.style.opacity = 0; }, 2200);
+}
+function ruleCounts() {
+  document.querySelectorAll('.alert-cat-panel').forEach(function (panel) {
+    var cat = panel.getAttribute('data-cat'), on = panel.querySelectorAll('.rule-item:not(.off)').length, all = panel.querySelectorAll('.rule-item').length;
+    var pill = document.querySelector('.alert-cat-tab[data-cat="' + cat + '"] .pill'); if (pill) pill.textContent = on + '/' + all;
+  });
+}
+function ruleSave(form, ev) {
+  if (ev) ev.preventDefault();
+  var name = form.getAttribute('data-name') || 'Rule';
+  fetch(form.action, { method: 'POST', body: ruleData(form), headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); ruleStatus(form, 'Saved'); var b = form.querySelector('.rule-save'); if (b) b.hidden = true; if (window.showToast) showToast(name + ' saved', 'success'); })
+    .catch(function () { ruleStatus(form, 'Not saved', true); if (window.showToast) showToast('Could not save ' + name, 'error'); });
+  return false;
+}
+function ruleToggle(btn) {
+  var form = btn.closest('form'); var on = !btn.classList.contains('on');
+  btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.title = on ? 'Disable' : 'Enable';
+  form.classList.toggle('off', !on); ruleCounts(); ruleSave(form);
+}
+function ruleDirty(el) { var b = el.closest('form').querySelector('.rule-save'); if (b) b.hidden = false; }
+// Every other settings form: submit natively (no htmx boost — boosted requests drop
+// the #tab fragment) and come back to the tab you were on after saving.
+document.querySelectorAll('.settings-panels form:not([hx-post]):not([hx-boost])').forEach(function (f) { f.setAttribute('hx-boost', 'false'); });
+document.addEventListener('submit', function (e) {
+  var form = e.target; if (!form.closest || !form.closest('.settings-panels') || form.hasAttribute('hx-post') || form.classList.contains('rule-item')) return;
+  var active = document.querySelector('.settings-nav button.active'); var tab = active ? active.getAttribute('data-tab') : 'general';
+  var inp = form.querySelector('input[name=redirect]'); if (!inp) { inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'redirect'; form.appendChild(inp); }
+  if (!inp.value || inp.value.indexOf('/settings') === 0) inp.value = '/settings#' + tab;
+}, true);
 </script>
 <script>
 // Alert-rule category sub-tabs (within the Alerts tab).
