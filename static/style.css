@@ -4929,6 +4929,7 @@ html[data-theme="dark"] .ddc-chip.battery-low { background: rgba(229,72,77,.22);
 .ddc-chip.mic-fixed { background: rgba(43,182,115,.13); color: #1c7d50; border-color: transparent; }
 .ddc-chip.mic-mixed { background: rgba(232,161,58,.15); color: #9a6512; border-color: transparent; }
 .ddc-chip.mic-default { background: rgba(229,72,77,.13); color: #b4282d; border-color: transparent; }
+.ddc-chip.mic-na { color: var(--muted); }
 html[data-theme="dark"] .ddc-chip.mic-fixed { background: rgba(43,182,115,.2); color: #5fd49a; }
 html[data-theme="dark"] .ddc-chip.mic-mixed { background: rgba(232,161,58,.22); color: #f0b765; }
 html[data-theme="dark"] .ddc-chip.mic-default { background: rgba(229,72,77,.22); color: #f08a8d; }
