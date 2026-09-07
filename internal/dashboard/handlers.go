@@ -1750,8 +1750,12 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "commands"
 	case strings.HasPrefix(path, "/releases"):
 		data["ActivePage"] = "releases"
+	case strings.HasPrefix(path, "/updates-policy"):
+		data["ActivePage"] = "updates-policy"
 	case strings.HasPrefix(path, "/updates"):
 		data["ActivePage"] = "updates"
+	case strings.HasPrefix(path, "/network"):
+		data["ActivePage"] = "network"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -17328,6 +17332,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/{id}/revoke", h.requireAdminOrOperator(h.EnrollmentProfileRevoke))
 	post("POST /enrollment/profiles/{id}/activate", h.requireAdminOrOperator(h.EnrollmentProfileActivate))
 	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
+	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
+	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
+	mux.HandleFunc("GET /network", h.requireAuth(h.NetworkPage))
+	post("POST /network/wifi", h.requireStrictAdmin(h.NetworkWifiAdd))
+	post("POST /network/wifi/delete", h.requireStrictAdmin(h.NetworkWifiDelete))
+	post("POST /network/ca", h.requireStrictAdmin(h.NetworkCAAdd))
+	post("POST /network/ca/delete", h.requireStrictAdmin(h.NetworkCADelete))
+	post("POST /network/vpn", h.requireStrictAdmin(h.NetworkVPNSave))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	mux.HandleFunc("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
@@ -17397,6 +17409,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/checkin-interval", h.requireStrictAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
+	// Managed app configurations edit the fleet device_policy, so mutations are
+	// strict-admin like the other policy pages; the page itself is admin/dev.
+	mux.HandleFunc("GET /setup/managed-configs", h.requireAdmin(h.ManagedConfigsPage))
+	post("POST /setup/managed-configs", h.requireStrictAdmin(h.ManagedConfigSave))
+	post("POST /setup/managed-configs/delete", h.requireStrictAdmin(h.ManagedConfigDelete))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.

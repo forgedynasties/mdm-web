@@ -1,0 +1,94 @@
+{{define "updates_policy.html"}}
+{{template "header" .}}
+
+<style>
+.up-wrap{max-width:820px;margin:0 auto}
+.up-head{margin:4px 0 18px}
+.up-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.up-head .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.up-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.up-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.up-mode{display:block;border:1px solid var(--border);border-radius:11px;padding:12px 14px;cursor:pointer;background:var(--surface)}
+.up-mode:hover{border-color:var(--rule-2)}
+.up-mode input{margin-right:7px;accent-color:var(--accent)}
+.up-mode.on{border-color:var(--accent);background:var(--accent-soft)}
+.up-mode .b{font-weight:650;font-size:13.5px}
+.up-mode .t{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}
+.up-sec{margin-top:16px}
+.up-sec h3{font-size:13px;font-weight:700;margin:0 0 8px}
+.up-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.up-row label{font-size:12.5px;color:var(--muted)}
+.up-row input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.up-freeze-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.up-freeze-row input{width:90px;font-family:var(--mono);font-size:12.5px}
+.up-freeze-row .rm{border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:4px 9px;cursor:pointer;color:var(--danger);font-size:12px}
+.up-add{border:1px dashed var(--border);background:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:600;color:var(--accent-text);cursor:pointer}
+.up-save{font:inherit;font-size:13.5px;font-weight:650;padding:9px 18px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+.up-save:hover{background:var(--accent-h)}
+.up-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:12px}
+</style>
+
+<div class="up-wrap">
+  <div class="up-head">
+    <h1>System update policy</h1>
+    <div class="sub">Control when devices install OS updates. Applied by the agent via <code>setSystemUpdatePolicy</code> at each config sync.</div>
+  </div>
+
+  <form method="POST" action="/updates-policy">
+    <div class="up-card">
+      <div class="up-modes">
+        <label class="up-mode {{if eq .Mode "default"}}on{{end}}"><input type="radio" name="mode" value="default" {{if eq .Mode "default"}}checked{{end}} onchange="upSync()"><span class="b">User-controlled</span>
+          <div class="t">No policy — the device owner of the update schedule is the user.</div></label>
+        <label class="up-mode {{if eq .Mode "automatic"}}on{{end}}"><input type="radio" name="mode" value="automatic" {{if eq .Mode "automatic"}}checked{{end}} onchange="upSync()"><span class="b">Automatic</span>
+          <div class="t">Install as soon as an update arrives, no user interaction.</div></label>
+        <label class="up-mode {{if eq .Mode "windowed"}}on{{end}}"><input type="radio" name="mode" value="windowed" {{if eq .Mode "windowed"}}checked{{end}} onchange="upSync()"><span class="b">Maintenance window</span>
+          <div class="t">Install automatically, but only inside a daily time window.</div></label>
+        <label class="up-mode {{if eq .Mode "postpone"}}on{{end}}"><input type="radio" name="mode" value="postpone" {{if eq .Mode "postpone"}}checked{{end}} onchange="upSync()"><span class="b">Postpone</span>
+          <div class="t">Delay updates up to 30 days (security updates excepted).</div></label>
+      </div>
+
+      <div class="up-sec" id="up-window" style="display:none">
+        <h3>Daily install window (device local time)</h3>
+        <div class="up-row">
+          <label>From <input type="time" name="window_start" value="{{.WindowStart}}"></label>
+          <label>to <input type="time" name="window_end" value="{{.WindowEnd}}"></label>
+        </div>
+      </div>
+
+      <div class="up-sec" id="up-freezes" style="display:none">
+        <h3>Freeze periods <span style="color:var(--text-faint);font-weight:500">(no updates at all; max 90 days each, ≥60 days apart)</span></h3>
+        <div id="up-freeze-list">
+          {{range .Freezes}}
+          <div class="up-freeze-row">
+            <input name="freeze_start" value="{{.Start}}" placeholder="MM-DD"> →
+            <input name="freeze_end" value="{{.End}}" placeholder="MM-DD">
+            <button type="button" class="rm" onclick="this.parentNode.remove()">Remove</button>
+          </div>
+          {{end}}
+        </div>
+        <button type="button" class="up-add" onclick="upAddFreeze()">+ Add freeze period</button>
+      </div>
+    </div>
+
+    <button type="submit" class="up-save">Save policy</button>
+    <div class="up-note">Changes reach every device on its next check-in or live WebSocket config frame — no reboot needed. Freeze periods that violate Android's platform limits are rejected device-side and logged.</div>
+  </form>
+</div>
+
+<script>
+function upAddFreeze(){
+  var d=document.createElement('div');d.className='up-freeze-row';
+  d.innerHTML='<input name="freeze_start" placeholder="MM-DD"> → <input name="freeze_end" placeholder="MM-DD"> <button type="button" class="rm" onclick="this.parentNode.remove()">Remove</button>';
+  document.getElementById('up-freeze-list').appendChild(d);
+}
+function upSync(){
+  var mode=(document.querySelector('input[name=mode]:checked')||{}).value;
+  document.getElementById('up-window').style.display = mode==='windowed'?'':'none';
+  document.getElementById('up-freezes').style.display = (mode==='automatic'||mode==='windowed'||mode==='postpone')?'':'none';
+  document.querySelectorAll('.up-mode').forEach(function(l){l.classList.toggle('on',l.querySelector('input').checked)});
+}
+upSync();
+</script>
+
+{{template "footer" .}}
+{{end}}

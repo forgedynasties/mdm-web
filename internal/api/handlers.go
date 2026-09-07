@@ -836,6 +836,13 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
+	// Fleet-wide policy (update_policy, location_enabled, network, app_restrictions…)
+	// rides every config delivery; per-device keys above win on collision.
+	for k, v := range h.cfg.DevicePolicy() {
+		if _, taken := cfgMap[k]; !taken {
+			cfgMap[k] = v
+		}
+	}
 	addOfflineExit(cfgMap, deviceCfg)
 	h.processOfflineExit(r.Context(), deviceID, req.SerialNumber, req.Extra, deviceCfg, cfgMap)
 
@@ -1382,6 +1389,11 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		"kiosk_features":           deviceCfg.KioskFeatures,
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
+	}
+	for k, v := range h.cfg.DevicePolicy() {
+		if _, taken := wsCfg[k]; !taken {
+			wsCfg[k] = v
+		}
 	}
 	addOfflineExit(wsCfg, deviceCfg)
 	h.processOfflineExit(ctx, id, req.SerialNumber, req.Extra, deviceCfg, wsCfg)

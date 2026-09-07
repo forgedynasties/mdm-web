@@ -1,0 +1,150 @@
+{{define "network.html"}}
+{{template "header" .}}
+
+<style>
+.nw-wrap{max-width:900px;margin:0 auto}
+.nw-head{margin:4px 0 18px}
+.nw-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.nw-head .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.nw-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.nw-card h3{font-size:15px;font-weight:650;margin:0 0 4px}
+.nw-card .lead{color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:12px}
+.nw-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.nw-table th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+.nw-table td{padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.nw-table tr:last-child td{border-bottom:0}
+.nw-mono{font-family:var(--mono);font-size:12.5px}
+.nw-sec{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text)}
+.nw-mask{color:var(--text-faint);letter-spacing:2px}
+.nw-del{font:inherit;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--danger)}
+.nw-del:hover{border-color:var(--rule-2)}
+.nw-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.nw-form .f{display:flex;flex-direction:column;gap:4px}
+.nw-form label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.nw-form input,.nw-form select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.nw-form button{font:inherit;font-size:13px;font-weight:650;padding:8px 14px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+.nw-form button:hover{background:var(--accent-h)}
+.nw-form button.ghost{background:var(--surface);border:1px solid var(--border);color:var(--text-2)}
+.nw-form button.ghost:hover{border-color:var(--rule-2);color:var(--text);background:var(--surface)}
+.nw-pem{width:100%;min-height:110px;font-family:var(--mono);font-size:12px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);resize:vertical;margin:4px 0 8px}
+.nw-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-2);padding-bottom:9px}
+.nw-check input{accent-color:var(--accent)}
+.nw-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:8px}
+.nw-none{color:var(--muted);font-size:13px;padding:4px 0 12px}
+</style>
+
+<div class="nw-wrap">
+  <div class="nw-head">
+    <h1>Network</h1>
+    <div class="sub">Provision Wi-Fi, trusted CA certificates and an always-on VPN fleet-wide. Changes apply at each device's next config sync.</div>
+  </div>
+
+  <div class="nw-card">
+    <h3>Wi-Fi networks</h3>
+    <div class="lead">Networks the agent adds to every device. Re-adding an SSID replaces its entry.</div>
+    {{if .Wifis}}
+    <table class="nw-table">
+      <thead><tr><th>SSID</th><th>Security</th><th>Passphrase</th><th></th></tr></thead>
+      <tbody>
+      {{range .Wifis}}
+        <tr>
+          <td class="nw-mono"><b>{{.SSID}}</b></td>
+          <td><span class="nw-sec">{{if eq .Security "wpa2"}}WPA2{{else}}open{{end}}</span></td>
+          <td>{{if .HasPSK}}<span class="nw-mask">••••••••</span>{{else}}<span style="color:var(--text-faint)">—</span>{{end}}</td>
+          <td style="text-align:right">
+            {{if eq $.Role "admin"}}
+            <form method="POST" action="/network/wifi/delete" hx-confirm="Remove Wi-Fi network “{{.SSID}}” from the fleet policy?" style="display:inline">
+              <input type="hidden" name="ssid" value="{{.SSID}}">
+              <button type="submit" class="nw-del">Remove</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="nw-none">No Wi-Fi networks provisioned.</div>
+    {{end}}
+    {{if eq .Role "admin"}}
+    <form class="nw-form" method="POST" action="/network/wifi">
+      <div class="f"><label>SSID</label><input name="ssid" maxlength="32" placeholder="warehouse-iot" required></div>
+      <div class="f"><label>Security</label>
+        <select name="security" onchange="nwPskSync(this)">
+          <option value="wpa2">WPA2 (passphrase)</option>
+          <option value="open">Open</option>
+        </select></div>
+      <div class="f"><label>Passphrase</label><input type="password" name="psk" id="nw-psk" minlength="8" maxlength="63" placeholder="8–63 characters"></div>
+      <button type="submit">Add network</button>
+    </form>
+    <div class="nw-note">Passphrases are stored in the server's config file in plaintext and are visible to admins — use dedicated device credentials, not personal ones.</div>
+    {{end}}
+  </div>
+
+  <div class="nw-card">
+    <h3>CA certificates</h3>
+    <div class="lead">Certificates the agent installs into every device's trusted credential store — for TLS-intercepting proxies or private PKI.</div>
+    {{if .CACerts}}
+    <table class="nw-table">
+      <thead><tr><th>Name</th><th>PEM size</th><th></th></tr></thead>
+      <tbody>
+      {{range .CACerts}}
+        <tr>
+          <td><b>{{.Name}}</b></td>
+          <td class="nw-mono">{{.Size}} B</td>
+          <td style="text-align:right">
+            {{if eq $.Role "admin"}}
+            <form method="POST" action="/network/ca/delete" hx-confirm="Remove CA certificate “{{.Name}}”? Devices uninstall it at their next config sync." style="display:inline">
+              <input type="hidden" name="name" value="{{.Name}}">
+              <button type="submit" class="nw-del">Remove</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="nw-none">No CA certificates provisioned.</div>
+    {{end}}
+    {{if eq .Role "admin"}}
+    <form method="POST" action="/network/ca">
+      <div class="nw-form" style="margin-bottom:4px">
+        <div class="f" style="flex:1;min-width:220px"><label>Name</label><input name="name" placeholder="e.g. Corp Root CA" required style="width:100%"></div>
+      </div>
+      <textarea class="nw-pem" name="pem" placeholder="-----BEGIN CERTIFICATE-----&#10;…&#10;-----END CERTIFICATE-----" required></textarea>
+      <div class="nw-form"><button type="submit">Add certificate</button></div>
+    </form>
+    {{end}}
+  </div>
+
+  <div class="nw-card">
+    <h3>Always-on VPN</h3>
+    <div class="lead">The agent forces this VPN app always-on on every device. The app itself must already be installed (e.g. deployed via Apps).</div>
+    {{if eq .Role "admin"}}
+    <form method="POST" action="/network/vpn">
+      <div class="nw-form" style="margin-bottom:9px">
+        <div class="f"><label>VPN app package</label><input name="package" value="{{.VPNPackage}}" placeholder="com.wireguard.android" style="min-width:260px"></div>
+      </div>
+      <label class="nw-check"><input type="checkbox" name="lockdown" {{if .VPNLockdown}}checked{{end}}> Lockdown — block all network traffic outside the tunnel</label>
+      <div class="nw-form">
+        <button type="submit">Save VPN</button>
+        {{if .VPNPackage}}<button type="submit" name="clear" value="1" class="ghost" formnovalidate>Clear</button>{{end}}
+      </div>
+    </form>
+    {{else}}
+    {{if .VPNPackage}}<div class="nw-mono"><b>{{.VPNPackage}}</b>{{if .VPNLockdown}} · lockdown{{end}}</div>{{else}}<div class="nw-none">No always-on VPN configured.</div>{{end}}
+    {{end}}
+  </div>
+</div>
+
+<script>
+function nwPskSync(sel){
+  var psk=document.getElementById('nw-psk');
+  var open=sel.value==='open';
+  psk.disabled=open; if(open){psk.value='';}
+}
+</script>
+
+{{template "footer" .}}
+{{end}}

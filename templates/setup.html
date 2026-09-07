@@ -10,6 +10,7 @@
   <div class="card-header">
     <h3>App Library</h3>
     <div class="card-header-actions">
+      <a href="/setup/managed-configs" class="btn-outline btn-sm" title="Per-app restriction bundles pushed fleet-wide (managed app configurations)">Managed configurations</a>
       <input type="file" id="setup-apk-file" accept=".apk,application/vnd.android.package-archive" hidden onchange="setupUploadApk(this.files[0]); this.value='';">
       <button type="button" class="btn-primary btn-sm" onclick="document.getElementById('setup-apk-file').click()" title="Upload an APK (stored in S3, parsed for package &amp; icon)"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>Upload APK</button>
       <button type="button" class="btn-outline btn-plus" onclick="openRepositoryAppModal()" title="Add app by URL">

@@ -95,6 +95,13 @@ type Config struct {
 	// may be chosen as the locked kiosk app. Empty list = any installed app is allowed.
 	KioskAllowlistVal []string `json:"kiosk_allowlist"`
 
+	// Fleet-wide device policy, merged verbatim into every device's config channel
+	// (checkin response + WS config frames). Keys the agent understands today:
+	// update_policy{}, location_enabled, network{ca_certs,wifi_networks,vpn},
+	// app_restrictions[]. Kept as a free-form map so new agent capabilities don't
+	// need a config-schema change.
+	DevicePolicyVal map[string]any `json:"device_policy,omitempty"`
+
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
 	AlertWebhookURLVal string `json:"alert_webhook_url"`
 
@@ -370,6 +377,46 @@ func (c *Config) OperatorAllows(cmdType string) bool {
 func (c *Config) SetOperatorDenied(denied []string) error {
 	c.mu.Lock()
 	c.OperatorDeniedCmds = denied
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// DevicePolicy returns a deep copy of the fleet-wide device-policy map (nil-safe).
+func (c *Config) DevicePolicy() map[string]any {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.DevicePolicyVal) == 0 {
+		return nil
+	}
+	// Deep-copy through JSON so callers can't mutate shared nested maps.
+	raw, err := json.Marshal(c.DevicePolicyVal)
+	if err != nil {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+// DevicePolicyKey returns one policy entry (nil if unset).
+func (c *Config) DevicePolicyKey(key string) any {
+	return c.DevicePolicy()[key]
+}
+
+// SetDevicePolicyKey sets (or, with a nil value, removes) one fleet policy entry.
+func (c *Config) SetDevicePolicyKey(key string, v any) error {
+	c.mu.Lock()
+	if c.DevicePolicyVal == nil {
+		c.DevicePolicyVal = map[string]any{}
+	}
+	if v == nil {
+		delete(c.DevicePolicyVal, key)
+	} else {
+		c.DevicePolicyVal[key] = v
+	}
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
