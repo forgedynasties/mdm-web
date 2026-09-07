@@ -38,11 +38,18 @@ html[data-theme="dark"] .evz-root {
 .evz-stat b { font-size: 18px; font-weight: 700; }
 .evz-stat span { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .evz-note { padding: 0 20px 16px; font-size: 12.5px; color: var(--warn); }
+.evz-note.info { color: var(--muted); }
 .evz-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; margin-top: 14px; }
 .evz-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4, 14px); box-shadow: var(--shadow-sm); padding: 14px 16px; }
 .evz-chart-h { font-size: 13px; font-weight: 650; margin-bottom: 8px; }
 .evz-chart-h .u { color: var(--muted); font-weight: 500; font-size: 12px; }
 .evz-chart-wrap { position: relative; height: 200px; }
+.evz-range { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 20px 16px; font-size: 12.5px; }
+.evz-range label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.evz-range input[type=datetime-local] { font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.evz-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.evz-dedupe { margin-left: auto; color: var(--text) !important; }
+.evz-table td.evz-ts { font-family: var(--font); color: var(--text-2, var(--text)); }
 .evz-table-wrap { overflow: auto; max-height: 480px; border-top: 1px solid var(--border); }
 .evz-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .evz-table th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -80,6 +87,23 @@ html[data-theme="dark"] .evz-root {
       </div>
       <div class="evz-note" id="evz-note-truncated" hidden></div>
       <div class="evz-note" id="evz-note-capped" hidden>Only the first 8 devices are charted (for legible colors) — every device still appears in the table below.</div>
+    </div>
+
+    <div class="cc-card" style="margin-top:16px;">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></span><h3>Range</h3><span class="muted small m" id="evz-range-hint"></span></div>
+      <div class="evz-range">
+        <label>From <input type="datetime-local" id="evz-from" step="60"></label>
+        <label>To <input type="datetime-local" id="evz-to" step="60"></label>
+        <div class="evz-presets">
+          <button type="button" class="cc-btn sm" data-preset="all">All</button>
+          <button type="button" class="cc-btn sm" data-preset="first24">First 24h</button>
+          <button type="button" class="cc-btn sm" data-preset="last24">Last 24h</button>
+          <button type="button" class="cc-btn sm" data-preset="last7">Last 7 days</button>
+        </div>
+        <button type="button" class="cc-btn primary sm" id="evz-apply">Apply</button>
+        <label class="evz-dedupe"><input type="checkbox" id="evz-dedupe" checked> Hide rows that only differ by timestamp</label>
+      </div>
+      <div class="evz-note" id="evz-note-dedupe" hidden></div>
     </div>
 
     <div class="evz-charts" id="evz-charts"></div>
@@ -184,6 +208,10 @@ html[data-theme="dark"] .evz-root {
     return rows;
   }
 
+  // Parsed file, kept so the range/duplicate controls can re-render without
+  // re-reading the file.
+  var state = null; // { header, colIndex, rows: [{rec, serial, ts}], minTime, maxTime, totalRows, truncated }
+
   function render(text) {
     var rows = parseCSV(text);
     if (!rows.length) { showError('That file has no rows.'); return; }
@@ -194,56 +222,127 @@ html[data-theme="dark"] .evz-root {
     }
     var colIndex = {};
     header.forEach(function (c, i) { colIndex[c.trim().toLowerCase()] = i; });
-
     var dataRows = rows.slice(1);
     var totalRows = dataRows.length;
     var truncated = totalRows > MAX_ROWS;
-    var shown = dataRows.slice(0, MAX_ROWS);
-
-    var deviceOrder = [], seenDevice = {};
-    var minTime = null, maxTime = null;
-    // metric key -> serial -> { serial, points: [] }
-    var seriesByMetric = {};
-    METRICS.forEach(function (m) { seriesByMetric[m.key] = {}; });
-
-    shown.forEach(function (rec) {
+    var parsed = [], minTime = null, maxTime = null;
+    dataRows.slice(0, MAX_ROWS).forEach(function (rec) {
       if (rec.length < 2) return;
       var serial = (rec[0] || '').trim();
       if (!serial) return;
-      if (!seenDevice[serial]) { seenDevice[serial] = true; deviceOrder.push(serial); }
       var ts = Date.parse(rec[1]);
       if (isNaN(ts)) return;
       if (minTime === null || ts < minTime) minTime = ts;
       if (maxTime === null || ts > maxTime) maxTime = ts;
+      parsed.push({ rec: rec, serial: serial, ts: ts });
+    });
+    // Exports are newest-first; work oldest-first so "consecutive" means in time.
+    parsed.sort(function (a, b) { return a.ts - b.ts || (a.serial < b.serial ? -1 : a.serial > b.serial ? 1 : 0); });
+    state = { header: header, colIndex: colIndex, rows: parsed, minTime: minTime, maxTime: maxTime, totalRows: totalRows, truncated: truncated };
+    setupRange();
+    apply();
+    resultsEl.hidden = false;
+  }
+
+  // ---- range controls: bounded to what the file actually covers
+  function toLocalInput(ms) {
+    var d = new Date(ms), p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function clampMs(ms) { if (!state) return ms; return Math.min(Math.max(ms, state.minTime), state.maxTime); }
+  function setupRange() {
+    var from = document.getElementById('evz-from'), to = document.getElementById('evz-to');
+    if (state.minTime === null) return;
+    from.min = to.min = toLocalInput(state.minTime);
+    from.max = to.max = toLocalInput(state.maxTime + 60000);
+    from.value = toLocalInput(state.minTime);
+    to.value = toLocalInput(state.maxTime + 60000);
+    document.getElementById('evz-range-hint').textContent = 'file covers ' + fmtDateTime(state.minTime) + ' → ' + fmtDateTime(state.maxTime);
+  }
+  function currentRange() {
+    var from = document.getElementById('evz-from'), to = document.getElementById('evz-to');
+    var a = Date.parse(from.value), b = Date.parse(to.value);
+    if (isNaN(a)) a = state.minTime; if (isNaN(b)) b = state.maxTime + 60000;
+    a = clampMs(a); b = Math.min(Math.max(b, state.minTime), state.maxTime + 60000);
+    if (b < a) { var t = a; a = b; b = t; }
+    from.value = toLocalInput(a); to.value = toLocalInput(b);
+    return [a, b];
+  }
+  document.querySelectorAll('.evz-presets button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!state || state.minTime === null) return;
+      var k = btn.getAttribute('data-preset'), from = document.getElementById('evz-from'), to = document.getElementById('evz-to');
+      var lo = state.minTime, hi = state.maxTime + 60000;
+      if (k === 'first24') hi = Math.min(hi, lo + 86400000);
+      else if (k === 'last24') lo = Math.max(lo, hi - 86400000);
+      else if (k === 'last7') lo = Math.max(lo, hi - 7 * 86400000);
+      from.value = toLocalInput(lo); to.value = toLocalInput(hi);
+      apply();
+    });
+  });
+  document.getElementById('evz-apply').addEventListener('click', apply);
+  document.getElementById('evz-dedupe').addEventListener('change', apply);
+  ['evz-from', 'evz-to'].forEach(function (id) { document.getElementById(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') apply(); }); });
+
+  // ---- apply range + duplicate folding, then draw
+  function apply() {
+    if (!state) return;
+    var r = currentRange(), lo = r[0], hi = r[1];
+    var inRange = state.rows.filter(function (x) { return x.ts >= lo && x.ts <= hi; });
+    var dedupe = document.getElementById('evz-dedupe').checked;
+    var kept = inRange, dropped = 0;
+    if (dedupe) {
+      // per device, drop a row whose every column except the timestamp equals the
+      // previous kept row for that device
+      kept = []; var lastSig = {};
+      inRange.forEach(function (x) {
+        var sig = x.rec.map(function (c, i) { return i === 1 ? '' : c; }).join('\u0001');
+        if (lastSig[x.serial] === sig) { dropped++; return; }
+        lastSig[x.serial] = sig; kept.push(x);
+      });
+    }
+    var deviceOrder = [], seenDevice = {};
+    var seriesByMetric = {};
+    METRICS.forEach(function (m) { seriesByMetric[m.key] = {}; });
+    kept.forEach(function (x) {
+      var rec = x.rec, serial = x.serial, ts = x.ts;
+      if (!seenDevice[serial]) { seenDevice[serial] = true; deviceOrder.push(serial); }
       var idx = deviceOrder.indexOf(serial);
       if (idx >= MAX_SERIES) return; // charted devices capped; still counted/tabled
       METRICS.forEach(function (m) {
-        var ci = colIndex[m.srcCol || m.key];
+        var ci = state.colIndex[m.srcCol || m.key];
         if (ci === undefined || ci >= rec.length) return;
         var raw = (rec[ci] || '').trim();
         if (raw === '') return;
         var v = parseFloat(raw);
         if (isNaN(v)) return;
         if (m.xform) v = m.xform(v);
-        var s = seriesByMetric[m.key][serial];
-        if (!s) { s = { serial: serial, points: [] }; seriesByMetric[m.key][serial] = s; }
-        s.points.push({ t: ts, v: v });
+        var sr = seriesByMetric[m.key][serial];
+        if (!sr) { sr = { serial: serial, points: [] }; seriesByMetric[m.key][serial] = sr; }
+        sr.points.push({ t: ts, v: v });
       });
     });
-
     var charts = [];
     METRICS.forEach(function (m) {
       var byDevice = seriesByMetric[m.key];
-      var series = deviceOrder.map(function (s) { return byDevice[s]; }).filter(Boolean);
+      var series = deviceOrder.map(function (sname) { return byDevice[sname]; }).filter(Boolean);
       if (series.length) charts.push({ key: m.key, label: m.label, unit: m.unit, series: series });
     });
-
-    renderSummary(totalRows, deviceOrder.length, minTime, maxTime, truncated, deviceOrder.length > MAX_SERIES, shown.length);
-    renderTable(header, shown);
+    // earliest/latest describe the selected range of the file, not just the kept rows
+    var minT = inRange.length ? inRange[0].ts : null, maxT = inRange.length ? inRange[inRange.length - 1].ts : null;
+    renderSummary(kept.length, deviceOrder.length, minT, maxT, state.truncated, deviceOrder.length > MAX_SERIES, Math.min(state.totalRows, MAX_ROWS));
+    var dn = document.getElementById('evz-note-dedupe');
+    if (dedupe && dropped) { dn.hidden = false; dn.className = 'evz-note info'; dn.textContent = dropped + ' row' + (dropped === 1 ? '' : 's') + ' hidden: identical to the previous row for the same device except for the timestamp.'; }
+    else dn.hidden = true;
+    // table newest-first, like the export
+    renderTable(state.header, kept.slice().reverse().map(function (x) { return x.rec; }));
     renderCharts(charts);
-    resultsEl.hidden = false;
   }
 
+  function fmtFull(ms) {
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
   function fmtDateTime(ms) {
     var d = new Date(ms);
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -256,7 +355,7 @@ html[data-theme="dark"] .evz-root {
     if (minTime !== null) { document.getElementById('evz-stat-first').textContent = fmtDateTime(minTime); firstWrap.hidden = false; } else firstWrap.hidden = true;
     if (maxTime !== null) { document.getElementById('evz-stat-last').textContent = fmtDateTime(maxTime); lastWrap.hidden = false; } else lastWrap.hidden = true;
     var tn = document.getElementById('evz-note-truncated');
-    if (truncated) { tn.hidden = false; tn.textContent = 'Showing the first ' + shownCount + ' of ' + rowCount + ' rows — the file is large, so the table and charts are capped.'; }
+    if (truncated) { tn.hidden = false; tn.textContent = 'The file is large: only its first ' + shownCount + ' rows were read.'; }
     else tn.hidden = true;
     document.getElementById('evz-note-capped').hidden = !capped;
   }
@@ -268,7 +367,10 @@ html[data-theme="dark"] .evz-root {
     thead.innerHTML = header.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('');
     var html = [];
     for (var i = 0; i < rows.length; i++) {
-      html.push('<tr>' + rows[i].map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>');
+      html.push('<tr>' + rows[i].map(function (c, ci) {
+        if (ci === 1) { var ms = Date.parse(c); if (!isNaN(ms)) return '<td class="evz-ts" title="' + esc(c) + '">' + esc(fmtFull(ms)) + '</td>'; }
+        return '<td>' + esc(c) + '</td>';
+      }).join('') + '</tr>');
     }
     tbody.innerHTML = html.join('');
   }
