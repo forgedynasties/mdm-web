@@ -4,7 +4,7 @@
      OTA is a separate page (/updates). QA/sign-off/testing/problems/branches removed. */}}
 {{$rel := .Release}}
 {{$role := .Role}}
-{{$isAdmin := canAdmin $role}}
+{{$isAdmin := canRelease $role}}
 {{$canQfil := or (eq $role "admin") (eq $role "dev") (eq $role "operator")}}
 
 <style>
@@ -120,7 +120,7 @@
           <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="u" title="{{.UpdateURL}}">{{truncate .UpdateURL 54}}</a>
         </div>
         <span class="pwhen muted small">{{timeSince .CreatedAt}}</span>
-        {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form>{{end}}
+        {{if canRelease $role}}<form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form>{{end}}
       </div>
       {{end}}
     </div>
@@ -128,7 +128,7 @@
     <div class="empty" style="padding:8px 0 16px;">No packages yet — add the full image below.</div>
     {{end}}
 
-    {{if eq $role "admin"}}
+    {{if canRelease $role}}
     <!-- Package composer: paste a URL, we read the update metadata (no full download). -->
     <div class="composer">
       <div class="composer-h">Add package <span class="muted small">for {{$rel.Version}}</span></div>
@@ -177,7 +177,7 @@
 
 </div>
 
-{{if canAdmin $role}}
+{{if canRelease $role}}
 <script>
 // Package composer type toggle (Full / Incremental).
 function setPkgType(mode) {
