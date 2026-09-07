@@ -24,7 +24,10 @@
     </div>
     <div class="dl-id">
       <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
-      <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> <span class="dl-product" title="Product">{{.ProductLabel}}</span>{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}} <span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{end}}</span>
+      {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+           product key ("a14xmtfn" means nothing to a human); T7s report no model and
+           keep their catalog label. */}}
+      <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
       <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
     </div>
     <div class="dl-metrics">

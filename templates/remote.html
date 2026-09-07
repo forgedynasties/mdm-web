@@ -415,7 +415,7 @@ body:has(#rc-console) .dock { display: none; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
       Remote control <span class="rc-serial">{{.Serial}}</span>
     </a>
-    {{with .Device}}<span class="rc-meta"><b>{{.ProductLabel}}</b>{{if .BuildID}} · {{.BuildID}}{{end}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}{{if gt .BatteryPct 0}} · {{.BatteryPct}}%{{end}}</span>{{end}}
+    {{with .Device}}<span class="rc-meta"><b>{{$m := extraField .LatestExtra "model"}}{{if and (ne $m "") (ne $m "—")}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</b>{{if .BuildID}} · {{.BuildID}}{{end}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}{{if gt .BatteryPct 0}} · {{.BatteryPct}}%{{end}}</span>{{end}}
     <span id="rc-status" class="rc-status {{if .Online}}connecting{{else}}offline{{end}}"><span class="dot"></span><span id="rc-status-text">{{if .Online}}connecting{{else}}offline{{end}}</span></span>
     <div class="rc-bar-spacer"></div>
     <div class="rc-stats">
