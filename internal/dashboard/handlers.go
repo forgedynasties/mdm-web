@@ -12813,11 +12813,15 @@ func (h *Handler) filterAdminCommands(r *http.Request, cmds []db.Command) []db.C
 }
 
 // isAdminAction: sent by an admin account, of a type only admins can send (shell,
-// boot logo), or sent with the admin API key. Unattributed rows (history from
-// before authorship was recorded, which user-merge cannot re-home) stay visible to
-// everyone, as do the OTA flow's own update reboots.
+// boot logo), sent with the admin API key, or still unattributed after the
+// startup backfill (BackfillCommandAuthors) — nothing in the audit log names a
+// person for those, so they are treated as admin history. The OTA flow's own
+// update reboots are the exception and stay visible, labelled automatic.
 func (h *Handler) isAdminAction(c db.Command) bool {
-	if c.Type == "shell" || c.Type == "update_splash" || c.CreatedBy == "API key" {
+	if isSystemReboot(c) {
+		return false
+	}
+	if c.Type == "shell" || c.Type == "update_splash" || c.CreatedBy == "" || c.CreatedBy == "API key" {
 		return true
 	}
 	return h.isAdminAuthor(c.CreatedBy)
