@@ -1121,6 +1121,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return time.Since(t) <= time.Duration(thresholdSecs)*time.Second
 		},
 		"batteryTemp": batteryTempStr,
+		// micGain parses latest_extra.mic_gain for templates that only have the
+		// device (vitals partial); nil when the device reports no mic gain.
+		"micGain": micGainPtr,
 		"batteryTempX": func(raw json.RawMessage) string {
 			temp, ok := extractBatteryTempC(raw)
 			if !ok {
@@ -7271,6 +7274,7 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
 		"Device":              device,
+		"Role":                h.role(r), // the mic-gain chip is admin-only
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ChargerFlapRate":     flapRate,
 		"ChargerFlapping":     flapRate > 10,

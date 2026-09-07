@@ -4925,6 +4925,13 @@ html[data-theme="dark"] .ddc-menu { background: rgba(20,18,17,.45); border-color
 html[data-theme="dark"] .ddc-chip.battery-ok { background: rgba(43,182,115,.2); color: #5fd49a; }
 html[data-theme="dark"] .ddc-chip.battery-mid { background: rgba(232,161,58,.22); color: #f0b765; }
 html[data-theme="dark"] .ddc-chip.battery-low { background: rgba(229,72,77,.22); color: #f08a8d; }
+/* Mic gain chip (admin-only): fixed = 102 (ok), default = 84 (bad), else mixed */
+.ddc-chip.mic-fixed { background: rgba(43,182,115,.13); color: #1c7d50; border-color: transparent; }
+.ddc-chip.mic-mixed { background: rgba(232,161,58,.15); color: #9a6512; border-color: transparent; }
+.ddc-chip.mic-default { background: rgba(229,72,77,.13); color: #b4282d; border-color: transparent; }
+html[data-theme="dark"] .ddc-chip.mic-fixed { background: rgba(43,182,115,.2); color: #5fd49a; }
+html[data-theme="dark"] .ddc-chip.mic-mixed { background: rgba(232,161,58,.22); color: #f0b765; }
+html[data-theme="dark"] .ddc-chip.mic-default { background: rgba(229,72,77,.22); color: #f08a8d; }
 .ddc-chip .k { color: var(--text-faint); font-weight: 600; }
 /* font-family/line-height only — "font: inherit" here would also reset the base
    rule's font-size/font-weight (button.ddc-chip outranks the plain .ddc-chip
