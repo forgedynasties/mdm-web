@@ -893,6 +893,22 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 			_ = h.db.LearnApkPackage(ctx, cmd.ApkURL, body.Package)
 		}
 	}
+	// A completed mic_gain_read carries a fresher TX_DEC reading than the last check-in
+	// snapshot: fold it into latest_extra so the device page's Hardware row (which reads
+	// latest_extra.mic_gain) reflects the re-read without waiting for the next check-in.
+	if body.Status == "completed" && strings.HasPrefix(strings.TrimSpace(body.Output), "{") {
+		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.Type == "mic_gain_read" {
+			var mg map[string]json.RawMessage
+			if json.Unmarshal([]byte(body.Output), &mg) == nil {
+				if _, ok := mg["tx_dec"]; ok {
+					patch, _ := json.Marshal(map[string]json.RawMessage{"mic_gain": json.RawMessage(body.Output)})
+					if err := h.db.MergeLatestExtra(ctx, deviceID, patch); err != nil {
+						log.Printf("[ws-ack] MergeLatestExtra(mic_gain) error: %v", err)
+					}
+				}
+			}
+		}
+	}
 	h.hub.PublishDeviceUpdate(deviceID)
 	h.hub.PublishCommandUpdate(body.CommandID)
 	// An install just reached a terminal state — release the next queued install for this

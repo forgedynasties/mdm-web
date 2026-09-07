@@ -274,6 +274,96 @@ func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
 	return temp, true
 }
 
+// MicGainView is the parsed `mic_gain` telemetry object the client reports (see the
+// client's MicGain.java): the codec's TX_DEC0..7 Volume mixer controls. 102 on every
+// channel = the trinket mic-gain fix is present; 84 = codec default (fix absent).
+type MicGainView struct {
+	TxDec      []int  `json:"tx_dec"`
+	Source     string `json:"source"`     // "live" (vendor probe daemon) | "config" (mixer_paths xml)
+	Configured bool   `json:"configured"` // config source: at least one top-level default present
+	File       string `json:"file"`       // config source: xml file name
+	TS         int64  `json:"ts"`         // live source: probe epoch seconds
+}
+
+// Summary classifies the reading for the dashboard: "fixed" when every channel reads
+// the fix value, "default" when every channel reads the codec default, else "mixed".
+func (m MicGainView) Summary() string {
+	if len(m.TxDec) == 0 {
+		return ""
+	}
+	allFixed, allDefault := true, true
+	for _, v := range m.TxDec {
+		if v != micGainFixed {
+			allFixed = false
+		}
+		if v != micGainDefault {
+			allDefault = false
+		}
+	}
+	switch {
+	case allFixed:
+		return "fixed"
+	case allDefault:
+		return "default"
+	}
+	return "mixed"
+}
+
+// Values renders the per-channel list, collapsing to a single number when uniform.
+func (m MicGainView) Values() string {
+	if len(m.TxDec) == 0 {
+		return ""
+	}
+	uniform := true
+	for _, v := range m.TxDec[1:] {
+		if v != m.TxDec[0] {
+			uniform = false
+			break
+		}
+	}
+	if uniform {
+		return strconv.Itoa(m.TxDec[0])
+	}
+	parts := make([]string, len(m.TxDec))
+	for i, v := range m.TxDec {
+		parts[i] = strconv.Itoa(v)
+	}
+	return strings.Join(parts, " ")
+}
+
+const (
+	micGainFixed   = 102 // TX_DEC Volume set by the trinket mic fix (mixer_paths_idp.xml defaults)
+	micGainDefault = 84  // codec power-on default when the HAL configures nothing
+)
+
+// extractMicGain parses latest_extra.mic_gain; ok=false when absent or malformed.
+func extractMicGain(raw json.RawMessage) (MicGainView, bool) {
+	var mg MicGainView
+	if len(raw) == 0 {
+		return mg, false
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return mg, false
+	}
+	v, ok := m["mic_gain"]
+	if !ok {
+		return mg, false
+	}
+	if err := json.Unmarshal(v, &mg); err != nil || len(mg.TxDec) == 0 {
+		return mg, false
+	}
+	return mg, true
+}
+
+// micGainPtr is extractMicGain for templates: nil when the device reports no mic_gain.
+func micGainPtr(raw json.RawMessage) *MicGainView {
+	if mg, ok := extractMicGain(raw); ok {
+		return &mg
+	}
+	return nil
+}
+
 func deviceRowClasses(dev db.Device) string {
 	var classes []string
 
@@ -4949,6 +5039,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"MicGain":             micGainPtr(device.LatestExtra),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
@@ -12536,6 +12627,9 @@ var commandRoles = map[string][]string{
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
+	// Read-only mic capture gain (TX_DEC0..7 Volume) probe. Admin-only for now: the
+	// field it refreshes is only rendered for admins (see device.html Hardware card).
+	"mic_gain_read": {"admin"},
 }
 
 // ── Roles ────────────────────────────────────────────────────────────────────
@@ -12842,6 +12936,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Log capture"
 	case "ota":
 		return "OTA Update"
+	case "mic_gain_read":
+		return "Mic gain read"
 	default:
 		return cmdType
 	}

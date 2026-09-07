@@ -4442,7 +4442,7 @@ func (d *DB) ExpireOverdueCommands(ctx context.Context) ([]StalledInstall, error
 		  AND cs.status IN ('pending', 'delivered')
 		  AND c.type <> 'reboot'
 		  AND c.created_at <= NOW() - CASE
-				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory')
+				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory', 'mic_gain_read')
 					THEN INTERVAL '5 minutes'
 				ELSE INTERVAL '24 hours'
 			END
@@ -6036,6 +6036,17 @@ type CommandResult struct {
 	DeviceID  uuid.UUID `json:"device_id"`
 	Output    string    `json:"output"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// MergeLatestExtra shallow-merges patch into devices.latest_extra (JSONB ||) without
+// touching build_id / battery / last_seen. Used when a command result carries a fresher
+// reading of a telemetry field than the last check-in (e.g. mic_gain_read).
+func (d *DB) MergeLatestExtra(ctx context.Context, deviceID uuid.UUID, patch json.RawMessage) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE devices SET latest_extra = COALESCE(latest_extra, '{}'::jsonb) || $2::jsonb
+		WHERE id = $1
+	`, deviceID, patch)
+	return err
 }
 
 func (d *DB) SaveCommandResult(ctx context.Context, commandID, deviceID uuid.UUID, output string) error {
