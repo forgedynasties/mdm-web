@@ -9,6 +9,15 @@
 // dashboard/alerts can't tell "device legitimately has no pad" from "pad reading
 // missing", so wlc/charging widgets and alerts misfire on kiosks. This package is
 // the single source of truth that fixes that.
+//
+// Devices OUTSIDE the catalog split two ways:
+//   - An EMPTY product is a legacy device that predates the product field — the
+//     whole pre-product fleet is T7, so empty still resolves to T7 exactly as it
+//     always has (labels, caps, release/OTA matching all depend on this).
+//   - An unknown NON-EMPTY key (a stock Pixel running the DPC agent, an emulator
+//     like "sdk_gphone64_x86_64") is NOT a T7 and must stop masquerading as one:
+//     it resolves to its own normalized key with generic Android caps (battery +
+//     charger, no bespoke wireless-charging guest pad).
 package product
 
 import "strings"
@@ -44,9 +53,15 @@ const (
 )
 
 // DefaultKey is assumed when a device reports no product. The existing fleet is all
-// T7 and predates the product field, so an empty/unknown product resolves to T7 to
-// preserve today's behaviour for already-deployed devices.
+// T7 and predates the product field, so an EMPTY product resolves to T7 to preserve
+// today's behaviour for already-deployed devices. (Unknown non-empty products do NOT
+// fall back to the default — see Resolve.)
 const DefaultKey = KeyT7
+
+// genericCaps is the capability set assumed for any non-empty product outside the
+// catalog: standard Android hardware (battery + charger), no bespoke
+// wireless-charging guest pad (that pad is T7-only hardware).
+var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 
 // catalog is the declared capability set per product. Order here drives dashboard
 // dropdown order (see All).
@@ -71,23 +86,32 @@ func Normalize(key string) string {
 	return strings.ToLower(strings.TrimSpace(key))
 }
 
-// Resolve returns the product for a (possibly empty or unknown) key, falling back to
-// the default (T7) so callers always get a usable capability set. The second return
-// is false when the key was empty/unrecognised and the default was substituted.
+// Resolve returns the product for a (possibly empty or unknown) key. Known keys get
+// their catalog entry (ok=true). An EMPTY key is a legacy pre-product device and
+// resolves to the default (T7) — unchanged behaviour the existing fleet depends on.
+// An unknown NON-EMPTY key synthesizes a product from the key itself (the reported
+// key doubles as the label) with generic Android caps, so e.g. a DPC-managed Pixel
+// stops masquerading as a T7. ok=false in both non-catalog cases.
 func Resolve(key string) (Product, bool) {
-	if p, ok := byKey[Normalize(key)]; ok {
+	norm := Normalize(key)
+	if p, ok := byKey[norm]; ok {
 		return p, true
 	}
-	return byKey[DefaultKey], false
+	if norm == "" {
+		return byKey[DefaultKey], false
+	}
+	return Product{Key: norm, Label: strings.TrimSpace(key), Caps: genericCaps}, false
 }
 
-// CapsFor is the common shortcut: capabilities for a product key, default-substituted.
+// CapsFor is the common shortcut: capabilities for a product key (T7 caps when the
+// key is empty, generic Android caps when it is unknown).
 func CapsFor(key string) Caps {
 	p, _ := Resolve(key)
 	return p.Caps
 }
 
-// Label is the display label for a product key, default-substituted.
+// Label is the display label for a product key: the catalog label for known keys,
+// the T7 default for empty (legacy) ones, the reported key itself for unknown ones.
 func Label(key string) string {
 	p, _ := Resolve(key)
 	return p.Label
