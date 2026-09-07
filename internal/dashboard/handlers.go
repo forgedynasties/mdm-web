@@ -11596,15 +11596,295 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
-	// Collections for the scope-rail target picker (restaurants + releases with counts).
+	// Collections for the palette's target dropdown (restaurants + releases with counts).
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
-	// Diagnostics catalog for the Actions builder (admin/dev/operator run them; the
-	// pill is hidden for viewers and when the catalog is empty).
+	// Diagnostics catalog for the palette (admin/dev/operator run them; the action
+	// is hidden for viewers and when the catalog is empty).
 	var actionQueries []db.DeviceQuery
-	if role := h.role(r); roleCanOperate(role) {
+	if roleCanOperate(role) {
 		actionQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
+	}
+
+	// ── Palette datasets + "Recent sends" — full-page renders only (the histlive
+	// partial re-runs this handler on every feed tick and doesn't need them). ──
+	isHistPartial := r.URL.Query().Get("partial") == "histlive"
+
+	// palAction describes one entry of the ⌘K composer's action dropdown. The list
+	// is filtered by the SAME commandRoles gate the send path enforces (plus the
+	// set_kiosk special case, which isn't a queued command), so the palette never
+	// offers an action the current role can't actually send. Cap tags mark client
+	// capability requirements: "system app" needs the privileged AOSP build,
+	// "DPC only" needs the Device-Owner agent.
+	type palAction struct {
+		Type        string `json:"t"`
+		Name        string `json:"n"`
+		Desc        string `json:"d"`
+		Payload     string `json:"p"`             // apps|pkgs|shell|query|kiosk|splash|none
+		Cap         string `json:"cap,omitempty"` // "system app" | "DPC only"
+		Destructive bool   `json:"destr,omitempty"`
+	}
+	var palActions []palAction
+	palAllowed := map[string]bool{}
+	var paletteJSON []byte
+	type recentView struct {
+		ID      uuid.UUID
+		Type    string
+		Label   string
+		Detail  string
+		Target  string
+		When    time.Time
+		By      string
+		Prefill template.JS
+	}
+	var recents []recentView
+	if !isHistPartial {
+		// logcat and ota are deliberately absent: neither is a builder action here —
+		// logcat fans out via logcat_requests (device pages), OTA via the releases
+		// pages — so a POST /commands of either would queue a dead command.
+		allActions := []palAction{
+			{Type: "install_apk", Name: "Install app", Desc: "push apps from the library, silently", Payload: "apps"},
+			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
+			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none", Cap: "system app"},
+			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
+			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
+			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
+			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
+			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
+			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
+		}
+		for _, a := range allActions {
+			switch a.Type {
+			case "set_kiosk":
+				if !roleCanOperate(role) {
+					continue
+				}
+			case "query":
+				if !h.commandTypeAllowed(role, a.Type) || len(actionQueries) == 0 {
+					continue
+				}
+			case "shell":
+				if !h.commandTypeAllowed(role, a.Type) || !h.cfg.ShellEnabled() {
+					continue
+				}
+			default:
+				if !h.commandTypeAllowed(role, a.Type) {
+					continue
+				}
+			}
+			palActions = append(palActions, a)
+			palAllowed[a.Type] = true
+		}
+
+		type palApp struct {
+			URL  string `json:"url"`
+			Name string `json:"name"`
+			Ver  string `json:"ver,omitempty"`
+			Pkg  string `json:"pkg,omitempty"`
+			Icon string `json:"icon,omitempty"`
+		}
+		palApps := make([]palApp, 0, len(apps))
+		for _, a := range apps {
+			palApps = append(palApps, palApp{URL: a.ApkURL, Name: a.Name, Ver: a.VersionName, Pkg: a.PackageName, Icon: a.Icon})
+		}
+		type palCollection struct {
+			ID    string `json:"id"`
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+		}
+		palGroups := make([]palCollection, 0, len(groups))
+		for _, g := range groups {
+			palGroups = append(palGroups, palCollection{ID: g.ID.String(), Name: g.Name, Count: g.DeviceCount})
+		}
+		palRests := make([]palCollection, 0, len(scopeRestaurants))
+		for _, g := range scopeRestaurants {
+			palRests = append(palRests, palCollection{ID: g.GroupID.String(), Name: g.Name, Count: g.DeviceCount})
+		}
+		type palQuery struct {
+			ID    int    `json:"id"`
+			Label string `json:"label"`
+			Cat   string `json:"cat,omitempty"`
+		}
+		palQueries := make([]palQuery, 0, len(actionQueries))
+		for _, q := range actionQueries {
+			palQueries = append(palQueries, palQuery{ID: q.ID, Label: q.Label, Cat: q.Category})
+		}
+		type palPkg struct {
+			Pkg   string `json:"pkg"`
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+			Icon  string `json:"icon,omitempty"`
+		}
+		palPkgs := make([]palPkg, 0, len(fleetPackages))
+		for _, p := range fleetPackages {
+			nm := p.AppName
+			if nm == "" {
+				nm = p.PackageName
+			}
+			palPkgs = append(palPkgs, palPkg{Pkg: p.PackageName, Name: nm, Count: p.DeviceCount, Icon: p.Icon})
+		}
+		paletteJSON, _ = json.Marshal(map[string]any{
+			"actions":       palActions,
+			"apps":          palApps,
+			"groups":        palGroups,
+			"restaurants":   palRests,
+			"queries":       palQueries,
+			"packages":      palPkgs,
+			"shellRecent":   shellRecent,
+			"shellPopular":  shellPopular,
+			"requireReason": h.cfg.RequireReason(),
+		})
+
+		// Recent sends: the last few DISTINCT sends (this user's own preferred),
+		// each carrying a prefill object the palette reloads in one click. Batch
+		// installs/uninstalls collapse to one entry carrying every URL/package.
+		appNamesByURL := apkURLToName(apps)
+		mkRecentPrefill := func(c db.Command, serials []string) template.JS {
+			pf := map[string]any{"type": c.Type, "target": c.TargetType}
+			if members, ok := batches[c.ID]; ok && len(members) > 1 {
+				var urls, pkgs []string
+				for _, m := range members {
+					if m.ApkURL != "" {
+						urls = append(urls, m.ApkURL)
+					}
+					if c.Type == "uninstall" {
+						var p struct {
+							Package string `json:"package"`
+						}
+						if json.Unmarshal(m.Payload, &p) == nil && p.Package != "" {
+							pkgs = append(pkgs, p.Package)
+						}
+					}
+				}
+				if len(urls) > 0 {
+					pf["apk_urls"] = urls
+				}
+				if len(pkgs) > 0 {
+					pf["packages"] = pkgs
+				}
+			} else if c.ApkURL != "" {
+				pf["apk_url"] = c.ApkURL
+			}
+			switch c.Type {
+			case "shell":
+				var p struct {
+					Cmd string `json:"cmd"`
+				}
+				_ = json.Unmarshal(c.Payload, &p)
+				pf["shell_cmd"] = p.Cmd
+			case "uninstall":
+				if _, ok := pf["packages"]; !ok {
+					var p struct {
+						Package string `json:"package"`
+					}
+					_ = json.Unmarshal(c.Payload, &p)
+					pf["package"] = p.Package
+				}
+			case "query":
+				var p struct {
+					QueryID int `json:"query_id"`
+				}
+				_ = json.Unmarshal(c.Payload, &p)
+				if p.QueryID > 0 {
+					pf["query_id"] = p.QueryID
+				}
+			}
+			if len(serials) > 0 {
+				pf["serials"] = serials
+			}
+			b, _ := json.Marshal(pf)
+			return template.JS(b)
+		}
+		recentDetail := func(c db.Command) string {
+			if members, ok := batches[c.ID]; ok && len(members) > 1 {
+				return fmt.Sprintf("%d apps", len(members))
+			}
+			switch c.Type {
+			case "install_apk":
+				if n := appNamesByURL[c.ApkURL]; n != "" {
+					return n
+				}
+				if i := strings.LastIndex(c.ApkURL, "/"); i >= 0 && i < len(c.ApkURL)-1 {
+					return c.ApkURL[i+1:]
+				}
+			case "uninstall":
+				var p struct {
+					Package string `json:"package"`
+				}
+				if json.Unmarshal(c.Payload, &p) == nil {
+					return p.Package
+				}
+			case "shell":
+				var p struct {
+					Cmd string `json:"cmd"`
+				}
+				if json.Unmarshal(c.Payload, &p) == nil {
+					return p.Cmd
+				}
+			case "query":
+				var p struct {
+					Query string `json:"query"`
+				}
+				if json.Unmarshal(c.Payload, &p) == nil {
+					return p.Query
+				}
+			}
+			return ""
+		}
+		meNames := map[string]bool{}
+		if u := h.currentUsername(r); u != "" {
+			meNames[u] = true
+		}
+		if dn := h.currentDisplayName(r); dn != "" {
+			meNames[dn] = true
+		}
+		const recentMax = 6
+		seenSig := map[string]bool{}
+		addRecent := func(c db.Command) {
+			if len(recents) >= recentMax || !palAllowed[c.Type] {
+				return
+			}
+			if _, isCluster := clusters[c.ID]; isCluster || (c.Type == "reboot" && c.CreatedBy == "") {
+				return // system/OTA reboots aren't resendable presets
+			}
+			serials, _ := h.db.GetCommandTargetSerials(r.Context(), c.ID)
+			var gids []uuid.UUID
+			if c.TargetType == "groups" {
+				gids, _ = h.db.GetCommandTargetIDs(r.Context(), c.ID)
+			}
+			detail := recentDetail(c)
+			target := targetSummary(c.TargetType, serials, gids)
+			sig := c.Type + "|" + c.ApkURL + "|" + detail + "|" + target
+			if seenSig[sig] {
+				return
+			}
+			seenSig[sig] = true
+			recents = append(recents, recentView{
+				ID:      c.ID,
+				Type:    c.Type,
+				Label:   cmdTypeLabel(c.Type),
+				Detail:  detail,
+				Target:  target,
+				When:    c.CreatedAt,
+				By:      c.CreatedBy,
+				Prefill: mkRecentPrefill(c, serials),
+			})
+		}
+		for pass := 0; pass < 2 && len(recents) < recentMax; pass++ {
+			scanned := 0
+			for i := range cmds {
+				if len(recents) >= recentMax || scanned > 60 {
+					break
+				}
+				own := cmds[i].CreatedBy != "" && meNames[cmds[i].CreatedBy]
+				if (pass == 0) != own {
+					continue
+				}
+				scanned++
+				addRecent(cmds[i])
+			}
+		}
 	}
 
 	data := map[string]any{
@@ -11636,6 +11916,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"ShellPopular":     shellPopular,
 		"AIEnabled":        h.cfg.AIEnabled(),
 		"Prefill":          prefill,
+		"PaletteJSON":      template.JS(paletteJSON),
+		"RecentSends":      recents,
+		"RequireReason":    h.cfg.RequireReason(),
 	}
 	// Live status: the Actions page's history table re-fetches just this fragment on a
 	// command-update SSE event (and a slow poll), morphing it in place so statuses move

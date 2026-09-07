@@ -2,9 +2,8 @@
 {{template "header" .}}
 
 <style>
-/* ── Actions · command center ─────────────────────────────── */
+/* ── Actions · command palette ─────────────────────────────── */
 .ac-wrap{max-width:1280px;margin:0 auto}
-.ac-top .cc-actions a .n{margin-left:2px}
 @media(max-width:600px){
   .ac-wrap{max-width:100%}
   .cc-top{gap:10px}
@@ -12,302 +11,127 @@
   .cc-actions{width:100%}
   .cc-actions .cc-btn{flex:1 1 auto;justify-content:center}
 }
-/* Inline pill action picker (every action visible, one tap) + compose sheet. */
-.pick-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 11px;}
-.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-.pill{display:inline-flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-sm);font:inherit;font-size:13.5px;font-weight:600;color:var(--text-2);cursor:pointer;user-select:none;transition:border-color .14s,background .14s,transform .1s;}
-.pill:hover{border-color:var(--rule-2);background:var(--surface2);}
-.pill .ic{width:22px;height:22px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);}
-.pill .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
-.pill.on{border-color:transparent;background:var(--accent-soft);color:var(--accent-h);}
-.pill.on .ic{background:var(--surface);color:var(--accent);}
-.pill .g{font-size:10px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:2px;}
-.pill.on .g{color:var(--accent);}
-.pick-wrap.is-readonly .pill{pointer-events:none;opacity:.6;}
 
-/* focused compose sheet */
-.cmd-rail3{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
-.sheet-h{display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--border-soft);}
-.sheet-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;}
-.sheet-ic svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:1.8;}
-.sheet-hh{min-width:0;flex:1;}
-.sheet-t{font-size:15px;font-weight:700;}
-.sheet-s{font-size:12.5px;color:var(--muted);margin-top:1px;}
-/* Read-only builder (viewers): controls natively disabled (greyed, not-allowed). */
-.ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
-.ro-badge svg{stroke:var(--muted);flex:none;}
-.cmd-rail3.is-readonly :disabled{cursor:not-allowed;opacity:.6;}
-.cmd-rail3.is-readonly .target-pill:disabled{opacity:.6;}
-.ro-note{font-size:12px;color:var(--muted);margin-right:auto;}
+/* the palette bar */
+.p-pal{position:relative;max-width:880px;margin:10px auto 0}
+.p-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent-edge);border-radius:16px;box-shadow:var(--shadow-pop),0 0 0 4px var(--accent-soft);padding:12px 16px;min-height:58px;flex-wrap:wrap;cursor:text}
+.p-bar .lead{width:26px;height:26px;flex:none;border-radius:8px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center}
+.p-bar .lead svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2}
+#p-tokens{display:contents}
+.p-tok{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;border-radius:9px;padding:6px 11px;border:1px solid transparent;line-height:1.2;cursor:pointer;user-select:none;max-width:340px}
+.p-tok>span.lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-tok.verb{background:var(--accent-soft);color:var(--accent-text)}
+.p-tok.arg{background:var(--accent-2-soft);color:var(--accent-2)}
+.p-tok.tgt{background:var(--surface2);color:var(--text-2);border-color:var(--border)}
+.p-tok.tgt.mono{font-family:var(--mono);font-size:12px;font-weight:500}
+.p-tok.rsn{background:var(--warn-bg);color:var(--warn)}
+.p-tok:hover{border-color:currentColor}
+.p-tok .x{opacity:.55;font-weight:700;cursor:pointer;padding:0 1px}
+.p-tok .x:hover{opacity:1}
+.p-tok svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+.p-sep{color:var(--text-faint);font-size:13px}
+.p-add{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--text-faint);border:1px dashed var(--rule);border-radius:9px;padding:6px 10px;background:none;cursor:pointer;font-family:inherit}
+.p-add:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.p-add svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
+.p-go{margin-left:auto;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:11px;background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:9px 16px;box-shadow:0 4px 14px rgba(249,103,78,.28);flex:none;cursor:pointer;font-family:inherit;transition:background .14s}
+.p-go:disabled{opacity:.55;cursor:not-allowed}
+.p-go.arm{background:var(--danger);box-shadow:0 4px 14px rgba(209,80,63,.32)}
+.p-go kbd{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.22);border-radius:5px;padding:1px 6px}
+.p-bar input.free{flex:1;min-width:130px;border:none;outline:none;background:none;font-size:14.5px;color:var(--text);font-family:inherit}
+.p-bar input.free::placeholder{color:var(--text-faint)}
+.p-pal.is-readonly .p-bar{opacity:.68;pointer-events:none}
+.ro-badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;white-space:nowrap}
+.ro-badge svg{stroke:var(--muted);flex:none}
 
-/* "Start from a recipe" — horizontal strip of one-tap presets above the builder. */
-.recipes-wrap{margin-bottom:18px;}
-.recipes-h{display:flex;align-items:center;gap:8px;margin:0 2px 4px;}
-.recipes-h .t{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);}
-.recipes{display:flex;gap:10px;overflow-x:auto;overflow-y:visible;padding:8px 2px 6px;scrollbar-width:thin;}
-.recipes::-webkit-scrollbar{height:6px;}
-.recipes::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:9px;}
-.recipe{position:relative;flex:none;display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-sm);padding:10px 14px 10px 11px;cursor:pointer;text-align:left;font:inherit;transition:box-shadow .12s,transform .12s,border-color .12s;}
-.recipe:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);border-color:var(--rule-2);}
-.recipe .ic{width:30px;height:30px;flex:none;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;}
-.recipe .ic svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.8;}
-.recipe.last .ic{background:var(--accent-2-soft);}.recipe.last .ic svg{stroke:var(--accent-2);}
-.recipe .rt{display:block;font-size:13px;font-weight:650;line-height:1.2;white-space:nowrap;color:var(--text);}
-.recipe .rs{display:block;font-size:11px;color:var(--muted);margin-top:1px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;}
-.recipe .rx{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:12px;line-height:1;cursor:pointer;border-radius:50%;display:none;align-items:center;justify-content:center;padding:0;}
-.recipe:hover .rx{display:flex;}
-.recipe .rx:hover{color:var(--danger);border-color:var(--danger-edge);}
-.recipe.add{border-style:dashed;box-shadow:none;color:var(--muted);font-weight:600;font-size:12.5px;gap:7px;padding:10px 15px;}
-.recipe.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
+/* dropdown */
+.p-drop{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none;max-height:380px;overflow-y:auto}
+.p-drop.on{display:block;animation:p-fade var(--dur-slow) var(--ease)}
+@keyframes p-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.p-d-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:10px 16px 5px}
+.p-opt{width:100%;display:flex;align-items:center;gap:11px;padding:8px 16px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit;color:inherit}
+.p-opt:hover,.p-opt.hot{background:var(--accent-soft)}
+.p-opt .ic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden}
+.p-opt:hover .ic,.p-opt.hot .ic{background:var(--surface);color:var(--accent)}
+.p-opt .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
+.p-opt .ic img{width:100%;height:100%;object-fit:contain}
+.p-opt .tx{min-width:0}
+.p-opt .n{display:block;font-size:13.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-opt .n.mono{font-family:var(--mono);font-size:12px;font-weight:500}
+.p-opt .m{display:block;font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-opt .k{margin-left:auto;flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.p-opt .k.warn{color:var(--warn)}
+.p-opt .k.dpc{color:var(--accent-2)}
+.p-opt .k.sel-k{color:var(--ok)}
+.p-empty{padding:14px 16px;font-size:13px;color:var(--muted)}
+.p-refrow{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 2px}
+.p-ref{font:inherit;font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+.p-ref:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.p-ref.on{background:var(--accent-2-soft);border-color:rgba(122,128,246,.4);color:var(--accent-2);font-weight:650}
 
-/* Scope rail — target picker (pick a collection, refine, see blast radius). */
-.scope-wrap{display:grid;grid-template-columns:230px 1fr;gap:16px;margin-top:10px;align-items:start;}
-.scope-rail{border:1px solid var(--border);border-radius:10px;padding:7px 6px;max-height:320px;overflow:auto;background:var(--surface);}
-.scope-rail .src{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#a49c90);padding:10px 8px 3px;}
-.scope-rail .src:first-child{padding-top:2px;}
-.sri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 9px;border-radius:7px;border:1px solid transparent;background:none;cursor:pointer;font:inherit;color:var(--text);}
-.sri:hover{background:var(--surface-sunk,rgba(0,0,0,.03));}
-.sri.on{background:var(--accent-soft,rgba(249,103,78,.1));border-color:var(--accent-edge,rgba(249,103,78,.34));}
-.sri .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted-dot,#b8b0a4);}
-.sri .dot.ok{background:var(--ok,#3f9d5a);}.sri .dot.warn{background:var(--warn,#c98a1a);}.sri .dot.danger,.sri .dot.bad{background:var(--danger,#d1503f);}
-.sri .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sri.on .nm{font-weight:600;}
-.sri .ct{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
-.scope-refine .sr-cap{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#a49c90);margin-bottom:8px;}
-.sr-pills{display:flex;flex-wrap:wrap;gap:8px;}
-.sr-pill{font:inherit;font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;}
-.sr-pill:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));}
-.sr-pill.on{background:var(--accent-2-soft,rgba(122,128,246,.12));border-color:rgba(122,128,246,.4);color:#4a4fb8;font-weight:600;}
-.sr-hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px;}
-.scope-devices{margin-top:16px;}
-.sd-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.sd-search{flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;transition:border-color .12s;}
-.sd-search:focus-within{border-color:var(--accent-edge,rgba(249,103,78,.34));}
-.sd-search svg{color:var(--text-faint,#a49c90);flex:none;}
-.sd-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
-.sd-search input::placeholder{color:var(--text-faint,#a49c90);}
-.sd-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}.sd-count b{color:var(--text);}
-.sd-paste{width:100%;box-sizing:border-box;resize:vertical;font:inherit;font-size:12px;padding:7px 10px;border-radius:8px;border:1px dashed var(--border);background:var(--surface);color:var(--text);margin-bottom:8px;transition:border-color .12s;line-height:1.4;font-family:var(--mono);}
-.sd-paste:focus{border-color:var(--accent-edge);outline:none;}
-.sd-paste::placeholder{color:var(--text-faint);}
-.scope-dev-list{max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:9px;}
-@media(max-width:700px){.scope-wrap{grid-template-columns:1fr;}}
+/* keymap + preview */
+.p-keys{display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:11.5px;color:var(--text-faint);flex-wrap:wrap}
+.p-keys kbd{font-family:var(--mono);font-size:10.5px;background:var(--surface);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text-2)}
+.p-preview{max-width:880px;margin:12px auto 0;display:flex;align-items:baseline;gap:10px;justify-content:center;font-size:12.5px;color:var(--muted);flex-wrap:wrap;min-height:20px}
+.p-preview .imp-body{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;justify-content:center}
+.p-preview .imp-body::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok);align-self:center}
+.p-preview .imp-body[data-effective="0"]::before{background:var(--rule-2)}
+.p-preview .imp-n{font-size:14px;font-weight:750;color:var(--text)}
+.p-preview .imp-u{font-size:12.5px}
+.p-preview .imp-split b{color:var(--text-2);font-weight:650;font-variant-numeric:tabular-nums}
+.p-preview .imp-warn{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--warn);flex-basis:100%;justify-content:center}
+.p-preview .imp-warn svg{width:13px;height:13px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none}
+.p-preview .imp-empty{font-size:12.5px}
+.p-hint{color:var(--warn);font-weight:600;font-size:12px}
 
-/* Impact — compact blast-radius line in the sheet footer. */
-.cr-impact{min-width:0;flex:1;}
-.imp-cap{display:none;}
-.imp-body{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:13px;color:var(--muted);}
-.imp-n{font-size:22px;font-weight:750;letter-spacing:-.01em;color:var(--text);line-height:1;}
-.imp-u{font-size:12.5px;color:var(--muted);}
-.imp-split{color:var(--muted);}
-.imp-split b{color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums;}
-.imp-warn{display:flex;gap:7px;align-items:center;font-size:12px;line-height:1.4;color:var(--warn);flex-basis:100%;margin-top:2px;}
-.imp-warn svg{width:13px;height:13px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;}
-.imp-empty{font-size:12.5px;color:var(--muted);}
+/* two columns below */
+.p-cols{display:grid;grid-template-columns:5fr 7fr;gap:18px;margin-top:34px;align-items:start}
+@media(max-width:980px){.p-cols{grid-template-columns:1fr}}
+.p-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.p-cap .right{margin-left:auto;display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-weight:600}
+.p-cap .right a{color:var(--muted);text-decoration:none;font-size:11.5px}
+.p-cap .right a:hover{color:var(--accent-text)}
+.p-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:p-pulse 1.6s ease infinite}
+@keyframes p-pulse{0%,100%{box-shadow:0 0 0 0 var(--ok-bg)}50%{box-shadow:0 0 0 5px var(--ok-bg)}}
+.p-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.p-r{display:flex;align-items:center;gap:11px;padding:10px 15px;border-top:1px solid var(--border-soft)}
+.p-r:first-child{border-top:none}
+.p-r .ic{width:28px;height:28px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.p-r .ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.p-r .bd{min-width:0;flex:1}
+.p-r .n{font-size:13px;font-weight:650;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-r .m{font-size:11.5px;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-r .m code{font-family:var(--mono);font-size:10.5px}
+.p-pin-ic{color:var(--accent);width:12px;height:12px;flex:none;display:inline-block;vertical-align:-1px}
+.p-pin-ic svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.p-resend{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2);cursor:pointer;font-family:inherit}
+.p-resend:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.p-resend svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+.p-rowdel{flex:none;border:none;background:none;color:var(--text-faint);font-size:15px;line-height:1;cursor:pointer;padding:2px 4px;border-radius:6px}
+.p-rowdel:hover{color:var(--danger)}
+.p-pinbtn{flex:none;border:none;background:none;color:var(--text-faint);cursor:pointer;padding:3px;border-radius:6px}
+.p-pinbtn:hover{color:var(--accent)}
+.p-pinbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.p-newpin{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border:none;border-top:1px dashed var(--border);background:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.p-newpin:hover{color:var(--accent-text);background:var(--accent-soft)}
+.p-newpin svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.p-colempty{padding:18px 15px;font-size:12.5px;color:var(--muted)}
 
-/* History timeline styles (.htrow, .ht-body, .hist-day, .hgrp-h, …) live in
-   static/style.css so the standalone /commands/history page shares them. */
+/* live-activity card controls */
+.p-feedbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border-soft);background:var(--surface2)}
+.p-feedbar .srch{position:relative;display:flex;align-items:center;flex:1;min-width:140px}
+.p-feedbar .srch svg{position:absolute;left:8px;color:var(--muted)}
+.p-feedbar .srch input{width:100%;font:inherit;font-size:12px;padding:5px 8px 5px 26px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.p-feedbar select{font-size:12px}
+.adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.adm-toggle input{margin:0}
 
-/* sheet body (payload + target) */
-.cr-config{padding:20px;min-width:0;}
-.cr-sec + .cr-sec{margin-top:22px;}
-.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
-.cr-config .form-input,.cr-config .form-textarea{width:100%;box-sizing:border-box;}
-.cr-config .form-textarea{min-height:80px;}
-.cr-config .payload-section{display:none;}
-.cr-config .payload-section.is-active{display:block;min-height:50px;}
-.cr-config .payload-empty{color:var(--muted);font-size:13px;}
-
-/* ── Studio payload panes ─────────────────────────────────── */
-.pl-search{display:flex;align-items:center;gap:10px;height:42px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);margin-bottom:12px;}
-.pl-search:focus-within{border-color:var(--accent-edge);box-shadow:var(--ring);}
-.pl-search svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;flex:none;}
-.pl-search input{flex:1;border:none;outline:none;background:none;font-size:14px;color:var(--text);}
-/* app grid (Install) — compact tile grid, same shape as device.html's install drawer */
-.appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;}
-.appc{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 6px 10px;border:1px solid transparent;border-radius:13px;background:none;text-align:center;cursor:pointer;transition:background .12s,border-color .12s;}
-.appc:hover{background:var(--surface2);}
-.appc.on{border-color:var(--accent);background:var(--accent-soft);}
-.appc .thumb{width:48px;height:48px;flex:none;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:19px;text-transform:uppercase;overflow:hidden;background:var(--surface-3);}
-.appc .thumb img{width:100%;height:100%;object-fit:contain;}
-.appc .m{min-width:0;width:100%;}
-.appc .nm{font-size:11.5px;font-weight:650;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.appc .ver{display:block;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:1px;}
-.appc .chk{position:absolute;top:5px;right:12px;width:18px;height:18px;flex:none;border-radius:50%;background:var(--accent);display:none;align-items:center;justify-content:center;}
-.appc .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;}
-.appc.on .chk{display:flex;}
-.appgrid .appc:nth-child(5n+1) .thumb:not(:has(img)){background:linear-gradient(135deg,#f9674e,#ff9f7a);}
-.appgrid .appc:nth-child(5n+2) .thumb:not(:has(img)){background:linear-gradient(135deg,#7a80f6,#9aa0ff);}
-.appgrid .appc:nth-child(5n+3) .thumb:not(:has(img)){background:linear-gradient(135deg,#2bb673,#59c97a);}
-.appgrid .appc:nth-child(5n+4) .thumb:not(:has(img)){background:linear-gradient(135deg,#e8a13a,#f0b765);}
-.appgrid .appc:nth-child(5n) .thumb:not(:has(img)){background:linear-gradient(135deg,#6aa9ff,#9ecbff);}
-.appnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--rule-2);border-radius:13px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;min-height:78px;cursor:pointer;}
-.appnew:hover{border-color:var(--accent-edge);color:var(--accent);background:var(--accent-soft);}
-.appnew svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}
-
-/* ── Action config dialog: a picker/summary widget in the sheet, the real
-   picker UI lives in a modal opened from it ── */
-.cfg-picker{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px dashed var(--rule-2);border-radius:12px;background:none;text-align:left;cursor:pointer;transition:border-color .14s,background .14s;font:inherit;}
-.cfg-picker:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
-.cfg-picker.filled{border-style:solid;border-color:var(--border);background:var(--surface);}
-.cfg-picker.filled:hover{border-color:var(--rule-2);background:var(--surface2);}
-.cfg-picker-main{min-width:0;flex:1;font-size:13px;}
-.cfg-empty{color:var(--muted);}
-.cfg-filled{color:var(--text);font-weight:600;}
-.cfg-filled code{font-family:var(--mono);font-size:12px;font-weight:500;background:var(--surface2);padding:2px 6px;border-radius:5px;}
-.cfg-cta{flex:none;font-size:12px;font-weight:650;color:var(--accent);}
-/* Informational panes (Screenshot / Reboot) — an icon badge + label row, and for
-   Reboot a real labeled field below it, instead of disguising static text as a
-   clickable picker. */
-.cfg-static{cursor:default;}
-.cfg-static:hover{background:none;border-color:var(--rule-2);}
-#action-config-modal .modal-box{display:flex;flex-direction:column;}
-#action-config-modal .acm-sub{padding:0 20px 12px;margin-top:-4px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:14px;}
-#action-config-modal .modal-body{max-height:56vh;}
-#action-config-modal .modal-footer{display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border);}
-
-/* package rows (Uninstall) */
-/* Locked-app picker — same component as the device page's kiosk modal (searchable
-   grid/list of real app icons), reused verbatim so the two feel identical. */
-.kpk{display:flex;flex-direction:column;gap:8px;}
-.kpk-top{display:flex;gap:6px;align-items:center;}
-.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
-.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
-.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text);}
-.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
-.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
-.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
-.kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
-.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:344px;overflow-y:auto;padding:2px;}
-.kpk-list{display:none;flex-direction:column;max-height:344px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
-.kpk.listview .kpk-grid{display:none;}
-.kpk.listview .kpk-list{display:flex;}
-.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
-.kpk-opt:hover{border-color:var(--rule-2);}
-.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
-.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
-.kpk-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
-.kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
-.kpk-txt{min-width:0;display:flex;flex-direction:column;}
-.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
-.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
-.kpk-opt.sel .kpk-check{display:grid;}
-.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;}
-.kpk-list .kpk-opt:last-child{border-bottom:0;}
-.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
-.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
-.pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
-.pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
-.pkg:first-child{border-top:none;}
-.pkg:hover{background:var(--surface2);}
-.pkg.on{background:var(--accent-soft);}
-.pkg .ic{width:42px;height:42px;flex:none;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--text-faint,var(--muted));overflow:hidden;font-weight:800;font-size:17px;text-transform:uppercase;}
-.pkg .ic:has(img){background:var(--surface-3,var(--surface2));}
-.pkg .ic img{width:100%;height:100%;object-fit:contain;}
-.pkg.on .ic{background:var(--surface);color:var(--accent);}
-.pkg .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;}
-.pkg .chk{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;}
-.pkg .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;display:none;}
-.pkg.on .chk{border-color:var(--accent);background:var(--accent);}
-.pkg.on .chk svg{display:block;}
-.pkg .m{min-width:0;flex:1;}
-.pkg .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pkg.on .nm{color:var(--accent-h);}
-.pkg .pk{font-size:11.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pkg .cnt{font-size:11.5px;font-weight:600;color:var(--text-2);background:var(--surface2);border:1px solid var(--border-soft);border-radius:99px;padding:3px 10px;white-space:nowrap;}
-.pkg.on .cnt{background:var(--surface);border-color:var(--accent-edge);color:var(--accent);}
-/* info panel (Screenshot) */
-.pl-info{display:flex;gap:16px;align-items:center;padding:18px;border:1px solid var(--border-soft);border-radius:14px;background:linear-gradient(180deg,var(--surface2),var(--surface));}
-.pl-info .art{width:96px;height:64px;flex:none;border-radius:10px;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;position:relative;}
-.pl-info .art svg{width:26px;height:26px;fill:none;stroke:var(--accent-2);stroke-width:1.6;}
-.pl-info .art::after{content:"";position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--ok);border:2px solid var(--surface);}
-.pl-info .txt{font-size:13.5px;color:var(--text-2);line-height:1.5;}
-.pl-info .txt b{color:var(--text);font-weight:650;}
-/* level segmented + stepper (Log capture) */
-.lvl-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
-.levels{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px;}
-.lv{border:none;background:none;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);cursor:pointer;}
-.lv.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
-.lv small{font-family:var(--font);font-weight:500;opacity:.7;margin-left:5px;}
-.pl-field{height:42px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);font-size:14px;color:var(--text);outline:none;width:100%;box-sizing:border-box;}
-.pl-field:focus{border-color:var(--accent-edge);box-shadow:var(--ring);}
-.pl-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;}
-.pl-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
-.pl-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-2);cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
-.pl-chip.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft,var(--surface2));font-weight:650;}
-.pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
-/* shell console */
-.console{border:1px solid var(--console-border);border-radius:12px;overflow:hidden;background:var(--console-bg);}
-.console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid var(--console-border);}
-.console .cbar i{width:10px;height:10px;border-radius:50%;background:var(--rule-2);}
-.console .cin{display:flex;align-items:center;gap:9px;padding:14px;}
-.console .cin .pr{color:var(--ok);font-family:var(--mono);font-size:14px;}
-.console .cin input{flex:1;border:none;background:none;outline:none;color:var(--console-text);font-family:var(--mono);font-size:14px;}
-.console .cin input::placeholder{color:var(--text-faint);}
-/* dropzone + preview (Boot logo) */
-.drop{border:1.5px dashed var(--rule-2);border-radius:14px;padding:26px;text-align:center;background:var(--surface2);cursor:pointer;transition:border-color .14s,background .14s;}
-.drop:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
-.drop .di{width:44px;height:44px;margin:0 auto 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;}
-.drop .di svg{width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:1.8;}
-.drop .dt{font-size:14px;font-weight:650;}
-.drop .ds{font-size:12.5px;color:var(--muted);margin-top:3px;}
-.preview{display:flex;gap:16px;align-items:center;margin-top:14px;padding:14px;border:1px solid var(--border-soft);border-radius:12px;}
-.preview .ph{width:72px;height:128px;flex:none;border-radius:8px;border:1px solid var(--border);background:linear-gradient(160deg,#1a1d2b,#2a2340);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;overflow:hidden;}
-.preview .ph img{width:100%;height:100%;object-fit:cover;}
-.preview .pm{font-size:13px;color:var(--text-2);line-height:1.6;}
-.preview .pm b{color:var(--text);}
-.orp{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--text-faint);font-size:11px;font-weight:700;letter-spacing:.06em;}
-.orp::before,.orp::after{content:"";flex:1;height:1px;background:var(--border-soft);}
-/* reboot warning */
-.warncard{display:flex;gap:12px;padding:14px 16px;border:1px solid var(--warn-edge);background:var(--warn-bg);border-radius:12px;}
-.warncard svg{width:18px;height:18px;fill:none;stroke:var(--warn);stroke-width:2;flex:none;margin-top:1px;}
-.warncard .wt{font-size:13.5px;font-weight:650;color:var(--warn);}
-.warncard .ws{font-size:12.5px;color:var(--text-2);margin-top:2px;}
-
-/* sheet footer: blast radius + send */
-.sheet-f{display:flex;align-items:center;gap:16px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap;}
-.review-warn{flex-basis:100%;display:flex;flex-direction:column;gap:5px;padding:9px 11px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:12px;line-height:1.4;order:-1;}
-.rv-warn-row{display:flex;align-items:flex-start;gap:6px;}
-.rv-warn-row svg{flex:none;margin-top:1px;}
-.rv-warn-row span{color:var(--text-2);}
-.cr-send{margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:none;}
-.cr-send:disabled{opacity:.5;cursor:not-allowed;}
-.cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
-.cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
-.cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
-.cmd-chip button:hover{color:#d82747;}
-.shell-suggest{margin-top:12px;}
-.suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px;}
-.suggest-row{display:flex;flex-wrap:wrap;gap:6px;}
-.suggest-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:4px 9px;cursor:pointer;color:var(--text);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
-
-/* ── cc-card treatment for the recipe strip + action picker ── */
-.recipes-wrap,.pick-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:13px 17px 15px;margin-bottom:16px}
-.recipes-h,.pick-cap{display:flex;align-items:center;gap:9px;margin:0 0 11px}
-.recipes-h .t{font-size:11px}
-.recipes{padding:0;margin-bottom:0}
-.pills{margin-bottom:0}
-.pill,.recipe{min-height:40px;box-sizing:border-box}
-.recipe .rx{width:22px;height:22px}
-/* sheet header → icon-chip style matching cc-ch */
-.sheet-h{padding:13px 17px}
-.sheet-ic{width:26px;height:26px;border-radius:8px;background:var(--accent-soft)}
-.sheet-ic svg{width:14px;height:14px;stroke-width:2}
-.sheet-t{font-size:14px}
-.sheet-s{display:none}
-@media(min-width:701px){.sheet-s{display:block}}
-
-/* ── History card ── */
-.cmd-timeline{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+/* ── History timeline rows (shared look with /commands/history) ── */
+.cmd-timeline{overflow:hidden}
 .cmd-timeline .hgrp-h{display:flex;align-items:center;gap:8px;padding:10px 17px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);background:color-mix(in srgb,var(--surface2) 55%,transparent);border-top:1px solid var(--border-soft)}
 .cmd-timeline .hgrp-h:first-child{border-top:none}
 .cmd-timeline .hgrp-h .cnt{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);font-weight:700}
 .cmd-timeline .hist-day{padding:8px 17px 4px;font-size:11px;font-weight:650;color:var(--text-faint)}
-.cmd-timeline .htrow{display:grid;grid-template-columns:36px minmax(0,1fr) 150px 64px auto;align-items:center;gap:12px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.cmd-timeline .htrow{display:grid;grid-template-columns:36px minmax(0,1fr) 130px 64px auto;align-items:center;gap:12px;padding:11px 17px;border-top:1px solid var(--border-soft)}
 .cmd-timeline .ht-dotwrap{position:relative;z-index:1}
 .cmd-timeline .ht-dotwrap::before{content:none}
 .cmd-timeline .ht-dotwrap img,.cmd-timeline .ht-dotwrap .ci,.cmd-timeline .ht-dotwrap .dot{position:relative;z-index:1}
@@ -343,77 +167,165 @@
 .cmd-timeline .ht-by.empty::before{content:none}
 .cmd-timeline .ht-when{text-align:right}
 
-/* ── mobile (390px) ── */
-@media(max-width:700px){
-  .scope-wrap{grid-template-columns:1fr}
-  .scope-rail{max-height:200px}
-  .sheet-h{flex-wrap:wrap}
-  .ro-badge{order:3}
-}
-.scope-dev-list .cb-row{min-height:40px}
-@media(max-width:480px){
-  .pills,.recipes{gap:7px}
-  .pill{padding:9px 12px 9px 9px;font-size:13px}
-  .recipe .rs{max-width:150px}
-  .appgrid{grid-template-columns:repeat(auto-fill,minmax(88px,1fr))}
+/* mobile */
+@media(max-width:640px){
+  .p-bar{padding:10px 12px}
+  .p-keys{display:none}
+  .p-cols{gap:14px}
   .cmd-timeline .htrow{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"ic body when" ". by act"}
   .cmd-timeline .ht-body{grid-area:body}.cmd-timeline .ht-by{grid-area:by;text-align:left}.cmd-timeline .ht-when{grid-area:when}.cmd-timeline .hact{grid-area:act}
   .cmd-timeline .hact{margin-left:auto}
-  .sheet-f{padding:12px 14px}
-  .cr-send{width:100%;justify-content:center;order:2}
-  .cr-impact{order:1}
 }
 </style>
 
 <div class="ac-wrap">
-<div class="cc-top ac-top">
+<div class="cc-top">
   <div>
     <div class="cc-eyebrow">Actions</div>
     <h1 class="cc-h1">{{if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> action{{if ne .ProgCount 1}}s{{end}} in progress{{else}}Nothing in flight{{end}}{{if gt .DoneCount 0}} · <span class="hl ok">{{.DoneCount}}</span> done{{end}}{{if gt .AttnCount 0}} · <span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{end}}</h1>
-    <div class="cc-sub">Send and track remote actions across devices — install, uninstall, shell, reboot, kiosk lock, and diagnostics.</div>
+    <div class="cc-sub">Type an action, fill the tokens, press Enter — install, uninstall, reboot, kiosk lock and diagnostics across the fleet.</div>
   </div>
   <div class="cc-actions">
-    <a class="cc-btn" href="/commands/history"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History</a>
-    <a class="cc-btn" href="/schedules"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
-    {{if or (canOperate .Role) .Recipes}}<a class="cc-btn" href="#recipes-section"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Recipes</a>{{end}}
+    <a class="cc-btn" href="/commands/history"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History</a>
+    <a class="cc-btn" href="/schedules"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
   </div>
 </div>
 
-{{if or (canOperate .Role) .Recipes}}
+<form action="/commands" method="POST" id="cmd-form" autocomplete="off"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
+  <input type="hidden" name="type" id="f-type" value="">
+  <input type="hidden" name="target_type" id="f-ttype" value="">
+  <input type="hidden" name="scope_mode" id="f-smode" value="">
+  <input type="hidden" name="scope_id" id="f-sid" value="">
+  <input type="hidden" name="scope_status" id="f-sstatus" value="">
+  <input type="hidden" name="scope_battery" id="f-sbattery" value="">
+  <input type="hidden" name="scope_kiosk" id="f-skiosk" value="">
+  <input type="hidden" name="reason" id="f-reason" value="">
+  <textarea name="target_serials" id="f-serials" style="display:none" aria-hidden="true"></textarea>
+  <span id="f-dyn"></span>
 
-<div class="recipes-wrap dv-rise-1" id="recipes-section">
-  <div class="recipes-h"><span class="t">Start from a recipe</span></div>
-  <div class="recipes">
-    {{range .Recipes}}
-    <button type="button" class="recipe{{if eq .Name "Re-run last"}} last{{end}}" data-prefill="{{.Prefill}}" onclick="applyRecipe(this)">
-      {{if .Deletable}}<span class="rx" role="button" tabindex="0" aria-label="Delete recipe {{.Name}}" title="Delete recipe" onclick="event.stopPropagation();deleteRecipe(event,'{{.ID}}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.stopPropagation();event.preventDefault();deleteRecipe(event,'{{.ID}}');}">&times;</span>{{end}}
-      <span class="ic">
-        {{if eq .Name "Re-run last"}}<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        {{else if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
-        {{else if eq .Type "uninstall"}}<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
-        {{else if eq .Type "screenshot"}}<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
-        {{else if eq .Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
-        {{else if eq .Type "reboot"}}<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
-        {{else if eq .Type "update_splash"}}<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
-        {{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>{{end}}
+  <div class="p-pal{{if not (canOperate .Role)}} is-readonly{{end}}">
+    <div class="p-bar" id="p-bar">
+      <span class="lead"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+      <span id="p-tokens"></span>
+      <input class="free" id="p-input" type="text" placeholder="Type an action&hellip;" aria-label="Command palette" aria-haspopup="listbox"{{if not (canOperate .Role)}} disabled{{end}}>
+      {{if canOperate .Role}}
+      <button type="button" class="p-go" id="p-send"><span id="p-send-label">Send</span><kbd>&crarr;</kbd></button>
+      {{else}}
+      <span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>
+      {{end}}
+    </div>
+    <div class="p-drop" id="p-drop" role="listbox" aria-label="Palette options"></div>
+  </div>
+</form>
+
+<div class="p-keys">
+  <span><kbd>&#8984;K</kbd> focus</span>
+  <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+  <span><kbd>Tab</kbd> next token</span>
+  <span><kbd>&#9003;</kbd> remove token</span>
+  <span><kbd>&crarr;</kbd> send</span>
+  <span><kbd>Esc</kbd> dismiss</span>
+</div>
+
+<div class="p-preview">
+  <div id="cmd-impact" role="status" aria-live="polite"
+       hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
+       hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
+  <span class="p-hint" id="p-hint"></span>
+</div>
+
+<div class="p-cols">
+  <div>
+    <div class="p-cap">Pinned &amp; recent</div>
+    <div class="p-col" id="p-pinned">
+      {{$canOp := canOperate .Role}}
+      {{$hasPin := false}}
+      {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
+      <div class="p-r" data-prefill="{{.Prefill}}">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
+        <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
+        {{if $canOp}}<button type="button" class="p-resend" onclick="palLoadRow(this)" title="Load into the bar"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
+        {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
+      </div>
+      {{end}}{{end}}
+      {{range .RecentSends}}
+      <div class="p-r" data-prefill="{{.Prefill}}">
+        <span class="ic" data-act-icon="{{.Type}}"></span>
+        <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
+        {{if $canOp}}
+        <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="palPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+        <button type="button" class="p-resend" onclick="palLoadRow(this)" title="Load into the bar"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+        {{end}}
+      </div>
+      {{end}}
+      {{if and (not $hasPin) (not .RecentSends)}}<div class="p-colempty">Nothing sent yet — your recent and pinned sends will land here for one-keystroke resends.</div>{{end}}
+      {{if $canOp}}<button type="button" class="p-newpin" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Pin the current setup</button>{{end}}
+    </div>
+  </div>
+
+  <div>
+    <div class="p-cap"><span class="p-live-dot"></span>Live activity
+      <span class="right">
+        {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
+        <a href="/commands/history">Show all &rarr;</a>
       </span>
-      <span><span class="rt">{{.Name}}</span><span class="rs">{{.Summary}}</span></span>
-    </button>
-    {{end}}
-    {{if canOperate .Role}}<button type="button" class="recipe add" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Save current as recipe</button>{{end}}
-    <a href="/schedules" class="recipe add" style="text-decoration:none;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Scheduled<span class="beta-pill" style="margin-left:6px;">Beta</span></a>
+    </div>
+    <div class="p-col">
+      <div class="p-feedbar">
+        <span class="srch"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="cmd-search" placeholder="Search type, action, serial&hellip;" aria-label="Search action history" oninput="filterCommands()"></span>
+        <select id="filter-type" class="filter-select" aria-label="Filter by action type" onchange="filterCommands()">
+          <option value="">All types</option>
+          <option value="install_apk">Install app</option>
+          <option value="uninstall">Uninstall</option>
+          <option value="shell">Shell</option>
+          <option value="screenshot">Screenshot</option>
+          <option value="reboot">Reboot</option>
+          <option value="query">Query</option>
+          <option value="wipe">Wipe</option>
+        </select>
+        <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
+          <option value="">All targets</option>
+          <option value="all">All devices</option>
+          <option value="devices">Devices</option>
+          <option value="groups">Groups</option>
+        </select>
+      </div>
+      {{/* Live status: morph this fragment in place on a command-update SSE event (and a
+           slow 20s poll), so a status moving pending→delivered→completed and jumping between
+           buckets shows without a reload or a flash. */}}
+      <div class="cmd-timeline" id="cmd-history-table" data-morph
+           hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
+           hx-trigger="commands-feed-update from:body, every 20s">{{template "cmd-timeline-inner" .}}</div>
+    </div>
+  </div>
+</div>
+</div><!-- /.ac-wrap -->
+
+<!-- Pin-current (save-as-recipe) modal -->
+{{if canOperate .Role}}
+<div id="recipe-modal" class="modal-backdrop" onclick="closeRecipeModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Pin this setup</span>
+      <button class="modal-close" aria-label="Close" onclick="closeRecipeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted small" style="margin:0 0 12px;">Saves the bar&rsquo;s current action, payload and targets as a shared pin (also schedulable from the Schedules page).</p>
+      <div class="form-row" style="margin-bottom:14px;">
+        <label class="form-label" for="recipe-name">Pin name</label>
+        <input type="text" id="recipe-name" class="form-input" placeholder="e.g. Nightly reboot, drive-thru">
+      </div>
+      <div id="recipe-modal-error" class="alert alert-error" style="display:none;"></div>
+      <button type="button" class="btn-primary" onclick="saveRecipe()">Pin it</button>
+    </div>
   </div>
 </div>
 {{end}}
 
-
 <script>
-  // "Show admin actions" (admins only): actions sent by admin accounts are hidden
-  // from the history lists (and the admin-only Shell pill from the picker) unless
-  // switched on. Remembered per browser; default off.
+  // "Show admin actions" (admins only): the server hides actions sent by admin
+  // accounts — from the lists and the counts — unless this cookie is "1".
   (function () {
-    // "Show admin actions" (admins only): the server hides actions sent by admin
-    // accounts — from the lists and the counts — unless this cookie is "1".
     var on = /(?:^|; )mdm_show_admin_actions=1(?:;|$)/.test(document.cookie);
     function sync() { document.querySelectorAll('.adm-toggle input').forEach(function (i) { i.checked = on; }); }
     window.mdmAdminActions = function (v) {
@@ -421,1151 +333,729 @@
       location.reload();
     };
     sync();
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
   })();
+
+  // Live activity: subscribe to the global command feed and, on any command-update,
+  // nudge the timeline to re-fetch + morph in place (no reload, no flash). The named
+  // SSE event is "command-update" (see CommandsFeedEvents). mdmStream auto-closes on nav.
+  (function () {
+    if (!window.EventSource || !window.mdmStream) return;
+    var es = window.mdmStream('/commands/events');
+    es.addEventListener('command-update', function () {
+      document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
+    });
+  })();
+
+  // Client-side filter over the live activity rows (search + type + target).
+  function filterCommands() {
+    var q = (document.getElementById('cmd-search').value || '').toLowerCase();
+    var ft = document.getElementById('filter-type').value;
+    var fg = document.getElementById('filter-target').value;
+    var rows = document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]');
+    rows.forEach(function (r) {
+      var typeMatch = !ft || r.dataset.cmdType === ft;
+      var targetMatch = !fg || r.dataset.cmdTarget === fg;
+      var searchMatch = !q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1;
+      r.style.display = typeMatch && targetMatch && searchMatch ? '' : 'none';
+    });
+    document.querySelectorAll('#cmd-history-table .hist-day').forEach(function (h) {
+      var vis = false, n = h.nextElementSibling;
+      while (n && (n.classList.contains('htrow') || n.classList.contains('hist-day'))) {
+        if (n.classList.contains('htrow') && n.style.display !== 'none') { vis = true; break; }
+        if (n.classList.contains('hist-day')) break;
+        n = n.nextElementSibling;
+      }
+      h.style.display = vis ? '' : 'none';
+    });
+    document.querySelectorAll('#cmd-history-table .hgrp-h').forEach(function (h) {
+      var vis = false, n = h.nextElementSibling;
+      while (n && (n.classList.contains('htrow') || n.classList.contains('hist-day'))) {
+        if (n.classList.contains('htrow') && n.style.display !== 'none') { vis = true; break; }
+        n = n.nextElementSibling;
+      }
+      h.style.display = vis ? '' : 'none';
+    });
+  }
+
+  // Show toast on a feed row's resend form.
+  document.addEventListener('submit', function (evt) {
+    var form = evt.target;
+    if (!form || form.tagName !== 'FORM') return;
+    if (form.action.indexOf('/resend') !== -1) {
+      setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
+    }
+  });
+
+  // Pin (recipe) modal + delete — pins are shared server-side recipes so the
+  // Schedules page can run them on a timer.
+  function openRecipeModal() {
+    var t = document.getElementById('f-type');
+    if (!t || !t.value) { if (window.showToast) showToast('Compose an action in the bar first, then pin it', 'info'); return; }
+    document.getElementById('recipe-name').value = '';
+    document.getElementById('recipe-modal-error').style.display = 'none';
+    document.getElementById('recipe-modal').classList.add('modal-open');
+    document.getElementById('recipe-name').focus();
+  }
+  function closeRecipeModal(e) {
+    var m = document.getElementById('recipe-modal');
+    if (m && (!e || e.target === m)) m.classList.remove('modal-open');
+  }
+  async function saveRecipe() {
+    var name = document.getElementById('recipe-name').value.trim();
+    var errEl = document.getElementById('recipe-modal-error');
+    if (!name) { errEl.textContent = 'Give the pin a name.'; errEl.style.display = ''; return; }
+    var fd = new FormData(document.getElementById('cmd-form'));
+    fd.set('name', name);
+    var res = await fetch('/recipes', { method: 'POST', body: new URLSearchParams(fd) });
+    if (!res.ok && res.status !== 200) {
+      var t = await res.text();
+      errEl.textContent = t || 'Failed to save the pin.'; errEl.style.display = ''; return;
+    }
+    window.location = '/commands';
+  }
+  function deleteRecipe(e, id) {
+    e.preventDefault(); e.stopPropagation();
+    if (!confirm('Delete this pin?')) return;
+    var f = document.createElement('form');
+    f.method = 'POST'; f.action = '/recipes/' + id + '/delete';
+    document.body.appendChild(f); f.submit();
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeRecipeModal(); });
 </script>
-<style>
-  .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
-  .adm-toggle input{margin:0}
-</style>
-<form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
-  <!-- DISPATCH BAR — pick an action, command-palette style -->
-  <!-- Inline pill picker — every action visible, one tap to switch -->
-  <div class="pick-wrap dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
-    <div class="pick-cap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">Choose an action {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}</div>
-    <div class="pills" role="radiogroup" aria-label="Choose an action">
-      <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
-      {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
-      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
-      {{if canAdminOrOperator .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
-    </div>
-    <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
-  </div>
-
-  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
-
-    <!-- sheet header: the action being composed -->
-    <div class="sheet-h">
-      <span class="sheet-ic" id="sheet-ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
-      <div class="sheet-hh"><div class="sheet-t" id="sheet-t">Install app</div><div class="sheet-s" id="sheet-s">Push an APK and install it silently</div></div>
-      {{if not (canOperate .Role)}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
-    </div>
-
-    <div class="cr-config">
-
-      <div class="cr-sec">
-        <!-- Install app — opens the picker dialog; this is just the resulting summary. -->
-        <div id="apk-fields" class="payload-section is-active">
-          <span id="apk-hidden"></span>
-          <button type="button" class="cfg-picker" id="apk-picker" onclick="openActionModal('install_apk')">
-            <span class="cfg-picker-main"><span id="apk-summary" class="cfg-empty">No apps chosen</span></span>
-            <span class="cfg-cta">Choose apps</span>
-          </button>
-        </div>
-
-        <!-- Uninstall — opens the picker dialog; this is just the resulting summary. -->
-        <div id="uninstall-fields" class="payload-section">
-          <span id="pkg-hidden"></span>
-          <button type="button" class="cfg-picker" id="uninstall-picker" onclick="openActionModal('uninstall')">
-            <span class="cfg-picker-main"><span id="uninstall-summary" class="cfg-empty">No apps chosen</span></span>
-            <span class="cfg-cta">Choose apps</span>
-          </button>
-        </div>
-
-        <!-- Shell — opens the command dialog; this is just the resulting summary. -->
-        <div id="shell-fields" class="payload-section">
-          <button type="button" class="cfg-picker" id="shell-picker" onclick="openActionModal('shell')">
-            <span class="cfg-picker-main"><span id="shell-summary" class="cfg-empty">No command set</span></span>
-            <span class="cfg-cta">Set command</span>
-          </button>
-        </div>
-
-        <!-- Queries — opens the picker dialog; this is just the resulting summary. -->
-        <div id="query-fields" class="payload-section">
-          <button type="button" class="cfg-picker" id="query-picker" onclick="openActionModal('query')">
-            <span class="cfg-picker-main"><span id="query-summary" class="cfg-empty">No query picked</span></span>
-            <span class="cfg-cta">Choose query</span>
-          </button>
-        </div>
-
-        <!-- Screenshot — no options, no dialog needed. -->
-        <div id="screenshot-hint" class="payload-section">
-          <div class="cfg-picker cfg-static"><span class="cfg-picker-main"><span class="cfg-empty">Nothing to configure</span></span></div>
-        </div>
-
-        <!-- Reboot — no options, no dialog needed. -->
-        <div id="reboot-hint" class="payload-section">
-          <div class="cfg-picker cfg-static"><span class="cfg-picker-main"><span class="cfg-empty">Nothing to configure</span></span></div>
-        </div>
-
-        <!-- Kiosk mode — opens the config dialog; this is just the resulting summary.
-             Kept here temporarily alongside the newer /manage policy page. -->
-        <div id="kiosk-fields" class="payload-section">
-          <button type="button" class="cfg-picker" id="kiosk-picker" onclick="openActionModal('set_kiosk')">
-            <span class="cfg-picker-main"><span id="kiosk-summary" class="cfg-empty">No mode set</span></span>
-            <span class="cfg-cta">Configure</span>
-          </button>
-        </div>
-
-        <!-- Boot logo has moved to its own admin page (/boot-logo). -->
-      </div><!-- /.cr-sec (payload) -->
-    </div><!-- /.cr-config -->
-  </div><!-- /.cmd-rail3 (payload sheet) -->
-
-  <!-- TARGET — its own static section: which devices this reaches, unaffected by
-       which action type is selected above. Previously nested inside the same sheet
-       whose header retitles per action, which made it look like it belonged to
-       whichever tab was active. -->
-  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
-    <div class="sheet-h">
-      <span class="sheet-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
-      <div class="sheet-hh"><div class="sheet-t">Target</div><div class="sheet-s">Which devices this reaches — the same set no matter which action you pick above</div></div>
-    </div>
-    <div class="cr-config">
-        <div class="cr-sec">
-          <input type="hidden" name="target_type" id="target-type-input" value="">
-          <input type="hidden" name="scope_mode" id="scope-mode" value="">
-          <input type="hidden" name="scope_id" id="scope-id" value="">
-          <input type="hidden" name="scope_status" id="scope-status" value="">
-          <input type="hidden" name="scope_battery" id="scope-battery" value="">
-          <input type="hidden" name="scope_kiosk" id="scope-kiosk" value="">
-          <textarea name="target_serials" id="cmd-serials" style="display:none"></textarea>
-
-          <div class="scope-wrap">
-            <aside class="scope-rail" id="scope-rail" role="radiogroup" aria-label="Target scope">
-              <button type="button" class="sri" role="radio" aria-checked="false" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
-              {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-              {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-            </aside>
-            <div class="scope-side">
-              <div class="scope-refine" id="scope-refine">
-                <div class="sr-cap">Refine</div>
-                <div class="sr-pills">
-                  <button type="button" class="sr-pill" aria-pressed="false" data-k="status" data-v="online" onclick="toggleRefine(this)">Online only</button>
-                  <button type="button" class="sr-pill" aria-pressed="false" data-k="battery" data-v="low" onclick="toggleRefine(this)">Low battery</button>
-                  <button type="button" class="sr-pill" aria-pressed="false" data-k="kiosk" data-v="enabled" onclick="toggleRefine(this)">In kiosk</button>
-                </div>
-              </div>
-              <div class="scope-devices">
-                <div class="sd-head">
-                  <div class="filter-search sd-search"><svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="scope-search" autocomplete="off" placeholder="Search serial · Enter to add exact…" aria-label="Search devices by serial" oninput="scopeSearchDebounced()" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}"></div>
-                  <button type="button" class="btn-link small" onclick="cmdSelectAllMatching()">Select all</button>
-                  <button type="button" class="btn-link small" onclick="cmdSetSerials([])">Clear</button>
-                  <span class="sd-count"><b id="cmd-sel-count">0</b> picked</span>
-                </div>
-                <textarea id="scope-paste" class="sd-paste" placeholder="Paste a list of serials here…" aria-label="Paste a list of serials" rows="2"
-                          oninput="clearTimeout(window.__scopePasteTimer);window.__scopePasteTimer=setTimeout(function(){var v=document.getElementById('scope-paste').value;if(v.trim()){cmdAddSerial(v);document.getElementById('scope-paste').value='';}},400)"></textarea>
-                <div id="cmd-device-browser" class="scope-dev-list"
-                     hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load"
-                     hx-target="#cmd-device-browser" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
-                <p class="sr-hint" id="scope-hint">Leave all unchecked to target the whole scope. Check devices to send to just those.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-    </div><!-- /.cr-config -->
-
-    <!-- sheet footer: live blast radius + send. #cmd-impact reloads from
-         /commands/impact on every builder change; the Send button reads its counts. -->
-    <div class="sheet-f">
-      <div class="cr-impact" id="cmd-impact" role="status" aria-live="polite"
-           hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
-           hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
-      {{if canOperate .Role}}
-      <div id="rv-warn" class="review-warn" style="display:none;"></div>
-      <button type="submit" id="send-btn" class="btn-primary cr-send">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-        <span id="send-label">Send action</span>
-      </button>
-      {{else}}
-      <div class="ro-note">You have view-only access — ask a operator or admin to send actions.</div>
-      <button type="button" class="btn-primary cr-send" disabled>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-        Send action
-      </button>
-      {{end}}
-    </div>
-
-  </div>
-
-  <!-- ACTION CONFIG DIALOG — the real picker UI for the types that need one
-       (install/uninstall/shell/query/kiosk); screenshot and reboot need no options,
-       so they never open this. Lives inside the form so its inputs (apk_url/package/
-       shell_cmd/query_id/kiosk_*) still post with everything else. -->
-  <div class="modal-backdrop" id="action-config-modal" onclick="closeActionModal(event)">
-    <div class="modal-box modal-wide">
-      <div class="modal-header">
-        <span class="modal-title" id="acm-title">Configure</span>
-        <button type="button" class="modal-close" aria-label="Close" onclick="closeActionModal()">&times;</button>
-      </div>
-      <div class="acm-sub" id="acm-sub"></div>
-      <div class="modal-body">
-
-        <div class="modal-pane" data-type="install_apk">
-          {{if .Apps}}
-            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
-            <div class="appgrid" id="app-grid">
-              {{range .Apps}}
-              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}{{if .PackageName}} · {{.PackageName}}{{end}}">
-                <span class="thumb">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
-                <span class="m"><span class="nm">{{.Name}}</span>{{if .VersionName}}<span class="ver">v{{.VersionName}}</span>{{end}}</span>
-                <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
-              </button>
-              {{end}}
-              {{if canAdmin .Role}}<a href="/settings#applibrary" class="appnew" title="Add an app in the App library"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</a>{{end}}
-            </div>
-          {{else}}
-            <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one now</a> — upload an APK in Settings, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
-          {{end}}
-        </div>
-
-        <div class="modal-pane" data-type="uninstall" style="display:none;">
-          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" aria-label="Search installed apps" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
-          <!-- Populated from the selected target's installed packages; reloads on target change. -->
-          <div class="pkgs" id="uninstall-list"
-               hx-get="/commands/target-packages" hx-include="#cmd-form" hx-target="#uninstall-list"
-               hx-swap="innerHTML" hx-trigger="load, targetchange from:body delay:250ms">
-            <div class="pl-sub">Loading installed apps…</div>
-          </div>
-          <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-        </div>
-
-        <div class="modal-pane" data-type="shell" style="display:none;">
-          <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
-          {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
-          <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
-          {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
-          <div class="pl-chips">{{range .ShellPopular}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
-        </div>
-
-        <div class="modal-pane" data-type="query" style="display:none;">
-          <input type="hidden" name="query_id" id="diag-query-id" value="">
-          <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command.</div>
-          <div class="pl-chips" style="margin-top:12px;">
-            {{range .DeviceQueries}}<button type="button" class="pl-chip diag-chip" data-qid="{{.ID}}" data-label="{{.Label}}" title="{{.Command}}" onclick="pickDiag(this)">{{.Label}} <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.03em;">{{.Category}}</span></button>{{end}}
-          </div>
-        </div>
-
-        <div class="modal-pane" data-type="set_kiosk" style="display:none;">
-          <input type="hidden" name="kiosk_enabled" id="kiosk-enabled" value="1">
-          <div class="lvl-lbl">Mode</div>
-          <div class="levels" id="kiosk-mode" role="radiogroup" aria-label="Kiosk mode">
-            <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
-            <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
-          </div>
-          <div id="kiosk-app-wrap" style="margin-top:16px">
-            <div class="lvl-lbl">Locked app</div>
-            {{if .FleetPackages}}
-              <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
-              <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
-              <div class="kpk" id="kiosk-app-picker">
-                <div class="kpk-top">
-                  <span class="kpk-search">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                    <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
-                  </span>
-                  <span class="kpk-seg" role="tablist" aria-label="View">
-                    <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
-                    <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
-                  </span>
-                </div>
-                <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Apps seen across the fleet"></div>
-                <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Apps seen across the fleet"></div>
-              </div>
-              <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
-            {{else}}
-              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
-              <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
-            {{end}}
-          </div>
-          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return.</div></div></div>
-        </div>
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-primary" onclick="closeActionModal()">Done</button>
-      </div>
-    </div>
-  </div>
-</form>
-
-<div class="card cc-card" id="history">
-  <div class="card-header cc-ch">
-    <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg></span>
-    <h3>History</h3>
-    <div class="right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
-      <div style="position:relative;display:flex;align-items:center;">
-        <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
-          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
-        </svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, action, serial…" aria-label="Search action history" oninput="filterCommands()">
-      </div>
-      <select id="filter-type" class="filter-select" style="font-size:12px;" aria-label="Filter by action type" onchange="filterCommands()">
-        <option value="">All Types</option>
-        <option value="install_apk">Install APK</option>
-        <option value="uninstall">Uninstall</option>
-        <option value="shell">Shell</option>
-        <option value="screenshot">Screenshot</option>
-        <option value="reboot">Reboot</option>
-      </select>
-      <select id="filter-target" class="filter-select" style="font-size:12px;" aria-label="Filter by target" onchange="filterCommands()">
-        <option value="">All Targets</option>
-        <option value="all">All Devices</option>
-        <option value="devices">Devices</option>
-        <option value="groups">Groups</option>
-      </select>
-    </div>
-  </div>
-  {{/* Live status: morph this fragment in place on a command-update SSE event (and a
-       slow 20s poll), so a status moving pending→delivered→completed and jumping between
-       buckets shows without a reload or a flash. */}}
-  <div class="cmd-timeline" id="cmd-history-table" data-morph
-       hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
-       hx-trigger="commands-feed-update from:body, every 20s">{{template "cmd-timeline-inner" .}}</div>
-
-</div>
-
-<!-- Add new app modal -->
-{{if canAdmin .Role}}
-<div id="app-modal" class="modal-backdrop" onclick="closeAppModal(event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title">Add New App</span>
-      <button class="modal-close" aria-label="Close" onclick="closeAppModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-row" style="margin-bottom:12px;">
-        <label class="form-label" for="new-app-name">App Name</label>
-        <input type="text" id="new-app-name" class="form-input" placeholder="My App">
-      </div>
-      <div class="form-row" style="margin-bottom:12px;">
-        <label class="form-label" for="new-app-pkg">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
-        <input type="text" id="new-app-pkg" class="form-input" style="font-family:var(--mono)" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="com.example.app">
-        <div class="muted small" style="margin-top:4px;">Optional — lets installs skip devices that already have this app.</div>
-      </div>
-      <div class="form-row" style="margin-bottom:16px;">
-        <label class="form-label" for="new-app-url">APK URL</label>
-        <input type="url" id="new-app-url" class="form-input" placeholder="https://example.com/app.apk">
-      </div>
-      <div id="app-modal-error" class="alert alert-error" style="display:none;"></div>
-      <button type="button" class="btn-primary" onclick="saveNewApp()">Save App</button>
-    </div>
-  </div>
-</div>
-{{end}}
-
-<!-- Save-as-recipe modal -->
-<div id="recipe-modal" class="modal-backdrop" onclick="closeRecipeModal(event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title">Save as recipe</span>
-      <button class="modal-close" aria-label="Close" onclick="closeRecipeModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <p class="muted small" style="margin:0 0 12px;">Saves the current action, payload and target as a one-tap preset.</p>
-      <div class="form-row" style="margin-bottom:14px;">
-        <label class="form-label" for="recipe-name">Recipe name</label>
-        <input type="text" id="recipe-name" class="form-input" placeholder="e.g. Screenshot kiosks">
-      </div>
-      <div id="recipe-modal-error" class="alert alert-error" style="display:none;"></div>
-      <button type="button" class="btn-primary" onclick="saveRecipe()">Save recipe</button>
-    </div>
-  </div>
-</div>
 
 <script>
-
-// Live action history: subscribe to the global command feed and, on any command-update,
-// nudge the history table to re-fetch + morph in place (no reload, no flash). The named
-// SSE event is "command-update" (see CommandsFeedEvents). mdmStream auto-closes on nav.
-(function () {
-  if (!window.EventSource || !window.mdmStream) return;
-  var es = window.mdmStream('/commands/events');
-  es.addEventListener('command-update', function () {
-    document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
-  });
-})();
-
-// Read-only builder (viewers): natively disable every form control so it reads
-// as a standard greyed, not-allowed form — no overlay, no toast.
-(function () {
-  var ro = document.querySelector('.cmd-rail3.is-readonly');
-  if (!ro) return;
-  ro.querySelectorAll('input, select, textarea, button').forEach(function (el) { el.disabled = true; });
-})();
-
-// Show toast on resend (via global showToast)
-document.addEventListener('submit', function(evt) {
-  var form = evt.target;
-  if (!form || form.tagName !== 'FORM') return;
-  if (form.action.indexOf('/resend') !== -1) {
-    setTimeout(function() { if (window.showToast) showToast('Action resent', 'success'); }, 100);
-  }
-});
-
-function filterCommands() {
-  var q = (document.getElementById('cmd-search').value || '').toLowerCase();
-  var ft = document.getElementById('filter-type').value;
-  var fg = document.getElementById('filter-target').value;
-  var rows = document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]');
-  rows.forEach(function(r) {
-    var typeMatch = !ft || r.dataset.cmdType === ft;
-    var targetMatch = !fg || r.dataset.cmdTarget === fg;
-    var searchMatch = !q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1;
-    r.style.display = typeMatch && targetMatch && searchMatch ? '' : 'none';
-  });
-  // Day-group headers sit between rows now — hide one when every row until the
-  // next day header (or the next bucket header) is filtered out.
-  document.querySelectorAll('#cmd-history-table .hist-day').forEach(function (h) {
-    var vis = false, n = h.nextElementSibling;
-    while (n && (n.classList.contains('htrow') || n.classList.contains('hist-day'))) {
-      if (n.classList.contains('htrow') && n.style.display !== 'none') { vis = true; break; }
-      if (n.classList.contains('hist-day')) break; // reached the next day group
-      n = n.nextElementSibling;
-    }
-    h.style.display = vis ? '' : 'none';
-  });
-  // Hide status-group headers whose rows (across all their day groups) are all filtered out.
-  document.querySelectorAll('#cmd-history-table .hgrp-h').forEach(function (h) {
-    var vis = false, n = h.nextElementSibling;
-    while (n && (n.classList.contains('htrow') || n.classList.contains('hist-day'))) {
-      if (n.classList.contains('htrow') && n.style.display !== 'none') { vis = true; break; }
-      n = n.nextElementSibling;
-    }
-    h.style.display = vis ? '' : 'none';
-  });
-}
-
-// No target is chosen by default — Send stays disabled (updatePreview) until the
-// user picks a scope/group/devices. Explicitly picking "All devices" is still
-// fleet-wide, so that one case (target_type=scope, scope_mode=all, no narrowing
-// refine) gets a confirmation showing the live count the sheet footer already
-// computed (#cmd-impact's data-effective, from the same resolver CommandCreate uses
-// — see CommandImpact in handlers.go) before it actually sends.
-(function () {
-  var DESTRUCTIVE = { reboot: 1, ota: 1, update_splash: 1 };
-  var form = document.getElementById('cmd-form');
-  if (!form) return;
-  form.addEventListener('submit', function (e) {
-    var tt = document.getElementById('target-type-input');
-    if (!tt || !tt.value) { e.preventDefault(); return; } // nothing chosen — Send should already be disabled
-    var sm = document.getElementById('scope-mode');
-    if (tt.value !== 'scope' || !sm || sm.value !== 'all') return; // narrower than the whole fleet — no extra gate
-    e.preventDefault();
-    var impact = document.querySelector('#cmd-impact .imp-body');
-    var n = impact ? (impact.getAttribute('data-effective') || '0') : '0';
-    var cmdType = document.getElementById('cmd-type-input').value;
-    window.mdmConfirm({
-      title: 'Send to the whole fleet?',
-      body: "You haven't scoped this to a restaurant, group, or specific devices.",
-      scope: 'This will target ' + n + ' device' + (n === '1' ? '' : 's') + ' — online and offline.',
-      tier: DESTRUCTIVE[cmdType] ? 'danger' : 'normal',
-      confirmLabel: 'Send anyway'
-    }).then(function (ok) { if (ok) form.submit(); });
-  });
-})();
-
-var ACT_META = {
-  install_apk:  { name:'Install app',  sub:'Push an APK and install it silently',   icon:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>' },
-  uninstall:    { name:'Uninstall',    sub:'Remove a package across the target',      icon:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>' },
-  screenshot:   { name:'Screenshot',   sub:'Capture the live screen',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
-  shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
-  reboot:       { name:'Reboot',       sub:'Restart the device',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
-  set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
-  query:        { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
-};
-function selectType(val, btn) {
-  document.getElementById('cmd-type-input').value = val;
-  document.querySelectorAll('.pill').forEach(function(c) { var sel = c.dataset.type === val; c.classList.toggle('on', sel); c.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  // reflect the chosen action in the sheet header
-  var m = ACT_META[val] || { name: val, sub: '', icon: '<circle cx="12" cy="12" r="8"/>' };
-  var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
-  var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
-  var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
-  ['apk-fields','uninstall-fields','shell-fields','query-fields','screenshot-hint','reboot-hint','kiosk-fields'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.classList.remove('is-active');
-  });
-  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', query:'query-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
-  var section = document.getElementById(sectionId);
-  if (section) section.classList.add('is-active');
-  // Picking a pill just switches which summary/hint shows — it does not open the
-  // config dialog. That only opens from its own "Choose apps" / "Choose query" /
-  // etc. button (see the .cfg-picker buttons' onclick="openActionModal(...)").
-  updatePreview();
-}
-
-// ── Action config dialog: install/uninstall/shell/query/kiosk pick their payload
-// in a modal (device.html-style); screenshot/reboot have nothing to configure and
-// never open it. Closing the dialog renders a compact summary back in the sheet. ──
-var ACM_TITLES = {
-  install_apk: { t: 'Choose apps to install', s: '' },
-  uninstall:   { t: 'Choose apps to uninstall', s: '' },
-  shell:       { t: 'Shell command', s: '' },
-  query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' },
-  set_kiosk:   { t: 'Configure kiosk mode', s: 'Lock devices to one app, or unlock them.' }
-};
-function openActionModal(type) {
-  var m = ACM_TITLES[type]; if (!m) return;
-  document.getElementById('acm-title').textContent = m.t;
-  var sub = document.getElementById('acm-sub'); sub.textContent = m.s; sub.style.display = m.s ? '' : 'none';
-  document.querySelectorAll('#action-config-modal .modal-pane').forEach(function (p) {
-    p.style.display = (p.dataset.type === type) ? '' : 'none';
-  });
-  document.getElementById('action-config-modal').classList.add('modal-open');
-}
-function closeActionModal(e) {
-  var bg = document.getElementById('action-config-modal');
-  if (e && e.target !== bg) return; // click landed inside the box, not the backdrop
-  bg.classList.remove('modal-open');
-  refreshActionSummary(document.getElementById('cmd-type-input').value);
-}
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && document.getElementById('action-config-modal').classList.contains('modal-open')) closeActionModal();
-});
-
-// Renders the "N apps selected — A, B, +2 more" summary line for a multi-pick type,
-// from whichever .on tiles are currently checked (selApps/selPkgs stay the source
-// of truth for what's submitted; this just describes them).
-function renderPickSummary(baseId, els, nameFn) {
-  var el = document.getElementById(baseId + '-summary');
-  var picker = document.getElementById(baseId + '-picker');
-  if (!el) return;
-  if (!els.length) { el.className = 'cfg-empty'; el.textContent = 'No apps chosen'; if (picker) picker.classList.remove('filled'); return; }
-  var names = Array.prototype.map.call(els, nameFn);
-  var shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ', +' + (names.length - 3) + ' more' : '');
-  el.className = 'cfg-filled';
-  el.textContent = names.length + (names.length === 1 ? ' app selected — ' : ' apps selected — ') + shown;
-  if (picker) picker.classList.add('filled');
-}
-function refreshActionSummary(type) {
-  if (type === 'install_apk') {
-    renderPickSummary('apk', document.querySelectorAll('#app-grid .appc.on'), function (el) { return el.dataset.name; });
-  } else if (type === 'uninstall') {
-    renderPickSummary('uninstall', document.querySelectorAll('#uninstall-list .pkg.on'), function (el) {
-      var nm = el.querySelector('.nm'); return nm ? nm.textContent : el.dataset.pkg;
-    });
-  } else if (type === 'shell') {
-    var v = (document.getElementById('shell-cmd-input').value || '').trim();
-    var el = document.getElementById('shell-summary');
-    el.className = v ? 'cfg-filled' : 'cfg-empty';
-    el.innerHTML = v ? ('<code></code>') : 'No command set';
-    if (v) el.querySelector('code').textContent = v;
-    document.getElementById('shell-picker').classList.toggle('filled', !!v);
-  } else if (type === 'query') {
-    var chip = document.querySelector('.diag-chip.on');
-    var qel = document.getElementById('query-summary');
-    qel.className = chip ? 'cfg-filled' : 'cfg-empty';
-    qel.textContent = chip ? chip.dataset.label : 'No query picked';
-    document.getElementById('query-picker').classList.toggle('filled', !!chip);
-  } else if (type === 'set_kiosk') {
-    var locked = document.getElementById('kiosk-enabled').value === '1';
-    var kel = document.getElementById('kiosk-summary');
-    if (!locked) {
-      kel.className = 'cfg-filled'; kel.textContent = 'Unlock — exit kiosk mode';
-    } else {
-      var pkgEl = document.getElementById('kiosk-pkg-value') || document.getElementById('kiosk-pkg-text');
-      var pkg = pkgEl ? pkgEl.value : '';
-      var nmEl = (pkg && window.CSS && CSS.escape) ? document.querySelector('#kiosk-apps-src i[data-value="' + CSS.escape(pkg) + '"]') : null;
-      kel.className = pkg ? 'cfg-filled' : 'cfg-empty';
-      kel.textContent = pkg ? ('Lock to ' + (nmEl ? nmEl.getAttribute('data-name') : pkg)) : 'Pick an app to lock to';
-    }
-    document.getElementById('kiosk-picker').classList.add('filled');
-  }
-}
-
-// ── Studio pane controls ──
-// Install: multi-select app cards. Each selected app becomes one hidden apk_url
-// input, so the server queues one install command per app.
-var selApps = new Set();
-function pickApp(el) {
-  var u = el.dataset.url;
-  if (selApps.has(u)) { selApps.delete(u); el.classList.remove('on'); }
-  else { selApps.add(u); el.classList.add('on'); }
-  syncApkHidden();
-  updatePreview();
-}
-function syncApkHidden() {
-  var box = document.getElementById('apk-hidden'); if (!box) return;
-  box.innerHTML = '';
-  selApps.forEach(function (u) {
-    var i = document.createElement('input'); i.type = 'hidden'; i.name = 'apk_url'; i.value = u; box.appendChild(i);
-  });
-}
-function filterApps(q) {
-  q = (q || '').toLowerCase();
-  document.querySelectorAll('#app-grid .appc').forEach(function (a) {
-    a.style.display = (a.dataset.search || '').toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-  });
-}
-// Kiosk: lock/unlock toggle, app pick, and app-list filter.
-function setKioskMode(v, btn) {
-  var h = document.getElementById('kiosk-enabled'); if (h) h.value = v;
-  document.querySelectorAll('#kiosk-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  var lock = v === '1';
-  var wrap = document.getElementById('kiosk-app-wrap'); if (wrap) wrap.style.display = lock ? '' : 'none';
-  var note = document.getElementById('kiosk-unlock-note'); if (note) note.style.display = lock ? 'none' : '';
-  updatePreview();
-}
-// Locked-app picker — the same searchable grid/list-of-real-icons component as the
-// device page's kiosk modal (templates/device.html), reused verbatim (minus the
-// device page's live-drawer merge, which doesn't apply to a fleet-wide package list).
-(function () {
-  var picker = document.getElementById('kiosk-app-picker');
-  if (!picker) return;
-  var src = document.getElementById('kiosk-apps-src');
-  var hidden = document.getElementById('kiosk-pkg-value');
-  var q = document.getElementById('kpk-q');
-  var gridEl = document.getElementById('kpk-grid');
-  var listEl = document.getElementById('kpk-list');
-  var apps = [];
-  (function () {
-    var seen = {};
-    [].forEach.call(src.querySelectorAll('i'), function (el) {
-      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
-      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
-    });
-  })();
-  var kbd = -1;
-
-  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
-  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
-  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
-  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
-
-  function tileHtml(a) {
-    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
-    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
-  }
-  function optHtml(a, i) {
-    var sel = hidden.value === a.v;
-    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
-      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
-      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
-      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
-  }
-  function render() {
-    var items = filtered();
-    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
-    gridEl.innerHTML = html; listEl.innerHTML = html;
-  }
-  function choose(v) { hidden.value = v; render(); updatePreview(); }
-
-  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
-  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
-
-  q.addEventListener('input', function () { kbd = -1; render(); });
-  q.addEventListener('keydown', function (e) {
-    var items = filtered();
-    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
-  });
-  function scrollKbd() { var box = picker.classList.contains('listview') ? listEl : gridEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
-
-  function setView(v) {
-    picker.classList.toggle('listview', v === 'list');
-    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
-    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
-  }
-  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
-  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
-
-  render();
-})();
-// ── Scope-rail target picker ──
-// The rail sets the candidate scope (collection + refine); the device list under it
-// lets you drill in. No devices checked → target = the whole scope; check some →
-// target = just those serials.
-var scopeMode = 'all', scopeId = '';
-function applyTarget() {
-  document.getElementById('target-type-input').value = cmdSerials().length ? 'devices' : 'scope';
-  updatePreview();
-  // Refresh the target-scoped uninstall package list.
-  document.body.dispatchEvent(new CustomEvent('targetchange'));
-}
-function scopeBrowseParams() {
-  var p = new URLSearchParams();
-  var q = document.getElementById('scope-search'); if (q && q.value) p.set('q', q.value);
-  if (scopeMode === 'restaurant') p.set('restaurant', scopeId);
-  else if (scopeMode === 'group') p.set('group', scopeId);
-  else if (scopeMode === 'build') p.set('build', scopeId);
-  ['status', 'battery', 'kiosk'].forEach(function (k) { var v = document.getElementById('scope-' + k).value; if (v) p.set(k, v); });
-  return p;
-}
-function scopeBrowseReload() {
-  if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + scopeBrowseParams().toString(), { target: '#cmd-device-browser', swap: 'innerHTML' });
-  document.body.dispatchEvent(new CustomEvent('targetchange'));
-}
-var scopeSearchTimer;
-function scopeSearchDebounced() { clearTimeout(scopeSearchTimer); scopeSearchTimer = setTimeout(scopeBrowseReload, 300); }
-function selectScope(mode, id, el) {
-  scopeMode = mode; scopeId = id || '';
-  document.getElementById('scope-mode').value = mode;
-  document.getElementById('scope-id').value = id || '';
-  document.querySelectorAll('#scope-rail .sri').forEach(function (b) { var sel = b === el; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  scopeBrowseReload();
-  applyTarget();
-}
-function toggleRefine(el) {
-  var on = !el.classList.contains('on');
-  el.classList.toggle('on', on);
-  el.setAttribute('aria-pressed', on ? 'true' : 'false');
-  var hid = document.getElementById('scope-' + el.dataset.k);
-  if (hid) hid.value = on ? el.dataset.v : '';
-  scopeBrowseReload();
-  applyTarget();
-}
-// Back-compat shim: recipes/clone call selectTarget('all'|'groups'|'devices').
-function selectTarget(val) {
-  if (val === 'all') { var a = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (a) selectScope('all', '', a); }
-  // 'devices' is driven by cmdSetSerials; 'groups' is handled in applyPrefill.
-}
-
-// ── Specific-devices target: serial chips backed by the hidden textarea ──
-function cmdSerials() {
-  return document.getElementById('cmd-serials').value.split(/[\n,]/).map(function (s) { return s.trim(); }).filter(Boolean);
-}
-function cmdSetSerials(list) {
-  var seen = {}, out = [];
-  (list || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
-  document.getElementById('cmd-serials').value = out.join('\n');
-  var ct = document.getElementById('cmd-sel-count'); if (ct) ct.textContent = out.length;
-  cmdSyncBrowserChecks();
-  applyTarget();
-}
-// Enter-to-add: commit the typed serial(s) as chips, clear the search box, and
-// reload the (now unfiltered) browse list so the selection shows checked.
-function cmdAddSerial(raw) {
-  if (!raw) return;
-  cmdSetSerials(cmdSerials().concat(String(raw).split(/[\s,]+/)));
-  var inp = document.getElementById('scope-search');
-  if (inp) inp.value = '';
-  scopeBrowseReload();
-}
-function cmdRemoveSerial(s) {
-  cmdSetSerials(cmdSerials().filter(function (x) { return x !== s; }));
-}
-function cmdRenderChips() {
-  var box = document.getElementById('cmd-chips');
-  if (!box) return;
-  box.innerHTML = '';
-  var serials = cmdSerials();
-  if (!serials.length) {
-    box.innerHTML = '<div class="muted small" style="padding:6px 2px;">No devices selected. Add them from the left.</div>';
-  } else {
-    serials.forEach(function (s) {
-      var chip = document.createElement('span');
-      chip.className = 'cmd-chip';
-      chip.appendChild(document.createTextNode(s));
-      var b = document.createElement('button');
-      b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove ' + s);
-      b.onclick = function () { cmdRemoveSerial(s); };
-      chip.appendChild(b);
-      box.appendChild(chip);
-    });
-  }
-  var c = document.getElementById('cmd-sel-count'); if (c) c.textContent = serials.length;
-  cmdSyncBrowserChecks();
-}
-
-// ── Filtered device browser (same filters as the Devices list / new-group browse) ──
-var cmdBrowseTimer;
-var cmdSort = { key: 'last_seen', dir: 'desc' };
-function cmdBrowseDebounced() { clearTimeout(cmdBrowseTimer); cmdBrowseTimer = setTimeout(cmdBrowseReload, 300); }
-function cmdBrowseParams() {
-  var map = { q:'cmd-serial-input', status:'cmd-browse-status', group:'cmd-browse-group', production:'cmd-browse-production', build:'cmd-browse-build', battery:'cmd-browse-battery' };
-  var p = new URLSearchParams();
-  for (var k in map) { var el = document.getElementById(map[k]); if (el && el.value) p.set(k, el.value); }
-  p.set('sort', cmdSort.key); p.set('dir', cmdSort.dir);
-  return p;
-}
-function cmdBrowseReload() { cmdUpdateFilterCount(); if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), { target: '#cmd-device-browser', swap: 'innerHTML' }); }
-function cmdBrowseClear() {
-  ['cmd-serial-input','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
-  cmdBrowseReload();
-}
-// Count of active filters → badge on the Filters button (search is the visible box,
-// not counted here — mirrors the Fleet page).
-function cmdUpdateFilterCount() {
-  var ids = ['cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'];
-  var n = ids.reduce(function (a, id) { var e = document.getElementById(id); return a + (e && e.value ? 1 : 0); }, 0);
-  var c = document.getElementById('cmd-filter-cnt');
-  if (c) { c.textContent = n; if (n) c.removeAttribute('hidden'); else c.setAttribute('hidden', ''); }
-  var b = document.getElementById('cmd-filters-btn'); if (b) b.classList.toggle('has', !!n);
-}
-// Filters / Sort popovers (mirror the Fleet page, scoped to the command builder).
-function cmdPop(popId, btnId, open) {
-  var pop = document.getElementById(popId), btn = document.getElementById(btnId);
-  if (!pop) return;
-  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
-  if (btn) { btn.setAttribute('aria-expanded', open ? 'true' : 'false'); btn.classList.toggle('open', open); }
-}
-function cmdToggleFilters(e) { if (e) { e.preventDefault(); e.stopPropagation(); } var p = document.getElementById('cmd-filters-pop'); cmdPop('cmd-sort-pop','cmd-sort-btn',false); cmdPop('cmd-filters-pop','cmd-filters-btn', p && p.hasAttribute('hidden')); }
-function cmdToggleSort(e) { if (e) { e.preventDefault(); e.stopPropagation(); } var p = document.getElementById('cmd-sort-pop'); cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn', p && p.hasAttribute('hidden')); }
-function cmdSortBy(key) {
-  cmdSort.dir = (cmdSort.key === key) ? (cmdSort.dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
-  cmdSort.key = key;
-  document.querySelectorAll('#cmd-sort-pop .sortopt').forEach(function (b) {
-    var on = b.dataset.sort === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    var d = b.querySelector('.dir'); if (d) d.textContent = on ? (cmdSort.dir === 'asc' ? '↑' : '↓') : '';
-  });
-  cmdToggleSort(); cmdBrowseReload();
-}
-document.addEventListener('click', function (e) {
-  // The filters panel now sits in-flow outside the button wrap, so check both.
-  var fw = document.getElementById('cmd-filters-wrap'); var fp = document.getElementById('cmd-filters-pop');
-  if (fw && fp && !fw.contains(e.target) && !fp.contains(e.target)) cmdPop('cmd-filters-pop','cmd-filters-btn',false);
-  var sw = document.getElementById('cmd-sort-wrap'); if (sw && !sw.contains(e.target)) cmdPop('cmd-sort-pop','cmd-sort-btn',false);
-});
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn',false); } });
-function cmdToggleDevice(cb) {
-  // Add/remove without touching the search box, so the filtered view stays put
-  // while you check several matches.
-  if (cb.checked) cmdSetSerials(cmdSerials().concat([cb.value]));
-  else cmdSetSerials(cmdSerials().filter(function (s) { return s !== cb.value; }));
-}
-function cmdSelectAllMatching() {
-  var add = [];
-  document.querySelectorAll('#cmd-device-browser .cmd-browse-cb').forEach(function (cb) { cb.checked = true; add.push(cb.value); });
-  cmdSetSerials(cmdSerials().concat(add));
-}
-function cmdSyncBrowserChecks() {
-  var sel = {}; cmdSerials().forEach(function (s) { sel[s] = 1; });
-  document.querySelectorAll('#cmd-device-browser .cmd-browse-cb').forEach(function (cb) { cb.checked = !!sel[cb.value]; });
-}
-// Float checked rows to the top of the browser after a (re)load — e.g. right
-// after serials are pasted — so the selected devices are visible without
-// scrolling. Called from afterSwap only (not on manual single-checkbox toggles,
-// which don't reload, so a clicked row never jumps out from under the cursor).
-function cmdFloatCheckedToTop() {
-  var list = document.querySelector('#cmd-device-browser .cb-list');
-  if (!list) return;
-  var checked = [];
-  list.querySelectorAll('.cb-row').forEach(function (row) {
-    var cb = row.querySelector('.cmd-browse-cb');
-    if (cb && cb.checked) checked.push(row);
-  });
-  // Insert in reverse so the rows keep their original relative order at the top.
-  for (var i = checked.length - 1; i >= 0; i--) list.insertBefore(checked[i], list.firstChild);
-}
-document.body.addEventListener('htmx:afterSwap', function (e) { if (e.target && e.target.id === 'cmd-device-browser') { cmdSyncBrowserChecks(); cmdFloatCheckedToTop(); } });
-
-function cmdToggleList() {
-  var ta = document.getElementById('cmd-serials');
-  var on = ta.style.display === 'none';
-  ta.style.display = on ? '' : 'none';
-  var btn = document.getElementById('cmd-edit-list');
-  if (btn) btn.textContent = on ? 'Hide list ▴' : 'Edit as list ▾';
-}
-function filterCmdGroups() {
-  var q = (document.getElementById('cmd-group-filter').value || '').toLowerCase();
-  document.querySelectorAll('#cmd-group-list .checkbox-label').forEach(function (l) {
-    var n = (l.getAttribute('data-name') || '').toLowerCase();
-    l.style.display = (!q || n.indexOf(q) !== -1) ? '' : 'none';
-  });
-}
-// Filter the Uninstall package dropdown by app name or package name.
-function filterUninstallApps(q) {
-  q = (q || '').toLowerCase();
-  var vis = 0;
-  document.querySelectorAll('#uninstall-list .pkg').forEach(function (a) {
-    var show = (a.getAttribute('data-search') || '').toLowerCase().indexOf(q) !== -1;
-    a.style.display = show ? '' : 'none'; if (show) vis++;
-  });
-  var nm = document.getElementById('uninstall-nomatch'); if (nm) nm.style.display = vis ? 'none' : '';
-}
-// Uninstall: multi-select apps from the target's installed packages. Each selected
-// package becomes one hidden `package` input → one uninstall command. The selection
-// is kept in a Set so it survives the list reloading when the target changes.
-var selPkgs = new Set();
-function pickUninstall(btn) {
-  var p = btn.getAttribute('data-pkg');
-  if (selPkgs.has(p)) { selPkgs.delete(p); btn.classList.remove('on'); }
-  else { selPkgs.add(p); btn.classList.add('on'); }
-  syncPkgHidden();
-  updatePreview();
-}
-function syncPkgHidden() {
-  var box = document.getElementById('pkg-hidden'); if (!box) return;
-  box.innerHTML = '';
-  selPkgs.forEach(function (p) {
-    var i = document.createElement('input'); i.type = 'hidden'; i.name = 'package'; i.value = p; box.appendChild(i);
-  });
-}
-// When the target-scoped uninstall list reloads, re-mark still-selected apps and
-// re-apply the current search filter.
-document.body.addEventListener('htmx:afterSwap', function (e) {
-  if (!e.target || e.target.id !== 'uninstall-list') return;
-  document.querySelectorAll('#uninstall-list .pkg').forEach(function (b) {
-    if (selPkgs.has(b.getAttribute('data-pkg'))) b.classList.add('on');
-  });
-  var f = document.getElementById('uninstall-filter');
-  if (f && f.value) filterUninstallApps(f.value);
-});
-
-// The device-lookup partial's Add button calls this.
-function pickCommandSerial(serial) { cmdAddSerial(serial); }
-
-// Fill the shell input from a recent/popular suggestion chip.
-function cmdFillShell(s) {
-  var i = document.getElementById('shell-cmd-input');
-  if (!i) return;
-  i.value = s; i.focus(); updatePreview();
-}
-
-// Pick a diagnostic query in the builder — records its id in the hidden field.
-function pickDiag(btn) {
-  var h = document.getElementById('diag-query-id');
-  if (h) h.value = btn.dataset.qid;
-  document.querySelectorAll('.diag-chip').forEach(function (c) { c.classList.toggle('on', c === btn); });
-  updatePreview();
-}
-
-// Validates the builder, drives the inline warning + Send button's validity.
-function updatePreview() {
-  var type = document.getElementById('cmd-type-input').value;
-  var target = document.getElementById('target-type-input').value;
-  var warn = [];
-
-  if (type === 'install_apk') {
-    if (selApps.size === 0) warn.push('Choose at least one app to install.');
-  } else if (type === 'uninstall') {
-    if (selPkgs.size === 0) warn.push('Choose at least one app to uninstall.');
-  } else if (type === 'shell') {
-    var s = (document.getElementById('shell-cmd-input').value || '').trim();
-    if (!s) warn.push('Enter a shell command.');
-  } else if (type === 'query') {
-    var qh = document.getElementById('diag-query-id');
-    if (!qh || !qh.value) warn.push('Pick a query to run.');
-  }
-
-  var scopeModeVal = document.getElementById('scope-mode').value;
-  if (!target || (target === 'scope' && !scopeModeVal)) {
-    warn.push('Choose which devices this reaches.');
-  } else if (target === 'groups') {
-    if (!document.querySelectorAll('input[name="target_groups"]:checked').length) warn.push('Select at least one group.');
-  } else if (target === 'devices') {
-    if (!cmdSerials().length) warn.push('Add at least one device.');
-  }
-
-  var all = warn;
-  var warnEl = document.getElementById('rv-warn');
-  if (all.length) {
-    warnEl.style.display = '';
-    var warnIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
-    warnEl.innerHTML = all.map(function (w) { return '<span class="rv-warn-row">' + warnIcon + '<span>' + w + '</span></span>'; }).join('');
-  } else {
-    warnEl.style.display = 'none';
-    warnEl.textContent = '';
-  }
-  var btn = document.getElementById('send-btn');
-  if (btn) btn.disabled = warn.length > 0; // hard-invalid only; soft notes don't block
-
-  updateCtx(type, target);
-  // Ask the server to recompute the live impact preview (debounced server-side).
-  document.body.dispatchEvent(new CustomEvent('impact'));
-}
-
-// Head context label ("Install app → All devices").
-function updateCtx(type, target) {
-  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', query:'Run a query', reboot:'Reboot', update_splash:'Boot logo' };
-  var tgt = { all:'All devices', groups:'Groups', devices:'Specific devices' }[target] || target;
-  var el = document.getElementById('cmd-ctx');
-  if (el) el.textContent = (labels[type] || type) + ' → ' + tgt;
-}
-
-// When the impact fragment reloads, reflect the resolved count on the Send button.
-document.body.addEventListener('htmx:afterSwap', function (e) {
-  if (!e.target || e.target.id !== 'cmd-impact') return;
-  var body = e.target.querySelector('.imp-body');
-  var label = document.getElementById('send-label');
-  if (!body || !label) return;
-  var n = parseInt(body.dataset.effective || '0', 10);
-  var on = parseInt(body.dataset.online || '0', 10);
-  var off = parseInt(body.dataset.offline || '0', 10);
-  var verb = body.dataset.verb || 'Send';
-  if (n > 0) {
-    label.textContent = verb + ' ' + n + ' device' + (n === 1 ? '' : 's');
-    label.title = on + ' run now · ' + off + ' queue for when they reconnect';
-  } else {
-    label.textContent = 'Send action';
-  }
-});
-
-// ⌘↵ / Ctrl+↵ submit
-document.addEventListener('keydown', function(e) {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-    var b = document.getElementById('send-btn');
-    if (b && b.disabled) return;
-    var f = document.getElementById('cmd-form');
-    if (f) f.requestSubmit();
-  }
-});
-
-function openAppModal() {
-  document.getElementById('new-app-name').value = '';
-  document.getElementById('new-app-pkg').value  = '';
-  document.getElementById('new-app-url').value  = '';
-  document.getElementById('app-modal-error').style.display = 'none';
-  document.getElementById('app-modal').classList.add('modal-open');
-  document.getElementById('new-app-name').focus();
-}
-
-function closeAppModal(e) {
-  if (!e || e.target === document.getElementById('app-modal')) {
-    document.getElementById('app-modal').classList.remove('modal-open');
-  }
-}
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeAppModal();
-});
-
-async function saveNewApp() {
-  var name   = document.getElementById('new-app-name').value.trim();
-  var apkURL = document.getElementById('new-app-url').value.trim();
-  var pkg    = document.getElementById('new-app-pkg').value.trim();
-  var errEl  = document.getElementById('app-modal-error');
-  if (!name || !apkURL) {
-    errEl.textContent = 'Name and APK URL are required.';
-    errEl.style.display = '';
-    return;
-  }
-  var body = new URLSearchParams({ name, apk_url: apkURL, package_name: pkg });
-  var res  = await fetch('/setup/apps/create', { method: 'POST', body });
-  if (!res.ok) {
-    errEl.textContent = 'Failed to save app. Try again.';
-    errEl.style.display = '';
-    return;
-  }
-  var app = await res.json();
-  // add a card to the grid (before the "Add app" tile) and select it
-  var grid = document.getElementById('app-grid');
-  if (grid) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'appc';
-    b.dataset.url = app.apk_url; b.dataset.name = app.name; b.dataset.search = app.name + ' ' + app.apk_url;
-    b.setAttribute('onclick', 'pickApp(this)');
-    b.innerHTML = '<span class="thumb"></span><span class="m"><span class="nm"></span><span class="meta"></span></span><span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>';
-    b.querySelector('.thumb').textContent = (app.name[0] || '?');
-    b.querySelector('.nm').textContent = app.name;
-    b.querySelector('.meta').textContent = app.apk_url;
-    grid.insertBefore(b, grid.querySelector('.appnew'));
-    pickApp(b);
-  } else {
-    selApps.add(app.apk_url); syncApkHidden(); updatePreview();
-  }
-  closeAppModal();
-}
-
+window.PAL_DS = {{.PaletteJSON}};
+window.PAL_CAN_OPERATE = {{if canOperate .Role}}true{{else}}false{{end}};
 window.CMD_PREFILL = {{.Prefill}};
-
-// applyPrefill drives the builder from a prefill object ({type, apk_url,
-// shell_cmd, package, target, serials, groups}) — shared by clone (Duplicate &
-// edit) and by recipes.
-function applyPrefill(pf) {
-  if (!pf) return;
-  if (pf.type) { var rail = document.querySelector('.pill[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
-  if (pf.apk_url) { var ac = document.querySelector('#app-grid .appc[data-url="' + pf.apk_url + '"]'); if (ac) { if (!selApps.has(pf.apk_url)) pickApp(ac); } else { selApps.add(pf.apk_url); syncApkHidden(); } }
-  if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
-  if (pf.query_id) { var qc = document.querySelector('.diag-chip[data-qid="' + pf.query_id + '"]'); if (qc) pickDiag(qc); }
-  if (pf.package) {
-    // The scoped uninstall list may still be loading; add to the selection now and the
-    // afterSwap handler marks the button once it appears.
-    var fa = document.querySelector('#uninstall-list .pkg[data-pkg="' + pf.package + '"]');
-    if (fa) { if (!selPkgs.has(pf.package)) pickUninstall(fa); } else { selPkgs.add(pf.package); syncPkgHidden(); }
-  }
-  // Restore the target on the scope rail: hand-picked serials → Selected devices;
-  // a group recipe → that group's scope (first group); otherwise All devices.
-  if (pf.serials && pf.serials.length) {
-    cmdSetSerials(pf.serials);
-  } else if (pf.target === 'groups' && pf.groups && pf.groups.length) {
-    var gb = document.querySelector('#scope-rail .sri[data-mode="group"][data-id="' + pf.groups[0] + '"]');
-    if (gb) selectScope('group', pf.groups[0], gb);
-    else { var ga = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (ga) selectScope('all', '', ga); }
-  } else {
-    cmdSetSerials([]);
-    var a = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (a) selectScope('all', '', a);
-  }
-  // refreshActionSummary normally only runs when the action-config modal
-  // closes (see closeActionModal) — a prefill sets fields directly without
-  // ever opening that modal, so e.g. #shell-summary stayed stuck on "No
-  // command set" even though shell-cmd-input's value was actually set (only
-  // visible once you opened the modal to look).
-  refreshActionSummary(document.getElementById('cmd-type-input').value);
-  updatePreview();
-}
-
-// Recipe strip: click to prefill, delete to remove.
-function applyRecipe(btn) {
-  var pf; try { pf = JSON.parse(btn.dataset.prefill); } catch (e) { return; }
-  applyPrefill(pf);
-  var b = document.querySelector('.cmd-rail3'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  if (window.showToast) showToast('Recipe loaded — review the target, then Send', 'success');
-}
-function deleteRecipe(e, id) {
-  e.preventDefault();
-  if (!confirm('Delete this recipe?')) return;
-  var f = document.createElement('form');
-  f.method = 'POST'; f.action = '/recipes/' + id + '/delete';
-  document.body.appendChild(f); f.submit();
-}
-
-// Save-as-recipe modal.
-function openRecipeModal() {
-  document.getElementById('recipe-name').value = '';
-  document.getElementById('recipe-modal-error').style.display = 'none';
-  document.getElementById('recipe-modal').classList.add('modal-open');
-  document.getElementById('recipe-name').focus();
-}
-function closeRecipeModal(e) {
-  if (!e || e.target === document.getElementById('recipe-modal')) {
-    document.getElementById('recipe-modal').classList.remove('modal-open');
-  }
-}
-async function saveRecipe() {
-  var name = document.getElementById('recipe-name').value.trim();
-  var errEl = document.getElementById('recipe-modal-error');
-  if (!name) { errEl.textContent = 'Give the recipe a name.'; errEl.style.display = ''; return; }
-  // Reuse the builder form's current field values; drop the file input (recipes
-  // reference a splash by URL, not an upload).
-  var fd = new FormData(document.getElementById('cmd-form'));
-  fd.delete('splash_file');
-  fd.set('name', name);
-  var res = await fetch('/recipes', { method: 'POST', body: new URLSearchParams(fd) });
-  if (!res.ok && res.status !== 200) {
-    var t = await res.text();
-    errEl.textContent = t || 'Failed to save recipe.'; errEl.style.display = ''; return;
-  }
-  window.location = '/commands';
-}
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeRecipeModal(); });
-
-// Initialise the builder: default action, optional ?serials (bulk from devices page),
-// and optional clone-prefill (Duplicate & edit from a command's detail page).
-(function() {
-  var firstCard = document.querySelector('.pill.on') || document.querySelector('.pill');
-  if (firstCard) selectType(firstCard.dataset.type, firstCard);
-
-  var serials = new URLSearchParams(window.location.search).get('serials');
-  if (serials) {
-    cmdSetSerials(serials.split(','));   // shows + activates the "Selected devices" scope
-  }
-
-  applyPrefill(window.CMD_PREFILL);
-  updatePreview();
-})();
-
 </script>
 
-</div><!-- /.ac-wrap -->
+<script>
+// ── The command palette ────────────────────────────────────────────────────────
+// One bar composes the whole send: [action] [payload] to [targets] (+reason).
+// Datasets are server-rendered (PAL_DS, role-filtered); devices are searched via
+// /commands/browse-devices and uninstall packages via /commands/target-packages
+// on demand. The form posts the exact same field contract CommandCreate expects.
+(function () {
+  'use strict';
+  var form = document.getElementById('cmd-form');
+  if (!form || form.dataset.palInit) return;
+  form.dataset.palInit = '1';
+  var DS = window.PAL_DS || {};
+  DS.actions = DS.actions || []; DS.apps = DS.apps || []; DS.groups = DS.groups || [];
+  DS.restaurants = DS.restaurants || []; DS.queries = DS.queries || []; DS.packages = DS.packages || [];
+  DS.shellRecent = DS.shellRecent || []; DS.shellPopular = DS.shellPopular || [];
+  var CAN = !!window.PAL_CAN_OPERATE;
+
+  var ICONS = {
+    install_apk: '<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+    uninstall: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',
+    reboot: '<path d="M4 12a8 8 0 0 1 14-5"/><path d="M18 3v4h-4"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M6 21v-4h4"/>',
+    set_kiosk: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    update_splash: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4-4 3 3 3-3 4 4"/>',
+    screenshot: '<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M8 7l1.5-2h5L16 7"/>',
+    shell: '<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
+    query: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    wipe: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    all: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>',
+    place: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>',
+    group: '<circle cx="9" cy="8" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M4 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M14.5 15.6c2 .3 3.5 1.7 3.5 3.4"/>',
+    device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
+    reason: '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.6 8.6 0 0 1-3.7-.8L3 21l1.9-5.7a8.1 8.1 0 0 1-1-3.8A8.4 8.4 0 0 1 12.4 3a8.4 8.4 0 0 1 8.6 8.5z"/>',
+    dot: '<circle cx="12" cy="12" r="8"/>'
+  };
+
+  // ── State ──
+  var S = { action: null, apps: [], pkgs: [], shell: '', query: null, kiosk: null, splash: '',
+            targets: [], refine: { status: '', battery: '', kiosk: '' }, reason: '' };
+  var lastImpact = { effective: 0, online: 0, offline: 0, verb: '' };
+  var armed = false, armTimer = null;
+
+  var el = function (id) { return document.getElementById(id); };
+  var bar = el('p-bar'), input = el('p-input'), tokensEl = el('p-tokens'), drop = el('p-drop'), hintEl = el('p-hint');
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function setHint(m) { if (hintEl) hintEl.textContent = m || ''; }
+  function tail(u) { var i = u.lastIndexOf('/'); return i >= 0 && i < u.length - 1 ? u.slice(i + 1) : u; }
+
+  // ── Validation: the next missing piece drives the placeholder, the hint and
+  // which dropdown Enter opens. Server re-validates everything anyway. ──
+  function firstMissing() {
+    if (!S.action) return { menu: 'action', msg: 'Pick an action.' };
+    switch (S.action.p) {
+      case 'apps': if (!S.apps.length) return { menu: 'payload', msg: 'Choose at least one app to install.' }; break;
+      case 'pkgs': if (!S.pkgs.length) return { menu: 'payload', msg: 'Choose at least one package to uninstall.' }; break;
+      case 'shell': if (!S.shell.trim()) return { menu: 'payload', msg: 'Enter a shell command.' }; break;
+      case 'query': if (!S.query) return { menu: 'payload', msg: 'Pick a query to run.' }; break;
+      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { menu: 'payload', msg: 'Pick kiosk mode (lock to an app, or unlock).' }; break;
+      case 'splash': if (!S.splash.trim()) return { menu: 'payload', msg: 'Paste the splash image URL.' }; break;
+    }
+    if (!S.targets.length) return { menu: 'target', msg: 'Choose which devices this reaches.' };
+    if (S.action.destr && DS.requireReason && !S.reason.trim()) return { menu: 'reason', msg: 'A reason is required for this action.' };
+    return null;
+  }
+  function needsReasonToken() { return S.action && S.action.destr && (DS.requireReason || S.reason); }
+
+  // ── Form sync: rebuild the hidden inputs to CommandCreate's exact contract ──
+  function syncForm() {
+    el('f-type').value = S.action ? S.action.t : '';
+    var dyn = el('f-dyn'); dyn.innerHTML = '';
+    function add(name, value) { var i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; dyn.appendChild(i); }
+    if (S.action) switch (S.action.p) {
+      case 'apps': S.apps.forEach(function (a) { add('apk_url', a.url); }); break;
+      case 'pkgs': S.pkgs.forEach(function (p) { add('package', p.pkg); }); break;
+      case 'shell': if (S.shell.trim()) add('shell_cmd', S.shell.trim()); break;
+      case 'query': if (S.query) add('query_id', S.query.id); break;
+      case 'kiosk': if (S.kiosk) { add('kiosk_enabled', S.kiosk.enabled); if (S.kiosk.enabled === '1' && S.kiosk.pkg) add('kiosk_package', S.kiosk.pkg); } break;
+      case 'splash': if (S.splash.trim()) add('splash_url', S.splash.trim()); break;
+    }
+    el('f-reason').value = S.reason.trim();
+    var tt = '', smode = '', sid = '', serials = [];
+    var kinds = S.targets.map(function (t) { return t.kind; });
+    if (S.targets.length) {
+      if (kinds[0] === 'all') { tt = 'scope'; smode = 'all'; }
+      else if (kinds[0] === 'restaurant') { tt = 'scope'; smode = 'restaurant'; sid = S.targets[0].id; }
+      else if (kinds.every(function (k) { return k === 'group'; })) {
+        if (S.targets.length === 1) { tt = 'scope'; smode = 'group'; sid = S.targets[0].id; }
+        else { tt = 'groups'; S.targets.forEach(function (t) { add('target_groups', t.id); }); }
+      } else { tt = 'devices'; serials = S.targets.map(function (t) { return t.serial; }); }
+    }
+    el('f-ttype').value = tt;
+    el('f-smode').value = smode;
+    el('f-sid').value = sid;
+    var scoped = tt === 'scope';
+    el('f-sstatus').value = scoped ? S.refine.status : '';
+    el('f-sbattery').value = scoped ? S.refine.battery : '';
+    el('f-skiosk').value = scoped ? S.refine.kiosk : '';
+    el('f-serials').value = serials.join('\n');
+    document.body.dispatchEvent(new CustomEvent('impact'));
+  }
+
+  // ── Token rendering ──
+  function tokIcon(key) { return '<svg viewBox="0 0 24 24">' + (ICONS[key] || ICONS.dot) + '</svg>'; }
+  function tok(cls, iconKey, label, menuKind, rmKind, rmKey, mono) {
+    return '<span class="p-tok ' + cls + (mono ? ' mono' : '') + '" data-menu="' + menuKind + '" role="button" tabindex="-1">'
+      + (iconKey ? tokIcon(iconKey) : '')
+      + '<span class="lbl">' + esc(label) + '</span>'
+      + (rmKind ? '<span class="x" data-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" title="Remove">&times;</span>' : '')
+      + '</span>';
+  }
+  function payloadTok() {
+    if (!S.action) return '';
+    switch (S.action.p) {
+      case 'apps':
+        if (!S.apps.length) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>app</button>';
+        return tok('arg', null, S.apps.length === 1 ? S.apps[0].name : S.apps.length + ' apps', 'payload', 'payload');
+      case 'pkgs':
+        if (!S.pkgs.length) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>package</button>';
+        return tok('arg', null, S.pkgs.length === 1 ? (S.pkgs[0].name || S.pkgs[0].pkg) : S.pkgs.length + ' packages', 'payload', 'payload');
+      case 'shell':
+        if (!S.shell.trim()) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>command</button>';
+        return tok('arg', null, '$ ' + S.shell.trim(), 'payload', 'payload', '', true);
+      case 'query':
+        if (!S.query) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>query</button>';
+        return tok('arg', null, S.query.label, 'payload', 'payload');
+      case 'kiosk':
+        if (!S.kiosk) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>mode</button>';
+        return tok('arg', null, S.kiosk.enabled === '1' ? 'Lock to ' + (S.kiosk.name || S.kiosk.pkg) : 'Unlock kiosk', 'payload', 'payload');
+      case 'splash':
+        if (!S.splash.trim()) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>image URL</button>';
+        return tok('arg', null, tail(S.splash.trim()), 'payload', 'payload', '', true);
+    }
+    return '';
+  }
+  function targetLabel(t) {
+    if (t.kind === 'all') return 'All devices';
+    if (t.count != null && t.kind !== 'device') return t.name + ' ×' + t.count;
+    return t.name || t.serial;
+  }
+  function renderTokens() {
+    var html = '';
+    if (S.action) {
+      html += tok('verb', S.action.t, S.action.n, 'action', 'action');
+      html += payloadTok();
+      html += '<span class="p-sep">to</span>';
+      S.targets.forEach(function (t) {
+        html += tok('tgt', null, targetLabel(t), 'target', 'target', t.kind + ':' + (t.id || t.serial || 'all'), t.kind === 'device');
+      });
+      html += '<button type="button" class="p-add" data-menu="target"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>target</button>';
+      if (needsReasonToken()) {
+        html += S.reason.trim()
+          ? tok('rsn', 'reason', '“' + S.reason.trim() + '”', 'reason', 'reason')
+          : '<button type="button" class="p-add" data-menu="reason"><svg viewBox="0 0 24 24">' + ICONS.reason + '</svg>reason' + (DS.requireReason ? ' (required)' : '') + '</button>';
+      }
+    }
+    tokensEl.innerHTML = html;
+    var miss = firstMissing();
+    input.placeholder = !S.action ? 'Type an action…'
+      : miss && miss.menu === 'payload' ? 'Search…'
+      : miss && miss.menu === 'target' ? 'Add a target — group, restaurant or serial…'
+      : miss && miss.menu === 'reason' ? 'Why? (required)…'
+      : 'Enter to send · type to adjust';
+    var send = el('p-send');
+    if (send) send.classList.toggle('arm', armed);
+    updateSendLabel();
+  }
+  function updateSendLabel() {
+    var lbl = el('p-send-label'); if (!lbl) return;
+    var n = lastImpact.effective;
+    if (armed) { lbl.textContent = S.action && S.action.t === 'wipe' ? 'Confirm wipe' : 'Confirm' + (n ? ' ×' + n : ''); return; }
+    lbl.textContent = (!firstMissing() && n > 0 && lastImpact.verb) ? (lastImpact.verb + ' · ' + n) : 'Send';
+  }
+  function updateUI() { renderTokens(); syncForm(); }
+
+  // ── Dropdown menus ──
+  var menu = { kind: null, sub: null, opts: [] , hot: 0 };
+  function closeMenu() { menu.kind = null; menu.sub = null; menu.opts = []; menu.hot = 0; drop.classList.remove('on'); }
+  function openMenu(kind, sub) {
+    if (!CAN) return;
+    menu.kind = kind; menu.sub = sub || null; menu.hot = 0;
+    if (kind === 'payload' && S.action && S.action.p === 'none') { closeMenu(); return; }
+    if (kind === 'payload' && S.action && S.action.p === 'pkgs') ensurePkgs();
+    if (kind === 'target') ensureDevices(input.value.trim());
+    renderMenu();
+  }
+  function optHtml(o, i) {
+    var icon = o.img ? '<img src="' + o.img + '" alt="">' : '<svg viewBox="0 0 24 24">' + (ICONS[o.icon] || ICONS.dot) + '</svg>';
+    return '<button type="button" class="p-opt' + (i === menu.hot ? ' hot' : '') + '" data-i="' + i + '" role="option">'
+      + '<span class="ic">' + icon + '</span>'
+      + '<span class="tx"><span class="n' + (o.mono ? ' mono' : '') + '">' + esc(o.title) + '</span>' + (o.meta ? '<span class="m">' + esc(o.meta) + '</span>' : '') + '</span>'
+      + (o.sel ? '<span class="k sel-k">added</span>' : '')
+      + (o.cap ? '<span class="k ' + (o.cap === 'DPC only' ? 'dpc' : 'warn') + '">' + esc(o.cap) + '</span>' : '')
+      + '</button>';
+  }
+  function match(hay, q) { return !q || hay.toLowerCase().indexOf(q.toLowerCase()) >= 0; }
+
+  function buildOpts() {
+    var q = input.value.trim();
+    if (menu.kind === 'action') {
+      return { cap: 'Actions', opts: DS.actions.filter(function (a) { return match(a.n + ' ' + a.d + ' ' + a.t, q); }).map(function (a) {
+        return { icon: a.t, title: a.n, meta: a.d, cap: a.cap, pick: function () { setAction(a); }, advance: true };
+      }), empty: 'No action matches — try “install”, “reboot”, “query”…' };
+    }
+    if (menu.kind === 'reason') {
+      var opts = [];
+      if (q) opts.push({ icon: 'reason', title: 'Reason: “' + q + '”', meta: 'recorded in the audit log', pick: function () { S.reason = q; input.value = ''; }, advance: true });
+      return { cap: 'Why are you sending this?', opts: opts, empty: 'Type a short reason, then press Enter.' };
+    }
+    if (menu.kind === 'target') return buildTargetOpts(q);
+    if (menu.kind === 'payload' && S.action) return buildPayloadOpts(q);
+    return { cap: '', opts: [] };
+  }
+
+  function buildPayloadOpts(q) {
+    switch (S.action.p) {
+      case 'apps':
+        return { cap: 'App library — pick one or more', opts: DS.apps.filter(function (a) { return match(a.name + ' ' + (a.pkg || ''), q); }).map(function (a) {
+          var sel = S.apps.some(function (x) { return x.url === a.url; });
+          return { icon: 'install_apk', img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel,
+            keepOpen: true, pick: function () {
+              if (sel) S.apps = S.apps.filter(function (x) { return x.url !== a.url; });
+              else S.apps.push({ url: a.url, name: a.name });
+              input.value = '';
+            } };
+        }), empty: DS.apps.length ? 'No app matches.' : 'No apps in the library yet — add one in Settings → App library.' };
+      case 'pkgs':
+        if (pkgsLoading) return { cap: 'Installed on the target', opts: [], empty: 'Loading installed apps…' };
+        return { cap: 'Installed on the target — pick one or more', opts: (pkgsList || []).filter(function (p) { return match(p.name + ' ' + p.pkg, q); }).map(function (p) {
+          var sel = S.pkgs.some(function (x) { return x.pkg === p.pkg; });
+          return { icon: 'uninstall', img: p.img || '', title: p.name, meta: p.pkg + (p.count ? ' · ' + p.count : ''), sel: sel, keepOpen: true,
+            pick: function () {
+              if (sel) S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== p.pkg; });
+              else S.pkgs.push({ pkg: p.pkg, name: p.name });
+              input.value = '';
+            } };
+        }), empty: S.targets.length ? 'No uninstallable apps reported on the selected target.' : 'Pick a target first — the list shows what is actually installed there.' };
+      case 'query':
+        return { cap: 'Device queries — read-only, admin-vetted', opts: DS.queries.filter(function (x) { return match(x.label + ' ' + (x.cat || ''), q); }).map(function (x) {
+          return { icon: 'query', title: x.label, meta: x.cat || '', pick: function () { S.query = { id: x.id, label: x.label }; input.value = ''; }, advance: true };
+        }), empty: 'No query matches.' };
+      case 'kiosk':
+        if (menu.sub === 'kiosk-app') {
+          return { cap: 'Lock to which app?', opts: DS.packages.filter(function (p) { return match(p.name + ' ' + p.pkg, q); }).slice(0, 40).map(function (p) {
+            return { icon: 'set_kiosk', img: p.icon ? 'data:image/png;base64,' + p.icon : '', title: p.name, meta: p.pkg + ' · ' + p.count + ' device' + (p.count === 1 ? '' : 's'),
+              pick: function () { S.kiosk = { enabled: '1', pkg: p.pkg, name: p.name }; input.value = ''; }, advance: true };
+          }), empty: q ? 'No app matches — it must be installed somewhere on the fleet.' : 'No packages reported yet.' };
+        }
+        return { cap: 'Kiosk mode', opts: [
+          { icon: 'set_kiosk', title: 'Lock to an app…', meta: 'pin one app in lock-task mode', keepOpen: true, pick: function () { menu.sub = 'kiosk-app'; input.value = ''; } },
+          { icon: 'set_kiosk', title: 'Unlock', meta: 'exit kiosk — home, recents and status bar return', pick: function () { S.kiosk = { enabled: '0' }; input.value = ''; }, advance: true }
+        ].filter(function (o) { return match(o.title + ' ' + o.meta, q); }) };
+      case 'shell': {
+        var opts = [];
+        if (q) opts.push({ icon: 'shell', title: 'Run: ' + q, mono: true, meta: 'press Enter to set the command', pick: function () { S.shell = q; input.value = ''; }, advance: true });
+        DS.shellRecent.forEach(function (c) { if (match(c, q)) opts.push({ icon: 'shell', title: c, mono: true, meta: 'recent', pick: function () { S.shell = c; input.value = ''; }, advance: true }); });
+        DS.shellPopular.forEach(function (c) { if (match(c, q) && DS.shellRecent.indexOf(c) < 0) opts.push({ icon: 'shell', title: c, mono: true, meta: 'frequent', pick: function () { S.shell = c; input.value = ''; }, advance: true }); });
+        return { cap: 'Shell command', opts: opts, empty: 'Type the shell command to run, then press Enter.' };
+      }
+      case 'splash': {
+        var so = [];
+        if (q) so.push({ icon: 'update_splash', title: 'Use image URL: ' + q, mono: true, meta: 'BMP/PNG/JPEG — wrapped into a splash.img server-side', pick: function () { S.splash = q; input.value = ''; }, advance: true });
+        return { cap: 'Boot splash image', opts: so, empty: 'Paste the image URL, then press Enter. Uploads + preview live on the Boot logo page (/boot-logo).' };
+      }
+    }
+    return { cap: '', opts: [] };
+  }
+
+  function buildTargetOpts(q) {
+    var opts = [];
+    var kinds = S.targets.map(function (t) { return t.kind; });
+    var hasDev = kinds.indexOf('device') >= 0, hasGrp = kinds.indexOf('group') >= 0;
+    function selT(kind, key) { return S.targets.some(function (t) { return t.kind === kind && (t.id || t.serial || 'all') === key; }); }
+    if (match('all devices fleet everything', q)) {
+      opts.push({ icon: 'all', title: 'All devices', meta: 'the whole fleet — asks to confirm', sel: selT('all', 'all'), pick: function () { S.targets = [{ kind: 'all' }]; input.value = ''; }, advance: true });
+    }
+    DS.restaurants.forEach(function (r) {
+      if (!match(r.name, q)) return;
+      opts.push({ icon: 'place', title: r.name, meta: 'restaurant · ' + r.count + ' device' + (r.count === 1 ? '' : 's'), sel: selT('restaurant', r.id),
+        pick: function () { S.targets = [{ kind: 'restaurant', id: r.id, name: r.name, count: r.count }]; input.value = ''; }, advance: true });
+    });
+    DS.groups.forEach(function (g) {
+      if (!match(g.name, q)) return;
+      var sel = selT('group', g.id);
+      opts.push({ icon: 'group', title: g.name, meta: 'group · ' + g.count + ' device' + (g.count === 1 ? '' : 's'), sel: sel, keepOpen: true,
+        pick: function () {
+          if (sel) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'group' && t.id === g.id); }); input.value = ''; return; }
+          if (hasDev) { setHint('One send can target groups OR picked devices, not both — remove the device tokens first.'); return; }
+          S.targets = S.targets.filter(function (t) { return t.kind === 'group'; });
+          S.targets.push({ kind: 'group', id: g.id, name: g.name, count: g.count }); input.value = '';
+        } });
+    });
+    (devCache[devKey(q)] || []).forEach(function (d) {
+      var sel = selT('device', d.serial);
+      opts.push({ icon: 'device', title: d.serial, mono: true, meta: (d.online ? 'online' : 'offline') + (d.bat ? ' · ' + d.bat : '') + (d.sub ? ' · ' + d.sub : ''), sel: sel, keepOpen: true,
+        pick: function () {
+          if (sel) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === d.serial); }); input.value = ''; return; }
+          if (hasGrp) { setHint('One send can target groups OR picked devices, not both — remove the group tokens first.'); return; }
+          S.targets = S.targets.filter(function (t) { return t.kind === 'device'; });
+          S.targets.push({ kind: 'device', serial: d.serial }); input.value = '';
+        } });
+    });
+    if (q && devLoading) opts.push({ icon: 'device', title: 'Searching devices…', meta: q, pick: function () {}, keepOpen: true });
+    // Paste-a-list support: multiple serial-ish tokens in one string become device tokens.
+    if (q && /[\s,;]/.test(q)) {
+      opts.unshift({ icon: 'device', title: 'Add ' + q.split(/[\s,;]+/).filter(Boolean).length + ' pasted serials', meta: 'exact serial numbers, one token each', pick: function () { addSerials(q); input.value = ''; }, advance: true });
+    } else if (q && !devLoading && !(devCache[devKey(q)] || []).length) {
+      opts.push({ icon: 'device', title: 'Add serial “' + q + '”', mono: true, meta: 'exact serial — unknown serials are ignored at send', pick: function () { addSerials(q); input.value = ''; }, keepOpen: true });
+    }
+    var scoped = !S.targets.length || kinds[0] === 'all' || kinds[0] === 'restaurant' || (kinds.every(function (k) { return k === 'group'; }) && S.targets.length === 1);
+    var head = '';
+    if (scoped) {
+      head = '<div class="p-refrow">'
+        + refBtn('status', 'online', 'Online only')
+        + refBtn('battery', 'low', 'Low battery')
+        + refBtn('kiosk', 'enabled', 'In kiosk')
+        + '</div>';
+    }
+    return { cap: 'Add a target', head: head, opts: opts, empty: 'No target matches — try a group, restaurant or serial.' };
+  }
+  function refBtn(k, v, label) {
+    var on = S.refine[k] === v;
+    return '<button type="button" class="p-ref' + (on ? ' on' : '') + '" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
+  }
+  function addSerials(raw) {
+    var kinds = S.targets.map(function (t) { return t.kind; });
+    if (kinds.length && kinds[0] !== 'device') S.targets = [];
+    raw.split(/[\s,;]+/).forEach(function (s) {
+      s = s.trim();
+      if (s && !S.targets.some(function (t) { return t.serial === s; })) S.targets.push({ kind: 'device', serial: s });
+    });
+  }
+
+  function renderMenu() {
+    if (!menu.kind) return;
+    var built = buildOpts();
+    menu.opts = built.opts;
+    if (menu.hot >= menu.opts.length) menu.hot = Math.max(0, menu.opts.length - 1);
+    drop.innerHTML = (built.head || '')
+      + (built.cap ? '<div class="p-d-cap">' + built.cap + '</div>' : '')
+      + (menu.opts.length ? menu.opts.map(optHtml).join('') : '<div class="p-empty">' + (built.empty || 'Nothing here.') + '</div>');
+    drop.classList.add('on');
+  }
+  function scrollHot() { var h = drop.querySelector('.p-opt.hot'); if (h) h.scrollIntoView({ block: 'nearest' }); }
+  function advance() {
+    var miss = firstMissing();
+    if (miss) openMenu(miss.menu); else { closeMenu(); input.focus(); }
+  }
+  function pickOpt(i) {
+    var o = menu.opts[i]; if (!o) return;
+    o.pick();
+    disarm();
+    updateUI();
+    if (o.keepOpen) renderMenu(); else if (o.advance) advance(); else closeMenu();
+  }
+  function setAction(a) {
+    var changed = !S.action || S.action.t !== a.t;
+    S.action = a;
+    if (changed) { S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; S.reason = ''; }
+    input.value = '';
+  }
+
+  // ── Async datasets ──
+  // Devices: /commands/browse-devices renders the checkbox-row partial the old
+  // builder used; parse its stable data out (serial, online dot, battery, build).
+  var devCache = {}, devLoading = false, devTimer = null;
+  function devKey(q) { return (q || '') + '|' + JSON.stringify(S.refine); }
+  function ensureDevices(q) {
+    var key = devKey(q);
+    if (devCache[key]) return;
+    clearTimeout(devTimer);
+    devTimer = setTimeout(function () {
+      devLoading = true;
+      var p = new URLSearchParams();
+      if (q) p.set('q', q);
+      fetch('/commands/browse-devices?' + p.toString()).then(function (r) { return r.text(); }).then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var out = [];
+        doc.querySelectorAll('.cb-row').forEach(function (row) {
+          if (out.length >= 8) return;
+          var cb = row.querySelector('.cmd-browse-cb'); if (!cb) return;
+          var bat = row.querySelector('.dp-bchip'); var sub = row.querySelector('.cb-sub');
+          out.push({ serial: cb.value, online: !!row.querySelector('.cb-status i.on'),
+                     bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
+                     sub: sub ? sub.textContent.trim() : '' });
+        });
+        devCache[key] = out; devLoading = false;
+        if (menu.kind === 'target') renderMenu();
+      }).catch(function () { devLoading = false; });
+    }, q ? 250 : 0);
+  }
+  // Uninstall packages, scoped to the current target via /commands/target-packages.
+  var pkgsList = null, pkgsLoading = false, pkgsKey = '';
+  function ensurePkgs() {
+    var key = el('f-ttype').value + '|' + el('f-smode').value + '|' + el('f-sid').value + '|' + el('f-serials').value + '|' + JSON.stringify(S.refine);
+    if (pkgsList && pkgsKey === key) return;
+    pkgsKey = key; pkgsLoading = true; pkgsList = null;
+    var p = new URLSearchParams();
+    new FormData(form).forEach(function (v, k) { p.append(k, v); });
+    fetch('/commands/target-packages?' + p.toString()).then(function (r) { return r.text(); }).then(function (html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var out = [];
+      doc.querySelectorAll('.pkg').forEach(function (b) {
+        var img = b.querySelector('.ic img');
+        out.push({ pkg: b.getAttribute('data-pkg'), name: b.getAttribute('data-name') || b.getAttribute('data-pkg'),
+                   count: (b.querySelector('.cnt') || { textContent: '' }).textContent.trim(), img: img ? img.getAttribute('src') : '' });
+      });
+      pkgsList = out; pkgsLoading = false;
+      if (menu.kind === 'payload' && S.action && S.action.p === 'pkgs') renderMenu();
+    }).catch(function () { pkgsLoading = false; pkgsList = []; });
+  }
+
+  // ── Token removal ──
+  function removeTok(kind, key) {
+    if (kind === 'action') { S.action = null; S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; S.reason = ''; }
+    else if (kind === 'payload') { S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; }
+    else if (kind === 'reason') S.reason = '';
+    else if (kind === 'target') S.targets = S.targets.filter(function (t) { return (t.kind + ':' + (t.id || t.serial || 'all')) !== key; });
+    disarm(); updateUI();
+    if (menu.kind) renderMenu();
+  }
+  function popToken() {
+    if (S.reason) { S.reason = ''; }
+    else if (S.targets.length) { S.targets.pop(); }
+    else if (S.action && (S.apps.length || S.pkgs.length || S.shell || S.query || S.kiosk || S.splash)) {
+      if (S.apps.length) S.apps.pop();
+      else if (S.pkgs.length) S.pkgs.pop();
+      else { S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; }
+    } else if (S.action) { S.action = null; }
+    else return;
+    disarm(); updateUI();
+    if (menu.kind) renderMenu();
+  }
+
+  // ── Send (with confirm step for destructive / fleet-wide sends) ──
+  function disarm() { if (!armed) return; armed = false; clearTimeout(armTimer); renderTokens(); setHint(''); }
+  function send() {
+    if (!CAN) return;
+    var miss = firstMissing();
+    if (miss) { setHint(miss.msg); openMenu(miss.menu); input.focus(); return; }
+    closeMenu();
+    var fleetWide = el('f-smode').value === 'all';
+    var wipe = S.action.t === 'wipe';
+    if ((S.action.destr || fleetWide) && !armed) {
+      armed = true;
+      renderTokens();
+      var n = lastImpact.effective;
+      setHint(wipe
+        ? 'Factory wipe erases ' + (n || 'the targeted') + ' device(s) completely. Type WIPE in the bar, then press Enter.'
+        : (fleetWide ? 'This targets the whole fleet (' + n + ' devices, online and offline). ' : '') + 'Press Enter or Send again to confirm.');
+      armTimer = setTimeout(disarm, 10000);
+      input.focus();
+      return;
+    }
+    if (wipe && input.value.trim() !== 'WIPE') { setHint('Type WIPE (all caps) in the bar to confirm the factory wipe.'); input.focus(); return; }
+    if (wipe) input.value = '';
+    submitNow();
+  }
+  function submitNow() {
+    var sendBtn = el('p-send');
+    if (sendBtn) sendBtn.disabled = true;
+    var body = new URLSearchParams();
+    new FormData(form).forEach(function (v, k) { body.append(k, v); });
+    fetch(form.action, { method: 'POST', body: body, headers: { 'Accept': 'text/html' } }).then(function (res) {
+      if (sendBtn) sendBtn.disabled = false;
+      armed = false; clearTimeout(armTimer);
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          var m = (t || 'Send failed').trim().split('\n')[0].slice(0, 200);
+          setHint(m); if (window.showToast) showToast(m, 'error');
+          renderTokens();
+        });
+      }
+      var flash = '', ftype = 'success';
+      try { var u = new URL(res.url, location.origin); flash = u.searchParams.get('flash') || ''; if (flash) ftype = u.searchParams.get('flash_type') || 'info'; } catch (e) {}
+      if (window.showToast) showToast(flash || 'Action sent — tracking in Live activity', ftype);
+      S.reason = ''; input.value = ''; setHint('');
+      updateUI();
+      document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
+    }).catch(function () {
+      if (sendBtn) sendBtn.disabled = false; disarm();
+      if (window.showToast) showToast('Network error — action not sent', 'error');
+    });
+  }
+
+  // ── Wiring ──
+  function defaultMenu() { var m = firstMissing(); return m ? m.menu : 'action'; }
+  if (CAN) {
+    form.addEventListener('submit', function (e) { e.preventDefault(); send(); });
+    el('p-send').addEventListener('click', function (e) { e.stopPropagation(); send(); });
+
+    bar.addEventListener('click', function (e) {
+      var x = e.target.closest('.x');
+      if (x) { removeTok(x.dataset.rm, x.dataset.key); e.stopPropagation(); return; }
+      if (e.target.closest('.p-go')) return;
+      input.focus();
+      var t = e.target.closest('[data-menu]');
+      if (t) { e.stopPropagation(); openMenu(t.dataset.menu); }
+      else if (!menu.kind) openMenu(defaultMenu());
+    });
+
+    drop.addEventListener('mousedown', function (e) { e.preventDefault(); }); // keep the bar focused
+    drop.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var ref = e.target.closest('.p-ref');
+      if (ref) {
+        var k = ref.dataset.k;
+        S.refine[k] = S.refine[k] === ref.dataset.v ? '' : ref.dataset.v;
+        devCache = {};
+        updateUI(); ensureDevices(input.value.trim()); renderMenu();
+        return;
+      }
+      var b = e.target.closest('.p-opt');
+      if (b) pickOpt(+b.dataset.i);
+    });
+
+    input.addEventListener('input', function () {
+      if (armed && S.action && S.action.t === 'wipe') return; // typing the WIPE confirmation
+      if (!menu.kind) openMenu(defaultMenu());
+      else { menu.hot = 0; if (menu.kind === 'target') ensureDevices(input.value.trim()); renderMenu(); }
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (!menu.kind) openMenu(defaultMenu()); else { menu.hot = Math.min(menu.hot + 1, menu.opts.length - 1); renderMenu(); scrollHot(); } }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (menu.kind) { menu.hot = Math.max(menu.hot - 1, 0); renderMenu(); scrollHot(); } }
+      else if (e.key === 'Tab') {
+        e.preventDefault();
+        var order = ['action', 'payload', 'target'].concat(needsReasonToken() ? ['reason'] : []);
+        if (S.action && S.action.p === 'none') order.splice(order.indexOf('payload'), 1);
+        var idx = order.indexOf(menu.kind);
+        openMenu(order[(idx + (e.shiftKey ? -1 : 1) + order.length) % order.length]);
+      }
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (armed) { send(); return; }
+        if (menu.kind && menu.opts.length) pickOpt(menu.hot);
+        else if (menu.kind && !menu.opts.length && !input.value) { closeMenu(); }
+        else send();
+      }
+      else if (e.key === 'Escape') { if (menu.kind) closeMenu(); else if (armed) disarm(); else input.blur(); }
+      else if (e.key === 'Backspace' && !input.value) { e.preventDefault(); popToken(); }
+    });
+
+    // Global keys + click-away (replace previous handlers across boosted swaps).
+    if (window.__palDocKey) document.removeEventListener('keydown', window.__palDocKey);
+    window.__palDocKey = function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        var inp = document.getElementById('p-input'); if (!inp) return;
+        e.preventDefault(); inp.focus();
+      }
+    };
+    document.addEventListener('keydown', window.__palDocKey);
+    if (window.__palDocClick) document.removeEventListener('click', window.__palDocClick);
+    window.__palDocClick = function (e) { if (!e.target.closest('.p-pal')) closeMenu(); };
+    document.addEventListener('click', window.__palDocClick);
+    input.addEventListener('focus', function () { if (!menu.kind && !armed) openMenu(defaultMenu()); });
+  }
+
+  // Impact fragment reloaded → mirror the resolved counts onto the Send button.
+  if (window.__palImpact) document.body.removeEventListener('htmx:afterSwap', window.__palImpact);
+  window.__palImpact = function (e) {
+    if (!e.target || e.target.id !== 'cmd-impact') return;
+    var b = e.target.querySelector('.imp-body');
+    if (!b) return;
+    lastImpact = {
+      effective: parseInt(b.dataset.effective || '0', 10),
+      online: parseInt(b.dataset.online || '0', 10),
+      offline: parseInt(b.dataset.offline || '0', 10),
+      verb: b.dataset.verb || ''
+    };
+    updateSendLabel();
+  };
+  document.body.addEventListener('htmx:afterSwap', window.__palImpact);
+
+  // Fill the recent-send icons (server rows carry data-act-icon).
+  document.querySelectorAll('#p-pinned .ic[data-act-icon]').forEach(function (ic) {
+    ic.innerHTML = '<svg viewBox="0 0 24 24">' + (ICONS[ic.dataset.actIcon] || ICONS.dot) + '</svg>';
+  });
+
+  // ── Prefill: pinned/recent rows, ?clone= (Duplicate & edit), ?serials= (bulk
+  // from the Devices page). Shape: {type, apk_url, apk_urls, package, packages,
+  // shell_cmd, query_id, serials, groups, target}. ──
+  function applyPrefill(pf) {
+    if (!pf || !pf.type) return false;
+    var act = null;
+    DS.actions.forEach(function (a) { if (a.t === pf.type) act = a; });
+    if (!act) { if (window.showToast) showToast('Your role cannot send “' + pf.type + '” actions', 'error'); return false; }
+    setAction(act); S.action = act;
+    var urls = pf.apk_urls || (pf.apk_url ? [pf.apk_url] : []);
+    urls.forEach(function (u) {
+      var app = null; DS.apps.forEach(function (a) { if (a.url === u) app = a; });
+      S.apps.push({ url: u, name: app ? app.name : tail(u) });
+    });
+    var pkgs = pf.packages || (pf.package ? [pf.package] : []);
+    pkgs.forEach(function (p) { S.pkgs.push({ pkg: p, name: p }); });
+    if (typeof pf.shell_cmd === 'string') S.shell = pf.shell_cmd;
+    if (pf.query_id) DS.queries.forEach(function (x) { if (x.id === pf.query_id) S.query = { id: x.id, label: x.label }; });
+    S.targets = [];
+    if (pf.serials && pf.serials.length) pf.serials.forEach(function (s) { S.targets.push({ kind: 'device', serial: s }); });
+    else if (pf.groups && pf.groups.length) pf.groups.forEach(function (gid) {
+      DS.groups.forEach(function (g) { if (g.id === gid) S.targets.push({ kind: 'group', id: g.id, name: g.name, count: g.count }); });
+    });
+    else if (pf.target === 'all') S.targets = [{ kind: 'all' }];
+    updateUI();
+    return true;
+  }
+  window.palLoadRow = function (btn) {
+    if (!CAN) return;
+    var row = btn.closest('[data-prefill]');
+    var pf; try { pf = JSON.parse(row.dataset.prefill); } catch (e) { return; }
+    if (!applyPrefill(pf)) return;
+    closeMenu();
+    document.querySelector('.p-pal').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    input.focus();
+    setHint('');
+    if (window.showToast) showToast('Loaded — review the tokens, then press Enter to send', 'success');
+  };
+  window.palPinRow = function (btn) {
+    if (!CAN) return;
+    window.palLoadRow(btn);
+    if (typeof openRecipeModal === 'function') openRecipeModal();
+  };
+
+  // Init: URL serials → device tokens; clone prefill; otherwise an empty bar.
+  var qs = new URLSearchParams(window.location.search).get('serials');
+  if (qs && CAN) { addSerials(qs); }
+  if (window.CMD_PREFILL && CAN) applyPrefill(window.CMD_PREFILL);
+  updateUI();
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
