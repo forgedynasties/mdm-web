@@ -12100,9 +12100,18 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	for id := range connected {
 		online[id] = true
 	}
+	// Per-device agent type so the Actions console rail can tag DPC devices and
+	// filter/subset by capability. ListDevices already carries latest_extra.
+	dpc := make(map[uuid.UUID]bool, len(devices))
+	for _, d := range devices {
+		if isDPC, _ := deviceAgentInfo(d.LatestExtra); isDPC {
+			dpc[d.ID] = true
+		}
+	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
 		"Devices": devices,
 		"Online":  online,
+		"DPC":     dpc,
 	})
 }
 
@@ -12124,6 +12133,12 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
 	devices, _ := h.db.GetDevicesByIDs(r.Context(), ids)
 	connected := h.hub.ConnectedIDs()
+
+	// DPC split: how many of the resolved targets run the Device-Owner agent.
+	// The Actions console uses this (via data-dpc on the fragment root) to dim
+	// system-app-only actions and to scope the DPC-only wipe. Additive — older
+	// consumers of this fragment just ignore the extra attribute.
+	dpcCount, _ := h.db.CountDPCDevices(r.Context(), ids)
 
 	// Uninstall is a no-op on devices without the package — count and subtract.
 	skipped := 0
@@ -12197,6 +12212,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 		"Effective":  effective,
 		"Online":     onlineEff,
 		"Offline":    offlineEff,
+		"DPC":        dpcCount,
 		"Skipped":    skipped,
 		"LowBattery": lowBatOnline,
 		"Screenshot": cmdType == "screenshot",

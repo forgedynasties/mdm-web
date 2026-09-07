@@ -3262,6 +3262,21 @@ func (d *DB) CountDevicesWithPackage(ctx context.Context, ids []uuid.UUID, pkg s
 	return n, err
 }
 
+// CountDPCDevices reports how many of the given devices run the standalone
+// Device-Owner ("dpc") agent, as advertised in latest_extra.agent_type on
+// checkin. Powers the Actions console's capability-aware grid: system-app-only
+// actions dim on DPC devices, and wipe is DPC-only.
+func (d *DB) CountDPCDevices(ctx context.Context, ids []uuid.UUID) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM devices
+		WHERE id = ANY($1) AND NOT hidden AND latest_extra->>'agent_type' = 'dpc'`, ids).Scan(&n)
+	return n, err
+}
+
 // GetDeviceIDsInGroups expands a set of group IDs into the distinct device IDs that
 // belong to any of them. Used to target ad-hoc actions (e.g. a fleet log capture)
 // at whole groups while operating on concrete devices.

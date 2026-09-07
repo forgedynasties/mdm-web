@@ -2,8 +2,8 @@
 {{template "header" .}}
 
 <style>
-/* ── Actions · command palette ─────────────────────────────── */
-.ac-wrap{max-width:1280px;margin:0 auto}
+/* ── Actions · target-first console ────────────────────────── */
+.ac-wrap{max-width:1340px;margin:0 auto}
 @media(max-width:600px){
   .ac-wrap{max-width:100%}
   .cc-top{gap:10px}
@@ -11,96 +11,175 @@
   .cc-actions{width:100%}
   .cc-actions .cc-btn{flex:1 1 auto;justify-content:center}
 }
-
-/* the palette bar */
-.p-pal{position:relative;max-width:880px;margin:10px auto 0}
-.p-bar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent-edge);border-radius:16px;box-shadow:var(--shadow-pop),0 0 0 4px var(--accent-soft);padding:12px 16px;min-height:58px;flex-wrap:wrap;cursor:text}
-.p-bar .lead{width:26px;height:26px;flex:none;border-radius:8px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center}
-.p-bar .lead svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2}
-#p-tokens{display:contents}
-.p-tok{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;border-radius:9px;padding:6px 11px;border:1px solid transparent;line-height:1.2;cursor:pointer;user-select:none;max-width:340px}
-.p-tok>span.lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.p-tok.verb{background:var(--accent-soft);color:var(--accent-text)}
-.p-tok.arg{background:var(--accent-2-soft);color:var(--accent-2)}
-.p-tok.tgt{background:var(--surface2);color:var(--text-2);border-color:var(--border)}
-.p-tok.tgt.mono{font-family:var(--mono);font-size:12px;font-weight:500}
-.p-tok.rsn{background:var(--warn-bg);color:var(--warn)}
-.p-tok:hover{border-color:currentColor}
-.p-tok .x{opacity:.55;font-weight:700;cursor:pointer;padding:0 1px}
-.p-tok .x:hover{opacity:1}
-.p-tok svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
-.p-sep{color:var(--text-faint);font-size:13px}
-.p-add{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--text-faint);border:1px dashed var(--rule);border-radius:9px;padding:6px 10px;background:none;cursor:pointer;font-family:inherit}
-.p-add:hover{color:var(--accent-text);border-color:var(--accent-edge)}
-.p-add svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
-.p-go{margin-left:auto;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:11px;background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:9px 16px;box-shadow:0 4px 14px rgba(249,103,78,.28);flex:none;cursor:pointer;font-family:inherit;transition:background .14s}
-.p-go:disabled{opacity:.55;cursor:not-allowed}
-.p-go.arm{background:var(--danger);box-shadow:0 4px 14px rgba(209,80,63,.32)}
-.p-go kbd{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.22);border-radius:5px;padding:1px 6px}
-.p-bar input.free{flex:1;min-width:130px;border:none;outline:none;background:none;font-size:14.5px;color:var(--text);font-family:inherit}
-.p-bar input.free::placeholder{color:var(--text-faint)}
-.p-pal.is-readonly .p-bar{opacity:.68;pointer-events:none}
-.ro-badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;white-space:nowrap}
+.ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;white-space:nowrap}
 .ro-badge svg{stroke:var(--muted);flex:none}
 
-/* dropdown */
-.p-drop{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none;max-height:380px;overflow-y:auto}
-.p-drop.on{display:block;animation:p-fade var(--dur-slow) var(--ease)}
-@keyframes p-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
-.p-d-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:10px 16px 5px}
-.p-opt{width:100%;display:flex;align-items:center;gap:11px;padding:8px 16px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit;color:inherit}
-.p-opt:hover,.p-opt.hot{background:var(--accent-soft)}
-.p-opt .ic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden}
-.p-opt:hover .ic,.p-opt.hot .ic{background:var(--surface);color:var(--accent)}
-.p-opt .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
-.p-opt .ic img{width:100%;height:100%;object-fit:contain}
-.p-opt .tx{min-width:0}
-.p-opt .n{display:block;font-size:13.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.p-opt .n.mono{font-family:var(--mono);font-size:12px;font-weight:500}
-.p-opt .m{display:block;font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.p-opt .k{margin-left:auto;flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
-.p-opt .k.warn{color:var(--warn)}
-.p-opt .k.dpc{color:var(--accent-2)}
-.p-opt .k.sel-k{color:var(--ok)}
-.p-empty{padding:14px 16px;font-size:13px;color:var(--muted)}
-.p-refrow{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 2px}
-.p-ref{font:inherit;font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
-.p-ref:hover{border-color:var(--accent-edge);color:var(--accent-text)}
-.p-ref.on{background:var(--accent-2-soft);border-color:rgba(122,128,246,.4);color:var(--accent-2);font-weight:650}
-
-/* keymap + preview */
-.p-keys{display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:11.5px;color:var(--text-faint);flex-wrap:wrap}
-.p-keys kbd{font-family:var(--mono);font-size:10.5px;background:var(--surface);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text-2)}
-.p-preview{max-width:880px;margin:12px auto 0;display:flex;align-items:baseline;gap:10px;justify-content:center;font-size:12.5px;color:var(--muted);flex-wrap:wrap;min-height:20px}
-.p-preview .imp-body{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;justify-content:center}
-.p-preview .imp-body::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ok);align-self:center}
-.p-preview .imp-body[data-effective="0"]::before{background:var(--rule-2)}
-.p-preview .imp-n{font-size:14px;font-weight:750;color:var(--text)}
-.p-preview .imp-u{font-size:12.5px}
-.p-preview .imp-split b{color:var(--text-2);font-weight:650;font-variant-numeric:tabular-nums}
-.p-preview .imp-warn{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--warn);flex-basis:100%;justify-content:center}
-.p-preview .imp-warn svg{width:13px;height:13px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none}
-.p-preview .imp-empty{font-size:12.5px}
-.p-hint{color:var(--warn);font-weight:600;font-size:12px}
-
-/* two columns below */
-.p-cols{display:grid;grid-template-columns:5fr 7fr;gap:18px;margin-top:34px;align-items:start}
-@media(max-width:980px){.p-cols{grid-template-columns:1fr}}
+.co-main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;margin-top:20px;align-items:start}
+@media(max-width:1000px){.co-main{grid-template-columns:1fr}}
+.co-main.is-readonly .co-rail,.co-main.is-readonly .co-right-int{opacity:.68;pointer-events:none}
 .p-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .p-cap .right{margin-left:auto;display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-weight:600}
 .p-cap .right a{color:var(--muted);text-decoration:none;font-size:11.5px}
 .p-cap .right a:hover{color:var(--accent-text)}
-.p-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:p-pulse 1.6s ease infinite}
-@keyframes p-pulse{0%,100%{box-shadow:0 0 0 0 var(--ok-bg)}50%{box-shadow:0 0 0 5px var(--ok-bg)}}
-.p-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.p-live-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:co-pulse 1.6s ease infinite}
+@keyframes co-pulse{0%,100%{box-shadow:0 0 0 0 var(--ok-bg)}50%{box-shadow:0 0 0 5px var(--ok-bg)}}
+
+/* ── left rail: selection builder ── */
+.co-rail{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column}
+.co-r-b{padding:14px 14px 0}
+.co-srch{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--r-2);padding:0 11px;background:var(--surface);margin-bottom:10px}
+.co-srch:focus-within{border-color:var(--accent-edge);box-shadow:var(--ring)}
+.co-srch svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
+.co-srch input{flex:1;border:none;outline:none;background:none;padding:9px 0;font-size:13px;color:var(--text);font-family:inherit;min-width:0}
+.co-srch kbd{font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--text-faint)}
+.co-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.co-qf{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;background:var(--surface);padding:4px 11px;color:var(--text-2);cursor:pointer;font-family:inherit}
+.co-qf:hover{border-color:var(--rule-2);background:var(--surface2)}
+.co-qf.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.co-qf .n{color:var(--text-faint);font-weight:600}
+.co-qf.on .n{color:var(--accent-text)}
+.co-r-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:6px 2px 7px}
+.co-scopelist{max-height:196px;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.co-scope{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:8px 11px;text-align:left;margin-bottom:6px;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
+.co-scope:hover{border-color:var(--rule-2)}
+.co-scope.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.co-scope .ic{width:24px;height:24px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.co-scope.on .ic{background:var(--surface);color:var(--accent)}
+.co-scope .ic svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9}
+.co-scope .bd{min-width:0}
+.co-scope .n{display:block;font-size:12.5px;font-weight:650;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-scope .m{display:block;font-size:10.5px;color:var(--muted)}
+.co-scope .add{margin-left:auto;flex:none;font-size:11px;font-weight:700;color:var(--text-faint)}
+.co-scope.on .add{color:var(--accent-text)}
+.co-devlist{max-height:230px;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.co-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:5px;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
+.co-dev:hover{border-color:var(--rule-2)}
+.co-dev.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.co-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
+.co-dev.on .cb{background:var(--accent);border-color:var(--accent);color:#fff}
+.co-dev .cb svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:3}
+.co-dev .bd{min-width:0}
+.co-dev .sn{display:block;font-family:var(--mono);font-size:11.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-dev .mt{display:block;font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-dev .st{margin-left:auto;width:7px;height:7px;border-radius:50%;flex:none}
+.co-dev .st.on{background:var(--ok)}
+.co-dev .st.off{background:var(--rule)}
+.co-tag{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:var(--accent-2-soft);color:var(--accent-2);flex:none}
+.co-listempty{font-size:12px;color:var(--muted);padding:8px 2px 10px}
+.co-paste{width:100%;display:flex;align-items:center;gap:8px;border:1px dashed var(--rule);border-radius:var(--r-2);background:none;padding:8px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;margin-bottom:6px}
+.co-paste:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.co-paste svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;flex:none}
+.co-basket{border-top:1px solid var(--border-soft);background:var(--surface2);padding:12px 14px;margin-top:12px}
+.co-bk-top{display:flex;align-items:baseline;gap:7px}
+.co-bk-n{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.co-bk-t{font-size:12px;color:var(--muted)}
+.co-bk-clear{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);border:none;background:none;text-decoration:underline;cursor:pointer;font-family:inherit}
+.co-bk-clear:hover{color:var(--danger)}
+.co-bk-pills{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.co-bk-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;color:var(--text-2);max-width:100%}
+.co-bk-pill .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-bk-pill.mono .lbl{font-family:var(--mono);font-size:10px}
+.co-bk-pill .x{color:var(--text-faint);font-weight:700;cursor:pointer;border:none;background:none;padding:0 1px;font-family:inherit;font-size:12px;line-height:1}
+.co-bk-pill .x:hover{color:var(--danger)}
+.co-refine{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.co-refine[hidden]{display:none}
+.co-ref{font:inherit;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+.co-ref:hover{border-color:var(--accent-edge);color:var(--accent-text)}
+.co-ref.on{background:var(--accent-2-soft);border-color:rgba(122,128,246,.4);color:var(--accent-2);font-weight:650}
+.co-bk-mix{display:flex;gap:12px;margin-top:9px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.co-bk-mix b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.co-bk-mix .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.co-bk-warn{display:flex;gap:6px;align-items:flex-start;font-size:11px;color:var(--warn);margin-top:8px}
+.co-bk-warn[hidden]{display:none}
+.co-bk-warn svg{width:12px;height:12px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;margin-top:1px}
+
+/* ── right: capability-aware action grid ── */
+.co-gcap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:14px 2px 8px}
+.co-gcap:first-child{margin-top:0}
+.co-gcap.danger{color:var(--danger)}
+.co-agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px}
+.co-act{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--shadow-sm);padding:12px 13px;cursor:pointer;font-family:inherit;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.co-act:hover{border-color:var(--rule-2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.co-act .ic{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.co-act .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8}
+.co-act .nm{font-size:13px;font-weight:650}
+.co-act .ds{font-size:11px;color:var(--muted);line-height:1.35}
+.co-act .captag{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 6px;background:var(--surface2);color:var(--text-faint)}
+.co-act .captag.dpc{background:var(--accent-2-soft);color:var(--accent-2)}
+.co-act.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.co-act.on .ic{background:var(--surface);color:var(--accent)}
+.co-act.on .nm{color:var(--accent-text)}
+.co-act.dim{opacity:.62}
+.co-act.dim:hover{transform:none;box-shadow:var(--shadow-sm);border-color:var(--border)}
+.co-act .cav{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:650;color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:2px 7px;line-height:1.4}
+.co-act .cav.hard{color:var(--danger);background:var(--danger-bg)}
+.co-act .cav svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+.co-act.danger .ic{background:var(--danger-bg);color:var(--danger)}
+.co-act.danger.on{border-color:var(--danger);background:var(--danger-bg)}
+.co-act.danger.on .nm{color:var(--danger)}
+
+/* ── payload strip ── */
+.co-strip{position:relative;margin-top:14px;background:var(--surface);border:1px solid var(--accent-edge);border-radius:var(--r-4);box-shadow:var(--shadow-sm),0 0 0 4px var(--accent-soft);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.co-strip[hidden]{display:none}
+.co-strip .lab{display:flex;align-items:center;gap:9px;flex:none}
+.co-strip .lab .ic{width:30px;height:30px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+.co-strip .lab .ic svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.9}
+.co-strip .lab .t{font-size:13.5px;font-weight:700}
+.co-strip .lab .s{font-size:11px;color:var(--muted)}
+.co-pay{display:flex;align-items:center;gap:8px;flex:1;min-width:200px;flex-wrap:wrap}
+.co-in{border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:8px 12px;font-size:13px;color:var(--text);outline:none;flex:1;min-width:160px;font-family:inherit}
+.co-in:focus{border-color:var(--accent-edge);box-shadow:var(--ring)}
+.co-in.mono{font-family:var(--mono);font-size:12px}
+.co-in.narrow{flex:0 1 220px}
+select.co-in{flex:0 1 auto;min-width:180px}
+.co-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;background:var(--accent-2-soft);color:var(--accent-2);border-radius:8px;padding:5px 10px;max-width:240px}
+.co-chip .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-chip .x{border:none;background:none;color:inherit;opacity:.6;cursor:pointer;font-weight:700;padding:0;font-family:inherit;font-size:13px;line-height:1}
+.co-chip .x:hover{opacity:1}
+.co-addbtn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--text-faint);border:1px dashed var(--rule);border-radius:8px;padding:6px 11px;background:none;cursor:pointer;font-family:inherit}
+.co-addbtn:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.co-addbtn svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
+.co-seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:3px;flex:none}
+.co-seg button{border:none;background:none;border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.co-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
+.co-paynote{font-size:12px;color:var(--muted)}
+.co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
+.co-send:disabled{opacity:.55;cursor:not-allowed}
+.co-send.arm{background:var(--danger);box-shadow:0 4px 14px rgba(209,80,63,.32)}
+.co-send svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2}
+.co-note{font-size:11.5px;color:var(--muted);flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:16px}
+.co-note b{color:var(--warn);font-weight:650}
+.co-note .hint{color:var(--warn);font-weight:600;font-size:12px}
+.co-subset{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--accent-edge);border-radius:99px;background:var(--accent-soft);color:var(--accent-text);padding:3px 11px;cursor:pointer}
+.co-subset:hover{background:var(--accent-2-soft)}
+.co-wipebox{flex:0 1 190px}
+/* dropdown menu inside the strip */
+.co-menu{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none;width:min(400px,92vw)}
+.co-menu.on{display:block;animation:co-fade var(--dur-slow) var(--ease)}
+@keyframes co-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.co-menu .msrch{display:block;width:100%;border:none;border-bottom:1px solid var(--border-soft);background:var(--surface2);padding:9px 14px;font:inherit;font-size:12.5px;color:var(--text);outline:none;box-sizing:border-box}
+.co-menu .mlist{max-height:260px;overflow-y:auto}
+.co-opt{width:100%;display:flex;align-items:center;gap:11px;padding:8px 14px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit;color:inherit}
+.co-opt:hover{background:var(--accent-soft)}
+.co-opt .ic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden}
+.co-opt .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9}
+.co-opt .ic img{width:100%;height:100%;object-fit:contain}
+.co-opt .tx{min-width:0}
+.co-opt .n{display:block;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-opt .n.mono{font-family:var(--mono);font-size:11.5px;font-weight:500}
+.co-opt .m{display:block;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.co-opt .k{margin-left:auto;flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ok)}
+.co-mempty{padding:12px 14px;font-size:12.5px;color:var(--muted)}
+
+/* ── pinned & recent strip (shared row look with the old palette) ── */
+.co-pins{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-top:22px}
 .p-r{display:flex;align-items:center;gap:11px;padding:10px 15px;border-top:1px solid var(--border-soft)}
 .p-r:first-child{border-top:none}
 .p-r .ic{width:28px;height:28px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .p-r .ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
 .p-r .bd{min-width:0;flex:1}
-.p-r .n{font-size:13px;font-weight:650;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.p-r .m{font-size:11.5px;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.p-r .m code{font-family:var(--mono);font-size:10.5px}
+.p-r .n{display:block;font-size:13px;font-weight:650;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p-r .m{display:block;font-size:11.5px;color:var(--muted);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-pin-ic{color:var(--accent);width:12px;height:12px;flex:none;display:inline-block;vertical-align:-1px}
 .p-pin-ic svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .p-resend{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2);cursor:pointer;font-family:inherit}
@@ -116,7 +195,8 @@
 .p-newpin svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
 .p-colempty{padding:18px 15px;font-size:12.5px;color:var(--muted)}
 
-/* live-activity card controls */
+/* ── bottom dock: live recent sends ── */
+.co-dock{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
 .p-feedbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border-soft);background:var(--surface2)}
 .p-feedbar .srch{position:relative;display:flex;align-items:center;flex:1;min-width:140px}
 .p-feedbar .srch svg{position:absolute;left:8px;color:var(--muted)}
@@ -157,9 +237,9 @@
 .cmd-timeline .ht-meta{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .cmd-timeline .ht-meta .sep{display:inline-block;width:3px}
 .cmd-timeline .ht-fail{color:var(--danger);font-weight:650}
-.cmd-timeline .ht-meter{height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:6px;max-width:220px}
-.cmd-timeline .ht-meter i{display:block;height:100%;border-radius:99px;background:var(--accent-2)}
-.cmd-timeline .ht-meter i.ok{background:var(--ok)}.cmd-timeline .ht-meter i.fail{background:var(--danger)}
+.cmd-timeline .ht-meter{display:flex;height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:6px;max-width:220px}
+.cmd-timeline .ht-meter i{display:block;height:100%;background:var(--accent-2)}
+.cmd-timeline .ht-meter i.ok{background:var(--ok)}.cmd-timeline .ht-meter i.fail{background:var(--danger)}.cmd-timeline .ht-meter i.run{background:var(--accent-2)}
 .cmd-timeline .ht-when{flex:none;font-size:11.5px;color:var(--muted)}
 .cmd-timeline .ht-by{display:block;font-size:11.5px;color:var(--text-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmd-timeline .ht-by::before{content:"by ";white-space:pre;color:var(--text-faint)}
@@ -169,9 +249,6 @@
 
 /* mobile */
 @media(max-width:640px){
-  .p-bar{padding:10px 12px}
-  .p-keys{display:none}
-  .p-cols{gap:14px}
   .cmd-timeline .htrow{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"ic body when" ". by act"}
   .cmd-timeline .ht-body{grid-area:body}.cmd-timeline .ht-by{grid-area:by;text-align:left}.cmd-timeline .ht-when{grid-area:when}.cmd-timeline .hact{grid-area:act}
   .cmd-timeline .hact{margin-left:auto}
@@ -183,15 +260,19 @@
   <div>
     <div class="cc-eyebrow">Actions</div>
     <h1 class="cc-h1">{{if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> action{{if ne .ProgCount 1}}s{{end}} in progress{{else}}Nothing in flight{{end}}{{if gt .DoneCount 0}} · <span class="hl ok">{{.DoneCount}}</span> done{{end}}{{if gt .AttnCount 0}} · <span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{end}}</h1>
-    <div class="cc-sub">Type an action, fill the tokens, press Enter — install, uninstall, reboot, kiosk lock and diagnostics across the fleet.</div>
+    <div class="cc-sub">Build the selection on the left, pick an action on the right — the grid adapts to what the selected devices can actually run.</div>
   </div>
   <div class="cc-actions">
+    {{if not (canOperate .Role)}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
     <a class="cc-btn" href="/commands/history"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History</a>
     <a class="cc-btn" href="/schedules"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
   </div>
 </div>
 
-<form action="/commands" method="POST" id="cmd-form" autocomplete="off"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
+{{/* The hidden form is the single source of truth for the send: the console JS
+     mirrors its state into these fields, which carry CommandCreate's exact
+     contract (and feed the /commands/impact + /commands/target-packages GETs). */}}
+<form action="/commands" method="POST" id="cmd-form" autocomplete="off" style="display:none"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
   <input type="hidden" name="type" id="f-type" value="">
   <input type="hidden" name="target_type" id="f-ttype" value="">
   <input type="hidden" name="scope_mode" id="f-smode" value="">
@@ -200,103 +281,124 @@
   <input type="hidden" name="scope_battery" id="f-sbattery" value="">
   <input type="hidden" name="scope_kiosk" id="f-skiosk" value="">
   <input type="hidden" name="reason" id="f-reason" value="">
-  <textarea name="target_serials" id="f-serials" style="display:none" aria-hidden="true"></textarea>
+  <textarea name="target_serials" id="f-serials" aria-hidden="true"></textarea>
   <span id="f-dyn"></span>
-
-  <div class="p-pal{{if not (canOperate .Role)}} is-readonly{{end}}">
-    <div class="p-bar" id="p-bar">
-      <span class="lead"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
-      <span id="p-tokens"></span>
-      <input class="free" id="p-input" type="text" placeholder="Type an action&hellip;" aria-label="Command palette" aria-haspopup="listbox"{{if not (canOperate .Role)}} disabled{{end}}>
-      {{if canOperate .Role}}
-      <button type="button" class="p-go" id="p-send"><span id="p-send-label">Send</span><kbd>&crarr;</kbd></button>
-      {{else}}
-      <span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>
-      {{end}}
-    </div>
-    <div class="p-drop" id="p-drop" role="listbox" aria-label="Palette options"></div>
-  </div>
 </form>
 
-<div class="p-keys">
-  <span><kbd>&#8984;K</kbd> focus</span>
-  <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
-  <span><kbd>Tab</kbd> next token</span>
-  <span><kbd>&#9003;</kbd> remove token</span>
-  <span><kbd>&crarr;</kbd> send</span>
-  <span><kbd>Esc</kbd> dismiss</span>
-</div>
+{{/* Hidden live blast-radius fragment: re-fetched (debounced) whenever the console
+     mutates the form; the JS mirrors its data-* counts (incl. data-dpc) into the
+     basket, the capability grid and the Send button. */}}
+<div id="cmd-impact" role="status" aria-live="polite" style="display:none"
+     hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
+     hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
 
-<div class="p-preview">
-  <div id="cmd-impact" role="status" aria-live="polite"
-       hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
-       hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
-  <span class="p-hint" id="p-hint"></span>
-</div>
-
-<div class="p-cols">
+<div class="co-main{{if not (canOperate .Role)}} is-readonly{{end}}" id="co-main">
+  <!-- left: selection builder -->
   <div>
-    <div class="p-cap">Pinned &amp; recent</div>
-    <div class="p-col" id="p-pinned">
-      {{$canOp := canOperate .Role}}
-      {{$hasPin := false}}
-      {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
-      <div class="p-r" data-prefill="{{.Prefill}}">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
-        <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
-        {{if $canOp}}<button type="button" class="p-resend" onclick="palLoadRow(this)" title="Load into the bar"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
-        {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
+    <div class="p-cap">1 · Who</div>
+    <div class="co-rail">
+      <div class="co-r-b">
+        <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="co-q" type="text" placeholder="Search serial, restaurant, group — or paste serials" aria-label="Search devices, groups and restaurants"{{if not (canOperate .Role)}} disabled{{end}}><kbd>/</kbd></div>
+        <div class="co-quick" id="co-quick">
+          <button type="button" class="co-qf" data-qf="online">Online <span class="n"></span></button>
+          <button type="button" class="co-qf" data-qf="offline">Offline <span class="n"></span></button>
+          <button type="button" class="co-qf" data-qf="dpc">DPC <span class="n"></span></button>
+          <button type="button" class="co-qf" data-qf="kiosk">In kiosk</button>
+        </div>
+        <div class="co-r-cap">Scopes — one click adds all</div>
+        <div class="co-scopelist" id="co-scopes"></div>
+        <div class="co-r-cap">Devices</div>
+        <div class="co-devlist" id="co-devs"></div>
       </div>
-      {{end}}{{end}}
-      {{range .RecentSends}}
-      <div class="p-r" data-prefill="{{.Prefill}}">
-        <span class="ic" data-act-icon="{{.Type}}"></span>
-        <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
-        {{if $canOp}}
-        <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="palPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
-        <button type="button" class="p-resend" onclick="palLoadRow(this)" title="Load into the bar"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
-        {{end}}
+      <div class="co-basket">
+        <div class="co-bk-top"><span class="co-bk-n" id="co-count">0</span><span class="co-bk-t" id="co-count-t">devices selected</span><button type="button" class="co-bk-clear" id="co-clear">Clear</button></div>
+        <div class="co-bk-pills" id="co-pills"></div>
+        <div class="co-refine" id="co-refine" hidden></div>
+        <div class="co-bk-mix" id="co-mix"></div>
+        <div class="co-bk-warn" id="co-warn" hidden><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span id="co-warn-t"></span></div>
       </div>
-      {{end}}
-      {{if and (not $hasPin) (not .RecentSends)}}<div class="p-colempty">Nothing sent yet — your recent and pinned sends will land here for one-keystroke resends.</div>{{end}}
-      {{if $canOp}}<button type="button" class="p-newpin" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Pin the current setup</button>{{end}}
     </div>
   </div>
 
-  <div>
-    <div class="p-cap"><span class="p-live-dot"></span>Live activity
-      <span class="right">
-        {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
-        <a href="/commands/history">Show all &rarr;</a>
-      </span>
+  <!-- right: capability-aware action grid + payload strip -->
+  <div class="co-right-int">
+    <div class="p-cap">2 · What — the grid adapts to the selection</div>
+    <div id="co-grid"></div>
+    <div class="co-strip" id="co-strip" hidden>
+      <div class="lab"><span class="ic" id="co-st-ic"></span><span><span class="t" id="co-st-t"></span><br><span class="s" id="co-st-s"></span></span></div>
+      <div class="co-pay" id="co-pay"></div>
+      <input class="co-in narrow" id="co-reason" placeholder="Reason — recorded in the audit log" style="display:none">
+      <input class="co-in narrow mono co-wipebox" id="co-wipe" placeholder="Type WIPE to confirm" autocomplete="off" style="display:none">
+      {{if canOperate .Role}}<button type="button" class="co-send" id="co-send"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span id="co-send-label">Send</span></button>{{end}}
+      <div class="co-note" id="co-note"></div>
+      <div class="co-menu" id="co-menu"></div>
     </div>
-    <div class="p-col">
-      <div class="p-feedbar">
-        <span class="srch"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="cmd-search" placeholder="Search type, action, serial&hellip;" aria-label="Search action history" oninput="filterCommands()"></span>
-        <select id="filter-type" class="filter-select" aria-label="Filter by action type" onchange="filterCommands()">
-          <option value="">All types</option>
-          <option value="install_apk">Install app</option>
-          <option value="uninstall">Uninstall</option>
-          <option value="shell">Shell</option>
-          <option value="screenshot">Screenshot</option>
-          <option value="reboot">Reboot</option>
-          <option value="query">Query</option>
-          <option value="wipe">Wipe</option>
-        </select>
-        <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
-          <option value="">All targets</option>
-          <option value="all">All devices</option>
-          <option value="devices">Devices</option>
-          <option value="groups">Groups</option>
-        </select>
-      </div>
-      {{/* Live status: morph this fragment in place on a command-update SSE event (and a
-           slow 20s poll), so a status moving pending→delivered→completed and jumping between
-           buckets shows without a reload or a flash. */}}
-      <div class="cmd-timeline" id="cmd-history-table" data-morph
-           hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
-           hx-trigger="commands-feed-update from:body, every 20s">{{template "cmd-timeline-inner" .}}</div>
+  </div>
+</div>
+
+<!-- pinned & recent: one-click resends that prefill selection + action + payload -->
+<div style="margin-top:26px">
+  <div class="p-cap">Pinned &amp; recent</div>
+  <div class="co-pins" id="p-pinned">
+    {{$canOp := canOperate .Role}}
+    {{$hasPin := false}}
+    {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
+    <div class="p-r" data-prefill="{{.Prefill}}">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
+      <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
+      {{if $canOp}}<button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
+      {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
     </div>
+    {{end}}{{end}}
+    {{range .RecentSends}}
+    <div class="p-r" data-prefill="{{.Prefill}}">
+      <span class="ic" data-act-icon="{{.Type}}"></span>
+      <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
+      {{if $canOp}}
+      <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+      <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+      {{end}}
+    </div>
+    {{end}}
+    {{if and (not $hasPin) (not .RecentSends)}}<div class="p-colempty">Nothing sent yet — your recent and pinned sends will land here for one-click resends.</div>{{end}}
+    {{if $canOp}}<button type="button" class="p-newpin" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Pin the current setup</button>{{end}}
+  </div>
+</div>
+
+<!-- bottom dock: live recent sends -->
+<div style="margin-top:26px">
+  <div class="p-cap"><span class="p-live-dot"></span>Live activity
+    <span class="right">
+      {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
+      <a href="/commands/history">Show all &rarr;</a>
+    </span>
+  </div>
+  <div class="co-dock">
+    <div class="p-feedbar">
+      <span class="srch"><svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="cmd-search" placeholder="Search type, action, serial&hellip;" aria-label="Search action history" oninput="filterCommands()"></span>
+      <select id="filter-type" class="filter-select" aria-label="Filter by action type" onchange="filterCommands()">
+        <option value="">All types</option>
+        <option value="install_apk">Install app</option>
+        <option value="uninstall">Uninstall</option>
+        <option value="shell">Shell</option>
+        <option value="screenshot">Screenshot</option>
+        <option value="reboot">Reboot</option>
+        <option value="query">Query</option>
+        <option value="wipe">Wipe</option>
+      </select>
+      <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
+        <option value="">All targets</option>
+        <option value="all">All devices</option>
+        <option value="devices">Devices</option>
+        <option value="groups">Groups</option>
+      </select>
+    </div>
+    {{/* Live status: morph this fragment in place on a command-update SSE event (and a
+         slow 20s poll), so a status moving pending→delivered→completed and jumping between
+         buckets shows without a reload or a flash. */}}
+    <div class="cmd-timeline" id="cmd-history-table" data-morph
+         hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
+         hx-trigger="commands-feed-update from:body, every 20s">{{template "cmd-timeline-inner" .}}</div>
   </div>
 </div>
 </div><!-- /.ac-wrap -->
@@ -310,7 +412,7 @@
       <button class="modal-close" aria-label="Close" onclick="closeRecipeModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <p class="muted small" style="margin:0 0 12px;">Saves the bar&rsquo;s current action, payload and targets as a shared pin (also schedulable from the Schedules page).</p>
+      <p class="muted small" style="margin:0 0 12px;">Saves the console&rsquo;s current action, payload and targets as a shared pin (also schedulable from the Schedules page).</p>
       <div class="form-row" style="margin-bottom:14px;">
         <label class="form-label" for="recipe-name">Pin name</label>
         <input type="text" id="recipe-name" class="form-input" placeholder="e.g. Nightly reboot, drive-thru">
@@ -377,20 +479,22 @@
     });
   }
 
-  // Show toast on a feed row's resend form.
-  document.addEventListener('submit', function (evt) {
+  // Show toast on a feed row's resend form (replaced across boosted swaps).
+  if (window.__coResendToast) document.removeEventListener('submit', window.__coResendToast);
+  window.__coResendToast = function (evt) {
     var form = evt.target;
     if (!form || form.tagName !== 'FORM') return;
     if (form.action.indexOf('/resend') !== -1) {
       setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
     }
-  });
+  };
+  document.addEventListener('submit', window.__coResendToast);
 
   // Pin (recipe) modal + delete — pins are shared server-side recipes so the
   // Schedules page can run them on a timer.
   function openRecipeModal() {
     var t = document.getElementById('f-type');
-    if (!t || !t.value) { if (window.showToast) showToast('Compose an action in the bar first, then pin it', 'info'); return; }
+    if (!t || !t.value) { if (window.showToast) showToast('Choose an action and targets first, then pin it', 'info'); return; }
     document.getElementById('recipe-name').value = '';
     document.getElementById('recipe-modal-error').style.display = 'none';
     document.getElementById('recipe-modal').classList.add('modal-open');
@@ -420,31 +524,31 @@
     f.method = 'POST'; f.action = '/recipes/' + id + '/delete';
     document.body.appendChild(f); f.submit();
   }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeRecipeModal(); });
 </script>
 
 <script>
-window.PAL_DS = {{.PaletteJSON}};
-window.PAL_CAN_OPERATE = {{if canOperate .Role}}true{{else}}false{{end}};
+window.CO_DS = {{.PaletteJSON}};
+window.CO_CAN_OPERATE = {{if canOperate .Role}}true{{else}}false{{end}};
 window.CMD_PREFILL = {{.Prefill}};
 </script>
 
 <script>
-// ── The command palette ────────────────────────────────────────────────────────
-// One bar composes the whole send: [action] [payload] to [targets] (+reason).
-// Datasets are server-rendered (PAL_DS, role-filtered); devices are searched via
-// /commands/browse-devices and uninstall packages via /commands/target-packages
-// on demand. The form posts the exact same field contract CommandCreate expects.
+// ── The target-first console ───────────────────────────────────────────────────
+// Left rail builds the device selection (scopes, quick filters, search, pasted
+// serials); the right-hand action grid adapts to it via the /commands/impact
+// counts (incl. data-dpc), and a one-row payload strip composes + sends. The
+// hidden #cmd-form carries the exact field contract CommandCreate expects —
+// identical to the previous palette implementation.
 (function () {
   'use strict';
   var form = document.getElementById('cmd-form');
-  if (!form || form.dataset.palInit) return;
-  form.dataset.palInit = '1';
-  var DS = window.PAL_DS || {};
+  if (!form || form.dataset.coInit) return;
+  form.dataset.coInit = '1';
+  var DS = window.CO_DS || {};
   DS.actions = DS.actions || []; DS.apps = DS.apps || []; DS.groups = DS.groups || [];
   DS.restaurants = DS.restaurants || []; DS.queries = DS.queries || []; DS.packages = DS.packages || [];
   DS.shellRecent = DS.shellRecent || []; DS.shellPopular = DS.shellPopular || [];
-  var CAN = !!window.PAL_CAN_OPERATE;
+  var CAN = !!window.CO_CAN_OPERATE;
 
   var ICONS = {
     install_apk: '<path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
@@ -460,39 +564,34 @@ window.CMD_PREFILL = {{.Prefill}};
     place: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>',
     group: '<circle cx="9" cy="8" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M4 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M14.5 15.6c2 .3 3.5 1.7 3.5 3.4"/>',
     device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
-    reason: '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 8.6 8.6 0 0 1-3.7-.8L3 21l1.9-5.7a8.1 8.1 0 0 1-1-3.8A8.4 8.4 0 0 1 12.4 3a8.4 8.4 0 0 1 8.6 8.5z"/>',
     dot: '<circle cx="12" cy="12" r="8"/>'
   };
+  var GRID_GROUPS = [
+    ['Apps', ['install_apk', 'uninstall']],
+    ['Device', ['reboot', 'set_kiosk', 'update_splash']],
+    ['Diagnostics', ['screenshot', 'query', 'shell']],
+    ['Danger zone', ['wipe']]
+  ];
 
   // ── State ──
   var S = { action: null, apps: [], pkgs: [], shell: '', query: null, kiosk: null, splash: '',
             targets: [], refine: { status: '', battery: '', kiosk: '' }, reason: '' };
-  var lastImpact = { effective: 0, online: 0, offline: 0, verb: '' };
+  var QF = { online: false, offline: false, dpc: false, kiosk: false };
+  var lastImpact = { total: 0, effective: 0, online: 0, offline: 0, dpc: 0, verb: '' };
+  var lastWarn = '';
   var armed = false, armTimer = null;
 
   var el = function (id) { return document.getElementById(id); };
-  var bar = el('p-bar'), input = el('p-input'), tokensEl = el('p-tokens'), drop = el('p-drop'), hintEl = el('p-hint');
+  var qEl = el('co-q'), menuEl = el('co-menu'), stripEl = el('co-strip');
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  function setHint(m) { if (hintEl) hintEl.textContent = m || ''; }
+  function svg(k) { return '<svg viewBox="0 0 24 24">' + (ICONS[k] || ICONS.dot) + '</svg>'; }
   function tail(u) { var i = u.lastIndexOf('/'); return i >= 0 && i < u.length - 1 ? u.slice(i + 1) : u; }
-
-  // ── Validation: the next missing piece drives the placeholder, the hint and
-  // which dropdown Enter opens. Server re-validates everything anyway. ──
-  function firstMissing() {
-    if (!S.action) return { menu: 'action', msg: 'Pick an action.' };
-    switch (S.action.p) {
-      case 'apps': if (!S.apps.length) return { menu: 'payload', msg: 'Choose at least one app to install.' }; break;
-      case 'pkgs': if (!S.pkgs.length) return { menu: 'payload', msg: 'Choose at least one package to uninstall.' }; break;
-      case 'shell': if (!S.shell.trim()) return { menu: 'payload', msg: 'Enter a shell command.' }; break;
-      case 'query': if (!S.query) return { menu: 'payload', msg: 'Pick a query to run.' }; break;
-      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { menu: 'payload', msg: 'Pick kiosk mode (lock to an app, or unlock).' }; break;
-      case 'splash': if (!S.splash.trim()) return { menu: 'payload', msg: 'Paste the splash image URL.' }; break;
-    }
-    if (!S.targets.length) return { menu: 'target', msg: 'Choose which devices this reaches.' };
-    if (S.action.destr && DS.requireReason && !S.reason.trim()) return { menu: 'reason', msg: 'A reason is required for this action.' };
-    return null;
+  function toast(m, t) { if (window.showToast) showToast(m, t || 'info'); }
+  function setHint(m) {
+    var n = el('co-note'); if (!n) return;
+    if (m) { n.innerHTML = '<span class="hint">' + esc(m) + '</span>'; if (stripEl.hidden) { stripEl.hidden = false; } }
+    else updateNote();
   }
-  function needsReasonToken() { return S.action && S.action.destr && (DS.requireReason || S.reason); }
 
   // ── Form sync: rebuild the hidden inputs to CommandCreate's exact contract ──
   function syncForm() {
@@ -526,230 +625,179 @@ window.CMD_PREFILL = {{.Prefill}};
     el('f-sbattery').value = scoped ? S.refine.battery : '';
     el('f-skiosk').value = scoped ? S.refine.kiosk : '';
     el('f-serials').value = serials.join('\n');
-    document.body.dispatchEvent(new CustomEvent('impact'));
+    document.body.dispatchEvent(new CustomEvent('impact')); // debounced 200ms by the hx-trigger
   }
 
-  // ── Token rendering ──
-  function tokIcon(key) { return '<svg viewBox="0 0 24 24">' + (ICONS[key] || ICONS.dot) + '</svg>'; }
-  function tok(cls, iconKey, label, menuKind, rmKind, rmKey, mono) {
-    return '<span class="p-tok ' + cls + (mono ? ' mono' : '') + '" data-menu="' + menuKind + '" role="button" tabindex="-1">'
-      + (iconKey ? tokIcon(iconKey) : '')
-      + '<span class="lbl">' + esc(label) + '</span>'
-      + (rmKind ? '<span class="x" data-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" title="Remove">&times;</span>' : '')
-      + '</span>';
-  }
-  function payloadTok() {
-    if (!S.action) return '';
+  // ── Validation: what's still missing before a send can go out ──
+  function firstMissing() {
+    if (!S.targets.length) return { msg: 'Pick devices first — search, tick a scope or paste serials on the left.' };
+    if (!S.action) return { msg: 'Pick an action from the grid.' };
     switch (S.action.p) {
-      case 'apps':
-        if (!S.apps.length) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>app</button>';
-        return tok('arg', null, S.apps.length === 1 ? S.apps[0].name : S.apps.length + ' apps', 'payload', 'payload');
-      case 'pkgs':
-        if (!S.pkgs.length) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>package</button>';
-        return tok('arg', null, S.pkgs.length === 1 ? (S.pkgs[0].name || S.pkgs[0].pkg) : S.pkgs.length + ' packages', 'payload', 'payload');
-      case 'shell':
-        if (!S.shell.trim()) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>command</button>';
-        return tok('arg', null, '$ ' + S.shell.trim(), 'payload', 'payload', '', true);
-      case 'query':
-        if (!S.query) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>query</button>';
-        return tok('arg', null, S.query.label, 'payload', 'payload');
-      case 'kiosk':
-        if (!S.kiosk) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>mode</button>';
-        return tok('arg', null, S.kiosk.enabled === '1' ? 'Lock to ' + (S.kiosk.name || S.kiosk.pkg) : 'Unlock kiosk', 'payload', 'payload');
-      case 'splash':
-        if (!S.splash.trim()) return '<button type="button" class="p-add" data-menu="payload"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>image URL</button>';
-        return tok('arg', null, tail(S.splash.trim()), 'payload', 'payload', '', true);
+      case 'apps': if (!S.apps.length) return { msg: 'Choose at least one app to install.' }; break;
+      case 'pkgs': if (!S.pkgs.length) return { msg: 'Choose at least one package to uninstall.' }; break;
+      case 'shell': if (!S.shell.trim()) return { msg: 'Enter a shell command.' }; break;
+      case 'query': if (!S.query) return { msg: 'Pick a query to run.' }; break;
+      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { msg: 'Pick kiosk mode — lock to an app, or unlock.' }; break;
+      case 'splash': if (!S.splash.trim()) return { msg: 'Paste the splash image URL.' }; break;
     }
-    return '';
+    if (S.action.destr && DS.requireReason && !S.reason.trim()) return { msg: 'A reason is required for this action.', focus: 'co-reason' };
+    return null;
   }
-  function targetLabel(t) {
-    if (t.kind === 'all') return 'All devices';
-    if (t.count != null && t.kind !== 'device') return t.name + ' ×' + t.count;
-    return t.name || t.serial;
+
+  // ── Capability math (from the impact fragment's counts) ──
+  // cap "system app": the privileged AOSP client only — DPC devices can't run it.
+  // cap "DPC only": the Device-Owner agent only — system-app devices can't run it.
+  function incompatCount(a) {
+    if (!lastImpact.effective) return 0;
+    if (a.cap === 'DPC only') return lastImpact.effective - lastImpact.dpc;
+    if (a.cap === 'system app') return lastImpact.dpc;
+    return 0;
   }
-  function renderTokens() {
+  function incompatWhy(a, n) {
+    var eff = lastImpact.effective;
+    if (a.cap === 'DPC only') return n + ' of ' + eff + ' can’t run this — DPC devices only';
+    return n + ' of ' + eff + ' are DPC devices — ' + a.n.toLowerCase() + ' unavailable there';
+  }
+
+  // ── Rail: scopes ──
+  function scopeList() {
+    var list = [{ kind: 'all', name: 'All devices', meta: 'the whole fleet — asks to confirm', icon: 'all' }];
+    DS.restaurants.forEach(function (r) { list.push({ kind: 'restaurant', id: r.id, name: r.name, count: r.count, meta: 'restaurant · ' + r.count + ' device' + (r.count === 1 ? '' : 's'), icon: 'place' }); });
+    DS.groups.forEach(function (g) { list.push({ kind: 'group', id: g.id, name: g.name, count: g.count, meta: 'group · ' + g.count + ' device' + (g.count === 1 ? '' : 's'), icon: 'group' }); });
+    return list;
+  }
+  function selKey(t) { return t.kind + ':' + (t.id || t.serial || 'all'); }
+  function isSel(kind, id) { return S.targets.some(function (t) { return t.kind === kind && (t.id || 'all') === (id || 'all'); }); }
+  function renderScopes() {
+    var q = (qEl.value || '').trim().toLowerCase();
     var html = '';
-    if (S.action) {
-      html += tok('verb', S.action.t, S.action.n, 'action', 'action');
-      html += payloadTok();
-      html += '<span class="p-sep">to</span>';
-      S.targets.forEach(function (t) {
-        html += tok('tgt', null, targetLabel(t), 'target', 'target', t.kind + ':' + (t.id || t.serial || 'all'), t.kind === 'device');
-      });
-      html += '<button type="button" class="p-add" data-menu="target"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>target</button>';
-      if (needsReasonToken()) {
-        html += S.reason.trim()
-          ? tok('rsn', 'reason', '“' + S.reason.trim() + '”', 'reason', 'reason')
-          : '<button type="button" class="p-add" data-menu="reason"><svg viewBox="0 0 24 24">' + ICONS.reason + '</svg>reason' + (DS.requireReason ? ' (required)' : '') + '</button>';
-      }
-    }
-    tokensEl.innerHTML = html;
-    var miss = firstMissing();
-    input.placeholder = !S.action ? 'Type an action…'
-      : miss && miss.menu === 'payload' ? 'Search…'
-      : miss && miss.menu === 'target' ? 'Add a target — group, restaurant or serial…'
-      : miss && miss.menu === 'reason' ? 'Why? (required)…'
-      : 'Enter to send · type to adjust';
-    var send = el('p-send');
-    if (send) send.classList.toggle('arm', armed);
-    updateSendLabel();
-  }
-  function updateSendLabel() {
-    var lbl = el('p-send-label'); if (!lbl) return;
-    var n = lastImpact.effective;
-    if (armed) { lbl.textContent = S.action && S.action.t === 'wipe' ? 'Confirm wipe' : 'Confirm' + (n ? ' ×' + n : ''); return; }
-    lbl.textContent = (!firstMissing() && n > 0 && lastImpact.verb) ? (lastImpact.verb + ' · ' + n) : 'Send';
-  }
-  function updateUI() { renderTokens(); syncForm(); }
-
-  // ── Dropdown menus ──
-  var menu = { kind: null, sub: null, opts: [] , hot: 0 };
-  function closeMenu() { menu.kind = null; menu.sub = null; menu.opts = []; menu.hot = 0; drop.classList.remove('on'); }
-  function openMenu(kind, sub) {
-    if (!CAN) return;
-    menu.kind = kind; menu.sub = sub || null; menu.hot = 0;
-    if (kind === 'payload' && S.action && S.action.p === 'none') { closeMenu(); return; }
-    if (kind === 'payload' && S.action && S.action.p === 'pkgs') ensurePkgs();
-    if (kind === 'target') ensureDevices(input.value.trim());
-    renderMenu();
-  }
-  function optHtml(o, i) {
-    var icon = o.img ? '<img src="' + o.img + '" alt="">' : '<svg viewBox="0 0 24 24">' + (ICONS[o.icon] || ICONS.dot) + '</svg>';
-    return '<button type="button" class="p-opt' + (i === menu.hot ? ' hot' : '') + '" data-i="' + i + '" role="option">'
-      + '<span class="ic">' + icon + '</span>'
-      + '<span class="tx"><span class="n' + (o.mono ? ' mono' : '') + '">' + esc(o.title) + '</span>' + (o.meta ? '<span class="m">' + esc(o.meta) + '</span>' : '') + '</span>'
-      + (o.sel ? '<span class="k sel-k">added</span>' : '')
-      + (o.cap ? '<span class="k ' + (o.cap === 'DPC only' ? 'dpc' : 'warn') + '">' + esc(o.cap) + '</span>' : '')
-      + '</button>';
-  }
-  function match(hay, q) { return !q || hay.toLowerCase().indexOf(q.toLowerCase()) >= 0; }
-
-  function buildOpts() {
-    var q = input.value.trim();
-    if (menu.kind === 'action') {
-      return { cap: 'Actions', opts: DS.actions.filter(function (a) { return match(a.n + ' ' + a.d + ' ' + a.t, q); }).map(function (a) {
-        return { icon: a.t, title: a.n, meta: a.d, cap: a.cap, pick: function () { setAction(a); }, advance: true };
-      }), empty: 'No action matches — try “install”, “reboot”, “query”…' };
-    }
-    if (menu.kind === 'reason') {
-      var opts = [];
-      if (q) opts.push({ icon: 'reason', title: 'Reason: “' + q + '”', meta: 'recorded in the audit log', pick: function () { S.reason = q; input.value = ''; }, advance: true });
-      return { cap: 'Why are you sending this?', opts: opts, empty: 'Type a short reason, then press Enter.' };
-    }
-    if (menu.kind === 'target') return buildTargetOpts(q);
-    if (menu.kind === 'payload' && S.action) return buildPayloadOpts(q);
-    return { cap: '', opts: [] };
+    scopeList().forEach(function (s) {
+      if (q && (s.name + ' ' + s.kind).toLowerCase().indexOf(q) < 0) return;
+      var on = isSel(s.kind, s.id);
+      html += '<button type="button" class="co-scope' + (on ? ' on' : '') + '" data-kind="' + s.kind + '" data-id="' + esc(s.id || '') + '">'
+        + '<span class="ic">' + svg(s.icon) + '</span>'
+        + '<span class="bd"><span class="n">' + esc(s.name) + '</span><span class="m">' + esc(s.meta) + '</span></span>'
+        + '<span class="add">' + (on ? 'Added' : '+ Add') + '</span></button>';
+    });
+    el('co-scopes').innerHTML = html || '<div class="co-listempty">No scope matches.</div>';
   }
 
-  function buildPayloadOpts(q) {
-    switch (S.action.p) {
-      case 'apps':
-        return { cap: 'App library — pick one or more', opts: DS.apps.filter(function (a) { return match(a.name + ' ' + (a.pkg || ''), q); }).map(function (a) {
-          var sel = S.apps.some(function (x) { return x.url === a.url; });
-          return { icon: 'install_apk', img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel,
-            keepOpen: true, pick: function () {
-              if (sel) S.apps = S.apps.filter(function (x) { return x.url !== a.url; });
-              else S.apps.push({ url: a.url, name: a.name });
-              input.value = '';
-            } };
-        }), empty: DS.apps.length ? 'No app matches.' : 'No apps in the library yet — add one in Settings → App library.' };
-      case 'pkgs':
-        if (pkgsLoading) return { cap: 'Installed on the target', opts: [], empty: 'Loading installed apps…' };
-        return { cap: 'Installed on the target — pick one or more', opts: (pkgsList || []).filter(function (p) { return match(p.name + ' ' + p.pkg, q); }).map(function (p) {
-          var sel = S.pkgs.some(function (x) { return x.pkg === p.pkg; });
-          return { icon: 'uninstall', img: p.img || '', title: p.name, meta: p.pkg + (p.count ? ' · ' + p.count : ''), sel: sel, keepOpen: true,
-            pick: function () {
-              if (sel) S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== p.pkg; });
-              else S.pkgs.push({ pkg: p.pkg, name: p.name });
-              input.value = '';
-            } };
-        }), empty: S.targets.length ? 'No uninstallable apps reported on the selected target.' : 'Pick a target first — the list shows what is actually installed there.' };
-      case 'query':
-        return { cap: 'Device queries — read-only, admin-vetted', opts: DS.queries.filter(function (x) { return match(x.label + ' ' + (x.cat || ''), q); }).map(function (x) {
-          return { icon: 'query', title: x.label, meta: x.cat || '', pick: function () { S.query = { id: x.id, label: x.label }; input.value = ''; }, advance: true };
-        }), empty: 'No query matches.' };
-      case 'kiosk':
-        if (menu.sub === 'kiosk-app') {
-          return { cap: 'Lock to which app?', opts: DS.packages.filter(function (p) { return match(p.name + ' ' + p.pkg, q); }).slice(0, 40).map(function (p) {
-            return { icon: 'set_kiosk', img: p.icon ? 'data:image/png;base64,' + p.icon : '', title: p.name, meta: p.pkg + ' · ' + p.count + ' device' + (p.count === 1 ? '' : 's'),
-              pick: function () { S.kiosk = { enabled: '1', pkg: p.pkg, name: p.name }; input.value = ''; }, advance: true };
-          }), empty: q ? 'No app matches — it must be installed somewhere on the fleet.' : 'No packages reported yet.' };
+  // ── Rail: device list (via the /commands/browse-devices partial) ──
+  var devCache = {}, devMeta = {}, devLoading = false, devTimer = null;
+  var qfCounts = null; // {online, offline, dpc} from the unfiltered base list
+  function parseRows(html) {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var out = [];
+    doc.querySelectorAll('.cb-row').forEach(function (row) {
+      var cb = row.querySelector('.cmd-browse-cb'); if (!cb) return;
+      var bat = row.querySelector('.dp-bchip'); var sub = row.querySelector('.cb-sub');
+      out.push({ serial: cb.value, online: !!row.querySelector('.cb-status i.on'),
+                 dpc: row.getAttribute('data-dpc') === '1',
+                 bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
+                 sub: sub ? sub.textContent.trim() : '' });
+    });
+    return out;
+  }
+  function noteMeta(rows) { rows.forEach(function (d) { devMeta[d.serial] = d; }); }
+  function devKey() { return (qEl.value || '').trim() + '|' + (QF.kiosk ? 'k' : ''); }
+  function ensureDevices(now) {
+    var key = devKey();
+    if (devCache[key]) { renderDevs(); return; }
+    clearTimeout(devTimer);
+    devTimer = setTimeout(function () {
+      devLoading = true; renderDevs();
+      var p = new URLSearchParams();
+      var q = (qEl.value || '').trim();
+      if (q) p.set('q', q);
+      if (QF.kiosk) p.set('kiosk', 'enabled');
+      fetch('/commands/browse-devices?' + p.toString()).then(function (r) { return r.text(); }).then(function (html) {
+        var rows = parseRows(html);
+        noteMeta(rows);
+        devCache[key] = rows; devLoading = false;
+        if (key === '|' && !qfCounts) {
+          qfCounts = { online: 0, offline: 0, dpc: 0 };
+          rows.forEach(function (d) { d.online ? qfCounts.online++ : qfCounts.offline++; if (d.dpc) qfCounts.dpc++; });
+          renderQuick();
         }
-        return { cap: 'Kiosk mode', opts: [
-          { icon: 'set_kiosk', title: 'Lock to an app…', meta: 'pin one app in lock-task mode', keepOpen: true, pick: function () { menu.sub = 'kiosk-app'; input.value = ''; } },
-          { icon: 'set_kiosk', title: 'Unlock', meta: 'exit kiosk — home, recents and status bar return', pick: function () { S.kiosk = { enabled: '0' }; input.value = ''; }, advance: true }
-        ].filter(function (o) { return match(o.title + ' ' + o.meta, q); }) };
-      case 'shell': {
-        var opts = [];
-        if (q) opts.push({ icon: 'shell', title: 'Run: ' + q, mono: true, meta: 'press Enter to set the command', pick: function () { S.shell = q; input.value = ''; }, advance: true });
-        DS.shellRecent.forEach(function (c) { if (match(c, q)) opts.push({ icon: 'shell', title: c, mono: true, meta: 'recent', pick: function () { S.shell = c; input.value = ''; }, advance: true }); });
-        DS.shellPopular.forEach(function (c) { if (match(c, q) && DS.shellRecent.indexOf(c) < 0) opts.push({ icon: 'shell', title: c, mono: true, meta: 'frequent', pick: function () { S.shell = c; input.value = ''; }, advance: true }); });
-        return { cap: 'Shell command', opts: opts, empty: 'Type the shell command to run, then press Enter.' };
-      }
-      case 'splash': {
-        var so = [];
-        if (q) so.push({ icon: 'update_splash', title: 'Use image URL: ' + q, mono: true, meta: 'BMP/PNG/JPEG — wrapped into a splash.img server-side', pick: function () { S.splash = q; input.value = ''; }, advance: true });
-        return { cap: 'Boot splash image', opts: so, empty: 'Paste the image URL, then press Enter. Uploads + preview live on the Boot logo page (/boot-logo).' };
-      }
+        renderDevs();
+      }).catch(function () { devLoading = false; renderDevs(); });
+    }, now ? 0 : 250);
+  }
+  function renderQuick() {
+    document.querySelectorAll('#co-quick .co-qf').forEach(function (b) {
+      var k = b.dataset.qf;
+      b.classList.toggle('on', !!QF[k]);
+      var n = b.querySelector('.n');
+      if (n && qfCounts && k !== 'kiosk') n.textContent = qfCounts[k];
+    });
+  }
+  function pasteTokens() {
+    var q = (qEl.value || '').trim();
+    return q && /[\s,;]/.test(q) ? q.split(/[\s,;]+/).filter(Boolean) : null;
+  }
+  function renderDevs() {
+    var rows = devCache[devKey()] || [];
+    var shown = rows.filter(function (d) {
+      if (QF.online && !d.online) return false;
+      if (QF.offline && d.online) return false;
+      if (QF.dpc && !d.dpc) return false;
+      return true;
+    }).slice(0, 60);
+    var html = '';
+    var toks = pasteTokens();
+    if (toks) {
+      html += '<button type="button" class="co-paste" id="co-addpaste"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add ' + toks.length + ' pasted serials</button>';
     }
-    return { cap: '', opts: [] };
+    shown.forEach(function (d) {
+      var on = S.targets.some(function (t) { return t.kind === 'device' && t.serial === d.serial; });
+      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + '" data-serial="' + esc(d.serial) + '">'
+        + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
+        + '<span class="bd"><span class="sn">' + esc(d.serial) + '</span>' + (d.sub || d.bat ? '<span class="mt">' + esc([d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
+        + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
+        + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
+    });
+    if (!shown.length && !toks) {
+      var q = (qEl.value || '').trim();
+      if (devLoading) html += '<div class="co-listempty">Searching devices…</div>';
+      else if (q) html += '<button type="button" class="co-paste" id="co-addpaste" data-one="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add serial &ldquo;' + esc(q) + '&rdquo; as typed</button><div class="co-listempty">No device matches — exact unknown serials are ignored at send.</div>';
+      else html += '<div class="co-listempty">No devices match these filters.</div>';
+    }
+    el('co-devs').innerHTML = html;
   }
 
-  function buildTargetOpts(q) {
-    var opts = [];
-    var kinds = S.targets.map(function (t) { return t.kind; });
-    var hasDev = kinds.indexOf('device') >= 0, hasGrp = kinds.indexOf('group') >= 0;
-    function selT(kind, key) { return S.targets.some(function (t) { return t.kind === kind && (t.id || t.serial || 'all') === key; }); }
-    if (match('all devices fleet everything', q)) {
-      opts.push({ icon: 'all', title: 'All devices', meta: 'the whole fleet — asks to confirm', sel: selT('all', 'all'), pick: function () { S.targets = [{ kind: 'all' }]; input.value = ''; }, advance: true });
+  // ── Selection mutations (same semantics + hints as the palette) ──
+  function hasKind(k) { return S.targets.some(function (t) { return t.kind === k; }); }
+  function toggleScope(kind, id) {
+    disarm();
+    if (kind === 'all') {
+      S.targets = isSel('all') ? [] : [{ kind: 'all' }];
+    } else if (kind === 'restaurant') {
+      if (isSel('restaurant', id)) S.targets = [];
+      else {
+        var r = DS.restaurants.find(function (x) { return x.id === id; });
+        S.targets = [{ kind: 'restaurant', id: id, name: r ? r.name : 'Restaurant', count: r ? r.count : null }];
+      }
+    } else if (kind === 'group') {
+      if (isSel('group', id)) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'group' && t.id === id); }); }
+      else {
+        if (hasKind('device')) { setHint('One send can target groups OR picked devices, not both — remove the device pills first.'); return; }
+        var g = DS.groups.find(function (x) { return x.id === id; });
+        S.targets = S.targets.filter(function (t) { return t.kind === 'group'; });
+        S.targets.push({ kind: 'group', id: id, name: g ? g.name : 'Group', count: g ? g.count : null });
+      }
     }
-    DS.restaurants.forEach(function (r) {
-      if (!match(r.name, q)) return;
-      opts.push({ icon: 'place', title: r.name, meta: 'restaurant · ' + r.count + ' device' + (r.count === 1 ? '' : 's'), sel: selT('restaurant', r.id),
-        pick: function () { S.targets = [{ kind: 'restaurant', id: r.id, name: r.name, count: r.count }]; input.value = ''; }, advance: true });
-    });
-    DS.groups.forEach(function (g) {
-      if (!match(g.name, q)) return;
-      var sel = selT('group', g.id);
-      opts.push({ icon: 'group', title: g.name, meta: 'group · ' + g.count + ' device' + (g.count === 1 ? '' : 's'), sel: sel, keepOpen: true,
-        pick: function () {
-          if (sel) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'group' && t.id === g.id); }); input.value = ''; return; }
-          if (hasDev) { setHint('One send can target groups OR picked devices, not both — remove the device tokens first.'); return; }
-          S.targets = S.targets.filter(function (t) { return t.kind === 'group'; });
-          S.targets.push({ kind: 'group', id: g.id, name: g.name, count: g.count }); input.value = '';
-        } });
-    });
-    (devCache[devKey(q)] || []).forEach(function (d) {
-      var sel = selT('device', d.serial);
-      opts.push({ icon: 'device', title: d.serial, mono: true, meta: (d.online ? 'online' : 'offline') + (d.bat ? ' · ' + d.bat : '') + (d.sub ? ' · ' + d.sub : ''), sel: sel, keepOpen: true,
-        pick: function () {
-          if (sel) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === d.serial); }); input.value = ''; return; }
-          if (hasGrp) { setHint('One send can target groups OR picked devices, not both — remove the group tokens first.'); return; }
-          S.targets = S.targets.filter(function (t) { return t.kind === 'device'; });
-          S.targets.push({ kind: 'device', serial: d.serial }); input.value = '';
-        } });
-    });
-    if (q && devLoading) opts.push({ icon: 'device', title: 'Searching devices…', meta: q, pick: function () {}, keepOpen: true });
-    // Paste-a-list support: multiple serial-ish tokens in one string become device tokens.
-    if (q && /[\s,;]/.test(q)) {
-      opts.unshift({ icon: 'device', title: 'Add ' + q.split(/[\s,;]+/).filter(Boolean).length + ' pasted serials', meta: 'exact serial numbers, one token each', pick: function () { addSerials(q); input.value = ''; }, advance: true });
-    } else if (q && !devLoading && !(devCache[devKey(q)] || []).length) {
-      opts.push({ icon: 'device', title: 'Add serial “' + q + '”', mono: true, meta: 'exact serial — unknown serials are ignored at send', pick: function () { addSerials(q); input.value = ''; }, keepOpen: true });
-    }
-    var scoped = !S.targets.length || kinds[0] === 'all' || kinds[0] === 'restaurant' || (kinds.every(function (k) { return k === 'group'; }) && S.targets.length === 1);
-    var head = '';
-    if (scoped) {
-      head = '<div class="p-refrow">'
-        + refBtn('status', 'online', 'Online only')
-        + refBtn('battery', 'low', 'Low battery')
-        + refBtn('kiosk', 'enabled', 'In kiosk')
-        + '</div>';
-    }
-    return { cap: 'Add a target', head: head, opts: opts, empty: 'No target matches — try a group, restaurant or serial.' };
+    updateUI();
   }
-  function refBtn(k, v, label) {
-    var on = S.refine[k] === v;
-    return '<button type="button" class="p-ref' + (on ? ' on' : '') + '" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
+  function toggleDevice(serial) {
+    disarm();
+    if (S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; })) {
+      S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === serial); });
+    } else {
+      if (hasKind('group')) { setHint('One send can target groups OR picked devices, not both — remove the group pills first.'); return; }
+      S.targets = S.targets.filter(function (t) { return t.kind === 'device'; });
+      S.targets.push({ kind: 'device', serial: serial });
+    }
+    updateUI();
   }
   function addSerials(raw) {
     var kinds = S.targets.map(function (t) { return t.kind; });
@@ -760,64 +808,288 @@ window.CMD_PREFILL = {{.Prefill}};
     });
   }
 
-  function renderMenu() {
-    if (!menu.kind) return;
-    var built = buildOpts();
-    menu.opts = built.opts;
-    if (menu.hot >= menu.opts.length) menu.hot = Math.max(0, menu.opts.length - 1);
-    drop.innerHTML = (built.head || '')
-      + (built.cap ? '<div class="p-d-cap">' + built.cap + '</div>' : '')
-      + (menu.opts.length ? menu.opts.map(optHtml).join('') : '<div class="p-empty">' + (built.empty || 'Nothing here.') + '</div>');
-    drop.classList.add('on');
+  // ── Basket ──
+  function targetLabel(t) {
+    if (t.kind === 'all') return 'All devices';
+    if (t.count != null && t.kind !== 'device') return t.name + ' ×' + t.count;
+    return t.name || t.serial;
   }
-  function scrollHot() { var h = drop.querySelector('.p-opt.hot'); if (h) h.scrollIntoView({ block: 'nearest' }); }
-  function advance() {
-    var miss = firstMissing();
-    if (miss) openMenu(miss.menu); else { closeMenu(); input.focus(); }
+  function renderBasket() {
+    el('co-count').textContent = S.targets.length ? lastImpact.effective : 0;
+    el('co-count-t').textContent = 'device' + (lastImpact.effective === 1 && S.targets.length ? '' : 's') + ' selected';
+    var pills = '';
+    S.targets.forEach(function (t) {
+      pills += '<span class="co-bk-pill' + (t.kind === 'device' ? ' mono' : '') + '"><span class="lbl">' + esc(targetLabel(t)) + '</span>'
+        + '<button type="button" class="x" data-rm="' + esc(selKey(t)) + '" title="Remove" aria-label="Remove ' + esc(targetLabel(t)) + '">&times;</button></span>';
+    });
+    el('co-pills').innerHTML = pills || '<span class="co-listempty" style="padding:2px 0 0">Nothing selected yet.</span>';
+    // Refine chips only make sense for a scope selection (all / restaurant / one group).
+    var scoped = el('f-ttype').value === 'scope';
+    var ref = el('co-refine');
+    ref.hidden = !scoped;
+    if (scoped) {
+      ref.innerHTML = refBtn('status', 'online', 'Online only') + refBtn('battery', 'low', 'Low battery') + refBtn('kiosk', 'enabled', 'In kiosk');
+    }
+    renderMix();
   }
-  function pickOpt(i) {
-    var o = menu.opts[i]; if (!o) return;
-    o.pick();
-    disarm();
-    updateUI();
-    if (o.keepOpen) renderMenu(); else if (o.advance) advance(); else closeMenu();
+  function refBtn(k, v, label) {
+    var on = S.refine[k] === v;
+    return '<button type="button" class="co-ref' + (on ? ' on' : '') + '" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + on + '">' + label + '</button>';
   }
-  function setAction(a) {
-    var changed = !S.action || S.action.t !== a.t;
-    S.action = a;
-    if (changed) { S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; S.reason = ''; }
-    input.value = '';
+  function renderMix() {
+    var m = el('co-mix');
+    if (!S.targets.length) { m.innerHTML = ''; el('co-warn').hidden = true; return; }
+    m.innerHTML =
+      '<span><span class="dot" style="background:var(--ok)"></span><b>' + lastImpact.online + '</b> online</span>'
+      + '<span><span class="dot" style="background:var(--rule)"></span><b>' + lastImpact.offline + '</b> queued</span>'
+      + '<span><span class="dot" style="background:var(--accent-2)"></span><b>' + lastImpact.dpc + '</b> DPC</span>';
+    el('co-warn').hidden = !lastWarn;
+    if (lastWarn) el('co-warn-t').textContent = lastWarn;
   }
 
-  // ── Async datasets ──
-  // Devices: /commands/browse-devices renders the checkbox-row partial the old
-  // builder used; parse its stable data out (serial, online dot, battery, build).
-  var devCache = {}, devLoading = false, devTimer = null;
-  function devKey(q) { return (q || '') + '|' + JSON.stringify(S.refine); }
-  function ensureDevices(q) {
-    var key = devKey(q);
-    if (devCache[key]) return;
-    clearTimeout(devTimer);
-    devTimer = setTimeout(function () {
-      devLoading = true;
-      var p = new URLSearchParams();
-      if (q) p.set('q', q);
-      fetch('/commands/browse-devices?' + p.toString()).then(function (r) { return r.text(); }).then(function (html) {
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var out = [];
-        doc.querySelectorAll('.cb-row').forEach(function (row) {
-          if (out.length >= 8) return;
-          var cb = row.querySelector('.cmd-browse-cb'); if (!cb) return;
-          var bat = row.querySelector('.dp-bchip'); var sub = row.querySelector('.cb-sub');
-          out.push({ serial: cb.value, online: !!row.querySelector('.cb-status i.on'),
-                     bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
-                     sub: sub ? sub.textContent.trim() : '' });
-        });
-        devCache[key] = out; devLoading = false;
-        if (menu.kind === 'target') renderMenu();
-      }).catch(function () { devLoading = false; });
-    }, q ? 250 : 0);
+  // ── Action grid ──
+  function actionCard(a) {
+    var n = incompatCount(a);
+    var dim = n > 0;
+    var on = S.action && S.action.t === a.t;
+    var danger = a.t === 'wipe';
+    var cls = 'co-act' + (on ? ' on' : '') + (dim ? ' dim' : '') + (danger ? ' danger' : '');
+    var capTag = a.cap ? '<span class="captag' + (a.cap === 'DPC only' ? ' dpc' : '') + '">' + esc(a.cap) + '</span>' : '';
+    var cav = '';
+    if (dim) {
+      var why = incompatWhy(a, n);
+      cav = '<span class="cav' + (n >= lastImpact.effective / 2 ? ' hard' : '') + '"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>' + esc(why) + '</span>';
+    }
+    return '<button type="button" class="' + cls + '" data-t="' + a.t + '">'
+      + '<span class="ic">' + svg(a.t) + '</span>'
+      + '<span class="nm">' + esc(a.n) + '</span><span class="ds">' + esc(a.d) + '</span>' + capTag + cav + '</button>';
   }
+  function renderGrid() {
+    var byType = {};
+    DS.actions.forEach(function (a) { byType[a.t] = a; });
+    var placed = {};
+    var html = '';
+    GRID_GROUPS.forEach(function (g) {
+      var acts = g[1].filter(function (t) { placed[t] = true; return byType[t]; });
+      if (!acts.length) return;
+      html += '<div class="co-gcap' + (g[0] === 'Danger zone' ? ' danger' : '') + '">' + g[0] + '</div><div class="co-agrid">'
+        + acts.map(function (t) { return actionCard(byType[t]); }).join('') + '</div>';
+    });
+    var extra = DS.actions.filter(function (a) { return !placed[a.t]; });
+    if (extra.length) html += '<div class="co-gcap">Other</div><div class="co-agrid">' + extra.map(actionCard).join('') + '</div>';
+    el('co-grid').innerHTML = html;
+  }
+
+  // ── Payload strip ──
+  function verbFor(a, n) {
+    switch (a.t) {
+      case 'install_apk': return 'push to ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'uninstall': return 'remove from ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'reboot': return 'restart ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'set_kiosk': return 'kiosk config on ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'screenshot': return 'capture ' + n + ' screen' + (n === 1 ? '' : 's');
+      case 'shell': return 'run on ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'query': return 'query ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'update_splash': return 'reflash ' + n + ' splash image' + (n === 1 ? '' : 's');
+      case 'wipe': return 'ERASE ' + n + ' device' + (n === 1 ? '' : 's') + ' completely';
+    }
+    return a.d;
+  }
+  function chip(lbl, rmKind, rmKey) {
+    return '<span class="co-chip"><span class="lbl">' + esc(lbl) + '</span><button type="button" class="x" data-chip-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" aria-label="Remove ' + esc(lbl) + '">&times;</button></span>';
+  }
+  function renderStrip() {
+    if (!S.action) { stripEl.hidden = true; closeMenu(); return; }
+    stripEl.hidden = false;
+    el('co-st-ic').innerHTML = svg(S.action.t);
+    el('co-st-t').textContent = S.action.n;
+    renderPay();
+    var rs = el('co-reason');
+    rs.style.display = (S.action.destr && DS.requireReason) ? '' : 'none';
+    rs.placeholder = 'Reason — recorded in the audit log' + (DS.requireReason ? ' (required)' : '');
+    if (rs.value !== S.reason) rs.value = S.reason;
+    updateArmedUI();
+    updateStripMeta();
+  }
+  function renderPay() {
+    var pay = el('co-pay');
+    if (!S.action) { pay.innerHTML = ''; return; }
+    var html = '';
+    switch (S.action.p) {
+      case 'apps':
+        S.apps.forEach(function (a) { html += chip(a.name, 'app', a.url); });
+        html += '<button type="button" class="co-addbtn" data-menu="apps"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' + (S.apps.length ? 'Add another app' : 'Pick apps from the library') + '</button>';
+        break;
+      case 'pkgs':
+        S.pkgs.forEach(function (p) { html += chip(p.name || p.pkg, 'pkg', p.pkg); });
+        html += '<button type="button" class="co-addbtn" data-menu="pkgs"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' + (S.pkgs.length ? 'Add another package' : 'Pick installed packages') + '</button>';
+        break;
+      case 'shell':
+        html += '<input class="co-in mono" id="co-shell" placeholder="Shell command — e.g. df -h" value="' + esc(S.shell) + '">';
+        break;
+      case 'query':
+        html += '<select class="co-in" id="co-query"><option value="">Pick a vetted query…</option>'
+          + DS.queries.map(function (x) { return '<option value="' + x.id + '"' + (S.query && S.query.id === x.id ? ' selected' : '') + '>' + esc(x.label) + (x.cat ? ' — ' + esc(x.cat) : '') + '</option>'; }).join('')
+          + '</select>';
+        break;
+      case 'kiosk':
+        var lockOn = S.kiosk && S.kiosk.enabled === '1';
+        var unlockOn = S.kiosk && S.kiosk.enabled === '0';
+        html += '<div class="co-seg"><button type="button" data-kiosk="lock" class="' + (lockOn ? 'on' : '') + '">Lock to an app</button><button type="button" data-kiosk="unlock" class="' + (unlockOn ? 'on' : '') + '">Unlock</button></div>';
+        if (lockOn) {
+          html += S.kiosk.pkg ? chip('Lock to ' + (S.kiosk.name || S.kiosk.pkg), 'kioskpkg', '')
+            : '<button type="button" class="co-addbtn" data-menu="kioskpkg"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Choose the pinned app</button>';
+        }
+        if (unlockOn) html += '<span class="co-paynote">exit kiosk — home, recents and status bar return</span>';
+        break;
+      case 'splash':
+        html += '<input class="co-in mono" id="co-splash" placeholder="Image URL — BMP/PNG/JPEG, wrapped into splash.img server-side" value="' + esc(S.splash) + '">';
+        break;
+      default:
+        html += '<span class="co-paynote">No parameters — review the counts and send.</span>';
+    }
+    pay.innerHTML = html;
+    var sh = el('co-shell');
+    if (sh) { sh.addEventListener('input', function () { S.shell = sh.value; syncFormQuiet(); }); sh.addEventListener('focus', function () { openMenu('shell', sh); }); sh.addEventListener('input', function () { if (menu.kind === 'shell') renderMenu(); }); bindEnter(sh); }
+    var sp = el('co-splash');
+    if (sp) { sp.addEventListener('input', function () { S.splash = sp.value; syncFormQuiet(); }); bindEnter(sp); }
+    var qs = el('co-query');
+    if (qs) qs.addEventListener('change', function () {
+      var id = parseInt(qs.value, 10);
+      var x = DS.queries.find(function (o) { return o.id === id; });
+      S.query = x ? { id: x.id, label: x.label } : null;
+      disarm(); syncForm(); updateStripMeta();
+    });
+  }
+  // Payload keystrokes shouldn't re-render the strip (focus loss) — only sync + label.
+  var quietTimer = null;
+  function syncFormQuiet() { disarm(); clearTimeout(quietTimer); quietTimer = setTimeout(function () { syncForm(); updateStripMeta(); }, 250); }
+  function bindEnter(inp) { inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); closeMenu(); send(); } }); }
+
+  function updateStripMeta() {
+    if (!S.action) return;
+    var n = lastImpact.effective;
+    el('co-st-s').textContent = verbFor(S.action, n);
+    updateSendLabel();
+    updateNote();
+  }
+  function updateSendLabel() {
+    var lbl = el('co-send-label'); if (!lbl) return;
+    var btn = el('co-send');
+    var n = lastImpact.effective;
+    if (btn) btn.classList.toggle('arm', armed);
+    if (armed) { lbl.textContent = S.action && S.action.t === 'wipe' ? 'Confirm wipe' : 'Confirm ×' + (n || '?'); return; }
+    lbl.textContent = n > 0 ? 'Send to ' + n + ' device' + (n === 1 ? '' : 's') : 'Send';
+  }
+  function updateNote() {
+    var note = el('co-note'); if (!note || !S.action) return;
+    var n = incompatCount(S.action);
+    if (n > 0) {
+      var compat = lastImpact.effective - n;
+      note.innerHTML = '<b>' + n + ' of ' + lastImpact.effective + '</b> ' + esc(incompatWhy(S.action, n).replace(/^\d+ of \d+ /, ''))
+        + (compat > 0 && CAN ? ' <button type="button" class="co-subset" id="co-subset">Send to the ' + compat + ' compatible only</button>' : ' — nothing in the selection can run it.');
+    } else if (S.targets.length && lastImpact.effective > 0) {
+      note.innerHTML = esc(lastImpact.online + ' delivered live over WebSocket · ' + lastImpact.offline + ' queued for next check-in')
+        + (S.targets.length && S.targets[0].kind === 'all' ? ' · targets the whole fleet' : '');
+    } else {
+      note.innerHTML = 'Pick devices on the left — the counts fill in live.';
+    }
+  }
+  function updateArmedUI() {
+    var w = el('co-wipe');
+    var showWipe = armed && S.action && S.action.t === 'wipe';
+    w.style.display = showWipe ? '' : 'none';
+    if (!showWipe) w.value = '';
+    updateSendLabel();
+  }
+
+  // ── Strip dropdown menu (apps / packages / kiosk app / shell suggestions) ──
+  var menu = { kind: null, anchor: null };
+  function closeMenu() { menu.kind = null; menu.anchor = null; menuEl.classList.remove('on'); }
+  function openMenu(kind, anchor) {
+    if (!CAN) return;
+    menu.kind = kind; menu.anchor = anchor || null;
+    if (kind === 'pkgs') ensurePkgs();
+    renderMenu();
+  }
+  function positionMenu() {
+    var a = menu.anchor;
+    if (!a) { menuEl.style.left = '16px'; menuEl.style.top = '100%'; return; }
+    var sr = stripEl.getBoundingClientRect(), ar = a.getBoundingClientRect();
+    var left = Math.max(4, Math.min(ar.left - sr.left, sr.width - 404));
+    menuEl.style.left = left + 'px';
+    menuEl.style.top = (ar.bottom - sr.top + 6) + 'px';
+  }
+  function optHtml(o) {
+    var icon = o.img ? '<img src="' + o.img + '" alt="">' : svg(o.icon || S.action.t);
+    return '<button type="button" class="co-opt" data-oi="' + o.i + '">'
+      + '<span class="ic">' + icon + '</span>'
+      + '<span class="tx"><span class="n' + (o.mono ? ' mono' : '') + '">' + esc(o.title) + '</span>' + (o.meta ? '<span class="m">' + esc(o.meta) + '</span>' : '') + '</span>'
+      + (o.sel ? '<span class="k">added</span>' : '') + '</button>';
+  }
+  var menuOpts = [];
+  function match(hay, q) { return !q || hay.toLowerCase().indexOf(q.toLowerCase()) >= 0; }
+  function buildMenuOpts(q) {
+    var opts = [], empty = 'Nothing here.';
+    if (menu.kind === 'apps') {
+      DS.apps.forEach(function (a) {
+        if (!match(a.name + ' ' + (a.pkg || ''), q)) return;
+        var sel = S.apps.some(function (x) { return x.url === a.url; });
+        opts.push({ img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel, keepOpen: true,
+          pick: function () { if (sel) S.apps = S.apps.filter(function (x) { return x.url !== a.url; }); else S.apps.push({ url: a.url, name: a.name }); } });
+      });
+      empty = DS.apps.length ? 'No app matches.' : 'No apps in the library yet — add one in Settings → App library.';
+    } else if (menu.kind === 'pkgs') {
+      if (pkgsLoading) { empty = 'Loading apps installed on the target…'; }
+      (pkgsList || []).forEach(function (p) {
+        if (!match(p.name + ' ' + p.pkg, q)) return;
+        var sel = S.pkgs.some(function (x) { return x.pkg === p.pkg; });
+        opts.push({ img: p.img || '', title: p.name, meta: p.pkg + (p.count ? ' · ' + p.count : ''), sel: sel, keepOpen: true, icon: 'uninstall',
+          pick: function () { if (sel) S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== p.pkg; }); else S.pkgs.push({ pkg: p.pkg, name: p.name }); } });
+      });
+      if (!pkgsLoading && !(pkgsList || []).length) empty = S.targets.length ? 'No uninstallable apps reported on the selection.' : 'Pick a target first — the list shows what is actually installed there.';
+    } else if (menu.kind === 'kioskpkg') {
+      DS.packages.forEach(function (p) {
+        if (!match(p.name + ' ' + p.pkg, q)) return;
+        if (opts.length >= 40) return;
+        opts.push({ img: p.icon ? 'data:image/png;base64,' + p.icon : '', title: p.name, meta: p.pkg + ' · ' + p.count + ' device' + (p.count === 1 ? '' : 's'), icon: 'set_kiosk',
+          pick: function () { S.kiosk = { enabled: '1', pkg: p.pkg, name: p.name }; } });
+      });
+      empty = q ? 'No app matches — it must be installed somewhere on the fleet.' : 'No packages reported yet.';
+    } else if (menu.kind === 'shell') {
+      DS.shellRecent.forEach(function (c) { if (match(c, q)) opts.push({ icon: 'shell', title: c, mono: true, meta: 'recent', pick: function () { S.shell = c; var sh = el('co-shell'); if (sh) sh.value = c; } }); });
+      DS.shellPopular.forEach(function (c) { if (match(c, q) && DS.shellRecent.indexOf(c) < 0) opts.push({ icon: 'shell', title: c, mono: true, meta: 'frequent', pick: function () { S.shell = c; var sh = el('co-shell'); if (sh) sh.value = c; } }); });
+      empty = '';
+    }
+    opts.forEach(function (o, i) { o.i = i; });
+    return { opts: opts, empty: empty };
+  }
+  function renderMenu() {
+    if (!menu.kind) return;
+    var withSearch = menu.kind !== 'shell';
+    var prev = menuEl.querySelector('.msrch');
+    var q = menu.kind === 'shell' ? (el('co-shell') ? el('co-shell').value.trim() : '') : (prev ? prev.value : '');
+    var built = buildMenuOpts(q);
+    menuOpts = built.opts;
+    if (menu.kind === 'shell' && !menuOpts.length) { closeMenu(); return; }
+    menuEl.innerHTML = (withSearch ? '<input class="msrch" type="text" placeholder="Search…" value="' + esc(q) + '">' : '')
+      + '<div class="mlist">' + (menuOpts.length ? menuOpts.map(optHtml).join('') : '<div class="co-mempty">' + built.empty + '</div>') + '</div>';
+    menuEl.classList.add('on');
+    positionMenu();
+    var srch = menuEl.querySelector('.msrch');
+    if (srch) {
+      srch.addEventListener('input', function () { renderMenuKeepFocus(); });
+      if (prev) { srch.focus(); srch.setSelectionRange(srch.value.length, srch.value.length); }
+    }
+  }
+  function renderMenuKeepFocus() {
+    var srch = menuEl.querySelector('.msrch');
+    var q = srch ? srch.value : '';
+    var built = buildMenuOpts(q);
+    menuOpts = built.opts;
+    menuEl.querySelector('.mlist').innerHTML = menuOpts.length ? menuOpts.map(optHtml).join('') : '<div class="co-mempty">' + built.empty + '</div>';
+  }
+
   // Uninstall packages, scoped to the current target via /commands/target-packages.
   var pkgsList = null, pkgsLoading = false, pkgsKey = '';
   function ensurePkgs() {
@@ -835,158 +1107,233 @@ window.CMD_PREFILL = {{.Prefill}};
                    count: (b.querySelector('.cnt') || { textContent: '' }).textContent.trim(), img: img ? img.getAttribute('src') : '' });
       });
       pkgsList = out; pkgsLoading = false;
-      if (menu.kind === 'payload' && S.action && S.action.p === 'pkgs') renderMenu();
+      if (menu.kind === 'pkgs') renderMenuKeepFocus();
     }).catch(function () { pkgsLoading = false; pkgsList = []; });
   }
 
-  // ── Token removal ──
-  function removeTok(kind, key) {
-    if (kind === 'action') { S.action = null; S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; S.reason = ''; }
-    else if (kind === 'payload') { S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; }
-    else if (kind === 'reason') S.reason = '';
-    else if (kind === 'target') S.targets = S.targets.filter(function (t) { return (t.kind + ':' + (t.id || t.serial || 'all')) !== key; });
-    disarm(); updateUI();
-    if (menu.kind) renderMenu();
+  // ── Subset to compatible: turn the selection into explicit serials that CAN run
+  // the chosen action (resolving scopes via the browse partial). ──
+  function fetchScopeRows(t) {
+    var p = new URLSearchParams();
+    if (t.kind === 'restaurant') p.set('restaurant', t.id);
+    if (t.kind === 'group') p.set('group', t.id);
+    if (el('f-ttype').value === 'scope') {
+      if (S.refine.status) p.set('status', S.refine.status);
+      if (S.refine.battery) p.set('battery', S.refine.battery);
+      if (S.refine.kiosk) p.set('kiosk', S.refine.kiosk);
+    }
+    return fetch('/commands/browse-devices?' + p.toString()).then(function (r) { return r.text(); }).then(parseRows);
   }
-  function popToken() {
-    if (S.reason) { S.reason = ''; }
-    else if (S.targets.length) { S.targets.pop(); }
-    else if (S.action && (S.apps.length || S.pkgs.length || S.shell || S.query || S.kiosk || S.splash)) {
-      if (S.apps.length) S.apps.pop();
-      else if (S.pkgs.length) S.pkgs.pop();
-      else { S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; }
-    } else if (S.action) { S.action = null; }
-    else return;
-    disarm(); updateUI();
-    if (menu.kind) renderMenu();
+  function subsetCompatible() {
+    if (!S.action) return;
+    var needDpc = S.action.cap === 'DPC only';
+    var jobs = S.targets.map(function (t) {
+      if (t.kind === 'device') {
+        var m = devMeta[t.serial];
+        // Unknown serials count as system-app clients (the server treats missing
+        // agent_type the same way).
+        return Promise.resolve([{ serial: t.serial, dpc: m ? m.dpc : false }]);
+      }
+      return fetchScopeRows(t);
+    });
+    Promise.all(jobs).then(function (lists) {
+      var seen = {}, keep = [];
+      lists.forEach(function (rows) {
+        rows.forEach(function (r) {
+          if (seen[r.serial]) return;
+          seen[r.serial] = 1;
+          noteMeta([r]);
+          if (needDpc ? r.dpc : !r.dpc) keep.push(r.serial);
+        });
+      });
+      if (!keep.length) { toast('No compatible devices in the selection', 'error'); return; }
+      S.targets = keep.map(function (s) { return { kind: 'device', serial: s }; });
+      disarm(); updateUI();
+      toast('Selection narrowed to ' + keep.length + ' compatible device' + (keep.length === 1 ? '' : 's'), 'success');
+    }).catch(function () { toast('Could not resolve the selection', 'error'); });
   }
 
-  // ── Send (with confirm step for destructive / fleet-wide sends) ──
-  function disarm() { if (!armed) return; armed = false; clearTimeout(armTimer); renderTokens(); setHint(''); }
+  // ── Send (same safety gates as before: two-step confirm for destructive /
+  // fleet-wide, typed WIPE for wipe, reason blocking) ──
+  function disarm() { if (!armed) return; armed = false; clearTimeout(armTimer); updateArmedUI(); updateNote(); }
   function send() {
     if (!CAN) return;
     var miss = firstMissing();
-    if (miss) { setHint(miss.msg); openMenu(miss.menu); input.focus(); return; }
+    if (miss) { setHint(miss.msg); if (miss.focus) { var f = el(miss.focus); if (f) f.focus(); } return; }
     closeMenu();
     var fleetWide = el('f-smode').value === 'all';
     var wipe = S.action.t === 'wipe';
     if ((S.action.destr || fleetWide) && !armed) {
       armed = true;
-      renderTokens();
+      updateArmedUI();
       var n = lastImpact.effective;
       setHint(wipe
-        ? 'Factory wipe erases ' + (n || 'the targeted') + ' device(s) completely. Type WIPE in the bar, then press Enter.'
-        : (fleetWide ? 'This targets the whole fleet (' + n + ' devices, online and offline). ' : '') + 'Press Enter or Send again to confirm.');
+        ? 'Factory wipe erases ' + (n || 'the targeted') + ' device(s) completely. Type WIPE in the box, then press Send again.'
+        : (fleetWide ? 'This targets the whole fleet (' + n + ' devices, online and offline). ' : '') + 'Press Send again to confirm.');
       armTimer = setTimeout(disarm, 10000);
-      input.focus();
+      if (wipe) el('co-wipe').focus();
       return;
     }
-    if (wipe && input.value.trim() !== 'WIPE') { setHint('Type WIPE (all caps) in the bar to confirm the factory wipe.'); input.focus(); return; }
-    if (wipe) input.value = '';
+    if (wipe && el('co-wipe').value.trim() !== 'WIPE') { setHint('Type WIPE (all caps) in the box to confirm the factory wipe.'); el('co-wipe').focus(); return; }
     submitNow();
   }
   function submitNow() {
-    var sendBtn = el('p-send');
+    var sendBtn = el('co-send');
     if (sendBtn) sendBtn.disabled = true;
     var body = new URLSearchParams();
     new FormData(form).forEach(function (v, k) { body.append(k, v); });
     fetch(form.action, { method: 'POST', body: body, headers: { 'Accept': 'text/html' } }).then(function (res) {
       if (sendBtn) sendBtn.disabled = false;
-      armed = false; clearTimeout(armTimer);
+      armed = false; clearTimeout(armTimer); updateArmedUI();
       if (!res.ok) {
         return res.text().then(function (t) {
           var m = (t || 'Send failed').trim().split('\n')[0].slice(0, 200);
-          setHint(m); if (window.showToast) showToast(m, 'error');
-          renderTokens();
+          setHint(m); toast(m, 'error');
         });
       }
       var flash = '', ftype = 'success';
       try { var u = new URL(res.url, location.origin); flash = u.searchParams.get('flash') || ''; if (flash) ftype = u.searchParams.get('flash_type') || 'info'; } catch (e) {}
-      if (window.showToast) showToast(flash || 'Action sent — tracking in Live activity', ftype);
-      S.reason = ''; input.value = ''; setHint('');
+      toast(flash || 'Action sent — tracking in Live activity below', ftype);
+      S.reason = ''; el('co-wipe').value = '';
       updateUI();
       document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
     }).catch(function () {
       if (sendBtn) sendBtn.disabled = false; disarm();
-      if (window.showToast) showToast('Network error — action not sent', 'error');
+      toast('Network error — action not sent', 'error');
     });
   }
 
-  // ── Wiring ──
-  function defaultMenu() { var m = firstMissing(); return m ? m.menu : 'action'; }
-  if (CAN) {
-    form.addEventListener('submit', function (e) { e.preventDefault(); send(); });
-    el('p-send').addEventListener('click', function (e) { e.stopPropagation(); send(); });
+  // ── Top-level render + wiring ──
+  function updateUI() {
+    syncForm();
+    renderScopes();
+    renderDevs();
+    renderBasket();
+    renderGrid();
+    renderStrip();
+  }
+  function setAction(a) {
+    var changed = !S.action || S.action.t !== a.t;
+    S.action = a;
+    if (changed) { S.apps = []; S.pkgs = []; S.shell = ''; S.query = null; S.kiosk = null; S.splash = ''; S.reason = ''; closeMenu(); }
+    disarm();
+  }
 
-    bar.addEventListener('click', function (e) {
-      var x = e.target.closest('.x');
-      if (x) { removeTok(x.dataset.rm, x.dataset.key); e.stopPropagation(); return; }
-      if (e.target.closest('.p-go')) return;
-      input.focus();
-      var t = e.target.closest('[data-menu]');
-      if (t) { e.stopPropagation(); openMenu(t.dataset.menu); }
-      else if (!menu.kind) openMenu(defaultMenu());
+  if (CAN) {
+    el('co-send') && el('co-send').addEventListener('click', function () { send(); });
+    el('co-reason').addEventListener('input', function () { S.reason = el('co-reason').value; el('f-reason').value = S.reason.trim(); });
+    bindEnter(el('co-reason'));
+    bindEnter(el('co-wipe'));
+
+    // Rail wiring.
+    qEl.addEventListener('input', function () { renderScopes(); ensureDevices(false); });
+    qEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { qEl.value = ''; renderScopes(); ensureDevices(true); qEl.blur(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var toks = pasteTokens();
+        if (toks) { addSerials(qEl.value); qEl.value = ''; ensureDevices(true); updateUI(); }
+      }
+    });
+    el('co-quick').addEventListener('click', function (e) {
+      var b = e.target.closest('.co-qf'); if (!b) return;
+      var k = b.dataset.qf;
+      QF[k] = !QF[k];
+      if (k === 'online' && QF.online) QF.offline = false;
+      if (k === 'offline' && QF.offline) QF.online = false;
+      renderQuick();
+      if (k === 'kiosk') ensureDevices(true); else renderDevs();
+    });
+    el('co-scopes').addEventListener('click', function (e) {
+      var b = e.target.closest('.co-scope'); if (!b) return;
+      toggleScope(b.dataset.kind, b.dataset.id || null);
+    });
+    el('co-devs').addEventListener('click', function (e) {
+      var paste = e.target.closest('#co-addpaste');
+      if (paste) { addSerials(qEl.value); qEl.value = ''; ensureDevices(true); updateUI(); return; }
+      var b = e.target.closest('.co-dev'); if (!b) return;
+      toggleDevice(b.dataset.serial);
+    });
+    el('co-clear').addEventListener('click', function () { S.targets = []; disarm(); updateUI(); });
+    el('co-pills').addEventListener('click', function (e) {
+      var x = e.target.closest('[data-rm]'); if (!x) return;
+      S.targets = S.targets.filter(function (t) { return selKey(t) !== x.dataset.rm; });
+      disarm(); updateUI();
+    });
+    el('co-refine').addEventListener('click', function (e) {
+      var b = e.target.closest('.co-ref'); if (!b) return;
+      var k = b.dataset.k;
+      S.refine[k] = S.refine[k] === b.dataset.v ? '' : b.dataset.v;
+      pkgsKey = ''; disarm(); updateUI();
     });
 
-    drop.addEventListener('mousedown', function (e) { e.preventDefault(); }); // keep the bar focused
-    drop.addEventListener('click', function (e) {
-      e.stopPropagation();
-      var ref = e.target.closest('.p-ref');
-      if (ref) {
-        var k = ref.dataset.k;
-        S.refine[k] = S.refine[k] === ref.dataset.v ? '' : ref.dataset.v;
-        devCache = {};
-        updateUI(); ensureDevices(input.value.trim()); renderMenu();
+    // Grid + strip wiring.
+    el('co-grid').addEventListener('click', function (e) {
+      var b = e.target.closest('.co-act'); if (!b) return;
+      var a = DS.actions.find(function (x) { return x.t === b.dataset.t; }); if (!a) return;
+      var n = incompatCount(a);
+      setAction(a);
+      updateUI();
+      if (n > 0) toast(incompatWhy(a, n) + ' — use "Send to the compatible only" to narrow the selection', 'info');
+      stripEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    stripEl.addEventListener('click', function (e) {
+      var sub = e.target.closest('#co-subset');
+      if (sub) { subsetCompatible(); return; }
+      var rm = e.target.closest('[data-chip-rm]');
+      if (rm) {
+        var kind = rm.dataset.chipRm, key = rm.dataset.key;
+        if (kind === 'app') S.apps = S.apps.filter(function (x) { return x.url !== key; });
+        else if (kind === 'pkg') S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== key; });
+        else if (kind === 'kioskpkg') S.kiosk = { enabled: '1' };
+        disarm(); syncForm(); renderPay(); updateStripMeta();
         return;
       }
-      var b = e.target.closest('.p-opt');
-      if (b) pickOpt(+b.dataset.i);
-    });
-
-    input.addEventListener('input', function () {
-      if (armed && S.action && S.action.t === 'wipe') return; // typing the WIPE confirmation
-      if (!menu.kind) openMenu(defaultMenu());
-      else { menu.hot = 0; if (menu.kind === 'target') ensureDevices(input.value.trim()); renderMenu(); }
-    });
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); if (!menu.kind) openMenu(defaultMenu()); else { menu.hot = Math.min(menu.hot + 1, menu.opts.length - 1); renderMenu(); scrollHot(); } }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); if (menu.kind) { menu.hot = Math.max(menu.hot - 1, 0); renderMenu(); scrollHot(); } }
-      else if (e.key === 'Tab') {
-        e.preventDefault();
-        var order = ['action', 'payload', 'target'].concat(needsReasonToken() ? ['reason'] : []);
-        if (S.action && S.action.p === 'none') order.splice(order.indexOf('payload'), 1);
-        var idx = order.indexOf(menu.kind);
-        openMenu(order[(idx + (e.shiftKey ? -1 : 1) + order.length) % order.length]);
+      var seg = e.target.closest('[data-kiosk]');
+      if (seg) {
+        S.kiosk = seg.dataset.kiosk === 'unlock' ? { enabled: '0' } : { enabled: '1', pkg: (S.kiosk && S.kiosk.pkg) || '', name: (S.kiosk && S.kiosk.name) || '' };
+        disarm(); syncForm(); renderPay(); updateStripMeta();
+        if (S.kiosk.enabled === '1' && !S.kiosk.pkg) openMenu('kioskpkg', stripEl.querySelector('[data-menu="kioskpkg"]'));
+        return;
       }
-      else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (armed) { send(); return; }
-        if (menu.kind && menu.opts.length) pickOpt(menu.hot);
-        else if (menu.kind && !menu.opts.length && !input.value) { closeMenu(); }
-        else send();
-      }
-      else if (e.key === 'Escape') { if (menu.kind) closeMenu(); else if (armed) disarm(); else input.blur(); }
-      else if (e.key === 'Backspace' && !input.value) { e.preventDefault(); popToken(); }
+      var add = e.target.closest('[data-menu]');
+      if (add) { openMenu(add.dataset.menu, add); return; }
+    });
+    menuEl.addEventListener('mousedown', function (e) { if (!e.target.closest('.msrch')) e.preventDefault(); });
+    menuEl.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var b = e.target.closest('.co-opt'); if (!b) return;
+      var o = menuOpts[+b.dataset.oi]; if (!o) return;
+      o.pick();
+      disarm(); syncForm(); renderPay(); updateStripMeta();
+      if (o.keepOpen) renderMenuKeepFocus(); else closeMenu();
+      if (menu.kind) positionMenu();
     });
 
     // Global keys + click-away (replace previous handlers across boosted swaps).
-    if (window.__palDocKey) document.removeEventListener('keydown', window.__palDocKey);
-    window.__palDocKey = function (e) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        var inp = document.getElementById('p-input'); if (!inp) return;
-        e.preventDefault(); inp.focus();
+    if (window.__coDocKey) document.removeEventListener('keydown', window.__coDocKey);
+    if (window.__palDocKey) { document.removeEventListener('keydown', window.__palDocKey); window.__palDocKey = null; }
+    window.__coDocKey = function (e) {
+      if (e.key === 'Escape') { closeMenu(); if (typeof closeRecipeModal === 'function') closeRecipeModal(); return; }
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+      if (e.key === '/') {
+        var q = document.getElementById('co-q'); if (!q) return;
+        e.preventDefault(); q.focus();
       }
     };
-    document.addEventListener('keydown', window.__palDocKey);
-    if (window.__palDocClick) document.removeEventListener('click', window.__palDocClick);
-    window.__palDocClick = function (e) { if (!e.target.closest('.p-pal')) closeMenu(); };
-    document.addEventListener('click', window.__palDocClick);
-    input.addEventListener('focus', function () { if (!menu.kind && !armed) openMenu(defaultMenu()); });
+    document.addEventListener('keydown', window.__coDocKey);
+    if (window.__coDocClick) document.removeEventListener('click', window.__coDocClick);
+    if (window.__palDocClick) { document.removeEventListener('click', window.__palDocClick); window.__palDocClick = null; }
+    window.__coDocClick = function (e) { if (!e.target.closest('.co-menu') && !e.target.closest('[data-menu]')) closeMenu(); };
+    document.addEventListener('click', window.__coDocClick);
   }
 
-  // Impact fragment reloaded → mirror the resolved counts onto the Send button.
-  if (window.__palImpact) document.body.removeEventListener('htmx:afterSwap', window.__palImpact);
-  window.__palImpact = function (e) {
+  // Impact fragment reloaded → mirror the resolved counts (incl. DPC) onto the
+  // basket, the capability grid and the Send button.
+  if (window.__coImpact) document.body.removeEventListener('htmx:afterSwap', window.__coImpact);
+  if (window.__palImpact) { document.body.removeEventListener('htmx:afterSwap', window.__palImpact); window.__palImpact = null; }
+  window.__coImpact = function (e) {
     if (!e.target || e.target.id !== 'cmd-impact') return;
     var b = e.target.querySelector('.imp-body');
     if (!b) return;
@@ -994,15 +1341,20 @@ window.CMD_PREFILL = {{.Prefill}};
       effective: parseInt(b.dataset.effective || '0', 10),
       online: parseInt(b.dataset.online || '0', 10),
       offline: parseInt(b.dataset.offline || '0', 10),
+      dpc: parseInt(b.dataset.dpc || '0', 10),
       verb: b.dataset.verb || ''
     };
-    updateSendLabel();
+    var w = e.target.querySelector('.imp-warn');
+    lastWarn = w ? w.textContent.trim() : '';
+    renderBasket();
+    renderGrid();
+    updateStripMeta();
   };
-  document.body.addEventListener('htmx:afterSwap', window.__palImpact);
+  document.body.addEventListener('htmx:afterSwap', window.__coImpact);
 
   // Fill the recent-send icons (server rows carry data-act-icon).
   document.querySelectorAll('#p-pinned .ic[data-act-icon]').forEach(function (ic) {
-    ic.innerHTML = '<svg viewBox="0 0 24 24">' + (ICONS[ic.dataset.actIcon] || ICONS.dot) + '</svg>';
+    ic.innerHTML = svg(ic.dataset.actIcon);
   });
 
   // ── Prefill: pinned/recent rows, ?clone= (Duplicate & edit), ?serials= (bulk
@@ -1010,50 +1362,48 @@ window.CMD_PREFILL = {{.Prefill}};
   // shell_cmd, query_id, serials, groups, target}. ──
   function applyPrefill(pf) {
     if (!pf || !pf.type) return false;
-    var act = null;
-    DS.actions.forEach(function (a) { if (a.t === pf.type) act = a; });
-    if (!act) { if (window.showToast) showToast('Your role cannot send “' + pf.type + '” actions', 'error'); return false; }
+    var act = DS.actions.find(function (a) { return a.t === pf.type; });
+    if (!act) { toast('Your role cannot send “' + pf.type + '” actions', 'error'); return false; }
     setAction(act); S.action = act;
     var urls = pf.apk_urls || (pf.apk_url ? [pf.apk_url] : []);
     urls.forEach(function (u) {
-      var app = null; DS.apps.forEach(function (a) { if (a.url === u) app = a; });
+      var app = DS.apps.find(function (a) { return a.url === u; });
       S.apps.push({ url: u, name: app ? app.name : tail(u) });
     });
     var pkgs = pf.packages || (pf.package ? [pf.package] : []);
     pkgs.forEach(function (p) { S.pkgs.push({ pkg: p, name: p }); });
     if (typeof pf.shell_cmd === 'string') S.shell = pf.shell_cmd;
-    if (pf.query_id) DS.queries.forEach(function (x) { if (x.id === pf.query_id) S.query = { id: x.id, label: x.label }; });
+    if (pf.query_id) { var x = DS.queries.find(function (o) { return o.id === pf.query_id; }); if (x) S.query = { id: x.id, label: x.label }; }
     S.targets = [];
     if (pf.serials && pf.serials.length) pf.serials.forEach(function (s) { S.targets.push({ kind: 'device', serial: s }); });
     else if (pf.groups && pf.groups.length) pf.groups.forEach(function (gid) {
-      DS.groups.forEach(function (g) { if (g.id === gid) S.targets.push({ kind: 'group', id: g.id, name: g.name, count: g.count }); });
+      var g = DS.groups.find(function (o) { return o.id === gid; });
+      if (g) S.targets.push({ kind: 'group', id: g.id, name: g.name, count: g.count });
     });
     else if (pf.target === 'all') S.targets = [{ kind: 'all' }];
     updateUI();
     return true;
   }
-  window.palLoadRow = function (btn) {
+  window.coLoadRow = function (btn) {
     if (!CAN) return;
     var row = btn.closest('[data-prefill]');
     var pf; try { pf = JSON.parse(row.dataset.prefill); } catch (e) { return; }
     if (!applyPrefill(pf)) return;
-    closeMenu();
-    document.querySelector('.p-pal').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    input.focus();
-    setHint('');
-    if (window.showToast) showToast('Loaded — review the tokens, then press Enter to send', 'success');
+    document.getElementById('co-main').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('Loaded — review the selection and payload, then send', 'success');
   };
-  window.palPinRow = function (btn) {
+  window.coPinRow = function (btn) {
     if (!CAN) return;
-    window.palLoadRow(btn);
+    window.coLoadRow(btn);
     if (typeof openRecipeModal === 'function') openRecipeModal();
   };
 
-  // Init: URL serials → device tokens; clone prefill; otherwise an empty bar.
+  // Init: URL serials → selection; clone prefill; base device list for the rail.
   var qs = new URLSearchParams(window.location.search).get('serials');
-  if (qs && CAN) { addSerials(qs); }
+  if (qs && CAN) addSerials(qs);
   if (window.CMD_PREFILL && CAN) applyPrefill(window.CMD_PREFILL);
   updateUI();
+  ensureDevices(true);
 })();
 </script>
 
@@ -1086,7 +1436,7 @@ window.CMD_PREFILL = {{.Prefill}};
 {{if .Devices}}
 <div class="cb-list">
   {{range .Devices}}
-  <label class="cb-row">
+  <label class="cb-row"{{if index $.DPC .ID}} data-dpc="1"{{end}}>
     <input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)">
     {{if .BatteryPct}}<span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>{{else}}<span class="dp-bchip cb-bat-na">—</span>{{end}}
     <span class="cb-id">
@@ -1103,16 +1453,17 @@ window.CMD_PREFILL = {{.Prefill}};
 {{end}}
 
 {{define "cmd-impact"}}
-{{/* Compact blast-radius line for the sheet footer. The root .imp-body carries the
-     resolved counts as data-* so the page JS can update the Send button label. */}}
+{{/* Compact blast-radius line. The root .imp-body carries the resolved counts as
+     data-* (incl. data-dpc for the capability-aware console grid) so the page JS
+     can mirror them into the basket and the Send button. */}}
 {{if gt .Total 0}}
-<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-verb="{{cmdLabel .Type}}">
+<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-dpc="{{.DPC}}" data-verb="{{cmdLabel .Type}}">
   <span class="imp-n">{{.Effective}}</span><span class="imp-u">device{{if ne .Effective 1}}s{{end}}</span>
   <span class="imp-split">· <b>{{.Online}}</b> online, <b>{{.Offline}}</b> queued{{if gt .Skipped 0}}, <b>{{.Skipped}}</b> skipped{{end}}</span>
   {{if .Warn}}<span class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Warn}}</span>{{end}}
 </div>
 {{else}}
-<div class="imp-body" data-effective="0">
+<div class="imp-body" data-effective="0" data-online="0" data-offline="0" data-dpc="0">
   <span class="imp-n" style="color:var(--muted);">0</span><span class="imp-u">devices</span>
   <span class="imp-empty">· no matching devices in this target yet</span>
 </div>
@@ -1143,7 +1494,7 @@ window.CMD_PREFILL = {{.Prefill}};
         <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
         <div class="empty-state-copy">
           <div class="empty-state-title">No actions sent yet</div>
-          <div class="empty-state-text">Use the form above to send your first action.</div>
+          <div class="empty-state-text">Use the console above to send your first action.</div>
         </div>
       </div>
     {{end}}
@@ -1189,7 +1540,9 @@ window.CMD_PREFILL = {{.Prefill}};
       {{else if eq $state "run"}}{{if eq $total 0}}awaiting check-in{{else if or (gt $s.Downloading 0) (gt $s.Installing 0)}}<span class="pd"></span>{{if gt $s.Downloading 0}}{{$s.Downloading}} downloading{{end}}{{if and (gt $s.Downloading 0) (gt $s.Installing 0)}} · {{end}}{{if gt $s.Installing 0}}{{$s.Installing}} installing{{end}}{{else}}<span class="pd"></span>{{$s.Completed}} / {{$total}}{{end}}
       {{else}}{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}{{end}}
     </span>
-    {{if gt $total 0}}<span class="ht-meter" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="{{$state}}" style="width:{{pct (add $s.Completed $s.Failed) $total}}%"></i></span>{{end}}
+    {{/* Segmented delivery meter: completed / failed / delivering, queued as the
+         empty remainder — same counts the summary already carries. */}}
+    {{if gt $total 0}}<span class="ht-meter" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="ok" style="width:{{pct $s.Completed $total}}%"></i><i class="fail" style="width:{{pct $s.Failed $total}}%"></i><i class="run" style="width:{{pct $s.Delivered $total}}%"></i></span>{{end}}
   </div>
   {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user" hx-target="main" hx-swap="outerHTML">{{$c.CreatedBy}}</a>{{else}}{{$c.CreatedBy}}{{end}}{{template "ubub" (userBubble $c.CreatedBy)}}</span>{{else if and (eq $c.Type "reboot") (not $c.CreatedBy)}}<span class="ht-auto" title="Triggered by an OTA rollout, not by a person">Sent automatically</span>{{else}}<span class="ht-by empty"></span>{{end}}
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
