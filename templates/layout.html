@@ -177,6 +177,14 @@
     ['htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach(function (ev) {
       document.addEventListener(ev, mdmNavFail);
     });
+    // A refused action (403/400/404 on a boosted form) used to fail silently:
+    // surface the server's one-line reason as a toast.
+    document.addEventListener('htmx:responseError', function (e) {
+      var x = e.detail && e.detail.xhr; if (!x || x.status < 400 || x.status >= 500) return;
+      var t = (x.responseText || '').trim();
+      if (!t || t.length > 240 || /^\s*</.test(t)) t = x.status === 403 ? 'You are not allowed to do that.' : x.status === 404 ? 'Not found.' : 'Request failed (' + x.status + ').';
+      if (window.showToast) showToast(t, 'error');
+    });
   </script>
 </head>
 {{/* hx-boost: AJAX-navigate the whole app with no full-page reload. Only <main>

@@ -12369,7 +12369,9 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
-	if h.hideAdminActions(r) && h.isAdminAction(*cmd) {
+	// The "show admin actions" toggle only filters lists: an admin or dev may
+	// always open a command by URL (they land here right after sending one).
+	if hideAdminCommandsForRole(h.role(r)) && h.isAdminAction(*cmd) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
