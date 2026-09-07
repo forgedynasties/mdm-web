@@ -1,0 +1,128 @@
+{{define "geofencing.html"}}
+{{template "header" .}}
+
+<style>
+.gf-wrap{max-width:1000px;margin:0 auto}
+.gf-head{margin:4px 0 18px}
+.gf-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.gf-head .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.gf-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.gf-card h3{font-size:15px;font-weight:650;margin:0 0 12px}
+.gf-loc{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.gf-loc .grow{flex:1;min-width:240px}
+.gf-loc .b{font-weight:650;font-size:14px;display:flex;align-items:center;gap:8px}
+.gf-loc .t{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.5}
+.gf-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint)}
+.gf-dot.on{background:var(--ok)}
+.gf-toggle{font:inherit;font-size:13px;font-weight:650;padding:8px 16px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
+.gf-toggle:hover{border-color:var(--rule-2);color:var(--text)}
+.gf-toggle.on{border:none;background:var(--accent);color:#fff}
+.gf-toggle.on:hover{background:var(--accent-h)}
+.gf-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.gf-stat{display:inline-flex;align-items:baseline;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:12.5px;color:var(--muted)}
+.gf-stat b{font-size:14px;color:var(--text)}
+.gf-new{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.gf-new .f{display:flex;flex-direction:column;gap:4px}
+.gf-new label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.gf-new input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.gf-new input.num{width:110px;font-family:var(--mono)}
+.gf-new button{font:inherit;font-size:13px;font-weight:650;padding:8px 14px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+.gf-new button:hover{background:var(--accent-h)}
+.gf-fence-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.gf-fence-top .name{font-size:15px;font-weight:650}
+.gf-fence-top .meta{color:var(--muted);font-size:12.5px;font-family:var(--mono)}
+.gf-fence-top form{margin-left:auto}
+.gf-del{font:inherit;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--danger)}
+.gf-del:hover{border-color:var(--rule-2)}
+.gf-split{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:12px 0 6px}
+.gf-split .n{color:var(--text)}
+.gf-chips{display:flex;gap:6px;flex-wrap:wrap}
+.gf-chip{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;text-decoration:none;border:1px solid var(--border);background:var(--surface);color:var(--text-2)}
+.gf-chip:hover{border-color:var(--rule-2);color:var(--text)}
+.gf-chip.in{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.gf-chip.dim{color:var(--text-faint)}
+.gf-none{color:var(--muted);font-size:13px}
+.gf-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:10px}
+.gf-unloc summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600}
+.gf-unloc .gf-chips{margin-top:10px}
+</style>
+
+<div class="gf-wrap">
+  <div class="gf-head">
+    <h1>Geofencing</h1>
+    <div class="sub">Circular location boundaries, evaluated live against the GPS fix each device reports.</div>
+  </div>
+
+  <div class="gf-card">
+    <div class="gf-loc">
+      <div class="grow">
+        <div class="b"><span class="gf-dot{{if .LocationOn}} on{{end}}"></span>Location reporting {{if .LocationOn}}on{{else}}off{{end}}</div>
+        <div class="t">{{if .LocationOn}}Devices report their GPS position with every check-in. Turn off to stop collecting location fleet-wide.{{else}}Devices are not reporting GPS — geofences can't be evaluated until location reporting is on.{{end}}</div>
+      </div>
+      {{if canAdminOrOperator .Role}}
+      <form method="POST" action="/geofencing/location-toggle">
+        <input type="hidden" name="enabled" value="{{if .LocationOn}}0{{else}}1{{end}}">
+        <button type="submit" class="gf-toggle{{if not .LocationOn}} on{{end}}">{{if .LocationOn}}Turn off{{else}}Turn on{{end}}</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="gf-stats">
+    <span class="gf-stat"><b>{{len .Fences}}</b> fence{{if ne (len .Fences) 1}}s{{end}}</span>
+    <span class="gf-stat"><b>{{.Located}}</b> located device{{if ne .Located 1}}s{{end}}</span>
+    <span class="gf-stat"><b>{{len .Unlocated}}</b> unlocated</span>
+  </div>
+
+  {{if canAdminOrOperator .Role}}
+  <div class="gf-card">
+    <h3>New geofence</h3>
+    <form class="gf-new" method="POST" action="/geofencing/fences">
+      <div class="f"><label>Name</label><input name="name" placeholder="e.g. Main warehouse" required></div>
+      <div class="f"><label>Latitude</label><input class="num" name="lat" placeholder="52.37403" required></div>
+      <div class="f"><label>Longitude</label><input class="num" name="lon" placeholder="4.88969" required></div>
+      <div class="f"><label>Radius (m)</label><input class="num" name="radius_m" value="200" required></div>
+      <button type="submit">Add fence</button>
+    </form>
+    <div class="gf-note">Center coordinates in decimal degrees; radius between 10 and 100 000 metres.</div>
+  </div>
+  {{end}}
+
+  {{range .Fences}}
+  <div class="gf-card">
+    <div class="gf-fence-top">
+      <span class="name">{{.Name}}</span>
+      <span class="meta">{{printf "%.5f" .Lat}}, {{printf "%.5f" .Lon}} · {{.RadiusM}} m</span>
+      {{if canAdminOrOperator $.Role}}
+      <form method="POST" action="/geofencing/fences/{{.ID}}/delete" hx-confirm="Delete fence “{{.Name}}”?">
+        <button type="submit" class="gf-del">Delete</button>
+      </form>
+      {{end}}
+    </div>
+    <div class="gf-split">Inside <span class="n">{{len .Inside}}</span></div>
+    {{if .Inside}}
+    <div class="gf-chips">{{range .Inside}}<a class="gf-chip in" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
+    {{else}}<div class="gf-none">No located device is inside this fence.</div>{{end}}
+    <div class="gf-split">Outside <span class="n">{{len .Outside}}</span></div>
+    {{if .Outside}}
+    <div class="gf-chips">{{range .Outside}}<a class="gf-chip" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
+    {{else}}<div class="gf-none">No located device is outside this fence.</div>{{end}}
+  </div>
+  {{else}}
+  <div class="gf-card">
+    <div class="gf-none">No geofences yet — add one above to see which devices are inside it.</div>
+  </div>
+  {{end}}
+
+  {{if .Unlocated}}
+  <div class="gf-card gf-unloc">
+    <details>
+      <summary>{{len .Unlocated}} device{{if ne (len .Unlocated) 1}}s{{end}} without a usable location (no GPS fix reported, or older than 1 hour)</summary>
+      <div class="gf-chips">{{range .Unlocated}}<a class="gf-chip dim" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
+    </details>
+  </div>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

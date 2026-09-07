@@ -3,17 +3,23 @@ package dashboard
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	qrcode "github.com/skip2/go-qrcode"
+
+	"mdm/internal/db"
 )
 
 // This file holds the DPC-agent feature pages: enrollment, the fleet-wide
@@ -577,4 +583,561 @@ func (h *Handler) ManagedConfigDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.hxDoneToast(w, r, "/setup/managed-configs", "Managed configuration removed", "success")
+}
+
+// ── Geofencing ────────────────────────────────────────────────────────────────
+
+// geoFix is one device's usable GPS fix, parsed out of latest_extra
+// (location_lat / location_lon / location_age_s, reported by the agent only
+// while fleet policy location_enabled is on).
+type geoFix struct {
+	Serial   string
+	Lat, Lon float64
+}
+
+// geofenceView is one fence plus the live inside/outside split of located devices.
+type geofenceView struct {
+	db.Geofence
+	Inside  []string
+	Outside []string
+}
+
+// staleLocationAfter is how old a fix may be before the device counts as unlocated:
+// the age the agent reported at check-in plus the time since we last heard from it.
+const staleLocationAfter = time.Hour
+
+// deviceGeoFix extracts a fresh GPS fix from a device's latest extra payload.
+// ok is false when the device never reported one or the fix has gone stale.
+func deviceGeoFix(d db.Device) (fix geoFix, ok bool) {
+	if len(d.LatestExtra) == 0 {
+		return fix, false
+	}
+	var m struct {
+		Lat  *float64 `json:"location_lat"`
+		Lon  *float64 `json:"location_lon"`
+		AgeS float64  `json:"location_age_s"`
+	}
+	if json.Unmarshal(d.LatestExtra, &m) != nil || m.Lat == nil || m.Lon == nil {
+		return fix, false
+	}
+	age := time.Duration(m.AgeS)*time.Second + time.Since(d.LastSeenAt)
+	if age > staleLocationAfter {
+		return fix, false
+	}
+	return geoFix{Serial: d.SerialNumber, Lat: *m.Lat, Lon: *m.Lon}, true
+}
+
+// haversineM is the great-circle distance between two lat/lon points in metres.
+func haversineM(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusM = 6371000
+	rad := func(deg float64) float64 { return deg * math.Pi / 180 }
+	dLat, dLon := rad(lat2-lat1), rad(lon2-lon1)
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(rad(lat1))*math.Cos(rad(lat2))*math.Sin(dLon/2)*math.Sin(dLon/2)
+	return 2 * earthRadiusM * math.Asin(math.Sqrt(a))
+}
+
+// GeofencingPage shows the fleet location-reporting toggle, the configured fences,
+// and a live server-side evaluation of which located devices sit inside each one.
+func (h *Handler) GeofencingPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	fences, err := h.db.ListGeofences(ctx)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	var located []geoFix
+	var unlocated []string
+	for _, d := range devs {
+		if fix, ok := deviceGeoFix(d); ok {
+			located = append(located, fix)
+		} else {
+			unlocated = append(unlocated, d.SerialNumber)
+		}
+	}
+	views := make([]geofenceView, 0, len(fences))
+	for _, f := range fences {
+		v := geofenceView{Geofence: f}
+		for _, fix := range located {
+			if haversineM(f.Lat, f.Lon, fix.Lat, fix.Lon) <= float64(f.RadiusM) {
+				v.Inside = append(v.Inside, fix.Serial)
+			} else {
+				v.Outside = append(v.Outside, fix.Serial)
+			}
+		}
+		views = append(views, v)
+	}
+	locationOn, _ := h.cfg.DevicePolicyKey("location_enabled").(bool)
+	h.render(w, r, "geofencing.html", map[string]any{
+		"Title":      "Geofencing",
+		"ActivePage": "geofencing",
+		"LocationOn": locationOn,
+		"Fences":     views,
+		"Located":    len(located),
+		"Unlocated":  unlocated,
+		"Total":      len(devs),
+	})
+}
+
+// GeofencingLocationToggle flips the fleet-wide location_enabled policy. Off means
+// the key is removed entirely (agents default to not reporting), mirroring how
+// UpdatesPolicySave clears update_policy.
+func (h *Handler) GeofencingLocationToggle(w http.ResponseWriter, r *http.Request) {
+	if r.FormValue("enabled") == "1" {
+		if err := h.cfg.SetDevicePolicyKey("location_enabled", true); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.hxDoneToast(w, r, "/geofencing", "Location reporting enabled — devices start reporting GPS at their next config sync", "success")
+		return
+	}
+	if err := h.cfg.SetDevicePolicyKey("location_enabled", nil); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/geofencing", "Location reporting disabled", "success")
+}
+
+// GeofenceCreate validates and stores a new circular fence.
+func (h *Handler) GeofenceCreate(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		h.hxDoneToast(w, r, "/geofencing", "Fence name is required", "error")
+		return
+	}
+	lat, errLat := strconv.ParseFloat(strings.TrimSpace(r.FormValue("lat")), 64)
+	lon, errLon := strconv.ParseFloat(strings.TrimSpace(r.FormValue("lon")), 64)
+	if errLat != nil || errLon != nil || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		h.hxDoneToast(w, r, "/geofencing", "Center must be a valid latitude (-90..90) and longitude (-180..180)", "error")
+		return
+	}
+	radius, err := strconv.Atoi(strings.TrimSpace(r.FormValue("radius_m")))
+	if err != nil || radius < 10 || radius > 100000 {
+		h.hxDoneToast(w, r, "/geofencing", "Radius must be between 10 and 100000 metres", "error")
+		return
+	}
+	if _, err := h.db.CreateGeofence(r.Context(), name, lat, lon, radius); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/geofencing", "Geofence created", "success")
+}
+
+func (h *Handler) GeofenceDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Bad id", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteGeofence(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/geofencing", "Geofence deleted", "success")
+}
+
+// ── Compliance ────────────────────────────────────────────────────────────────
+
+// complianceIssue is one failed rule for one device, in words, carrying the
+// rule's severity ("warn" | "violation") so the template can pick the chip colour.
+type complianceIssue struct {
+	Text     string
+	Severity string
+}
+
+// complianceRow is one device's compliance state. Exported fields so templates can read them.
+type complianceRow struct {
+	Serial    string
+	Build     string
+	Battery   int
+	Online    bool
+	Compliant bool // no violation-severity issues (warn-only devices stay compliant)
+	Warned    bool // has at least one warn-severity issue
+	Issues    []complianceIssue
+}
+
+// complianceKinds is the fixed set of rule kinds the evaluator understands,
+// mapped to the parameter each needs ("" = none, "int" / "text" otherwise).
+// Keep in sync with ruleLabel, complianceIssues and the kind <select> in
+// compliance.html when adding a kind.
+var complianceKinds = map[string]string{
+	"require_screen_lock":  "",
+	"require_encryption":   "",
+	"forbid_adb":           "",
+	"min_battery":          "int",
+	"require_build_prefix": "text",
+	"max_offline_hours":    "int",
+}
+
+// ruleLabel renders a rule as words for the rules list ("Battery at least 30%").
+func ruleLabel(ru db.ComplianceRule) string {
+	switch ru.Kind {
+	case "require_screen_lock":
+		return "Screen lock required"
+	case "require_encryption":
+		return "Storage encryption required"
+	case "forbid_adb":
+		return "ADB debugging forbidden"
+	case "min_battery":
+		return "Battery at least " + ru.Param + "%"
+	case "require_build_prefix":
+		return "OS build starts with " + ru.Param
+	case "max_offline_hours":
+		return "Seen within the last " + ru.Param + " hours"
+	}
+	return ru.Kind
+}
+
+// complianceIssues evaluates every enabled rule against one device and returns
+// the failures in words. Posture flags the agent never reported (absent from
+// latest_extra) are unknown, not failures — a fleet of legacy T7 clients doesn't
+// go red the moment a posture rule is added. Shared by CompliancePage and the
+// compliance CSV report so the two can never disagree.
+func complianceIssues(rules []db.ComplianceRule, d db.Device) []complianceIssue {
+	var posture struct {
+		ScreenLockSet    *bool `json:"screen_lock_set"`
+		AdbEnabled       *bool `json:"adb_enabled"`
+		StorageEncrypted *bool `json:"storage_encrypted"`
+	}
+	if len(d.LatestExtra) > 0 {
+		_ = json.Unmarshal(d.LatestExtra, &posture)
+	}
+	var issues []complianceIssue
+	for _, ru := range rules {
+		if !ru.Enabled {
+			continue
+		}
+		var text string
+		switch ru.Kind {
+		case "require_screen_lock":
+			if posture.ScreenLockSet != nil && !*posture.ScreenLockSet {
+				text = "Screen lock not set"
+			}
+		case "require_encryption":
+			if posture.StorageEncrypted != nil && !*posture.StorageEncrypted {
+				text = "Storage not encrypted"
+			}
+		case "forbid_adb":
+			if posture.AdbEnabled != nil && *posture.AdbEnabled {
+				text = "ADB debugging enabled"
+			}
+		case "min_battery":
+			if n, err := strconv.Atoi(ru.Param); err == nil && d.BatteryPct > 0 && d.BatteryPct < n {
+				text = fmt.Sprintf("Battery below %d%%", n)
+			}
+		case "require_build_prefix":
+			if ru.Param != "" && !strings.HasPrefix(d.BuildID, ru.Param) {
+				text = "OS build not on " + ru.Param
+			}
+		case "max_offline_hours":
+			if n, err := strconv.Atoi(ru.Param); err == nil && n > 0 && time.Since(d.LastSeenAt) > time.Duration(n)*time.Hour {
+				text = fmt.Sprintf("Offline for more than %d hours", n)
+			}
+		}
+		if text != "" {
+			issues = append(issues, complianceIssue{Text: text, Severity: ru.Severity})
+		}
+	}
+	return issues
+}
+
+// evaluateCompliance turns the device list into sorted compliance rows (worst
+// first): a device is non-compliant when any violation-severity rule fails;
+// warn-only failures show amber but don't break compliance.
+func (h *Handler) evaluateCompliance(rules []db.ComplianceRule, devs []db.Device) (rows []complianceRow, compliant int) {
+	rows = make([]complianceRow, 0, len(devs))
+	for _, d := range devs {
+		issues := complianceIssues(rules, d)
+		row := complianceRow{
+			Serial:    d.SerialNumber,
+			Build:     d.BuildID,
+			Battery:   d.BatteryPct,
+			Online:    h.hub.IsConnectedForDisplay(d.ID),
+			Compliant: true,
+			Issues:    issues,
+		}
+		for _, is := range issues {
+			if is.Severity == "warn" {
+				row.Warned = true
+			} else {
+				row.Compliant = false
+			}
+		}
+		if row.Compliant {
+			compliant++
+		}
+		rows = append(rows, row)
+	}
+	// Violations first, then warn-only devices, so problems ride to the top.
+	rank := func(x complianceRow) int {
+		switch {
+		case !x.Compliant:
+			return 0
+		case x.Warned:
+			return 1
+		}
+		return 2
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rank(rows[i]) < rank(rows[j]) })
+	return rows, compliant
+}
+
+// complianceRuleView is one stored rule plus its display label for the rules list.
+type complianceRuleView struct {
+	db.ComplianceRule
+	Label string
+}
+
+// CompliancePage evaluates every enabled compliance rule against live device
+// telemetry. With no rules configured yet it evaluates nothing and instead
+// offers the three recommended posture rules as one-click suggestions —
+// explicit rules over silently-applied defaults.
+func (h *Handler) CompliancePage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	rules, err := h.db.ListComplianceRules(ctx)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	rows, compliant := h.evaluateCompliance(rules, devs)
+
+	ruleViews := make([]complianceRuleView, 0, len(rules))
+	enabled := 0
+	for _, ru := range rules {
+		if ru.Enabled {
+			enabled++
+		}
+		ruleViews = append(ruleViews, complianceRuleView{ComplianceRule: ru, Label: ruleLabel(ru)})
+	}
+	total := len(rows)
+	pct := 100
+	if total > 0 {
+		pct = compliant * 100 / total
+	}
+	h.render(w, r, "compliance.html", map[string]any{
+		"Title":      "Compliance",
+		"ActivePage": "compliance",
+		"Rows":       rows,
+		"Total":      total,
+		"Compliant":  compliant,
+		"Violations": total - compliant,
+		"Pct":        pct,
+		"Rules":      ruleViews,
+		"Enabled":    enabled,
+		"NoRules":    len(rules) == 0,
+	})
+}
+
+// ComplianceRuleCreate validates and stores a new compliance rule.
+func (h *Handler) ComplianceRuleCreate(w http.ResponseWriter, r *http.Request) {
+	kind := r.FormValue("kind")
+	paramKind, known := complianceKinds[kind]
+	if !known {
+		h.hxDoneToast(w, r, "/compliance", "Unknown rule kind", "error")
+		return
+	}
+	severity := r.FormValue("severity")
+	if severity != "warn" {
+		severity = "violation"
+	}
+	param := strings.TrimSpace(r.FormValue("param"))
+	switch paramKind {
+	case "":
+		param = ""
+	case "int":
+		n, err := strconv.Atoi(param)
+		if err != nil || n < 1 || (kind == "min_battery" && n > 100) || (kind == "max_offline_hours" && n > 8760) {
+			limit := "1–100"
+			if kind == "max_offline_hours" {
+				limit = "1–8760"
+			}
+			h.hxDoneToast(w, r, "/compliance", "This rule needs a whole number ("+limit+")", "error")
+			return
+		}
+		param = strconv.Itoa(n)
+	case "text":
+		if param == "" {
+			h.hxDoneToast(w, r, "/compliance", "This rule needs a build prefix (e.g. AT07)", "error")
+			return
+		}
+	}
+	if _, err := h.db.CreateComplianceRule(r.Context(), kind, param, severity); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "compliance.rule_add", kind, "param="+param+", severity="+severity)
+	h.hxDoneToast(w, r, "/compliance", "Rule added — the fleet is re-evaluated on every page load", "success")
+}
+
+// ComplianceRuleToggle enables/disables a rule (enabled=1|0 form field).
+func (h *Handler) ComplianceRuleToggle(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Bad id", http.StatusBadRequest)
+		return
+	}
+	enabled := r.FormValue("enabled") == "1"
+	if err := h.db.SetComplianceRuleEnabled(r.Context(), id, enabled); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	msg := "Rule disabled — it no longer counts against devices"
+	if enabled {
+		msg = "Rule enabled"
+	}
+	h.hxDoneToast(w, r, "/compliance", msg, "success")
+}
+
+func (h *Handler) ComplianceRuleDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Bad id", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteComplianceRule(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/compliance", "Rule deleted", "success")
+}
+
+// ComplianceRemediate queues a remediation command for a non-compliant device
+// through the same path as the device page's command form (role allowlist,
+// per-user device access, duplicate suppression, hub push, audit). The action
+// switch is the extension point for future remediations; only reboot exists today.
+func (h *Handler) ComplianceRemediate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	var cmdType string
+	switch r.FormValue("action") {
+	case "reboot":
+		cmdType = "reboot"
+	default:
+		http.Error(w, "Unknown remediation action", http.StatusBadRequest)
+		return
+	}
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, policyActionForCommand(cmdType), device.ID) {
+		return
+	}
+	payload := json.RawMessage("{}") // matches buildPayload's default, so dedup keys line up
+	if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil {
+		if _, ok := findPendingLikeCommand(existing, cmdType, "", payload); ok {
+			h.hxDoneToast(w, r, "/compliance", cmdTypeLabel(cmdType)+" is already pending for "+serial, "info")
+			return
+		}
+	}
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, "", payload, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	h.audit(r, "command.send", cmdType, "device="+serial+", reason=compliance remediation, cmd="+cmd.ID.String())
+	h.hxDoneToast(w, r, "/compliance", cmdTypeLabel(cmdType)+" queued for "+serial, "success")
+}
+
+// ── Fleet reports (CSV) ───────────────────────────────────────────────────────
+
+// reportCSV sets the download headers for a dated fleet report and returns the
+// CSV writer (caller must Flush).
+func reportCSV(w http.ResponseWriter, name string) *csv.Writer {
+	filename := fmt.Sprintf("aio-mdm-%s-%s.csv", name, time.Now().Format("2006-01-02"))
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	return csv.NewWriter(w)
+}
+
+// ReportInventoryCSV is the one-click fleet inventory download: one row per device.
+func (h *Handler) ReportInventoryCSV(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	groups, _ := h.db.GroupNamesByDevice(ctx)
+	cw := reportCSV(w, "inventory")
+	cw.Write([]string{"serial", "product", "model", "build_id", "battery_pct", "online", "last_seen", "groups", "restaurant"})
+	for _, d := range devs {
+		online := "no"
+		if h.hub.IsConnectedForDisplay(d.ID) {
+			online = "yes"
+		}
+		cw.Write([]string{
+			d.SerialNumber,
+			d.ProductLabel(),
+			extraString(d.LatestExtra, "model"),
+			d.BuildID,
+			strconv.Itoa(d.BatteryPct),
+			online,
+			d.LastSeenAt.UTC().Format(time.RFC3339),
+			strings.Join(groups[d.ID], ";"),
+			d.RestaurantName,
+		})
+	}
+	cw.Flush()
+}
+
+// ReportComplianceCSV is the compliance snapshot as CSV, sharing the exact rule
+// evaluator the Compliance page uses.
+func (h *Handler) ReportComplianceCSV(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	rules, err := h.db.ListComplianceRules(ctx)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	rows, _ := h.evaluateCompliance(rules, devs)
+	cw := reportCSV(w, "compliance")
+	cw.Write([]string{"serial", "compliant", "failed_rules"})
+	for _, row := range rows {
+		compliant := "yes"
+		if !row.Compliant {
+			compliant = "no"
+		}
+		texts := make([]string, 0, len(row.Issues))
+		for _, is := range row.Issues {
+			texts = append(texts, is.Text)
+		}
+		cw.Write([]string{row.Serial, compliant, strings.Join(texts, ";")})
+	}
+	cw.Flush()
+}
+
+// ReportActivityCSV is the last 7 days of fleet activity, one row per day, from
+// the device_daily_stats rollups (so "today" reflects the last rollup).
+func (h *Handler) ReportActivityCSV(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.db.GetFleetDailyStats(r.Context(), 7)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	cw := reportCSV(w, "activity")
+	cw.Write([]string{"date", "devices_seen", "checkins"})
+	for _, s := range stats {
+		cw.Write([]string{s.Day.Format("2006-01-02"), strconv.Itoa(s.Active), strconv.FormatInt(s.Checkins, 10)})
+	}
+	cw.Flush()
 }

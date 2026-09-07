@@ -2632,6 +2632,29 @@ func (d *DB) ListDeviceGroups(ctx context.Context, deviceID uuid.UUID) ([]Group,
 	return out, rows.Err()
 }
 
+// GroupNamesByDevice returns every device's group names (sorted by name), for
+// report rows that print a joined group list without a per-device query.
+func (d *DB) GroupNamesByDevice(ctx context.Context) (map[uuid.UUID][]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dg.device_id, g.name
+		FROM device_groups dg JOIN groups g ON g.id = dg.group_id
+		ORDER BY g.name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID][]string)
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], name)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
@@ -10456,6 +10479,31 @@ ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_mode TEXT NOT NULL DEFA
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_packages JSONB NOT NULL DEFAULT '[]';
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_url TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_url_allow JSONB NOT NULL DEFAULT '[]';
+
+-- Circular geofences, evaluated server-side against the GPS fix agents report in
+-- latest_extra (location_lat/location_lon, sent only while fleet policy
+-- location_enabled is on). No membership table: inside/outside is computed live.
+CREATE TABLE IF NOT EXISTS geofences (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name       TEXT NOT NULL,
+    lat        DOUBLE PRECISION NOT NULL,
+    lon        DOUBLE PRECISION NOT NULL,
+    radius_m   INT NOT NULL DEFAULT 200,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Compliance rules: admin-defined checks (kind + optional param + severity) evaluated
+-- live against device telemetry — posture flags in latest_extra plus the battery/build/
+-- last-seen columns. No stored results: pass/fail is computed on page load, like
+-- geofence membership.
+CREATE TABLE IF NOT EXISTS compliance_rules (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind       TEXT NOT NULL,
+    param      TEXT NOT NULL DEFAULT '',
+    severity   TEXT NOT NULL DEFAULT 'violation',
+    enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -12247,6 +12295,7 @@ type FleetDailyStat struct {
 	LowBattery int       `json:"low_battery"` // devices whose daily minimum dipped under 20%
 	Hot        int       `json:"hot"`         // devices whose daily max temp reached 45°C
 	BatteryAvg *float32  `json:"battery_avg"` // mean of per-device daily averages
+	Checkins   int64     `json:"checkins"`    // total check-ins across the fleet that day
 }
 
 // GetFleetDailyStats returns the last `days` days of fleet-wide rollups, oldest
@@ -12260,7 +12309,8 @@ func (d *DB) GetFleetDailyStats(ctx context.Context, days int) ([]FleetDailyStat
 		       COUNT(*) FILTER (WHERE s.checkin_count > 0),
 		       COUNT(*) FILTER (WHERE s.battery_min < 20),
 		       COUNT(*) FILTER (WHERE s.temp_max >= 45),
-		       AVG(s.battery_avg)::real
+		       AVG(s.battery_avg)::real,
+		       COALESCE(SUM(s.checkin_count), 0)
 		FROM device_daily_stats s
 		JOIN devices dv ON dv.id = s.device_id AND NOT dv.hidden
 		WHERE s.day >= CURRENT_DATE - ($1::int - 1)
@@ -12274,7 +12324,7 @@ func (d *DB) GetFleetDailyStats(ctx context.Context, days int) ([]FleetDailyStat
 	var stats []FleetDailyStat
 	for rows.Next() {
 		var s FleetDailyStat
-		if err := rows.Scan(&s.Day, &s.Active, &s.LowBattery, &s.Hot, &s.BatteryAvg); err != nil {
+		if err := rows.Scan(&s.Day, &s.Active, &s.LowBattery, &s.Hot, &s.BatteryAvg, &s.Checkins); err != nil {
 			return nil, err
 		}
 		stats = append(stats, s)
@@ -13611,4 +13661,103 @@ func (d *DB) DeviceSerialByKeyHash(ctx context.Context, keyHash string) (uuid.UU
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, serial_number FROM devices WHERE device_key_hash = $1`, keyHash).Scan(&id, &serial)
 	return id, serial, err
+}
+
+// ── Geofences ─────────────────────────────────────────────────────────────────
+
+// Geofence is a named circle; devices are matched against it live from the GPS
+// fix in their latest_extra, so there is no stored membership to keep in sync.
+type Geofence struct {
+	ID        uuid.UUID
+	Name      string
+	Lat       float64
+	Lon       float64
+	RadiusM   int
+	CreatedAt time.Time
+}
+
+func (d *DB) CreateGeofence(ctx context.Context, name string, lat, lon float64, radiusM int) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO geofences (name, lat, lon, radius_m)
+		VALUES ($1, $2, $3, $4) RETURNING id`, name, lat, lon, radiusM).Scan(&id)
+	return id, err
+}
+
+func (d *DB) ListGeofences(ctx context.Context) ([]Geofence, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, name, lat, lon, radius_m, created_at
+		FROM geofences ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Geofence
+	for rows.Next() {
+		var g Geofence
+		if err := rows.Scan(&g.ID, &g.Name, &g.Lat, &g.Lon, &g.RadiusM, &g.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) DeleteGeofence(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM geofences WHERE id = $1`, id)
+	return err
+}
+
+// ── Compliance rules ──────────────────────────────────────────────────────────
+
+// ComplianceRule is one admin-defined fleet check; devices are evaluated against
+// the enabled rules live on page load, so there is no stored result to keep in
+// sync. Kind is one of the fixed set the dashboard evaluator understands
+// (require_screen_lock, require_encryption, forbid_adb, min_battery,
+// require_build_prefix, max_offline_hours); Param carries the threshold/prefix
+// for the parameterized kinds. Severity is "warn" or "violation".
+type ComplianceRule struct {
+	ID        uuid.UUID
+	Kind      string
+	Param     string
+	Severity  string
+	Enabled   bool
+	CreatedAt time.Time
+}
+
+func (d *DB) CreateComplianceRule(ctx context.Context, kind, param, severity string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO compliance_rules (kind, param, severity)
+		VALUES ($1, $2, $3) RETURNING id`, kind, param, severity).Scan(&id)
+	return id, err
+}
+
+func (d *DB) ListComplianceRules(ctx context.Context) ([]ComplianceRule, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, kind, param, severity, enabled, created_at
+		FROM compliance_rules ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ComplianceRule
+	for rows.Next() {
+		var ru ComplianceRule
+		if err := rows.Scan(&ru.ID, &ru.Kind, &ru.Param, &ru.Severity, &ru.Enabled, &ru.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, ru)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) SetComplianceRuleEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE compliance_rules SET enabled = $2 WHERE id = $1`, id, enabled)
+	return err
+}
+
+func (d *DB) DeleteComplianceRule(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM compliance_rules WHERE id = $1`, id)
+	return err
 }

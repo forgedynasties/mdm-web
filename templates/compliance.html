@@ -1,0 +1,222 @@
+{{define "compliance.html"}}
+{{template "header" .}}
+
+<style>
+.cp-wrap{max-width:1200px;margin:0 auto}
+.cp-head{margin:4px 0 18px}
+.cp-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.cp-head .sub{color:var(--muted,#667);font-size:14px;margin-top:4px}
+.cp-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+@media(max-width:720px){.cp-kpis{grid-template-columns:1fr}}
+.cp-kpi{background:var(--surface,#fff);border:1px solid var(--border,#e6e8ef);border-radius:14px;padding:16px 18px}
+.cp-kpi .k{font-size:12.5px;color:var(--muted,#667);font-weight:600}
+.cp-kpi .v{font-size:30px;font-weight:750;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+.cp-kpi .v.ok{color:#12a150}.cp-kpi .v.bad{color:#e5484d}
+.cp-bar{height:8px;border-radius:6px;background:#eef0f5;overflow:hidden;margin-top:12px}
+.cp-bar i{display:block;height:100%;background:linear-gradient(90deg,#12a150,#3fbf6b)}
+.cp-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e8ef);border-radius:14px;overflow:hidden;margin-bottom:18px}
+.cp-card h3{font-size:15px;font-weight:650;margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft,#eef0f5)}
+.cp-card h3 .n{font-weight:600;font-size:12.5px;color:var(--muted,#889);margin-left:6px}
+.cp-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.cp-table th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#889);font-weight:600;padding:10px 18px;border-bottom:1px solid var(--border-soft,#eef0f5)}
+.cp-table td{padding:12px 18px;border-bottom:1px solid var(--border-soft,#f2f3f8)}
+.cp-table tr:last-child td{border-bottom:0}
+.cp-serial{font-family:ui-monospace,monospace;font-weight:600}
+.cp-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:3px 10px;border-radius:999px}
+.cp-pill.ok{background:#e7f7ee;color:#12a150}.cp-pill.bad{background:#fdecec;color:#e5484d}
+.cp-pill.warn{background:#fdf3e1;color:#b45309}
+.cp-dot{width:7px;height:7px;border-radius:50%}.cp-dot.on{background:#12a150}.cp-dot.off{background:#c2c7d0}
+.cp-issue{display:inline-flex;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;margin:1px 4px 1px 0}
+.cp-issue.violation{background:#fdecec;color:#e5484d}
+.cp-issue.warn{background:#fdf3e1;color:#b45309}
+.cp-scroll{overflow-x:auto}
+.cp-empty{padding:40px 18px;text-align:center;color:var(--muted,#889)}
+.cp-muted{color:var(--muted,#889)}
+.cp-body{padding:15px 18px}
+.cp-rule{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--border-soft,#f2f3f8)}
+.cp-rule:last-child{border-bottom:0}
+.cp-rule .lbl{font-size:13.5px;font-weight:600}
+.cp-rule.off .lbl{color:var(--muted,#889);text-decoration:line-through;text-decoration-color:#c2c7d0}
+.cp-rule .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.cp-sev{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px}
+.cp-sev.violation{background:#fdecec;color:#e5484d}
+.cp-sev.warn{background:#fdf3e1;color:#b45309}
+.cp-off{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;background:#eef0f5;color:var(--muted,#889)}
+.cp-btn{font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--border,#e6e8ef);background:var(--surface,#fff);color:var(--text-2,#445);cursor:pointer}
+.cp-btn:hover{border-color:#c2c7d0}
+.cp-btn.danger{color:#e5484d}
+.cp-btn.fix{color:#4f46e5;border-color:#c9ccf6}
+.cp-new{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:15px 18px;border-top:1px solid var(--border-soft,#eef0f5)}
+.cp-new .f{display:flex;flex-direction:column;gap:4px}
+.cp-new label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#99a)}
+.cp-new select,.cp-new input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border,#e6e8ef);border-radius:8px;background:var(--surface,#fff);color:inherit}
+.cp-new input{width:130px}
+.cp-new button{font:inherit;font-size:13px;font-weight:650;padding:8px 14px;border-radius:9px;border:none;background:#4f46e5;color:#fff;cursor:pointer}
+.cp-new button:hover{background:#4338ca}
+.cp-suggest{display:flex;gap:10px;flex-wrap:wrap;padding:15px 18px}
+.cp-sug{flex:1;min-width:220px;border:1px dashed var(--border,#dfe2ec);border-radius:12px;padding:13px 15px}
+.cp-sug b{font-size:13.5px;font-weight:650;display:block}
+.cp-sug p{margin:4px 0 10px;font-size:12.5px;color:var(--muted,#889);line-height:1.5}
+</style>
+
+<div class="cp-wrap">
+  <div class="cp-head">
+    <h1>Compliance</h1>
+    <div class="sub">Every enabled rule is evaluated live against device telemetry on each load. Violations ride to the top.</div>
+  </div>
+
+  <div class="cp-kpis">
+    <div class="cp-kpi"><div class="k">Compliant</div><div class="v ok">{{.Pct}}%</div><div class="cp-bar"><i style="width:{{.Pct}}%"></i></div></div>
+    <div class="cp-kpi"><div class="k">In violation</div><div class="v {{if gt .Violations 0}}bad{{end}}">{{.Violations}}</div></div>
+    <div class="cp-kpi"><div class="k">Devices evaluated</div><div class="v">{{.Total}}</div></div>
+  </div>
+
+  {{if .NoRules}}
+  <div class="cp-card">
+    <h3>Get started<span class="n">no rules yet — nothing is being enforced</span></h3>
+    <div class="cp-suggest">
+      <div class="cp-sug">
+        <b>Require a screen lock</b>
+        <p>Flag devices whose users removed the PIN/pattern — an unlocked lost device is an open door.</p>
+        {{if canAdminOrOperator .Role}}
+        <form method="POST" action="/compliance/rules">
+          <input type="hidden" name="kind" value="require_screen_lock">
+          <input type="hidden" name="severity" value="violation">
+          <button type="submit" class="cp-btn fix">Add rule</button>
+        </form>
+        {{end}}
+      </div>
+      <div class="cp-sug">
+        <b>Require storage encryption</b>
+        <p>Flag devices reporting unencrypted storage, so data at rest stays protected.</p>
+        {{if canAdminOrOperator .Role}}
+        <form method="POST" action="/compliance/rules">
+          <input type="hidden" name="kind" value="require_encryption">
+          <input type="hidden" name="severity" value="violation">
+          <button type="submit" class="cp-btn fix">Add rule</button>
+        </form>
+        {{end}}
+      </div>
+      <div class="cp-sug">
+        <b>Forbid ADB debugging</b>
+        <p>Flag devices with USB debugging switched on — a bypass around every other control.</p>
+        {{if canAdminOrOperator .Role}}
+        <form method="POST" action="/compliance/rules">
+          <input type="hidden" name="kind" value="forbid_adb">
+          <input type="hidden" name="severity" value="violation">
+          <button type="submit" class="cp-btn fix">Add rule</button>
+        </form>
+        {{end}}
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  <div class="cp-card">
+    <h3>Rules<span class="n">{{.Enabled}} of {{len .Rules}} enabled</span></h3>
+    {{range .Rules}}
+    <div class="cp-rule{{if not .Enabled}} off{{end}}">
+      <span class="lbl">{{.Label}}</span>
+      {{if .Enabled}}<span class="cp-sev {{.Severity}}">{{.Severity}}</span>{{else}}<span class="cp-off">off</span>{{end}}
+      {{if canAdminOrOperator $.Role}}
+      <span class="right">
+        <form method="POST" action="/compliance/rules/{{.ID}}/toggle">
+          <input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}">
+          <button type="submit" class="cp-btn">{{if .Enabled}}Disable{{else}}Enable{{end}}</button>
+        </form>
+        <form method="POST" action="/compliance/rules/{{.ID}}/delete" hx-confirm="Delete rule “{{.Label}}”?">
+          <button type="submit" class="cp-btn danger">Delete</button>
+        </form>
+      </span>
+      {{end}}
+    </div>
+    {{else}}
+    {{if not .NoRules}}<div class="cp-body cp-muted">No rules.</div>{{end}}
+    {{end}}
+    {{if and .NoRules (not (canAdminOrOperator .Role))}}
+    <div class="cp-body cp-muted">No compliance rules configured yet — an administrator can add them here.</div>
+    {{end}}
+    {{if canAdminOrOperator .Role}}
+    <form class="cp-new" method="POST" action="/compliance/rules">
+      <div class="f">
+        <label>Rule</label>
+        <select name="kind" id="cp-kind">
+          <option value="require_screen_lock">Require screen lock</option>
+          <option value="require_encryption">Require storage encryption</option>
+          <option value="forbid_adb">Forbid ADB debugging</option>
+          <option value="min_battery" data-param="Minimum battery %" data-ph="e.g. 30">Minimum battery level</option>
+          <option value="require_build_prefix" data-param="Build prefix" data-ph="e.g. AT07">Require OS build prefix</option>
+          <option value="max_offline_hours" data-param="Max hours offline" data-ph="e.g. 24">Maximum hours offline</option>
+        </select>
+      </div>
+      <div class="f" id="cp-param-f" hidden>
+        <label id="cp-param-l">Value</label>
+        <input name="param" id="cp-param">
+      </div>
+      <div class="f">
+        <label>Severity</label>
+        <select name="severity">
+          <option value="violation">Violation</option>
+          <option value="warn">Warn</option>
+        </select>
+      </div>
+      <button type="submit">Add rule</button>
+    </form>
+    <script>
+      (function () {
+        var kind = document.getElementById('cp-kind');
+        if (!kind) return;
+        var wrap = document.getElementById('cp-param-f');
+        var label = document.getElementById('cp-param-l');
+        var input = document.getElementById('cp-param');
+        function sync() {
+          var opt = kind.options[kind.selectedIndex];
+          var p = opt.getAttribute('data-param');
+          wrap.hidden = !p;
+          input.required = !!p;
+          if (p) { label.textContent = p; input.placeholder = opt.getAttribute('data-ph') || ''; }
+          else input.value = '';
+        }
+        kind.addEventListener('change', sync);
+        sync();
+      })();
+    </script>
+    {{end}}
+  </div>
+
+  <div class="cp-card">
+    <h3>Devices</h3>
+    <div class="cp-scroll">
+      <table class="cp-table">
+        <thead><tr><th>Device</th><th>Status</th><th>OS build</th><th>Battery</th><th>Compliance</th><th>Issues</th>{{if eq .Role "admin"}}<th></th>{{end}}</tr></thead>
+        <tbody>
+          {{range .Rows}}
+          <tr>
+            <td><a class="cp-serial link-detail" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
+            <td><span class="cp-dot {{if .Online}}on{{else}}off{{end}}"></span> {{if .Online}}Online{{else}}Offline{{end}}</td>
+            <td class="mono">{{if .Build}}{{.Build}}{{else}}<span class="cp-muted">—</span>{{end}}</td>
+            <td>{{if gt .Battery 0}}{{.Battery}}%{{else}}—{{end}}</td>
+            <td>{{if .Compliant}}{{if .Warned}}<span class="cp-pill warn">Warning</span>{{else}}<span class="cp-pill ok">Compliant</span>{{end}}{{else}}<span class="cp-pill bad">Violation</span>{{end}}</td>
+            <td>{{if .Issues}}{{range .Issues}}<span class="cp-issue {{.Severity}}">{{.Text}}</span>{{end}}{{else}}<span class="cp-muted">—</span>{{end}}</td>
+            {{if eq $.Role "admin"}}
+            <td>
+              {{if not .Compliant}}
+              <form method="POST" action="/compliance/remediate/{{.Serial}}" hx-confirm="Reboot {{.Serial}} now?">
+                <input type="hidden" name="action" value="reboot">
+                <button type="submit" class="cp-btn fix">Remediate: reboot</button>
+              </form>
+              {{end}}
+            </td>
+            {{end}}
+          </tr>
+          {{else}}
+          <tr><td colspan="{{if eq .Role "admin"}}7{{else}}6{{end}}"><div class="cp-empty">No devices enrolled yet. <a href="/enrollment" class="link-detail">Enroll a device →</a></div></td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{template "footer" .}}
+{{end}}

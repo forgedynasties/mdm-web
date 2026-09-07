@@ -1756,6 +1756,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "updates"
 	case strings.HasPrefix(path, "/network"):
 		data["ActivePage"] = "network"
+	case strings.HasPrefix(path, "/compliance"):
+		data["ActivePage"] = "compliance"
+	case strings.HasPrefix(path, "/geofencing"):
+		data["ActivePage"] = "geofencing"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -6854,9 +6858,13 @@ func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []de
 		if len(dv.LatestExtra) == 0 || json.Unmarshal(dv.LatestExtra, &m) != nil {
 			continue
 		}
+		// Prefer the agent's precise GPS fix (extra.location_lat/lon, reported while
+		// fleet policy location_enabled is on) over the WiFi-scan-derived coordinates.
 		var lat, lon float64
-		if json.Unmarshal(m["latitude"], &lat) != nil || json.Unmarshal(m["longitude"], &lon) != nil {
-			continue
+		if json.Unmarshal(m["location_lat"], &lat) != nil || json.Unmarshal(m["location_lon"], &lon) != nil {
+			if json.Unmarshal(m["latitude"], &lat) != nil || json.Unmarshal(m["longitude"], &lon) != nil {
+				continue
+			}
 		}
 		name := dv.RestaurantName
 		if name == "" {
@@ -17305,6 +17313,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
+	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.ReportInventoryCSV))
+	mux.HandleFunc("GET /export/report/compliance.csv", h.requireAuth(h.ReportComplianceCSV))
+	mux.HandleFunc("GET /export/report/activity.csv", h.requireAuth(h.ReportActivityCSV))
 	// Admin-only for now (see the Overview card's same gate) — loosen to
 	// requireAuth if this opens up to other roles later.
 	mux.HandleFunc("GET /export/visualize", h.requireAuth(h.ExportVisualizePage))
@@ -17395,6 +17406,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
 	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
 	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
+	mux.HandleFunc("GET /compliance", h.requireAuth(h.CompliancePage))
+	post("POST /compliance/rules", h.requireAdminOrOperator(h.ComplianceRuleCreate))
+	post("POST /compliance/rules/{id}/toggle", h.requireAdminOrOperator(h.ComplianceRuleToggle))
+	post("POST /compliance/rules/{id}/delete", h.requireAdminOrOperator(h.ComplianceRuleDelete))
+	// Remediation queues real device commands, so it stays admin-only (the
+	// template hides the button for everyone else).
+	post("POST /compliance/remediate/{serial}", h.requireStrictAdmin(h.ComplianceRemediate))
+	mux.HandleFunc("GET /geofencing", h.requireAuth(h.GeofencingPage))
+	post("POST /geofencing/location-toggle", h.requireAdminOrOperator(h.GeofencingLocationToggle))
+	post("POST /geofencing/fences", h.requireAdminOrOperator(h.GeofenceCreate))
+	post("POST /geofencing/fences/{id}/delete", h.requireAdminOrOperator(h.GeofenceDelete))
 	mux.HandleFunc("GET /network", h.requireAuth(h.NetworkPage))
 	post("POST /network/wifi", h.requireStrictAdmin(h.NetworkWifiAdd))
 	post("POST /network/wifi/delete", h.requireStrictAdmin(h.NetworkWifiDelete))
