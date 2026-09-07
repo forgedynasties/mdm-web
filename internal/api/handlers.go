@@ -658,8 +658,9 @@ type checkinRequest struct {
 		Package     string `json:"package"`
 		Name        string `json:"name"`
 		VersionName string `json:"version_name"`
-		IsSystem    *bool  `json:"is_system"` // nil when the client is too old to report it
-		Icon        string `json:"icon"`      // base64 PNG launcher icon (optional)
+		IsSystem    *bool  `json:"is_system"`  // nil when the client is too old to report it
+		Launchable  *bool  `json:"launchable"` // nil when the client is too old to report it
+		Icon        string `json:"icon"`       // base64 PNG launcher icon (optional)
 	} `json:"installed_apps,omitempty"`
 	// OTA progress piggybacked on the checkin so the dashboard keeps tracking
 	// download/install percent even when the WebSocket is down.
@@ -738,7 +739,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
 				icon = ""
 			}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Icon: icon})
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
 			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
 				break
 			}
@@ -1331,7 +1332,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
 				icon = ""
 			}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Icon: icon})
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
 			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
 				break
 			}

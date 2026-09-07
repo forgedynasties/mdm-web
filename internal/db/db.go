@@ -5440,8 +5440,12 @@ type DevicePackage struct {
 	IsSystem *bool `json:"is_system,omitempty"`
 	// EffectiveSystem is the resolved classification (client report if present, else
 	// admin override, else false). Populated on the read path; gates uninstall.
-	EffectiveSystem bool      `json:"effective_system"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	EffectiveSystem bool `json:"effective_system"`
+	// Launchable is the client-reported "has a launcher (drawer) entry" flag: nil when
+	// the client is too old to report it. The dashboard's app lists default to
+	// launchable apps only (with the raw dump behind ?all=1).
+	Launchable *bool     `json:"launchable,omitempty"`
+	UpdatedAt  time.Time `json:"updated_at"`
 	// Icon is a base64-encoded PNG launcher icon. On the write path it's the value the
 	// device reported (may be empty); on the read path it's resolved from the shared
 	// app_icons index keyed by package_name, so any device — even an old client that
@@ -5478,16 +5482,21 @@ func devicePackagesHash(packages []DevicePackage) string {
 	copy(sorted, packages)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].PackageName < sorted[j].PackageName })
 	h := fnv.New64a()
-	for _, p := range sorted {
-		sys := "n"
-		if p.IsSystem != nil {
-			if *p.IsSystem {
-				sys = "1"
-			} else {
-				sys = "0"
-			}
+	boolStr := func(b *bool) string {
+		if b == nil {
+			return "n"
 		}
-		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\n", p.PackageName, p.AppName, p.VersionName, sys)
+		if *b {
+			return "1"
+		}
+		return "0"
+	}
+	for _, p := range sorted {
+		// Launchable is part of the fingerprint so a client that STARTS reporting the
+		// flag (agent upgrade / server upgrade adding the column) actually gets its
+		// rows rewritten — otherwise the hash-gate below would skip the upsert and the
+		// flag would stay NULL until the app set happened to change.
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00%s\n", p.PackageName, p.AppName, p.VersionName, boolStr(p.IsSystem), boolStr(p.Launchable))
 	}
 	return strconv.FormatUint(h.Sum64(), 16)
 }
@@ -5520,17 +5529,19 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		appNames := make([]string, len(packages))
 		versions := make([]string, len(packages))
 		systems := make([]*bool, len(packages))
+		launchables := make([]*bool, len(packages))
 		for i, p := range packages {
 			names[i] = p.PackageName
 			appNames[i] = p.AppName
 			versions[i] = p.VersionName
-			systems[i] = p.IsSystem // *bool → NULL when the client didn't report
+			systems[i] = p.IsSystem       // *bool → NULL when the client didn't report
+			launchables[i] = p.Launchable // *bool → NULL when the client didn't report
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO device_packages (device_id, package_name, app_name, version_name, is_system)
-			SELECT $1, unnest($2::text[]), unnest($3::text[]), unnest($4::text[]), unnest($5::bool[])
-			ON CONFLICT (device_id, package_name) DO UPDATE SET app_name = EXCLUDED.app_name, version_name = EXCLUDED.version_name, is_system = EXCLUDED.is_system, updated_at = NOW()
-		`, deviceID, names, appNames, versions, systems); err != nil {
+			INSERT INTO device_packages (device_id, package_name, app_name, version_name, is_system, launchable)
+			SELECT $1, unnest($2::text[]), unnest($3::text[]), unnest($4::text[]), unnest($5::bool[]), unnest($6::bool[])
+			ON CONFLICT (device_id, package_name) DO UPDATE SET app_name = EXCLUDED.app_name, version_name = EXCLUDED.version_name, is_system = EXCLUDED.is_system, launchable = EXCLUDED.launchable, updated_at = NOW()
+		`, deviceID, names, appNames, versions, systems, launchables); err != nil {
 			return err
 		}
 
@@ -5565,7 +5576,7 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	rows, err := d.pool.Query(ctx, `
 		SELECT dp.package_name, dp.app_name, dp.version_name,
 		       (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL) AS effective_system,
-		       dp.updated_at, COALESCE(ai.icon, '')
+		       dp.launchable, dp.updated_at, COALESCE(ai.icon, '')
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		-- Icons come from the shared index, so a device shows an icon for a package even
@@ -5583,7 +5594,7 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	var out []DevicePackage
 	for rows.Next() {
 		var p DevicePackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.EffectiveSystem, &p.UpdatedAt, &p.Icon); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.EffectiveSystem, &p.Launchable, &p.UpdatedAt, &p.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -10504,6 +10515,11 @@ CREATE TABLE IF NOT EXISTS compliance_rules (
     enabled    BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Client-reported "has a launcher (app-drawer) entry" flag per package. NULL when
+-- the client is too old to report it; the dashboard's app lists default to
+-- launchable apps only (falling back to the full list when nothing reports the flag).
+ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS launchable BOOLEAN;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

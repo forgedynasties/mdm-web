@@ -4512,6 +4512,29 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "overview.html", data)
 }
 
+// launchableOnly filters a device's package list down to app-drawer apps
+// (launchable = true) — the full dump is mostly RRO overlays and framework
+// plumbing nobody manages. Devices whose client predates the launchable flag
+// (no row carries it) keep the full list rather than rendering an empty page.
+// Display-only: pending-install reconciliation, InstalledSet and the kiosk
+// pickers must keep working off the FULL list.
+func launchableOnly(pkgs []db.DevicePackage) []db.DevicePackage {
+	reported := false
+	out := pkgs[:0:0]
+	for _, p := range pkgs {
+		if p.Launchable != nil {
+			reported = true
+			if *p.Launchable {
+				out = append(out, p)
+			}
+		}
+	}
+	if !reported {
+		return pkgs
+	}
+	return out
+}
+
 // pendingInstallRows returns "installing" rows (resolved app name + apk url) for
 // install_apk commands not yet completed/failed — shown in the device Applications list.
 // Commands are deduped by APK URL: re-sending the same install (or a group target
@@ -4645,9 +4668,11 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	apps, _ := h.db.ListApps(r.Context())
 	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
-		"Device":            device,
-		"Role":              h.role(r),
-		"InstalledPackages": installedPkgs,
+		"Device": device,
+		"Role":   h.role(r),
+		// Display only drawer apps; the pending-install reconciliation below still
+		// checks against the FULL list so a non-launchable install isn't re-shown.
+		"InstalledPackages": launchableOnly(installedPkgs),
 		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
 		"Uninstalling":      pendingUninstallPkgs(commands),
 	})
@@ -5056,7 +5081,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
-		"InstalledPackages":   installedPkgs,
+		"InstalledPackages":   launchableOnly(installedPkgs),
 		"KioskApps":           kioskApps,
 		"KioskExtras":         kioskExtras,
 		"PendingInstalls":     pendingInstalls,
@@ -16662,10 +16687,19 @@ func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Default to app-drawer apps only (see launchableOnly); ?all=1 keeps the raw
+	// package dump reachable.
+	showAll := r.URL.Query().Get("all") == "1"
+	total := len(pkgs)
+	if !showAll {
+		pkgs = launchableOnly(pkgs)
+	}
 	h.render(w, r, "device_packages.html", map[string]any{
 		"Title":    serial + " — Packages",
 		"Device":   device,
 		"Packages": pkgs,
+		"ShowAll":  showAll,
+		"AllCount": total,
 	})
 }
 

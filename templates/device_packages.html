@@ -6,8 +6,11 @@
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Fleet · Devices · <span class="mono">{{.Device.SerialNumber}}</span></div>
-    <h1 class="cc-h1">Installed packages</h1>
-    <div class="cc-sub"><b>{{len .Packages}}</b> package{{if ne (len .Packages) 1}}s{{end}} reported by this device's last checkin.</div>
+    <h1 class="cc-h1">Installed {{if .ShowAll}}packages{{else}}apps{{end}}</h1>
+    <div class="cc-sub">
+      {{if .ShowAll}}<b>{{len .Packages}}</b> package{{if ne (len .Packages) 1}}s{{end}} reported by this device's last checkin — <a class="link-detail" href="?">show only app-drawer apps</a>.
+      {{else}}<b>{{len .Packages}}</b> app{{if ne (len .Packages) 1}}s{{end}} with a launcher entry · <a class="link-detail" href="?all=1">show all {{.AllCount}} packages</a>{{end}}
+    </div>
   </div>
 </div>
 
@@ -18,7 +21,7 @@
 </div>
 
 <div class="cc-card">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><h3>Packages</h3><span class="m">{{len .Packages}} total</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><h3>{{if .ShowAll}}Packages{{else}}Apps{{end}}</h3><span class="m">{{len .Packages}} {{if .ShowAll}}total{{else}}in the app drawer{{end}}</span></div>
   {{if .Packages}}
   <div style="overflow-x:auto;">
   <table class="cc-table" id="pkg-table">
