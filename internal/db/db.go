@@ -10386,6 +10386,27 @@ CREATE TABLE IF NOT EXISTS user_layouts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (username, page)
 );
+
+-- Enrollment profiles: a named, revocable "enr_..." token that a provisioning QR (or the
+-- onboarding screen) carries. A device exchanges it once at POST /api/v1/enroll for its own
+-- per-device API key; the profile can auto-join enrolled devices to a group.
+CREATE TABLE IF NOT EXISTS enrollment_profiles (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name         TEXT NOT NULL,
+    token        TEXT NOT NULL UNIQUE,
+    group_id     UUID REFERENCES groups(id) ON DELETE SET NULL,
+    notes        TEXT NOT NULL DEFAULT '',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at   TIMESTAMPTZ,
+    enroll_count INT NOT NULL DEFAULT 0
+);
+
+-- Per-device credential issued at enrollment (SHA-256 hex of the "dvk_..." key). Devices
+-- presenting it are identity-bound: the server derives the acting device from the key and
+-- rejects mismatched client-supplied serials. NULL = legacy shared-key device.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_key_hash TEXT;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via UUID;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash) WHERE device_key_hash IS NOT NULL;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -13411,4 +13432,134 @@ func (d *DB) CarriedProblemCountsByRelease(ctx context.Context) (map[int]Problem
 		out[rid] = s
 	}
 	return out, rows.Err()
+}
+
+// ── Enrollment profiles ───────────────────────────────────────────────────────
+
+// EnrollmentProfile is a named, revocable enrollment token; devices exchange the token
+// once for a per-device API key and (optionally) auto-join the profile's group.
+type EnrollmentProfile struct {
+	ID          uuid.UUID
+	Name        string
+	Token       string
+	GroupID     *uuid.UUID
+	GroupName   string
+	Notes       string
+	CreatedAt   time.Time
+	RevokedAt   *time.Time
+	EnrollCount int
+}
+
+func (p EnrollmentProfile) Revoked() bool { return p.RevokedAt != nil }
+
+func (d *DB) CreateEnrollmentProfile(ctx context.Context, name, token string, groupID *uuid.UUID, notes string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO enrollment_profiles (name, token, group_id, notes)
+		VALUES ($1, $2, $3, $4) RETURNING id`, name, token, groupID, notes).Scan(&id)
+	return id, err
+}
+
+func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
+		       p.created_at, p.revoked_at, p.enroll_count
+		FROM enrollment_profiles p
+		LEFT JOIN groups g ON g.id = p.group_id
+		ORDER BY p.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []EnrollmentProfile
+	for rows.Next() {
+		var p EnrollmentProfile
+		if err := rows.Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName, &p.Notes,
+			&p.CreatedAt, &p.RevokedAt, &p.EnrollCount); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) GetEnrollmentProfile(ctx context.Context, id uuid.UUID) (*EnrollmentProfile, error) {
+	var p EnrollmentProfile
+	err := d.pool.QueryRow(ctx, `
+		SELECT p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
+		       p.created_at, p.revoked_at, p.enroll_count
+		FROM enrollment_profiles p
+		LEFT JOIN groups g ON g.id = p.group_id
+		WHERE p.id = $1`, id).Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName,
+		&p.Notes, &p.CreatedAt, &p.RevokedAt, &p.EnrollCount)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// ActiveEnrollmentProfileByToken resolves a non-revoked profile from its token.
+// Returns pgx.ErrNoRows for unknown or revoked tokens (indistinguishable on purpose).
+func (d *DB) ActiveEnrollmentProfileByToken(ctx context.Context, token string) (*EnrollmentProfile, error) {
+	var p EnrollmentProfile
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, name, token, group_id, notes, created_at, revoked_at, enroll_count
+		FROM enrollment_profiles
+		WHERE token = $1 AND revoked_at IS NULL`, token).Scan(&p.ID, &p.Name, &p.Token,
+		&p.GroupID, &p.Notes, &p.CreatedAt, &p.RevokedAt, &p.EnrollCount)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (d *DB) SetEnrollmentProfileRevoked(ctx context.Context, id uuid.UUID, revoked bool) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE enrollment_profiles
+		SET revoked_at = CASE WHEN $2 THEN NOW() ELSE NULL END
+		WHERE id = $1`, id, revoked)
+	return err
+}
+
+func (d *DB) DeleteEnrollmentProfile(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM enrollment_profiles WHERE id = $1`, id)
+	return err
+}
+
+// EnrollDevice registers (or re-registers, e.g. after factory reset) a device under an
+// enrollment profile: upserts the device row, stores the new key hash (rotating out any
+// previous key), joins the profile's group, and bumps the profile counter.
+func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (uuid.UUID, error) {
+	var deviceID uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (serial_number) DO UPDATE
+		SET device_key_hash = EXCLUDED.device_key_hash,
+		    enrolled_via    = EXCLUDED.enrolled_via,
+		    product         = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END
+		RETURNING id`, serial, product, keyHash, profile.ID).Scan(&deviceID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if profile.GroupID != nil {
+		if _, err := d.pool.Exec(ctx, `
+			INSERT INTO device_groups (device_id, group_id) VALUES ($1, $2)
+			ON CONFLICT DO NOTHING`, deviceID, *profile.GroupID); err != nil {
+			return uuid.Nil, err
+		}
+	}
+	_, err = d.pool.Exec(ctx, `
+		UPDATE enrollment_profiles SET enroll_count = enroll_count + 1 WHERE id = $1`, profile.ID)
+	return deviceID, err
+}
+
+// DeviceSerialByKeyHash resolves the device bound to a per-device API key (by hash).
+// Used by device-API auth to derive the acting device from its credential.
+func (d *DB) DeviceSerialByKeyHash(ctx context.Context, keyHash string) (uuid.UUID, string, error) {
+	var id uuid.UUID
+	var serial string
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, serial_number FROM devices WHERE device_key_hash = $1`, keyHash).Scan(&id, &serial)
+	return id, serial, err
 }

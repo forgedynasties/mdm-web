@@ -1,0 +1,176 @@
+{{define "enrollment.html"}}
+{{template "header" .}}
+
+<style>
+.en-wrap{max-width:1100px;margin:0 auto}
+.en-head{margin:4px 0 18px}
+.en-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.en-head .sub{color:var(--muted,#667);font-size:14px;margin-top:4px}
+.en-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+@media(max-width:860px){.en-grid{grid-template-columns:1fr}}
+.en-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e8ef);border-radius:14px;padding:18px 20px}
+.en-card h3{font-size:15px;font-weight:650;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.en-step{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--border-soft,#eef0f5)}
+.en-step:first-of-type{border-top:0}
+.en-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-soft,#eef0ff);color:var(--accent-text,#4f46e5);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.en-step .b{font-weight:600;margin-bottom:3px}
+.en-step .t{color:var(--muted,#667);font-size:13.5px;line-height:1.5}
+.en-code{display:block;background:var(--code-bg,#0f1220);color:#e6e8f0;border-radius:9px;padding:11px 13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;overflow-x:auto;margin-top:8px;white-space:pre}
+.en-kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border-soft,#eef0f5);font-size:13.5px}
+.en-kv:first-child{border-top:0}
+.en-kv .k{color:var(--muted,#667)}
+.en-kv .v{font-family:ui-monospace,monospace;font-weight:600;text-align:right;word-break:break-all}
+.en-copy{cursor:pointer;border:1px solid var(--border,#e6e8ef);background:var(--surface,#fff);border-radius:7px;padding:2px 8px;font-size:11px;color:var(--accent-text,#4f46e5);font-weight:600;margin-left:8px}
+.en-note{font-size:12.5px;color:var(--muted,#667);margin-top:10px;line-height:1.5}
+.en-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft,#eef0ff);color:var(--accent-text,#4f46e5)}
+
+/* profiles */
+.en-prof{margin-bottom:16px}
+.en-prof-new{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:12px 0 4px}
+.en-prof-new .f{display:flex;flex-direction:column;gap:4px}
+.en-prof-new label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.en-prof-new input,.en-prof-new select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);min-width:170px}
+.en-prof-new button{font:inherit;font-size:13px;font-weight:650;padding:8px 14px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+.en-prof-new button:hover{background:var(--accent-h)}
+.en-ptable{width:100%;border-collapse:collapse;font-size:13px}
+.en-ptable th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+.en-ptable td{padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.en-ptable tr:last-child td{border-bottom:0}
+.en-tok{font-family:var(--mono,monospace);font-size:12px}
+.en-chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+.en-chip.live{background:var(--ok-bg);color:var(--ok)}
+.en-chip.off{background:var(--danger-bg);color:var(--danger)}
+.en-act{display:inline-flex;gap:6px}
+.en-act button,.en-act summary{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text-2)}
+.en-act button:hover{border-color:var(--rule-2);color:var(--text)}
+.en-act button.danger{color:var(--danger)}
+.en-qr-row td{background:var(--surface2)}
+.en-qr-box{display:flex;gap:18px;align-items:flex-start;padding:8px 4px;flex-wrap:wrap}
+.en-qr-box img{width:200px;height:200px;border:1px solid var(--border);border-radius:12px;background:#fff;padding:8px}
+.en-qr-meta{font-size:12.5px;color:var(--muted);line-height:1.6;max-width:46ch}
+.en-qr-meta b{color:var(--text)}
+.en-empty{padding:18px 10px;color:var(--muted);font-size:13px}
+</style>
+
+<div class="en-wrap">
+  <div class="en-head">
+    <h1>Enrollment</h1>
+    <div class="sub">Provision a device with the AIO MDM Device-Owner agent — it manages the whole device from first boot.</div>
+  </div>
+
+  <div class="en-card en-prof">
+    <h3>Enrollment profiles <span class="en-badge">QR / token</span></h3>
+    <div class="en-note" style="margin-top:0">Each profile is a revocable token. Scan its QR from a factory-reset device's welcome screen (tap 6×) or paste the token into the agent's key field — the device exchanges it for its own credential and can auto-join a group.</div>
+    {{if canAdminOrOperator .Role}}
+    <form class="en-prof-new" method="POST" action="/enrollment/profiles">
+      <div class="f"><label>Name</label><input name="name" placeholder="e.g. Warehouse rollout" required></div>
+      <div class="f"><label>Auto-join group</label>
+        <select name="group_id"><option value="">— none —</option>
+          {{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select></div>
+      <div class="f"><label>Notes</label><input name="notes" placeholder="optional"></div>
+      <button type="submit">Create profile</button>
+    </form>
+    {{end}}
+    {{if .Profiles}}
+    <table class="en-ptable">
+      <thead><tr><th>Profile</th><th>Token</th><th>Group</th><th>Enrolled</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {{range .Profiles}}
+        <tr>
+          <td><b>{{.Name}}</b>{{if .Notes}}<div style="color:var(--muted);font-size:12px">{{.Notes}}</div>{{end}}</td>
+          <td class="en-tok">{{.Token}}</td>
+          <td>{{if .GroupName}}{{.GroupName}}{{else}}<span style="color:var(--text-faint)">—</span>{{end}}</td>
+          <td>{{.EnrollCount}} device{{if ne .EnrollCount 1}}s{{end}}</td>
+          <td>{{if .Revoked}}<span class="en-chip off">revoked</span>{{else}}<span class="en-chip live">active</span>{{end}}</td>
+          <td>
+            <div class="en-act">
+              <button type="button" onclick="enToggleQR('{{.ID}}')">QR</button>
+              {{if canAdminOrOperator $.Role}}
+              {{if .Revoked}}
+              <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" style="display:inline"><button type="submit">Reactivate</button></form>
+              <form method="POST" action="/enrollment/profiles/{{.ID}}/delete" style="display:inline" hx-confirm="Delete this profile? Devices already enrolled keep working."><button type="submit" class="danger">Delete</button></form>
+              {{else}}
+              <form method="POST" action="/enrollment/profiles/{{.ID}}/revoke" style="display:inline" hx-confirm="Revoke this profile? Its QR/token stops enrolling new devices immediately."><button type="submit" class="danger">Revoke</button></form>
+              {{end}}
+              {{end}}
+            </div>
+          </td>
+        </tr>
+        <tr class="en-qr-row" id="en-qr-{{.ID}}" style="display:none">
+          <td colspan="6">
+            <div class="en-qr-box">
+              <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
+              <div class="en-qr-meta">
+                <b>Factory-reset provisioning:</b> on the new device's welcome screen, tap anywhere 6 times, scan this code, and the agent installs as Device Owner pre-configured for this server.<br><br>
+                <b>Manual:</b> paste the token above into the agent's "Device API key or enrollment token" field.
+                {{if not $.HasAgentAPK}}<br><br>⚠ QR cold-provisioning needs AGENT_APK_URL + AGENT_APK_CHECKSUM set in the server env so the setup wizard can download the agent; until then use the manual/adb path.{{end}}
+              </div>
+            </div>
+          </td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="en-empty">No profiles yet — create one to get a scannable enrollment QR.</div>
+    {{end}}
+  </div>
+
+  <div class="en-grid">
+    <div class="en-card">
+      <h3>Provision a device <span class="en-badge">adb</span></h3>
+      <div class="en-step">
+        <div class="en-num">1</div>
+        <div><div class="b">Start from a clean device</div>
+          <div class="t">Factory-reset (or fresh) device with <b>no accounts</b> added — Device Owner can only be set before an account exists.</div></div>
+      </div>
+      <div class="en-step">
+        <div class="en-num">2</div>
+        <div><div class="b">Install the AIO MDM agent</div>
+          <div class="t">Side-load the agent APK over adb.</div>
+          <code class="en-code">adb install -r skorra-agent.apk</code></div>
+      </div>
+      <div class="en-step">
+        <div class="en-num">3</div>
+        <div><div class="b">Set it as Device Owner</div>
+          <div class="t">This grants full device management (kiosk, app install, reboot, wipe, config).</div>
+          <code class="en-code">adb shell dpm set-device-owner \
+  {{.AdminComponent}}</code></div>
+      </div>
+      <div class="en-step">
+        <div class="en-num">4</div>
+        <div><div class="b">Point it at this server</div>
+          <div class="t">Open the agent app, enter the server URL + device key below (or bake them into the build), and tap <b>Save &amp; connect</b>. The device appears in <a href="/devices" class="link-detail">Fleet</a> within seconds.</div></div>
+      </div>
+      <div class="en-note">Prefer QR / zero-touch? Create an enrollment profile above and scan its QR from a factory-reset device's welcome screen (tap 6×) — no adb needed.</div>
+    </div>
+
+    <div class="en-card">
+      <h3>Connection details</h3>
+      <div class="en-kv"><span class="k">Server URL</span><span class="v" id="en-url">{{.ServerURL}}</span></div>
+      <div class="en-kv"><span class="k">Device API key</span><span class="v"><span id="en-key-mask">{{.DeviceKeyMask}}</span> <button type="button" class="en-copy" onclick="enCopyKey(this)">Copy</button></span></div>
+      <div class="en-kv"><span class="k">Agent package</span><span class="v">{{.AgentPackage}}</span></div>
+      <div class="en-note">The device API key authenticates every agent. Treat it like a secret — rotate it in your server env if exposed.</div>
+      <textarea id="en-key-real" style="position:absolute;left:-9999px" readonly>{{.DeviceKey}}</textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+function enCopyKey(btn){
+  var t=document.getElementById('en-key-real');
+  t.select();try{document.execCommand('copy');}catch(e){}
+  var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o;},1200);
+}
+function enToggleQR(id){
+  var row=document.getElementById('en-qr-'+id);
+  if(!row)return;
+  var img=row.querySelector('img[data-src]');
+  if(img&&!img.src){img.src=img.getAttribute('data-src');}
+  row.style.display=row.style.display==='none'?'':'none';
+}
+</script>
+
+{{template "footer" .}}
+{{end}}

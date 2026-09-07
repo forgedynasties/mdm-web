@@ -329,7 +329,13 @@ func main() {
 		}
 	})
 
-	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAPIKeyAuth(deviceAPIKey, h) }
+	// Device auth accepts the legacy shared fleet key or a per-device key issued at
+	// enrollment; per-device keys bind the request to its device's serial.
+	deviceKeyLookup := func(ctx context.Context, hash string) (string, bool) {
+		_, serial, err := database.DeviceSerialByKeyHash(ctx, hash)
+		return serial, err == nil
+	}
+	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth(deviceAPIKey, deviceKeyLookup, h) }
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
 	// maxDeviceBody caps device POST bodies (post-inflation). Check-ins carry the
 	// installed-app list and a logcat result can be sizable, so it's generous, but
@@ -343,6 +349,10 @@ func main() {
 
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
+
+	// Enrollment — unauthenticated by design: the profile token IS the credential
+	// (rate-limited per IP inside the handler). Exchanges a token for a device key.
+	mux.Handle("POST /api/v1/enroll", middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.Enroll)))
 
 	// Device-authenticated endpoints (body-size limited)
 	mux.Handle("POST /api/v1/checkin", devicePost(apiHandler.Checkin))

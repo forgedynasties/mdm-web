@@ -3,6 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +23,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
+	"mdm/internal/middleware"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -132,6 +136,10 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	serial := strings.TrimSpace(r.URL.Query().Get("serial"))
 	if serial == "" {
 		http.Error(w, "serial query parameter required", http.StatusBadRequest)
+		return
+	}
+	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
+		http.Error(w, "serial does not match device credential", http.StatusForbidden)
 		return
 	}
 
@@ -565,6 +573,75 @@ func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) jso
 	return json.RawMessage(enriched)
 }
 
+// ── Enrollment ────────────────────────────────────────────────────────────────
+
+// enrollFailures throttles bad-token attempts per source IP (the endpoint is
+// unauthenticated by design — the profile token is the credential).
+var (
+	enrollFailures      = ratelimit.New(time.Minute)
+	enrollMaxFailPerMin = 10
+)
+
+// Enroll exchanges an enrollment-profile token for a per-device API key. The device
+// stores the key and uses it as its X-API-Key from then on; the server derives the
+// acting device from the key (see middleware.DeviceAuth), closing the shared-key
+// identity gap. Re-enrolling the same serial rotates its key.
+func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
+	ip := ratelimit.ClientIP(r)
+	if n, retry := enrollFailures.Count(ip); n >= enrollMaxFailPerMin {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+		return
+	}
+	var req struct {
+		Token   string `json:"token"`
+		Serial  string `json:"serial"`
+		Product string `json:"product"`
+	}
+	if err := decodeDeviceJSON(r.Body, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+	req.Serial = strings.TrimSpace(req.Serial)
+	if req.Token == "" || req.Serial == "" || len(req.Serial) > maxSerialLen {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "token and serial are required"})
+		return
+	}
+	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
+	if err != nil {
+		enrollFailures.Hit(ip)
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid enrollment token"})
+		return
+	}
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	deviceKey := "dvk_" + hex.EncodeToString(raw)
+	sum := sha256.Sum256([]byte(deviceKey))
+	deviceID, err := h.db.EnrollDevice(r.Context(), profile, req.Serial, req.Product, hex.EncodeToString(sum[:]))
+	if err != nil {
+		log.Printf("[enroll] %s via %q: %v", req.Serial, profile.Name, err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	log.Printf("[enroll] device %s enrolled via profile %q", req.Serial, profile.Name)
+	h.hub.PublishDeviceUpdate(deviceID)
+	writeJSON(w, http.StatusOK, map[string]string{"device_key": deviceKey})
+}
+
+// requireBoundSerial rejects a request whose per-device credential doesn't match the
+// serial it claims to act for. Legacy shared-key requests (no bound serial) pass —
+// their identity stays client-supplied until the fleet is migrated to enrollment keys.
+func requireBoundSerial(w http.ResponseWriter, r *http.Request, serial string) bool {
+	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "serial does not match device credential"})
+		return false
+	}
+	return true
+}
+
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
@@ -626,6 +703,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.deviceRateLimited(w, req.SerialNumber) {
+		return
+	}
+	if !requireBoundSerial(w, r, req.SerialNumber) {
 		return
 	}
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {

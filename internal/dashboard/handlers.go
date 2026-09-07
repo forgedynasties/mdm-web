@@ -17322,6 +17322,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
+	mux.HandleFunc("GET /enrollment", h.requireAuth(h.EnrollmentPage))
+	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireAuth(h.EnrollmentProfileQR))
+	post("POST /enrollment/profiles", h.requireAdminOrOperator(h.EnrollmentProfileCreate))
+	post("POST /enrollment/profiles/{id}/revoke", h.requireAdminOrOperator(h.EnrollmentProfileRevoke))
+	post("POST /enrollment/profiles/{id}/activate", h.requireAdminOrOperator(h.EnrollmentProfileActivate))
+	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	mux.HandleFunc("POST /manage/policies", h.requireAuth(h.ManagePolicySave))

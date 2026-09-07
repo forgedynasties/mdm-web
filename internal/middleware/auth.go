@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"net/http"
 	"strconv"
 	"time"
@@ -58,6 +61,52 @@ func APIKeyAuth(apiKey, errorMessage string, next http.Handler) http.Handler {
 // the client/ app. Until then, treat device-reported identity as untrusted.
 func DeviceAPIKeyAuth(apiKey string, next http.Handler) http.Handler {
 	return APIKeyAuth(apiKey, `{"error":"unauthorized"}`, next)
+}
+
+type boundSerialKey struct{}
+
+// BoundSerial returns the device serial derived from a per-device credential, when the
+// request authenticated with one. Handlers use it to reject client-supplied serials that
+// don't match the caller's own identity. Empty for legacy shared-key requests.
+func BoundSerial(r *http.Request) string {
+	s, _ := r.Context().Value(boundSerialKey{}).(string)
+	return s
+}
+
+// DeviceAuth authenticates device-API requests with either the legacy shared fleet key
+// (unbound — device identity stays client-supplied) or a per-device "dvk_..." key issued
+// at enrollment. Per-device keys are resolved via lookup (SHA-256 hex of the presented
+// key → serial); on success the bound serial is attached to the request context so
+// handlers can enforce identity. Same rate limiting and uniform error body as APIKeyAuth.
+func DeviceAuth(sharedKey string, lookup func(ctx context.Context, keyHashHex string) (string, bool), next http.Handler) http.Handler {
+	shared := []byte(sharedKey)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := ratelimit.ClientIP(r)
+		if n, retry := apiAuthFailures.Count(ip); n >= apiMaxFailPerMin {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+			w.WriteHeader(http.StatusTooManyRequests)
+			w.Write([]byte(`{"error":"rate limited"}`))
+			return
+		}
+		provided := []byte(r.Header.Get("X-API-Key"))
+		if subtle.ConstantTimeCompare(provided, shared) == 1 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if len(provided) > 0 {
+			sum := sha256.Sum256(provided)
+			if serial, ok := lookup(r.Context(), hex.EncodeToString(sum[:])); ok {
+				next.ServeHTTP(w, r.WithContext(
+					context.WithValue(r.Context(), boundSerialKey{}, serial)))
+				return
+			}
+		}
+		apiAuthFailures.Hit(ip)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	})
 }
 
 func AdminAPIKeyAuth(apiKey string, next http.Handler) http.Handler {
