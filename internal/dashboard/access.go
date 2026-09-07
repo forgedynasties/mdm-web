@@ -455,3 +455,108 @@ func lowerFirst(s string) string {
 	}
 	return string(b)
 }
+
+// ── Visibility helpers for list handlers ────────────────────────────────────
+
+// visible reports whether a device may appear in this user's lists.
+func (a *access) visible(id uuid.UUID) bool {
+	return !a.hidesDevices() || a.canDevice("view", id)
+}
+
+// applyFilter narrows a DeviceFilter to the user's visible devices.
+func (a *access) applyFilter(f *db.DeviceFilter) {
+	if ids := a.visibleIDs(); ids != nil {
+		f.OnlyIDs = ids
+	}
+}
+
+// keepVisible drops devices the user may not see.
+func (a *access) keepVisible(devs []db.Device) []db.Device {
+	if !a.hidesDevices() {
+		return devs
+	}
+	out := devs[:0:0]
+	for _, d := range devs {
+		if a.canDevice("view", d.ID) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// keepVisibleAlerts drops alerts about devices the user may not see. Fleet
+// alerts (no device) stay.
+func (a *access) keepVisibleAlerts(alerts []db.Alert) []db.Alert {
+	if !a.hidesDevices() {
+		return alerts
+	}
+	out := alerts[:0:0]
+	for _, x := range alerts {
+		if x.DeviceID == nil || a.canDevice("view", *x.DeviceID) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+// filterHiddenCommands drops commands none of whose targets the user may see.
+func (h *Handler) filterHiddenCommands(r *http.Request, cmds []db.Command) []db.Command {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return cmds
+	}
+	out := cmds[:0:0]
+	for _, c := range cmds {
+		ids, err := h.db.GetCommandTargetIDs(r.Context(), c.ID)
+		if err != nil {
+			continue
+		}
+		for _, id := range ids {
+			if acc.canDevice("view", id) {
+				out = append(out, c)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// deviceRoute guards a /devices/{serial}/... route. A device the user may not
+// see answers 404 (so hidden devices do not leak by URL); a device shown
+// read-only accepts GETs and refuses writes; any other action is checked
+// against the policy. Admins skip all of it.
+func (h *Handler) deviceRoute(action string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		acc := h.access(r)
+		if acc.unrestricted() {
+			next(w, r)
+			return
+		}
+		dev, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+		if err != nil || dev == nil {
+			next(w, r) // let the handler produce its own 404
+			return
+		}
+		if !acc.canDevice("view", dev.ID) {
+			if acc.hidesDevices() {
+				http.NotFound(w, r)
+				return
+			}
+			if r.Method != http.MethodGet || action != "view" {
+				h.denied(r, action, &dev.ID, decision{Reason: "device is read-only for this user"})
+				http.Error(w, "Your access policy does not allow this on this device.", http.StatusForbidden)
+				return
+			}
+			next(w, r)
+			return
+		}
+		if action != "view" {
+			if d := acc.decide(action, &dev.ID); !d.Allowed {
+				h.denied(r, action, &dev.ID, d)
+				http.Error(w, "Your access policy does not allow this action on this device.", http.StatusForbidden)
+				return
+			}
+		}
+		next(w, r)
+	}
+}

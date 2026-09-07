@@ -575,7 +575,7 @@
     var need = el.getAttribute('data-role-need') || 'operator';
     var t = document.getElementById('role-lock-toast');
     if (!t) { t = document.createElement('div'); t.id = 'role-lock-toast'; document.body.appendChild(t); }
-    t.textContent = 'Needs the ' + need + ' role — ask an admin to raise your access.';
+    t.textContent = el.getAttribute('data-lock-msg') || (/rule/.test(need) ? 'Needs a ' + need + ' — ask an access admin to add one for you.' : 'Needs the ' + need + ' role — ask an admin to raise your access.');
     t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
   }, true);
   // Theme toggle: flip html[data-theme], persist, and notify listeners
