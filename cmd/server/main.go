@@ -391,6 +391,15 @@ func main() {
 		}
 	})
 
+	// Attribute authorless commands from the audit log (see BackfillCommandAuthors).
+	safego("backfill-command-authors", func() {
+		if n, err := database.BackfillCommandAuthors(bgCtx); err != nil {
+			log.Printf("[startup] backfill command authors: %v", err)
+		} else if n > 0 {
+			log.Printf("[startup] attributed %d authorless command(s) from the audit log", n)
+		}
+	})
+
 	// One-time seed of battery discharge-cycle counters (from pre-aggregated stats).
 	safego("backfill-discharge-cycles", func() {
 		if n, err := database.BackfillDischargeCycles(bgCtx); err != nil {

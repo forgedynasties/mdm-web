@@ -6366,6 +6366,42 @@ const backfillFlag = "daily_stats_backfilled_v1"
 // pruned, so older days have no data to roll up) and probed with cheap indexed EXISTS
 // queries — no full-table scan. Runs at most once ever (guarded by app_flags), so every
 // later deploy returns immediately and startup stays fast. Returns days processed.
+// BackfillCommandAuthors attributes authorless commands (rows from before
+// created_by was recorded) from the audit log's command.send entries: by the
+// "cmd=<id>" detail when present, otherwise by type and a ±3 s timestamp match.
+// Idempotent — only touches created_by = '' — so it can run at every startup.
+// The audit actor is already the post-merge username, so merged people land on
+// their current account. OTA-sent reboots have no audit entry and stay authorless.
+func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
+	var total int64
+	byID, err := d.pool.Exec(ctx, `
+		UPDATE commands c SET created_by = a.actor
+		FROM audit_log a
+		WHERE c.created_by = '' AND a.action = 'command.send' AND a.actor <> ''
+		  AND a.detail LIKE '%cmd=' || c.id::text || '%'`)
+	if err != nil {
+		return 0, err
+	}
+	total += byID.RowsAffected()
+	byTime, err := d.pool.Exec(ctx, `
+		UPDATE commands c SET created_by = s.actor
+		FROM (
+			SELECT c2.id,
+			       (SELECT a.actor FROM audit_log a
+			         WHERE a.action = 'command.send' AND a.actor <> '' AND a.target = c2.type
+			           AND a.created_at BETWEEN c2.created_at - interval '3 seconds' AND c2.created_at + interval '3 seconds'
+			         ORDER BY abs(extract(epoch from (a.created_at - c2.created_at))) LIMIT 1) AS actor
+			FROM commands c2
+			WHERE c2.created_by = '' AND c2.type <> 'ota'
+		) s
+		WHERE c.id = s.id AND s.actor IS NOT NULL`)
+	if err != nil {
+		return total, err
+	}
+	total += byTime.RowsAffected()
+	return total, nil
+}
+
 func (d *DB) BackfillDailyStats(ctx context.Context, maxDays int) (int, error) {
 	var done bool
 	if err := d.pool.QueryRow(ctx,
