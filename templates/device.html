@@ -290,9 +290,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
         <div class="kiosk-modal-body">
         {{if canAdminOrOperator .Role}}
-        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}">
+        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}" data-locked-mode="{{if .KioskConfig.KioskMode}}{{.KioskConfig.KioskMode}}{{else}}app{{end}}">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
-          <div class="form-row">
+          <div class="form-row" style="margin-bottom:14px;">
+            <label class="form-label" for="kiosk-mode-sel">Mode</label>
+            <select id="kiosk-mode-sel" name="kiosk_mode" onchange="kioskModeSync()">
+              <option value="app"{{if or (eq .KioskConfig.KioskMode "app") (eq .KioskConfig.KioskMode "")}} selected{{end}}>Single app — lock to one app</option>
+              <option value="multi"{{if eq .KioskConfig.KioskMode "multi"}} selected{{end}}>Multi-app — locked app plus extra allowed apps</option>
+              <option value="browser"{{if eq .KioskConfig.KioskMode "browser"}} selected{{end}}>Browser — lock to a web page</option>
+            </select>
+          </div>
+          <div class="form-row" id="kiosk-app-row">
             <label class="form-label">Locked app</label>
             {{if .KioskApps}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
@@ -323,6 +331,32 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
               </div>
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on.</span>
+          </div>
+          {{/* Multi-app: extra packages allowed alongside the locked app in lock-task.
+               Same launchable/allowlisted source as the picker, so nothing unpinnable
+               can be chosen. */}}
+          <div class="form-row" id="kiosk-multi-row" hidden>
+            <label class="form-label">Additional allowed apps</label>
+            {{if .KioskApps}}
+            <div class="kmulti">
+              {{range .KioskApps}}
+              <label class="kmulti-item"><input type="checkbox" name="kiosk_packages" value="{{.PackageName}}"{{if index $.KioskExtras .PackageName}} checked{{end}}><span>{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="mono">{{.PackageName}}</span></label>
+              {{end}}
+            </div>
+            <span class="muted small">The device stays pinned to the locked app; these apps may also be opened.</span>
+            {{else}}
+            <div class="muted small">No launchable apps reported yet.</div>
+            {{end}}
+          </div>
+          {{/* Browser kiosk: the agent's locked browser shows the start URL and only
+               follows links matching the allowed prefixes. No package needed. */}}
+          <div class="form-row" id="kiosk-browser-row" hidden>
+            <label class="form-label" for="kiosk-url">Start URL</label>
+            <input type="url" id="kiosk-url" name="kiosk_url" value="{{.KioskConfig.KioskURL}}" placeholder="https://example.com/menu" autocomplete="off" spellcheck="false">
+            <label class="form-label" for="kiosk-url-allow" style="margin-top:12px;">Allowed URL prefixes — one per line</label>
+            <textarea id="kiosk-url-allow" name="kiosk_url_allow" rows="4" placeholder="https://example.com/" spellcheck="false">{{range .KioskConfig.KioskURLAllow}}{{.}}
+{{end}}</textarea>
+            <span class="muted small">Leave empty to allow only the start URL. Applies at the device's next config sync.</span>
           </div>
         </form>
         {{end}}
@@ -2995,15 +3029,32 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var m = document.getElementById('kiosk-modal');
     if (!m) return;
     // Discard any selection that was never applied: reset the picker to the app that
-    // is actually locked, so reopening always reflects the applied state.
+    // is actually locked (and the mode select to the applied mode), so reopening
+    // always reflects the applied state.
     var hid = document.getElementById('kiosk-pkg-value');
     if (hid && window.__kioskOrig) hid.value = window.__kioskOrig.pkg;
+    var sel = document.getElementById('kiosk-mode-sel');
+    if (sel && window.__kioskOrig) sel.value = window.__kioskOrig.mode || 'app';
+    window.__kioskDirty = false;
     var q = document.getElementById('kpk-q');
     if (q) q.value = '';
     if (window.kioskPickerRender) window.kioskPickerRender();
     m.classList.add('modal-open');
-    if (window.kioskRefreshToggle) window.kioskRefreshToggle();
+    if (window.kioskModeSync) window.kioskModeSync();
     if (q) setTimeout(function () { q.focus(); }, 40);
+  };
+  // Show/hide the mode-specific rows (app picker / extra multi-app list / browser
+  // URL fields) to match the mode select, then refresh the footer buttons.
+  window.kioskModeSync = function () {
+    var sel = document.getElementById('kiosk-mode-sel');
+    var mode = sel ? sel.value : 'app';
+    var appRow = document.getElementById('kiosk-app-row');
+    var multiRow = document.getElementById('kiosk-multi-row');
+    var browserRow = document.getElementById('kiosk-browser-row');
+    if (appRow) appRow.hidden = (mode === 'browser');
+    if (multiRow) multiRow.hidden = (mode !== 'multi');
+    if (browserRow) browserRow.hidden = (mode !== 'browser');
+    if (window.kioskRefreshToggle) window.kioskRefreshToggle();
   };
   window.kioskModalClose = function () {
     var m = document.getElementById('kiosk-modal');
@@ -3044,6 +3095,15 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var body = new URLSearchParams();
     body.append('kiosk_enabled', enabled ? '1' : '0');
     body.append('kiosk_package', pkg ? pkg.value : '');
+    var modeSel = document.getElementById('kiosk-mode-sel');
+    body.append('kiosk_mode', modeSel ? modeSel.value : 'app');
+    var url = document.getElementById('kiosk-url');
+    if (url) body.append('kiosk_url', url.value);
+    var allow = document.getElementById('kiosk-url-allow');
+    if (allow) body.append('kiosk_url_allow', allow.value);
+    document.querySelectorAll('#kiosk-multi-row input[name="kiosk_packages"]:checked').forEach(function (c) {
+      body.append('kiosk_packages', c.value);
+    });
     // Optimistic: reflect the new state in the header pill right away.
     if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled);
     kioskBusy = true;
@@ -3072,8 +3132,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   (function () {
     var f = document.getElementById('kiosk-form');
     window.__kioskOrig = f
-      ? { pkg: f.getAttribute('data-locked-pkg') || '', on: f.getAttribute('data-locked-on') === '1' }
-      : { pkg: '', on: false };
+      ? { pkg: f.getAttribute('data-locked-pkg') || '', on: f.getAttribute('data-locked-on') === '1', mode: f.getAttribute('data-locked-mode') || 'app' }
+      : { pkg: '', on: false, mode: 'app' };
+    // Set when any mode-specific field (mode select, extra apps, browser URL/prefixes)
+    // is edited, so the Apply button shows even when the locked app itself is unchanged.
+    window.__kioskDirty = false;
   })();
 
   // Reflect state on the footer buttons:
@@ -3085,22 +3148,31 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var applyBtn = document.getElementById('kiosk-apply-btn');
     var offBtn = document.getElementById('kiosk-off-btn');
     if (!applyBtn) return;
+    var modeSel = document.getElementById('kiosk-mode-sel');
+    var mode = modeSel ? modeSel.value : 'app';
     var pkg = document.getElementById('kiosk-pkg-value');
-    var hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
-    var orig = window.__kioskOrig || { pkg: '', on: false };
-    var changed = pkg && pkg.value !== orig.pkg;
+    var hasApp;
+    if (mode === 'browser') {
+      // Browser kiosk needs no app — it's ready once a start URL is entered.
+      var url = document.getElementById('kiosk-url');
+      hasApp = url ? !!url.value.trim() : false;
+    } else {
+      hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
+    }
+    var orig = window.__kioskOrig || { pkg: '', on: false, mode: 'app' };
+    var changed = (pkg && pkg.value !== orig.pkg) || mode !== orig.mode || window.__kioskDirty;
     var n = document.getElementById('kiosk-note');
     if (!orig.on) {
       if (offBtn) offBtn.hidden = true;
       applyBtn.hidden = false;
       applyBtn.textContent = 'Enable kiosk';
       applyBtn.disabled = !hasApp;
-      if (n && !n.classList.contains('err')) kioskNote(hasApp ? '' : 'Select a locked app to enable');
+      if (n && !n.classList.contains('err')) kioskNote(hasApp ? '' : (mode === 'browser' ? 'Enter a start URL to enable' : 'Select a locked app to enable'));
     } else {
       if (offBtn) offBtn.hidden = false;
       if (changed && hasApp) {
         applyBtn.hidden = false;
-        applyBtn.textContent = 'Switch kiosk app';
+        applyBtn.textContent = (mode === 'app' && orig.mode === 'app') ? 'Switch kiosk app' : 'Apply changes';
         applyBtn.disabled = false;
       } else {
         applyBtn.hidden = true;
@@ -3110,18 +3182,28 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Primary button: enable kiosk (when off) or apply the newly-chosen app (when on),
   // then close. The pill flips immediately via kioskSubmit -> mdmSyncKiosk.
   window.kioskApply = function () {
+    var modeSel = document.getElementById('kiosk-mode-sel');
+    var mode = modeSel ? modeSel.value : 'app';
     var pkg = document.getElementById('kiosk-pkg-value');
-    if (pkg && !pkg.value.trim()) {
+    if (mode === 'browser') {
+      var url = document.getElementById('kiosk-url');
+      if (url && !url.value.trim()) {
+        url.focus();
+        kioskNote('Enter a start URL first', true);
+        return;
+      }
+    } else if (pkg && !pkg.value.trim()) {
       var s = document.getElementById('kpk-q');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
       kioskNote('Pick a locked app first', true);
       return;
     }
     window.kioskSubmit(true);
-    var appliedPkg = pkg ? pkg.value : '';
+    var appliedPkg = (mode !== 'browser' && pkg) ? pkg.value : '';
     var f = document.getElementById('kiosk-form');
-    if (f) { f.setAttribute('data-locked-on', '1'); f.setAttribute('data-locked-pkg', appliedPkg); }
-    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = appliedPkg; }
+    if (f) { f.setAttribute('data-locked-on', '1'); f.setAttribute('data-locked-pkg', appliedPkg); f.setAttribute('data-locked-mode', mode); }
+    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = appliedPkg; window.__kioskOrig.mode = mode; }
+    window.__kioskDirty = false;
     window.kioskModalClose();
   };
   // Danger button: turn kiosk off, then close.
@@ -3133,9 +3215,22 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     window.kioskModalClose();
   };
   // Picking a different app just updates the buttons (no auto-apply); an explicit
-  // Enable / Change kiosk app press commits it.
+  // Enable / Change kiosk app press commits it. Edits to the mode-specific fields
+  // (extra apps, browser URL/prefixes) mark the form dirty so Apply shows.
   document.addEventListener('change', function (e) {
-    if (e.target && e.target.id === 'kiosk-pkg-value') {
+    if (!e.target) return;
+    if (e.target.id === 'kiosk-pkg-value' || e.target.id === 'kiosk-mode-sel') {
+      window.kioskRefreshToggle();
+      return;
+    }
+    if (e.target.closest && e.target.closest('#kiosk-form')) {
+      window.__kioskDirty = true;
+      window.kioskRefreshToggle();
+    }
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target && (e.target.id === 'kiosk-url' || e.target.id === 'kiosk-url-allow')) {
+      window.__kioskDirty = true;
       window.kioskRefreshToggle();
     }
   });

@@ -114,6 +114,13 @@ type DeviceConfig struct {
 	KioskEnabled  bool      `json:"kiosk_enabled"`
 	KioskPackage  string    `json:"kiosk_package"`
 	KioskFeatures int       `json:"kiosk_features"`
+	// Kiosk mode: "app" (single locked app — the classic pair above), "multi"
+	// (locked app plus KioskPackages also allowed in lock-task), or "browser"
+	// (locked browser showing KioskURL, navigation limited to KioskURLAllow prefixes).
+	KioskMode     string   `json:"kiosk_mode"`
+	KioskPackages []string `json:"kiosk_packages"`
+	KioskURL      string   `json:"kiosk_url"`
+	KioskURLAllow []string `json:"kiosk_url_allow"`
 	// WlcChargingEnabled controls wireless-charging on the pad (client writes the
 	// customer_gpio line). Default true.
 	WlcChargingEnabled bool `json:"wlc_charging_enabled"`
@@ -5810,12 +5817,14 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
 	// only ever fires once per device.
 	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
-		offline_exit_enabled, offline_exit_seed, offline_exit_relock, wlc_charging_enabled, updated_at
+		offline_exit_enabled, offline_exit_seed, offline_exit_relock, wlc_charging_enabled, updated_at,
+		kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
 	scan := func(row pgx.Row) error {
 		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
-			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt)
+			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt,
+			&cfg.KioskMode, &cfg.KioskPackages, &cfg.KioskURL, &cfg.KioskURLAllow)
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
@@ -5909,6 +5918,33 @@ func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled boo
 	return err
 }
 
+// SetKioskModeConfig stores the extended kiosk fields alongside SetKioskConfig's
+// classic enable/package pair: the mode ("app"|"multi"|"browser"), the extra
+// packages allowed in multi-app lock-task, and the browser-kiosk start URL +
+// allowed URL prefixes. Nil slices are stored as empty JSONB arrays so the
+// config delivery never carries JSON null.
+func (d *DB) SetKioskModeConfig(ctx context.Context, deviceID uuid.UUID, mode string, packages []string, url string, urlAllow []string) error {
+	if packages == nil {
+		packages = []string{}
+	}
+	if urlAllow == nil {
+		urlAllow = []string{}
+	}
+	pkgs, _ := json.Marshal(packages)
+	allow, _ := json.Marshal(urlAllow)
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id, kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (device_id) DO UPDATE
+			SET kiosk_mode      = EXCLUDED.kiosk_mode,
+			    kiosk_packages  = EXCLUDED.kiosk_packages,
+			    kiosk_url       = EXCLUDED.kiosk_url,
+			    kiosk_url_allow = EXCLUDED.kiosk_url_allow,
+			    updated_at      = NOW()
+	`, deviceID, mode, pkgs, url, allow)
+	return err
+}
+
 // SetWlcCharging sets the wireless-charging enable flag for a device.
 func (d *DB) SetWlcCharging(ctx context.Context, deviceID uuid.UUID, enabled bool) error {
 	_, err := d.pool.Exec(ctx, `
@@ -5938,6 +5974,9 @@ func (d *DB) SetKioskConfigForDevices(ctx context.Context, deviceIDs []uuid.UUID
 	if len(deviceIDs) == 0 {
 		return nil
 	}
+	// Bulk apply means the classic single-app lock, so it also resets kiosk_mode —
+	// otherwise a device previously in browser/multi mode would keep interpreting
+	// the new package through its stale mode.
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO device_config (device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at)
 		SELECT d.id, $2, $3, $4, NOW()
@@ -5947,6 +5986,7 @@ func (d *DB) SetKioskConfigForDevices(ctx context.Context, deviceIDs []uuid.UUID
 			SET kiosk_enabled  = EXCLUDED.kiosk_enabled,
 			    kiosk_package  = EXCLUDED.kiosk_package,
 			    kiosk_features = EXCLUDED.kiosk_features,
+			    kiosk_mode     = 'app',
 			    updated_at     = NOW()
 	`, deviceIDs, enabled, pkg, features)
 	return err
@@ -10407,6 +10447,15 @@ CREATE TABLE IF NOT EXISTS enrollment_profiles (
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_key_hash TEXT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via UUID;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash) WHERE device_key_hash IS NOT NULL;
+
+-- Kiosk modes: 'app' (single locked app — the classic kiosk_enabled/kiosk_package
+-- pair), 'multi' (locked app plus kiosk_packages also allowed in lock-task), or
+-- 'browser' (locked browser showing kiosk_url, navigation limited to the
+-- kiosk_url_allow prefixes). The JSONB columns are arrays of strings.
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_mode TEXT NOT NULL DEFAULT 'app';
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_packages JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS kiosk_url_allow JSONB NOT NULL DEFAULT '[]';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

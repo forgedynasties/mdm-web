@@ -110,6 +110,14 @@
 .kiosk-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);flex:none;}
 .kiosk-modal-foot [hidden]{display:none!important;}
 .kiosk-modal-foot .kiosk-note{margin-top:0;flex:1;min-width:120px;}
+/* Kiosk mode select + browser/multi-app rows. width:100%+flex:none so the global
+   flex rules can't squash them inside the modal's flex column. */
+#kiosk-mode-sel,#kiosk-url{font:inherit;font-size:13px;width:100%;flex:none;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);}
+#kiosk-url-allow{font-family:var(--mono);font-size:12px;width:100%;flex:none;min-height:80px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);resize:vertical;}
+.kmulti{max-height:190px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;}
+.kmulti-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;cursor:pointer;}
+.kmulti-item .mono{font-size:11.5px;color:var(--muted);margin-left:auto;}
+.kiosk-modal-body [hidden]{display:none!important;}
 .kiosk-foot-btns{display:flex;gap:10px;margin-left:auto;}
 #kiosk-modal .kpk-grid{grid-template-columns:repeat(2,1fr);max-height:344px;}
 #kiosk-modal .kpk-list{max-height:344px;}

@@ -833,6 +833,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		"kiosk_enabled":            deviceCfg.KioskEnabled,
 		"kiosk_package":            deviceCfg.KioskPackage,
 		"kiosk_features":           deviceCfg.KioskFeatures,
+		"kiosk_mode":               deviceCfg.KioskMode,
+		"kiosk_packages":           deviceCfg.KioskPackages,
+		"kiosk_url":                deviceCfg.KioskURL,
+		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
@@ -1387,6 +1391,10 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		"kiosk_enabled":            deviceCfg.KioskEnabled,
 		"kiosk_package":            deviceCfg.KioskPackage,
 		"kiosk_features":           deviceCfg.KioskFeatures,
+		"kiosk_mode":               deviceCfg.KioskMode,
+		"kiosk_packages":           deviceCfg.KioskPackages,
+		"kiosk_url":                deviceCfg.KioskURL,
+		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}

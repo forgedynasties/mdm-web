@@ -5012,6 +5012,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Multi-app kiosk: which extra packages are currently allowed, as a set so the
+	// modal's checkbox list can mark them checked with a plain index lookup.
+	kioskExtras := make(map[string]bool, len(kioskCfg.KioskPackages))
+	for _, p := range kioskCfg.KioskPackages {
+		kioskExtras[p] = true
+	}
 
 	// Server-Timing: visible in the browser's Network panel, so a slow page can be
 	// attributed to queries vs. view assembly without log digging.
@@ -5048,6 +5054,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Apps":                apps,
 		"InstalledPackages":   installedPkgs,
 		"KioskApps":           kioskApps,
+		"KioskExtras":         kioskExtras,
 		"PendingInstalls":     pendingInstalls,
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
@@ -8546,6 +8553,10 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"kiosk_enabled":            cfg.KioskEnabled,
 			"kiosk_package":            cfg.KioskPackage,
 			"kiosk_features":           cfg.KioskFeatures,
+			"kiosk_mode":               cfg.KioskMode,
+			"kiosk_packages":           cfg.KioskPackages,
+			"kiosk_url":                cfg.KioskURL,
+			"kiosk_url_allow":          cfg.KioskURLAllow,
 			"wlc_charging_enabled":     cfg.WlcChargingEnabled,
 			"checkin_interval_seconds": interval,
 		})
@@ -16483,35 +16494,85 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 
-	if enabled && pkg == "" {
-		http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+	// Kiosk mode: single app (classic), multi-app (extra packages allowed in
+	// lock-task), or browser (locked browser on a URL). Older callers that don't
+	// send a mode keep the classic single-app behaviour.
+	mode := r.FormValue("kiosk_mode")
+	switch mode {
+	case "app", "multi", "browser":
+	case "":
+		mode = "app"
+	default:
+		http.Error(w, "Unknown kiosk mode", http.StatusBadRequest)
 		return
 	}
 
-	// Only allow locking to an app the device actually reports as installed. Enabling
+	// Browser kiosk locks to the agent's built-in browser, not an installed app.
+	kioskURL := strings.TrimSpace(r.FormValue("kiosk_url"))
+	var urlAllow []string
+	var extraPkgs []string
+	if mode == "browser" {
+		pkg = ""
+		if enabled && !strings.HasPrefix(kioskURL, "http://") && !strings.HasPrefix(kioskURL, "https://") {
+			http.Error(w, "Browser kiosk needs a start URL beginning with http:// or https://", http.StatusBadRequest)
+			return
+		}
+		// One allowed URL prefix per textarea line.
+		for _, line := range strings.Split(r.FormValue("kiosk_url_allow"), "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				urlAllow = append(urlAllow, line)
+			}
+		}
+	} else {
+		kioskURL = ""
+		if enabled && pkg == "" {
+			http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+			return
+		}
+	}
+	if mode == "multi" {
+		seen := map[string]bool{pkg: true}
+		for _, p := range r.Form["kiosk_packages"] {
+			if p = strings.TrimSpace(p); p != "" && !seen[p] {
+				seen[p] = true
+				extraPkgs = append(extraPkgs, p)
+			}
+		}
+	}
+
+	// Only allow locking to apps the device actually reports as installed. Enabling
 	// kiosk for a package that isn't on the device stores an unenforceable policy: the
 	// client can't launch it, so lock-task never engages and the device sits unlocked
 	// while the dashboard shows kiosk "on". Reject it here so the state stays truthful.
-	if enabled {
+	// The extra multi-app packages and the locked app must also pass the fleet kiosk
+	// allowlist (the picker only offers allowed apps; enforce it server-side too).
+	if enabled && mode != "browser" {
 		pkgs, perr := h.db.GetDevicePackages(r.Context(), device.ID)
 		if perr != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		installed := false
+		installed := make(map[string]bool, len(pkgs))
 		for _, p := range pkgs {
-			if p.PackageName == pkg {
-				installed = true
-				break
-			}
+			installed[p.PackageName] = true
 		}
-		if !installed {
-			http.Error(w, "That app is not installed on this device. Install it first, then enable kiosk.", http.StatusBadRequest)
-			return
+		for _, p := range append([]string{pkg}, extraPkgs...) {
+			if !installed[p] {
+				http.Error(w, "That app is not installed on this device. Install it first, then enable kiosk.", http.StatusBadRequest)
+				return
+			}
+			if !h.cfg.KioskAppAllowed(p) {
+				http.Error(w, "That app is not on the kiosk allowlist (Settings → Kiosk).", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
 	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, 0); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := h.db.SetKioskModeConfig(r.Context(), device.ID, mode, extraPkgs, kioskURL, urlAllow); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
