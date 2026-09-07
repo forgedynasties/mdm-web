@@ -1,48 +1,47 @@
 {{define "users_access.html"}}
 {{template "header" .}}
 <style>
-.ua-row{display:flex;align-items:flex-start;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.ua-row{display:flex;align-items:flex-start;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background var(--dur)}
 .ua-row:first-of-type{border-top:none}
-.ua-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--surface2);color:var(--muted)}
-.ua-av.role-admin{background:var(--danger-bg);color:var(--danger)}.ua-av.role-operator{background:var(--info-bg);color:var(--info)}
-.ua-id{flex:1;min-width:200px}
-.ua-name{font-size:13.5px;font-weight:650}
-.ua-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
-.ua-rules{flex:2;min-width:260px;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
-.ua-rule{display:flex;gap:8px;align-items:baseline}
-.ua-rule .e{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:99px}
-.ua-rule .e.allow{background:var(--ok-bg);color:var(--ok)}.ua-rule .e.deny{background:var(--danger-bg);color:var(--danger)}
-.ua-base{font-size:12px;color:var(--text-2)}
+a.ua-row:hover{background:var(--surface2)}
+.ua-row .ubub{width:36px;height:36px;font-size:14px;flex:none}
+.ua-id{flex:0 0 220px;min-width:180px}
+.ua-name{font-size:13.5px;font-weight:650;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ua-meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ua-words{flex:1;min-width:240px;margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.45;color:var(--text-2)}
+.ua-words li{padding:1px 0}
+.ua-words li:first-child{color:var(--text);font-weight:600}
+.ua-hot{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
+.ua-hot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ua-n{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.ua-edit{flex:none;align-self:center}
 </style>
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Users · Access control</div>
-      <h1 class="cc-h1">{{.Custom}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} with custom access</h1>
-      <div class="cc-sub">Admins have full access. Operators start with everything an operator can do; rules refine that per action and per group or venue. Viewers can only be limited in what they see. Click a user to edit.</div>
+      <h1 class="cc-h1">{{.Custom}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} with custom rules</h1>
+      <div class="cc-sub">Roles set the ceiling: <b>Super admin</b> → <b>Dev</b> (OTA + shell + operator) → <b>Access admin</b> (users + operator) → <b>Operator</b> → <b>Viewer</b>. Rules say <i>where</i>: the whole fleet, a venue, a group, or single devices. Remote control is only ever on when a rule names it.</div>
     </div>
     <div class="cc-actions"><a class="cc-btn js-dest" href="/users">People</a></div>
   </div>
   {{template "users-tabs" .}}
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k">Accounts</span><div class="v">{{len .Rows}}</div><div class="d">click one to edit its rules</div></div>
+    <div class="cc-kpi"><span class="k">With custom rules</span><div class="v">{{.Custom}}</div><div class="d">narrowed or widened</div></div>
+    <div class="cc-kpi{{if .Sensitive}} warn{{end}}"><span class="k">Live sessions granted</span><div class="v{{if .Sensitive}} warn{{end}}">{{.Sensitive}}</div><div class="d">remote control, shell or OTA</div></div>
+  </div>
   <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Policies</h3></div>
     {{range .Rows}}
-    <a class="ua-row js-dest" href="/users/{{.User.ID}}/profile#pf-access" style="color:inherit;text-decoration:none;">
-      <span class="ua-av role-{{.User.Role}}">{{slice .User.Username 0 1}}</span>
+    {{if .CanEdit}}<a class="ua-row js-dest" href="/users/{{.User.ID}}/access">{{else}}<div class="ua-row">{{end}}
+      {{template "ubub" .Bubble}}
       <div class="ua-id">
-        <div class="ua-name">{{.User.DisplayName}}</div>
-        <div class="ua-meta"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span> <span class="mono">{{.User.Username}}</span></div>
+        <div class="ua-name">{{.User.DisplayName}}{{if .Sensitive}}<span class="ua-hot" title="Has a rule granting remote control, shell or OTA">sessions</span>{{end}}</div>
+        <div class="ua-meta"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span>{{if .Grants}}<span class="ua-n">{{.Grants}} rule{{if ne .Grants 1}}s{{end}}</span>{{end}}</div>
       </div>
-      <div class="ua-rules">
-        {{if or (eq .User.Role "admin") (eq .User.Role "dev")}}<span class="ua-base">Full access ({{roleLabel .User.Role}})</span>
-        {{else if .Empty}}<span class="ua-base">{{if eq .User.Role "viewer"}}Sees the whole fleet, read-only{{else}}Full operator access{{end}}</span>
-        {{else}}
-          {{if ne .User.Role "viewer"}}<span class="ua-base">Base: {{if eq .Policy.Base "deny"}}allow nothing, then include{{else}}allow everything, then exclude{{end}}{{if .Policy.HideOutOfScope}} · out-of-scope devices hidden{{else}} · out-of-scope devices shown read-only{{end}}</span>{{end}}
-          {{range .Rules}}<div class="ua-rule"><span class="e {{.Effect}}">{{.Effect}}</span><span>{{.Text}}</span></div>{{end}}
-        {{end}}
-      </div>
-      <span class="cc-btn sm">Edit</span>
-    </a>
+      <ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul>
+      {{if .CanEdit}}<span class="cc-btn sm ua-edit">Edit rules</span>{{end}}
+    {{if .CanEdit}}</a>{{else}}</div>{{end}}
     {{end}}
   </div>
 </div>

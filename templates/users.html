@@ -96,7 +96,7 @@
           {{with index $.Summaries .Username}} · {{.Actions}} action{{if ne .Actions 1}}s{{end}} · {{.Commands}} command{{if ne .Commands 1}}s{{end}}{{if .LastAt}} · active {{timeSince (deref .LastAt)}}{{end}}{{end}}
         </div>
       </div>
-      <a class="user-pw-btn js-dest" href="/users/{{.ID}}/profile" title="Access control, account settings and stats"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Access control</a>
+      <a class="user-pw-btn js-dest" href="/users/{{.ID}}/access" title="Rules: what this account may do and where"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Access control</a>
       <details class="user-pw" style="margin-right:2px;">
         <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
         <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">

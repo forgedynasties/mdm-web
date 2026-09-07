@@ -84,7 +84,7 @@
 .settings-panels{flex:1;min-width:0;}
 [hidden]{display:none !important;}
 .settings-tab{display:none;}
-.settings-tab.active{display:block;}
+.settings-tab.active{display:block;padding-bottom:110px;}
 .sw-toggle{width:42px;height:24px;border-radius:99px;border:0;background:var(--surface2);position:relative;cursor:pointer;padding:0;flex:none;transition:background .15s;}
 .sw-toggle.on{background:var(--ok);}
 .sw-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
@@ -280,12 +280,12 @@
       <span class="muted small m"> · click to add to the allowlist</span>
       {{if .KioskFleetApps}}<input type="search" class="form-input" placeholder="Filter by app or package…" aria-label="Filter apps" oninput="kioskFilter(this.value)" style="margin-top:8px;max-width:360px;font-size:12.5px;padding:6px 10px;">{{end}}
       {{if .KioskFleetApps}}
-      <div class="kioskfleet" id="kioskfleet">
+      <div class="kdraw" id="kioskfleet">
         {{range .KioskFleetApps}}
-        <button type="button" class="kioskfleet-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s)">
-          <span class="kioskfleet-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span>
-          <span class="kioskfleet-pk mono">{{.PackageName}}</span>
-          <span class="kioskfleet-ct">{{.DeviceCount}}</span>
+        <button type="button" class="kd-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s) · click to add to the allowlist">
+          <span class="kd-ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="" loading="lazy">{{else}}<span class="kd-ph">{{if .AppName}}{{slice .AppName 0 1}}{{else}}{{slice .PackageName 0 1}}{{end}}</span>{{end}}<span class="kd-ct">{{.DeviceCount}}</span><span class="kd-ok"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          <span class="kd-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}</span>{{end}}
+          <span class="kd-pk">{{.PackageName}}</span>
         </button>
         {{end}}
       </div>
@@ -295,18 +295,48 @@
     </div>
   </div>
 </div>
+<style>
+.kdraw{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:12px;padding-bottom:8px}
+.kd-app{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px 10px;border:1px solid transparent;border-radius:14px;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:center;min-width:0;transition:background var(--dur),border-color var(--dur),transform var(--dur-fast)}
+.kd-app:hover{background:var(--surface2);border-color:var(--border);transform:translateY(-1px)}
+.kd-app:active{transform:scale(.97)}
+.kd-ic{position:relative;width:52px;height:52px;border-radius:14px;background:var(--surface-3);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;overflow:visible;box-shadow:var(--shadow-sm)}
+.kd-ic img{width:100%;height:100%;border-radius:13px;object-fit:cover;display:block}
+.kd-ph{font-size:20px;font-weight:750;color:var(--accent-text);text-transform:uppercase}
+.kd-ct{position:absolute;top:-6px;right:-8px;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:10.5px;font-weight:750;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:var(--shadow-sm)}
+.kd-ok{position:absolute;inset:0;border-radius:14px;background:var(--ok);color:#fff;display:none;align-items:center;justify-content:center}
+.kd-ok svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.kd-app.added .kd-ok{display:flex;animation:kd-pop var(--dur) var(--ease)}
+.kd-app.added{border-color:var(--ok-edge,var(--ok));background:var(--ok-bg)}
+.kd-app.added .kd-ct{display:none}
+@keyframes kd-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.kd-nm{font-size:12px;font-weight:650;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+.kd-pk{font-family:var(--mono);font-size:10px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kd-app[hidden]{display:none!important}
+.kd-none{grid-column:1/-1;padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
+</style>
 <script>
 function kioskFilter(q){
-  q=(q||'').trim().toLowerCase();
-  document.querySelectorAll('#kioskfleet .kioskfleet-app').forEach(function(b){ b.style.display = !q || b.textContent.toLowerCase().indexOf(q)!==-1 ? '' : 'none'; });
+  q=(q||'').trim().toLowerCase(); var n=0;
+  document.querySelectorAll('#kioskfleet .kd-app').forEach(function(b){ var hit=!q || b.textContent.toLowerCase().indexOf(q)!==-1; b.hidden=!hit; if(hit)n++; });
+  var none=document.getElementById('kd-none'); if(!none){ none=document.createElement('div'); none.id='kd-none'; none.className='kd-none'; document.getElementById('kioskfleet').appendChild(none); }
+  none.textContent='No app matches "'+q+'"'; none.hidden=n>0||!q;
 }
+function kioskAllowed(pkg){
+  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return false;
+  return ta.value.split(/[\s,;]+/).some(function(pat){ pat=pat.trim(); if(!pat) return false; if(pat===pkg) return true;
+    if(pat.indexOf('*')===-1) return false; var re=new RegExp('^'+pat.split('*').map(function(x){return x.replace(/[.+?^${}()|[\]\\]/g,'\\$&');}).join('.*')+'$'); return re.test(pkg); });
+}
+function kioskSyncAdded(){ document.querySelectorAll('#kioskfleet .kd-app').forEach(function(b){ b.classList.toggle('added', kioskAllowed(b.dataset.pkg)); }); }
 function kioskAddPkg(pkg, el){
   var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return;
+  if(kioskAllowed(pkg)){ // toggle off: remove the exact line (patterns stay)
+    ta.value=ta.value.split(/\n/).filter(function(l){return l.trim()!==pkg;}).join('\n'); kioskSyncAdded(); return;
+  }
   var lines=ta.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(Boolean);
-  if(lines.indexOf(pkg)===-1){ lines.push(pkg); ta.value=lines.join('\n'); }
-  if(el) el.classList.add('added');
-  ta.focus();
+  lines.push(pkg); ta.value=lines.join('\n'); kioskSyncAdded();
 }
+(function(){ var ta=document.getElementById('kiosk-allowlist-ta'); if(ta){ ta.addEventListener('input', kioskSyncAdded); kioskSyncAdded(); } })();
 </script>
   </section>
 

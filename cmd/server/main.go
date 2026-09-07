@@ -391,6 +391,35 @@ func main() {
 		}
 	})
 
+	// Move legacy JSONB access rules into access_grants (one-time; see MigrateAccessRules).
+	safego("migrate-access-rules", func() {
+		if moved, dropped, err := database.MigrateAccessRules(bgCtx); err != nil {
+			log.Printf("[startup] migrate access rules: %v", err)
+		} else if moved > 0 || dropped > 0 {
+			log.Printf("[startup] access rules migrated: %d moved, %d dropped", moved, dropped)
+		}
+	})
+	// Temporary grants: drop the expired ones every minute (they already stop
+	// applying at their expiry; this keeps the table and the editor tidy).
+	safego("sweep-access-grants", func() {
+		t := time.NewTicker(time.Minute)
+		defer t.Stop()
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				gone, err := database.SweepExpiredAccessGrants(bgCtx)
+				if err != nil {
+					log.Printf("[access] sweep expired grants: %v", err)
+				}
+				for _, g := range gone {
+					_ = database.InsertAudit(bgCtx, "system", "user.access.expired", g.UserID.String(), g.Effect+" "+strings.Join(g.Actions, ",")+" @"+g.ScopeType+" "+g.ScopeName)
+				}
+			}
+		}
+	})
+
 	// Attribute authorless commands from the audit log (see BackfillCommandAuthors).
 	safego("backfill-command-authors", func() {
 		if n, err := database.BackfillCommandAuthors(bgCtx); err != nil {

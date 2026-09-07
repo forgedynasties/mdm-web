@@ -680,19 +680,19 @@ func fillPct(list []NamedCount) {
 
 // ── Per-user access policy ──────────────────────────────────────────────────
 //
-// AccessPolicy refines a role. Admins/devs ignore it. For an operator it decides
-// which actions they may take on which devices; for a viewer only "view" matters
-// (which devices they can see). Evaluation for (action, device):
-//   1. rules whose Actions contain the action (or "*") and whose scope contains
-//      the device are applicable; a "deny" among them wins; else an "allow" allows;
-//   2. otherwise Base applies ("allow" = everything the role permits, "deny" = nothing).
-// Actions that are not about one device (QA, groups) consider fleet-wide rules only.
+// AccessPolicy is a user's resolved access: the base (allow-then-exclude or
+// deny-then-include), the out-of-scope presentation, and the grants that refine
+// it. Grants live in access_grants (see access.go); Base/HideOutOfScope stay in
+// users.access JSONB. Evaluation lives in dashboard/access.go.
 type AccessPolicy struct {
 	Base           string       `json:"base,omitempty"`             // "allow" (default) | "deny"
 	HideOutOfScope bool         `json:"hide_out_of_scope,omitempty"` // hide devices the user can't view, vs show with actions disabled
-	Rules          []AccessRule `json:"rules,omitempty"`
+	Rules          []AccessRule `json:"rules,omitempty"`             // legacy (pre access_grants); migrated at startup, then empty
+	Grants         []AccessGrant `json:"-"`
 }
 
+// AccessRule is the legacy JSONB rule shape, kept only so MigrateAccessRules can
+// read policies written before the access_grants table existed.
 type AccessRule struct {
 	Effect    string   `json:"effect"`             // "allow" | "deny"
 	Actions   []string `json:"actions"`            // action keys, or ["*"]
@@ -700,15 +700,17 @@ type AccessRule struct {
 	ScopeID   string   `json:"scope_id,omitempty"` // group / restaurant id
 }
 
-// IsEmpty reports a policy that changes nothing (base allow, no rules, no hiding).
+// IsEmpty reports a policy that changes nothing (base allow, no grants, no hiding).
 func (p AccessPolicy) IsEmpty() bool {
-	return (p.Base == "" || p.Base == "allow") && len(p.Rules) == 0 && !p.HideOutOfScope
+	return (p.Base == "" || p.Base == "allow") && len(p.Rules) == 0 && len(p.Grants) == 0 && !p.HideOutOfScope
 }
 
+// GetUserAccess loads a user's base settings and their live (unexpired) grants.
 func (d *DB) GetUserAccess(ctx context.Context, username string) (AccessPolicy, error) {
 	var raw []byte
+	var id uuid.UUID
 	var pol AccessPolicy
-	err := d.pool.QueryRow(ctx, `SELECT access FROM users WHERE username = $1`, username).Scan(&raw)
+	err := d.pool.QueryRow(ctx, `SELECT id, access FROM users WHERE username = $1`, username).Scan(&id, &raw)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return pol, nil
@@ -718,11 +720,14 @@ func (d *DB) GetUserAccess(ctx context.Context, username string) (AccessPolicy, 
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &pol)
 	}
-	return pol, nil
+	pol.Grants, err = d.ListAccessGrants(ctx, id, false)
+	return pol, err
 }
 
+// SetUserAccess stores the base settings only; grants are managed through
+// AddAccessGrant / UpdateAccessGrant / DeleteAccessGrant.
 func (d *DB) SetUserAccess(ctx context.Context, id uuid.UUID, pol AccessPolicy) error {
-	b, err := json.Marshal(pol)
+	b, err := json.Marshal(AccessPolicy{Base: pol.Base, HideOutOfScope: pol.HideOutOfScope})
 	if err != nil {
 		return err
 	}
@@ -5424,6 +5429,7 @@ type AdminPackage struct {
 	ReportedUnknown int    `json:"reported_unknown"` // devices whose client didn't report
 	AdminFlagged    bool   `json:"admin_flagged"`    // an admin override row exists
 	EffectiveSystem bool   `json:"effective_system"`
+	Icon            string `json:"icon"` // base64 PNG from app_icons, "" if none
 }
 
 type FleetPackage struct {
@@ -5712,9 +5718,11 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 			COUNT(*) FILTER (WHERE dp.is_system IS TRUE)  AS rep_system,
 			COUNT(*) FILTER (WHERE dp.is_system IS FALSE) AS rep_user,
 			COUNT(*) FILTER (WHERE dp.is_system IS NULL)  AS rep_unknown,
-			bool_or(ov.package_name IS NOT NULL) AS admin_flagged
+			bool_or(ov.package_name IS NOT NULL) AS admin_flagged,
+			COALESCE(MAX(ai.icon), '') AS icon
 		FROM device_packages dp
-		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name`
+		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name`
 	var rows pgx.Rows
 	var err error
 	if query != "" {
@@ -5740,7 +5748,7 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 	for rows.Next() {
 		var p AdminPackage
 		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount,
-			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged); err != nil {
+			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged, &p.Icon); err != nil {
 			return nil, err
 		}
 		// Effective classification. The admin override forces system and overrides
@@ -9907,6 +9915,32 @@ CREATE TABLE IF NOT EXISTS device_nicknames (
 -- Per-user access policy (operators: which actions on which device groups /
 -- restaurants; viewers: which devices they see). See db.AccessPolicy.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS access JSONB NOT NULL DEFAULT '{}';
+
+-- Access grants (v2). One row per (user, effect, scope, actions). Scope rows point
+-- at real records so a deleted venue / group / device takes its grants with it.
+-- Base + hide_out_of_scope stay in users.access; rules there are migrated once.
+CREATE TABLE IF NOT EXISTS access_grants (
+	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	effect        TEXT NOT NULL CHECK (effect IN ('allow','deny')),
+	scope_type    TEXT NOT NULL CHECK (scope_type IN ('all','restaurant','group','device')),
+	restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
+	group_id      UUID REFERENCES groups(id) ON DELETE CASCADE,
+	device_id     UUID REFERENCES devices(id) ON DELETE CASCADE,
+	actions       TEXT[] NOT NULL,
+	note          TEXT NOT NULL DEFAULT '',
+	expires_at    TIMESTAMPTZ,
+	created_by    TEXT NOT NULL DEFAULT '',
+	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	CHECK ((scope_type = 'all') = (restaurant_id IS NULL AND group_id IS NULL AND device_id IS NULL)),
+	CHECK (scope_type <> 'restaurant' OR restaurant_id IS NOT NULL),
+	CHECK (scope_type <> 'group' OR group_id IS NOT NULL),
+	CHECK (scope_type <> 'device' OR device_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS access_grants_user_idx ON access_grants (user_id);
+CREATE INDEX IF NOT EXISTS access_grants_device_idx ON access_grants (device_id) WHERE device_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS access_grants_restaurant_idx ON access_grants (restaurant_id) WHERE restaurant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS access_grants_group_idx ON access_grants (group_id) WHERE group_id IS NOT NULL;
 
 -- Attribution normalisation. Early rows snapshotted the sender's DISPLAY NAME on
 -- commands.created_by / audit_log.actor; everything now keys on the username, so

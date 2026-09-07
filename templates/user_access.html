@@ -1,0 +1,462 @@
+{{define "user_access.html"}}
+{{template "header" .}}
+<style>
+.ua-grid{grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr)}
+@media(max-width:980px){.ua-grid{grid-template-columns:1fr}}
+.ua-side{position:sticky;top:76px;display:flex;flex-direction:column;gap:14px}
+.ua-h1{display:flex;align-items:center;gap:12px}
+.ua-h1 .ubub{width:38px;height:38px;font-size:16px}
+.ua-card{margin-bottom:14px}
+.ua-card .cc-ch{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid var(--border-soft)}
+.ua-card .cc-ch h3{margin:0;font-size:13.5px;font-weight:700}
+.ua-card .cc-ch .m{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.ua-card .cc-ch .ic{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
+.ua-card .cc-ch .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ua-pad{padding:14px 17px}
+/* starting point tiles */
+.ua-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.ua-tiles{grid-template-columns:1fr}}
+.ua-tile{position:relative;display:block;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px 12px 40px;cursor:pointer;background:var(--surface);transition:border-color var(--dur),background var(--dur)}
+.ua-tile:hover{border-color:var(--rule-2)}
+.ua-tile input{position:absolute;left:14px;top:15px;accent-color:var(--accent)}
+.ua-tile b{display:block;font-size:13px;font-weight:700}
+.ua-tile span{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+.ua-tile:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.ua-switch{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12.5px;color:var(--text-2)}
+.ua-switch input{accent-color:var(--accent);width:16px;height:16px}
+/* rules list */
+.ua-g{display:flex;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);align-items:flex-start}
+.ua-g:first-child{border-top:none}
+.ua-g.expired{opacity:.55}
+.ua-g.outside{background:var(--warn-bg)}
+.ua-eff{flex:none;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:99px;margin-top:2px}
+.ua-eff.allow{background:var(--ok-bg);color:var(--ok)}.ua-eff.deny{background:var(--danger-bg);color:var(--danger)}
+.ua-body{flex:1;min-width:0}
+.ua-scope{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;flex-wrap:wrap}
+.ua-scope svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.ua-scope .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.ua-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.ua-chip{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.ua-chip.any{background:var(--accent-soft);color:var(--accent-text)}
+.ua-chip.hot{background:var(--warn-bg);color:var(--warn)}
+.ua-chip.out{text-decoration:line-through;opacity:.6}
+.ua-meta{font-size:11.5px;color:var(--muted);margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ua-meta .dot::before{content:"·";margin:0 2px}
+.ua-meta .exp{color:var(--warn);font-weight:600}
+.ua-meta .exp.gone{color:var(--danger)}
+.ua-rowbtns{display:flex;gap:6px;flex:none}
+.ua-empty{padding:28px 17px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}
+.ua-empty b{color:var(--text)}
+.ua-foot{padding:12px 17px;border-top:1px solid var(--border-soft);display:flex;gap:8px;align-items:center;background:var(--surface-3)}
+/* drawer */
+.ua-drawer{border:1.5px solid var(--accent);box-shadow:0 12px 40px -18px var(--accent)}
+.ua-drawer[hidden]{display:none!important}
+.ua-step{padding:14px 17px;border-top:1px solid var(--border-soft)}
+.ua-step:first-of-type{border-top:none}
+.ua-step .t{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:9px}
+.ua-step .t .n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:10.5px;display:inline-flex;align-items:center;justify-content:center;letter-spacing:0}
+.ua-seg{display:inline-flex;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;gap:2px}
+.ua-seg label{position:relative;padding:7px 16px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--muted);transition:background var(--dur),color var(--dur)}
+.ua-seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.ua-seg label:has(input:checked){background:var(--surface);box-shadow:var(--shadow-sm)}
+.ua-seg label.allow:has(input:checked){color:var(--ok)}.ua-seg label.deny:has(input:checked){color:var(--danger)}
+.ua-seg-help{font-size:12px;color:var(--muted);margin-left:12px}
+.ua-search{position:relative}
+.ua-search input{width:100%}
+.ua-dd{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow-lg,0 10px 30px rgba(0,0,0,.18));max-height:280px;overflow:auto;padding:4px}
+.ua-dd[hidden]{display:none!important}
+.ua-opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+.ua-opt:hover,.ua-opt.hi{background:var(--surface2)}
+.ua-opt .ty{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--surface2);color:var(--muted)}
+.ua-opt .ty svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ua-opt .ty.all{background:var(--accent-soft);color:var(--accent-text)}.ua-opt .ty.restaurant{background:var(--info-bg);color:var(--info)}.ua-opt .ty.group{background:var(--ok-bg);color:var(--ok)}.ua-opt .ty.device{background:var(--surface-3);color:var(--text-2)}
+.ua-opt .nm{font-weight:650}.ua-opt .mt{font-size:11.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.ua-opt.none{color:var(--muted);cursor:default}
+.ua-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:8px}
+.ua-sc{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;padding:5px 6px 5px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);border:1px solid transparent}
+.ua-sc.device{background:var(--surface2);color:var(--text)}.ua-sc.restaurant{background:var(--info-bg);color:var(--info)}.ua-sc.group{background:var(--ok-bg);color:var(--ok)}
+.ua-sc .x{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(0,0,0,.08);cursor:pointer;font-size:12px;line-height:1}
+.ua-sc .x:hover{background:rgba(0,0,0,.16)}
+.ua-paste{margin-top:10px}
+.ua-paste textarea{width:100%;min-height:64px;font-family:var(--mono);font-size:12px}
+.ua-acts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px 18px}
+.ua-ag .h{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:6px}
+.ua-ck{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:13px;cursor:pointer}
+.ua-ck input{margin-top:2px;accent-color:var(--accent)}
+.ua-ck.hot{color:var(--warn)}.ua-ck.hot b{color:var(--warn)}
+.ua-ck small{display:block;font-size:11px;color:var(--muted);line-height:1.35}
+.ua-ck.dim{opacity:.45}
+.ua-any{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px dashed var(--border);border-radius:10px;font-size:13px;margin-bottom:12px;cursor:pointer}
+.ua-any:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.ua-any small{color:var(--muted);margin-left:auto;font-size:11.5px}
+.ua-confirm{margin-top:12px;padding:11px 13px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;display:flex;gap:9px;align-items:flex-start;line-height:1.45}
+.ua-confirm[hidden]{display:none!important}
+.ua-confirm input{margin-top:2px;accent-color:var(--warn)}
+.ua-details{display:grid;grid-template-columns:1fr 200px;gap:12px}
+@media(max-width:600px){.ua-details{grid-template-columns:1fr}}
+.ua-lbl{font-size:11.5px;font-weight:650;color:var(--muted);margin-bottom:5px;display:block}
+.ua-preview{padding:12px 17px;background:var(--surface-3);border-top:1px solid var(--border-soft);font-size:13px;line-height:1.5}
+.ua-preview b{font-weight:700}
+.ua-preview .warn{color:var(--warn)}
+.ua-dfoot{display:flex;gap:8px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft)}
+.ua-dfoot .err{color:var(--danger);font-size:12.5px;margin-left:auto}
+/* side cards */
+.ua-words{list-style:none;margin:0;padding:0}
+.ua-words li{display:flex;gap:9px;padding:7px 0;font-size:13px;line-height:1.45;border-top:1px solid var(--border-soft)}
+.ua-words li:first-child{border-top:none;padding-top:0}
+.ua-words li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:7px}
+.ua-check-res{margin-top:10px}
+.ua-cr{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.ua-cr:first-child{border-top:none}
+.ua-cr .st{width:18px;height:18px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.ua-cr .st svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.ua-cr.ok .st{background:var(--ok-bg);color:var(--ok)}.ua-cr.no .st{background:var(--surface2);color:var(--text-faint)}
+.ua-cr.no{color:var(--muted)}
+.ua-cr .why{margin-left:auto;font-size:11px;color:var(--text-faint);text-align:right;max-width:55%}
+.ua-cr-h{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:9px 0 3px}
+.ua-dev{font-size:12px;color:var(--muted);margin-top:8px}
+.ua-dev b{color:var(--text)}
+</style>
+
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Users · Access control · <a href="/users/{{.User.ID}}/profile" class="js-dest" style="color:inherit">{{.User.DisplayName}}</a></div>
+      <h1 class="cc-h1 ua-h1">{{template "ubub" .Bubble}}<span>{{.User.DisplayName}} <span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}" style="vertical-align:middle;margin-left:6px">{{roleLabel .User.Role}}</span></span></h1>
+      <div class="cc-sub">{{.RoleSentence}}</div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn js-dest" href="/users/{{.User.ID}}/profile">Profile</a>
+      <a class="cc-btn js-dest" href="/users/access">All accounts</a>
+    </div>
+  </div>
+  {{template "users-tabs" .}}
+
+  {{if eq .User.Role "admin"}}
+  <div class="cc-card ua-card"><div class="ua-empty">Super admins have every permission everywhere. There is nothing to configure.</div></div>
+  {{else}}
+  <div class="cc-grid ua-grid">
+    <div>
+      {{if .HasBase}}
+      <div class="cc-card ua-card">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg></span><h3>Starting point</h3><span class="m" id="ua-base-state">saved</span></div>
+        <form class="ua-pad" id="ua-base" hx-boost="false" action="/users/{{.User.ID}}/access/base" method="POST" onsubmit="return false">
+          <div class="ua-tiles">
+            <label class="ua-tile"><input type="radio" name="base" value="allow"{{if ne .Policy.Base "deny"}} checked{{end}}><b>Everything, then exclude</b><span>Starts with all {{.RoleLower}} powers on every device. Add <b style="display:inline">deny</b> rules to carve things out.</span></label>
+            <label class="ua-tile"><input type="radio" name="base" value="deny"{{if eq .Policy.Base "deny"}} checked{{end}}><b>Nothing, then include</b><span>Starts with no access at all. Add <b style="display:inline">allow</b> rules for exactly what they may do, and where.</span></label>
+          </div>
+          <label class="ua-switch"><input type="checkbox" name="hide_out_of_scope" value="1"{{if .Policy.HideOutOfScope}} checked{{end}}> Hide devices they can't see from every list <span class="muted small">(otherwise those devices show up with actions disabled)</span></label>
+        </form>
+      </div>
+      {{end}}
+
+      <div class="cc-card ua-card" id="ua-rules">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Rules</h3><span class="m">{{.Live}} active{{if .ExpiredCount}} · {{.ExpiredCount}} expired{{end}}</span></div>
+        {{if not .Grants}}
+        <div class="ua-empty"><b>No rules yet.</b><br>{{index .Summary 0}}<br>Add a rule to say what {{.User.DisplayName}} may do and where.</div>
+        {{else}}
+        {{range .Grants}}
+        <div class="ua-g {{.Effect}}{{if .Expired}} expired{{end}}{{if .OutsideRole}} outside{{end}}" data-id="{{.ID}}" data-effect="{{.Effect}}" data-actions="{{range $i,$a := .Actions}}{{if $i}},{{end}}{{$a}}{{end}}" data-note="{{.Note}}" data-expires="{{if .ExpiresAt}}{{.ExpiresAt.Local.Format "2006-01-02T15:04"}}{{end}}" data-scope-type="{{.ScopeType}}" data-scope-name="{{.ScopeName}}" data-scope-kind="{{.ScopeKind}}">
+          <span class="ua-eff {{.Effect}}">{{.Effect}}</span>
+          <div class="ua-body">
+            <div class="ua-scope">
+              {{if eq .ScopeType "all"}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg><b>Whole fleet</b>
+              {{else if eq .ScopeType "restaurant"}}<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg><b>{{.ScopeName}}</b><span class="k">venue</span>
+              {{else if eq .ScopeType "group"}}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><b>{{.ScopeName}}</b><span class="k">group</span>
+              {{else}}<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg><b class="mono">{{.ScopeName}}</b><span class="k">device</span>{{end}}
+            </div>
+            <div class="ua-acts">
+              {{if .AnyAction}}<span class="ua-chip any">any action</span>{{end}}
+              {{range .ActionLabels}}<span class="ua-chip{{if or (eq . "Remote control") (eq . "Shell") (eq . "OTA updates")}} hot{{end}}">{{.}}</span>{{end}}
+              {{if .OutsideRole}}<span class="ua-chip out" title="The role was lowered; these actions no longer apply">above this role</span>{{end}}
+            </div>
+            <div class="ua-meta">
+              {{if .Note}}<span>{{.Note}}</span>{{end}}
+              {{if .ExpiresIn}}<span class="{{if .Note}}dot {{end}}exp{{if .Expired}} gone{{end}}">{{.ExpiresIn}}</span>{{end}}
+              <span class="{{if or .Note .ExpiresIn}}dot{{end}}">added by {{.CreatedByName}} · {{timeSince .CreatedAt}}</span>
+            </div>
+          </div>
+          <div class="ua-rowbtns">
+            <button type="button" class="cc-btn sm" onclick="uaEdit(this)">Edit</button>
+            <button type="button" class="cc-btn sm danger" onclick="uaRemove(this)">Remove</button>
+          </div>
+        </div>
+        {{end}}
+        {{end}}
+        <div class="ua-foot">
+          <button type="button" class="cc-btn primary sm" id="ua-add" onclick="uaOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add rule</button>
+          <span class="muted small">A deny always beats an allow. Rules for a venue or group follow the devices as they move.</span>
+        </div>
+      </div>
+
+      <div class="cc-card ua-card ua-drawer" id="ua-drawer" hidden>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><h3 id="ua-dtitle">New rule</h3><button type="button" class="cc-btn sm" style="margin-left:auto" onclick="uaClose()">Close</button></div>
+        <form id="ua-form" hx-boost="false" onsubmit="return uaSubmit(event)">
+          <input type="hidden" name="_gid" id="ua-gid" value="">
+          <div class="ua-step">
+            <div class="t"><span class="n">1</span> Effect</div>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+              <div class="ua-seg">
+                <label class="allow"><input type="radio" name="effect" value="allow" checked> Allow</label>
+                <label class="deny"><input type="radio" name="effect" value="deny"> Deny</label>
+              </div>
+              <span class="ua-seg-help" id="ua-effhelp">Grants the actions below.</span>
+            </div>
+          </div>
+          <div class="ua-step" id="ua-step-scope">
+            <div class="t"><span class="n">2</span> Where</div>
+            <div class="ua-search" id="ua-search-wrap">
+              <input type="text" class="form-input" id="ua-q" placeholder="Search a venue, a group, or type a serial number…" autocomplete="off">
+              <div class="ua-dd" id="ua-dd" hidden></div>
+            </div>
+            <div class="ua-chips" id="ua-chips"></div>
+            <div style="margin-top:8px;display:flex;gap:12px;align-items:center">
+              <button type="button" class="cc-btn sm" onclick="uaPick({type:'all',id:'all',name:'Whole fleet'})">Whole fleet</button>
+              <a href="#" class="small" onclick="document.getElementById('ua-paste').hidden=!document.getElementById('ua-paste').hidden;return false" style="font-size:12px">Paste a list of serials</a>
+            </div>
+            <div class="ua-paste" id="ua-paste" hidden>
+              <textarea name="serials" class="form-input" placeholder="One serial per line, or comma separated. Unknown serials are rejected."></textarea>
+            </div>
+          </div>
+          <div class="ua-step">
+            <div class="t"><span class="n">3</span> Which actions</div>
+            <label class="ua-any"><input type="checkbox" name="actions" value="*" id="ua-any"> <b>Any action</b> <small>everything the role allows, except remote control{{if eq .User.Role "dev"}}, shell and OTA{{end}}</small></label>
+            <div class="ua-acts-grid">
+              {{range .ActionGroups}}
+              <div class="ua-ag"><div class="h">{{.Name}}</div>
+                {{range .Actions}}<label class="ua-ck{{if .Sensitive}} hot{{end}}"><input type="checkbox" name="actions" value="{{.Key}}" data-sensitive="{{.Sensitive}}" data-label="{{.Label}}"><span><b>{{.Label}}</b>{{if .Help}}<small>{{.Help}}</small>{{end}}</span></label>{{end}}
+              </div>
+              {{end}}
+            </div>
+            <div class="ua-confirm" id="ua-confirm" hidden><input type="checkbox" name="confirm_sensitive" value="1" id="ua-confirm-ck"><label for="ua-confirm-ck" id="ua-confirm-txt">I understand this opens live sessions on these devices.</label></div>
+          </div>
+          <div class="ua-step">
+            <div class="t"><span class="n">4</span> Details</div>
+            <div class="ua-details">
+              <div><label class="ua-lbl" for="ua-note">Why (shown next to the rule)</label><input type="text" class="form-input" name="note" id="ua-note" maxlength="200" placeholder="e.g. Covers the Pier 9 opening week"></div>
+              <div><label class="ua-lbl" for="ua-exp">Expires</label>
+                <select class="form-input" id="ua-exp" onchange="uaExpChange()">
+                  <option value="never">Never</option><option value="1d">In 1 day</option><option value="7d">In 7 days</option><option value="30d">In 30 days</option><option value="90d">In 90 days</option><option value="custom">Pick a date…</option>
+                </select>
+                <input type="datetime-local" class="form-input" id="ua-exp-custom" style="margin-top:6px" hidden>
+                <input type="hidden" name="expires" id="ua-expires" value="never">
+              </div>
+            </div>
+          </div>
+          <div class="ua-preview" id="ua-preview">Pick where and which actions to see the rule in plain words.</div>
+          <div class="ua-dfoot">
+            <button type="submit" class="cc-btn primary" id="ua-save">Save rule</button>
+            <button type="button" class="cc-btn" onclick="uaClose()">Cancel</button>
+            <span class="err" id="ua-err"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="ua-side">
+      <div class="cc-card ua-card" style="margin:0">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h3>In plain words</h3></div>
+        <div class="ua-pad"><ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul></div>
+      </div>
+      <div class="cc-card ua-card" style="margin:0">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><h3>Check a device</h3><span class="m">what would they see?</span></div>
+        <div class="ua-pad">
+          <div class="ua-search"><input type="text" class="form-input" id="ua-cq" placeholder="Type a serial number…" autocomplete="off"><div class="ua-dd" id="ua-cdd" hidden></div></div>
+          <div class="ua-dev" id="ua-cdev"></div>
+          <div class="ua-check-res" id="ua-cres"><div class="ua-cr-h">Fleet-wide actions</div><div id="ua-cres-fleet" class="muted small">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<script>
+(function(){
+  var UID = {{.User.ID | printf "%s"}};
+  var NAME = {{.User.DisplayName}};
+  var BASE = '/users/' + UID + '/access';
+  var ICON = {
+    all:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+    restaurant:'<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>',
+    group:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+    device:'<svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>'
+  };
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function go(msg, type){ location.href = BASE + '?flash=' + encodeURIComponent(msg) + '&flash_type=' + (type || 'ok'); }
+  function post(url, body){
+    // FormData → urlencoded: the handlers read r.Form (ParseForm), which does not parse multipart.
+    var enc = new URLSearchParams(); if (body) body.forEach(function(v, k){ enc.append(k, v); });
+    return fetch(url, { method:'POST', credentials:'same-origin', headers:{'HX-Request':'true','Content-Type':'application/x-www-form-urlencoded'}, body: enc }).then(function(r){
+      if (r.ok) { var t = ''; try { var tr = JSON.parse(r.headers.get('HX-Trigger') || '{}'); t = tr.toast ? tr.toast.msg : ''; } catch(e){} return { ok:true, msg:t }; }
+      return r.text().then(function(t){ return { ok:false, msg: t.trim() || ('Request failed (' + r.status + ')') }; });
+    });
+  }
+
+  /* ── starting point: auto-save ── */
+  var baseForm = $('ua-base');
+  if (baseForm) baseForm.addEventListener('change', function(){
+    var st = $('ua-base-state'); st.textContent = 'saving…';
+    post(baseForm.action, new FormData(baseForm)).then(function(res){
+      if (res.ok) { st.textContent = 'saved'; if (window.showToast) showToast('Starting point saved', 'ok'); refreshWords(); refreshCheck(); }
+      else { st.textContent = 'not saved'; if (window.showToast) showToast(res.msg, 'error'); }
+    });
+  });
+
+  /* ── scope search (shared by the drawer and the checker) ── */
+  function typeahead(input, dd, opts){
+    var timer, items = [], hi = -1, closed = false;
+    function render(){
+      if (closed) return;
+      if (!items.length) { dd.innerHTML = '<div class="ua-opt none">' + (input.value.trim() ? 'Nothing matches' : 'Start typing…') + '</div>'; dd.hidden = false; return; }
+      dd.innerHTML = items.map(function(o, i){
+        return '<div class="ua-opt' + (i === hi ? ' hi' : '') + '" data-i="' + i + '"><span class="ty ' + o.type + '">' + ICON[o.type] + '</span><span class="nm' + (o.type === 'device' ? ' mono' : '') + '">' + esc(o.name) + '</span><span class="mt">' + esc(o.meta || '') + '</span></div>';
+      }).join('');
+      dd.hidden = false;
+    }
+    function load(){
+      var q = input.value.trim();
+      if (opts.minLen && q.length < opts.minLen) { dd.hidden = true; return; }
+      fetch('/users/access/scope-search?q=' + encodeURIComponent(q), { credentials:'same-origin' }).then(function(r){ return r.json(); }).then(function(list){
+        items = (list || []).filter(opts.filter || function(){ return true; }); hi = items.length ? 0 : -1; render();
+      });
+    }
+    input.addEventListener('input', function(){ closed = false; clearTimeout(timer); timer = setTimeout(load, 140); });
+    input.addEventListener('focus', function(){ if (!opts.minLen || input.value.trim().length >= opts.minLen) load(); });
+    input.addEventListener('keydown', function(e){
+      if (dd.hidden) return;
+      if (e.key === 'ArrowDown') { hi = Math.min(items.length - 1, hi + 1); render(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { hi = Math.max(0, hi - 1); render(); e.preventDefault(); }
+      else if (e.key === 'Enter') { if (hi >= 0 && items[hi]) { opts.pick(items[hi]); dd.hidden = true; closed = true; clearTimeout(timer); } e.preventDefault(); }
+      else if (e.key === 'Escape') { dd.hidden = true; }
+    });
+    dd.addEventListener('mousedown', function(e){ var o = e.target.closest('.ua-opt'); if (o && o.dataset.i != null) { opts.pick(items[+o.dataset.i]); dd.hidden = true; closed = true; clearTimeout(timer); e.preventDefault(); } });
+    document.addEventListener('click', function(e){ if (!input.contains(e.target) && !dd.contains(e.target)) dd.hidden = true; });
+  }
+
+  /* ── drawer ── */
+  var chips = {}; // key -> option
+  var editing = null;
+  function chipsRender(){
+    var host = $('ua-chips'); host.innerHTML = '';
+    Object.keys(chips).forEach(function(k){
+      var o = chips[k], el = document.createElement('span');
+      el.className = 'ua-sc ' + o.type; el.innerHTML = ICON[o.type] + '<span' + (o.type === 'device' ? ' class="mono"' : '') + '>' + esc(o.name) + '</span>' + (editing ? '' : '<span class="x" title="Remove">×</span>');
+      el.querySelector('svg').style.cssText = 'width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2';
+      if (!editing) el.querySelector('.x').onclick = function(){ delete chips[k]; chipsRender(); preview(); };
+      host.appendChild(el);
+    });
+    preview();
+  }
+  window.uaPick = function(o){ if (o.type === 'all') chips = {}; else delete chips['all']; chips[o.type === 'all' ? 'all' : o.type + ':' + o.id] = o; $('ua-q').value = ''; chipsRender(); };
+  typeahead($('ua-q'), $('ua-dd'), { pick: uaPick });
+
+  function checkedActions(){ return Array.prototype.slice.call(document.querySelectorAll('#ua-form input[name=actions]:checked')); }
+  function syncActions(){
+    var any = $('ua-any').checked;
+    document.querySelectorAll('#ua-form .ua-ck').forEach(function(l){
+      var ck = l.querySelector('input'); var sens = ck.dataset.sensitive === 'true';
+      if (any && !sens) { ck.checked = false; ck.disabled = true; l.classList.add('dim'); } else { ck.disabled = false; l.classList.remove('dim'); }
+    });
+    var effect = document.querySelector('#ua-form input[name=effect]:checked').value;
+    var hot = checkedActions().filter(function(c){ return c.dataset.sensitive === 'true'; }).map(function(c){ return c.dataset.label.toLowerCase(); });
+    var conf = $('ua-confirm'); conf.hidden = !(effect === 'allow' && hot.length);
+    if (!conf.hidden) $('ua-confirm-txt').textContent = 'I understand this gives ' + NAME + ' ' + hot.join(' and ') + ' on every device this rule covers.';
+    $('ua-effhelp').textContent = effect === 'allow' ? 'Grants the actions below.' : 'Takes the actions below away, even if another rule allows them.';
+    preview();
+  }
+  document.querySelectorAll('#ua-form input[name=actions], #ua-form input[name=effect]').forEach(function(i){ i.addEventListener('change', syncActions); });
+  $('ua-note').addEventListener('input', preview);
+  window.uaExpChange = function(){
+    var v = $('ua-exp').value, c = $('ua-exp-custom'); c.hidden = v !== 'custom';
+    $('ua-expires').value = v === 'custom' ? (c.value || '') : v; preview();
+  };
+  $('ua-exp-custom').addEventListener('change', uaExpChange);
+
+  function preview(){
+    var effect = document.querySelector('#ua-form input[name=effect]:checked').value;
+    var acts = checkedActions().map(function(c){ return c.value === '*' ? 'take any action' : c.dataset.label.toLowerCase(); });
+    var where = Object.keys(chips).map(function(k){ var o = chips[k]; return o.type === 'all' ? 'the whole fleet' : (o.type === 'restaurant' ? 'venue ' : o.type === 'group' ? 'group ' : 'device ') + o.name; });
+    var pasted = ($('ua-form').serials.value.match(/[A-Za-z0-9]{6,}/g) || []).length;
+    if (pasted) where.push(pasted + ' pasted serial' + (pasted > 1 ? 's' : ''));
+    var p = $('ua-preview');
+    if (!acts.length || !where.length) { p.innerHTML = 'Pick where and which actions to see the rule in plain words.'; return; }
+    var s = '<b>' + esc(NAME) + '</b> ' + (effect === 'allow' ? 'can ' : '<b class="warn">cannot</b> ') + esc(join(acts)) + ' in ' + esc(join(where));
+    var ex = $('ua-expires').value;
+    if (ex && ex !== 'never') s += ex.indexOf('d') === ex.length - 1 && ex.length <= 3 ? ' for ' + ex.replace('d', ' day') + (ex !== '1d' ? 's' : '') : ' until ' + ex.replace('T', ' ');
+    p.innerHTML = s + '.' + (where.length > 1 && !editing ? ' <span class="muted">(' + where.length + ' rules, one per place)</span>' : '');
+  }
+  function join(xs){ return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; }
+
+  function reset(){
+    $('ua-form').reset(); chips = {}; editing = null; $('ua-gid').value = '';
+    $('ua-dtitle').textContent = 'New rule'; $('ua-save').textContent = 'Save rule'; $('ua-err').textContent = '';
+    $('ua-step-scope').querySelectorAll('.ua-search, .ua-paste, [onclick], a').forEach(function(el){ el.hidden = false; });
+    $('ua-paste').hidden = true; $('ua-exp-custom').hidden = true; $('ua-expires').value = 'never';
+    chipsRender(); syncActions();
+  }
+  window.uaOpen = function(){ reset(); var d = $('ua-drawer'); d.hidden = false; d.scrollIntoView({ behavior:'smooth', block:'start' }); setTimeout(function(){ $('ua-q').focus(); }, 250); };
+  window.uaClose = function(){ $('ua-drawer').hidden = true; };
+  window.uaEdit = function(btn){
+    var row = btn.closest('.ua-g'); reset();
+    editing = row.dataset.id; $('ua-gid').value = editing;
+    $('ua-dtitle').textContent = 'Edit rule'; $('ua-save').textContent = 'Save changes';
+    document.querySelector('#ua-form input[name=effect][value=' + row.dataset.effect + ']').checked = true;
+    chips[row.dataset.scopeType === 'all' ? 'all' : row.dataset.scopeType + ':x'] = { type: row.dataset.scopeType, id: 'x', name: row.dataset.scopeName || 'Whole fleet' };
+    $('ua-step-scope').querySelectorAll('.ua-search, .ua-paste, [onclick], a').forEach(function(el){ el.hidden = true; });
+    row.dataset.actions.split(',').forEach(function(a){ var ck = document.querySelector('#ua-form input[name=actions][value="' + a + '"]'); if (ck) ck.checked = true; });
+    $('ua-note').value = row.dataset.note || '';
+    if (row.dataset.expires) { $('ua-exp').value = 'custom'; $('ua-exp-custom').value = row.dataset.expires; $('ua-exp-custom').hidden = false; $('ua-expires').value = row.dataset.expires; }
+    chipsRender(); syncActions();
+    var d = $('ua-drawer'); d.hidden = false; d.scrollIntoView({ behavior:'smooth', block:'start' });
+  };
+  window.uaRemove = function(btn){
+    var row = btn.closest('.ua-g');
+    if (!confirm('Remove this rule?\n\n' + row.querySelector('.ua-scope').textContent.trim() + ' · ' + row.querySelector('.ua-acts').textContent.trim())) return;
+    post(BASE + '/grants/' + row.dataset.id + '/delete', new FormData()).then(function(res){ if (res.ok) go('Rule removed'); else if (window.showToast) showToast(res.msg, 'error'); });
+  };
+  window.uaSubmit = function(e){
+    e.preventDefault();
+    var f = $('ua-form'), fd = new FormData(f), err = $('ua-err'); err.textContent = '';
+    if (!checkedActions().length) { err.textContent = 'Pick at least one action.'; return false; }
+    if (!editing) {
+      Object.keys(chips).forEach(function(k){ fd.append('scopes', k === 'all' ? 'all' : k); });
+      if (!Object.keys(chips).length && !fd.get('serials').trim()) { err.textContent = 'Pick where the rule applies.'; return false; }
+    }
+    $('ua-save').disabled = true;
+    post(editing ? BASE + '/grants/' + editing + '/edit' : BASE + '/grants', fd).then(function(res){
+      $('ua-save').disabled = false;
+      if (res.ok) go(res.msg || 'Saved'); else err.textContent = res.msg;
+    });
+    return false;
+  };
+
+  /* ── checker ── */
+  var curSerial = '';
+  typeahead($('ua-cq'), $('ua-cdd'), { minLen: 2, filter: function(o){ return o.type === 'device'; }, pick: function(o){ $('ua-cq').value = o.name; curSerial = o.name; refreshCheck(); } });
+  $('ua-cq').addEventListener('change', function(){ curSerial = $('ua-cq').value.trim(); refreshCheck(); });
+  function refreshCheck(){
+    fetch(BASE + '/check?serial=' + encodeURIComponent(curSerial), { credentials:'same-origin' }).then(function(r){ return r.json(); }).then(function(d){
+      var dev = $('ua-cdev'), res = $('ua-cres');
+      if (d.error) { dev.innerHTML = '<span style="color:var(--danger)">' + esc(d.error) + '</span>'; return; }
+      dev.innerHTML = d.device ? '<b class="mono">' + esc(d.device.serial) + '</b>' + (d.device.nickname ? ' · ' + esc(d.device.nickname) : '') + (d.device.venue ? ' · ' + esc(d.device.venue) : ' · no venue') : '';
+      var groups = {}; var order = [];
+      (d.actions || []).forEach(function(a){ if (!groups[a.group]) { groups[a.group] = []; order.push(a.group); } groups[a.group].push(a); });
+      res.innerHTML = order.map(function(g){
+        return '<div class="ua-cr-h">' + esc(d.device ? g : 'Fleet-wide actions') + '</div>' + groups[g].map(function(a){
+          return '<div class="ua-cr ' + (a.allowed ? 'ok' : 'no') + '"><span class="st">' + (a.allowed ? '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>') + '</span><span>' + esc(a.label) + '</span><span class="why" title="' + esc(a.rule || '') + '">' + esc(a.rule || a.reason) + '</span></div>';
+        }).join('');
+      }).join('') || '<div class="muted small">Type a serial to see what ' + esc(NAME) + ' could do on it.</div>';
+    });
+  }
+  function refreshWords(){
+    fetch(location.pathname, { credentials:'same-origin', headers:{'HX-Request':'true','HX-Boosted':'true'} }).then(function(r){ return r.text(); }).then(function(html){
+      var doc = new DOMParser().parseFromString(html, 'text/html'); var w = doc.querySelector('.ua-words'); if (w) document.querySelector('.ua-words').innerHTML = w.innerHTML;
+    }).catch(function(){});
+  }
+  refreshCheck();
+})();
+</script>
+{{template "footer" .}}
+{{end}}

@@ -2458,9 +2458,9 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 			for _, x := range rs {
 				byID[x.ID.String()] = x.Name
 			}
-			for _, rl := range pol.Rules {
-				if rl.Effect == "allow" && rl.ScopeType == "restaurant" {
-					if n, ok := byID[rl.ScopeID]; ok {
+			for _, g := range pol.Grants {
+				if g.Effect == "allow" && g.ScopeType == "restaurant" && g.ScopeID != nil {
+					if n, ok := byID[g.ScopeID.String()]; ok {
 						ownerVenues = append(ownerVenues, n)
 					}
 				}
@@ -2468,19 +2468,13 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		}
 	}
 	var pol db.AccessPolicy
-	var groups []db.Group
-	var restaurants []db.Restaurant
 	if viewingOther && canManage && user != nil {
 		pol, _ = h.db.GetUserAccess(ctx, user.Username)
-		groups, _ = h.db.ListGroups(ctx)
-		restaurants, _ = h.db.ListRestaurants(ctx)
 	}
 	h.render(w, r, "profile.html", map[string]any{
 		"Policy":        pol,
 		"PolicyEmpty":   pol.IsEmpty(),
-		"AccessActions": accessActions,
-		"Groups":        groups,
-		"Restaurants":   restaurants,
+		"PolicySummary": h.policySummary(ctx, user, pol),
 		"Title":        title,
 		"User":         user,
 		"Bubble":       userBubbleFn(username),
@@ -8242,15 +8236,16 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
 	}
 
-	if _, ok := h.enforceCommandTargets(w, r, policyActionForCommand(cmdType), "groups", []uuid.UUID{id}); !ok {
+	gTargets, gType, ok := h.enforceCommandTargets(w, r, policyActionForCommand(cmdType), "groups", []uuid.UUID{id})
+	if !ok {
 		return
 	}
-	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id}, h.currentUsername(r))
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, gType, gTargets, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.pushCommand(r.Context(), cmd, "groups", []uuid.UUID{id})
+	h.pushCommand(r.Context(), cmd, gType, gTargets)
 	detail := "target=groups, group=" + id.String()
 	if reason != "" {
 		detail += ", reason=" + reason
@@ -12245,11 +12240,11 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	var ok bool
-	if targetIDs, ok = h.enforceCommandTargets(w, r, policyActionForCommand(cmd.Type), cmd.TargetType, targetIDs); !ok {
+	targetIDs, targetType, ok := h.enforceCommandTargets(w, r, policyActionForCommand(cmd.Type), cmd.TargetType, targetIDs)
+	if !ok {
 		return
 	}
-	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs, h.currentUsername(r))
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, targetType, targetIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -16780,15 +16775,21 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	// per selected restaurant, out-of-scope devices hidden.
 	if role == "owner" {
 		pol := db.AccessPolicy{Base: "deny", HideOutOfScope: true}
-		for _, rid := range r.Form["restaurants"] {
-			if _, err := uuid.Parse(rid); err == nil {
-				pol.Rules = append(pol.Rules, db.AccessRule{Effect: "allow", Actions: []string{"view"}, ScopeType: "restaurant", ScopeID: rid})
-			}
-		}
 		if err := h.db.SetUserAccess(r.Context(), created.ID, pol); err != nil {
 			log.Printf("[users] owner policy for %s: %v", created.Username, err)
 		}
-		h.audit(r, "user.access", created.Username, describePolicy(pol))
+		for _, rid := range r.Form["restaurants"] {
+			id, err := uuid.Parse(rid)
+			if err != nil {
+				continue
+			}
+			g := db.AccessGrant{UserID: created.ID, Effect: "allow", ScopeType: "restaurant", ScopeID: &id, Actions: []string{"view"}, Note: "owner's venue", CreatedBy: h.currentUsername(r)}
+			if saved, err := h.db.AddAccessGrant(r.Context(), g); err != nil {
+				log.Printf("[users] owner venue grant for %s: %v", created.Username, err)
+			} else {
+				h.audit(r, "user.access.grant", created.Username, describeGrant(*saved))
+			}
+		}
 	}
 
 	http.Redirect(w, r, "/users", http.StatusFound)
@@ -16873,6 +16874,7 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	invalidatePolicy(target.Username)
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -17227,8 +17229,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/merge", h.requireUserManager(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
-	post("POST /users/{id}/access", h.requireUserManager(h.UserSetAccess))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
+	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.AccessScopeSearch))
+	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))
+	mux.HandleFunc("GET /users/{id}/access/check", h.requireUserManager(h.UserAccessCheck))
+	post("POST /users/{id}/access/base", h.requireUserManager(h.UserAccessSetBase))
+	post("POST /users/{id}/access/grants", h.requireUserManager(h.UserAccessAddGrant))
+	post("POST /users/{id}/access/grants/{gid}/edit", h.requireUserManager(h.UserAccessEditGrant))
+	post("POST /users/{id}/access/grants/{gid}/delete", h.requireUserManager(h.UserAccessDeleteGrant))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE

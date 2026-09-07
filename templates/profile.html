@@ -87,44 +87,14 @@
       </div>
     </div>
 
-    {{if or (eq .User.Role "operator") (eq .User.Role "user_manager") (eq .User.Role "viewer") (eq .User.Role "owner")}}
+    {{if ne .User.Role "admin"}}
     <div class="cc-card" id="pf-access">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Access</h3><span class="m">{{if .PolicyEmpty}}full {{.User.Role}} access{{else}}custom{{end}}</span></div>
-      <form method="POST" action="/users/{{.User.ID}}/access" hx-boost="true" class="pf-list" id="pf-access-form">
-        <div class="muted small" style="padding:6px 0 10px;">
-          {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}Rules refine what this user may do on devices and where. A <b>deny</b> always wins over an allow. Actions not covered by any rule fall back to the base.{{else if eq .User.Role "owner"}}A restaurant owner sees nothing by default: add an <b>allow · See device</b> rule per venue they own.{{else}}For a viewer only <b>See device</b> matters: deny it for a group or venue to hide those devices from them.{{end}}
-        </div>
-        {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}
-        <div class="pf-row" style="gap:10px;">
-          <span class="k" style="flex:0 0 90px;">Base</span>
-          <select name="base" class="form-input" style="width:auto;">
-            <option value="allow"{{if ne .Policy.Base "deny"}} selected{{end}}>Allow everything an operator can do, then exclude</option>
-            <option value="deny"{{if eq .Policy.Base "deny"}} selected{{end}}>Allow nothing, then include</option>
-          </select>
-        </div>
-        <div class="pf-row" style="gap:10px;">
-          <span class="k" style="flex:0 0 90px;">Out of scope</span>
-          <label class="small" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" name="hide_out_of_scope" value="1"{{if .Policy.HideOutOfScope}} checked{{end}}> Hide devices this user can't <b>see</b> from lists (otherwise shown with actions disabled)</label>
-        </div>
-        {{end}}
-        <div id="pf-rules">
-          {{range $i, $r := .Policy.Rules}}{{template "pf-rule" (dict "I" $i "R" $r "Root" $)}}{{end}}
-        </div>
-        <template id="pf-rule-tpl">{{template "pf-rule" (dict "I" 999 "R" nil "Root" .)}}</template>
-        <div style="display:flex;gap:8px;align-items:center;padding:10px 0 4px;">
-          <button type="button" class="cc-btn sm" onclick="pfAddRule()">+ Add rule</button>
-          <button type="submit" class="cc-btn sm primary">Save access</button>
-        </div>
-      </form>
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Access</h3><span class="m">{{if .PolicyEmpty}}default for {{roleLabel .User.Role}}{{else}}custom rules{{end}}</span></div>
+      <div class="pf-list">
+        <ul style="list-style:none;margin:0;padding:6px 0 10px;font-size:13px;line-height:1.5;">{{range .PolicySummary}}<li style="display:flex;gap:8px;padding:3px 0;"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:8px;"></span><span>{{.}}</span></li>{{end}}</ul>
+        <a class="cc-btn sm primary js-dest" href="/users/{{.User.ID}}/access" style="width:max-content;margin-bottom:8px;">Manage access</a>
+      </div>
     </div>
-    <script>
-    function pfAddRule(){
-      var host=document.getElementById('pf-rules'), tpl=document.getElementById('pf-rule-tpl');
-      var n=host.querySelectorAll('.pf-rule').length, html=tpl.innerHTML.replace(/_999/g,'_'+n);
-      var d=document.createElement('div'); d.innerHTML=html; host.appendChild(d.firstElementChild);
-    }
-    function pfRemoveRule(btn){ btn.closest('.pf-rule').remove(); }
-    </script>
     {{end}}
   </div>
   {{end}}
@@ -184,27 +154,4 @@
 </div>
 
 {{template "footer" .}}
-{{end}}
-
-{{define "pf-rule"}}
-{{$i := .I}}{{$r := .R}}
-<div class="pf-rule" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--surface2);">
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <select name="rule_effect_{{$i}}" class="form-input" style="width:auto;">
-      <option value="allow"{{if and $r (eq $r.Effect "allow")}} selected{{end}}>Allow</option>
-      <option value="deny"{{if and $r (eq $r.Effect "deny")}} selected{{end}}>Deny</option>
-    </select>
-    <span class="muted small">for</span>
-    <select name="rule_scope_{{$i}}" class="form-input" style="width:auto;max-width:260px;">
-      <option value="all"{{if or (not $r) (eq $r.ScopeType "all") (eq $r.ScopeType "")}} selected{{end}}>the whole fleet</option>
-      {{range .Root.Groups}}<option value="group:{{.ID}}"{{if and $r (eq $r.ScopeType "group") (eq $r.ScopeID (print .ID))}} selected{{end}}>group · {{.Name}}</option>{{end}}
-      {{range .Root.Restaurants}}<option value="restaurant:{{.ID}}"{{if and $r (eq $r.ScopeType "restaurant") (eq $r.ScopeID (print .ID))}} selected{{end}}>venue · {{.Name}}</option>{{end}}
-    </select>
-    <button type="button" class="cc-btn sm" style="margin-left:auto;" onclick="pfRemoveRule(this)" title="Remove rule">×</button>
-  </div>
-  <div style="display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">
-    <label style="display:flex;gap:5px;align-items:center;font-weight:650;"><input type="checkbox" name="rule_actions_{{$i}}" value="*"{{if $r}}{{range $r.Actions}}{{if eq . "*"}} checked{{end}}{{end}}{{end}}> any action</label>
-    {{range .Root.AccessActions}}{{$k := .Key}}<label style="display:flex;gap:5px;align-items:center;"><input type="checkbox" name="rule_actions_{{$i}}" value="{{$k}}"{{if $r}}{{range $r.Actions}}{{if eq . $k}} checked{{end}}{{end}}{{end}}> {{.Label}}</label>{{end}}
-  </div>
-</div>
 {{end}}

@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,36 +13,99 @@ import (
 	"github.com/google/uuid"
 )
 
-// Actions an operator's policy can grant or withhold. Admin/dev-only command
-// types (shell, ota, update_splash, logcat) are not here: the role allowlist in
-// commandRoles keeps them out of operators' reach regardless of policy.
-var accessActions = []struct{ Key, Label, Group string }{
-	{"view", "See device", "Visibility"},
-	{"screenshot", "Screenshot", "Commands"},
-	{"install_apk", "Install app", "Commands"},
-	{"uninstall", "Uninstall app", "Commands"},
-	{"reboot", "Reboot", "Commands"},
-	{"query", "Run query", "Commands"},
-	{"kiosk", "Kiosk settings", "Device"},
-	{"notes", "Device notes", "Device"},
-	{"queue", "Queue: cancel / clear", "Device"},
-	{"alerts", "Acknowledge / resolve alerts", "Fleet"},
-	{"groups", "Manage groups & venues", "Fleet"},
-	{"qa", "Record QA results", "Fleet"},
-	{"deploy", "Cancel deployments", "Fleet"},
+// ── Action catalogue ────────────────────────────────────────────────────────
+//
+// Roles are ceilings: what can ever be granted. Grants (access_grants) say where.
+// See docs/access-control-plan.md for the model and docs/AUTH_MODEL.md for the
+// roles.
+
+type accessAction struct {
+	Key, Label, Group, Help string
+	Fleet                   bool // fleet-level: evaluated against "all" grants only
+	Sensitive               bool // needs an explicit allow; "*" never covers it
+	DevOnly                 bool // in the dev ceiling only, never grantable to operators
 }
+
+var accessActions = []accessAction{
+	{Key: "view", Label: "See device", Group: "Visibility", Help: "The device shows up in lists, the map, alerts and history."},
+	{Key: "screenshot", Label: "Screenshot", Group: "Commands"},
+	{Key: "install_apk", Label: "Install app", Group: "Commands"},
+	{Key: "uninstall", Label: "Uninstall app", Group: "Commands"},
+	{Key: "reboot", Label: "Reboot", Group: "Commands"},
+	{Key: "query", Label: "Run diagnostic query", Group: "Commands"},
+	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
+	{Key: "kiosk", Label: "Kiosk settings", Group: "Device"},
+	{Key: "notes", Label: "Device notes", Group: "Device"},
+	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
+	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Must be named explicitly; \"any action\" never includes it."},
+	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Dev accounts only."},
+	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Dev accounts only."},
+	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
+	{Key: "groups", Label: "Manage groups & venues", Group: "Fleet", Fleet: true},
+	{Key: "qa", Label: "Record QA results", Group: "Fleet", Fleet: true},
+	{Key: "deploy", Label: "Cancel deployments", Group: "Fleet", Fleet: true},
+}
+
+var accessActionByKey = func() map[string]accessAction {
+	m := map[string]accessAction{}
+	for _, a := range accessActions {
+		m[a.Key] = a
+	}
+	return m
+}()
 
 // deviceActions are evaluated against a device's scope; the rest are fleet-level.
-var deviceActions = map[string]bool{"view": true, "screenshot": true, "install_apk": true, "uninstall": true, "reboot": true, "query": true, "kiosk": true, "notes": true, "queue": true}
-
-func isAccessAction(k string) bool {
+var deviceActions = func() map[string]bool {
+	m := map[string]bool{}
 	for _, a := range accessActions {
-		if a.Key == k {
-			return true
+		if !a.Fleet {
+			m[a.Key] = true
 		}
 	}
-	return false
+	return m
+}()
+
+func isAccessAction(k string) bool { _, ok := accessActionByKey[k]; return ok }
+
+// sensitiveActionKeys are the actions the overview flags with an amber dot.
+var sensitiveActionKeys = []string{"remote", "shell", "ota"}
+
+// roleCeiling lists what a role can ever do; nil means unrestricted (admin).
+func roleCeiling(role string) map[string]bool {
+	switch role {
+	case "admin":
+		return nil
+	case "viewer":
+		return map[string]bool{"view": true, "screenshot": true}
+	case "owner":
+		return map[string]bool{"view": true}
+	}
+	m := map[string]bool{}
+	for _, a := range accessActions {
+		if a.DevOnly && role != "dev" {
+			continue
+		}
+		m[a.Key] = true
+	}
+	if role == "operator" || role == "user_manager" || role == "dev" {
+		return m
+	}
+	return map[string]bool{} // unknown role: nothing
 }
+
+// grantableActions is the catalogue filtered to a role's ceiling, for the editor.
+func grantableActions(role string) []accessAction {
+	c := roleCeiling(role)
+	var out []accessAction
+	for _, a := range accessActions {
+		if c == nil || c[a.Key] {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// ── Per-request access context ──────────────────────────────────────────────
 
 // access is one request's resolved authorization context.
 type access struct {
@@ -55,10 +117,12 @@ type access struct {
 	scopes   map[uuid.UUID]db.DeviceScope
 	scopeErr error
 	once     sync.Once
+	visOnce  sync.Once
+	vis      []uuid.UUID
 }
 
 // policyCache avoids a users lookup on every request; entries live 20s so a
-// saved policy applies almost immediately.
+// saved grant applies almost immediately (saves also invalidate directly).
 var policyCache sync.Map // username -> policyEntry
 
 type policyEntry struct {
@@ -71,8 +135,14 @@ func invalidatePolicy(username string) { policyCache.Delete(username) }
 // access resolves the caller's role and policy. Cheap; the device scope map is
 // loaded lazily on the first device-level check.
 func (h *Handler) access(r *http.Request) *access {
-	a := &access{h: h, ctx: r.Context(), role: h.role(r), username: h.currentUsername(r)}
-	if a.role == "admin" || a.role == "dev" || a.username == "" {
+	return h.accessFor(r.Context(), h.role(r), h.currentUsername(r))
+}
+
+// accessFor builds the context for any user (used by the editor's preview and
+// by delegation checks, which evaluate the granter's own access).
+func (h *Handler) accessFor(ctx context.Context, role, username string) *access {
+	a := &access{h: h, ctx: ctx, role: role, username: username}
+	if a.role == "admin" || a.username == "" {
 		return a
 	}
 	if e, ok := policyCache.Load(a.username); ok && time.Since(e.(policyEntry).at) < 20*time.Second {
@@ -88,41 +158,35 @@ func (h *Handler) access(r *http.Request) *access {
 	return a
 }
 
-func (a *access) unrestricted() bool { return a.role == "admin" || a.role == "dev" }
+// unrestricted: nothing is ever filtered for this user. Only super admin.
+func (a *access) unrestricted() bool { return a.role == "admin" }
 
 func (a *access) loadScopes() {
 	a.once.Do(func() { a.scopes, a.scopeErr = a.h.db.DeviceScopes(a.ctx) })
 }
 
-func (a *access) ruleCovers(rule db.AccessRule, action string, dev *uuid.UUID) bool {
-	hit := false
-	for _, x := range rule.Actions {
-		if x == "*" || x == action {
-			hit = true
-			break
-		}
-	}
-	if !hit {
-		return false
-	}
-	switch rule.ScopeType {
+// scopeContains reports whether a grant's scope covers the device (nil device =
+// fleet-level question, which only "all" answers).
+func (a *access) scopeContains(g db.AccessGrant, dev *uuid.UUID) bool {
+	switch g.ScopeType {
 	case "", "all":
 		return true
-	case "group", "restaurant":
-		if dev == nil {
-			return false // fleet-level action: only fleet-wide rules apply
-		}
-		a.loadScopes()
-		sc := a.scopes[*dev]
-		id, err := uuid.Parse(rule.ScopeID)
-		if err != nil {
+	case "device":
+		return dev != nil && g.ScopeID != nil && *g.ScopeID == *dev
+	case "restaurant", "group":
+		if dev == nil || g.ScopeID == nil {
 			return false
 		}
-		if rule.ScopeType == "restaurant" {
-			return sc.RestaurantID != nil && *sc.RestaurantID == id
+		a.loadScopes()
+		sc, ok := a.scopes[*dev]
+		if !ok {
+			return false
 		}
-		for _, g := range sc.Groups {
-			if g == id {
+		if g.ScopeType == "restaurant" {
+			return sc.RestaurantID != nil && *sc.RestaurantID == *g.ScopeID
+		}
+		for _, gid := range sc.Groups {
+			if gid == *g.ScopeID {
 				return true
 			}
 		}
@@ -130,48 +194,76 @@ func (a *access) ruleCovers(rule db.AccessRule, action string, dev *uuid.UUID) b
 	return false
 }
 
-// can decides one action, optionally for one device. Role gates (viewers can't
-// act, operators can't shell) are applied by the existing wrappers/allowlist;
-// this only refines what the role already permits.
-func (a *access) can(action string, dev *uuid.UUID) bool {
-	if a.unrestricted() {
-		return true
+// grantCovers: the grant names the action (a "*" never reaches a sensitive one)
+// and its scope contains the device.
+func (a *access) grantCovers(g db.AccessGrant, action string, dev *uuid.UUID) bool {
+	named := false
+	for _, x := range g.Actions {
+		// "*" never hands out a sensitive action, but a deny of "*" takes it away too.
+		if x == action || (x == "*" && (g.Effect == "deny" || !accessActionByKey[action].Sensitive)) {
+			named = true
+			break
+		}
 	}
-	if a.role == "viewer" && action != "view" && action != "screenshot" {
-		return false
+	return named && a.scopeContains(g, dev)
+}
+
+// decision explains one evaluation, for the editor preview and the audit line.
+type decision struct {
+	Allowed bool
+	Reason  string          // short sentence
+	Grant   *db.AccessGrant // the grant that decided it, when one did
+}
+
+// decide is the single evaluation path (see docs/access-control-plan.md §2).
+func (a *access) decide(action string, dev *uuid.UUID) decision {
+	if a.role == "admin" {
+		return decision{true, "Super admin", nil}
 	}
-	if a.role == "owner" && action != "view" {
-		return false
+	act, known := accessActionByKey[action]
+	if !known {
+		return decision{false, "Unknown action", nil}
 	}
-	if a.role == "dev" {
-		return true // devs are not policy-restricted
-		return false
+	if c := roleCeiling(a.role); !c[action] {
+		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}
 	}
-	deny, allow := false, false
-	for _, rule := range a.pol.Rules {
-		if !a.ruleCovers(rule, action, dev) {
+	var deny, allow *db.AccessGrant
+	for i := range a.pol.Grants {
+		g := &a.pol.Grants[i]
+		if !a.grantCovers(*g, action, dev) {
 			continue
 		}
-		if rule.Effect == "deny" {
-			deny = true
-		} else {
-			allow = true
+		if g.Effect == "deny" {
+			if deny == nil {
+				deny = g
+			}
+		} else if allow == nil {
+			allow = g
 		}
 	}
-	if deny {
-		return false
+	if deny != nil {
+		return decision{false, "Denied by a rule", deny}
 	}
-	if allow {
-		return true
+	if allow != nil {
+		return decision{true, "Allowed by a rule", allow}
 	}
 	if a.role == "owner" {
-		return false // an owner sees only what an allow rule grants
+		return decision{false, "Owners only see what a rule grants", nil}
+	}
+	if act.Sensitive && a.role != "dev" {
+		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
 	if action == "view" && a.role == "viewer" {
-		return true // a viewer's base is always "see everything" unless denied
+		return decision{true, "Viewers see everything unless a rule hides it", nil}
 	}
-	return a.pol.Base != "deny"
+	if a.pol.Base == "deny" {
+		return decision{false, "Base is \"allow nothing\" and no rule includes it", nil}
+	}
+	return decision{true, "Base allows everything the role can do", nil}
 }
+
+// can decides one action, optionally for one device.
+func (a *access) can(action string, dev *uuid.UUID) bool { return a.decide(action, dev).Allowed }
 
 func (a *access) canDevice(action string, dev uuid.UUID) bool { return a.can(action, &dev) }
 
@@ -191,8 +283,8 @@ func (a *access) filterDevices(action string, ids []uuid.UUID) ([]uuid.UUID, int
 }
 
 // hidesDevices reports whether devices this user cannot view are removed from
-// lists (vs shown with actions disabled). Viewers always hide: there is nothing
-// to disable for them.
+// lists (vs shown with actions disabled). Viewers and owners always hide: there
+// is nothing to disable for them.
 func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
@@ -210,35 +302,35 @@ func (a *access) hasViewRestriction() bool {
 	if a.pol.Base == "deny" {
 		return true
 	}
-	for _, r := range a.pol.Rules {
-		if r.Effect == "deny" {
-			for _, x := range r.Actions {
-				if x == "*" || x == "view" {
-					return true
-				}
-			}
+	for _, g := range a.pol.Grants {
+		if g.Effect == "deny" && g.Has("view") {
+			return true
 		}
 	}
 	return false
 }
 
 // visibleIDs is the device-id allowlist for list queries, or nil for "no filter".
+// Computed once per request.
 func (a *access) visibleIDs() []uuid.UUID {
 	if !a.hidesDevices() {
 		return nil
 	}
-	a.loadScopes()
-	ids := make([]uuid.UUID, 0, len(a.scopes))
-	for id := range a.scopes {
-		if a.canDevice("view", id) {
-			ids = append(ids, id)
+	a.visOnce.Do(func() {
+		a.loadScopes()
+		ids := make([]uuid.UUID, 0, len(a.scopes))
+		for id := range a.scopes {
+			if a.canDevice("view", id) {
+				ids = append(ids, id)
+			}
 		}
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
-	return ids
+		sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
+		a.vis = ids
+	})
+	return a.vis
 }
 
-// deviceActionsAllowed reports whether the user may take any action on a device
+// anyDeviceAction reports whether the user may take any action on a device
 // (used to render the device page read-only when they may take none).
 func (a *access) anyDeviceAction(dev uuid.UUID) bool {
 	if a.unrestricted() {
@@ -252,221 +344,114 @@ func (a *access) anyDeviceAction(dev uuid.UUID) bool {
 	return false
 }
 
+// holdsAnywhere reports whether some device exists on which the user may take
+// the action (drives whether a nav entry / button is shown at all).
+func (a *access) holdsAnywhere(action string) bool {
+	if a.unrestricted() {
+		return true
+	}
+	if !roleCeiling(a.role)[action] {
+		return false
+	}
+	a.loadScopes()
+	for id := range a.scopes {
+		if a.canDevice(action, id) {
+			return true
+		}
+	}
+	return false
+}
+
 // requireDeviceAction is the common guard for single-device operator handlers.
 // Writes a 403 and returns false when the policy withholds the action.
 func (h *Handler) requireDeviceAction(w http.ResponseWriter, r *http.Request, action string, dev uuid.UUID) bool {
-	if h.access(r).canDevice(action, dev) {
+	d := h.access(r).decide(action, &dev)
+	if d.Allowed {
 		return true
 	}
+	h.denied(r, action, &dev, d)
 	http.Error(w, "Your access policy does not allow this action on this device.", http.StatusForbidden)
 	return false
 }
 
-// enforceCommandTargets applies the policy to a command's targets. For device
-// targets it drops what the user may not touch (403 if nothing is left); for a
-// group target it refuses when the group contains any device outside the policy,
-// since a group command is stored as one unit and can't be partially sent.
-// Returns the ids to use and false when it already wrote a response.
-func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, action, targetType string, ids []uuid.UUID) ([]uuid.UUID, bool) {
+// requireFleetAction guards fleet-level operator actions (QA, groups, alerts…).
+func (h *Handler) requireFleetAction(w http.ResponseWriter, r *http.Request, action string) bool {
+	d := h.access(r).decide(action, nil)
+	if d.Allowed {
+		return true
+	}
+	h.denied(r, action, nil, d)
+	http.Error(w, "Your access policy does not allow this action.", http.StatusForbidden)
+	return false
+}
+
+// enforceCommandTargets applies the policy to a command's targets: it drops the
+// devices the user may not touch (403 if nothing is left). For a group target
+// it resolves the members, drops what is out of scope, and returns the kept
+// device ids with targetType "devices" so a partial group still sends. Returns
+// the ids, the target type to store, and false when it already wrote a response.
+func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, action, targetType string, ids []uuid.UUID) ([]uuid.UUID, string, bool) {
 	acc := h.access(r)
 	if acc.unrestricted() {
-		return ids, true
+		return ids, targetType, true
 	}
 	if targetType == "groups" {
 		devIDs, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), ids)
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return nil, false
+			return nil, "", false
 		}
-		if _, dropped := acc.filterDevices(action, devIDs); dropped > 0 {
-			http.Error(w, "This group contains devices your access policy does not allow this command on. Pick devices individually from the Actions page.", http.StatusForbidden)
-			return nil, false
+		kept, dropped := acc.filterDevices(action, devIDs)
+		if dropped == 0 {
+			return ids, targetType, true
 		}
-		return ids, true
+		if len(kept) == 0 {
+			h.denied(r, action, nil, decision{Reason: "no device in the group is in scope"})
+			http.Error(w, "Your access policy does not allow this command on any device in that group.", http.StatusForbidden)
+			return nil, "", false
+		}
+		log.Printf("[access] %s: %s on group narrowed to %d of %d device(s)", acc.username, action, len(kept), len(devIDs))
+		return kept, "devices", true
 	}
 	kept, dropped := acc.filterDevices(action, ids)
 	if len(kept) == 0 && len(ids) > 0 {
+		h.denied(r, action, nil, decision{Reason: "no selected device is in scope"})
 		http.Error(w, "Your access policy does not allow this command on the selected devices.", http.StatusForbidden)
-		return nil, false
+		return nil, "", false
 	}
 	if dropped > 0 {
 		log.Printf("[access] %s: %s skipped %d device(s) outside their policy", acc.username, action, dropped)
 	}
-	return kept, true
+	return kept, targetType, true
 }
 
-// requireFleetAction guards fleet-level operator actions (QA, groups, alerts…).
-func (h *Handler) requireFleetAction(w http.ResponseWriter, r *http.Request, action string) bool {
-	if h.access(r).can(action, nil) {
-		return true
+// denied records a refused attempt: a log line always, an audit row at most
+// once per user+action per minute so a scripted loop cannot flood the log.
+var deniedRecent sync.Map // username+action -> time.Time
+
+func (h *Handler) denied(r *http.Request, action string, dev *uuid.UUID, d decision) {
+	user := h.currentUsername(r)
+	target := action
+	if dev != nil {
+		target += " on " + dev.String()
 	}
-	http.Error(w, "Your access policy does not allow this action.", http.StatusForbidden)
-	return false
+	log.Printf("[access] denied user=%s %s: %s", user, target, d.Reason)
+	key := user + "|" + action
+	if t, ok := deniedRecent.Load(key); ok && time.Since(t.(time.Time)) < time.Minute {
+		return
+	}
+	deniedRecent.Store(key, time.Now())
+	h.audit(r, "access.denied", target, d.Reason)
 }
 
-// ── Admin: edit a user's policy ─────────────────────────────────────────────
-
-// UserSetAccess parses the Access editor form (see profile.html) into a policy.
-// Rows are indexed: rule_effect_N, rule_scope_N ("all" | "group:<id>" |
-// "restaurant:<id>"), rule_actions_N (repeated checkbox values, "*" = any).
-func (h *Handler) UserSetAccess(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
+func lowerFirst(s string) string {
+	if s == "" {
+		return s
 	}
-	u, err := h.db.GetUser(r.Context(), id)
-	if err != nil || u == nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-	if !mayManageUser(h.role(r), u.Role, "") {
-		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
-		return
-	}
-	r.ParseForm()
-	pol := db.AccessPolicy{Base: "allow"}
-	if r.FormValue("base") == "deny" {
-		pol.Base = "deny"
-	}
-	pol.HideOutOfScope = r.FormValue("hide_out_of_scope") == "1"
-	for i := 0; i < 50; i++ {
-		sfx := "_" + itoa(i)
-		effect := r.FormValue("rule_effect" + sfx)
-		if effect == "" {
-			continue
-		}
-		acts := r.Form["rule_actions"+sfx]
-		if len(acts) == 0 {
-			continue // an empty row is ignored
-		}
-		var clean []string
-		for _, a := range acts {
-			if a == "*" || isAccessAction(a) {
-				clean = append(clean, a)
-			}
-		}
-		if len(clean) == 0 {
-			continue
-		}
-		rule := db.AccessRule{Effect: "allow", Actions: clean, ScopeType: "all"}
-		if effect == "deny" {
-			rule.Effect = "deny"
-		}
-		if sc := r.FormValue("rule_scope" + sfx); strings.Contains(sc, ":") {
-			parts := strings.SplitN(sc, ":", 2)
-			if (parts[0] == "group" || parts[0] == "restaurant") && parts[1] != "" {
-				if _, err := uuid.Parse(parts[1]); err == nil {
-					rule.ScopeType, rule.ScopeID = parts[0], parts[1]
-				}
-			}
-		}
-		pol.Rules = append(pol.Rules, rule)
-	}
-	if err := h.db.SetUserAccess(r.Context(), id, pol); err != nil {
-		log.Printf("[access] save for %s: %v", u.Username, err)
-		http.Error(w, "Could not save access policy", http.StatusInternalServerError)
-		return
-	}
-	invalidatePolicy(u.Username)
-	h.audit(r, "user.access", u.Username, describePolicy(pol))
-	h.hxRedirect(w, r, "/users/"+id.String()+"/profile")
-}
-
-func describePolicy(p db.AccessPolicy) string {
-	if p.IsEmpty() {
-		return "full operator access"
-	}
-	parts := []string{"base=" + p.Base}
-	if p.HideOutOfScope {
-		parts = append(parts, "hide out-of-scope")
-	}
-	for _, r := range p.Rules {
-		sc := r.ScopeType
-		if r.ScopeID != "" {
-			sc += ":" + r.ScopeID
-		}
-		parts = append(parts, r.Effect+" "+strings.Join(r.Actions, ",")+" @"+sc)
-	}
-	return strings.Join(parts, "; ")
-}
-
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	var b []byte
-	for i > 0 {
-		b = append([]byte{byte('0' + i%10)}, b...)
-		i /= 10
+	b := []byte(s)
+	// "OTA updates" stays as is; "Reboot" → "reboot"
+	if b[0] >= 'A' && b[0] <= 'Z' && (len(b) < 2 || b[1] < 'A' || b[1] > 'Z') {
+		b[0] += 'a' - 'A'
 	}
 	return string(b)
-}
-
-// UsersAccessPage lists every account with a readable summary of its policy.
-func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	users, err := h.db.ListUsers(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	groups, _ := h.db.ListGroups(ctx)
-	restaurants, _ := h.db.ListRestaurants(ctx)
-	names := map[string]string{}
-	for _, g := range groups {
-		names["group:"+g.ID.String()] = "group " + g.Name
-	}
-	for _, x := range restaurants {
-		names["restaurant:"+x.ID.String()] = "venue " + x.Name
-	}
-	labels := map[string]string{}
-	for _, a := range accessActions {
-		labels[a.Key] = a.Label
-	}
-	type ruleView struct{ Effect, Text string }
-	type row struct {
-		User   db.User
-		Policy db.AccessPolicy
-		Empty  bool
-		Rules  []ruleView
-	}
-	var rows []row
-	custom := 0
-	for _, u := range users {
-		pol, _ := h.db.GetUserAccess(ctx, u.Username)
-		rw := row{User: u, Policy: pol, Empty: pol.IsEmpty() || u.Role == "admin"}
-		if !rw.Empty {
-			custom++
-		}
-		for _, rl := range pol.Rules {
-			var acts []string
-			for _, a := range rl.Actions {
-				if a == "*" {
-					acts = append(acts, "any action")
-				} else if l, ok := labels[a]; ok {
-					acts = append(acts, strings.ToLower(l))
-				}
-			}
-			where := "across the whole fleet"
-			if rl.ScopeType == "group" || rl.ScopeType == "restaurant" {
-				if n, ok := names[rl.ScopeType+":"+rl.ScopeID]; ok {
-					where = "in " + n
-				} else {
-					where = "in a deleted " + rl.ScopeType
-				}
-			}
-			rw.Rules = append(rw.Rules, ruleView{Effect: rl.Effect, Text: strings.Join(acts, ", ") + " " + where})
-		}
-		rows = append(rows, rw)
-	}
-	// Operators first (the ones you actually configure), then viewers, admins last.
-	order := map[string]int{"operator": 0, "user_manager": 1, "viewer": 2, "owner": 3, "dev": 4, "admin": 5}
-	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
-	h.render(w, r, "users_access.html", map[string]any{
-		"Title":    "Access control",
-		"Rows":     rows,
-		"Custom":   custom,
-		"UsersTab": "access",
-	})
 }
