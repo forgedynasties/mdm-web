@@ -623,6 +623,8 @@ window.CMD_PREFILL = {{.Prefill}};
     ['Device', ['reboot']],
     ['Diagnostics', ['screenshot', 'query']]
   ];
+  // Not offered from the fleet console at all (they would otherwise land in "Other").
+  var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true };
 
   // ── State ──
   var S = { action: null, apps: [], pkgs: [], shell: '', query: null, kiosk: null, splash: '',
@@ -969,7 +971,7 @@ window.CMD_PREFILL = {{.Prefill}};
       html += '<div class="co-gcap' + (g[0] === 'Danger zone' ? ' danger' : '') + '">' + g[0] + '</div><div class="co-agrid">'
         + acts.map(function (t) { return actionCard(byType[t]); }).join('') + '</div>';
     });
-    var extra = DS.actions.filter(function (a) { return !placed[a.t]; });
+    var extra = DS.actions.filter(function (a) { return !placed[a.t] && !GRID_HIDDEN[a.t]; });
     if (extra.length) html += '<div class="co-gcap">Other</div><div class="co-agrid">' + extra.map(actionCard).join('') + '</div>';
     el('co-grid').innerHTML = html;
   }
