@@ -28,7 +28,7 @@
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
       <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
-      <span class="dl-onboard">{{if .IsDPC}}<span class="dl-ktag dpc" title="Managed by the Device-Owner DPC agent">DPC</span>{{else}}<span class="dl-ktag" title="Our firmware, system-app client">Firmware</span>{{end}}{{if .Class}}<span class="dl-ktag cls">{{.ClassLabel}}</span>{{end}}{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
+      <span class="dl-onboard">{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
     </div>
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
@@ -136,8 +136,8 @@
 {{define "device-table"}}
 {{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
-  {{if .FilterKind}}<span class="fchip"><span class="k">Kind</span> {{if eq .FilterKind "dpc"}}DPC agent{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterClass}}<span class="fchip"><span class="k">Class</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -488,7 +488,7 @@ a.fleet-rail-item{min-height:40px}
          Each segment / legend entry is a class filter. ── */}}
     {{if gt (len .Composition) 1}}
     <div class="fl-comp">
-      <div class="cc-stack" title="Fleet by class">{{range .Composition}}<a class="cc-c{{.Idx}}" style="width:{{.Pct}}%" href="/devices?class={{.Class}}" title="{{.Label}} · {{.N}}"></a>{{end}}</div>
+      <div class="cc-stack" title="Fleet by device type">{{range .Composition}}<a class="cc-c{{.Idx}}" style="width:{{.Pct}}%" href="/devices?class={{.Class}}" title="{{.Label}} · {{.N}}"></a>{{end}}</div>
       <div class="cc-legend">{{range .Composition}}<a href="/devices?class={{.Class}}"><i class="cc-c{{.Idx}}"></i>{{.Label}} <b>{{.N}}</b></a>{{end}}<span class="fl-comp-kind">{{.CompFirmware}} firmware · {{.CompDPC}} DPC</span></div>
     </div>
     {{end}}
@@ -516,15 +516,15 @@ a.fleet-rail-item{min-height:40px}
             <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
             <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
           </select></label>
-        <label class="fp-field"><span>Kind</span>
+        <label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
-            <option value="">Any kind</option>
+            <option value="">Any agent</option>
             <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware (our hardware)</option>
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>DPC agent</option>
           </select></label>
-        <label class="fp-field"><span>Class</span>
+        <label class="fp-field"><span>Device type</span>
           <select id="filter-class" onchange="applyFilters()">
-            <option value="">Any class</option>
+            <option value="">Any type</option>
             {{range .Classes}}<option value="{{.}}" {{if eq . $.FilterClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
           </select></label>
         <label class="fp-field"><span>Product</span>
