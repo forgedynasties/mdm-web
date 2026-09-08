@@ -251,7 +251,9 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if a.role == "owner" {
 		return decision{false, "Owners only see what a rule grants", nil}
 	}
-	if act.Sensitive && a.role != "dev" {
+	// Sensitive actions need an explicit allow rule — except for the roles whose
+	// ceiling exists for them: dev (all of them) and the super op (firmware pushes).
+	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
 	if action == "view" && a.role == "viewer" {
