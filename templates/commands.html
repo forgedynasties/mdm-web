@@ -919,7 +919,7 @@ window.CMD_PREFILL = {{.Prefill}};
   function showMissingSerials(missing, added) {
     var m = el('co-missing-modal'); if (!m) return;
     el('co-missing-sum').textContent = added
-      ? 'Added ' + added + ' matching device' + (added === 1 ? '' : 's') + '. ' + missing.length + ' serial' + (missing.length === 1 ? ' is' : 's are') + ' not in the fleet and were left out:'
+      ? 'Added ' + added + ' matching device' + (added === 1 ? '' : 's') + '. ' + missing.length + ' serial' + (missing.length === 1 ? ' is not in the fleet and was' : 's are not in the fleet and were') + ' left out:'
       : 'None of the ' + missing.length + ' pasted serial' + (missing.length === 1 ? '' : 's') + ' match a device in the fleet:';
     el('co-missing-list').innerHTML = missing.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
     m.classList.add('modal-open');
