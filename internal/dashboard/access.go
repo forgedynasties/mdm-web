@@ -81,12 +81,14 @@ func roleCeiling(role string) map[string]bool {
 	}
 	m := map[string]bool{}
 	for _, a := range accessActions {
-		if a.DevOnly && role != "dev" {
+		// DevOnly actions belong to the dev ceiling; the OTA admin gets exactly one of
+		// them, the firmware push.
+		if a.DevOnly && role != "dev" && !(role == "ota_admin" && a.Key == "ota") {
 			continue
 		}
 		m[a.Key] = true
 	}
-	if role == "operator" || role == "user_manager" || role == "dev" {
+	if role == "operator" || role == "user_manager" || role == "ota_admin" || role == "dev" {
 		return m
 	}
 	return map[string]bool{} // unknown role: nothing

@@ -64,11 +64,12 @@ Two layers: a **role** (the ceiling: what an account can ever do) and per-accoun
 | `admin` (super admin) | everything, everywhere; rules never apply | nobody |
 | `dev` | operator ceiling + `shell` + `ota` | admin |
 | `user_manager` (access admin) | operator ceiling + Users pages | admin |
+| `ota_admin` (OTA admin) | access-admin ceiling + `ota` (deploy releases, add targets, retry / cancel); no release-package management | admin |
 | `operator` | device actions, kiosk, notes, queue, logcat, fleet actions, `remote` (explicit only) | admin, access admin |
 | `viewer` | `view`, `screenshot` | admin, access admin |
 | `owner` | `view` on allowed venues only, owner home | admin, access admin |
 
-Route wrappers still gate by role first (`requireAuth`, `requireOperatorOrAdmin`, `requireAdminOrOperator`, `requireReleaseAdmin` = admin/dev, `requireUserManager` = admin/user_manager, `requireStrictAdmin` = admin, `requireDev`). Rules only ever narrow what a role permits.
+Route wrappers still gate by role first (`requireAuth`, `requireOperatorOrAdmin`, `requireAdminOrOperator`, `requireReleaseAdmin` = admin/dev, `requireOTA` = admin/dev/ota_admin, `requireUserManager` = admin/user_manager/ota_admin, `requireStrictAdmin` = admin, `requireDev`). Rules only ever narrow what a role permits.
 
 ### 4.2 Access rules (`access_grants`)
 
