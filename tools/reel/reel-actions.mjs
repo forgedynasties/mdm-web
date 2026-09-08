@@ -62,55 +62,64 @@ export async function prepare({ browser, storageState, BASE }) {
 export const ORDER = ["who", "paste", "what", "send", "presets"];
 
 export const SCENES = {
-  // scope tabs → a venue in one click
+  // scope tabs → a venue in one click. Camera: push in on the rail, pan down the
+  // scope list, pull back to see the pills fill.
   async who(s) {
     await s.goto("/commands", 2400);
-    await s.glide("#co-stabs", { dur: 700 });
+    await s.glide("#co-stabs", { dur: 800 });
+    await s.zoomIn("#co-stabs", 1.6, 1000, 1300);
     await s.callout("Scope tabs", 1300);
     await s.click(".co-stab[data-stab='restaurant']");
     await s.hold(900);
-    await s.zoomIn(".co-scope[data-kind='restaurant'] >> nth=0", 1.35, 700);
+    await s.zoomIn(".co-scope[data-kind='restaurant'] >> nth=0", 1.6, 1200, 1500); // pan
     await s.click(".co-scope[data-kind='restaurant'] >> nth=0");
     await s.callout("One click, a whole venue", 1700);
-    await s.hold(1600);
-    await s.zoomOut(600);
+    await s.hold(1500);
+    await s.zoomIn("#co-pills", 1.5, 1200, 1500); // pan to the basket
     await s.glide("#co-pills", { dur: 700 });
-    await s.hold(900);
-    await s.click(".co-stab[data-stab='group']");
     await s.hold(1200);
+    await s.zoomOut(900, 1200);
+    await s.click(".co-stab[data-stab='group']");
+    await s.hold(1300);
     await s.click("#co-clear");
-    await s.hold(600);
+    await s.hold(700);
   },
   // paste serials → validated, unknown ones called out
   async paste(s) {
     await s.goto("/commands", 2400);
     await s.click("#co-q");
+    await s.zoomIn("#co-q", 1.5, 900, 1200);
     await s.callout("Paste serials from a sheet", 1500);
-    await s.page.keyboard.type(`${D1} ${D2} ${BOGUS} ${D3}`, { delay: 18 });
+    await s.page.keyboard.type(`${D1} ${D2} ${BOGUS} ${D3}`, { delay: 22 });
     await s.hold(700);
     await s.page.keyboard.press("Enter");
     await s.page.locator("#co-missing-modal.modal-open").waitFor({ timeout: 8000 }).catch(() => {});
     await s.hold(400);
-    await s.zoomIn("#co-missing-modal .modal-box", 1.3, 700);
+    await s.zoomIn("#co-missing-modal .modal-box", 1.45, 1000, 1300); // pan to the popup
     await s.callout("Typos don't ride along", 1700);
-    await s.hold(1900);
-    await s.zoomOut(500);
+    await s.hold(2000);
     await s.click("#co-missing-modal .btn-primary");
     await s.hold(500);
+    await s.zoomIn("#co-devs .co-dev.on >> nth=0", 1.6, 1100, 1400).catch(() => {}); // pan to the list
     await s.glide("#co-devs .co-dev.on >> nth=0", { dur: 700 }).catch(() => {});
     await s.callout("Real ones added, picked rows on top", 1700);
     await s.hold(1800);
+    await s.zoomOut(900, 1200);
+    await s.hold(400);
   },
   // action grid adapts; app picker closes after each pick
   async what(s) {
     await s.goto("/commands", 2400);
     await s.click(".co-scope[data-kind='restaurant'] >> nth=0");
     await s.hold(800);
-    await s.zoomIn("#co-grid", 1.25, 600);
+    await s.zoomIn("#co-grid", 1.4, 1000, 1300);
     await s.callout("Only what every selected device can run", 1800);
     await s.hold(1400);
     await s.click(".co-act[data-t='install_apk']");
-    await s.hold(900);
+    await s.hold(700);
+    await s.scroll(260, 1100); // bring the payload strip up smoothly
+    await s.hold(300);
+    await s.zoomIn("#co-strip", 1.5, 1000, 1300); // pan down to the strip
     await s.click(".co-addbtn[data-menu='apps']");
     await s.hold(800);
     await s.click(".co-opt >> nth=0");
@@ -121,45 +130,53 @@ export const SCENES = {
     await s.hold(800);
     await s.click(".co-opt >> nth=2");
     await s.hold(1400);
-    await s.zoomOut(600);
-    await s.hold(600);
+    await s.zoomOut(900, 1200);
+    await s.hold(500);
   },
   // reboot three devices → land on the command page, acks live
   async send(s) {
     await s.goto("/commands", 2400);
     await s.click("#co-q");
-    await s.page.keyboard.type(`${D1} ${D2} ${D3}`, { delay: 14 });
+    await s.page.keyboard.type(`${D1} ${D2} ${D3}`, { delay: 16 });
     await s.page.keyboard.press("Enter");
     await s.hold(900);
     await s.click(".co-act[data-t='reboot']");
     await s.hold(700);
+    await s.scroll(240, 1000);
+    await s.zoomIn("#co-send", 1.5, 900, 1200);
     await s.click("#co-send");
     await s.callout("Confirm", 900);
     await s.hold(800);
     await s.click("#co-send");
     await s.page.waitForURL(/\/commands\//, { timeout: 15000 }).catch(() => {});
     await s.zoom();
+    s.cam = 1; // new document: the assembler's camera starts wide again
+    s.camEvents.push({ t: s.now(), k: 1, dur: 10 });
     await s.hold(900);
     await s.callout("Straight to the result", 1600);
-    await s.zoomIn("text=Rebooted >> nth=0", 1.3, 900).catch(() => {});
-    await s.hold(3600);
-    await s.zoomOut(600);
+    await s.zoomIn(".ad-pct", 1.5, 1200, 1400);
+    await s.hold(1200);
+    await s.zoomIn("text=Rebooted >> nth=0", 1.5, 1200, 1600).catch(() => {}); // pan to the column
+    await s.hold(3200);
+    await s.zoomOut(1000, 1400);
     await s.confetti();
-    await s.hold(1500);
+    await s.hold(1600);
   },
   // presets: pinned / recent / most frequent, one-click resend
   async presets(s) {
     await s.goto("/commands", 2400);
-    await s.page.locator("#p-pinned").scrollIntoViewIfNeeded();
-    await s.hold(700);
+    await s.scroll(900, 1800); // glide down to the presets
+    await s.hold(600);
     await s.glide(".p-cap:has-text('Most frequent')", { dur: 800 });
     await s.callout("What operators actually send", 1700);
+    await s.hold(1000);
+    await s.zoomIn(".p-stack > div:nth-child(1)", 1.45, 1200, 1400);
     await s.hold(1200);
-    await s.zoomIn(".p-stack", 1.25, 700);
-    await s.hold(1400);
+    await s.zoomIn(".p-stack > div:nth-child(2)", 1.45, 1200, 1500); // pan across
+    await s.hold(1000);
     await s.click(".p-stack > div:nth-child(2) .p-resend >> nth=0");
     await s.hold(800);
-    await s.zoomOut(600);
+    await s.zoomOut(1000, 1400);
     await s.callout("Loaded into the console, ready to send", 1800);
     await s.glide("#co-send", { dur: 900 });
     await s.hold(1800);

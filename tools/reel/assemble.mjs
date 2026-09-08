@@ -29,7 +29,7 @@ const CARDS_DIR = env("CARDS_DIR", "out/cards");
 const MUSIC = env("MUSIC", "music/Inspired.mp3");
 const ONLY = env("SCENES", "").split(/\s+/).filter(Boolean);
 const SPEED = parseFloat(env("SPEED", "1"));
-const XFADE = parseFloat(env("XFADE", "0.45"));
+const XFADE = parseFloat(env("XFADE", "0.8"));
 const CARD_SEC = parseFloat(env("CARD_SEC", "2.6"));
 const CARD_LEAD = 0.6; // cards.mjs keeps the page hidden this long while fonts load
 const KB = parseFloat(env("KENBURNS", "0.035")); // total drift (3.5 %)
@@ -93,18 +93,21 @@ function cameraExpr(c) {
     expr = `if(lt(t,${sgm.t.toFixed(3)}),${sgm.from},${expr})`;
   }
   z = `(${expr})*${kb}`;
-  // focus point: last zoom-in keyframe at/before t (zoom-outs keep the previous point)
-  let px = `${W / 2}`, py = `${H / 2}`, last = null;
+  // focus point: pans. Between consecutive zoom-in keyframes the focus glides
+  // (smoothstep over the later keyframe's duration) instead of jumping, so a
+  // second zoomIn at the same zoom level reads as a camera pan. Zoom-outs keep the
+  // last focus so the pull-back is centred where the viewer was looking.
+  let px = `${W / 2}`, py = `${H / 2}`;
   const ins = ev.filter((e) => e.k > 1);
-  for (let i = ins.length - 1; i >= 0; i--) {
-    const e = ins[i];
-    px = i === ins.length - 1 ? `${e.x.toFixed(0)}` : px; py = i === ins.length - 1 ? `${e.y.toFixed(0)}` : py;
-  }
-  if (ins.length > 1) {
-    px = `${ins[ins.length - 1].x.toFixed(0)}`; py = `${ins[ins.length - 1].y.toFixed(0)}`;
+  if (ins.length) {
+    const last = ins[ins.length - 1];
+    px = `${last.x.toFixed(0)}`; py = `${last.y.toFixed(0)}`;
     for (let i = ins.length - 2; i >= 0; i--) {
-      px = `if(lt(t,${ins[i + 1].t.toFixed(3)}),${ins[i].x.toFixed(0)},${px})`;
-      py = `if(lt(t,${ins[i + 1].t.toFixed(3)}),${ins[i].y.toFixed(0)},${py})`;
+      const a = ins[i], b = ins[i + 1];
+      const u = `clip((t-${b.t.toFixed(3)})/${b.d.toFixed(3)},0,1)`;
+      const e = ease(u);
+      px = `if(lt(t,${(b.t + b.d).toFixed(3)}),(${a.x.toFixed(0)}+(${(b.x - a.x).toFixed(0)})*${e}),${px})`;
+      py = `if(lt(t,${(b.t + b.d).toFixed(3)}),(${a.y.toFixed(0)}+(${(b.y - a.y).toFixed(0)})*${e}),${py})`;
     }
   }
   return { z, px, py };
