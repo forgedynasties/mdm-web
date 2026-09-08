@@ -3964,9 +3964,20 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Friendly names ("Table 4") so the roster leads with the name and shows the
+	// serial as the subtle line.
+	nickIDs := make([]uuid.UUID, 0, len(devices))
+	for _, d := range devices {
+		nickIDs = append(nickIDs, d.ID)
+	}
+	nicknames, _ := h.db.GetNicknames(r.Context(), nickIDs)
+	if nicknames == nil {
+		nicknames = map[uuid.UUID]string{}
+	}
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
+		"Nicknames":            nicknames,
 		"Flapping":             flapping,
 		"Total":                total,
 		"FleetTotal":           fleetTotal,
