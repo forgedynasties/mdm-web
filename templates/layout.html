@@ -2203,7 +2203,7 @@
   <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
   <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
   <a href="/groups" class="fleet-tab{{if eq .ActivePage "groups"}} cur{{end}}">Groups{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Groups}}</span>{{end}}</a>
-  <a href="/enrollment" class="fleet-tab{{if eq .ActivePage "enrollment"}} cur{{end}}">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} <span class="pill warn" title="Devices waiting for assignment">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>
+  {{if canAdmin .Role}}<a href="/enrollment" class="fleet-tab{{if eq .ActivePage "enrollment"}} cur{{end}}">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} <span class="pill warn" title="Devices waiting for assignment">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
 </div>
 {{end}}
 

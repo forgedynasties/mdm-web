@@ -18029,13 +18029,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
-	mux.HandleFunc("GET /enrollment", h.requireAuth(h.EnrollmentPage))
-	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireAuth(h.EnrollmentProfileQR))
-	post("POST /enrollment/profiles", h.requireAdminOrOperator(h.EnrollmentProfileCreate))
-	post("POST /enrollment/profiles/{id}/revoke", h.requireAdminOrOperator(h.EnrollmentProfileRevoke))
-	post("POST /enrollment/profiles/{id}/activate", h.requireAdminOrOperator(h.EnrollmentProfileActivate))
-	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
-	post("POST /enrollment/profiles/{id}/update", h.requireAdminOrOperator(h.EnrollmentProfileUpdate))
+	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
+	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
+	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
+	post("POST /enrollment/profiles", h.requireStrictAdmin(h.EnrollmentProfileCreate))
+	post("POST /enrollment/profiles/{id}/revoke", h.requireStrictAdmin(h.EnrollmentProfileRevoke))
+	post("POST /enrollment/profiles/{id}/activate", h.requireStrictAdmin(h.EnrollmentProfileActivate))
+	post("POST /enrollment/profiles/{id}/delete", h.requireStrictAdmin(h.EnrollmentProfileDelete))
+	post("POST /enrollment/profiles/{id}/update", h.requireStrictAdmin(h.EnrollmentProfileUpdate))
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))

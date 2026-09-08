@@ -274,7 +274,7 @@
     <div class="ov3-actions">
       <a class="ov3-btn primary" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Fleet health</a>
       <a class="ov3-btn" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="n{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span></a>
-      <a class="ov3-btn{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" href="/enrollment"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/></svg>Enroll device</a>
+      {{if canAdmin .Role}}      <a class="ov3-btn" href="/enrollment"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/></svg>Enroll device</a>{{end}}
       <a class="ov3-btn{{if not (canAct .Role)}} role-locked{{end}}" href="/commands"{{if not (canAct .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>
       <a class="ov3-btn{{if not (canRelease .Role)}} role-locked{{end}}" href="/updates"{{if not (canRelease .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Deploy update</a>
       <div class="ov3-cust" id="ov3-cust">
