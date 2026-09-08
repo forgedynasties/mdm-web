@@ -259,21 +259,16 @@ body > main {
    (the "What's new" popup rendered inline instead of above content). It keeps its
    own position:fixed; z-index:100 from the .modal-backdrop rule below. */
 
-/* View Transitions: htmx wraps every swap in document.startViewTransition()
-   (globalViewTransitions, set in layout.html). Keep the crossfade short so the
-   app feels snappy rather than animated. Because the header/dock DOM is identical
-   across a boosted swap, only <main> visibly crossfades. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 130ms;
-  animation-timing-function: ease;
-}
+/* Page crossfade WITHOUT the View Transitions API. htmx tags freshly swapped
+   content with .htmx-added and removes it after its settle delay (~20ms), so a
+   plain opacity transition on <main> fades the new page in. Nothing outside
+   <main> is snapshotted, hidden or re-composited, so the glass dock/topbar keep
+   their blur layers across a navigation — the View Transitions crossfade used
+   to rebuild those layers on every swap and flash them. */
+main.container { transition: opacity 160ms ease; }
+main.container.htmx-added { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
+  main.container { transition: none; }
 }
 
 /* Dock layout: full-width canvas; leave room at the bottom for the floating dock. */
