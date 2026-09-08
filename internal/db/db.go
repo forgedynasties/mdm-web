@@ -6546,6 +6546,26 @@ const PageViewAction = "page.view"
 
 // ListAuditForActivity is the Activity page's feed: newest first, optionally
 // without one actor (the env admin) and optionally including page views.
+// AuditCountsByActor is how many log entries each actor has (page views excluded),
+// for ranking the Activity page's user filter by who does the most.
+func (d *DB) AuditCountsByActor(ctx context.Context) (map[string]int, error) {
+	rows, err := d.pool.Query(ctx, `SELECT actor, COUNT(*) FROM audit_log WHERE action <> '`+PageViewAction+`' GROUP BY actor`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var a string
+		var n int
+		if err := rows.Scan(&a, &n); err != nil {
+			return nil, err
+		}
+		out[a] = n
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListAuditForActivity(ctx context.Context, excludeActor string, includeViews bool, limit int) ([]AuditEntry, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
