@@ -3855,9 +3855,38 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone"} {
+	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
 		if qv.Get(k) != "" {
 			filterCount++
+		}
+	}
+	// Composition strip: the fleet by class (and kind), independent of the current
+	// filter so it reads as "what the fleet is made of".
+	type compSeg struct {
+		Class string
+		Label string
+		N     int
+		Pct   int
+		Idx   int
+	}
+	var composition []compSeg
+	compFirmware, compDPC := 0, 0
+	if classes, fw, dp, err := h.db.FleetComposition(r.Context()); err == nil {
+		compFirmware, compDPC = fw, dp
+		sum := 0
+		for _, c := range classes {
+			sum += c.N
+		}
+		for i, c := range classes {
+			pct := 0
+			if sum > 0 {
+				pct = c.N * 100 / sum
+			}
+			label := product.ClassLabel(c.Class)
+			if c.Class == "" {
+				label = "Unclassed"
+			}
+			composition = append(composition, compSeg{c.Class, label, c.N, pct, i%6 + 1})
 		}
 	}
 
@@ -3977,6 +4006,14 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
+		"FilterKind":           r.URL.Query().Get("kind"),
+		"FilterClass":          r.URL.Query().Get("class"),
+		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
+		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
+		"Classes":              product.Classes(),
+		"Composition":          composition,
+		"CompFirmware":         compFirmware,
+		"CompDPC":              compDPC,
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,

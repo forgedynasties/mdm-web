@@ -2687,6 +2687,57 @@ func (d *DB) FleetCounts(ctx context.Context) (FleetCounts, error) {
 	return c, err
 }
 
+// ClassCount is one slice of the fleet composition strip.
+type ClassCount struct {
+	Class string
+	N     int
+}
+
+// FleetComposition counts active devices per class (stored class, else the
+// product default) and per agent kind, in one query. Feeds the Fleet page's
+// composition strip and its filter counts.
+func (d *DB) FleetComposition(ctx context.Context) (classes []ClassCount, firmware, dpc int, err error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT COALESCE(NULLIF(device_class, ''),
+		         CASE WHEN product IN ('', 't7') THEN 'tablet'
+		              WHEN product LIKE 'kiosk%' THEN 'panel'
+		              ELSE '' END) AS cls,
+		       agent_kind, COUNT(*)
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		GROUP BY 1, 2`)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	defer rows.Close()
+	byClass := map[string]int{}
+	for rows.Next() {
+		var cls, kind string
+		var n int
+		if err := rows.Scan(&cls, &kind, &n); err != nil {
+			return nil, 0, 0, err
+		}
+		byClass[cls] += n
+		if kind == prod.KindDPC {
+			dpc += n
+		} else {
+			firmware += n
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, 0, err
+	}
+	for _, c := range prod.Classes() {
+		if byClass[c] > 0 {
+			classes = append(classes, ClassCount{c, byClass[c]})
+		}
+	}
+	if byClass[""] > 0 {
+		classes = append(classes, ClassCount{"", byClass[""]})
+	}
+	return classes, firmware, dpc, nil
+}
+
 // EnrollmentStats feeds the Enroll page's number strip.
 type EnrollmentStats struct {
 	Inbox       int // waiting for assignment
