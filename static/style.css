@@ -6539,27 +6539,22 @@ body .cc-ch h3, body .cc-ch h2, .card-header h3 { font-weight: 500; }
 
 body .cc-btn, body .ov3-btn, .btn-primary, .btn-outline, .btn-outline-sm, .btn-danger-sm, .auth2-btn { border-radius: 40px; }
 body .cc-btn, body .ov3-btn { font-weight: 500; padding: 9px 16px; }
-body .cc-btn.primary, body .ov3-btn.primary, .btn-primary, .auth2-btn { background: var(--brand-grad); border-color: transparent; color: #fff; }
-body .cc-btn.primary:hover, body .ov3-btn.primary:hover, .btn-primary:hover, .auth2-btn:hover { background: var(--brand-grad); border-color: transparent; color: #fff; filter: brightness(1.06); box-shadow: 0 10px 28px rgba(249, 103, 78, .3); }
-.btn-primary:active { background: var(--brand-grad); }
 
 .cc-card, .card, .cc-hero, body .ov3-hero, .cc-kpi, body .ov3-kpi, .modal-box, .nbar-pop, .ddc-menu { border-color: transparent; box-shadow: var(--shadow-lg); }
 .cc-kpi, body .ov3-kpi { box-shadow: var(--shadow-md); }
 html[data-theme="dark"] .cc-card, html[data-theme="dark"] .card, html[data-theme="dark"] .cc-hero, html[data-theme="dark"] .ov3-hero, html[data-theme="dark"] .cc-kpi, html[data-theme="dark"] .ov3-kpi, html[data-theme="dark"] .modal-box { border-color: rgba(255, 255, 255, .06); }
 body .cc-tag { border-radius: 40px; padding: 2px 8px; }
 
-/* Chrome: the top bar and the dock are floating glass pills, like the landing nav. */
-.appbar { position: sticky; top: 14px; margin: 14px 24px 0; border-radius: 100px; border: 1px solid rgba(0, 0, 0, .06);
-  background: rgba(255, 255, 255, .55); -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.04); backdrop-filter: blur(32px) saturate(2) brightness(1.04);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, .06), 0 12px 40px rgba(0, 0, 0, .12), inset 0 1px 0 rgba(255, 255, 255, .6); padding: 12px 24px 12px 32px; }
-html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, .4); border-color: rgba(255, 255, 255, .12); box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+/* Chrome: the top bar and the dock keep their original glass (blur 10px / 4px,
+   see .appbar and .dock above) but take the landing's pill outline. Buttons
+   are pills in solid coral; the gradient stays on the landing page only. */
+.appbar { position: sticky; top: 14px; margin: 14px 24px 0; border-radius: 100px; border: 1px solid var(--border-soft); padding: 12px 24px 12px 32px; box-shadow: var(--shadow-md); }
+.dock { border-radius: 100px; padding: 8px; }
+/* Boosted navigation scrolls <main> into view; keep the floating top bar and
+   its margin above it instead of landing the page 80px down. */
+main.container { scroll-margin-top: 100px; }
 .topbar { top: 26px; right: 40px; }
-.dock { border-radius: 100px; padding: 8px; border: 1px solid rgba(0, 0, 0, .06); background: rgba(255, 255, 255, .55);
-  -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.04); backdrop-filter: blur(32px) saturate(2) brightness(1.04);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, .06), 0 12px 40px rgba(0, 0, 0, .12), inset 0 1px 0 rgba(255, 255, 255, .6); }
-html[data-theme="dark"] .dock { background: rgba(10, 10, 20, .4); border-color: rgba(255, 255, 255, .12); box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
 .dock .nav-link { border-radius: 40px; font-weight: 500; }
-.dock .nav-link.active { background: var(--brand-grad); color: #fff; }
 @media (max-width: 900px) { .appbar { margin: 10px 12px 0; top: 10px; padding: 8px 12px 8px 20px; } .topbar { top: 18px; right: 24px; } .dock { border-radius: 24px; } }
 /* Thin Poppins headlines run wider: give the headline column of every page
    top row room and let the action group wrap under it instead of squeezing
@@ -6567,3 +6562,10 @@ html[data-theme="dark"] .dock { background: rgba(10, 10, 20, .4); border-color: 
 body .cc-top > div:first-child, body .ov3-top > div:first-child { flex: 1 1 420px; min-width: min(420px, 100%); }
 body .cc-actions, body .ov3-actions { flex: 0 1 auto; max-width: 60%; }
 @media (max-width: 1000px) { body .cc-actions, body .ov3-actions { max-width: 100%; } }
+/* Every input popup blurs the page behind it (New release, What's new, the
+   command palette, the tour). */
+.modal-backdrop, .cmdk-backdrop, .tour-ov { -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2); }
+/* No outer glow on buttons, resting or hovered; solid coral, no gradient. */
+body .co-send { background: var(--accent); box-shadow: none; border-radius: 40px; }
+body .co-send:hover { background: var(--accent-h); box-shadow: none; }
+.ovx-cta:hover, .ai-orb { box-shadow: none; }
