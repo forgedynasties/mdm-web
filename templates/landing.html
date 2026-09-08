@@ -6,276 +6,500 @@
   <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}} — Fleet management for our kiosks and tablets</title>
   <meta name="description" content="AIO MDM: in-house device management for restaurant kiosks and tablets. Live fleet health, geolocation, remote control, OTA updates.">
   <script>
-    // Set theme before first paint to avoid a flash of the wrong theme.
+    // Theme before first paint (same key as the dashboard).
     (function () {
       try {
         var t = localStorage.getItem('mdm-theme');
         if (t !== 'light' && t !== 'dark') t = 'light';
         document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
     })();
   </script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/Poppins-200-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/Poppins-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/img/landing/hero.webp" as="image">
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <style>
-    .ld-body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
-    .ld-wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
-    .ld-navwrap { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid transparent; }
-    .ld-navwrap.stuck { border-bottom-color: var(--border); }
-    .ld-nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
-    /* soft glow behind the hero: painted on the page, not inside a box, so it has no edges */
-    .ld-body { position: relative; overflow-x: hidden; }
-    .ld-body::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1100px; pointer-events: none; z-index: 0;
-      background: radial-gradient(900px 620px at 8% -6%, rgba(249,103,78,.20), transparent 70%),
-                  radial-gradient(760px 560px at 96% 22%, rgba(143,111,219,.18), transparent 70%);
-      mask-image: linear-gradient(#000 60%, transparent 100%); -webkit-mask-image: linear-gradient(#000 60%, transparent 100%); }
-    [data-theme="dark"] .ld-body::before { background: radial-gradient(900px 620px at 8% -6%, rgba(249,103,78,.16), transparent 70%), radial-gradient(760px 560px at 96% 22%, rgba(143,111,219,.14), transparent 70%); }
-    .ld-navwrap, .ld-wrap { position: relative; z-index: 1; }
-    .ld-hero { position: relative; }
-    .ld-brand { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 22px; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
-    .ld-brand b { color: var(--accent); font-weight: 700; }
-    .ld-nav-links { display: flex; align-items: center; gap: 10px; }
-    .ld-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; font-weight: 650; font-size: 14.5px; text-decoration: none; border: 1px solid var(--border); color: var(--text); background: var(--surface); transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
-    .ld-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
-    .ld-btn.primary { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 10px 28px rgba(249,103,78,.35); }
-    .ld-btn.primary:hover { box-shadow: 0 14px 32px rgba(249,103,78,.45); }
-    .ld-btn.lg { padding: 15px 24px; font-size: 16.5px; border-radius: 14px; }
-    .ld-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .ld-ghost { background: transparent; border-color: transparent; }
-    .ld-ghost:hover { background: var(--surface); }
+    /* ── AIO brand tokens (aioapp.com) ─────────────────────────────────────── */
+    :root {
+      --coral: #F9674E; --peri: #7A80F6; --ink: #0a0a0a;
+      --grad: linear-gradient(90deg, #F9674E, #7A80F6);
+      --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #4f4f4f; --faint: #8a8a92;
+      --line: rgba(79, 79, 79, .12); --card-grey: #4f4f4f; --shadow: 0 12px 40px rgba(0, 0, 0, .08);
+      --nav-bg: rgba(10, 10, 20, .4); --nav-fg: rgba(255, 255, 255, .92); --nav-line: rgba(255, 255, 255, .12);
+      --lav: #dcdcf7; --lav-2: #eeeefb;
+    }
+    html[data-theme="dark"] {
+      --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #b3b4bd; --faint: #7d7e88;
+      --line: rgba(255, 255, 255, .1); --card-grey: #2a2a33; --shadow: 0 12px 40px rgba(0, 0, 0, .45);
+      --lav: #2a2b4a; --lav-2: #1e1f33;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 110px; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif; font-weight: 400; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+    .wrap { max-width: 1360px; margin: 0 auto; padding: 0 40px; }
+    h1, h2, h3 { font-weight: 300; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+    .hl { color: var(--coral); }
+    .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); font-weight: 500; }
 
-    .ld-hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; padding: 56px 0 40px; }
-    .ld-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
-    .ld-kicker i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(249,103,78,.18); }
-    .ld-h1 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: clamp(38px, 5vw, 62px); line-height: 1.04; letter-spacing: -.025em; margin: 0 0 18px; }
-    .ld-h1 span { background: linear-gradient(90deg, #f9674e, #d6608f 60%, #8f6fdb); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .ld-sub { font-size: 18px; line-height: 1.55; color: var(--muted); max-width: 52ch; margin: 0 0 30px; }
-    .ld-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-    .ld-cta-note { width: 100%; font-size: 13px; color: var(--muted); margin-top: 4px; }
-    .ld-stats { display: flex; gap: 28px; margin-top: 34px; flex-wrap: wrap; }
-    .ld-stat b { display: block; font-family: 'Poppins', var(--font); font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
-    .ld-stat span { font-size: 13px; color: var(--muted); }
+    /* Buttons: gradient pill with a white circle arrow (aioapp "Book demo") */
+    .btn { display: inline-flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: 40px; font: inherit; font-size: 14px; color: #fff; background: var(--grad); border: 0; cursor: pointer; white-space: nowrap; transition: transform .15s ease, box-shadow .15s ease; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(249, 103, 78, .35); }
+    .btn .ic { width: 28px; height: 28px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; }
+    .btn .ic svg { width: 12px; height: 12px; fill: none; stroke: url(#ldg); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .btn.lg { padding: 10px 10px 10px 20px; font-size: 15px; }
+    .btn.lg .ic { width: 32px; height: 32px; }
+    .btn.outline { background: linear-gradient(var(--bg), var(--bg)) padding-box, var(--grad) border-box; border: 1px solid transparent; color: var(--coral); }
+    .btn.outline .ic { background: var(--grad); }
+    .btn.outline .ic svg { stroke: #fff; }
+    .btn.white { background: #fff; color: var(--ink); }
+    .btn.white .ic { background: var(--grad); } .btn.white .ic svg { stroke: #fff; }
+    .arrow-circle { width: 58px; height: 58px; border-radius: 50%; background: var(--coral); display: grid; place-items: center; flex: none; transition: transform .15s ease; }
+    .arrow-circle svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .arrow-circle.sm { width: 32px; height: 32px; } .arrow-circle.sm svg { width: 13px; height: 13px; }
+    a:hover > .arrow-circle { transform: scale(1.06); }
 
-    .ld-shot { position: relative; border-radius: 24px; padding: 18px; background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%); box-shadow: 0 30px 80px rgba(120,80,160,.28); }
-    .ld-shot-card { background: var(--surface); border-radius: 16px; padding: 18px 18px 14px; color: var(--text); box-shadow: 0 10px 30px rgba(0,0,0,.18); }
-    .ld-shot-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-    .ld-shot-head b { color: var(--text); font-size: 14px; }
-    .ld-ring { display: flex; align-items: center; gap: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; }
-    .ld-ring .r { width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(#22a06b 0 68%, var(--border) 68% 100%); display: grid; place-items: center; }
-    .ld-ring .r i { width: 56px; height: 56px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-family: 'Poppins', var(--font); font-weight: 700; font-size: 20px; font-style: normal; }
-    .ld-ring .t b { display: block; font-size: 15px; } .ld-ring .t span { font-size: 12.5px; color: var(--muted); }
-    .ld-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-    .ld-tile { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
-    .ld-tile span { font-size: 11.5px; color: var(--muted); display: block; } .ld-tile b { font-family: 'Poppins', var(--font); font-size: 22px; font-weight: 700; }
-    .ld-tile b.ok { color: #22a06b; } .ld-tile b.warn { color: #d9822b; } .ld-tile b.bad { color: #e0453b; }
-    .ld-pill { position: absolute; right: -14px; top: -16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 10px 14px; font-size: 13px; font-weight: 650; box-shadow: 0 12px 30px rgba(0,0,0,.16); display: flex; gap: 8px; align-items: center; }
-    .ld-pill i { width: 9px; height: 9px; border-radius: 50%; background: #22a06b; box-shadow: 0 0 0 4px rgba(34,160,107,.2); }
+    /* ── Floating pill navbar ──────────────────────────────────────────────── */
+    .nav { position: fixed; top: 22px; left: 40px; right: 40px; z-index: 60; height: 71px; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 12px 32px; border-radius: 100px;
+      background: var(--nav-bg); color: var(--nav-fg); border: 1px solid var(--nav-line);
+      -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.04); backdrop-filter: blur(32px) saturate(2) brightness(1.04);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12);
+      transition: background .25s ease, color .25s ease, border-color .25s ease; }
+    /* Over the light page (below the hero) the pill goes light with dark text; dark theme keeps the dark glass. */
+    html[data-theme="light"] .nav.scrolled { --nav-bg: rgba(255, 255, 255, .55); --nav-fg: #1a1a1a; --nav-line: rgba(0, 0, 0, .06); box-shadow: 0 4px 6px rgba(0, 0, 0, .06), 0 12px 40px rgba(0, 0, 0, .12), inset 0 1px 0 rgba(255, 255, 255, .6); }
+    .nav-l, .nav-r { display: flex; align-items: center; gap: 4px; }
+    .nav-logo { display: flex; align-items: center; margin-right: 24px; }
+    .nav-logo img { height: 22px; width: auto; }
+    .nav-logo .dark { display: none; }
+    html[data-theme="light"] .nav.scrolled .nav-logo .light { display: none; }
+    html[data-theme="light"] .nav.scrolled .nav-logo .dark { display: block; }
+    .nav-link { display: inline-flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 10px; font-size: 16px; color: var(--nav-fg); background: transparent; border: 0; font: inherit; cursor: pointer; transition: background .15s ease; }
+    .nav-link:hover, .nav-link[aria-expanded="true"] { background: rgba(127, 127, 140, .22); }
+    .nav-link svg.chev { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; transition: transform .2s ease; }
+    .nav-link[aria-expanded="true"] svg.chev { transform: rotate(180deg); }
+    .nav-login { padding: 10px 24px; }
+    .theme-btn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: var(--nav-fg); display: grid; place-items: center; cursor: pointer; margin-right: 4px; }
+    .theme-btn:hover { background: rgba(127, 127, 140, .22); }
+    .theme-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .theme-btn .moon { display: none; }
+    html[data-theme="dark"] .theme-btn .moon { display: block; } html[data-theme="dark"] .theme-btn .sun { display: none; }
+    .nav .btn.outline { background: linear-gradient(rgba(12, 12, 20, .78), rgba(12, 12, 20, .78)) padding-box, var(--grad) border-box; color: #fff; }
+    .nav.scrolled .btn.outline { background: var(--grad); color: #fff; }
+    .nav.scrolled .btn.outline .ic { background: #fff; } .nav.scrolled .btn.outline .ic svg { stroke: url(#ldg); }
+    .burger { display: none; width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: var(--nav-fg); cursor: pointer; place-items: center; }
+    .burger svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-    .ld-frame { position: relative; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 40px 90px rgba(60,40,90,.22), 0 2px 6px rgba(0,0,0,.06); overflow: visible; transform: perspective(1600px) rotateY(-6deg) rotateX(2deg); transform-origin: 60% 50%; }
-    .ld-frame-bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; background: var(--surface); }
-    .ld-frame-bar i { width: 10px; height: 10px; border-radius: 50%; background: #e0453b; } .ld-frame-bar i:nth-child(2) { background: #d9a520; } .ld-frame-bar i:nth-child(3) { background: #22a06b; }
-    .ld-frame-bar span { margin-left: 10px; font-size: 12px; color: var(--muted); background: var(--bg); border-radius: 6px; padding: 3px 10px; }
-    .ld-frame-img { display: block; width: 100%; height: auto; border-radius: 0 0 16px 16px; }
-    .ld-img-dark { display: none; } [data-theme="dark"] .ld-img-dark { display: block; } [data-theme="dark"] .ld-img-light { display: none; }
-    .ld-frame picture { display: contents; }
-    .ld-frame-sm { transform: perspective(1600px) rotateY(6deg) rotateX(2deg); }
-    .ld-pill-2 { right: auto; left: -18px; top: auto; bottom: 36px; } .ld-pill-2::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
-    .ld-band { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: center; }
-    .ld-band .ld-h2 { font-size: 36px; }
-    .ld-roles .ld-card { position: relative; }
-    .ld-role { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); background: rgba(249,103,78,.12); padding: 5px 10px; border-radius: 999px; margin-bottom: 12px; }
-    .ld-role-mid { border-color: rgba(249,103,78,.5); box-shadow: 0 0 0 4px rgba(249,103,78,.08); }
-    .ld-card { transition: transform .15s ease, box-shadow .15s ease; }
-    .ld-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,.08); }
-    .ld-h1 { text-wrap: balance; }
-    .ld-section { padding: 56px 0; }
-    .ld-h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; letter-spacing: -.02em; margin: 0 0 8px; }
-    .ld-lead { color: var(--muted); font-size: 16px; margin: 0 0 26px; max-width: 60ch; }
-    .ld-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .ld-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; }
-    .ld-card .ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(249,103,78,.12); display: grid; place-items: center; margin-bottom: 14px; }
-    .ld-card .ic svg { width: 22px; height: 22px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .ld-card h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; }
-    .ld-card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
+    /* Mega menu: full-width panel under the pill, three columns (aioapp "Products") */
+    .mega { position: fixed; top: 93px; left: 40px; right: 40px; z-index: 59; background: var(--surface); color: var(--text); border-radius: 24px; padding: 32px; box-shadow: 0 30px 80px rgba(0, 0, 0, .28); display: none; grid-template-columns: 420px 1fr 420px; gap: 36px; }
+    .mega.open { display: grid; }
+    .mega-list { display: flex; flex-direction: column; gap: 8px; }
+    .mega-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 18px 18px 18px; border-radius: 12px; cursor: pointer; transition: background .15s ease; }
+    .mega-item b { display: block; font-weight: 400; font-size: 20px; line-height: 1.2; }
+    .mega-item span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .mega-item.active { background: var(--coral); color: #fff; }
+    .mega-item.active span { color: rgba(255, 255, 255, .85); }
+    .mega-item.active .arrow-circle { background: rgba(255, 255, 255, .22); }
+    .mega-item:not(.active):hover { background: var(--surface-2); }
+    .mega-pills { display: flex; flex-direction: column; gap: 8px; }
+    .mega-pill { display: block; background: var(--bg); border-radius: 12px; padding: 15px 16px; font-size: 15px; transition: background .15s ease, transform .15s ease; }
+    .mega-pill:hover { background: var(--lav-2); transform: translateX(2px); }
+    .mega-feat { background: var(--bg); border-radius: 16px; padding: 16px; }
+    .mega-feat .shot { border-radius: 12px; aspect-ratio: 16 / 10; background: var(--lav-2) center / cover no-repeat; overflow: hidden; }
+    .mega-feat .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .mega-feat h4 { margin: 18px 0 8px; font-size: 17px; font-weight: 500; }
+    .mega-feat p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .mega .btn.outline { background: linear-gradient(var(--bg), var(--bg)) padding-box, var(--grad) border-box; }
+    .mega-simple { grid-template-columns: 420px 1fr; }
 
-    .ld-stack { display: flex; flex-wrap: wrap; gap: 10px; }
-    .ld-chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 9px 14px; font-size: 13.5px; font-weight: 600; }
-    .ld-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .ld-cmp .ld-card.us { border-color: rgba(249,103,78,.5); box-shadow: 0 0 0 4px rgba(249,103,78,.08); }
-    .ld-cmp h3 { font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-    .ld-cmp .us h3 { color: var(--accent); }
-    .ld-cmp ul { margin: 12px 0 0; padding: 0; list-style: none; }
-    .ld-cmp li { padding: 9px 0; border-top: 1px solid var(--border); font-size: 15px; }
-    .ld-cmp .them li { color: var(--muted); }
+    /* Mobile sheet (aioapp mobile menu) */
+    .sheet { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .45); display: none; }
+    .sheet.open { display: block; }
+    .sheet-box { position: absolute; top: 14px; left: 12px; right: 12px; background: var(--surface); color: var(--text); border-radius: 24px; padding: 90px 24px 24px; box-shadow: 0 30px 80px rgba(0, 0, 0, .35); max-height: calc(100vh - 28px); overflow-y: auto; }
+    .sheet-top { position: absolute; top: 12px; left: 12px; right: 12px; height: 56px; border-radius: 40px; background: #0a0a0a; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 20px; color: #fff; }
+    .sheet-top img { height: 18px; width: auto; }
+    .sheet h5 { margin: 18px 0 6px; font-size: 15px; font-weight: 500; }
+    .sheet a.item { display: block; padding: 10px 0; font-size: 16px; }
+    .sheet hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 
-    .ld-vids { grid-template-columns: repeat(3, 1fr); }
-    .ld-vid { text-align: left; cursor: pointer; padding: 0; overflow: hidden; font: inherit; color: inherit; transition: transform .15s ease, box-shadow .15s ease; }
-    .ld-vid:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,.14); }
-    .ld-vid-poster { position: relative; aspect-ratio: 16/9; background: #0f1115 center/cover no-repeat; }
-    .ld-vid-play { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; box-shadow: 0 10px 28px rgba(249,103,78,.45); }
-    .ld-vid-play svg { width: 26px; height: 26px; fill: #fff; margin-left: 3px; }
-    .ld-vid-dur { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
-    .ld-vid-meta { padding: 16px 18px 18px; }
-    .ld-vid-num { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
-    .ld-vid-meta h3 { margin: 4px 0 6px; font-size: 17px; }
-    .ld-vid-meta p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .ld-player[hidden] { display: none; }
-    .ld-player { position: fixed; inset: 0; z-index: 50; background: rgba(10,10,12,.78); display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .ld-player-box { width: min(1200px, 100%); background: var(--surface); border-radius: 18px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.5); }
-    .ld-player-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 16px; }
-    .ld-player video { display: block; width: 100%; aspect-ratio: 16/9; background: #000; }
-    .ld-guide { position: relative; }
-    .ld-gnum { position: absolute; right: 18px; top: 16px; width: 30px; height: 30px; border-radius: 50%; background: rgba(249,103,78,.12); color: var(--accent); font-weight: 700; font-size: 14px; display: grid; place-items: center; }
-    .ld-guide ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
-    .ld-guide li + li { margin-top: 6px; }
-    .ld-guide em { font-style: normal; font-weight: 650; color: var(--text); }
-    .ld-guide kbd { font-family: var(--font); font-size: 12px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; background: var(--surface); }
-    .ld-faq { display: grid; gap: 10px; max-width: 900px; }
-    .ld-faq details { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0 20px; }
-    .ld-faq summary { cursor: pointer; list-style: none; padding: 16px 0; font-weight: 650; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
-    .ld-faq summary::-webkit-details-marker { display: none; }
-    .ld-faq summary::after { content: "+"; color: var(--accent); font-size: 22px; font-weight: 600; }
-    .ld-faq details[open] summary::after { content: "–"; }
-    .ld-faq p { margin: 0 0 16px; color: var(--muted); font-size: 15px; line-height: 1.55; }
-    .ld-faq em { font-style: normal; font-weight: 650; color: var(--text); }
-    .ld-faq a { color: var(--accent); }
-    .ld-final { border-radius: 24px; padding: 44px; background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%); color: #fff; display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
-    .ld-final h2 { font-family: 'Poppins', var(--font); font-weight: 700; font-size: 30px; margin: 0 0 6px; letter-spacing: -.02em; }
-    .ld-final p { margin: 0; opacity: .9; }
-    .ld-final .ld-btn { background: #fff; color: #1c1a18; border-color: transparent; }
-    .ld-foot { display: flex; justify-content: space-between; align-items: center; padding: 28px 0 36px; font-size: 13px; color: var(--muted); flex-wrap: wrap; gap: 10px; }
-    .ld-foot a { color: var(--muted); text-decoration: none; margin-left: 16px; }
+    /* ── Hero: full-bleed photo, thin 60px headline, gradient CTA, glass quote card ── */
+    .hero { position: relative; min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: #fff; padding: 140px 40px 120px; overflow: hidden; background: #0a0a0f; }
+    .hero-bg { position: absolute; inset: 0; background: url(/static/img/landing/hero.webp) center / cover no-repeat; }
+    .hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .5) 55%, rgba(0, 0, 0, .78)); }
+    .hero > * { position: relative; }
+    .hero > .hero-bg { position: absolute; }
+    .hero h1 { font-size: clamp(38px, 4.6vw, 60px); font-weight: 200; line-height: 1.07; letter-spacing: -.05em; }
+    .hero h1 span { display: block; }
+    .hero p { font-size: 16px; margin: 22px 0 28px; max-width: 62ch; color: rgba(255, 255, 255, .95); }
+    .hero-note { font-size: 12.5px; color: rgba(255, 255, 255, .7); margin-top: 16px; }
+    .hero-note a { text-decoration: underline; text-underline-offset: 3px; }
+    .hero-side { position: absolute; right: 40px; bottom: 96px; width: 392px; display: flex; flex-direction: column; align-items: flex-end; }
+    .glass { width: 100%; text-align: left; border-radius: 24px; padding: 22px; background: rgba(10, 10, 20, .4); border: 1px solid rgba(255, 255, 255, .12);
+      -webkit-backdrop-filter: blur(32px) saturate(2); backdrop-filter: blur(32px) saturate(2); box-shadow: 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+    .glass .q { font-size: 14.5px; line-height: 1.5; }
+    .glass .who { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+    .glass .dot { width: 48px; height: 48px; border-radius: 50%; background: conic-gradient(#2ecc8f 0 95%, rgba(255, 255, 255, .18) 0); display: grid; place-items: center; font-size: 12px; font-weight: 500; }
+    .glass .dot i { width: 36px; height: 36px; border-radius: 50%; background: #0f0f18; display: grid; place-items: center; font-style: normal; }
+    .glass .who b { display: block; font-weight: 500; font-size: 14px; } .glass .who span { font-size: 12.5px; color: rgba(255, 255, 255, .7); }
+    .hero-jump { position: relative; z-index: 2; margin-bottom: -30px; margin-right: -8px; width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .2); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); display: grid; place-items: center; }
+    .hero-jump svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .models { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 64px; padding: 26px 40px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: rgba(255, 255, 255, .5); flex-wrap: wrap; }
 
+    /* ── Sections ──────────────────────────────────────────────────────────── */
+    .sec { padding: 96px 0; }
+    .sec-head { text-align: center; margin-bottom: 44px; }
+    .sec-head h2 { font-size: clamp(30px, 3.2vw, 44px); font-weight: 300; }
+    .sec-head p { font-size: 18px; color: var(--muted); margin: 14px auto 0; max-width: 70ch; }
+    .sec-head.left { text-align: left; }
+    .sec-head.left p { margin-left: 0; }
+
+    /* Five tall product cards */
+    .cards5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 25px; }
+    .pcard { position: relative; border-radius: 24px; overflow: hidden; height: 560px; background: #111; color: #fff; display: block; box-shadow: var(--shadow); transition: transform .2s ease; }
+    .pcard:hover { transform: translateY(-4px); }
+    .pcard img { width: 100%; height: 100%; object-fit: cover; object-position: var(--pos, center); transition: transform .5s ease; }
+    .pcard:hover img { transform: scale(1.04); }
+    .pcard::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, .78)); }
+    .pcard b { position: absolute; left: 26px; bottom: 26px; font-weight: 300; font-size: 30px; z-index: 1; letter-spacing: -.02em; }
+    .pcard.split { display: grid; grid-template-rows: 1fr 1fr; gap: 25px; background: transparent; box-shadow: none; overflow: visible; }
+    .pcard.split::after { display: none; }
+    .pcard.split:hover { transform: none; }
+    .pcard.split > a { position: relative; border-radius: 24px; overflow: hidden; background: #111; box-shadow: var(--shadow); transition: transform .2s ease; }
+    .pcard.split > a:hover { transform: translateY(-4px); }
+    .pcard.split > a::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .78)); }
+
+    /* Dark band with the gradient wave (aioapp "AIO Intelligence") */
+    .band { background: #0a0a0a; color: #fff; padding: 88px 0; position: relative; overflow: hidden; }
+    .band-bg { position: absolute; inset: 0; background: url(/static/img/landing/gradient.png) center / cover no-repeat; opacity: .9; }
+    .band-box { position: relative; border-radius: 24px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(10, 10, 12, .82); padding: 56px 64px; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 40px; align-items: center; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+    .band h2 { font-size: clamp(34px, 3.6vw, 52px); font-weight: 300; margin-top: 30px; }
+    .ring { width: 220px; height: 220px; border-radius: 50%; background: conic-gradient(#2ecc8f 0 56%, rgba(255, 255, 255, .12) 0); display: grid; place-items: center; margin: 0 auto; box-shadow: 0 0 80px rgba(249, 103, 78, .25); }
+    .ring i { width: 176px; height: 176px; border-radius: 50%; background: #0c0c10; display: grid; place-items: center; font-style: normal; font-size: 64px; font-weight: 200; letter-spacing: -.04em; }
+    .ring i small { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .55); text-align: center; margin-top: -8px; }
+    .bcard { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); border-radius: 18px; padding: 26px; }
+    .bcard b { display: block; font-weight: 300; font-size: 26px; line-height: 1.2; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .bcard p { margin: 12px 0 0; font-size: 15px; color: rgba(255, 255, 255, .8); line-height: 1.5; }
+    .bcard + .bcard { margin-top: 20px; }
+    .bcard.solid { background: var(--grad); border: 0; }
+    .bcard.solid b { color: #fff; -webkit-text-fill-color: #fff; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; }
+    .bcard.solid p { color: #fff; font-size: 18px; margin-top: 8px; }
+    .band .frame { border-radius: 20px; overflow: hidden; border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 30px 80px rgba(0, 0, 0, .6); background: #111; }
+    .band .frame img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+    /* Alternating feature rows: colour card + picture card */
+    .rows { display: grid; gap: 25px; }
+    .row { display: grid; grid-template-columns: 420px 1fr; gap: 25px; min-height: 520px; }
+    .row.flip { grid-template-columns: 1fr 420px; }
+    .row.flip .tcard { order: 2; }
+    .tcard { border-radius: 24px; padding: 36px; color: #fff; background: var(--card-grey); display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow); }
+    .tcard.coral { background: var(--coral); }
+    .tcard .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .tcard h3 { font-size: clamp(32px, 3vw, 44px); font-weight: 300; line-height: 1.1; color: #fff; }
+    .tcard p { margin: 0; font-size: 17px; line-height: 1.5; color: rgba(255, 255, 255, .92); }
+    .icard { border-radius: 24px; overflow: hidden; background: var(--surface-2); box-shadow: var(--shadow); position: relative; }
+    .icard img { width: 100%; height: 100%; object-fit: cover; object-position: var(--pos, center); }
+    .icard .dk { display: none; } html[data-theme="dark"] .icard .dk { display: block; } html[data-theme="dark"] .icard .lt { display: none; }
+    .icard .chip { position: absolute; left: 28px; top: 28px; background: rgba(10, 10, 20, .5); color: #fff; border: 1px solid rgba(255, 255, 255, .18); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border-radius: 40px; padding: 9px 16px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+    .icard .chip i { width: 8px; height: 8px; border-radius: 50%; background: #2ecc8f; }
+
+    /* Lavender "dashboard" grid for training */
+    .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .tile { text-align: left; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; background: var(--surface); border-radius: 24px; overflow: hidden; box-shadow: var(--shadow); transition: transform .2s ease; }
+    .tile:hover { transform: translateY(-4px); }
+    .poster { position: relative; aspect-ratio: 16 / 9; background: var(--lav) center / cover no-repeat; }
+    .poster .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; box-shadow: 0 10px 28px rgba(249, 103, 78, .45); }
+    .poster .play svg { width: 24px; height: 24px; fill: #fff; margin-left: 3px; }
+    .poster .dur { position: absolute; right: 12px; bottom: 12px; background: rgba(0, 0, 0, .65); color: #fff; font-size: 12px; padding: 3px 9px; border-radius: 6px; }
+    .tile .meta { padding: 20px 22px 22px; }
+    .tile .meta b { display: block; font-weight: 500; font-size: 17px; margin: 4px 0 6px; }
+    .tile .meta p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .player[hidden] { display: none; }
+    .player { position: fixed; inset: 0; z-index: 80; background: rgba(10, 10, 12, .8); display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .player-box { width: min(1200px, 100%); background: var(--surface); border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(0, 0, 0, .5); }
+    .player-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 16px; }
+    .player video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+
+    /* Guides / roles / FAQ */
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .card { background: var(--surface); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); position: relative; }
+    .card h3 { font-size: 22px; font-weight: 400; margin-bottom: 12px; padding-right: 48px; }
+    .card ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+    .card li + li { margin-top: 6px; }
+    .card em { font-style: normal; font-weight: 500; color: var(--text); }
+    .card kbd { font-family: inherit; font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 6px; background: var(--surface-2); }
+    .card .num { position: absolute; right: 22px; top: 22px; width: 36px; height: 36px; border-radius: 50%; background: var(--coral); color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 500; }
+    .role { display: inline-block; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--coral); background: rgba(249, 103, 78, .12); padding: 6px 12px; border-radius: 40px; margin-bottom: 14px; font-weight: 500; }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .card.lav { background: var(--lav-2); box-shadow: none; }
+    .faq { display: grid; gap: 12px; max-width: 900px; margin: 0 auto; }
+    .faq details { background: var(--surface); border-radius: 18px; padding: 0 24px; box-shadow: var(--shadow); }
+    .faq summary { cursor: pointer; list-style: none; padding: 18px 0; font-size: 16.5px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after { content: "+"; color: var(--coral); font-size: 24px; font-weight: 300; }
+    .faq details[open] summary::after { content: "–"; }
+    .faq p { margin: 0 0 18px; color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .faq em { font-style: normal; font-weight: 500; color: var(--text); }
+    .faq a { color: var(--coral); }
+
+    /* CTA band (aioapp "Taste the AIO experience") */
+    .cta { position: relative; border-radius: 24px; overflow: hidden; min-height: 460px; display: flex; align-items: flex-end; padding: 56px; color: #fff; background: #0a0a0f url(/static/img/landing/pos.webp) center / cover no-repeat; }
+    .cta::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .7), rgba(0, 0, 0, .25)); }
+    .cta > div { position: relative; max-width: 640px; }
+    .cta h2 { font-size: clamp(34px, 3.8vw, 54px); font-weight: 300; letter-spacing: -.04em; }
+    .cta p { font-size: 17px; margin: 14px 0 24px; color: rgba(255, 255, 255, .9); }
+    .cta .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* Footer (aioapp dark) */
+    .foot { background: #0a0a0a; color: #fff; padding: 72px 0 40px; margin-top: 96px; }
+    .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; }
+    .foot img { height: 20px; width: auto; margin-bottom: 22px; }
+    .foot .c { font-size: 13.5px; color: rgba(255, 255, 255, .7); line-height: 1.8; }
+    .foot h6 { margin: 0 0 16px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); font-weight: 500; }
+    .foot a.l { display: block; font-size: 14px; color: rgba(255, 255, 255, .85); padding: 5px 0; }
+    .foot a.l:hover { color: var(--coral); }
+    .foot-bottom { text-align: center; margin-top: 56px; padding-top: 28px; border-top: 1px solid rgba(255, 255, 255, .1); font-size: 11.5px; color: rgba(255, 255, 255, .55); }
+    .foot-bottom a { color: inherit; margin: 0 6px; }
+    .socials { display: flex; gap: 10px; margin-top: 18px; }
+    .socials a { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2); display: grid; place-items: center; font-size: 12px; }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .pcard, .pcard img, .tile, .btn { transition: none; } }
+    @media (max-width: 1180px) {
+      .cards5 { grid-template-columns: repeat(3, 1fr); } .pcard { height: 440px; }
+      .band-box { grid-template-columns: 1fr 1fr; padding: 40px; } .band-box .frame { grid-column: 1 / -1; }
+      .mega { grid-template-columns: 1fr 1fr; } .mega-feat { display: none; } .mega-simple { grid-template-columns: 1fr; }
+      .foot-grid { grid-template-columns: 1fr 1fr; }
+    }
     @media (max-width: 900px) {
-      .ld-vids, .ld-band, .ld-roles { grid-template-columns: 1fr; }
-      .ld-frame, .ld-frame-sm { transform: none; }
-      .ld-hero { grid-template-columns: 1fr; padding-top: 28px; }
-      .ld-grid, .ld-cmp { grid-template-columns: 1fr; }
-      .ld-tiles { grid-template-columns: repeat(3, 1fr); }
-      .ld-pill { display: none; }
-      .ld-nav-links .ld-ghost { display: none; }
+      .wrap { padding: 0 20px; }
+      .nav { left: 12px; right: 12px; top: 14px; height: 60px; padding: 8px 8px 8px 20px; }
+      .nav-l .nav-link, .nav-login, .nav .btn { display: none; } .burger { display: grid; }
+      .mega { display: none !important; }
+      .hero { padding: 120px 20px 200px; } .hero h1 { letter-spacing: -.03em; }
+      .hero-side { position: static; width: 100%; margin-top: 48px; } .hero-jump { display: none; }
+      .models { gap: 20px; font-size: 11px; padding: 18px 20px; }
+      .cards5 { grid-template-columns: 1fr 1fr; } .pcard { height: 360px; } .pcard b { font-size: 24px; }
+      .band-box { grid-template-columns: 1fr; padding: 28px; }
+      .row, .row.flip { grid-template-columns: 1fr; min-height: 0; } .row.flip .tcard { order: 0; } .tcard { min-height: 320px; } .icard { min-height: 320px; }
+      .tiles, .grid3 { grid-template-columns: 1fr; }
+      .cta { padding: 28px; min-height: 380px; }
+      .foot-grid { grid-template-columns: 1fr; }
+      .sec { padding: 64px 0; }
     }
   </style>
 </head>
-<body class="ld-body">
-  <div class="ld-navwrap" id="ld-navwrap"><div class="ld-wrap">
-    <nav class="ld-nav" aria-label="Landing navigation">
-      <a class="ld-brand" href="/"><b>AIO</b> {{if .Brand}}{{.Brand}}{{else}}MDM{{end}}</a>
-      <div class="ld-nav-links">
-        <a class="ld-btn ld-ghost" href="#training">Training</a>
-        <a class="ld-btn ld-ghost" href="#guides">Guides</a>
-        <a class="ld-btn ld-ghost" href="#faq">FAQ</a>
-        <a class="ld-btn ld-ghost" href="/login">Sign in</a>
-        {{if .SignupEnabled}}<a class="ld-btn" href="/signup">Sign up</a>{{end}}
-        <a class="ld-btn primary" href="/login">Take me to the dashboard
-          <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="ldg" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F9674E"/><stop offset="100%" stop-color="#7A80F6"/></linearGradient></defs></svg>
+
+  <nav class="nav" id="nav" aria-label="Landing navigation">
+    <div class="nav-l">
+      <a class="nav-logo" href="/" aria-label="AIO MDM"><img class="light" src="/static/img/landing/aio-logo-white.png" alt="AIO" width="211" height="103"><img class="dark" src="/static/img/landing/aio-logo-dark.png" alt="AIO" width="211" height="103"></a>
+      <button type="button" class="nav-link" data-mega="mega-product" aria-expanded="false" aria-controls="mega-product">Product <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button type="button" class="nav-link" data-mega="mega-resources" aria-expanded="false" aria-controls="mega-resources">Resources <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <a class="nav-link" href="#guides">Guides</a>
+    </div>
+    <div class="nav-r">
+      <button type="button" class="theme-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme">
+        <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <a class="nav-link nav-login" href="/login">Login</a>
+      <a class="btn outline" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <button type="button" class="burger" id="burger" aria-label="Open menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </nav>
+
+  {{/* Product mega menu: areas on the left, sub-pages in the middle, a feature card on the right */}}
+  <div class="mega" id="mega-product" role="region" aria-label="Product menu">
+    <div class="mega-list" id="mega-areas">
+      <a class="mega-item active" href="/devices" data-pills="Devices|/devices,Restaurants|/restaurants,Groups|/groups,Device page|/devices,Enrollment (admin)|/enrollment" data-img="/static/img/landing/overview-light.png" data-imgd="/static/img/landing/overview-dark.png" data-title="Fleet overview" data-text="Every venue at a glance: online, charging, alerts and fleet composition, worst venue first.">
+        <div><b>Fleet</b><span>Every kiosk and tablet, by venue and group</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="/commands" data-pills="Install app|/commands,Uninstall|/commands,Reboot|/commands,Screenshot|/commands,Vetted queries|/commands,Scopes: venues and groups|/commands" data-img="/static/img/landing/kiosk.webp" data-imgd="/static/img/landing/kiosk.webp" data-title="Actions console" data-text="Pick who, then what. Venues, groups or a pasted serial list; every device acknowledges live.">
+        <div><b>Actions</b><span>Install, uninstall, reboot and query in bulk</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="/alerts" data-pills="Open alerts|/alerts,Alert rules|/alerts,Daily briefing|/alerts,Acknowledge and resolve|/alerts" data-img="/static/img/landing/overview-light.png" data-imgd="/static/img/landing/overview-dark.png" data-title="Alerts that say what to do" data-text="Plain-language alerts with the fix, a daily briefing for the ops team, and filters that answer the question you have.">
+        <div><b>Alerts</b><span>What broke, where, and what to do</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="/map" data-pills="Live map|/map,Wi-Fi geolocation|/map,Clusters by venue|/map" data-img="/static/img/landing/map-light.png" data-imgd="/static/img/landing/map-dark.png" data-title="Every device on the map" data-text="Position resolved from Wi-Fi scans. No GPS, works indoors, clustered by venue.">
+        <div><b>Map</b><span>Where every device is, without GPS</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="/releases" data-pills="Release packages|/releases,Deployments|/releases,Updates hub|/releases,Reboot policy and rollback|/releases" data-img="/static/img/landing/office.webp" data-imgd="/static/img/landing/office.webp" data-title="OTA updates" data-text="Ship whole builds. A/B seamless updates with per-device progress and a rollback slot.">
+        <div><b>Updates</b><span>Firmware and app rollouts, per device</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="/devices" data-pills="Live screen|/devices,Hardware keys|/devices,Shell and logs|/devices,Screenshot|/devices" data-img="/static/img/landing/pos.webp" data-imgd="/static/img/landing/pos.webp" data-title="Remote control" data-text="Live screen, taps and keys from the browser, wherever the device is.">
+        <div><b>Remote control</b><span>Take over a screen from anywhere</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+    </div>
+    <div class="mega-pills" id="mega-pills"></div>
+    <div class="mega-feat" id="mega-feat">
+      <div class="shot"><img id="mega-img" src="/static/img/landing/overview-light.png" alt=""></div>
+      <h4 id="mega-title">Fleet overview</h4>
+      <p id="mega-text">Every venue at a glance.</p>
+      <a class="btn outline" id="mega-link" href="/devices">Open <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+    </div>
+  </div>
+
+  <div class="mega mega-simple" id="mega-resources" role="region" aria-label="Resources menu">
+    <div class="mega-list">
+      {{if .Training}}<a class="mega-item" href="#training"><div><b>Training</b><span>Short video chapters, one situation each</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
+      <a class="mega-item" href="#guides"><div><b>Guides</b><span>The six things people ask ops to do</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="#faq"><div><b>FAQ</b><span>Accounts, roles, online, location, kiosk mode</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="mega-item" href="#roles"><div><b>Who does what</b><span>Viewer, operator, admin</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+    </div>
+    <div class="mega-feat">
+      {{if .Training}}{{with index .Training 0}}<div class="shot"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}></div><h4>Chapter {{.Number}} · {{.Title}}</h4><p>{{.Intro}}</p><a class="btn outline" href="#training">Watch <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      {{end}}{{else}}<div class="shot"><img src="/static/img/landing/mobile.webp" alt=""></div><h4>Find a device in seconds</h4><p>Press Ctrl K anywhere in the dashboard and type a serial, nickname or venue.</p><a class="btn outline" href="#guides">Read the guides <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
+    </div>
+  </div>
+
+  {{/* Mobile sheet */}}
+  <div class="sheet" id="sheet">
+    <div class="sheet-box">
+      <div class="sheet-top"><img src="/static/img/landing/aio-logo-white.png" alt="AIO"><button type="button" class="theme-btn" id="sheet-close" aria-label="Close menu" style="color:#fff"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <h5>Product</h5>
+      <a class="item" href="/devices">Fleet</a><a class="item" href="/commands">Actions</a><a class="item" href="/alerts">Alerts</a><a class="item" href="/map">Map</a><a class="item" href="/releases">Updates</a>
+      <h5>Resources</h5>
+      {{if .Training}}<a class="item" href="#training">Training</a>{{end}}<a class="item" href="#guides">Guides</a><a class="item" href="#faq">FAQ</a>
+      <hr>
+      <a class="item" href="/login">Login</a>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><a class="btn" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+        <button type="button" class="theme-btn js-theme" aria-label="Switch theme" style="color:var(--text)"><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button></div>
+    </div>
+  </div>
+
+  <header class="hero" id="top">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <h1><span>Every kiosk and tablet, <em class="hl" style="font-style:normal">all in one</em></span><span>dashboard for the whole fleet</span></h1>
+    <p>Built in-house for AIO staff: live health, Wi-Fi geolocation, remote control and OTA updates for every device in every restaurant.</p>
+    <a class="btn lg" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+    {{if .SignupEnabled}}<div class="hero-note">New here? <a href="/signup">Create an account</a> with your @aioapp.com email. Accounts start as viewer.</div>{{end}}
+    <div class="hero-side">
+    <a class="hero-jump" href="#product" aria-label="Scroll to product"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 8v9H8"/></svg></a>
+    <aside class="glass" aria-label="Fleet status example">
+      <div class="q">"Six venues need a look today. Harbor Grill's kiosk 2 is peaking hot, the rest is quiet. Two rollouts in flight, one alert resolved on its own."</div>
+      <div class="who"><div class="dot"><i>55</i></div><div><b>55 of 58 online</b><span>Daily briefing · this morning</span></div></div>
+    </aside>
+    </div>
+    <div class="models" aria-hidden="true"><span>T7 tablet</span><span>Kiosk 18"</span><span>Kiosk 22"</span><span>Kiosk 27"</span><span>mPOS</span><span>POS</span></div>
+  </header>
+
+  <section class="sec" id="product">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>One dashboard to run <span class="hl">the whole fleet</span></h2>
+        <p>Unbox it, place it, watch it, fix it, update it. Every step of a device's life, from one screen.</p>
       </div>
-    </nav>
-  </div></div>
-  <div class="ld-wrap">
-    <section class="ld-hero">
-      <div>
-        <div class="ld-kicker"><i></i> Built in-house · AIO</div>
-        <h1 class="ld-h1">Every kiosk and tablet,<br><span>under control.</span></h1>
-        <p class="ld-sub">AIO MDM is the fleet dashboard for our restaurant kiosks and tablets. Live health, geolocation, remote control and firmware updates, from one screen. For AIO staff.</p>
-        <div class="ld-cta">
-          <a class="ld-btn primary lg" href="/login">Take me to the dashboard
-            <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
-          <a class="ld-btn lg" href="/login">Sign in</a>
-          {{if .SignupEnabled}}<a class="ld-btn lg ld-ghost" href="/signup">Create an account</a>{{end}}
-          <div class="ld-cta-note">Sign up with your @aioapp.com email. New accounts start as viewer; ask an admin for operator or admin rights.</div>
+      <div class="cards5">
+        <a class="pcard" href="/devices" style="--pos: 0 0"><img class="lt" src="/static/img/landing/overview-light.png" alt=""><b>Fleet</b></a>
+        <a class="pcard" href="/commands" style="--pos: center"><img src="/static/img/landing/kiosk.webp" alt=""><b>Actions</b></a>
+        <a class="pcard" href="/map" style="--pos: 30% 0"><img src="/static/img/landing/map-light.png" alt=""><b>Map</b></a>
+        <div class="pcard split">
+          <a href="/alerts" style="--pos: center"><img src="/static/img/landing/mobile.webp" alt=""><b>Alerts</b></a>
+          <a href="/releases" style="--pos: center"><img src="/static/img/landing/office.webp" alt=""><b>Updates</b></a>
         </div>
+        <a class="pcard" href="/devices" style="--pos: 60% center"><img src="/static/img/landing/pos.webp" alt=""><b>Remote control</b></a>
       </div>
-      <div class="ld-frame" aria-hidden="true">
-        <div class="ld-frame-bar"><i></i><i></i><i></i><span>mdm.aioapp.com</span></div>
-        <picture>
-          <source srcset="/static/img/landing/overview-dark.png" media="(prefers-color-scheme: dark)" class="ld-src-dark">
-          <img class="ld-frame-img ld-img-light" src="/static/img/landing/overview-light.png" alt="" width="1440" height="900">
-        </picture>
-        <img class="ld-frame-img ld-img-dark" src="/static/img/landing/overview-dark.png" alt="" width="1440" height="900">
-        <div class="ld-pill"><i></i> 55 of 58 online</div>
-        <div class="ld-pill ld-pill-2">Alert resolved · Harbor Grill</div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="band-bg" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="band-box">
+        <div>
+          <div class="ring"><i>56<small>fleet pulse</small></i></div>
+          <h2 style="text-align:center">Fleet pulse</h2>
+        </div>
+        <div>
+          <div class="bcard"><b>One score from our own telemetry</b><p>Battery, temperature, memory, Wi-Fi, crashes and charging pads, weighed into a single number per venue. Worst venue first, with the reasons.</p></div>
+          <div class="bcard solid"><b>Daily briefing</b><p>"Six venues need a look today. Harbor Grill's kiosk 2 is peaking hot, the rest is quiet."</p></div>
+        </div>
+        <div class="frame"><img src="/static/img/landing/overview-dark.png" alt="AIO MDM overview" width="1440" height="900"></div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="ld-section">
-      <h2 class="ld-h2">What it does</h2>
-      <p class="ld-lead">One place for the whole lifecycle of a device: from the day it is unboxed to the firmware it runs a year later.</p>
-      <div class="ld-grid">
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><h3>Fleet health, per venue</h3><p>A score built from our own telemetry: battery, temperature, memory, Wi-Fi, crashes, charging pads. Worst venue first, with the reasons.</p></div>
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s7-7.4 7-12a7 7 0 0 0-14 0c0 4.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></div><h3>Geolocation</h3><p>Position resolved from Wi-Fi scans. No GPS, works indoors, every device on a map clustered by restaurant.</p></div>
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div><h3>Remote control</h3><p>Live screen, taps and keys from the browser, wherever the device is. Shell, screenshot and logs when you need to dig.</p></div>
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></div><h3>OTA updates</h3><p>Ship whole builds, not just apps. A/B seamless updates with per-device progress, reboot policy and a rollback slot.</p></div>
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></div><h3>Bulk actions</h3><p>Install, uninstall, reboot, kiosk lock. Target a venue, a group or a pasted serial list. Every device acknowledges live.</p></div>
-        <div class="ld-card"><div class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><h3>Alerts that say what to do</h3><p>Plain-language alerts with the fix, a daily briefing for the ops team, and filters that answer the question you actually have.</p></div>
+  <section class="sec">
+    <div class="wrap rows">
+      <div class="row">
+        <div class="tcard"><div class="top"><h3>Take over<br>any screen</h3><a class="arrow-circle" href="/devices" aria-label="Remote control"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+          <p>Live screen, taps and keys from the browser, wherever the device is. Hardware keys for Home and Back, shell, screenshot and logs when you need to dig. The device returns to kiosk mode on its own.</p></div>
+        <div class="icard" style="--pos: 60% center"><img src="/static/img/landing/pos.webp" alt="" width="915" height="588"><div class="chip"><i></i> Remote session · Harbor Grill · kiosk 2</div></div>
       </div>
-    </section>
-
-
-
-    <section class="ld-section ld-band">
-      <div class="ld-band-text">
-        <div class="ld-kicker"><i></i> Geolocation</div>
-        <h2 class="ld-h2">Every device on the map</h2>
-        <p class="ld-lead">Position resolved from the Wi-Fi networks a device can see. No GPS, works indoors, clustered by venue. Click a device to fly to it.</p>
-        <a class="ld-btn" href="/login">Open the map <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
+      <div class="row flip">
+        <div class="tcard coral"><div class="top"><h3>Ship whole<br>builds</h3><a class="arrow-circle" href="/releases" aria-label="OTA updates" style="background:rgba(255,255,255,.22)"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+          <p>A/B seamless OTA updates with per-device progress, a reboot policy and a rollback slot. Target a venue, a group or everything eligible, and watch each unit report back.</p></div>
+        <div class="icard" style="--pos: center"><img src="/static/img/landing/office.webp" alt="" width="915" height="588"><div class="chip"><i style="background:#F9674E"></i> Rollout 2.4.1 · 41 of 58 done</div></div>
       </div>
-      <div class="ld-frame ld-frame-sm" aria-hidden="true">
-        <div class="ld-frame-bar"><i></i><i></i><i></i><span>mdm.aioapp.com/map</span></div>
-        <img class="ld-frame-img ld-img-light" src="/static/img/landing/map-light.png" alt="" width="1440" height="900">
-        <img class="ld-frame-img ld-img-dark" src="/static/img/landing/map-dark.png" alt="" width="1440" height="900">
+      <div class="row">
+        <div class="tcard"><div class="top"><h3>Every device<br>on the map</h3><a class="arrow-circle" href="/map" aria-label="Map"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+          <p>Position resolved from the Wi-Fi networks a device can see. No GPS, works indoors, accurate to the building, clustered by venue. Click a device to fly to it.</p></div>
+        <div class="icard" style="--pos: top"><img class="lt" src="/static/img/landing/map-light.png" alt="" width="1440" height="900"><img class="dk" src="/static/img/landing/map-dark.png" alt="" width="1440" height="900"></div>
       </div>
-    </section>
-
-    <section class="ld-section">
-      <h2 class="ld-h2">Who does what</h2>
-      <p class="ld-lead">Three roles. New accounts start as viewer; an admin raises you when you need more.</p>
-      <div class="ld-grid ld-roles">
-        <div class="ld-card"><span class="ld-role">Viewer</span><h3>See everything</h3><p>Dashboard, devices, alerts, history, map. No changes. Right for support and management.</p></div>
-        <div class="ld-card ld-role-mid"><span class="ld-role">Operator</span><h3>Run the day</h3><p>Send actions, acknowledge alerts, remote control, follow rollouts, name devices. Ops team.</p></div>
-        <div class="ld-card"><span class="ld-role">Admin</span><h3>Own the setup</h3><p>Users, alert rules, kiosk policies, restaurants, releases, settings. A small group.</p></div>
+      <div class="row flip">
+        <div class="tcard coral"><div class="top"><h3>Act on the<br>whole venue</h3><a class="arrow-circle" href="/commands" aria-label="Actions" style="background:rgba(255,255,255,.22)"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+          <p>Install, uninstall, reboot, screenshot, vetted queries. Pick who first: a restaurant, a group, or paste a serial list. Duplicates collapse, every device acknowledges live.</p></div>
+        <div class="icard" style="--pos: center"><img src="/static/img/landing/kiosk.webp" alt="" width="248" height="720"><div class="chip"><i></i> Install app · Sausalito · 12 devices</div></div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    {{if .Training}}
-    <section class="ld-section" id="training">
-      <h2 class="ld-h2">Training</h2>
-      <p class="ld-lead">Short chapters, one situation each. Watch the one you need; the whole course is under half an hour.</p>
-      <div class="ld-grid ld-vids">
+  {{if .Training}}
+  <section class="sec" id="training">
+    <div class="wrap">
+      <div class="sec-head left">
+        <h2>Training, <span class="hl">one situation each</span></h2>
+        <p>Short chapters. Watch the one you need; the whole course is under half an hour.</p>
+      </div>
+      <div class="tiles">
         {{range .Training}}
-        <button type="button" class="ld-card ld-vid" data-src="{{.Video}}" data-title="Chapter {{.Number}} · {{.Title}}" onclick="ldPlay(this)">
-          <div class="ld-vid-poster"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}><span class="ld-vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="ld-vid-dur">{{.Duration}}s</span></div>
-          <div class="ld-vid-meta"><span class="ld-vid-num">Chapter {{.Number}}</span><h3>{{.Title}}</h3><p>{{.Intro}}</p></div>
+        <button type="button" class="tile" data-src="{{.Video}}" data-title="Chapter {{.Number}} · {{.Title}}" onclick="ldPlay(this)">
+          <div class="poster"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}><span class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span><span class="dur">{{.Duration}}s</span></div>
+          <div class="meta"><span class="eyebrow">Chapter {{.Number}}</span><b>{{.Title}}</b><p>{{.Intro}}</p></div>
         </button>
         {{end}}
       </div>
-    </section>
-    <div class="ld-player" id="ld-player" hidden onclick="if(event.target===this)ldClose()">
-      <div class="ld-player-box"><div class="ld-player-head"><b id="ld-player-title"></b><button type="button" class="ld-btn" onclick="ldClose()">Close</button></div><video id="ld-player-video" controls playsinline preload="metadata"></video></div>
     </div>
-    {{end}}
+  </section>
+  <div class="player" id="ld-player" hidden onclick="if(event.target===this)ldClose()">
+    <div class="player-box"><div class="player-head"><b id="ld-player-title" style="font-weight:500"></b><button type="button" class="btn outline" onclick="ldClose()">Close <span class="ic"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></button></div><video id="ld-player-video" controls playsinline preload="metadata"></video></div>
+  </div>
+  {{end}}
 
-    <section class="ld-section" id="guides">
-      <h2 class="ld-h2">Guides</h2>
-      <p class="ld-lead">The five things people ask ops to do. Each takes a minute once you know where to click.</p>
-      <div class="ld-grid">
-        <div class="ld-card ld-guide"><span class="ld-gnum">1</span><h3>Find a device</h3><ol><li>Press <kbd>Ctrl</kbd> <kbd>K</kbd> or click <em>Search devices</em> in the top bar.</li><li>Type the serial, nickname or venue name.</li><li>Open the device page for vitals, apps, history and placement.</li></ol></div>
-        <div class="ld-card ld-guide"><span class="ld-gnum">2</span><h3>A device shows offline</h3><ol><li>Open the device page and check <em>Last seen</em> and the Wi-Fi history.</li><li>If the venue is open, ask staff whether the unit is on its charging pad.</li><li>Send <em>Reboot</em> from Actions. The alert resolves itself when it comes back.</li></ol></div>
-        <div class="ld-card ld-guide"><span class="ld-gnum">3</span><h3>Push an app to a venue</h3><ol><li>Actions → <em>Install app</em> → choose the APK.</li><li>Target: pick the restaurant, a group, or paste serials.</li><li>Send. Watch acknowledgements land; verify in the device's <em>Applications</em> tab.</li></ol></div>
-        <div class="ld-card ld-guide"><span class="ld-gnum">4</span><h3>Roll out a firmware update</h3><ol><li>Releases → open the release → <em>Deploy</em>.</li><li>Select all eligible devices, or narrow by venue or group.</li><li>Choose the reboot policy and push. Progress is per device; failed units can be retried.</li></ol></div>
-        <div class="ld-card ld-guide"><span class="ld-gnum">5</span><h3>Take over a screen</h3><ol><li>Device page → <em>Remote Control</em> (operator or admin role).</li><li>Tap and type in the browser; use the hardware keys panel for Home and Back.</li><li><em>End session</em> when done. The device returns to kiosk mode on its own.</li></ol></div>
-        <div class="ld-card ld-guide"><span class="ld-gnum">6</span><h3>Onboard a new device</h3><ol><li>Power it on; it checks in and appears under <em>Fleet</em> as unassigned.</li><li>Open it and set a nickname. Placement (restaurant, group) is set at provisioning.</li><li>Confirm the kiosk policy under <em>Policies</em>. Done.</li></ol></div>
+  <section class="sec" id="guides">
+    <div class="wrap">
+      <div class="sec-head left">
+        <h2>The six things <span class="hl">people ask ops to do</span></h2>
+        <p>Each takes a minute once you know where to click.</p>
       </div>
-    </section>
+      <div class="grid3">
+        <div class="card"><span class="num">1</span><h3>Find a device</h3><ol><li>Press <kbd>Ctrl</kbd> <kbd>K</kbd> or click <em>Search devices</em> in the top bar.</li><li>Type the serial, nickname or venue name.</li><li>Open the device page for vitals, apps, history and placement.</li></ol></div>
+        <div class="card"><span class="num">2</span><h3>A device shows offline</h3><ol><li>Open the device page and check <em>Last seen</em> and the Wi-Fi history.</li><li>If the venue is open, ask staff whether the unit is on its charging pad.</li><li>Send <em>Reboot</em> from Actions. The alert resolves itself when it comes back.</li></ol></div>
+        <div class="card"><span class="num">3</span><h3>Push an app to a venue</h3><ol><li>Actions → <em>Install app</em> → choose the APK.</li><li>Target: pick the restaurant, a group, or paste serials.</li><li>Send. Watch acknowledgements land; verify in the device's <em>Applications</em> tab.</li></ol></div>
+        <div class="card"><span class="num">4</span><h3>Roll out a firmware update</h3><ol><li>Releases → open the release → <em>Deploy</em>.</li><li>Select all eligible devices, or narrow by venue or group.</li><li>Choose the reboot policy and push. Progress is per device; failed units can be retried.</li></ol></div>
+        <div class="card"><span class="num">5</span><h3>Take over a screen</h3><ol><li>Device page → <em>Remote Control</em> (operator or admin role).</li><li>Tap and type in the browser; use the hardware keys panel for Home and Back.</li><li><em>End session</em> when done. The device returns to kiosk mode on its own.</li></ol></div>
+        <div class="card"><span class="num">6</span><h3>Onboard a new device</h3><ol><li>Power it on; it checks in and appears under <em>Fleet</em> as unassigned.</li><li>Open it and set a nickname. Placement (restaurant, group) is set at provisioning.</li><li>Confirm the kiosk policy under <em>Policies</em>. Done.</li></ol></div>
+      </div>
+    </div>
+  </section>
 
-    <section class="ld-section" id="faq">
-      <h2 class="ld-h2">FAQ</h2>
-      <p class="ld-lead">For AIO staff. If your question is not here, ask in the ops channel.</p>
-      <div class="ld-faq">
+  <section class="sec" id="roles" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head left">
+        <h2>Who does <span class="hl">what</span></h2>
+        <p>New accounts start as viewer; an admin raises you when you need more.</p>
+      </div>
+      <div class="grid3">
+        <div class="card lav"><span class="role">Viewer</span><h3>See everything</h3><p>Dashboard, devices, alerts, history, map. No changes. Right for support and management.</p></div>
+        <div class="card lav"><span class="role">Operator</span><h3>Run the day</h3><p>Send actions, acknowledge alerts, remote control, follow rollouts, name devices. The ops team.</p></div>
+        <div class="card lav"><span class="role">Admin</span><h3>Own the setup</h3><p>Users, alert rules, kiosk policies, restaurants, releases, settings. A small group.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="faq" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Questions <span class="hl">people ask</span></h2>
+        <p>For AIO staff. If yours is not here, ask in the ops channel.</p>
+      </div>
+      <div class="faq">
         <details open><summary>How do I get an account?</summary><p>Sign up with your @aioapp.com email and confirm the verification link. New accounts start as <em>viewer</em>. Ask an admin to raise you to <em>operator</em> (send actions, remote control) or <em>admin</em> (users, policies, releases).</p></details>
         <details><summary>What can each role do?</summary><p><em>Viewer</em> sees everything but changes nothing. <em>Operator</em> sends actions, acknowledges alerts, runs remote control and deployments. <em>Admin</em> also manages users, alert rules, policies, restaurants and releases. Restaurant owners get a reduced <em>owner</em> view of their own venue.</p></details>
         <details><summary>What does "online" mean?</summary><p>A live WebSocket connection from the device agent right now. It is not "checked in recently". A device that lost Wi-Fi drops to offline within about a minute and an alert fires after the configured grace period.</p></details>
@@ -286,32 +510,93 @@
         <details><summary>Something looks wrong with the dashboard</summary><p>Refresh first. If it persists, note the page, the device serial and the time, and post in the ops channel. The audit log under Users records every action if you need to trace a change.</p></details>
         <details><summary>I forgot my password</summary><p>Use <a href="/forgot-password">Forgot password</a> on the sign-in page. The reset link goes to your @aioapp.com inbox.</p></details>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="ld-section">
-      <div class="ld-final">
-        <div><h2>Ready to run the fleet?</h2><p>Sign in, or create an account with your @aioapp.com email.</p></div>
-        <div class="ld-cta">
-          <a class="ld-btn lg" href="/login">Take me to the dashboard <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></a>
-          {{if .SignupEnabled}}<a class="ld-btn lg" href="/signup">Sign up</a>{{end}}
+  <section class="wrap">
+    <div class="cta">
+      <div>
+        <h2>Ready to run the fleet?</h2>
+        <p>Sign in, or create an account with your @aioapp.com email.</p>
+        <div class="actions">
+          <a class="btn lg" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+          {{if .SignupEnabled}}<a class="btn lg white" href="/signup">Create an account <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <footer class="ld-foot">
-      <div>© 2026 AIO · AI for Restaurants</div>
-      <div><a href="/login">Sign in</a>{{if .SignupEnabled}}<a href="/signup">Sign up</a>{{end}}<a href="/forgot-password">Forgot password</a></div>
-    </footer>
-  </div>
+  <footer class="foot">
+    <div class="wrap">
+      <div class="foot-grid">
+        <div>
+          <img src="/static/img/landing/aio-logo-white.png" alt="AIO" width="211" height="103">
+          <div class="c">AIO MDM · built in-house for AIO staff<br>mdm.aioapp.com<br>Questions: the ops channel</div>
+          <div class="socials"><a href="https://aioapp.com" aria-label="aioapp.com" target="_blank" rel="noopener">aio</a></div>
+        </div>
+        <div><h6>Product</h6><a class="l" href="/devices">Fleet</a><a class="l" href="/commands">Actions</a><a class="l" href="/alerts">Alerts</a><a class="l" href="/map">Map</a><a class="l" href="/releases">Updates</a></div>
+        <div><h6>Resources</h6>{{if .Training}}<a class="l" href="#training">Training</a>{{end}}<a class="l" href="#guides">Guides</a><a class="l" href="#faq">FAQ</a><a class="l" href="#roles">Who does what</a></div>
+        <div><h6>Account</h6><a class="l" href="/login">Login</a>{{if .SignupEnabled}}<a class="l" href="/signup">Sign up</a>{{end}}<a class="l" href="/forgot-password">Forgot password</a></div>
+      </div>
+      <div class="foot-bottom">© 2026 AIO APP, INC. All rights reserved · <a href="https://aioapp.com" target="_blank" rel="noopener">aioapp.com</a></div>
+    </div>
+  </footer>
+
   <script>
+    (function () {
+      var nav = document.getElementById('nav'), hero = document.getElementById('top');
+      // Pill goes light once the hero has scrolled away.
+      function onScroll() { nav.classList.toggle('scrolled', window.scrollY > hero.offsetHeight - 100); }
+      window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+      // Theme switch (shared key with the dashboard).
+      function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('mdm-theme', t); } catch (e) {} }
+      document.querySelectorAll('#theme-btn, .js-theme').forEach(function (b) { b.addEventListener('click', function () { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }); });
+
+      // Mega menus: open on hover or click, close on leave, Escape or outside click.
+      var openId = null, closeTimer = null;
+      function openMega(id) { clearTimeout(closeTimer); if (openId && openId !== id) closeMega(); var m = document.getElementById(id); m.classList.add('open'); openId = id; document.querySelectorAll('[data-mega]').forEach(function (b) { b.setAttribute('aria-expanded', b.getAttribute('data-mega') === id ? 'true' : 'false'); }); }
+      function closeMega() { if (!openId) return; document.getElementById(openId).classList.remove('open'); openId = null; document.querySelectorAll('[data-mega]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); }); }
+      function scheduleClose() { clearTimeout(closeTimer); closeTimer = setTimeout(closeMega, 180); }
+      document.querySelectorAll('[data-mega]').forEach(function (b) {
+        var id = b.getAttribute('data-mega');
+        b.addEventListener('mouseenter', function () { openMega(id); });
+        b.addEventListener('mouseleave', scheduleClose);
+        b.addEventListener('click', function () { openId === id ? closeMega() : openMega(id); });
+      });
+      document.querySelectorAll('.mega').forEach(function (m) { m.addEventListener('mouseenter', function () { clearTimeout(closeTimer); }); m.addEventListener('mouseleave', scheduleClose); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeMega(); closeSheet(); ldClose(); } });
+      document.addEventListener('click', function (e) { if (openId && !e.target.closest('.mega') && !e.target.closest('[data-mega]')) closeMega(); });
+
+      // Product mega: hovering an area swaps the sub-page pills and the feature card.
+      var pills = document.getElementById('mega-pills'), img = document.getElementById('mega-img');
+      function selectArea(a) {
+        document.querySelectorAll('#mega-areas .mega-item').forEach(function (x) { x.classList.toggle('active', x === a); });
+        pills.innerHTML = '';
+        (a.getAttribute('data-pills') || '').split(',').forEach(function (p) { var kv = p.split('|'); var el = document.createElement('a'); el.className = 'mega-pill'; el.href = kv[1] || a.href; el.textContent = kv[0]; pills.appendChild(el); });
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        img.src = dark ? a.getAttribute('data-imgd') : a.getAttribute('data-img');
+        document.getElementById('mega-title').textContent = a.getAttribute('data-title');
+        document.getElementById('mega-text').textContent = a.getAttribute('data-text');
+        document.getElementById('mega-link').href = a.getAttribute('href');
+      }
+      document.querySelectorAll('#mega-areas .mega-item').forEach(function (a) { a.addEventListener('mouseenter', function () { selectArea(a); }); a.addEventListener('focus', function () { selectArea(a); }); });
+      selectArea(document.querySelector('#mega-areas .mega-item'));
+
+      // Mobile sheet
+      var sheet = document.getElementById('sheet');
+      function closeSheet() { sheet.classList.remove('open'); }
+      document.getElementById('burger').addEventListener('click', function () { sheet.classList.add('open'); });
+      document.getElementById('sheet-close').addEventListener('click', closeSheet);
+      sheet.addEventListener('click', function (e) { if (e.target === sheet || e.target.closest('a.item')) closeSheet(); });
+      window.closeSheet = closeSheet;
+    })();
     function ldPlay(btn) {
-      var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video');
+      var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video'); if (!p) return;
       document.getElementById('ld-player-title').textContent = btn.getAttribute('data-title');
       v.src = btn.getAttribute('data-src'); p.hidden = false; v.play().catch(function () {});
     }
-    function ldClose() { var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video'); v.pause(); v.removeAttribute('src'); v.load(); p.hidden = true; }
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ldClose(); });
-    (function () { var n = document.getElementById('ld-navwrap'); function f() { n.classList.toggle('stuck', window.scrollY > 8); } window.addEventListener('scroll', f, { passive: true }); f(); })();
+    function ldClose() { var p = document.getElementById('ld-player'), v = document.getElementById('ld-player-video'); if (!p || p.hidden) return; v.pause(); v.removeAttribute('src'); v.load(); p.hidden = true; }
   </script>
 </body>
 </html>
