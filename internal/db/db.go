@@ -846,24 +846,26 @@ func (d *DB) SetUserAccess(ctx context.Context, id uuid.UUID, pol AccessPolicy) 
 type DeviceScope struct {
 	RestaurantID *uuid.UUID
 	Groups       []uuid.UUID
+	DPC          bool // runs the Device-Owner agent (admin-only visibility for now)
 }
 
 // DeviceScopes loads every device's restaurant and group memberships (two small
 // queries) so a request can evaluate scope rules for any number of devices.
 func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error) {
 	out := map[uuid.UUID]DeviceScope{}
-	rows, err := d.pool.Query(ctx, `SELECT id, restaurant_id FROM devices`)
+	rows, err := d.pool.Query(ctx, `SELECT id, restaurant_id, agent_kind = 'dpc' FROM devices`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var id uuid.UUID
 		var rid *uuid.UUID
-		if err := rows.Scan(&id, &rid); err != nil {
+		var dpc bool
+		if err := rows.Scan(&id, &rid, &dpc); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		out[id] = DeviceScope{RestaurantID: rid}
+		out[id] = DeviceScope{RestaurantID: rid, DPC: dpc}
 	}
 	rows.Close()
 	rows, err = d.pool.Query(ctx, `SELECT device_id, group_id FROM device_groups`)
@@ -1634,6 +1636,11 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	if f.Search != "" {
 		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
 		args = append(args, "%"+f.Search+"%")
+		argN++
+	}
+	if f.AgentKind != "" {
+		wheres = append(wheres, fmt.Sprintf("d.agent_kind = $%d", argN))
+		args = append(args, f.AgentKind)
 		argN++
 	}
 	if f.GroupID != uuid.Nil {
@@ -2676,10 +2683,14 @@ type FleetCounts struct {
 }
 
 // FleetCounts returns visible-device, restaurant, and group totals in one query.
-func (d *DB) FleetCounts(ctx context.Context) (FleetCounts, error) {
+func (d *DB) FleetCounts(ctx context.Context, excludeDPC bool) (FleetCounts, error) {
 	var c FleetCounts
+	kindWhere := ""
+	if excludeDPC {
+		kindWhere = " AND agent_kind <> 'dpc'"
+	}
 	err := d.pool.QueryRow(ctx, `
-		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')),
+		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`),
 		       (SELECT COUNT(*) FROM restaurants),
 		       (SELECT COUNT(*) FROM groups),
 		       (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND onboarded_at IS NULL)
@@ -2696,7 +2707,11 @@ type ClassCount struct {
 // FleetComposition counts active devices per class (stored class, else the
 // product default) and per agent kind, in one query. Feeds the Fleet page's
 // composition strip and its filter counts.
-func (d *DB) FleetComposition(ctx context.Context) (classes []ClassCount, firmware, dpc int, err error) {
+func (d *DB) FleetComposition(ctx context.Context, excludeDPC bool) (classes []ClassCount, firmware, dpc int, err error) {
+	kindWhere := ""
+	if excludeDPC {
+		kindWhere = " AND agent_kind <> 'dpc'"
+	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT COALESCE(NULLIF(device_class, ''),
 		         CASE WHEN product IN ('', 't7') THEN 'tablet'
@@ -2704,7 +2719,7 @@ func (d *DB) FleetComposition(ctx context.Context) (classes []ClassCount, firmwa
 		              ELSE '' END) AS cls,
 		       agent_kind, COUNT(*)
 		FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
 		GROUP BY 1, 2`)
 	if err != nil {
 		return nil, 0, 0, err

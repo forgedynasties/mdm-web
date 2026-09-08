@@ -490,7 +490,7 @@ a.fleet-rail-item{min-height:40px}
     {{if gt (len .Composition) 1}}
     <div class="fl-comp">
       <div class="cc-stack" title="Fleet by device type">{{range .Composition}}<a class="cc-c{{.Idx}}" style="width:{{.Pct}}%" href="/devices?class={{.Class}}" title="{{.Label}} · {{.N}}"></a>{{end}}</div>
-      <div class="cc-legend">{{range .Composition}}<a href="/devices?class={{.Class}}"><i class="cc-c{{.Idx}}"></i>{{.Label}} <b>{{.N}}</b></a>{{end}}<span class="fl-comp-kind">{{.CompFirmware}} firmware · {{.CompDPC}} DPC</span></div>
+      <div class="cc-legend">{{range .Composition}}<a href="/devices?class={{.Class}}"><i class="cc-c{{.Idx}}"></i>{{.Label}} <b>{{.N}}</b></a>{{end}}{{if canAdmin .Role}}<span class="fl-comp-kind">{{.CompFirmware}} firmware · {{.CompDPC}} DPC</span>{{end}}</div>
     </div>
     {{end}}
 
@@ -517,12 +517,12 @@ a.fleet-rail-item{min-height:40px}
             <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
             <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
           </select></label>
-        <label class="fp-field"><span>Agent</span>
+        {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
             <option value="">Any agent</option>
             <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware (our hardware)</option>
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>DPC agent</option>
-          </select></label>
+          </select></label>{{end}}
         <label class="fp-field"><span>Device type</span>
           <select id="filter-class" onchange="applyFilters()">
             <option value="">Any type</option>

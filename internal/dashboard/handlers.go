@@ -1813,7 +1813,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// The unified Fleet surface (Devices/Restaurants/Groups tabs) needs all three
 	// counts for its tab strip; fetch them only on those pages.
 	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" || ap == "enrollment" {
-		if fc, err := h.db.FleetCounts(r.Context()); err == nil {
+		if fc, err := h.db.FleetCounts(r.Context(), h.access(r).hidesDPC()); err == nil {
 			data["FleetCounts"] = fc
 		}
 	}
@@ -3909,7 +3909,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 	var composition []compSeg
 	compFirmware, compDPC := 0, 0
-	if classes, fw, dp, err := h.db.FleetComposition(r.Context()); err == nil {
+	if classes, fw, dp, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
 		compFirmware, compDPC = fw, dp
 		sum := 0
 		for _, c := range classes {
@@ -4134,7 +4134,14 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	activeSecs := h.cfg.CheckinInterval() * 3
-	summary, err := h.db.GetSummary(ctx, h.connectedSlice())
+	var summary db.Summary
+	var err error
+	if h.access(r).hidesDPC() {
+		// DPC devices are admin-only for now: totals exclude them for everyone else.
+		summary, err = h.db.GetSummaryFiltered(ctx, db.DeviceFilter{AgentKind: "firmware", Connected: h.connectedSlice(), ActiveThresholdSecs: activeSecs})
+	} else {
+		summary, err = h.db.GetSummary(ctx, h.connectedSlice())
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -4550,7 +4557,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// widget so a freshly scanned device is noticed without opening Enroll.
 	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
 	inboxN := 0
-	if fc, err := h.db.FleetCounts(r.Context()); err == nil {
+	if fc, err := h.db.FleetCounts(r.Context(), h.access(r).hidesDPC()); err == nil {
 		inboxN = fc.Inbox
 	}
 
@@ -4635,7 +4642,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fleet map: every device with a resolved location from the geolocation pipeline.
-	locs, locCount := h.deviceLocationsJSON(ctx)
+	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
 	data["DeviceLocations"] = locs
 	data["DeviceMapCount"] = locCount
 	data["MapsEmbedKey"] = h.mapsEmbedKey
@@ -6985,8 +6992,12 @@ type deviceMapPoint struct {
 // deviceLocationsJSON returns every device with a resolved lat/lon in its latest
 // telemetry, as JSON for the overview fleet map, plus the count. Coordinates come
 // from the geolocation pipeline (WiFi scan -> lat/lon merged into the device extra).
-func (h *Handler) deviceLocationsJSON(ctx context.Context) (template.JS, int) {
-	pts := h.devicePoints(ctx, db.DeviceFilter{})
+func (h *Handler) deviceLocationsJSON(ctx context.Context, excludeDPC bool) (template.JS, int) {
+	f := db.DeviceFilter{}
+	if excludeDPC {
+		f.AgentKind = "firmware"
+	}
+	pts := h.devicePoints(ctx, f)
 	b, err := json.Marshal(pts)
 	if err != nil {
 		return template.JS("[]"), 0
@@ -13934,7 +13945,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx)
+	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx, h.access(r).hidesDPC())
 	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
 	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
 	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
