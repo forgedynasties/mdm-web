@@ -319,7 +319,7 @@ func (h *Handler) OverviewLayoutReset(w http.ResponseWriter, r *http.Request) {
 // product, site filters, cluster toggle, map style, site list).
 func (h *Handler) MapPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	locs, locCount := h.deviceLocationsJSON(ctx)
+	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
 	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
 	h.render(w, r, "map.html", map[string]any{
 		"Title":           "Fleet map",

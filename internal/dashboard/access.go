@@ -162,6 +162,16 @@ func (h *Handler) accessFor(ctx context.Context, role, username string) *access 
 // unrestricted: nothing is ever filtered for this user. Only super admin.
 func (a *access) unrestricted() bool { return a.role == "admin" }
 
+// hidesDPC: DPC-managed (outsourced) devices are admin-only for now. Every other
+// role neither sees nor acts on them, on any page.
+func (a *access) hidesDPC() bool { return a.role != "admin" }
+
+// isDPC reports whether the device runs the DPC agent (from the per-request scope map).
+func (a *access) isDPC(dev uuid.UUID) bool {
+	a.loadScopes()
+	return a.scopes[dev].DPC
+}
+
 func (a *access) loadScopes() {
 	a.once.Do(func() { a.scopes, a.scopeErr = a.h.db.DeviceScopes(a.ctx) })
 }
@@ -224,6 +234,9 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	act, known := accessActionByKey[action]
 	if !known {
 		return decision{false, "Unknown action", nil}
+	}
+	if dev != nil && a.hidesDPC() && a.isDPC(*dev) {
+		return decision{false, "DPC-managed devices are admin-only for now", nil}
 	}
 	if c := roleCeiling(a.role); !c[action] {
 		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}
@@ -316,7 +329,7 @@ func (a *access) hasViewRestriction() bool {
 // visibleIDs is the device-id allowlist for list queries, or nil for "no filter".
 // Computed once per request.
 func (a *access) visibleIDs() []uuid.UUID {
-	if !a.hidesDevices() {
+	if !a.hidesDevices() && !a.hidesDPC() {
 		return nil
 	}
 	a.visOnce.Do(func() {
@@ -463,11 +476,17 @@ func lowerFirst(s string) string {
 
 // visible reports whether a device may appear in this user's lists.
 func (a *access) visible(id uuid.UUID) bool {
+	if a.hidesDPC() && a.isDPC(id) {
+		return false
+	}
 	return !a.hidesDevices() || a.canDevice("view", id)
 }
 
 // applyFilter narrows a DeviceFilter to the user's visible devices.
 func (a *access) applyFilter(f *db.DeviceFilter) {
+	if a.hidesDPC() {
+		f.AgentKind = "firmware"
+	}
 	if ids := a.visibleIDs(); ids != nil {
 		f.OnlyIDs = ids
 	}
@@ -475,7 +494,7 @@ func (a *access) applyFilter(f *db.DeviceFilter) {
 
 // keepVisible drops devices the user may not see.
 func (a *access) keepVisible(devs []db.Device) []db.Device {
-	if !a.hidesDevices() {
+	if !a.hidesDevices() && !a.hidesDPC() {
 		return devs
 	}
 	out := devs[:0:0]
@@ -505,7 +524,7 @@ func (a *access) keepVisibleAlerts(alerts []db.Alert) []db.Alert {
 // filterHiddenCommands drops commands none of whose targets the user may see.
 func (h *Handler) filterHiddenCommands(r *http.Request, cmds []db.Command) []db.Command {
 	acc := h.access(r)
-	if !acc.hidesDevices() {
+	if !acc.hidesDevices() && !acc.hidesDPC() {
 		return cmds
 	}
 	out := cmds[:0:0]
