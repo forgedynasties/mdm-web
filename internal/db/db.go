@@ -10853,6 +10853,9 @@ ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS last_enrolled_at TIMEST
 -- Super op: an access admin who may also push firmware updates (deploy releases,
 -- add targets, retry / cancel) but not manage release packages. Effective role
 -- constraint; keep it last.
+-- The role shipped briefly as 'ota_admin'; remap before the constraint so an
+-- account created under that name doesn't block the migration.
+UPDATE users SET role = 'super_op' WHERE role = 'ota_admin';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','dev','admin','owner'));
 `
