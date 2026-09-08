@@ -154,10 +154,10 @@
       </div>
       <div class="en-pane" data-pane="adb">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Start from a clean device</div><div class="t">Factory-reset or fresh, with <b>no accounts</b> added. Device Owner can only be set before an account exists.</div></div></div>
-        <div class="en-step"><div class="en-num">2</div><div><div class="b">Install the agent and make it Device Owner</div><code class="en-code">adb install -r skorra-agent.apk
-adb shell dpm set-device-owner {{.AdminComponent}}</code></div></div>
-        <div class="en-step"><div class="en-num">3</div><div><div class="b">Point it at this server</div><div class="t">Open the agent, enter the server URL and a profile token from above, tap <b>Save &amp; connect</b>.</div><code class="en-code">Server URL  {{.ServerURL}}
-Token       enr_… (copy from a profile above)</code></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">One command per batch (kiosks without a camera, volume)</div><div class="t">Plug the devices into a hub with USB debugging on. The script installs the agent, makes it Device Owner and hands it the server and a profile token. Nothing to type on the device. Use a profile with a device limit and revoke it after the batch.</div><code class="en-code">tools/enroll-adb.sh -s {{.ServerURL}} -t enr_… {{/* token from a profile above */}}</code></div></div>
+        <div class="en-step"><div class="en-num">3</div><div><div class="b">By hand, if you prefer</div><code class="en-code">adb install -r skorra-agent.apk
+adb shell dpm set-device-owner {{.AdminComponent}}
+adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.ServerURL}} --es enroll_token enr_…</code><div class="t">{{if .HasAgentAPK}}The agent APK is at <span class="cc-mono">{{.AgentAPKURL}}</span>.{{else}}Host an agent APK in Settings › App library first, or side-load your own build.{{end}}</div></div></div>
       </div>
       <div class="en-pane" data-pane="fw">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Nothing to scan</div><div class="t">Our own hardware ships with the system-app client. It authenticates with the fleet device key and registers itself on first check-in.</div></div></div>
