@@ -296,9 +296,9 @@
   {{if ne .Role "owner"}}
   <nav class="dock" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    {{if ne .Role "owner"}}<a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>{{end}}
+    {{if ne .Role "owner"}}<a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>{{end}}
     {{if ne .Role "owner"}}{{if canAct .Role}}<a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>{{end}}{{end}}
-    {{/* Policies nav item hidden for now — /manage stays reachable by URL; restore from git when needed. */}}
+    {{if ne .Role "owner"}}{{if eq .Role "admin"}}<a href="/manage" class="nav-link js-dest{{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}{{end}}
     {{if ne .Role "owner"}}<a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>{{end}}
     {{/* Updates policy, Network, Compliance, Enrollment and Geofencing nav items hidden for now — pages stay reachable at their URLs; Enrollment is linked from the Overview action row. Restore the <a> items from git when needed. */}}
     {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}<a href="/releases" class="nav-link js-dest{{if eq .ActivePage "releases"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Releases</span></a>{{end}}{{end}}
@@ -2085,6 +2085,7 @@
       { sel: '.appbar-brand', title: 'Welcome to AIO MDM', body: 'This is your fleet command center. Take a 60-second tour of where things live — or skip and explore on your own.', pos: 'bottom' },
       { sel: '.dock .nav-link[href="/"]', title: 'Overview', body: 'Your fleet at a glance: health score, live signals, sites, map, rollouts and the daily report. Every card is a widget you can hide, move or reset.', pos: 'top' },
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
+      { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
       { sel: '.dock .nav-link[href="/commands"]', title: 'Actions', body: 'Send an action to one device or the whole fleet: install apps, screenshots, shell, reboot, kiosk lock. Save recipes and schedule them.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/manage"]', title: 'Policies', body: 'Standing configuration such as kiosk lock that applies to every device it targets — set once, enforced continuously.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/alerts"]', title: 'Alerts', body: 'Devices that stopped checking in, ran hot, drained, or crashed. Acknowledge or resolve here; the bell up top shows the live count.', pos: 'top', optional: true },
@@ -2182,12 +2183,27 @@
 </div>
 {{end}}
 
+{{/* Policies hub tabs: one place for everything that is standing configuration
+     rather than a one-off action. Shown on /manage and the pages it groups. */}}
+{{define "policies-tabs"}}
+<div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Policies</h1></div>
+<div class="fleet-tabs">
+  <a href="/manage" class="fleet-tab{{if eq .ActivePage "manage"}} cur{{end}}">Kiosk</a>
+  <a href="/updates-policy" class="fleet-tab{{if eq .ActivePage "updates-policy"}} cur{{end}}">Updates</a>
+  <a href="/network" class="fleet-tab{{if eq .ActivePage "network"}} cur{{end}}">Network</a>
+  <a href="/setup/managed-configs" class="fleet-tab{{if eq .ActivePage "managed-configs"}} cur{{end}}">Managed configs</a>
+  <a href="/compliance" class="fleet-tab{{if eq .ActivePage "compliance"}} cur{{end}}">Compliance</a>
+  <a href="/geofencing" class="fleet-tab{{if eq .ActivePage "geofencing"}} cur{{end}}">Geofencing</a>
+</div>
+{{end}}
+
 {{define "fleet-tabs"}}
 <div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Fleet</h1></div>
 <div class="fleet-tabs">
   <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
   <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
   <a href="/groups" class="fleet-tab{{if eq .ActivePage "groups"}} cur{{end}}">Groups{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Groups}}</span>{{end}}</a>
+  <a href="/enrollment" class="fleet-tab{{if eq .ActivePage "enrollment"}} cur{{end}}">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} <span class="pill warn" title="Devices waiting for assignment">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>
 </div>
 {{end}}
 

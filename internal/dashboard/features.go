@@ -20,6 +20,7 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"mdm/internal/db"
+	"mdm/internal/product"
 )
 
 // This file holds the DPC-agent feature pages: enrollment, the fleet-wide
@@ -36,8 +37,19 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	if len(masked) > 6 {
 		masked = masked[:3] + "••••••" + masked[len(masked)-3:]
 	}
+	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 50)
+	restaurants, _ := h.db.ListRestaurants(r.Context())
+	// Live refresh: the page re-fetches just the inbox on device events.
+	if r.URL.Query().Get("partial") == "inbox" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "enroll-inbox", map[string]any{
+			"Inbox": inbox, "Restaurants": restaurants, "Classes": product.Classes(), "Role": h.role(r),
+		})
+		return
+	}
 	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
+	stats, _ := h.db.EnrollmentStats(r.Context())
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -48,7 +60,11 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"AgentPackage":   "com.skorra.agent",
 		"Profiles":       profiles,
 		"Groups":         groups,
-		"HasAgentAPK":    os.Getenv("AGENT_APK_URL") != "" && os.Getenv("AGENT_APK_CHECKSUM") != "",
+		"Restaurants":    restaurants,
+		"Classes":        product.Classes(),
+		"Inbox":          inbox,
+		"Stats":          stats,
+		"HasAgentAPK":    h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != "",
 	})
 }
 
@@ -59,23 +75,66 @@ func (h *Handler) EnrollmentProfileCreate(w http.ResponseWriter, r *http.Request
 		h.hxDoneToast(w, r, "/enrollment", "Profile name is required", "error")
 		return
 	}
-	var groupID *uuid.UUID
-	if gid := r.FormValue("group_id"); gid != "" {
-		if parsed, err := uuid.Parse(gid); err == nil {
-			groupID = &parsed
-		}
-	}
+	in := enrollmentProfileInputFromForm(r)
+	in.Name = name
 	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	token := "enr_" + hex.EncodeToString(raw)
-	if _, err := h.db.CreateEnrollmentProfile(r.Context(), name, token, groupID, strings.TrimSpace(r.FormValue("notes"))); err != nil {
+	in.Token = "enr_" + hex.EncodeToString(raw)
+	if _, err := h.db.CreateEnrollmentProfile(r.Context(), in); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.hxDoneToast(w, r, "/enrollment", "Enrollment profile created", "success")
+}
+
+// enrollmentProfileInputFromForm reads the profile intent fields shared by create and
+// edit: group, notes, class, site, expiry (days from now), max enrolls.
+func enrollmentProfileInputFromForm(r *http.Request) db.EnrollmentProfileInput {
+	in := db.EnrollmentProfileInput{Notes: strings.TrimSpace(r.FormValue("notes"))}
+	if gid := r.FormValue("group_id"); gid != "" {
+		if parsed, err := uuid.Parse(gid); err == nil {
+			in.GroupID = &parsed
+		}
+	}
+	if rid := r.FormValue("restaurant_id"); rid != "" {
+		if parsed, err := uuid.Parse(rid); err == nil {
+			in.RestaurantID = &parsed
+		}
+	}
+	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); product.IsClass(c) {
+		in.DeviceClass = c
+	}
+	if days, err := strconv.Atoi(strings.TrimSpace(r.FormValue("expires_days"))); err == nil && days > 0 {
+		t := time.Now().Add(time.Duration(days) * 24 * time.Hour)
+		in.ExpiresAt = &t
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(r.FormValue("max_enrolls"))); err == nil && n > 0 {
+		in.MaxEnrolls = &n
+	}
+	return in
+}
+
+// EnrollmentProfileUpdate edits a profile's intent (everything but the token).
+func (h *Handler) EnrollmentProfileUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Bad id", http.StatusBadRequest)
+		return
+	}
+	in := enrollmentProfileInputFromForm(r)
+	in.Name = strings.TrimSpace(r.FormValue("name"))
+	if in.Name == "" {
+		h.hxDoneToast(w, r, "/enrollment", "Profile name is required", "error")
+		return
+	}
+	if err := h.db.UpdateEnrollmentProfile(r.Context(), id, in); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDoneToast(w, r, "/enrollment", "Profile updated", "success")
 }
 
 func (h *Handler) enrollmentProfileSetRevoked(w http.ResponseWriter, r *http.Request, revoked bool) {
@@ -140,10 +199,10 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 	}
 	// QR provisioning needs a downloadable agent APK; without these env vars the code
 	// still carries the extras (usable for docs/manual flows) but can't cold-provision.
-	if apkURL := os.Getenv("AGENT_APK_URL"); apkURL != "" {
+	if apkURL := h.cfg.AgentAPKURL(); apkURL != "" {
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = apkURL
 	}
-	if sum := os.Getenv("AGENT_APK_CHECKSUM"); sum != "" {
+	if sum := h.cfg.AgentAPKChecksum(); sum != "" {
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] = sum
 	}
 	blob, err := json.Marshal(payload)
@@ -537,7 +596,7 @@ func (h *Handler) ManagedConfigsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "managed_configs.html", map[string]any{
 		"Title":      "Managed configurations",
-		"ActivePage": "setup",
+		"ActivePage": "managed-configs",
 		"Rows":       rows,
 	})
 }
@@ -1140,4 +1199,122 @@ func (h *Handler) ReportActivityCSV(w http.ResponseWriter, r *http.Request) {
 		cw.Write([]string{s.Day.Format("2006-01-02"), strconv.Itoa(s.Active), strconv.FormatInt(s.Checkins, 10)})
 	}
 	cw.Flush()
+}
+
+// SettingsAgentAPK stores where QR provisioning downloads the DPC agent from and
+// its signing-certificate checksum (Settings → App library → DPC agent).
+func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
+	u := strings.TrimSpace(r.FormValue("agent_apk_url"))
+	sum := strings.TrimSpace(r.FormValue("agent_apk_checksum"))
+	if u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		h.hxDoneToast(w, r, "/settings", "Agent APK URL must start with http:// or https://", "error")
+		return
+	}
+	if err := h.cfg.SetAgentAPK(u, sum); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.agent_apk", u, "")
+	msg := "DPC agent APK saved — QR cold-provisioning is on"
+	if u == "" || sum == "" {
+		msg = "DPC agent APK cleared — QR cold-provisioning is off"
+	}
+	h.hxDoneToast(w, r, "/settings", msg, "success")
+}
+
+// ── Device lifecycle (onboarding inbox, class, retire) ────────────────────────
+
+// DeviceOnboard confirms a device's placement (site/group/class already set or set
+// here) and takes it out of the onboarding inbox.
+func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if rid := r.FormValue("restaurant_id"); rid != "" {
+		if parsed, err := uuid.Parse(rid); err == nil {
+			if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, &parsed); err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); c != "" && product.IsClass(c) {
+		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	if err := h.db.MarkOnboarded(r.Context(), device.ID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.onboard", serial, "")
+	h.hub.PublishDeviceUpdate(device.ID)
+	from := r.FormValue("from")
+	if from == "" {
+		from = "/enrollment"
+	}
+	h.hxDoneToast(w, r, from, "Device onboarded", "success")
+}
+
+// DeviceSetClass overrides the form factor for one device.
+func (h *Handler) DeviceSetClass(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
+	if c != "" && !product.IsClass(c) {
+		http.Error(w, "Unknown class", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.class", serial, c)
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hxDoneToast(w, r, "/devices/"+serial, "Class updated", "success")
+}
+
+// DeviceRetire takes a device out of the active fleet (lists, alerts, policy coverage)
+// while keeping its history and placement. A later check-in or re-enrollment brings it
+// back automatically; DeviceUnretire does it by hand.
+func (h *Handler) DeviceRetire(w http.ResponseWriter, r *http.Request) {
+	h.deviceSetLifecycle(w, r, db.EnrollRetired, "device.retire", "Device retired")
+}
+
+func (h *Handler) DeviceUnretire(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	status := db.EnrollAuto
+	if device.IsDPC() {
+		status = db.EnrollEnrolled
+	}
+	h.deviceSetLifecycle(w, r, status, "device.unretire", "Device back in the fleet")
+}
+
+func (h *Handler) deviceSetLifecycle(w http.ResponseWriter, r *http.Request, status, auditAction, toast string) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.SetEnrollmentStatus(r.Context(), device.ID, status); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, auditAction, serial, status)
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hxDoneToast(w, r, "/devices/"+serial, toast, "success")
 }

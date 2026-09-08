@@ -719,16 +719,19 @@ window.CMD_PREFILL = {{.Prefill}};
   // ── Capability math (from the impact fragment's counts) ──
   // cap "system app": the privileged AOSP client only — DPC devices can't run it.
   // cap "DPC only": the Device-Owner agent only — system-app devices can't run it.
+  // The server counts, per action, how many of the resolved targets cannot run it
+  // (from each device's advertised capabilities). The DPC split is only a fallback
+  // for a stale fragment without that data.
   function incompatCount(a) {
-    if (!lastImpact.effective) return 0;
+    if (!lastImpact.total) return 0;
+    if (lastImpact.unsup) return lastImpact.unsup[a.t] || 0;
     if (a.cap === 'DPC only') return lastImpact.effective - lastImpact.dpc;
     if (a.cap === 'system app') return lastImpact.dpc;
     return 0;
   }
   function incompatWhy(a, n) {
-    var eff = lastImpact.effective;
-    if (a.cap === 'DPC only') return n + ' of ' + eff + ' can’t run this — DPC devices only';
-    return n + ' of ' + eff + ' are DPC devices — ' + a.n.toLowerCase() + ' unavailable there';
+    var eff = lastImpact.total || lastImpact.effective;
+    return n + ' of ' + eff + ' can’t run ' + a.n.toLowerCase() + ' on their agent — skipped at send';
   }
 
   // ── Rail: scopes ──
@@ -1107,8 +1110,9 @@ window.CMD_PREFILL = {{.Prefill}};
     var note = el('co-note'); if (!note || !S.action) return;
     var n = incompatCount(S.action);
     if (n > 0) {
-      var compat = lastImpact.effective - n;
-      note.innerHTML = '<b>' + n + ' of ' + lastImpact.effective + '</b> ' + esc(incompatWhy(S.action, n).replace(/^\d+ of \d+ /, ''))
+      var total = lastImpact.total || lastImpact.effective;
+      var compat = total - n;
+      note.innerHTML = '<b>' + n + ' of ' + total + '</b> ' + esc(incompatWhy(S.action, n).replace(/^\d+ of \d+ /, ''))
         + (compat > 0 && CAN ? ' <button type="button" class="co-subset" id="co-subset">Send to the ' + compat + ' compatible only</button>' : ' — nothing in the selection can run it.');
     } else if (S.targets.length && lastImpact.effective > 0) {
       note.innerHTML = esc(lastImpact.online + ' delivered live over WebSocket · ' + lastImpact.offline + ' queued for next check-in')
@@ -1249,6 +1253,9 @@ window.CMD_PREFILL = {{.Prefill}};
   function subsetCompatible() {
     if (!S.action) return;
     var needDpc = S.action.cap === 'DPC only';
+    var unsup = {};
+    if (lastImpact.unsupSerials) lastImpact.unsupSerials.split(',').forEach(function (s) { if (s) unsup[s] = 1; });
+    var haveUnsup = !!lastImpact.unsupSerials || lastImpact.unsupported === 0;
     var jobs = S.targets.map(function (t) {
       if (t.kind === 'device') {
         var m = devMeta[t.serial];
@@ -1265,7 +1272,7 @@ window.CMD_PREFILL = {{.Prefill}};
           if (seen[r.serial]) return;
           seen[r.serial] = 1;
           noteMeta([r]);
-          if (needDpc ? r.dpc : !r.dpc) keep.push(r.serial);
+          if (haveUnsup ? !unsup[r.serial] : (needDpc ? r.dpc : !r.dpc)) keep.push(r.serial);
         });
       });
       if (!keep.length) { toast('No compatible devices in the selection', 'error'); return; }
@@ -1475,13 +1482,18 @@ window.CMD_PREFILL = {{.Prefill}};
     if (!e.target || e.target.id !== 'cmd-impact') return;
     var b = e.target.querySelector('.imp-body');
     if (!b) return;
+    var unsupMap = null; try { unsupMap = b.dataset.unsup ? JSON.parse(b.dataset.unsup) : null; } catch (err) { unsupMap = null; }
     lastImpact = {
       effective: parseInt(b.dataset.effective || '0', 10),
       online: parseInt(b.dataset.online || '0', 10),
       offline: parseInt(b.dataset.offline || '0', 10),
       dpc: parseInt(b.dataset.dpc || '0', 10),
+      unsupported: parseInt(b.dataset.unsupported || '0', 10),
+      unsup: unsupMap,
+      unsupSerials: b.dataset.unsupSerials || '',
       verb: b.dataset.verb || ''
     };
+    lastImpact.total = lastImpact.effective + lastImpact.unsupported;
     var w = e.target.querySelector('.imp-warn');
     lastWarn = w ? w.textContent.trim() : '';
     renderBasket();
@@ -1596,7 +1608,7 @@ window.CMD_PREFILL = {{.Prefill}};
      data-* (incl. data-dpc for the capability-aware console grid) so the page JS
      can mirror them into the basket and the Send button. */}}
 {{if gt .Total 0}}
-<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-dpc="{{.DPC}}" data-verb="{{cmdLabel .Type}}">
+<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-dpc="{{.DPC}}" data-verb="{{cmdLabel .Type}}" data-unsup="{{.UnsupJSON}}" data-unsup-serials="{{.UnsupSerials}}" data-unsupported="{{.Unsupported}}">
   <span class="imp-n">{{.Effective}}</span><span class="imp-u">device{{if ne .Effective 1}}s{{end}}</span>
   <span class="imp-split">· <b>{{.Online}}</b> online, <b>{{.Offline}}</b> queued{{if gt .Skipped 0}}, <b>{{.Skipped}}</b> skipped{{end}}</span>
   {{if .Warn}}<span class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Warn}}</span>{{end}}

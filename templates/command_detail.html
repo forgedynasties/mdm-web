@@ -1,3 +1,21 @@
+{{define "command-stats"}}
+  <div class="ad-pct"><b class="{{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}">{{.Stats.Pct}}%</b><span>{{.Stats.Done}} of {{.Stats.Total}} done</span></div>
+  {{if gt .Stats.Total 0}}
+  <div class="ad-seg">
+    <div class="ad-segbar" title="{{.Stats.Done}} done · {{.Stats.Pending}} in flight · {{.Stats.Failed}} failed">
+      <span class="ok" style="width:{{pct .Stats.Done .Stats.Total}}%"></span><span class="run" style="width:{{pct (sub .Stats.Pending .Stats.Offline) .Stats.Total}}%"></span><span class="off" style="width:{{pct .Stats.Offline .Stats.Total}}%"></span><span class="bad" style="width:{{pct .Stats.Failed .Stats.Total}}%"></span>
+    </div>
+    <div class="ad-seglg">
+      <span class="ad-pill {{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}"><i></i>{{if gt .Stats.Failed 0}}{{.Stats.Failed}} failed{{else if gt .Stats.Pending 0}}In progress{{else}}All devices done{{end}}</span>
+      {{if gt .Stats.Done 0}}<span><i class="ok"></i>{{.Stats.Done}} done</span>{{end}}
+      {{if gt (sub .Stats.Pending .Stats.Offline) 0}}<span><i class="run"></i>{{sub .Stats.Pending .Stats.Offline}} in flight</span>{{end}}
+      {{if gt .Stats.Offline 0}}<span><i class="off"></i>{{.Stats.Offline}} waiting offline</span>{{end}}
+      {{if gt .Stats.Failed 0}}<span><i class="bad"></i>{{.Stats.Failed}} failed</span>{{end}}
+    </div>
+  </div>
+  {{end}}
+{{end}}
+
 {{define "command-deliveries"}}
 {{$cmd := .Command}}
 {{$hasPending := false}}
@@ -96,6 +114,9 @@
   </div>
   {{end}}
 </div>
+{{/* Fresh header stats ride along inert; the page copies them into #ad-stats after
+     each swap (an hx-swap-oob div would be morphed into the card and duplicated). */}}
+<template id="ad-stats-src">{{template "command-stats" .}}</template>
 {{end}}
 
 {{define "command_detail.html"}}
@@ -211,21 +232,9 @@
     <h1>{{cmdLabel $cmd.Type}}{{if .App}} <span class="sub">{{.App.Name}}</span>{{if .App.VersionName}} <span class="ver">v{{.App.VersionName}}</span>{{end}}{{else}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}{{end}}</h1>
     <span class="ad-meta">sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} · <b class="ad-by">{{$u := userURL $cmd.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user">{{$cmd.CreatedBy}}</a>{{else}}{{$cmd.CreatedBy}}{{end}}{{template "ubub" (userBubble $cmd.CreatedBy)}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group{{else}}{{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}}{{end}}</span>
   </div>
-  <div class="ad-pct"><b class="{{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}">{{.Stats.Pct}}%</b><span>{{.Stats.Done}} of {{.Stats.Total}} done</span></div>
-  {{if gt .Stats.Total 0}}
-  <div class="ad-seg">
-    <div class="ad-segbar" title="{{.Stats.Done}} done · {{.Stats.Pending}} in flight · {{.Stats.Failed}} failed">
-      <span class="ok" style="width:{{pct .Stats.Done .Stats.Total}}%"></span><span class="run" style="width:{{pct (sub .Stats.Pending .Stats.Offline) .Stats.Total}}%"></span><span class="off" style="width:{{pct .Stats.Offline .Stats.Total}}%"></span><span class="bad" style="width:{{pct .Stats.Failed .Stats.Total}}%"></span>
-    </div>
-    <div class="ad-seglg">
-      <span class="ad-pill {{if gt .Stats.Failed 0}}bad{{else if gt .Stats.Pending 0}}run{{else}}ok{{end}}"><i></i>{{if gt .Stats.Failed 0}}{{.Stats.Failed}} failed{{else if gt .Stats.Pending 0}}In progress{{else}}All devices done{{end}}</span>
-      {{if gt .Stats.Done 0}}<span><i class="ok"></i>{{.Stats.Done}} done</span>{{end}}
-      {{if gt (sub .Stats.Pending .Stats.Offline) 0}}<span><i class="run"></i>{{sub .Stats.Pending .Stats.Offline}} in flight</span>{{end}}
-      {{if gt .Stats.Offline 0}}<span><i class="off"></i>{{.Stats.Offline}} waiting offline</span>{{end}}
-      {{if gt .Stats.Failed 0}}<span><i class="bad"></i>{{.Stats.Failed}} failed</span>{{end}}
-    </div>
-  </div>
-  {{end}}
+  {{/* Live: the deliveries card refetches /status; that fragment carries this same
+       block as an out-of-band swap so the headline percent moves with the columns. */}}
+  <div id="ad-stats" style="display:contents">{{template "command-stats" .}}</div>
 </div>
 
 <div class="ad-toolbar">
@@ -244,6 +253,12 @@
   if (!window.EventSource) return;
   var es = window.mdmStream('/commands/{{$cmd.ID}}/events');
   es.addEventListener('command-update', function () { document.body.dispatchEvent(new CustomEvent('command-updated')); });
+  // Keep the headline percent / segment bar in step with the deliveries card.
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    var t = e.target; if (!t || t.id !== 'deliveries-card') return;
+    var src = t.querySelector('#ad-stats-src'), dst = document.getElementById('ad-stats');
+    if (src && dst) dst.innerHTML = src.innerHTML;
+  });
   window.addEventListener('beforeunload', function () { es.close(); });
 })();
 (function () {

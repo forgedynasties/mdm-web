@@ -28,7 +28,7 @@
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
       <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
-      <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
+      <span class="dl-onboard">{{if .IsDPC}}<span class="dl-ktag dpc" title="Managed by the Device-Owner DPC agent">DPC</span>{{else}}<span class="dl-ktag" title="Our firmware, system-app client">Firmware</span>{{end}}{{if .Class}}<span class="dl-ktag cls">{{.ClassLabel}}</span>{{end}}{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
     </div>
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
@@ -134,8 +134,12 @@
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden}}
+{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
+  {{if .FilterKind}}<span class="fchip"><span class="k">Kind</span> {{if eq .FilterKind "dpc"}}DPC agent{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterClass}}<span class="fchip"><span class="k">Class</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
+  {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
+  {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
   {{if .FilterProduct}}<span class="fchip"><span class="k">Product</span> {{range $.Products}}{{if eq .Key $.FilterProduct}}{{.Label}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
@@ -277,6 +281,20 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 .fleet-rail-item{min-height:40px}
 a.fleet-rail-item{min-height:40px}
 
+/* kind / class / lifecycle tags on a card */
+.dl-ktag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:var(--surface2);color:var(--muted);margin-right:4px;vertical-align:1px}
+.dl-ktag.dpc{background:var(--accent-2-soft);color:var(--accent-2)}
+.dl-ktag.cls{background:var(--surface2);color:var(--text-2)}
+.dl-ktag.new{background:var(--warn-bg);color:var(--warn)}
+.dl-ktag.ret{background:var(--danger-bg);color:var(--danger)}
+/* composition strip */
+.fl-comp{margin:2px 0 12px}
+.fl-comp .cc-stack a{display:block;height:100%}
+.fl-comp .cc-legend{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);align-items:center}
+.fl-comp .cc-legend a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.fl-comp .cc-legend a:hover{color:var(--text)}
+.fl-comp .cc-legend b{color:var(--text);font-weight:650}
+.fl-comp-kind{margin-left:auto;color:var(--text-faint)}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
@@ -461,6 +479,15 @@ a.fleet-rail-item{min-height:40px}
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
 
+    {{/* ── Composition: what the fleet is made of (class), independent of filters.
+         Each segment / legend entry is a class filter. ── */}}
+    {{if gt (len .Composition) 1}}
+    <div class="fl-comp">
+      <div class="cc-stack" title="Fleet by class">{{range .Composition}}<a class="cc-c{{.Idx}}" style="width:{{.Pct}}%" href="/devices?class={{.Class}}" title="{{.Label}} · {{.N}}"></a>{{end}}</div>
+      <div class="cc-legend">{{range .Composition}}<a href="/devices?class={{.Class}}"><i class="cc-c{{.Idx}}"></i>{{.Label}} <b>{{.N}}</b></a>{{end}}<span class="fl-comp-kind">{{.CompFirmware}} firmware · {{.CompDPC}} DPC</span></div>
+    </div>
+    {{end}}
+
 
 <div class="fleet-bar dv-rise-1">
   {{/* ── Search ── */}}
@@ -483,6 +510,17 @@ a.fleet-rail-item{min-height:40px}
             <option value="">Any status</option>
             <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
             <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+          </select></label>
+        <label class="fp-field"><span>Kind</span>
+          <select id="filter-kind" onchange="applyFilters()">
+            <option value="">Any kind</option>
+            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware (our hardware)</option>
+            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>DPC agent</option>
+          </select></label>
+        <label class="fp-field"><span>Class</span>
+          <select id="filter-class" onchange="applyFilters()">
+            <option value="">Any class</option>
+            {{range .Classes}}<option value="{{.}}" {{if eq . $.FilterClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
           </select></label>
         <label class="fp-field"><span>Product</span>
           <select id="filter-product" onchange="applyFilters()">
@@ -534,6 +572,21 @@ a.fleet-rail-item{min-height:40px}
         <button type="button" data-vis="only" role="radio" aria-checked="{{if eq .FilterHidden "only"}}true{{else}}false{{end}}" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Inactive</button>
       </div>
       {{end}}
+      <div class="fp-cap">Lifecycle</div>
+      <div class="fp-grid">
+        <label class="fp-field"><span>Onboarding</span>
+          <select id="filter-onboarding" onchange="applyFilters()">
+            <option value="">Any</option>
+            <option value="pending" {{if eq .FilterOnboarding "pending"}}selected{{end}}>Waiting for a site</option>
+            <option value="done" {{if eq .FilterOnboarding "done"}}selected{{end}}>Placed</option>
+          </select></label>
+        <label class="fp-field"><span>Status</span>
+          <select id="filter-lifecycle" onchange="applyFilters()">
+            <option value="">In the fleet</option>
+            <option value="retired" {{if eq .FilterLifecycle "retired"}}selected{{end}}>Retired / wiped</option>
+            <option value="all" {{if eq .FilterLifecycle "all"}}selected{{end}}>Everything</option>
+          </select></label>
+      </div>
       <div class="fp-foot">
         <button type="button" class="fp-clear" onclick="clearFilters()">Clear all filters</button>
         <button type="button" class="btn-primary fp-done" onclick="toggleFilters(event)">Done</button>
@@ -591,7 +644,15 @@ function getFilterVals(overrides) {
   var fk = document.getElementById('filter-kiosk');
   var fch = document.getElementById('filter-charging');
   var ftz = document.getElementById('filter-timezone');
+  var fkind = document.getElementById('filter-kind');
+  var fclass = document.getElementById('filter-class');
+  var fonb = document.getElementById('filter-onboarding');
+  var flife = document.getElementById('filter-lifecycle');
   var sq = document.getElementById('search-input');
+  if (fkind) vals.kind = fkind.value;
+  if (fclass) vals.class = fclass.value;
+  if (fonb) vals.onboarding = fonb.value;
+  if (flife) vals.lifecycle = flife.value;
   if (fg) vals.group = fg.value;
   if (fp) vals.production = fp.value;
   if (fpr) vals.product = fpr.value;
@@ -647,9 +708,9 @@ function mdmDevSkeleton() {
 // and inspector stay put. Switching collection resets the search + popover filters.
 function scopeRoster(anchor, u) {
   clearSelectAllMatching();
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone'].forEach(function (id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -696,9 +757,9 @@ function setHidden(val) {
 function clearFilters() {
   // Clears the popover filters + search + visibility, but keeps the rail
   // collection (group/restaurant) in scope.
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', kiosk: '', charging: '', timezone: '', hidden: ''});
+  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
@@ -831,7 +892,7 @@ function syncFilterUI() {
   else if (status === 'offline') view = 'offline';
   document.querySelectorAll('.fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // Filters badge: popover filters only (group/restaurant are the rail's job).
-  var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
+  var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone', 'kind', 'class', 'onboarding', 'lifecycle'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');
   if (btn) {
     btn.classList.toggle('has', cnt > 0);

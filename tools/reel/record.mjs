@@ -123,7 +123,7 @@ const OVERLAY_JS = `
 })();`;
 
 class Scene {
-  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.cam = 1; this.camEvents = []; }
+  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.cam = 1; this.camEvents = []; this.recenter = true; }
   now() { return Date.now() - this.t0; }
   // start the clip here (e.g. after a map has finished loading tiles)
   startHere(lead = 0) { this.trimMs = this.now() + lead; }
@@ -136,9 +136,10 @@ class Scene {
     if (!b) return null;
     // keep the target clear of the fixed top bar / bottom dock (they'd eat the click)
     // (at 1.45x the top bar is ~130px and the bottom dock ~150px)
-    if (b.y < 160 || b.y + b.height > H - 170) {
-      await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "instant" }));
-      await sleep(350);
+    if (this.recenter !== false && (b.y < 160 || b.y + b.height > H - 170)) {
+      // smooth, not instant: an instant scroll is a hard cut in the recording
+      await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "smooth" }));
+      await sleep(750);
       b = await el.boundingBox();
     }
     return b;
@@ -196,6 +197,21 @@ class Scene {
     if (target) { const b = await this.box(target).catch(() => null); if (b) { x = b.x + b.width / 2; y = b.y + b.height / 2; } }
     this.cam = k;
     this.camEvents.push({ t: this.now(), k, x, y, dur });
+    await sleep(settle);
+  }
+  // frame: push in as far as kMax while keeping the WHOLE target in the crop. The
+  // assembler keeps the focus point where it was on screen (crop origin =
+  // p*(1-1/z)), so the largest zoom that still contains the box is bounded by the
+  // distance from the box's centre to each frame edge.
+  async frame(target, kMax = 1.6, settle = 800, dur = 650, pad = 24) {
+    const b = await this.box(target).catch(() => null);
+    if (!b) return this.zoomIn(target, kMax, settle, dur);
+    const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+    const hw = b.width / 2 + pad, hh = b.height / 2 + pad;
+    let k = Math.min(kMax, cx / hw, (W - cx) / hw, cy / hh, (H - cy) / hh);
+    k = Math.max(1.05, Math.min(kMax, k));
+    this.cam = k;
+    this.camEvents.push({ t: this.now(), k, x: cx, y: cy, dur });
     await sleep(settle);
   }
   async zoomOut(settle = 800, dur = 750) {
@@ -357,7 +373,15 @@ const SCENES = {
   },
 };
 
-const ORDER = ["overview", "health", "map", "remote", "actions", "rollout", "alerts", "devices"];
+let ORDER = ["overview", "health", "map", "remote", "actions", "rollout", "alerts", "devices"];
+// Another reel can bring its own scenes: REEL_SCRIPT=reel-actions.mjs exports
+// { SCENES, ORDER, prepare? }. prepare(browser, ctx) runs once before recording.
+let SCRIPT = null;
+if (process.env.REEL_SCRIPT) {
+  SCRIPT = await import(new URL("./" + process.env.REEL_SCRIPT, import.meta.url).href);
+  Object.assign(SCENES, SCRIPT.SCENES);
+  ORDER = SCRIPT.ORDER;
+}
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : ORDER;
 
 // ---------------------------------------------------------------- run
@@ -374,6 +398,7 @@ const auth = await browser.newContext();
 }
 const storageState = await auth.storageState();
 await auth.close();
+if (SCRIPT && SCRIPT.prepare) await SCRIPT.prepare({ browser, storageState, BASE, sql, sleep });
 for (const name of wanted) {
   const idx = String(ORDER.indexOf(name) + 1).padStart(2, "0");
   const tmpDir = OUT + "_tmp_" + name + "/";

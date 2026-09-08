@@ -602,9 +602,27 @@
 
 {{/* ── Widget dispatch: renders one column widget by id ── */}}
 {{define "ov3-widget"}}{{$d := .D}}<div class="ov3-w" data-w="{{.ID}}">
-{{if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
+{{if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
 </div>{{end}}
 
+{{define "ov3-w-inbox"}}
+{{/* Onboarding inbox: devices that enrolled / first checked in but have no site yet */}}
+      <div class="ov3-card">
+        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Onboarding</h3>{{if .InboxCount}}<span class="m">{{.InboxCount}} waiting</span>{{end}}<a class="r" href="/enrollment">Enroll →</a></div>
+        {{if .Inbox}}
+          {{range .Inbox}}
+          <a class="cc-row" href="/enrollment#dev-{{.SerialNumber}}">
+            <div class="main"><div class="t"><span class="cc-mono">{{.SerialNumber}}</span> <span class="cc-tag">{{.KindLabel}}</span></div>
+              <div class="s">{{$m := extraField .LatestExtra "model"}}{{if and .IsDPC (ne $m "") (ne $m "—")}}{{$m}}{{else}}{{.ProductLabel}}{{end}} · {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</div></div>
+            <span class="end"><span class="cc-tag warn">Needs a site</span></span>
+          </a>
+          {{end}}
+          {{if gt .InboxCount 5}}<a class="ov3-foot" href="/enrollment">{{sub .InboxCount 5}} more waiting →</a>{{end}}
+        {{else}}
+        <div class="ov3-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Every device is placed</b>New devices land here until they get a site.</div></div>
+        {{end}}
+      </div>
+{{end}}
 {{define "ov3-w-sites"}}
 {{/* Sites heatmap */}}
       <div class="ov3-card" id="ov3-sites">

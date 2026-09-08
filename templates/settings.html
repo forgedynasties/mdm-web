@@ -858,6 +858,23 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── App library ── -->
   <section class="settings-tab" data-tab="applibrary">
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
+    <h3>DPC agent for QR provisioning</h3>
+    {{if and .AgentAPKURL .AgentAPKChecksum}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
+    {{if .AgentAPKFromEnv}}<span class="cc-tag" title="Values come from AGENT_APK_URL / AGENT_APK_CHECKSUM in the server env; saving here overrides them">from env</span>{{end}}
+  </div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">A factory-reset device that scans an enrollment QR downloads the agent from this URL and verifies it against the signing-certificate checksum (URL-safe base64 SHA-256, as Android's provisioning expects). Leave both blank to provision by adb only.</div>
+    <form action="/settings/agent-apk" method="POST" hx-boost="false" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto;gap:8px;align-items:end;">
+      <label class="muted small" style="display:block;">Agent APK URL<input type="url" name="agent_apk_url" value="{{.AgentAPKURL}}" placeholder="https://…/skorra-agent.apk" class="form-input" style="width:100%;margin-top:4px;"></label>
+      <label class="muted small" style="display:block;">Signature checksum<input type="text" name="agent_apk_checksum" value="{{.AgentAPKChecksum}}" placeholder="base64url SHA-256 of the signing cert" class="form-input mono" style="width:100%;margin-top:4px;"></label>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;">Save</button>
+    </form>
+    <div class="muted small" style="margin-top:8px;">Get the checksum from the signed APK: <code>keytool -printcert -jarfile skorra-agent.apk</code>, then base64url-encode the SHA-256 without padding.</div>
+  </div>
+</div>
 <style>
   .lib-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px;padding:16px;}
   .lib-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 12px;border-radius:14px;border:1px solid transparent;text-align:center;}

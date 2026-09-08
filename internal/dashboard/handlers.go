@@ -786,6 +786,34 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"nowUTC": func() time.Time {
 			return time.Now().UTC()
 		},
+		// timeUntil is the forward-looking twin of timeSince ("in 3d", "in 2h"); a time
+		// already past reads as "just now" / "…ago" so expired things say so.
+		"timeUntil": func(t time.Time) string {
+			d := time.Until(t)
+			if d < 0 {
+				d = -d
+				switch {
+				case d < time.Minute:
+					return "just now"
+				case d < time.Hour:
+					return fmt.Sprintf("%dm ago", int(d.Minutes()))
+				case d < 24*time.Hour:
+					return fmt.Sprintf("%dh ago", int(d.Hours()))
+				default:
+					return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+				}
+			}
+			switch {
+			case d < time.Minute:
+				return "in under a minute"
+			case d < time.Hour:
+				return fmt.Sprintf("in %dm", int(d.Minutes()))
+			case d < 24*time.Hour:
+				return fmt.Sprintf("in %dh", int(d.Hours()))
+			default:
+				return fmt.Sprintf("in %dd", int(d.Hours()/24))
+			}
+		},
 		"timeSince": func(t time.Time) string {
 			d := time.Since(t)
 			switch {
@@ -1273,6 +1301,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			sort.Slice(aps, func(i, j int) bool { return aps[i].RSSI > aps[j].RSSI })
 			return aps
 		},
+		// Capability gating (see internal/product/caps.go): offer a control only when the
+		// device can honour it. `supports` is the yes/no; `degraded` adds "with limits".
+		"supports":   func(d db.Device, cmdType string) bool { return d.Supports(cmdType) },
+		"degraded":   func(d db.Device, cmdType string) bool { return d.Degraded(cmdType) },
+		"classLabel": product.ClassLabel,
+		"classes":    product.Classes,
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
@@ -1761,6 +1795,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "compliance"
 	case strings.HasPrefix(path, "/geofencing"):
 		data["ActivePage"] = "geofencing"
+	case strings.HasPrefix(path, "/setup/managed-configs"):
+		data["ActivePage"] = "managed-configs" // lives under the Policies hub
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -1774,7 +1810,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	// The unified Fleet surface (Devices/Restaurants/Groups tabs) needs all three
 	// counts for its tab strip; fetch them only on those pages.
-	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" {
+	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" || ap == "enrollment" {
 		if fc, err := h.db.FleetCounts(r.Context()); err == nil {
 			data["FleetCounts"] = fc
 		}
@@ -3606,6 +3642,11 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Charging:            r.URL.Query().Get("charging"),
 		Timezone:            r.URL.Query().Get("timezone"),
 		Product:             r.URL.Query().Get("product"),
+		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
+		AgentKind:           r.URL.Query().Get("kind"),
+		Class:               r.URL.Query().Get("class"),
+		Onboarding:          r.URL.Query().Get("onboarding"),
+		Lifecycle:           r.URL.Query().Get("lifecycle"),
 		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
@@ -3816,9 +3857,38 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone"} {
+	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
 		if qv.Get(k) != "" {
 			filterCount++
+		}
+	}
+	// Composition strip: the fleet by class (and kind), independent of the current
+	// filter so it reads as "what the fleet is made of".
+	type compSeg struct {
+		Class string
+		Label string
+		N     int
+		Pct   int
+		Idx   int
+	}
+	var composition []compSeg
+	compFirmware, compDPC := 0, 0
+	if classes, fw, dp, err := h.db.FleetComposition(r.Context()); err == nil {
+		compFirmware, compDPC = fw, dp
+		sum := 0
+		for _, c := range classes {
+			sum += c.N
+		}
+		for i, c := range classes {
+			pct := 0
+			if sum > 0 {
+				pct = c.N * 100 / sum
+			}
+			label := product.ClassLabel(c.Class)
+			if c.Class == "" {
+				label = "Unclassed"
+			}
+			composition = append(composition, compSeg{c.Class, label, c.N, pct, i%6 + 1})
 		}
 	}
 
@@ -3938,6 +4008,14 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
+		"FilterKind":           r.URL.Query().Get("kind"),
+		"FilterClass":          r.URL.Query().Get("class"),
+		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
+		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
+		"Classes":              product.Classes(),
+		"Composition":          composition,
+		"CompFirmware":         compFirmware,
+		"CompDPC":              compDPC,
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
@@ -4421,6 +4499,14 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		return n * 100 / summary.Total
 	}
 
+	// Onboarding inbox: devices nobody has placed yet (site/class). Shown as a
+	// widget so a freshly scanned device is noticed without opening Enroll.
+	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
+	inboxN := 0
+	if fc, err := h.db.FleetCounts(r.Context()); err == nil {
+		inboxN = fc.Inbox
+	}
+
 	data := map[string]any{
 		"Title": "Overview",
 		"NowUTC": time.Now().UTC().Format(time.RFC3339),
@@ -4441,6 +4527,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"OnPublishedPct":  onPublishedPct,
 		"Rollouts":        rollouts,
 		"RolloutsCount":   rolloutsN,
+		"Inbox":           inbox,
+		"InboxCount":      inboxN,
 		"Products":        products,
 		"BatteryAvg":      batteryAvg,
 		"HasBatteryAvg":   hasBatteryAvg,
@@ -5052,12 +5140,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Server-Timing: visible in the browser's Network panel, so a slow page can be
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
-	isDPC, deviceCaps := deviceAgentInfo(device.LatestExtra)
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
-		"IsDPC":               isDPC,
-		"Caps":                deviceCaps,
+		"IsDPC":               device.IsDPC(),
+		"Caps":                device.CapSet(),
+		"Classes":             product.Classes(),
 		"DeviceCrashCount":    crashCount,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
@@ -12200,7 +12288,7 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	// filter/subset by capability. ListDevices already carries latest_extra.
 	dpc := make(map[uuid.UUID]bool, len(devices))
 	for _, d := range devices {
-		if isDPC, _ := deviceAgentInfo(d.LatestExtra); isDPC {
+		if d.IsDPC() {
 			dpc[d.ID] = true
 		}
 	}
@@ -12247,6 +12335,32 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Capability gating: devices whose agent cannot run the action are skipped at
+	// send (see CommandCreate), so the preview subtracts them here and names them.
+	// unsupportedBy carries the same count for every console action so the grid
+	// can caveat each card without another round-trip.
+	unsupported := 0
+	var unsupSerials []string
+	unsupportedBy := map[string]int{}
+	for _, d := range devices {
+		if !d.Supports(cmdType) {
+			unsupported++
+			if len(unsupSerials) < 500 {
+				unsupSerials = append(unsupSerials, d.SerialNumber)
+			}
+		}
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+			need := t
+			if t == "set_kiosk" {
+				need = "kiosk_set"
+			}
+			if !d.Supports(need) {
+				unsupportedBy[t]++
+			}
+		}
+	}
+	skipped += unsupported
+	unsupJSON, _ := json.Marshal(unsupportedBy)
 
 	type rollRow struct {
 		Serial  string
@@ -12293,12 +12407,25 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			warn = fmt.Sprintf("%d online device%s %s under 20%% battery — rebooting risks a unit that can't power back up.", lowBatOnline, s, verb)
 		}
 	case "uninstall":
-		if skipped > 0 {
+		if skipped-unsupported > 0 {
+			n := skipped - unsupported
 			s, verb := "", "doesn't"
-			if skipped != 1 {
+			if n != 1 {
 				s, verb = "s", "don't"
 			}
-			warn = fmt.Sprintf("%d targeted device%s %s report this package — they'll be skipped automatically.", skipped, s, verb)
+			warn = fmt.Sprintf("%d targeted device%s %s report this package — they'll be skipped automatically.", n, s, verb)
+		}
+	}
+	if unsupported > 0 {
+		s := ""
+		if unsupported != 1 {
+			s = "s"
+		}
+		msg := fmt.Sprintf("%d device%s can't run %s on their agent — skipped automatically.", unsupported, s, cmdTypeLabel(cmdType))
+		if warn != "" {
+			warn = msg + " " + warn
+		} else {
+			warn = msg
 		}
 	}
 
@@ -12310,6 +12437,9 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 		"Offline":    offlineEff,
 		"DPC":        dpcCount,
 		"Skipped":    skipped,
+		"Unsupported": unsupported,
+		"UnsupJSON":   string(unsupJSON),
+		"UnsupSerials": strings.Join(unsupSerials, ","),
 		"LowBattery": lowBatOnline,
 		"Screenshot": cmdType == "screenshot",
 		"Warn":       warn,
@@ -13783,6 +13913,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		TargetLabel  string
 		DeviceCount  int
 		CoveragePct  int
+		Unsupported  int // targets whose agent cannot lock the screen
 	}
 	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
 	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
@@ -13794,6 +13925,12 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	resolvedPolicies := make([]resolved, 0, len(policies))
 	covered := 0
 	groupTargets := map[uuid.UUID]bool{}
+	// Mixed fleet: a kiosk policy only lands on devices whose agent can lock the
+	// screen. Count, per policy and overall, the targets that cannot honour it, and
+	// split coverage by kind so it is obvious when a policy misses one side.
+	coveredByKind := map[string]int{}
+	unsupportedByPolicy := map[uuid.UUID]int{}
+	seenCovered := map[uuid.UUID]bool{}
 	for _, p := range policies {
 		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
 		resolvedPolicies = append(resolvedPolicies, resolved{p, ids})
@@ -13801,7 +13938,19 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		if p.TargetType == "group" && p.TargetID != nil {
 			groupTargets[*p.TargetID] = true
 		}
+		if devs, err := h.db.GetDevicesByIDs(ctx, ids); err == nil {
+			for _, d := range devs {
+				if !d.Supports("kiosk_set") {
+					unsupportedByPolicy[p.ID]++
+				}
+				if !seenCovered[d.ID] {
+					seenCovered[d.ID] = true
+					coveredByKind[d.AgentKind]++
+				}
+			}
+		}
 	}
+	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx)
 	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
 	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
 	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
@@ -13828,6 +13977,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 			TargetLabel: manageTargetLabel(rp.p, restaurants, groups),
 			DeviceCount: len(rp.ids),
 			CoveragePct: pct,
+			Unsupported: unsupportedByPolicy[rp.p.ID],
 		})
 	}
 
@@ -13848,6 +13998,14 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"Restaurants":    restaurants,
 		"Groups":         groups,
 		"CanEdit":        roleCanOperate(role),
+		"CoveredFirmware": coveredByKind["firmware"],
+		"CoveredDPC":      coveredByKind["dpc"],
+		// Targets that resolve to inactive (hidden) devices: counted in "covered"
+		// but not in either kind, since the split reads active devices only.
+		"CoveredInactive": covered - coveredByKind["firmware"] - coveredByKind["dpc"],
+		"FleetFirmware":   fleetFirmware,
+		"FleetDPC":        fleetDPC,
+		"ActivePage":      "manage",
 	})
 }
 
@@ -14249,6 +14407,39 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		targetIDs = kept
 	}
 
+	// Capability gating: a device whose agent cannot run this command is dropped
+	// here (and named in the result) instead of receiving a command it would only
+	// fail. Mirrors the impact preview so what was promised is what fires.
+	unsupportedSkipped := 0
+	unsupSkipped := map[string]bool{}
+	if product.CommandNeeds(cmdType) != "" && len(targetIDs) > 0 {
+		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
+			can := make(map[uuid.UUID]bool, len(devs))
+			for _, d := range devs {
+				if d.Supports(cmdType) {
+					can[d.ID] = true
+				} else {
+					unsupSkipped[d.SerialNumber] = true
+					unsupportedSkipped++
+				}
+			}
+			kept := targetIDs[:0:0]
+			for _, id := range targetIDs {
+				if can[id] {
+					kept = append(kept, id)
+				}
+			}
+			if len(kept) == 0 {
+				http.Error(w, fmt.Sprintf("None of the selected devices can run %s on their agent.", cmdTypeLabel(cmdType)), http.StatusBadRequest)
+				return
+			}
+			if unsupportedSkipped > 0 {
+				h.audit(r, "command.send.unsupported", cmdType, fmt.Sprintf("skipped %d device(s) whose agent cannot run it", unsupportedSkipped))
+			}
+			targetIDs = kept
+		}
+	}
+
 	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
 	// serials that match nothing) rather than inserting an orphan command with no
 	// targets that no device will ever pick up.
@@ -14283,7 +14474,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// have this exact APK in flight or already report its package (unless "Reinstall
 	// anyway"); an app whose whole target set is skipped simply creates no command.
 	reinstall := r.FormValue("reinstall") != ""
-	skippedSet := map[string]bool{}
+	skippedSet := unsupSkipped // starts with the devices whose agent cannot run the command
 	var created []*db.Command
 
 	// Pre-fetch APK size/ETag for every install URL CONCURRENTLY with a short bound, so a
@@ -15013,6 +15204,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
+		"AgentAPKURL":          h.cfg.AgentAPKURL(),
+		"AgentAPKChecksum":     h.cfg.AgentAPKChecksum(),
+		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 		"Apps":                 repoApps,
 		"Productions":          productions,
 		"DeviceQueries":        deviceQueries,
@@ -15247,29 +15441,6 @@ func agoString(t time.Time) string {
 
 // extraHasCoords reports whether a device's latest extra payload carries a
 // resolved latitude/longitude (so the device page will render the Maps Embed).
-// deviceAgentInfo reports whether a device runs the standalone Device-Owner ("dpc") agent and
-// which capabilities it advertised on checkin (extra.agent_type / extra.capabilities). The device
-// page uses this to gray out actions the DPC agent can't do and to show a Wipe action it can.
-// A legacy system-app client sends no agent_type, so isDPC is false and caps is empty — every
-// existing action stays enabled exactly as before.
-func deviceAgentInfo(raw json.RawMessage) (isDPC bool, caps map[string]bool) {
-	caps = map[string]bool{}
-	if len(raw) == 0 {
-		return false, caps
-	}
-	var m struct {
-		AgentType    string   `json:"agent_type"`
-		Capabilities []string `json:"capabilities"`
-	}
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return false, caps
-	}
-	for _, c := range m.Capabilities {
-		caps[c] = true
-	}
-	return m.AgentType == "dpc", caps
-}
-
 func extraHasCoords(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false
@@ -17864,6 +18035,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/{id}/revoke", h.requireAdminOrOperator(h.EnrollmentProfileRevoke))
 	post("POST /enrollment/profiles/{id}/activate", h.requireAdminOrOperator(h.EnrollmentProfileActivate))
 	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
+	post("POST /enrollment/profiles/{id}/update", h.requireAdminOrOperator(h.EnrollmentProfileUpdate))
+	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
+	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
+	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
+	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
+	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
 	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
 	mux.HandleFunc("GET /compliance", h.requireAuth(h.CompliancePage))
@@ -17935,6 +18112,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)

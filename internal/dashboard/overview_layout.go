@@ -28,6 +28,7 @@ type overviewWidget struct {
 var overviewWidgets = []overviewWidget{
 	{"hero", "Fleet health", "top"},
 	{"kpis", "Signal strip", "top"},
+	{"inbox", "Onboarding inbox", "left"},
 	{"sites", "Sites", "left"},
 	{"map", "Fleet map", "left"},
 	{"activity", "Fleet activity", "left"},
@@ -56,24 +57,24 @@ type overviewPreset struct {
 var overviewPresets = []overviewPreset{
 	{"default", "Default", "Everything, balanced across two columns.", overviewLayout{
 		Preset: "default",
-		Left:   []string{"sites", "map", "activity"},
+		Left:   []string{"inbox", "sites", "map", "activity"},
 		Right:  []string{"rollouts", "adoption", "vitals"},
 	}},
 	{"operations", "Operations", "Sites, map and vitals for the on-call desk.", overviewLayout{
 		Preset: "operations",
 		Hidden: []string{"rollouts", "adoption"},
-		Left:   []string{"sites", "map"},
+		Left:   []string{"inbox", "sites", "map"},
 		Right:  []string{"vitals", "activity"},
 	}},
 	{"releases", "Releases", "Rollouts and adoption front and centre.", overviewLayout{
 		Preset: "releases",
-		Hidden: []string{"map"},
+		Hidden: []string{"map", "inbox"},
 		Left:   []string{"rollouts", "adoption"},
 		Right:  []string{"sites", "vitals", "activity"},
 	}},
 	{"minimal", "Minimal", "Score, signals and sites only.", overviewLayout{
 		Preset: "minimal",
-		Hidden: []string{"map", "activity", "rollouts", "adoption", "vitals"},
+		Hidden: []string{"map", "activity", "rollouts", "adoption", "vitals", "inbox"},
 		Left:   []string{"sites"},
 		Right:  []string{},
 	}},

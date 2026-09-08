@@ -1,0 +1,9 @@
+[
+  { "file": "00-intro", "kicker": "AIO MDM · Actions", "title": "Send something<br>to the right devices.", "sub": "The Actions page, rebuilt: pick who, pick what, send. Everything else got out of the way.", "big": true },
+  { "file": "01-who", "kicker": "1 · Who", "title": "Venue, group, or the whole fleet", "sub": "Scope tabs keep the list short. One click adds every device at a venue." },
+  { "file": "02-paste", "kicker": "1 · Who", "title": "Paste a list of serials", "sub": "Each one is checked against the fleet. Real devices get added, typos get called out." },
+  { "file": "03-what", "kicker": "2 · What", "title": "The grid adapts", "sub": "Only actions every selected device can run. App picker closes after each pick." },
+  { "file": "04-send", "kicker": "3 · Send", "title": "Land on the result", "sub": "One send, one page. Every device acknowledges live." },
+  { "file": "05-presets", "kicker": "Presets", "title": "What operators actually send", "sub": "Pinned setups, the most recent sends, and the ones repeated most. One click to resend." },
+  { "file": "99-outro", "kicker": "AIO MDM", "title": "Less clicking.<br>More doing.", "sub": "aioapp.com", "big": true, "credit": "Music: Kevin MacLeod (incompetech.com), CC BY 4.0" }
+]

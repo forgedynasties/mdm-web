@@ -620,15 +620,31 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	}
 	deviceKey := "dvk_" + hex.EncodeToString(raw)
 	sum := sha256.Sum256([]byte(deviceKey))
-	deviceID, err := h.db.EnrollDevice(r.Context(), profile, req.Serial, req.Product, hex.EncodeToString(sum[:]))
+	res, err := h.db.EnrollDevice(r.Context(), profile, req.Serial, req.Product, hex.EncodeToString(sum[:]))
 	if err != nil {
 		log.Printf("[enroll] %s via %q: %v", req.Serial, profile.Name, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
-	log.Printf("[enroll] device %s enrolled via profile %q", req.Serial, profile.Name)
-	h.hub.PublishDeviceUpdate(deviceID)
-	writeJSON(w, http.StatusOK, map[string]string{"device_key": deviceKey})
+	verb := "enrolled"
+	if res.ReEnrolled {
+		verb = "re-enrolled (key rotated)"
+	}
+	log.Printf("[enroll] device %s %s via profile %q", req.Serial, verb, profile.Name)
+	h.hub.PublishDeviceUpdate(res.DeviceID)
+	// Beyond the key, tell the agent where the device landed so its status screen can
+	// show the operator "Enrolled · mPOS · Site X" (empty strings when the profile did
+	// not set that field). Older agents read device_key and ignore the rest.
+	writeJSON(w, http.StatusOK, map[string]any{
+		"device_key":   deviceKey,
+		"device_id":    res.DeviceID.String(),
+		"profile":      profile.Name,
+		"device_class": profile.DeviceClass,
+		"site":         profile.RestaurantName,
+		"group":        profile.GroupName,
+		"re_enrolled":  res.ReEnrolled,
+		"onboarded":    res.Onboarded,
+	})
 }
 
 // requireBoundSerial rejects a request whose per-device credential doesn't match the
