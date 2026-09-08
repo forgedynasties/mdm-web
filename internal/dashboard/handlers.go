@@ -2769,7 +2769,7 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 // user management. Only the env-configured "admin" passes.
 // requireUserManager guards the Users pages: admin or user_manager. Per-target
 // elevation checks (who may edit whom) live in the handlers via mayManageUser.
-// requireOTA guards firmware pushes: admin, dev, or the OTA admin (who may deploy
+// requireOTA guards firmware pushes: admin, dev, or the super op (who may deploy
 // releases but not manage the release packages themselves).
 func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -13114,15 +13114,15 @@ const (
 // Raw shell is limited to admin/dev; operators reach vetted commands via the device
 // queries catalog instead (the "diagnostic" action on the Actions page).
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "operator", "user_manager", "ota_admin", "viewer"},
-	"install_apk":   {"admin", "dev", "operator", "user_manager", "ota_admin"},
-	"uninstall":     {"admin", "dev", "operator", "user_manager", "ota_admin"},
-	"reboot":        {"admin", "dev", "operator", "user_manager", "ota_admin"},
+	"screenshot":    {"admin", "dev", "operator", "user_manager", "super_op", "viewer"},
+	"install_apk":   {"admin", "dev", "operator", "user_manager", "super_op"},
+	"uninstall":     {"admin", "dev", "operator", "user_manager", "super_op"},
+	"reboot":        {"admin", "dev", "operator", "user_manager", "super_op"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
-	"query":         {"admin", "dev", "operator", "user_manager", "ota_admin"},
-	"ota":           {"admin", "dev", "ota_admin"},
+	"query":         {"admin", "dev", "operator", "user_manager", "super_op"},
+	"ota":           {"admin", "dev", "super_op"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
 	// Full-device factory reset — DPC-agent devices only, admin-only (most destructive action).
@@ -13146,12 +13146,12 @@ var commandRoles = map[string][]string{
 //   operator      device actions, per access policy
 //   viewer        read-only, per visibility policy
 
-var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "ota_admin": 2, "dev": 3, "admin": 4}
+var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "super_op": 2, "dev": 3, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "ota_admin": "OTA admin", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
+var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "super_op": "Super op", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
 
 // roleOrder is every assignable role, highest first.
-var roleOrder = []string{"admin", "dev", "user_manager", "ota_admin", "operator", "viewer", "owner"}
+var roleOrder = []string{"admin", "dev", "user_manager", "super_op", "operator", "viewer", "owner"}
 
 func roleLevel(role string) int { return roleLevels[role] }
 
@@ -13164,20 +13164,20 @@ func roleLabel(role string) string {
 
 // roleCanOperate: roles with operator powers (device actions, QA, groups…).
 func roleCanOperate(role string) bool {
-	return role == "admin" || role == "dev" || role == "user_manager" || role == "ota_admin" || role == "operator"
+	return role == "admin" || role == "dev" || role == "user_manager" || role == "super_op" || role == "operator"
 }
 
 // roleCanOTA: may push firmware updates (create deployments, add targets, retry,
 // cancel). Release packages themselves (create / upload / publish / delete) stay
 // with canRelease (admin + dev).
-func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || role == "ota_admin" }
+func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || role == "super_op" }
 
 // roleIsOperatorLike: the "test team" roles — operator, or user manager acting
 // as one. Used where operators specifically (not admins) get a behaviour.
-func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "ota_admin" }
+func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "super_op" }
 
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
-func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "ota_admin" }
+func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "super_op" }
 
 // assignableRoles lists the roles an actor may grant: strictly below their level,
 // except an admin who may also make admins.

@@ -10850,11 +10850,11 @@ ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS max_enrolls INT;
 ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS last_enrolled_at TIMESTAMPTZ;
 
--- OTA admin: an access admin who may also push firmware updates (deploy releases,
+-- Super op: an access admin who may also push firmware updates (deploy releases,
 -- add targets, retry / cancel) but not manage release packages. Effective role
 -- constraint; keep it last.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','ota_admin','dev','admin','owner'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','dev','admin','owner'));
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
