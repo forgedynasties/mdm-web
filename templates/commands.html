@@ -42,12 +42,18 @@
 .co-qf.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
 .co-qf .n{color:var(--text-faint);font-weight:600}
 .co-qf.on .n{color:var(--accent-text)}
-/* scope rows colour-coded by kind: fleet = neutral, restaurant = info, group = accent-2 */
-.co-scope[data-kind="restaurant"]{border-left:3px solid var(--info)}
+/* scope rows: kind is carried by the icon chip tint and a small kind tag in the
+   meta line — no borders, the row stays quiet until hovered or added */
 .co-scope[data-kind="restaurant"] .ic{background:var(--info-bg);color:var(--info)}
-.co-scope[data-kind="group"]{border-left:3px solid var(--accent-2)}
 .co-scope[data-kind="group"] .ic{background:var(--accent-2-soft);color:var(--accent-2)}
-.co-scope[data-kind="all"]{border-left:3px solid var(--rule-2)}
+.co-scope[data-kind="all"] .ic{background:var(--surface2);color:var(--text-2)}
+.co-scope .kt{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-right:5px;vertical-align:1px;background:var(--surface2);color:var(--text-2)}
+.co-scope[data-kind="restaurant"] .kt{background:var(--info-bg);color:var(--info)}
+.co-scope[data-kind="group"] .kt{background:var(--accent-2-soft);color:var(--accent-2)}
+.co-scope[data-kind="restaurant"]:hover{border-color:var(--info)}
+.co-scope[data-kind="group"]:hover{border-color:var(--accent-2)}
+.co-scope.on .ic{background:var(--accent);color:#fff}
+.co-scope.on .kt{background:var(--surface);color:var(--accent-text)}
 .co-stab[data-stab="restaurant"].on{color:var(--info)}
 .co-stab[data-stab="group"].on{color:var(--accent-2)}
 .co-r-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:6px 2px 7px}
@@ -756,8 +762,8 @@ window.CMD_PREFILL = {{.Prefill}};
   // ── Rail: scopes ──
   function scopeList() {
     var list = [{ kind: 'all', name: 'All devices', meta: 'the whole fleet — asks to confirm', icon: 'all' }];
-    DS.restaurants.forEach(function (r) { list.push({ kind: 'restaurant', id: r.id, name: r.name, count: r.count, meta: 'restaurant · ' + r.count + ' device' + (r.count === 1 ? '' : 's'), icon: 'place' }); });
-    DS.groups.forEach(function (g) { list.push({ kind: 'group', id: g.id, name: g.name, count: g.count, meta: 'group · ' + g.count + ' device' + (g.count === 1 ? '' : 's'), icon: 'group' }); });
+    DS.restaurants.forEach(function (r) { list.push({ kind: 'restaurant', id: r.id, name: r.name, count: r.count, meta: r.count + ' device' + (r.count === 1 ? '' : 's'), icon: 'place' }); });
+    DS.groups.forEach(function (g) { list.push({ kind: 'group', id: g.id, name: g.name, count: g.count, meta: g.count + ' device' + (g.count === 1 ? '' : 's'), icon: 'group' }); });
     return list;
   }
   function selKey(t) { return t.kind + ':' + (t.id || t.serial || 'all'); }
@@ -773,7 +779,7 @@ window.CMD_PREFILL = {{.Prefill}};
       var on = isSel(s.kind, s.id);
       html += '<button type="button" class="co-scope' + (on ? ' on' : '') + '" data-kind="' + s.kind + '" data-id="' + esc(s.id || '') + '">'
         + '<span class="ic">' + svg(s.icon) + '</span>'
-        + '<span class="bd"><span class="n">' + esc(s.name) + '</span><span class="m">' + esc(s.meta) + '</span></span>'
+        + '<span class="bd"><span class="n">' + esc(s.name) + '</span><span class="m">' + (s.kind === 'all' ? '' : '<span class="kt">' + s.kind + '</span>') + esc(s.meta) + '</span></span>'
         + '<span class="add">' + (on ? 'Added' : '+ Add') + '</span></button>';
     });
     el('co-scopes').innerHTML = html || '<div class="co-listempty">No scope matches.</div>';
