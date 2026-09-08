@@ -52,12 +52,14 @@
     // rather re-fetch on back/forward than ever show a cached-blank page.
     if (window.htmx) {
       htmx.config.historyCacheSize = 0; htmx.config.refreshOnHistoryMiss = true;
-      // Crossfade every swap through the View Transitions API so navigating and
-      // in-place fragment swaps ease in instead of hard-cutting. The header/dock
-      // don't change across a boosted swap, so only <main> visibly transitions.
-      // Honoured only where supported; reduced-motion users get an instant swap
-      // (see the ::view-transition rules in style.css).
-      htmx.config.globalViewTransitions = true;
+      // NO View Transitions. document.startViewTransition() snapshots the whole
+      // document, hides the live DOM for the crossfade, then brings it back —
+      // which tears down and recreates every backdrop-filter compositing layer
+      // (dock, topbar, toasts) on EVERY swap, boosted navs and polling partials
+      // alike. That was the glass "flicker" on each page load. The crossfade is
+      // now a plain opacity transition on the swapped <main> only (see
+      // main.htmx-added in style.css); persistent chrome is never touched.
+      htmx.config.globalViewTransitions = false;
     }
     try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
   </script>
