@@ -3474,7 +3474,8 @@ func (d *DB) GetDevicesByIDs(ctx context.Context, ids []uuid.UUID) ([]Device, er
 		return nil, nil
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, serial_number, COALESCE(build_id,''), last_seen_at, COALESCE(latest_battery_pct,0)
+		SELECT id, serial_number, COALESCE(build_id,''), last_seen_at, COALESCE(latest_battery_pct,0),
+		       product, agent_kind, device_class, capabilities, capabilities_degraded, enrollment_status
 		FROM devices WHERE id = ANY($1) AND NOT hidden`, ids)
 	if err != nil {
 		return nil, err
@@ -3483,7 +3484,8 @@ func (d *DB) GetDevicesByIDs(ctx context.Context, ids []uuid.UUID) ([]Device, er
 	var out []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.BatteryPct); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.BatteryPct,
+			&dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus); err != nil {
 			return nil, err
 		}
 		out = append(out, dev)

@@ -12333,6 +12333,32 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Capability gating: devices whose agent cannot run the action are skipped at
+	// send (see CommandCreate), so the preview subtracts them here and names them.
+	// unsupportedBy carries the same count for every console action so the grid
+	// can caveat each card without another round-trip.
+	unsupported := 0
+	var unsupSerials []string
+	unsupportedBy := map[string]int{}
+	for _, d := range devices {
+		if !d.Supports(cmdType) {
+			unsupported++
+			if len(unsupSerials) < 500 {
+				unsupSerials = append(unsupSerials, d.SerialNumber)
+			}
+		}
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+			need := t
+			if t == "set_kiosk" {
+				need = "kiosk_set"
+			}
+			if !d.Supports(need) {
+				unsupportedBy[t]++
+			}
+		}
+	}
+	skipped += unsupported
+	unsupJSON, _ := json.Marshal(unsupportedBy)
 
 	type rollRow struct {
 		Serial  string
@@ -12379,12 +12405,25 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			warn = fmt.Sprintf("%d online device%s %s under 20%% battery — rebooting risks a unit that can't power back up.", lowBatOnline, s, verb)
 		}
 	case "uninstall":
-		if skipped > 0 {
+		if skipped-unsupported > 0 {
+			n := skipped - unsupported
 			s, verb := "", "doesn't"
-			if skipped != 1 {
+			if n != 1 {
 				s, verb = "s", "don't"
 			}
-			warn = fmt.Sprintf("%d targeted device%s %s report this package — they'll be skipped automatically.", skipped, s, verb)
+			warn = fmt.Sprintf("%d targeted device%s %s report this package — they'll be skipped automatically.", n, s, verb)
+		}
+	}
+	if unsupported > 0 {
+		s := ""
+		if unsupported != 1 {
+			s = "s"
+		}
+		msg := fmt.Sprintf("%d device%s can't run %s on their agent — skipped automatically.", unsupported, s, cmdTypeLabel(cmdType))
+		if warn != "" {
+			warn = msg + " " + warn
+		} else {
+			warn = msg
 		}
 	}
 
@@ -12396,6 +12435,9 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 		"Offline":    offlineEff,
 		"DPC":        dpcCount,
 		"Skipped":    skipped,
+		"Unsupported": unsupported,
+		"UnsupJSON":   string(unsupJSON),
+		"UnsupSerials": strings.Join(unsupSerials, ","),
 		"LowBattery": lowBatOnline,
 		"Screenshot": cmdType == "screenshot",
 		"Warn":       warn,
@@ -14335,6 +14377,39 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		targetIDs = kept
 	}
 
+	// Capability gating: a device whose agent cannot run this command is dropped
+	// here (and named in the result) instead of receiving a command it would only
+	// fail. Mirrors the impact preview so what was promised is what fires.
+	unsupportedSkipped := 0
+	unsupSkipped := map[string]bool{}
+	if product.CommandNeeds(cmdType) != "" && len(targetIDs) > 0 {
+		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
+			can := make(map[uuid.UUID]bool, len(devs))
+			for _, d := range devs {
+				if d.Supports(cmdType) {
+					can[d.ID] = true
+				} else {
+					unsupSkipped[d.SerialNumber] = true
+					unsupportedSkipped++
+				}
+			}
+			kept := targetIDs[:0:0]
+			for _, id := range targetIDs {
+				if can[id] {
+					kept = append(kept, id)
+				}
+			}
+			if len(kept) == 0 {
+				http.Error(w, fmt.Sprintf("None of the selected devices can run %s on their agent.", cmdTypeLabel(cmdType)), http.StatusBadRequest)
+				return
+			}
+			if unsupportedSkipped > 0 {
+				h.audit(r, "command.send.unsupported", cmdType, fmt.Sprintf("skipped %d device(s) whose agent cannot run it", unsupportedSkipped))
+			}
+			targetIDs = kept
+		}
+	}
+
 	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
 	// serials that match nothing) rather than inserting an orphan command with no
 	// targets that no device will ever pick up.
@@ -14369,7 +14444,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// have this exact APK in flight or already report its package (unless "Reinstall
 	// anyway"); an app whose whole target set is skipped simply creates no command.
 	reinstall := r.FormValue("reinstall") != ""
-	skippedSet := map[string]bool{}
+	skippedSet := unsupSkipped // starts with the devices whose agent cannot run the command
 	var created []*db.Command
 
 	// Pre-fetch APK size/ETag for every install URL CONCURRENTLY with a short bound, so a
