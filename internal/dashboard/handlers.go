@@ -1795,6 +1795,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "compliance"
 	case strings.HasPrefix(path, "/geofencing"):
 		data["ActivePage"] = "geofencing"
+	case strings.HasPrefix(path, "/setup/managed-configs"):
+		data["ActivePage"] = "managed-configs" // lives under the Policies hub
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
