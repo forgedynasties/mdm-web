@@ -1095,9 +1095,8 @@ window.CMD_PREFILL = {{.Prefill}};
         html += '<input class="co-in mono" id="co-shell" placeholder="Shell command — e.g. df -h" value="' + esc(S.shell) + '">';
         break;
       case 'query':
-        html += '<select class="co-in" id="co-query"><option value="">Pick a vetted query…</option>'
-          + DS.queries.map(function (x) { return '<option value="' + x.id + '"' + (S.query && S.query.id === x.id ? ' selected' : '') + '>' + esc(x.label) + (x.cat ? ' — ' + esc(x.cat) : '') + '</option>'; }).join('')
-          + '</select>';
+        if (S.query) html += chip(S.query.label, 'query', String(S.query.id));
+        html += '<button type="button" class="co-addbtn" data-menu="query"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' + (S.query ? 'Change query' : 'Pick a vetted query') + '</button>';
         break;
       case 'kiosk':
         var lockOn = S.kiosk && S.kiosk.enabled === '1';
@@ -1120,13 +1119,7 @@ window.CMD_PREFILL = {{.Prefill}};
     if (sh) { sh.addEventListener('input', function () { S.shell = sh.value; syncFormQuiet(); }); sh.addEventListener('focus', function () { openMenu('shell', sh); }); sh.addEventListener('input', function () { if (menu.kind === 'shell') renderMenu(); }); bindEnter(sh); }
     var sp = el('co-splash');
     if (sp) { sp.addEventListener('input', function () { S.splash = sp.value; syncFormQuiet(); }); bindEnter(sp); }
-    var qs = el('co-query');
-    if (qs) qs.addEventListener('change', function () {
-      var id = parseInt(qs.value, 10);
-      var x = DS.queries.find(function (o) { return o.id === id; });
-      S.query = x ? { id: x.id, label: x.label } : null;
-      disarm(); syncForm(); updateStripMeta();
-    });
+
   }
   // Payload keystrokes shouldn't re-render the strip (focus loss) — only sync + label.
   var quietTimer = null;
@@ -1216,6 +1209,14 @@ window.CMD_PREFILL = {{.Prefill}};
           pick: function () { if (sel) S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== p.pkg; }); else S.pkgs.push({ pkg: p.pkg, name: p.name }); } });
       });
       if (!pkgsLoading && !(pkgsList || []).length) empty = S.targets.length ? 'No uninstallable apps reported on the selection.' : 'Pick a target first — the list shows what is actually installed there.';
+    } else if (menu.kind === 'query') {
+      DS.queries.forEach(function (x) {
+        if (!match(x.label + ' ' + (x.cat || ''), q)) return;
+        var sel = !!(S.query && S.query.id === x.id);
+        opts.push({ icon: 'query', title: x.label, meta: x.cat || 'vetted read-only diagnostic', sel: sel,
+          pick: function () { S.query = { id: x.id, label: x.label }; } });
+      });
+      empty = DS.queries.length ? 'No query matches.' : 'No vetted queries defined — add them in Settings.';
     } else if (menu.kind === 'kioskpkg') {
       DS.packages.forEach(function (p) {
         if (!match(p.name + ' ' + p.pkg, q)) return;
@@ -1473,6 +1474,7 @@ window.CMD_PREFILL = {{.Prefill}};
         if (kind === 'app') S.apps = S.apps.filter(function (x) { return x.url !== key; });
         else if (kind === 'pkg') S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== key; });
         else if (kind === 'kioskpkg') S.kiosk = { enabled: '1' };
+        else if (kind === 'query') S.query = null;
         disarm(); syncForm(); renderPay(); updateStripMeta();
         return;
       }
