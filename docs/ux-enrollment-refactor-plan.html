@@ -120,6 +120,7 @@ td code{white-space:nowrap}
     <li><a href="#ia"><span class="num">3</span>Information architecture</a></li>
     <li><a href="#flows"><span class="num">4</span>Enrollment flows</a></li>
     <li><a href="#phases"><span class="num">5</span>Delivery phases</a></li>
+    <li><a href="#status"><span class="num">7</span>Status</a></li>
     <li><a href="#open"><span class="num">6</span>Open questions</a></li>
   </ol>
 </nav>
@@ -129,7 +130,7 @@ td code{white-space:nowrap}
   <h1 style="margin-top:10px">Mixed fleet UI/UX refactor</h1>
   <p class="lede">Make the dashboard treat firmware devices and DPC-managed outsourced devices as one fleet, with enrollment as a visible lifecycle and every control derived from what the device can actually do.</p>
   <div class="meta">
-    <span>Status <b>proposal, nothing implemented</b></span>
+    <span>Status <b>phases 1–6 shipped on stage-dpc</b></span>
     <span>Written <b>2026-09-08</b></span>
     <span>Branch <b class="mono">stage-dpc</b> at <b class="mono">861dc95</b></span>
     <span>Agent <b class="mono">mdm-dpc-agent</b> at <b class="mono">d5e5c81</b></span>
@@ -316,6 +317,21 @@ func (d Device) Degraded(cmdType string) bool   // works with limits; UI shows a
     </tbody>
   </table></div>
   <p>Update <code>docs/ui-design-language.md</code> (kind and class tag conventions, inbox row pattern) and <code>docs/API_REFERENCE.md</code> plus <code>openapi.yaml</code> (new enroll response fields, capabilities schema) as part of phases 1 and 2.</p>
+
+  <h2 id="status">7 · Status</h2>
+  <p>All six phases shipped on <code>stage-dpc</code> on 2026-09-08; the test instance on :8082 runs them.</p>
+  <div class="tbl phases"><table>
+    <thead><tr><th>#</th><th>phase</th><th>commit</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Data model: kind, class, capabilities, lifecycle, profile intent, <code>Supports()</code></td><td><code>2949b87</code></td></tr>
+      <tr><td>2</td><td>Enroll page (inbox, profiles, how-to), Fleet › Enroll tab, Overview widget</td><td><code>3568d66</code></td></tr>
+      <tr><td>3</td><td>Fleet filters (kind / class / onboarding / lifecycle), card tags, composition strip</td><td><code>f3eb2a7</code></td></tr>
+      <tr><td>4</td><td>Device page: ribbon tags, capability-gated actions, Enrollment card, retire / wipe</td><td><code>4c549f9</code></td></tr>
+      <tr><td>5</td><td>Actions console: per-action unsupported counts, send drops unsupported devices</td><td><code>d061c53</code></td></tr>
+      <tr><td>6</td><td>Policies hub (tabs, dock), coverage by kind, DPC agent APK setting, tour step</td><td><code>cd4df81</code>, <code>e93b4f8</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Still open: Q3 (Sites rename, left as Restaurants), the agent-side asks in section 6 (send <code>capabilities_degraded</code>, show the enroll result on the agent's status screen), the optional staged-devices list, and rolling <code>stage-dpc</code> to the live instance.</p>
 
   <h2 id="open">6 · Open questions and assumptions</h2>
   <ol class="qs">
