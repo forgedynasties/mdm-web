@@ -64,7 +64,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Classes":        product.Classes(),
 		"Inbox":          inbox,
 		"Stats":          stats,
-		"HasAgentAPK":    os.Getenv("AGENT_APK_URL") != "" && os.Getenv("AGENT_APK_CHECKSUM") != "",
+		"HasAgentAPK":    h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != "",
 	})
 }
 
@@ -199,10 +199,10 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 	}
 	// QR provisioning needs a downloadable agent APK; without these env vars the code
 	// still carries the extras (usable for docs/manual flows) but can't cold-provision.
-	if apkURL := os.Getenv("AGENT_APK_URL"); apkURL != "" {
+	if apkURL := h.cfg.AgentAPKURL(); apkURL != "" {
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = apkURL
 	}
-	if sum := os.Getenv("AGENT_APK_CHECKSUM"); sum != "" {
+	if sum := h.cfg.AgentAPKChecksum(); sum != "" {
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] = sum
 	}
 	blob, err := json.Marshal(payload)
@@ -596,7 +596,7 @@ func (h *Handler) ManagedConfigsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "managed_configs.html", map[string]any{
 		"Title":      "Managed configurations",
-		"ActivePage": "setup",
+		"ActivePage": "managed-configs",
 		"Rows":       rows,
 	})
 }
@@ -1199,6 +1199,27 @@ func (h *Handler) ReportActivityCSV(w http.ResponseWriter, r *http.Request) {
 		cw.Write([]string{s.Day.Format("2006-01-02"), strconv.Itoa(s.Active), strconv.FormatInt(s.Checkins, 10)})
 	}
 	cw.Flush()
+}
+
+// SettingsAgentAPK stores where QR provisioning downloads the DPC agent from and
+// its signing-certificate checksum (Settings → App library → DPC agent).
+func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
+	u := strings.TrimSpace(r.FormValue("agent_apk_url"))
+	sum := strings.TrimSpace(r.FormValue("agent_apk_checksum"))
+	if u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		h.hxDoneToast(w, r, "/settings", "Agent APK URL must start with http:// or https://", "error")
+		return
+	}
+	if err := h.cfg.SetAgentAPK(u, sum); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.agent_apk", u, "")
+	msg := "DPC agent APK saved — QR cold-provisioning is on"
+	if u == "" || sum == "" {
+		msg = "DPC agent APK cleared — QR cold-provisioning is off"
+	}
+	h.hxDoneToast(w, r, "/settings", msg, "success")
 }
 
 // ── Device lifecycle (onboarding inbox, class, retire) ────────────────────────

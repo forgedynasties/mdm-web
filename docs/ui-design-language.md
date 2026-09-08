@@ -73,6 +73,31 @@ page has its own `ov3-*` copy of the same patterns and is the visual reference.
     page CSS only for what is unique. Do not edit `layout.html`.
 13. **Copy**: short, plain, no exclamation marks. Sentence case. "→" only on links.
 
+## Mixed-fleet conventions (Sept 2026)
+
+Two axes, tagged the same way on every surface (Fleet cards, device ribbon,
+inbox rows, Actions console rows):
+
+- **Kind** (how the device is managed): `Firmware` (our hardware, system-app
+  client, fleet key) or `DPC agent` (stock Android, Device-Owner agent, per-device
+  key). Firmware gets a plain `.cc-tag`, DPC gets `.cc-tag.info`. Both kinds are
+  tagged — never tag only the "odd" one.
+- **Class** (what it is for): Tablet, Panel, Kiosk, mPOS, POS, Other. A plain
+  `.cc-tag`. Firmware devices derive it from the product; DPC devices get it from
+  the enrollment profile, overridable on the device page.
+- **Lifecycle**: `New · needs a site` (`.cc-tag.warn`, links to Fleet › Enroll) while
+  `onboarded_at` is NULL; `Retired` / `Wiped` (`.cc-tag.bad`). Active devices show no
+  lifecycle tag.
+
+Controls are offered by capability, not by kind: templates ask
+`supports .Device "screenshot"` / `degraded …` (see `internal/product/caps.go`).
+An unsupported item renders disabled with a reason; a degraded one renders with a
+`limited` tag. Never branch on `IsDPC` for a control.
+
+The **onboarding inbox** row pattern (`.en-row`): serial + kind/product/enrolled-ago
+on the left, inline site + class selects and a `Done` button on the right. The
+Enroll page and the Overview widget share it.
+
 ## Icons
 
 Inline 24-viewbox stroke SVGs (fill none, stroke currentColor, width 2, round

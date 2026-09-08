@@ -60,6 +60,12 @@ type Config struct {
 	OperatorDeniedCmds  []string `json:"operator_denied_cmds"`
 	RequireReasonFlag   bool     `json:"require_reason"` // require a reason for destructive commands
 
+	// DPC agent APK for QR cold-provisioning (PROVISIONING_DEVICE_ADMIN_PACKAGE_
+	// DOWNLOAD_LOCATION + SIGNATURE_CHECKSUM). Env AGENT_APK_URL / AGENT_APK_CHECKSUM
+	// are the fallback when unset here, so existing deployments keep working.
+	AgentAPKURLVal      string `json:"agent_apk_url"`
+	AgentAPKChecksumVal string `json:"agent_apk_checksum"`
+
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
 	SessionEpochVal      int64 `json:"session_epoch"`       // sessions issued before this are invalid
@@ -670,6 +676,37 @@ func (c *Config) RequireReason() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.RequireReasonFlag
+}
+
+// AgentAPKURL is where a factory-reset device downloads the DPC agent from during
+// QR provisioning ("" = QR cold-provisioning is off). Settings win over env.
+func (c *Config) AgentAPKURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AgentAPKURLVal != "" {
+		return c.AgentAPKURLVal
+	}
+	return os.Getenv("AGENT_APK_URL")
+}
+
+// AgentAPKChecksum is the URL-safe base64 SHA-256 of the agent APK's signing
+// certificate, as Android's provisioning expects.
+func (c *Config) AgentAPKChecksum() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AgentAPKChecksumVal != "" {
+		return c.AgentAPKChecksumVal
+	}
+	return os.Getenv("AGENT_APK_CHECKSUM")
+}
+
+func (c *Config) SetAgentAPK(url, checksum string) error {
+	c.mu.Lock()
+	c.AgentAPKURLVal = url
+	c.AgentAPKChecksumVal = checksum
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetRequireReason(v bool) error {

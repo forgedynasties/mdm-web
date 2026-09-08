@@ -39,6 +39,7 @@
 }
 </style>
 
+{{template "policies-tabs" .}}
 <div class="mg-wrap cc-wrap">
 
   <div class="cc-top">
@@ -52,14 +53,10 @@
     </div>
   </div>
 
-  <div class="cc-seg mg-seg">
-    <a class="on" href="#">Kiosk lock<span class="n">{{.PolicyCount}}</span></a>
-    <a class="soon" href="#">Charging pad<span class="n">soon</span></a>
-  </div>
 
   <div class="cc-kpis">
     <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Policies</span><div class="v">{{.PolicyCount}}</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Devices covered</span><div class="v {{if .CoveredCount}}ok{{end}}">{{.CoveredCount}}</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Devices covered</span><div class="v {{if .CoveredCount}}ok{{end}}">{{.CoveredCount}}</div>{{if or .FleetDPC .CoveredDPC}}<div class="d" title="Coverage by agent kind (active devices)">{{.CoveredFirmware}} / {{.FleetFirmware}} firmware · {{.CoveredDPC}} / {{.FleetDPC}} DPC{{if gt .CoveredInactive 0}} · {{.CoveredInactive}} inactive{{end}}</div>{{end}}</div>
     <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Unclaimed</span><div class="v {{if gt .UnlockedCount 0}}warn{{end}}">{{.UnlockedCount}}</div></div>
     <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Groups targeted</span><div class="v">{{.GroupsTargeted}}</div></div>
   </div>
@@ -76,7 +73,7 @@
       <div class="body">
         <div class="nm">{{.Name}}</div>
         <div class="meta">Locked to <b>{{.AppName}}</b> · {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</div>
-        <div class="tags"><span class="cc-tag accent">{{.TargetLabel}}</span></div>
+        <div class="tags"><span class="cc-tag accent">{{.TargetLabel}}</span>{{if .Unsupported}}<span class="cc-tag warn" title="These targets run an agent that cannot lock the screen; the policy skips them">{{.Unsupported}} can't be locked</span>{{end}}</div>
       </div>
       <div class="mg-cov">
         <div class="n"><b>{{.DeviceCount}}</b>{{if $.TotalDevices}} / {{$.TotalDevices}}{{end}}</div>

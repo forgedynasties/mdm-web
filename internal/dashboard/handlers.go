@@ -13911,6 +13911,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		TargetLabel  string
 		DeviceCount  int
 		CoveragePct  int
+		Unsupported  int // targets whose agent cannot lock the screen
 	}
 	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
 	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
@@ -13922,6 +13923,12 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	resolvedPolicies := make([]resolved, 0, len(policies))
 	covered := 0
 	groupTargets := map[uuid.UUID]bool{}
+	// Mixed fleet: a kiosk policy only lands on devices whose agent can lock the
+	// screen. Count, per policy and overall, the targets that cannot honour it, and
+	// split coverage by kind so it is obvious when a policy misses one side.
+	coveredByKind := map[string]int{}
+	unsupportedByPolicy := map[uuid.UUID]int{}
+	seenCovered := map[uuid.UUID]bool{}
 	for _, p := range policies {
 		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
 		resolvedPolicies = append(resolvedPolicies, resolved{p, ids})
@@ -13929,7 +13936,19 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		if p.TargetType == "group" && p.TargetID != nil {
 			groupTargets[*p.TargetID] = true
 		}
+		if devs, err := h.db.GetDevicesByIDs(ctx, ids); err == nil {
+			for _, d := range devs {
+				if !d.Supports("kiosk_set") {
+					unsupportedByPolicy[p.ID]++
+				}
+				if !seenCovered[d.ID] {
+					seenCovered[d.ID] = true
+					coveredByKind[d.AgentKind]++
+				}
+			}
+		}
 	}
+	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx)
 	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
 	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
 	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
@@ -13956,6 +13975,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 			TargetLabel: manageTargetLabel(rp.p, restaurants, groups),
 			DeviceCount: len(rp.ids),
 			CoveragePct: pct,
+			Unsupported: unsupportedByPolicy[rp.p.ID],
 		})
 	}
 
@@ -13976,6 +13996,14 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"Restaurants":    restaurants,
 		"Groups":         groups,
 		"CanEdit":        roleCanOperate(role),
+		"CoveredFirmware": coveredByKind["firmware"],
+		"CoveredDPC":      coveredByKind["dpc"],
+		// Targets that resolve to inactive (hidden) devices: counted in "covered"
+		// but not in either kind, since the split reads active devices only.
+		"CoveredInactive": covered - coveredByKind["firmware"] - coveredByKind["dpc"],
+		"FleetFirmware":   fleetFirmware,
+		"FleetDPC":        fleetDPC,
+		"ActivePage":      "manage",
 	})
 }
 
@@ -15174,6 +15202,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
+		"AgentAPKURL":          h.cfg.AgentAPKURL(),
+		"AgentAPKChecksum":     h.cfg.AgentAPKChecksum(),
+		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 		"Apps":                 repoApps,
 		"Productions":          productions,
 		"DeviceQueries":        deviceQueries,
@@ -18079,6 +18110,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)

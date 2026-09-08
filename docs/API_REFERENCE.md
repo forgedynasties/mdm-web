@@ -252,3 +252,37 @@ Pen-test angles: the `default` dispatch to the shell manager means any authentic
 5. **IDOR on `{serial}` / `{id}`** across devices/groups/productions/commands with a valid admin key (expected: full access — confirm no tenant isolation is assumed).
 6. **Device-scoped authorization** — `403` on acking/OTA-reporting a command that doesn't target the caller; try to spoof `serial_number` in the body vs the authenticated socket.
 7. **gzip request bomb** via `DecompressRequest` (`Content-Encoding: gzip`) — decompression limits / DoS.
+
+
+## Enrollment (DPC agent)
+
+`POST /api/v1/enroll` — unauthenticated; the profile token is the credential.
+Rate-limited per source IP on failures.
+
+Request:
+
+```json
+{ "token": "enr_…", "serial": "R58N30ABC123", "product": "gta9pwifi" }
+```
+
+Response `200`:
+
+```json
+{
+  "device_key":   "dvk_…",          // use as X-API-Key from now on
+  "device_id":    "uuid",
+  "profile":      "mPOS rollout, Downtown",
+  "device_class": "mpos",           // "" when the profile sets none
+  "site":         "Bayside Pizza",  // "" when the profile sets none
+  "group":        "",               // auto-joined group, if any
+  "re_enrolled":  false,            // true when the serial existed (key rotated)
+  "onboarded":    true              // profile named a site → skipped the inbox
+}
+```
+
+`401` invalid, revoked, expired or exhausted token (indistinguishable on purpose).
+
+Check-in (`POST /api/v1/checkin`) keyframes may carry `extra.agent_type` (`"dpc"`),
+`extra.capabilities` (array of capability names, see `internal/product/caps.go`) and
+`extra.capabilities_degraded`. They are persisted on the device and drive which
+actions the dashboard offers.
