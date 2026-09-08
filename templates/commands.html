@@ -172,7 +172,10 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-mempty{padding:12px 14px;font-size:12.5px;color:var(--muted)}
 
 /* ── pinned & recent strip (shared row look with the old palette) ── */
-.co-pins{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-top:22px}
+.co-pins{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.p-panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:26px;align-items:start}
+.p-stack{display:flex;flex-direction:column;gap:18px}
+@media(max-width:900px){.p-panes{grid-template-columns:1fr}}
 .p-r{display:flex;align-items:center;gap:11px;padding:10px 15px;border-top:1px solid var(--border-soft)}
 .p-r:first-child{border-top:none}
 .p-r .ic{width:28px;height:28px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -194,6 +197,9 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .p-newpin:hover{color:var(--accent-text);background:var(--accent-soft)}
 .p-newpin svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
 .p-colempty{padding:18px 15px;font-size:12.5px;color:var(--muted)}
+.co-missing-list{margin:0;padding:0;list-style:none;max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.co-missing-list li{padding:6px 10px;border-top:1px solid var(--border-soft);font-family:var(--mono,ui-monospace,monospace);font-size:12.5px}
+.co-missing-list li:first-child{border-top:none}
 
 /* ── bottom dock: live recent sends ── */
 .co-dock{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
@@ -336,32 +342,62 @@ select.co-in{flex:0 1 auto;min-width:180px}
   </div>
 </div>
 
-<!-- pinned & recent: one-click resends that prefill selection + action + payload -->
-<div style="margin-top:26px">
-  <div class="p-cap">Pinned &amp; recent</div>
-  <div class="co-pins" id="p-pinned">
-    {{$canOp := canOperate .Role}}
-    {{$hasPin := false}}
-    {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
-    <div class="p-r" data-prefill="{{.Prefill}}">
-      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
-      <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
-      {{if $canOp}}<button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
-      {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
+<!-- pinned & recent: one-click resends that prefill selection + action + payload.
+     Pane 1: pinned setups. Pane 2: what operators actually send — most recent on
+     top, most repeated below. Admin-account sends are excluded server-side. -->
+{{$canOp := canOperate .Role}}
+<div class="p-panes" id="p-pinned">
+  <div>
+    <div class="p-cap">Pinned</div>
+    <div class="co-pins">
+      {{$hasPin := false}}
+      {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
+      <div class="p-r" data-prefill="{{.Prefill}}">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
+        <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
+        {{if $canOp}}<button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
+        {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
+      </div>
+      {{end}}{{end}}
+      {{if not $hasPin}}<div class="p-colempty">No pins yet — set up an action below and pin it for one-click resends.</div>{{end}}
+      {{if $canOp}}<button type="button" class="p-newpin" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Pin the current setup</button>{{end}}
     </div>
-    {{end}}{{end}}
-    {{range .RecentSends}}
-    <div class="p-r" data-prefill="{{.Prefill}}">
-      <span class="ic" data-act-icon="{{.Type}}"></span>
-      <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
-      {{if $canOp}}
-      <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
-      <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
-      {{end}}
+  </div>
+  <div class="p-stack">
+    <div>
+      <div class="p-cap">Recent</div>
+      <div class="co-pins">
+        {{range .RecentSends}}
+        <div class="p-r" data-prefill="{{.Prefill}}">
+          <span class="ic" data-act-icon="{{.Type}}"></span>
+          <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
+          {{if $canOp}}
+          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+          <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+          {{end}}
+        </div>
+        {{else}}
+        <div class="p-colempty">Nothing sent yet — operator sends land here for one-click resends.</div>
+        {{end}}
+      </div>
     </div>
-    {{end}}
-    {{if and (not $hasPin) (not .RecentSends)}}<div class="p-colempty">Nothing sent yet — your recent and pinned sends will land here for one-click resends.</div>{{end}}
-    {{if $canOp}}<button type="button" class="p-newpin" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Pin the current setup</button>{{end}}
+    <div>
+      <div class="p-cap">Most frequent</div>
+      <div class="co-pins">
+        {{range .FrequentSends}}
+        <div class="p-r" data-prefill="{{.Prefill}}">
+          <span class="ic" data-act-icon="{{.Type}}"></span>
+          <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; sent {{.Count}}&times; &middot; last {{timeSince .When}}</span></span>
+          {{if $canOp}}
+          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+          <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
+          {{end}}
+        </div>
+        {{else}}
+        <div class="p-colempty">Nothing repeated yet — a send made more than once shows up here.</div>
+        {{end}}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -405,6 +441,20 @@ select.co-in{flex:0 1 auto;min-width:180px}
 
 <!-- Pin-current (save-as-recipe) modal -->
 {{if canOperate .Role}}
+<div id="co-missing-modal" class="modal-backdrop" onclick="closeMissingModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Serials not found</span>
+      <button class="modal-close" aria-label="Close" onclick="closeMissingModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted small" id="co-missing-sum" style="margin:0 0 10px;"></p>
+      <ul id="co-missing-list" class="co-missing-list"></ul>
+      <p class="muted small" style="margin:10px 0 0;">Check for typos, or that the device has checked in and is not retired.</p>
+    </div>
+    <div class="modal-body" style="padding-top:0"><button type="button" class="btn-primary" onclick="closeMissingModal()">OK</button></div>
+  </div>
+</div>
 <div id="recipe-modal" class="modal-backdrop" onclick="closeRecipeModal(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -566,11 +616,12 @@ window.CMD_PREFILL = {{.Prefill}};
     device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
     dot: '<circle cx="12" cy="12" r="8"/>'
   };
+  // Fleet-wide console offers only the broad-safe actions. Kiosk mode, boot splash,
+  // shell and factory wipe are per-device decisions and live on the device page.
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
-    ['Device', ['reboot', 'set_kiosk', 'update_splash']],
-    ['Diagnostics', ['screenshot', 'query', 'shell']],
-    ['Danger zone', ['wipe']]
+    ['Device', ['reboot']],
+    ['Diagnostics', ['screenshot', 'query']]
   ];
 
   // ── State ──
@@ -737,12 +788,17 @@ window.CMD_PREFILL = {{.Prefill}};
   }
   function renderDevs() {
     var rows = devCache[devKey()] || [];
+    var picked = {};
+    S.targets.forEach(function (t) { if (t.kind === 'device') picked[t.serial] = true; });
     var shown = rows.filter(function (d) {
       if (QF.online && !d.online) return false;
       if (QF.offline && d.online) return false;
       if (QF.dpc && !d.dpc) return false;
       return true;
-    }).slice(0, 60);
+    });
+    // Picked devices float to the top (stable within each half) so the basket is
+    // visible in the list itself, not only in the pills.
+    shown = shown.filter(function (d) { return picked[d.serial]; }).concat(shown.filter(function (d) { return !picked[d.serial]; })).slice(0, 60);
     var html = '';
     var toks = pasteTokens();
     if (toks) {
@@ -759,7 +815,7 @@ window.CMD_PREFILL = {{.Prefill}};
     if (!shown.length && !toks) {
       var q = (qEl.value || '').trim();
       if (devLoading) html += '<div class="co-listempty">Searching devices…</div>';
-      else if (q) html += '<button type="button" class="co-paste" id="co-addpaste" data-one="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add serial &ldquo;' + esc(q) + '&rdquo; as typed</button><div class="co-listempty">No device matches — exact unknown serials are ignored at send.</div>';
+      else if (q) html += '<button type="button" class="co-paste" id="co-addpaste" data-one="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add serial &ldquo;' + esc(q) + '&rdquo;</button><div class="co-listempty">No device matches this search — Enter checks it against the fleet.</div>';
       else html += '<div class="co-listempty">No devices match these filters.</div>';
     }
     el('co-devs').innerHTML = html;
@@ -807,6 +863,44 @@ window.CMD_PREFILL = {{.Prefill}};
       if (s && !S.targets.some(function (t) { return t.serial === s; })) S.targets.push({ kind: 'device', serial: s });
     });
   }
+  // Paste-a-list: each pasted serial is checked against the fleet first. Matches are
+  // added as individual device targets (canonical serial from the server); the rest
+  // are shown in a popup instead of riding along and being dropped silently at send.
+  var resolving = false;
+  function addSerialsValidated(raw) {
+    if (resolving) return;
+    var toks = raw.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!toks.length) return;
+    resolving = true;
+    fetch('/commands/resolve-serials?serials=' + encodeURIComponent(toks.join(',')))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        resolving = false;
+        var found = res.found || [], missing = res.missing || [];
+        if (found.length) {
+          disarm();
+          if (hasKind('group') || hasKind('all') || hasKind('restaurant')) S.targets = [];
+          addSerials(found.join(' '));
+        }
+        qEl.value = ''; ensureDevices(true); updateUI();
+        if (missing.length) showMissingSerials(missing, found.length);
+        else if (found.length) toast('Added ' + found.length + ' device' + (found.length === 1 ? '' : 's'), 'success');
+      })
+      .catch(function () { resolving = false; toast('Could not check the pasted serials — try again', 'error'); });
+  }
+  function showMissingSerials(missing, added) {
+    var m = el('co-missing-modal'); if (!m) return;
+    el('co-missing-sum').textContent = added
+      ? 'Added ' + added + ' matching device' + (added === 1 ? '' : 's') + '. ' + missing.length + ' serial' + (missing.length === 1 ? ' is' : 's are') + ' not in the fleet and were left out:'
+      : 'None of the ' + missing.length + ' pasted serial' + (missing.length === 1 ? '' : 's') + ' match a device in the fleet:';
+    el('co-missing-list').innerHTML = missing.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+    m.classList.add('modal-open');
+  }
+  function closeMissingModal(e) {
+    var m = el('co-missing-modal');
+    if (m && (!e || e.target === m)) m.classList.remove('modal-open');
+  }
+  window.closeMissingModal = closeMissingModal;
 
   // ── Basket ──
   function targetLabel(t) {
@@ -1191,10 +1285,20 @@ window.CMD_PREFILL = {{.Prefill}};
           setHint(m); toast(m, 'error');
         });
       }
-      var flash = '', ftype = 'success';
-      try { var u = new URL(res.url, location.origin); flash = u.searchParams.get('flash') || ''; if (flash) ftype = u.searchParams.get('flash_type') || 'info'; } catch (e) {}
-      toast(flash || 'Action sent — tracking in Live activity below', ftype);
+      var flash = '', ftype = 'success', dest = null;
+      try {
+        var u = new URL(res.url, location.origin);
+        flash = u.searchParams.get('flash') || ''; if (flash) ftype = u.searchParams.get('flash_type') || 'info';
+        // One command (any number of targets) → the server redirects to its page.
+        // fetch() followed that redirect silently; go there for real so the operator
+        // lands on the live result instead of hunting for it in the feed.
+        if (/^\/commands\/[0-9a-f-]{36}$/i.test(u.pathname)) dest = u.pathname + u.search;
+      } catch (e) {}
       S.reason = ''; el('co-wipe').value = '';
+      if (dest) { location.href = dest; return; }
+      var adminHidden = document.getElementById('show-admin-actions') && !document.getElementById('show-admin-actions').checked;
+      toast(flash || 'Action sent — tracking in Live activity below', ftype);
+      if (adminHidden) toast('Your sends are hidden from Live activity — tick "Show admin actions" to see them', 'info');
       updateUI();
       document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
     }).catch(function () {
@@ -1231,8 +1335,8 @@ window.CMD_PREFILL = {{.Prefill}};
       if (e.key === 'Escape') { qEl.value = ''; renderScopes(); ensureDevices(true); qEl.blur(); }
       if (e.key === 'Enter') {
         e.preventDefault();
-        var toks = pasteTokens();
-        if (toks) { addSerials(qEl.value); qEl.value = ''; ensureDevices(true); updateUI(); }
+        var q = (qEl.value || '').trim();
+        if (q) addSerialsValidated(q);
       }
     });
     el('co-quick').addEventListener('click', function (e) {
@@ -1250,7 +1354,7 @@ window.CMD_PREFILL = {{.Prefill}};
     });
     el('co-devs').addEventListener('click', function (e) {
       var paste = e.target.closest('#co-addpaste');
-      if (paste) { addSerials(qEl.value); qEl.value = ''; ensureDevices(true); updateUI(); return; }
+      if (paste) { addSerialsValidated(qEl.value); return; }
       var b = e.target.closest('.co-dev'); if (!b) return;
       toggleDevice(b.dataset.serial);
     });
