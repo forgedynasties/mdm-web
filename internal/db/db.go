@@ -2672,17 +2672,45 @@ type FleetCounts struct {
 	Devices     int `json:"devices"`
 	Restaurants int `json:"restaurants"`
 	Groups      int `json:"groups"`
+	Inbox       int `json:"inbox"` // devices waiting in the onboarding inbox
 }
 
 // FleetCounts returns visible-device, restaurant, and group totals in one query.
 func (d *DB) FleetCounts(ctx context.Context) (FleetCounts, error) {
 	var c FleetCounts
 	err := d.pool.QueryRow(ctx, `
-		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden),
+		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')),
 		       (SELECT COUNT(*) FROM restaurants),
-		       (SELECT COUNT(*) FROM groups)
-	`).Scan(&c.Devices, &c.Restaurants, &c.Groups)
+		       (SELECT COUNT(*) FROM groups),
+		       (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND onboarded_at IS NULL)
+	`).Scan(&c.Devices, &c.Restaurants, &c.Groups, &c.Inbox)
 	return c, err
+}
+
+// EnrollmentStats feeds the Enroll page's number strip.
+type EnrollmentStats struct {
+	Inbox       int // waiting for assignment
+	Enrolled7d  int // devices that enrolled / first checked in during the last 7 days
+	Firmware    int // active firmware devices
+	DPC         int // active DPC devices
+	Retired     int
+	ActiveProfs int // profiles that can still enroll
+}
+
+func (d *DB) EnrollmentStats(ctx context.Context) (EnrollmentStats, error) {
+	var s EnrollmentStats
+	err := d.pool.QueryRow(ctx, `
+		WITH live AS (SELECT * FROM devices WHERE NOT hidden)
+		SELECT (SELECT COUNT(*) FROM live WHERE onboarded_at IS NULL AND enrollment_status NOT IN ('retired', 'wiped')),
+		       (SELECT COUNT(*) FROM live WHERE enrolled_at > NOW() - INTERVAL '7 days'),
+		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'firmware' AND enrollment_status NOT IN ('retired', 'wiped')),
+		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'dpc' AND enrollment_status NOT IN ('retired', 'wiped')),
+		       (SELECT COUNT(*) FROM live WHERE enrollment_status IN ('retired', 'wiped')),
+		       (SELECT COUNT(*) FROM enrollment_profiles WHERE revoked_at IS NULL
+		          AND (expires_at IS NULL OR expires_at > NOW())
+		          AND (max_enrolls IS NULL OR enroll_count < max_enrolls))
+	`).Scan(&s.Inbox, &s.Enrolled7d, &s.Firmware, &s.DPC, &s.Retired, &s.ActiveProfs)
+	return s, err
 }
 
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {

@@ -786,6 +786,34 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"nowUTC": func() time.Time {
 			return time.Now().UTC()
 		},
+		// timeUntil is the forward-looking twin of timeSince ("in 3d", "in 2h"); a time
+		// already past reads as "just now" / "…ago" so expired things say so.
+		"timeUntil": func(t time.Time) string {
+			d := time.Until(t)
+			if d < 0 {
+				d = -d
+				switch {
+				case d < time.Minute:
+					return "just now"
+				case d < time.Hour:
+					return fmt.Sprintf("%dm ago", int(d.Minutes()))
+				case d < 24*time.Hour:
+					return fmt.Sprintf("%dh ago", int(d.Hours()))
+				default:
+					return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+				}
+			}
+			switch {
+			case d < time.Minute:
+				return "in under a minute"
+			case d < time.Hour:
+				return fmt.Sprintf("in %dm", int(d.Minutes()))
+			case d < 24*time.Hour:
+				return fmt.Sprintf("in %dh", int(d.Hours()))
+			default:
+				return fmt.Sprintf("in %dd", int(d.Hours()/24))
+			}
+		},
 		"timeSince": func(t time.Time) string {
 			d := time.Since(t)
 			switch {
@@ -1780,7 +1808,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	// The unified Fleet surface (Devices/Restaurants/Groups tabs) needs all three
 	// counts for its tab strip; fetch them only on those pages.
-	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" {
+	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" || ap == "enrollment" {
 		if fc, err := h.db.FleetCounts(r.Context()); err == nil {
 			data["FleetCounts"] = fc
 		}
@@ -4432,6 +4460,14 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		return n * 100 / summary.Total
 	}
 
+	// Onboarding inbox: devices nobody has placed yet (site/class). Shown as a
+	// widget so a freshly scanned device is noticed without opening Enroll.
+	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
+	inboxN := 0
+	if fc, err := h.db.FleetCounts(r.Context()); err == nil {
+		inboxN = fc.Inbox
+	}
+
 	data := map[string]any{
 		"Title": "Overview",
 		"NowUTC": time.Now().UTC().Format(time.RFC3339),
@@ -4452,6 +4488,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"OnPublishedPct":  onPublishedPct,
 		"Rollouts":        rollouts,
 		"RolloutsCount":   rolloutsN,
+		"Inbox":           inbox,
+		"InboxCount":      inboxN,
 		"Products":        products,
 		"BatteryAvg":      batteryAvg,
 		"HasBatteryAvg":   hasBatteryAvg,

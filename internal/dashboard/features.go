@@ -37,10 +37,19 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	if len(masked) > 6 {
 		masked = masked[:3] + "••••••" + masked[len(masked)-3:]
 	}
+	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 50)
+	restaurants, _ := h.db.ListRestaurants(r.Context())
+	// Live refresh: the page re-fetches just the inbox on device events.
+	if r.URL.Query().Get("partial") == "inbox" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "enroll-inbox", map[string]any{
+			"Inbox": inbox, "Restaurants": restaurants, "Classes": product.Classes(), "Role": h.role(r),
+		})
+		return
+	}
 	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
-	restaurants, _ := h.db.ListRestaurants(r.Context())
-	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 50)
+	stats, _ := h.db.EnrollmentStats(r.Context())
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -54,6 +63,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Restaurants":    restaurants,
 		"Classes":        product.Classes(),
 		"Inbox":          inbox,
+		"Stats":          stats,
 		"HasAgentAPK":    os.Getenv("AGENT_APK_URL") != "" && os.Getenv("AGENT_APK_CHECKSUM") != "",
 	})
 }

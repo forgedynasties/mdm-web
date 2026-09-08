@@ -1,176 +1,324 @@
 {{define "enrollment.html"}}
 {{template "header" .}}
-
 <style>
-.en-wrap{max-width:1100px;margin:0 auto}
-.en-head{margin:4px 0 18px}
-.en-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
-.en-head .sub{color:var(--muted,#667);font-size:14px;margin-top:4px}
-.en-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
-@media(max-width:860px){.en-grid{grid-template-columns:1fr}}
-.en-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e8ef);border-radius:14px;padding:18px 20px}
-.en-card h3{font-size:15px;font-weight:650;margin:0 0 12px;display:flex;align-items:center;gap:8px}
-.en-step{display:flex;gap:14px;padding:14px 0;border-top:1px solid var(--border-soft,#eef0f5)}
-.en-step:first-of-type{border-top:0}
-.en-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent-soft,#eef0ff);color:var(--accent-text,#4f46e5);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
-.en-step .b{font-weight:600;margin-bottom:3px}
-.en-step .t{color:var(--muted,#667);font-size:13.5px;line-height:1.5}
-.en-code{display:block;background:var(--code-bg,#0f1220);color:#e6e8f0;border-radius:9px;padding:11px 13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;overflow-x:auto;margin-top:8px;white-space:pre}
-.en-kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--border-soft,#eef0f5);font-size:13.5px}
+/* ── Enroll · command center ─────────────────────────────────────────── */
+.en-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){.en-kpis{grid-template-columns:repeat(2,1fr)}}
+/* inbox rows */
+.en-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft)}
+.en-row:first-child{border-top:none}
+.en-row .id{min-width:0}
+.en-row .id .sn{font-family:var(--mono);font-size:13.5px;font-weight:650;color:var(--text);text-decoration:none}
+.en-row .id .sn:hover{color:var(--accent-text)}
+.en-row .id .sub{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.en-row form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.en-sel{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);min-width:150px}
+.en-sel.short{min-width:110px}
+.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
+@media(max-width:860px){.en-row{grid-template-columns:1fr;gap:8px}.en-row form{justify-content:flex-start}}
+/* profile cards */
+.en-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:14px 17px}
+.en-p{border:1px solid var(--border);border-radius:var(--r-3);background:var(--surface);padding:13px 14px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.en-p.off{opacity:.6}
+.en-p .h{display:flex;align-items:flex-start;gap:8px}
+.en-p .h b{font-size:14px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.en-p .tags{display:flex;gap:5px;flex-wrap:wrap}
+.en-p .meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.en-p .meta b{color:var(--text)}
+.en-p .tok{font-family:var(--mono);font-size:11.5px;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:4px 8px;display:flex;align-items:center;gap:6px;min-width:0}
+.en-p .tok span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.en-p .tok button{border:none;background:none;color:var(--accent-text);font:inherit;font-size:11px;font-weight:700;cursor:pointer;padding:0 2px}
+.en-p .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.en-p .act button,.en-p .act form button{font:inherit;font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
+.en-p .act button:hover{border-color:var(--rule-2);color:var(--text)}
+.en-p .act .danger{color:var(--danger)}
+.en-qr{display:none;gap:14px;align-items:flex-start;padding-top:8px;border-top:1px dashed var(--border-soft)}
+.en-qr.open{display:flex}
+.en-qr img{width:168px;height:168px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:6px;flex:none}
+.en-qr .t{font-size:12px;color:var(--muted);line-height:1.55}
+.en-qr .t b{color:var(--text)}
+/* how-to */
+.en-how{padding:14px 17px}
+.en-how .cc-seg{margin-bottom:12px}
+.en-pane{display:none}.en-pane.on{display:block}
+.en-step{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--border-soft)}
+.en-step:first-child{border-top:0}
+.en-num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.en-step .b{font-weight:600;font-size:13.5px;margin-bottom:2px}
+.en-step .t{color:var(--muted);font-size:13px;line-height:1.5}
+.en-code{display:block;background:var(--code-bg,#0f1220);color:#e6e8f0;border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:12px;overflow-x:auto;margin-top:6px;white-space:pre}
+.en-kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
 .en-kv:first-child{border-top:0}
-.en-kv .k{color:var(--muted,#667)}
-.en-kv .v{font-family:ui-monospace,monospace;font-weight:600;text-align:right;word-break:break-all}
-.en-copy{cursor:pointer;border:1px solid var(--border,#e6e8ef);background:var(--surface,#fff);border-radius:7px;padding:2px 8px;font-size:11px;color:var(--accent-text,#4f46e5);font-weight:600;margin-left:8px}
-.en-note{font-size:12.5px;color:var(--muted,#667);margin-top:10px;line-height:1.5}
-.en-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft,#eef0ff);color:var(--accent-text,#4f46e5)}
-
-/* profiles */
-.en-prof{margin-bottom:16px}
-.en-prof-new{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:12px 0 4px}
-.en-prof-new .f{display:flex;flex-direction:column;gap:4px}
-.en-prof-new label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
-.en-prof-new input,.en-prof-new select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);min-width:170px}
-.en-prof-new button{font:inherit;font-size:13px;font-weight:650;padding:8px 14px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
-.en-prof-new button:hover{background:var(--accent-h)}
-.en-ptable{width:100%;border-collapse:collapse;font-size:13px}
-.en-ptable th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
-.en-ptable td{padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
-.en-ptable tr:last-child td{border-bottom:0}
-.en-tok{font-family:var(--mono,monospace);font-size:12px}
-.en-chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
-.en-chip.live{background:var(--ok-bg);color:var(--ok)}
-.en-chip.off{background:var(--danger-bg);color:var(--danger)}
-.en-act{display:inline-flex;gap:6px}
-.en-act button,.en-act summary{cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text-2)}
-.en-act button:hover{border-color:var(--rule-2);color:var(--text)}
-.en-act button.danger{color:var(--danger)}
-.en-qr-row td{background:var(--surface2)}
-.en-qr-box{display:flex;gap:18px;align-items:flex-start;padding:8px 4px;flex-wrap:wrap}
-.en-qr-box img{width:200px;height:200px;border:1px solid var(--border);border-radius:12px;background:#fff;padding:8px}
-.en-qr-meta{font-size:12.5px;color:var(--muted);line-height:1.6;max-width:46ch}
-.en-qr-meta b{color:var(--text)}
-.en-empty{padding:18px 10px;color:var(--muted);font-size:13px}
+.en-kv .k{color:var(--muted)}
+.en-kv .v{font-family:var(--mono);font-weight:600;text-align:right;word-break:break-all}
+.en-copy{cursor:pointer;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:2px 8px;font-size:11px;color:var(--accent-text);font-weight:600;margin-left:8px}
+/* modal form */
+.en-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.en-form .full{grid-column:1/-1}
+.en-form label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:4px}
+.en-form input,.en-form select{width:100%;font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.en-form .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+.en-form .foot{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 </style>
 
-<div class="en-wrap">
-  <div class="en-head">
-    <h1>Enrollment</h1>
-    <div class="sub">Provision a device with the AIO MDM Device-Owner agent — it manages the whole device from first boot.</div>
-  </div>
+{{template "fleet-tabs" .}}
 
-  <div class="en-card en-prof">
-    <h3>Enrollment profiles <span class="en-badge">QR / token</span></h3>
-    <div class="en-note" style="margin-top:0">Each profile is a revocable token. Scan its QR from a factory-reset device's welcome screen (tap 6×) or paste the token into the agent's key field — the device exchanges it for its own credential and can auto-join a group.</div>
-    {{if canAdminOrOperator .Role}}
-    <form class="en-prof-new" method="POST" action="/enrollment/profiles">
-      <div class="f"><label>Name</label><input name="name" placeholder="e.g. Warehouse rollout" required></div>
-      <div class="f"><label>Auto-join group</label>
-        <select name="group_id"><option value="">— none —</option>
-          {{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-        </select></div>
-      <div class="f"><label>Notes</label><input name="notes" placeholder="optional"></div>
-      <button type="submit">Create profile</button>
-    </form>
-    {{end}}
-    {{if .Profiles}}
-    <table class="en-ptable">
-      <thead><tr><th>Profile</th><th>Token</th><th>Group</th><th>Enrolled</th><th>Status</th><th></th></tr></thead>
-      <tbody>
-      {{range .Profiles}}
-        <tr>
-          <td><b>{{.Name}}</b>{{if .Notes}}<div style="color:var(--muted);font-size:12px">{{.Notes}}</div>{{end}}</td>
-          <td class="en-tok">{{.Token}}</td>
-          <td>{{if .GroupName}}{{.GroupName}}{{else}}<span style="color:var(--text-faint)">—</span>{{end}}</td>
-          <td>{{.EnrollCount}} device{{if ne .EnrollCount 1}}s{{end}}</td>
-          <td>{{if .Revoked}}<span class="en-chip off">revoked</span>{{else}}<span class="en-chip live">active</span>{{end}}</td>
-          <td>
-            <div class="en-act">
-              <button type="button" onclick="enToggleQR('{{.ID}}')">QR</button>
-              {{if canAdminOrOperator $.Role}}
-              {{if .Revoked}}
-              <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" style="display:inline"><button type="submit">Reactivate</button></form>
-              <form method="POST" action="/enrollment/profiles/{{.ID}}/delete" style="display:inline" hx-confirm="Delete this profile? Devices already enrolled keep working."><button type="submit" class="danger">Delete</button></form>
-              {{else}}
-              <form method="POST" action="/enrollment/profiles/{{.ID}}/revoke" style="display:inline" hx-confirm="Revoke this profile? Its QR/token stops enrolling new devices immediately."><button type="submit" class="danger">Revoke</button></form>
-              {{end}}
-              {{end}}
-            </div>
-          </td>
-        </tr>
-        <tr class="en-qr-row" id="en-qr-{{.ID}}" style="display:none">
-          <td colspan="6">
-            <div class="en-qr-box">
-              <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
-              <div class="en-qr-meta">
-                <b>Factory-reset provisioning:</b> on the new device's welcome screen, tap anywhere 6 times, scan this code, and the agent installs as Device Owner pre-configured for this server.<br><br>
-                <b>Manual:</b> paste the token above into the agent's "Device API key or enrollment token" field.
-                {{if not $.HasAgentAPK}}<br><br>⚠ QR cold-provisioning needs AGENT_APK_URL + AGENT_APK_CHECKSUM set in the server env so the setup wizard can download the agent; until then use the manual/adb path.{{end}}
-              </div>
-            </div>
-          </td>
-        </tr>
-      {{end}}
-      </tbody>
-    </table>
-    {{else}}
-    <div class="en-empty">No profiles yet — create one to get a scannable enrollment QR.</div>
-    {{end}}
-  </div>
-
-  <div class="en-grid">
-    <div class="en-card">
-      <h3>Provision a device <span class="en-badge">adb</span></h3>
-      <div class="en-step">
-        <div class="en-num">1</div>
-        <div><div class="b">Start from a clean device</div>
-          <div class="t">Factory-reset (or fresh) device with <b>no accounts</b> added — Device Owner can only be set before an account exists.</div></div>
-      </div>
-      <div class="en-step">
-        <div class="en-num">2</div>
-        <div><div class="b">Install the AIO MDM agent</div>
-          <div class="t">Side-load the agent APK over adb.</div>
-          <code class="en-code">adb install -r skorra-agent.apk</code></div>
-      </div>
-      <div class="en-step">
-        <div class="en-num">3</div>
-        <div><div class="b">Set it as Device Owner</div>
-          <div class="t">This grants full device management (kiosk, app install, reboot, wipe, config).</div>
-          <code class="en-code">adb shell dpm set-device-owner \
-  {{.AdminComponent}}</code></div>
-      </div>
-      <div class="en-step">
-        <div class="en-num">4</div>
-        <div><div class="b">Point it at this server</div>
-          <div class="t">Open the agent app, enter the server URL + device key below (or bake them into the build), and tap <b>Save &amp; connect</b>. The device appears in <a href="/devices" class="link-detail">Fleet</a> within seconds.</div></div>
-      </div>
-      <div class="en-note">Prefer QR / zero-touch? Create an enrollment profile above and scan its QR from a factory-reset device's welcome screen (tap 6×) — no adb needed.</div>
+{{$canOp := canAdminOrOperator .Role}}
+{{$inboxN := .Stats.Inbox}}
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Fleet · Enroll <span class="cc-live"><span class="dot"></span>Live</span></div>
+      <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> device{{if ne $inboxN 1}}s{{end}} need{{if eq $inboxN 1}}s{{end}} a site{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
+      <div class="cc-sub"><b>{{.Stats.Firmware}}</b> firmware · <b>{{.Stats.DPC}}</b> DPC agent{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</div>
     </div>
+    {{if $canOp}}
+    <div class="cc-actions">
+      <button type="button" class="cc-btn primary" onclick="enOpenModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>
+    </div>
+    {{end}}
+  </div>
 
-    <div class="en-card">
-      <h3>Connection details</h3>
-      <div class="en-kv"><span class="k">Server URL</span><span class="v" id="en-url">{{.ServerURL}}</span></div>
-      <div class="en-kv"><span class="k">Device API key</span><span class="v"><span id="en-key-mask">{{.DeviceKeyMask}}</span> <button type="button" class="en-copy" onclick="enCopyKey(this)">Copy</button></span></div>
-      <div class="en-kv"><span class="k">Agent package</span><span class="v">{{.AgentPackage}}</span></div>
-      <div class="en-note">The device API key authenticates every agent. Treat it like a secret — rotate it in your server env if exposed.</div>
-      <textarea id="en-key-real" style="position:absolute;left:-9999px" readonly>{{.DeviceKey}}</textarea>
+  <div class="cc-kpis en-kpis">
+    <a class="cc-kpi" href="#en-inbox-card"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Waiting</span><div class="v{{if gt $inboxN 0}} warn{{end}}" id="en-kpi-inbox">{{$inboxN}}</div><div class="d">need a site or class</div></a>
+    <a class="cc-kpi" href="/devices?kind=dpc"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>DPC agent</span><div class="v">{{.Stats.DPC}}</div><div class="d">outsourced Android devices</div></a>
+    <a class="cc-kpi" href="/devices?kind=firmware"><span class="k"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Firmware</span><div class="v">{{.Stats.Firmware}}</div><div class="d">our hardware, auto-enrolled</div></a>
+    <a class="cc-kpi" href="/devices?lifecycle=retired"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Retired</span><div class="v">{{.Stats.Retired}}</div><div class="d">kept for history</div></a>
+  </div>
+
+  {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
+  <div class="cc-card" id="en-inbox-card">
+    <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h3>Needs assignment</h3><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><a class="r" href="/devices?onboarding=pending">All →</a></div>
+    <div id="en-inbox">{{template "enroll-inbox" .}}</div>
+  </div>
+
+  {{/* ── Profiles ──────────────────────────────────────────────────────── */}}
+  <div class="cc-card" id="en-profiles">
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h3>Enrollment profiles</h3><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span></div>
+    {{if .Profiles}}
+    <div class="en-pgrid">
+      {{range .Profiles}}
+      <div class="en-p{{if not .Active}} off{{end}}" id="prof-{{.ID}}">
+        <div class="h"><b title="{{.Name}}">{{.Name}}</b>
+          {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
+        </div>
+        <div class="tags">
+          <span class="cc-tag">{{if .DeviceClass}}{{.ClassLabel}}{{else}}class not set{{end}}</span>
+          <span class="cc-tag{{if not .RestaurantName}} warn{{end}}">{{if .RestaurantName}}{{.RestaurantName}}{{else}}no site · goes to inbox{{end}}</span>
+          {{if .GroupName}}<span class="cc-tag">{{.GroupName}}</span>{{end}}
+        </div>
+        <div class="meta">
+          <span><b>{{.EnrollCount}}</b>{{if .MaxEnrolls}} / {{.MaxEnrolls}}{{end}} enrolled</span>
+          {{if .LastEnrolledAt}}<span>last {{timeSince .LastEnrolledAt}}</span>{{end}}
+          {{if .ExpiresAt}}<span>{{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}</span>{{end}}
+        </div>
+        {{if .Notes}}<div class="meta">{{.Notes}}</div>{{end}}
+        <div class="tok"><span title="{{.Token}}">{{.Token}}</span><button type="button" onclick="enCopy(this,'{{.Token}}')">Copy</button></div>
+        <div class="act">
+          <button type="button" onclick="enToggleQR('{{.ID}}')">QR</button>
+          {{if $canOp}}
+          <button type="button" onclick="enOpenModal(this)" data-id="{{.ID}}" data-name="{{.Name}}" data-class="{{.DeviceClass}}" data-site="{{if .RestaurantID}}{{.RestaurantID}}{{end}}" data-group="{{if .GroupID}}{{.GroupID}}{{end}}" data-max="{{if .MaxEnrolls}}{{.MaxEnrolls}}{{end}}" data-notes="{{.Notes}}">Edit</button>
+          {{if .Revoked}}
+          <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" style="display:inline" hx-boost="false"><button type="submit">Reactivate</button></form>
+          <form method="POST" action="/enrollment/profiles/{{.ID}}/delete" style="display:inline" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete this profile? Devices already enrolled keep working."><button type="submit" class="danger">Delete</button></form>
+          {{else}}
+          <form method="POST" action="/enrollment/profiles/{{.ID}}/revoke" style="display:inline" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Revoke this profile? Its QR and token stop enrolling new devices immediately. Devices already enrolled keep working."><button type="submit" class="danger">Revoke</button></form>
+          {{end}}
+          {{end}}
+        </div>
+        <div class="en-qr" id="en-qr-{{.ID}}">
+          <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
+          <div class="t"><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field.{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div>
+    {{end}}
+  </div>
+
+  {{/* ── How devices get here ───────────────────────────────────────────── */}}
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h3>How devices get here</h3><span class="m">three paths, one fleet</span></div>
+    <div class="en-how">
+      <div class="cc-seg" id="en-how-tabs">
+        <button type="button" class="on" data-pane="qr">QR provisioning</button>
+        <button type="button" data-pane="adb">adb</button>
+        <button type="button" data-pane="fw">Firmware devices</button>
+      </div>
+      <div class="en-pane on" data-pane="qr">
+        <div class="en-step"><div class="en-num">1</div><div><div class="b">Create a profile above</div><div class="t">Class, site and group are applied to every device that scans it. A profile with a site skips the inbox entirely.</div></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">Factory-reset device, tap the welcome screen 6×</div><div class="t">Android opens the QR provisioning camera. No account may exist on the device yet.</div></div></div>
+        <div class="en-step"><div class="en-num">3</div><div><div class="b">Scan the profile's QR</div><div class="t">The device downloads the agent, sets it as Device Owner, exchanges the token for its own credential and appears here within seconds.</div></div></div>
+      </div>
+      <div class="en-pane" data-pane="adb">
+        <div class="en-step"><div class="en-num">1</div><div><div class="b">Start from a clean device</div><div class="t">Factory-reset or fresh, with <b>no accounts</b> added. Device Owner can only be set before an account exists.</div></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">Install the agent and make it Device Owner</div><code class="en-code">adb install -r skorra-agent.apk
+adb shell dpm set-device-owner {{.AdminComponent}}</code></div></div>
+        <div class="en-step"><div class="en-num">3</div><div><div class="b">Point it at this server</div><div class="t">Open the agent, enter the server URL and a profile token from above, tap <b>Save &amp; connect</b>.</div><code class="en-code">Server URL  {{.ServerURL}}
+Token       enr_… (copy from a profile above)</code></div></div>
+      </div>
+      <div class="en-pane" data-pane="fw">
+        <div class="en-step"><div class="en-num">1</div><div><div class="b">Nothing to scan</div><div class="t">Our own hardware ships with the system-app client. It authenticates with the fleet device key and registers itself on first check-in.</div></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">It lands in the inbox</div><div class="t">Give it a site (and a class if the product default is wrong), press Done. That is the whole enrollment.</div></div></div>
+        {{if canAdmin .Role}}
+        <div class="en-kv"><span class="k">Server URL</span><span class="v">{{.ServerURL}}</span></div>
+        <div class="en-kv"><span class="k">Fleet device key</span><span class="v"><span>{{.DeviceKeyMask}}</span> <button type="button" class="en-copy" onclick="enCopy(this, document.getElementById('en-key-real').value)">Copy</button></span></div>
+        <div class="en-step" style="border-top:0;padding-top:4px"><div class="t">The fleet key is baked into the firmware build. Treat it like a secret; rotate it in the server env if exposed.</div></div>
+        <textarea id="en-key-real" style="position:absolute;left:-9999px" readonly>{{.DeviceKey}}</textarea>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+
+{{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
+<div id="en-modal" class="modal-backdrop" onclick="enCloseModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="en-modal-title">New enrollment profile</span>
+      <button class="modal-close" aria-label="Close" onclick="enCloseModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      {{/* hx-boost off: these mutations redirect back to a re-rendered page (a boosted 204 would leave the modal open). */}}
+      <form id="en-modal-form" method="POST" action="/enrollment/profiles" class="en-form" hx-boost="false">
+        <div class="full"><label for="en-f-name">Name</label><input id="en-f-name" name="name" required placeholder="e.g. mPOS rollout, Downtown"></div>
+        <div><label for="en-f-class">Device class</label>
+          <select id="en-f-class" name="device_class"><option value="">— not set —</option>{{range .Classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}</select>
+          <div class="hint">What these devices are for. Filters and icons only.</div></div>
+        <div><label for="en-f-site">Site</label>
+          <select id="en-f-site" name="restaurant_id"><option value="">— none · goes to inbox —</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+          <div class="hint">With a site set, devices skip the inbox.</div></div>
+        <div><label for="en-f-group">Auto-join group</label>
+          <select id="en-f-group" name="group_id"><option value="">— none —</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+        <div><label for="en-f-max">Max devices</label><input id="en-f-max" name="max_enrolls" type="number" min="1" placeholder="unlimited"><div class="hint">Token stops working after this many.</div></div>
+        <div><label for="en-f-exp">Expires in (days)</label><input id="en-f-exp" name="expires_days" type="number" min="1" placeholder="never"><div class="hint" id="en-f-exp-hint">Leave blank for no expiry.</div></div>
+        <div><label for="en-f-notes">Notes</label><input id="en-f-notes" name="notes" placeholder="optional"></div>
+        <div class="foot"><button type="button" class="cc-btn" onclick="enCloseModal()">Cancel</button><button type="submit" class="cc-btn primary" id="en-f-submit">Create profile</button></div>
+      </form>
     </div>
   </div>
 </div>
 
 <script>
-function enCopyKey(btn){
-  var t=document.getElementById('en-key-real');
-  t.select();try{document.execCommand('copy');}catch(e){}
-  var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o;},1200);
-}
-function enToggleQR(id){
-  var row=document.getElementById('en-qr-'+id);
-  if(!row)return;
-  var img=row.querySelector('img[data-src]');
-  if(img&&!img.src){img.src=img.getAttribute('data-src');}
-  row.style.display=row.style.display==='none'?'':'none';
-}
+(function () {
+  function el(id) { return document.getElementById(id); }
+  window.enCopy = function (btn, text) {
+    var done = function () { var o = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = o; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, function () { fallback(); }); } else fallback();
+    function fallback() { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove(); done(); }
+  };
+  window.enToggleQR = function (id) {
+    var box = el('en-qr-' + id); if (!box) return;
+    var img = box.querySelector('img[data-src]');
+    if (img && !img.src) img.src = img.getAttribute('data-src');
+    box.classList.toggle('open');
+  };
+  // create / edit modal
+  window.enOpenModal = function (btn) {
+    var m = el('en-modal'), f = el('en-modal-form');
+    var d = btn && btn.dataset && btn.dataset.id ? btn.dataset : null;
+    f.action = d ? '/enrollment/profiles/' + d.id + '/update' : '/enrollment/profiles';
+    el('en-modal-title').textContent = d ? 'Edit profile' : 'New enrollment profile';
+    el('en-f-submit').textContent = d ? 'Save' : 'Create profile';
+    el('en-f-name').value = d ? d.name : '';
+    el('en-f-class').value = d ? d.class : '';
+    el('en-f-site').value = d ? d.site : '';
+    el('en-f-group').value = d ? d.group : '';
+    el('en-f-max').value = d ? d.max : '';
+    el('en-f-exp').value = '';
+    el('en-f-exp-hint').textContent = d ? 'Blank keeps it open-ended; a number sets a new expiry from today.' : 'Leave blank for no expiry.';
+    el('en-f-notes').value = d ? d.notes : '';
+    m.classList.add('modal-open');
+    setTimeout(function () { el('en-f-name').focus(); }, 50);
+  };
+  window.enCloseModal = function (e) {
+    var m = el('en-modal');
+    if (m && (!e || e.target === m)) m.classList.remove('modal-open');
+  };
+  // how-to tabs
+  var tabs = el('en-how-tabs');
+  if (tabs) tabs.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    tabs.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    document.querySelectorAll('.en-pane').forEach(function (p) { p.classList.toggle('on', p.dataset.pane === b.dataset.pane); });
+  });
+  // Live inbox: any device event may be an enrollment or a first check-in.
+  // Re-fetch the inbox fragment (throttled) and patch the counters.
+  function applyInbox(html) {
+    var box = el('en-inbox'); if (!box) return;
+    box.innerHTML = html;
+    var n = parseInt((box.firstElementChild && box.firstElementChild.dataset.count) || '0', 10) || 0;
+    var m = el('en-inbox-m'); if (m) m.textContent = n ? n + ' waiting' : 'nothing waiting';
+    var k = el('en-kpi-inbox'); if (k) { k.textContent = n; k.classList.toggle('warn', n > 0); }
+    var h = el('en-h1'); if (h) h.innerHTML = n ? '<span class="hl warn">' + n + '</span> device' + (n === 1 ? '' : 's') + ' need' + (n === 1 ? 's' : '') + ' a site' : 'Every device is <span class="hl ok">placed</span>';
+    if (window.htmx) htmx.process(box);
+  }
+  var pending = null;
+  function refreshInbox() {
+    if (pending) return;
+    pending = setTimeout(function () {
+      pending = null;
+      fetch('/enrollment?partial=inbox', { headers: { 'Accept': 'text/html' } }).then(function (r) { return r.ok ? r.text() : null; }).then(function (t) { if (t != null) applyInbox(t); }).catch(function () {});
+    }, 900);
+  }
+  window.enRefreshInbox = refreshInbox;
+  // A successful Done (204 + toast) drops the row at once; the throttled re-fetch
+  // then reconciles counters and anything that arrived meanwhile.
+  document.body.addEventListener('htmx:afterRequest', function (e) {
+    var f = e.detail && e.detail.elt;
+    if (!f || !f.classList || !f.classList.contains('en-onboard')) return;
+    if (!e.detail.successful) return;
+    var row = f.closest('.en-row'); if (row) row.remove();
+    refreshInbox();
+  });
+  if (window.EventSource && window.mdmStream) {
+    var es = window.mdmStream('/events/devices');
+    es.addEventListener('device-update', refreshInbox);
+  }
+})();
 </script>
-
 {{template "footer" .}}
+{{end}}
+
+{{/* Inbox rows: one per device that has no site yet. Re-fetched live via
+     /enrollment?partial=inbox; the root carries data-count for the counters. */}}
+{{define "enroll-inbox"}}
+<div data-count="{{len .Inbox}}">
+{{if .Inbox}}
+{{$canOp := canAdminOrOperator .Role}}
+{{range .Inbox}}
+<div class="en-row" id="dev-{{.SerialNumber}}">
+  <div class="id">
+    <a class="sn" href="/devices/{{.SerialNumber}}">{{.SerialNumber}}</a>
+    <div class="sub">
+      <span class="cc-tag">{{.KindLabel}}</span>
+      {{$m := extraField .LatestExtra "model"}}{{$manu := extraField .LatestExtra "manufacturer"}}
+      <span>{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</span>
+      <span>· {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</span>
+      {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
+    </div>
+  </div>
+  <div></div>
+  {{if $canOp}}
+  <form method="POST" action="/devices/{{.SerialNumber}}/onboard" hx-post="/devices/{{.SerialNumber}}/onboard" hx-swap="none" class="en-onboard">
+    <input type="hidden" name="from" value="/enrollment">
+    <select class="en-sel" name="restaurant_id" aria-label="Site">
+      <option value="">Site…</option>
+      {{range $.Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <select class="en-sel short" name="device_class" aria-label="Class">
+      <option value="">{{if .Class}}{{.ClassLabel}}{{else}}Class…{{end}}</option>
+      {{range $.Classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
+    </select>
+    <button type="submit" class="cc-btn primary sm">Done</button>
+  </form>
+  {{else}}<div></div>{{end}}
+</div>
+{{end}}
+{{else}}
+<div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing waiting</b>A device that enrolls, or checks in for the first time, appears here until it has a site.</div></div>
+{{end}}
+</div>
 {{end}}

@@ -296,7 +296,7 @@
   {{if ne .Role "owner"}}
   <nav class="dock" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    {{if ne .Role "owner"}}<a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>{{end}}
+    {{if ne .Role "owner"}}<a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>{{end}}
     {{if ne .Role "owner"}}{{if canAct .Role}}<a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>{{end}}{{end}}
     {{/* Policies nav item hidden for now — /manage stays reachable by URL; restore from git when needed. */}}
     {{if ne .Role "owner"}}<a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>{{end}}
@@ -2188,6 +2188,7 @@
   <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
   <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
   <a href="/groups" class="fleet-tab{{if eq .ActivePage "groups"}} cur{{end}}">Groups{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Groups}}</span>{{end}}</a>
+  <a href="/enrollment" class="fleet-tab{{if eq .ActivePage "enrollment"}} cur{{end}}">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} <span class="pill warn" title="Devices waiting for assignment">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>
 </div>
 {{end}}
 

@@ -4373,6 +4373,7 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 }
 .fleet-tab:hover { color:var(--text-2); }
 .fleet-tab.cur { color: var(--accent-text); border-bottom-color:var(--accent); }
+.fleet-tab .pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; font-weight: 700; }
 .fleet-tab .pill {
   font-family:var(--mono); font-size:var(--t-11);
   background:var(--surface2); color:var(--muted);
