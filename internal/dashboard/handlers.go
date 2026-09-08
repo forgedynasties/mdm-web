@@ -11638,8 +11638,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		When    time.Time
 		By      string
 		Prefill template.JS
+		Count   int // "Most frequent" pane: how many times this exact send was made
 	}
-	var recents []recentView
+	var recents, frequent []recentView
 	if !isHistPartial {
 		// logcat and ota are deliberately absent: neither is a builder action here —
 		// logcat fans out via logcat_requests (device pages), OTA via the releases
@@ -11841,14 +11842,18 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			meNames[dn] = true
 		}
 		const recentMax = 6
-		seenSig := map[string]bool{}
-		addRecent := func(c db.Command) {
-			if len(recents) >= recentMax || !palAllowed[c.Type] {
-				return
+		// Only operator sends count as presets: admin accounts drive maintenance and
+		// tests, and those must not shape what the console suggests to operators.
+		resendable := func(c db.Command) bool {
+			if !palAllowed[c.Type] || c.CreatedBy == "" || userIsAdminFn(c.CreatedBy) {
+				return false
 			}
-			if _, isCluster := clusters[c.ID]; isCluster || (c.Type == "reboot" && c.CreatedBy == "") {
-				return // system/OTA reboots aren't resendable presets
-			}
+			_, isCluster := clusters[c.ID]
+			return !isCluster // system/OTA reboots aren't resendable presets
+		}
+		// viewOf builds the row once per command; the target lookups are the cost, so
+		// the signature (what makes two sends "the same") comes with it.
+		viewOf := func(c db.Command) (recentView, string) {
 			serials, _ := h.db.GetCommandTargetSerials(r.Context(), c.ID)
 			var gids []uuid.UUID
 			if c.TargetType == "groups" {
@@ -11856,12 +11861,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			}
 			detail := recentDetail(c)
 			target := targetSummary(c.TargetType, serials, gids)
-			sig := c.Type + "|" + c.ApkURL + "|" + detail + "|" + target
-			if seenSig[sig] {
-				return
-			}
-			seenSig[sig] = true
-			recents = append(recents, recentView{
+			return recentView{
 				ID:      c.ID,
 				Type:    c.Type,
 				Label:   cmdTypeLabel(c.Type),
@@ -11870,7 +11870,19 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 				When:    c.CreatedAt,
 				By:      c.CreatedBy,
 				Prefill: mkRecentPrefill(c, serials),
-			})
+			}, c.Type + "|" + c.ApkURL + "|" + detail + "|" + target
+		}
+		seenSig := map[string]bool{}
+		addRecent := func(c db.Command) {
+			if len(recents) >= recentMax || !resendable(c) {
+				return
+			}
+			v, sig := viewOf(c)
+			if seenSig[sig] {
+				return
+			}
+			seenSig[sig] = true
+			recents = append(recents, v)
 		}
 		for pass := 0; pass < 2 && len(recents) < recentMax; pass++ {
 			scanned := 0
@@ -11886,6 +11898,40 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 				addRecent(cmds[i])
 			}
 		}
+		// Most frequent: the same send (type + payload + target) made repeatedly across
+		// the loaded history, newest occurrence shown, ranked by count. Only sends made
+		// more than once qualify — a one-off is already covered by "Recent".
+		freqIdx := map[string]int{}
+		scanned := 0
+		for i := range cmds {
+			if scanned >= 200 {
+				break
+			}
+			if !resendable(cmds[i]) {
+				continue
+			}
+			scanned++
+			v, sig := viewOf(cmds[i])
+			if j, ok := freqIdx[sig]; ok {
+				frequent[j].Count++
+				continue
+			}
+			v.Count = 1
+			freqIdx[sig] = len(frequent)
+			frequent = append(frequent, v)
+		}
+		sort.SliceStable(frequent, func(a, b int) bool { return frequent[a].Count > frequent[b].Count })
+		n := 0
+		for _, v := range frequent {
+			if v.Count < 2 {
+				break
+			}
+			n++
+		}
+		if n > recentMax {
+			n = recentMax
+		}
+		frequent = frequent[:n]
 	}
 
 	data := map[string]any{
@@ -11919,6 +11965,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Prefill":          prefill,
 		"PaletteJSON":      template.JS(paletteJSON),
 		"RecentSends":      recents,
+		"FrequentSends":    frequent,
 		"RequireReason":    h.cfg.RequireReason(),
 	}
 	// Live status: the Actions page's history table re-fetches just this fragment on a
@@ -12063,6 +12110,54 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommandBrowseDevices renders the filtered device picker for the command builder's
+// CommandResolveSerials backs the Actions console's paste-a-list flow: given the
+// serials the operator pasted (comma/space/newline separated), it answers which ones
+// name a real active device and which do not, so the console adds only the former
+// and shows the rest in a popup instead of silently dropping them at send.
+func (h *Handler) CommandResolveSerials(w http.ResponseWriter, r *http.Request) {
+	raw := r.URL.Query().Get("serials")
+	var serials []string
+	for _, t := range strings.FieldsFunc(raw, func(c rune) bool { return c == ',' || c == ';' || c == ' ' || c == '\n' || c == '\r' || c == '\t' }) {
+		if t = strings.TrimSpace(t); t != "" {
+			serials = append(serials, t)
+		}
+		if len(serials) >= 500 {
+			break
+		}
+	}
+	found, missing, err := h.db.ResolveSerials(r.Context(), serials)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// Scope to what this user may target: devices outside their access policy count
+	// as unknown, matching how the send path drops them.
+	if ids := h.access(r).visibleIDs(); ids != nil {
+		devices, _ := h.db.GetDevicesByIDs(r.Context(), ids)
+		allowed := map[string]bool{}
+		for _, d := range devices {
+			allowed[d.SerialNumber] = true
+		}
+		kept := found[:0]
+		for _, sn := range found {
+			if allowed[sn] {
+				kept = append(kept, sn)
+			} else {
+				missing = append(missing, sn)
+			}
+		}
+		found = kept
+	}
+	if found == nil {
+		found = []string{}
+	}
+	if missing == nil {
+		missing = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"found": found, "missing": missing})
+}
+
 // "Specific" target — the same filters as the Devices list and the new-group browser
 // (search, status, group, production, build, battery). Checking rows feeds the target
 // serial chips; "Select all matching" turns the current filter into the target set.
@@ -17794,6 +17889,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /manage/policies/{id}/duplicate", h.requireAuth(h.ManagePolicyDuplicate))
 	mux.HandleFunc("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
+	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
 	// Static route wins over /commands/{id}, so this is the global live feed the
 	// history page subscribes to (not a per-command stream).
