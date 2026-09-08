@@ -516,7 +516,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{/* Enrollment — how this device got here and where it is in its lifecycle.
        Same card for both kinds: firmware devices are "auto-enrolled" with the
        fleet key, DPC devices carry a per-device key from a profile. */}}
-  <div class="ddc-card" id="enrollment-card">
+  {{if canAdmin .Role}}<div class="ddc-card" id="enrollment-card">
     <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
     <div class="ddc-kv"><span class="k">Managed by</span><span class="v">{{.Device.KindLabel}}{{if .IsDPC}} <span class="muted small">Device Owner</span>{{else}} <span class="muted small">system app</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
@@ -546,7 +546,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm" style="color:var(--danger)">Factory wipe</button></form>{{end}}
     </span></div>
     {{end}}
-  </div>
+  </div>{{end}}
   {{/* Charging pad — one widget combining the live occupancy status and the
        enable/disable control. Rendered only for devices that report a pad. */}}
   {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
