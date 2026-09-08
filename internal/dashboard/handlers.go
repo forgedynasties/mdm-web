@@ -2046,8 +2046,8 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			if st.State == "ok" {
 				st.State = "warn"
 			}
-			todos = append(todos, todo{Sev: "warn", Title: st.Name + "'s charging pad looks faulty", Serial: d.SerialNumber,
-				Body: "The pad keeps connecting and disconnecting. Re-seat the device; if it persists, let the MDM team know."})
+			todos = append(todos, todo{Sev: "warn", Title: st.Name + "'s charging pad is misplaced", Serial: d.SerialNumber,
+				Body: "Connection issue between the pad and the device. Please place it again; if it keeps happening, let the MDM team know."})
 		}
 		if on && !d.KioskEnabled {
 			todos = append(todos, todo{Sev: "info", Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
@@ -2063,7 +2063,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		case st.HasBattery && st.Battery < 20 && !st.Charging:
 			st.Word, st.Do = "Not charging", template.HTML("<b>Put it back on the dock.</b> At "+strconv.Itoa(st.Battery)+"% it will not last the shift.")
 		case st.Pad == "faulty":
-			st.Word, st.Do = "Pad faulty", template.HTML("Re-seat it on the pad. If it keeps flapping, <b>tell the MDM team</b>.")
+			st.Word, st.Do = "Pad misplaced", template.HTML("<b>Please place it again</b> on the charging pad. If it keeps happening, tell the MDM team.")
 		default:
 			st.Word = "Ready"
 			do := "Docked, locked, online."
@@ -2277,8 +2277,8 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			exceptions = append(exceptions, strconv.Itoa(len(l))+" stations are off their docks and running low: "+names(l))
 		}
 	}
-	if l := groups["Pad faulty"]; len(l) > 0 {
-		exceptions = append(exceptions, names(l)+map[bool]string{true: " have", false: " has"}[len(l) > 1]+" a flaky charging pad")
+	if l := groups["Pad misplaced"]; len(l) > 0 {
+		exceptions = append(exceptions, names(l)+map[bool]string{true: " need", false: " needs"}[len(l) > 1]+" placing again on the charging pad")
 	}
 	meal := "service"
 	switch {
@@ -12998,9 +12998,8 @@ var commandRoles = map[string][]string{
 	// Read-only mic capture gain (TX_DEC0..7 Volume) probe. Admin-only for now: the
 	// field it refreshes is only rendered for admins (see device.html Hardware card).
 	"mic_gain_read": {"admin"},
-	// Sets (or clears) the vendor daemon's TX_DEC enforcement target. Admin-only:
-	// it changes codec state on the device.
-	"mic_gain_set": {"admin"},
+	// mic_gain_set (the vendor daemon's TX_DEC enforcement target) is deliberately
+	// absent: mic gain is read-only from the MDM, so the type is refused as unknown.
 }
 
 // ── Roles ────────────────────────────────────────────────────────────────────
