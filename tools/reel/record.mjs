@@ -357,7 +357,15 @@ const SCENES = {
   },
 };
 
-const ORDER = ["overview", "health", "map", "remote", "actions", "rollout", "alerts", "devices"];
+let ORDER = ["overview", "health", "map", "remote", "actions", "rollout", "alerts", "devices"];
+// Another reel can bring its own scenes: REEL_SCRIPT=reel-actions.mjs exports
+// { SCENES, ORDER, prepare? }. prepare(browser, ctx) runs once before recording.
+let SCRIPT = null;
+if (process.env.REEL_SCRIPT) {
+  SCRIPT = await import(new URL("./" + process.env.REEL_SCRIPT, import.meta.url).href);
+  Object.assign(SCENES, SCRIPT.SCENES);
+  ORDER = SCRIPT.ORDER;
+}
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : ORDER;
 
 // ---------------------------------------------------------------- run
@@ -374,6 +382,7 @@ const auth = await browser.newContext();
 }
 const storageState = await auth.storageState();
 await auth.close();
+if (SCRIPT && SCRIPT.prepare) await SCRIPT.prepare({ browser, storageState, BASE, sql, sleep });
 for (const name of wanted) {
   const idx = String(ORDER.indexOf(name) + 1).padStart(2, "0");
   const tmpDir = OUT + "_tmp_" + name + "/";

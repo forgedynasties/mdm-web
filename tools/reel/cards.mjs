@@ -9,9 +9,9 @@
 // Card kinds: title (kicker/title/sub), bullets (title + list), compare (two columns).
 
 import { chromium } from "playwright";
-import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync, readFileSync } from "node:fs";
 
-const OUT = new URL("./out/cards/", import.meta.url).pathname;
+const OUT = new URL("./" + (process.env.CARDS_DIR || "out/cards") + "/", import.meta.url).pathname;
 const SEC = parseFloat(process.env.CARD_SEC || "3.2");
 mkdirSync(OUT, { recursive: true });
 
@@ -32,6 +32,13 @@ const CARDS = [
   { file: "07-alerts", kicker: "Convenience", title: "It tells you what to do", sub: "Plain-language alerts, a daily briefing, filters that answer the question you actually have." },
   { file: "99-outro", kicker: "AIO MDM", title: "Our hardware.<br>Our software.<br>Our rules.", sub: "aioapp.com", big: true, credit: "Music: Kevin MacLeod (incompetech.com), CC BY 4.0" },
 ];
+
+// A different reel (e.g. the Actions page reel) brings its own card list:
+//   CARDS_JSON=cards-actions.json CARDS_DIR=out/cards_actions node cards.mjs
+if (process.env.CARDS_JSON) {
+  CARDS.length = 0;
+  CARDS.push(...JSON.parse(readFileSync(new URL("./" + process.env.CARDS_JSON, import.meta.url).pathname, "utf8")));
+}
 
 const html = (c) => `<!doctype html><html><head><meta charset="utf-8">
 <style>
