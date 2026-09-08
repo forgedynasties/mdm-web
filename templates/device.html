@@ -57,7 +57,7 @@
     {{/* Mic capture gain (TX_DEC0..7 Volume), admin-only: 102 on every channel = the
          trinket mic fix is present (OK), 84 = codec default (bad: quiet mic), anything
          else = mixed. Details + re-read live in the Hardware card. */}}
-    {{if canAdmin .Role}}{{$mg := micGain .Device.LatestExtra}}{{if $mg}}<span class="ddc-chip mic-{{$mg.Summary}}" id="mic-gain-chip" title="Mic gain — TX_DEC0..7 Volume: {{range $i, $v := $mg.TxDec}}{{if $i}}, {{end}}{{$v}}{{end}} ({{$mg.Source}}). 102 = mic fix present, 84 = codec default."><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>Mic {{if eq $mg.Summary "fixed"}}OK{{else if eq $mg.Summary "default"}}bad{{else}}mixed{{end}} · {{$mg.Values}}</span>{{else}}<span class="ddc-chip mic-na" id="mic-gain-chip" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>Mic n/a</span>{{end}}{{end}}
+    {{if and (canAdmin .Role) (eq .Device.ProductKey "t7")}}{{$mg := micGain .Device.LatestExtra}}{{if $mg}}<span class="ddc-chip mic-{{$mg.Summary}}" id="mic-gain-chip" title="Mic gain — TX_DEC0..7 Volume: {{range $i, $v := $mg.TxDec}}{{if $i}}, {{end}}{{$v}}{{end}} ({{$mg.Source}}). 102 = mic fix present, 84 = codec default."><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>Mic {{if eq $mg.Summary "fixed"}}OK{{else if eq $mg.Summary "default"}}bad{{else}}mixed{{end}} · {{$mg.Values}}</span>{{else}}<span class="ddc-chip mic-na" id="mic-gain-chip" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>Mic n/a</span>{{end}}{{end}}
 {{end}}
 
 {{define "device-commands"}}
@@ -2421,7 +2421,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
            absent). "live" = read from the mixer by the vendor probe daemon; "config" =
            derived from mixer_paths xml (what the HAL applies at idle). Rendered only when the
            client reports the field, so kiosks without a mic simply don't show the row. */}}
-      {{if and (canAdmin .Role) .MicGain}}{{$mg := .MicGain}}
+      {{if and (canAdmin .Role) (eq .Device.ProductKey "t7") .MicGain}}{{$mg := .MicGain}}
       <div class="ddc-kv" id="mic-gain-row" title="TX_DEC0..7 Volume: {{range $i, $v := $mg.TxDec}}{{if $i}}, {{end}}{{$v}}{{end}} · source: {{$mg.Source}}{{if eq $mg.Source "config"}} ({{$mg.File}}){{end}}"><span class="k">Mic gain</span><span class="v">
         <span class="mono">{{$mg.Values}}</span>
         {{if eq $mg.Summary "fixed"}}<span class="cc-tag ok">Fixed</span>{{else if eq $mg.Summary "default"}}<span class="cc-tag warn">Default</span>{{else}}<span class="cc-tag bad">Mixed</span>{{end}}
@@ -2432,7 +2432,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
       {{/* Mic gain is read-only from the MDM: the row and the re-read button above are
            all there is. The vendor daemon's enforcement target (mic_gain_set) is
            deliberately not exposed. */}}
-      {{else if canAdmin .Role}}
+      {{else if and (canAdmin .Role) (eq .Device.ProductKey "t7")}}
       <div class="ddc-kv" id="mic-gain-row" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><span class="k">Mic gain</span><span class="v"><span class="muted">Not available</span></span></div>
       {{end}}
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
