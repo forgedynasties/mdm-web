@@ -699,6 +699,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canAdmin": func(role string) bool { return role == "admin" },
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
+		"canOTA":     roleCanOTA,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
 		"roleLabel":      roleLabel,
@@ -2768,6 +2769,23 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 // user management. Only the env-configured "admin" passes.
 // requireUserManager guards the Users pages: admin or user_manager. Per-target
 // elevation checks (who may edit whom) live in the handlers via mayManageUser.
+// requireOTA guards firmware pushes: admin, dev, or the OTA admin (who may deploy
+// releases but not manage the release packages themselves).
+func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if !roleCanOTA(s.Role) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func (h *Handler) requireUserManager(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -13096,15 +13114,15 @@ const (
 // Raw shell is limited to admin/dev; operators reach vetted commands via the device
 // queries catalog instead (the "diagnostic" action on the Actions page).
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "operator", "user_manager", "viewer"},
-	"install_apk":   {"admin", "dev", "operator", "user_manager"},
-	"uninstall":     {"admin", "dev", "operator", "user_manager"},
-	"reboot":        {"admin", "dev", "operator", "user_manager"},
+	"screenshot":    {"admin", "dev", "operator", "user_manager", "ota_admin", "viewer"},
+	"install_apk":   {"admin", "dev", "operator", "user_manager", "ota_admin"},
+	"uninstall":     {"admin", "dev", "operator", "user_manager", "ota_admin"},
+	"reboot":        {"admin", "dev", "operator", "user_manager", "ota_admin"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
-	"query":         {"admin", "dev", "operator", "user_manager"},
-	"ota":           {"admin", "dev"},
+	"query":         {"admin", "dev", "operator", "user_manager", "ota_admin"},
+	"ota":           {"admin", "dev", "ota_admin"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
 	// Full-device factory reset — DPC-agent devices only, admin-only (most destructive action).
@@ -13128,12 +13146,12 @@ var commandRoles = map[string][]string{
 //   operator      device actions, per access policy
 //   viewer        read-only, per visibility policy
 
-var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "dev": 3, "admin": 4}
+var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "ota_admin": 2, "dev": 3, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
+var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "ota_admin": "OTA admin", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
 
 // roleOrder is every assignable role, highest first.
-var roleOrder = []string{"admin", "dev", "user_manager", "operator", "viewer", "owner"}
+var roleOrder = []string{"admin", "dev", "user_manager", "ota_admin", "operator", "viewer", "owner"}
 
 func roleLevel(role string) int { return roleLevels[role] }
 
@@ -13146,15 +13164,20 @@ func roleLabel(role string) string {
 
 // roleCanOperate: roles with operator powers (device actions, QA, groups…).
 func roleCanOperate(role string) bool {
-	return role == "admin" || role == "dev" || role == "user_manager" || role == "operator"
+	return role == "admin" || role == "dev" || role == "user_manager" || role == "ota_admin" || role == "operator"
 }
+
+// roleCanOTA: may push firmware updates (create deployments, add targets, retry,
+// cancel). Release packages themselves (create / upload / publish / delete) stay
+// with canRelease (admin + dev).
+func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || role == "ota_admin" }
 
 // roleIsOperatorLike: the "test team" roles — operator, or user manager acting
 // as one. Used where operators specifically (not admins) get a behaviour.
-func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" }
+func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "ota_admin" }
 
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
-func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" }
+func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "ota_admin" }
 
 // assignableRoles lists the roles an actor may grant: strictly below their level,
 // except an admin who may also make admins.
@@ -18120,9 +18143,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
-	mux.HandleFunc("GET /updates/new", h.requireReleaseAdmin(h.NewUpdatePage))
-	post("POST /updates", h.requireReleaseAdmin(h.DeployCreate))
-	post("POST /releases/{id}/deploy", h.requireReleaseAdmin(h.ReleaseDeploy))
+	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
+	post("POST /updates", h.requireOTA(h.DeployCreate))
+	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/branch", h.requireReleaseAdmin(h.ReleaseCreateBranch))
@@ -18141,15 +18164,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrOperator(h.DemoUpdatesScenario))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(h.DeploymentEvents))
-	post("POST /releases/{id}/deployments/{did}/settings", h.requireReleaseAdmin(h.DeploymentUpdateSettings))
+	post("POST /releases/{id}/deployments/{did}/settings", h.requireOTA(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
-	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireReleaseAdmin(h.DeploymentAddTargets))
+	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOTA(h.DeploymentAddTargets))
 	post("POST /releases/{id}/deployments/{did}/reboot-all", h.requireOperatorOrAdmin(h.DeploymentRebootAll))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/reboot", h.requireOperatorOrAdmin(h.DeploymentRebootDevice))
-	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireReleaseAdmin(h.DeploymentRetryDevice))
-	post("POST /releases/{id}/deployments/{did}/devices/{serial}/cancel-ota", h.requireReleaseAdmin(h.DeploymentCancelDeviceOTA))
-	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireReleaseAdmin(h.DeploymentRemoveDevice))
-	post("POST /releases/{id}/deployments/{did}/delete", h.requireReleaseAdmin(h.DeploymentDelete))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOTA(h.DeploymentRetryDevice))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/cancel-ota", h.requireOTA(h.DeploymentCancelDeviceOTA))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOTA(h.DeploymentRemoveDevice))
+	post("POST /releases/{id}/deployments/{did}/delete", h.requireOTA(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /activity", h.requireUserManager(h.ActivityPage))
 	mux.HandleFunc("GET /users", h.requireUserManager(h.UserList))

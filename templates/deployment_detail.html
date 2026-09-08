@@ -385,7 +385,7 @@
      rendered as part of "deployment-targets" below — that keeps it inside the live
      htmx-polled / SSE-refreshed region instead of going stale as a separate block. */}}
 
-{{if canRelease .Role}}
+{{if canOTA .Role}}
 <details class="cc-card dpl-panel">
   <summary>Edit reboot settings <span class="muted small">— changes apply to this deployment only, no Android push</span></summary>
   <div class="dpl-panel-body">
@@ -410,7 +410,7 @@
 </details>
 {{end}}
 
-{{if and (ne $dep.Status "canceled") (canRelease .Role)}}
+{{if and (ne $dep.Status "canceled") (canOTA .Role)}}
 <details class="cc-card dpl-panel">
   <summary>Push to more devices <span class="muted small">— only {{productLabel $rel.Product}} devices, inherits this deployment's reboot setting</span></summary>
   <div class="dpl-panel-body">
