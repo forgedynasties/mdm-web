@@ -12455,7 +12455,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CommandTargetPackages(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	targetType := r.FormValue("target_type")
-	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
+	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" && targetType != "mixed" {
 		targetType = "all"
 	}
 	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
@@ -13733,6 +13733,8 @@ func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]
 		return h.db.GetDeviceIDsBySerials(r.Context(), db.ParseSerials(r.FormValue("target_serials")))
 	case "scope":
 		return h.resolveScopeDeviceIDs(r)
+	case "mixed":
+		return h.resolveMixedDeviceIDs(r)
 	case "all":
 		return h.db.GetAllDeviceIDs(r.Context())
 	default:
@@ -13740,6 +13742,53 @@ func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]
 		// preview should show 0, not silently preview the whole fleet.
 		return nil, nil
 	}
+}
+
+// resolveMixedDeviceIDs is the console's "pick anything" target: any number of
+// restaurants (target_restaurants), groups (target_groups) and serials
+// (target_serials), unioned and de-duplicated by device, so a device that sits in
+// two chosen scopes counts once. target_all=1 short-circuits to the whole fleet.
+func (h *Handler) resolveMixedDeviceIDs(r *http.Request) ([]uuid.UUID, error) {
+	if r.FormValue("target_all") == "1" {
+		return h.db.GetAllDeviceIDs(r.Context())
+	}
+	seen := map[uuid.UUID]bool{}
+	var out []uuid.UUID
+	add := func(ids []uuid.UUID) {
+		for _, id := range ids {
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+	}
+	parse := func(vals []string) []uuid.UUID {
+		var ids []uuid.UUID
+		for _, v := range vals {
+			if id, err := uuid.Parse(v); err == nil {
+				ids = append(ids, id)
+			}
+		}
+		return ids
+	}
+	if ids, err := h.db.GetDeviceIDsInRestaurants(r.Context(), parse(r.Form["target_restaurants"])); err != nil {
+		return nil, err
+	} else {
+		add(ids)
+	}
+	if ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), parse(r.Form["target_groups"])); err != nil {
+		return nil, err
+	} else {
+		add(ids)
+	}
+	if serials := db.ParseSerials(r.FormValue("target_serials")); len(serials) > 0 {
+		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+		if err != nil {
+			return nil, err
+		}
+		add(ids)
+	}
+	return out, nil
 }
 
 // buildScopeFilter reads the scope-rail form fields (a primary collection —
@@ -14290,7 +14339,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetType := r.FormValue("target_type")
-	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
+	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" && targetType != "mixed" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
@@ -14382,6 +14431,19 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	case "scope":
 		// Snapshot the scope-rail selection (collection + refine) to device IDs now.
 		ids, err := h.resolveScopeDeviceIDs(r)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+			http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
+			return
+		}
+		targetType = "devices"
+		targetIDs = ids
+	case "mixed":
+		// Restaurants + groups + serials in one send, de-duplicated by device.
+		ids, err := h.resolveMixedDeviceIDs(r)
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
@@ -14686,7 +14748,7 @@ func (h *Handler) RecipeCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	targetType := r.FormValue("target_type")
-	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
+	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" && targetType != "mixed" {
 		targetType = "all"
 	}
 	rec := db.Recipe{

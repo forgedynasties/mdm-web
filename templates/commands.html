@@ -73,6 +73,8 @@
 .co-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:0;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
 .co-dev:hover{border-color:var(--rule-2)}
 .co-dev.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.co-dev.via{border-style:dashed;cursor:default}
+.co-dev.via .cb{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 .co-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
 .co-dev.on .cb{background:var(--accent);border-color:var(--accent);color:#fff}
 .co-dev .cb svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:3}
@@ -691,11 +693,20 @@ window.CMD_PREFILL = {{.Prefill}};
     var kinds = S.targets.map(function (t) { return t.kind; });
     if (S.targets.length) {
       if (kinds[0] === 'all') { tt = 'scope'; smode = 'all'; }
-      else if (kinds[0] === 'restaurant') { tt = 'scope'; smode = 'restaurant'; sid = S.targets[0].id; }
+      else if (S.targets.length === 1 && kinds[0] === 'restaurant') { tt = 'scope'; smode = 'restaurant'; sid = S.targets[0].id; }
       else if (kinds.every(function (k) { return k === 'group'; })) {
         if (S.targets.length === 1) { tt = 'scope'; smode = 'group'; sid = S.targets[0].id; }
         else { tt = 'groups'; S.targets.forEach(function (t) { add('target_groups', t.id); }); }
-      } else { tt = 'devices'; serials = S.targets.map(function (t) { return t.serial; }); }
+      } else if (kinds.every(function (k) { return k === 'device'; })) { tt = 'devices'; serials = S.targets.map(function (t) { return t.serial; }); }
+      else {
+        // restaurants + groups + devices together: the server unions them by device
+        tt = 'mixed';
+        S.targets.forEach(function (t) {
+          if (t.kind === 'restaurant') add('target_restaurants', t.id);
+          else if (t.kind === 'group') add('target_groups', t.id);
+          else if (t.kind === 'device') serials.push(t.serial);
+        });
+      }
     }
     el('f-ttype').value = tt;
     el('f-smode').value = smode;
@@ -829,6 +840,7 @@ window.CMD_PREFILL = {{.Prefill}};
     var rows = devCache[devKey()] || [];
     var picked = {};
     S.targets.forEach(function (t) { if (t.kind === 'device') picked[t.serial] = true; });
+    rows.forEach(function (d) { if (!picked[d.serial] && coveredBy(d.serial)) picked[d.serial] = 'via'; });
     var shown = rows.filter(function (d) {
       if (QF.online && !d.online) return false;
       if (QF.offline && d.online) return false;
@@ -844,8 +856,9 @@ window.CMD_PREFILL = {{.Prefill}};
       html += '<button type="button" class="co-paste" id="co-addpaste"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add ' + toks.length + ' pasted serials</button>';
     }
     shown.forEach(function (d) {
-      var on = S.targets.some(function (t) { return t.kind === 'device' && t.serial === d.serial; });
-      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + '" data-serial="' + esc(d.serial) + '">'
+      var via = coveredBy(d.serial);
+      var on = !!picked[d.serial];
+      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + (via ? ' via' : '') + '" data-serial="' + esc(d.serial) + '"' + (via ? ' title="Included via ' + esc(via) + '"' : '') + '>'
         + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
         + '<span class="bd"><span class="sn">' + esc(d.serial) + '</span>' + (d.product || d.sub || d.bat ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
         + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
@@ -862,41 +875,62 @@ window.CMD_PREFILL = {{.Prefill}};
 
   // ── Selection mutations (same semantics + hints as the palette) ──
   function hasKind(k) { return S.targets.some(function (t) { return t.kind === k; }); }
+  // Scopes and devices combine freely: any number of restaurants, groups and
+  // picked devices. "All devices" is the one exclusive choice. The server unions
+  // the selection and counts each device once (target_type=mixed).
   function toggleScope(kind, id) {
     disarm();
     if (kind === 'all') {
       S.targets = isSel('all') ? [] : [{ kind: 'all' }];
-    } else if (kind === 'restaurant') {
-      if (isSel('restaurant', id)) S.targets = [];
-      else {
+    } else if (isSel(kind, id)) {
+      S.targets = S.targets.filter(function (t) { return !(t.kind === kind && t.id === id); });
+    } else {
+      S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
+      if (kind === 'restaurant') {
         var r = DS.restaurants.find(function (x) { return x.id === id; });
-        S.targets = [{ kind: 'restaurant', id: id, name: r ? r.name : 'Restaurant', count: r ? r.count : null }];
-      }
-    } else if (kind === 'group') {
-      if (isSel('group', id)) { S.targets = S.targets.filter(function (t) { return !(t.kind === 'group' && t.id === id); }); }
-      else {
-        if (hasKind('device')) { setHint('One send can target groups OR picked devices, not both — remove the device pills first.'); return; }
+        S.targets.push({ kind: 'restaurant', id: id, name: r ? r.name : 'Restaurant', count: r ? r.count : null });
+      } else {
         var g = DS.groups.find(function (x) { return x.id === id; });
-        S.targets = S.targets.filter(function (t) { return t.kind === 'group'; });
         S.targets.push({ kind: 'group', id: id, name: g ? g.name : 'Group', count: g ? g.count : null });
       }
+      loadScopeMembers({ kind: kind, id: id });
     }
     updateUI();
   }
   function toggleDevice(serial) {
     disarm();
+    if (coveredBy(serial)) { toast('Already included via ' + coveredBy(serial), 'info'); return; }
     if (S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; })) {
       S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === serial); });
     } else {
-      if (hasKind('group')) { setHint('One send can target groups OR picked devices, not both — remove the group pills first.'); return; }
-      S.targets = S.targets.filter(function (t) { return t.kind === 'device'; });
+      S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
       S.targets.push({ kind: 'device', serial: serial });
     }
     updateUI();
   }
+  // Which devices each chosen scope contains, so the device list can show them
+  // as included (checked, "via Harbor Grill") and duplicates don't double up.
+  var scopeMembers = {};
+  function loadScopeMembers(t) {
+    var key = t.kind + ':' + t.id;
+    if (scopeMembers[key]) return Promise.resolve(scopeMembers[key]);
+    return fetchScopeRows(t).then(function (rows) {
+      var set = {}; rows.forEach(function (r) { set[r.serial] = 1; });
+      scopeMembers[key] = set; renderDevs(); return set;
+    }).catch(function () { return {}; });
+  }
+  function coveredBy(serial) {
+    for (var i = 0; i < S.targets.length; i++) {
+      var t = S.targets[i];
+      if (t.kind === 'all') return 'All devices';
+      if (t.kind !== 'restaurant' && t.kind !== 'group') continue;
+      var set = scopeMembers[t.kind + ':' + t.id];
+      if (set && set[serial]) return t.name;
+    }
+    return '';
+  }
   function addSerials(raw) {
-    var kinds = S.targets.map(function (t) { return t.kind; });
-    if (kinds.length && kinds[0] !== 'device') S.targets = [];
+    S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
     raw.split(/[\s,;]+/).forEach(function (s) {
       s = s.trim();
       if (s && !S.targets.some(function (t) { return t.serial === s; })) S.targets.push({ kind: 'device', serial: s });
