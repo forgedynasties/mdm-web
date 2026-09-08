@@ -233,7 +233,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
         {{if .IsDPC}}<span class="cc-tag info" tabindex="0" role="note" title="Managed by the AIO MDM Device-Owner agent on a stock device. Actions the agent cannot run are disabled in the Actions menu.">DPC agent</span>{{else}}<span class="cc-tag" title="Our hardware running the system-app client">Firmware</span>{{end}}
-        {{if .Device.Class}}<span class="cc-tag" title="Device class">{{.Device.ClassLabel}}</span>{{end}}
+        {{if .Device.Class}}<span class="cc-tag" title="Device type">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
       <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span> · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .Device.HasBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
@@ -521,7 +521,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-kv"><span class="k">Managed by</span><span class="v">{{.Device.KindLabel}}{{if .IsDPC}} <span class="muted small">Device Owner</span>{{else}} <span class="muted small">system app</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Credential</span><span class="v">{{if .IsDPC}}Per-device key{{else}}Fleet device key{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Class</span><span class="v">{{if canAdminOrOperator .Role}}
+    <div class="ddc-kv"><span class="k">Device type</span><span class="v">{{if canAdminOrOperator .Role}}
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/class" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;margin:0">
         <select name="device_class" class="en-sel" style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)" onchange="this.form.submit()">
           <option value="" {{if not .Device.DeviceClass}}selected{{end}}>{{if .Device.Class}}{{.Device.ClassLabel}} (product default){{else}}— not set —{{end}}</option>
