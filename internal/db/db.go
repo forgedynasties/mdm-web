@@ -14169,54 +14169,6 @@ func lowerAll(in []string) []string {
 	return out
 }
 
-// ResolveSerials splits a list of client-typed serials into the ones that name an
-// active device (returned in their canonical stored form) and the rest. Matching is
-// case-insensitive so a pasted list survives a lower-cased spreadsheet.
-func (d *DB) ResolveSerials(ctx context.Context, serials []string) (found, missing []string, err error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT serial_number FROM devices
-		WHERE NOT hidden AND LOWER(serial_number) = ANY($1)`, lowerAll(serials))
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-	known := map[string]string{}
-	for rows.Next() {
-		var sn string
-		if err := rows.Scan(&sn); err != nil {
-			return nil, nil, err
-		}
-		known[strings.ToLower(sn)] = sn
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
-	}
-	seen := map[string]bool{}
-	for _, s := range serials {
-		k := strings.ToLower(strings.TrimSpace(s))
-		if k == "" || seen[k] {
-			continue
-		}
-		seen[k] = true
-		if sn, ok := known[k]; ok {
-			found = append(found, sn)
-		} else {
-			missing = append(missing, strings.TrimSpace(s))
-		}
-	}
-	return found, missing, nil
-}
-
-func lowerAll(in []string) []string {
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if s = strings.ToLower(strings.TrimSpace(s)); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
 // DeviceSerialByKeyHash resolves the device bound to a per-device API key (by hash).
 // Used by device-API auth to derive the acting device from its credential.
 func (d *DB) DeviceSerialByKeyHash(ctx context.Context, keyHash string) (uuid.UUID, string, error) {
