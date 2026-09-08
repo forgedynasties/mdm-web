@@ -5,6 +5,26 @@
 /* ── Activity · Command center ─────────────────────────── */
 .ac-filter{display:flex;align-items:center;gap:12px;padding:12px 17px;flex-wrap:wrap}
 .ac-filter select{min-width:200px}
+/* user picker: avatar bubble + name, searchable, top five most active then the rest */
+.ac-up{position:relative}
+.ac-up-btn{display:inline-flex;align-items:center;gap:8px;min-width:220px;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer}
+.ac-up-btn:hover{border-color:var(--rule-2)}
+.ac-up-btn .nm{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-up-btn .ubub{width:22px;height:22px;font-size:11px;margin:0}
+.ac-up-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;color:var(--muted)}
+.ac-up-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:8px}
+.ac-up-pop[hidden]{display:none}
+.ac-up-q{width:100%;font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);margin-bottom:6px}
+.ac-up-cap{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 8px 3px}
+.ac-up-list{max-height:320px;overflow:auto}
+.ac-up-opt{display:flex;align-items:center;gap:9px;width:100%;text-align:left;font:inherit;font-size:13px;padding:7px 8px;border-radius:8px;border:0;background:none;color:var(--text);cursor:pointer}
+.ac-up-opt:hover,.ac-up-opt.hi{background:var(--surface2)}
+.ac-up-opt.on{background:var(--accent-soft);color:var(--accent-text)}
+.ac-up-opt .ubub{width:24px;height:24px;font-size:11px;margin:0}
+.ac-up-opt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-up-opt .n{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ac-up-more{width:100%;font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;border-top:1px solid var(--border-soft);padding:8px;cursor:pointer;text-align:left}
+.ac-up-none{font-size:12px;color:var(--muted);padding:8px}
 .ac-actor{display:flex;align-items:center;gap:9px;min-width:0}
 .ac-av.has-img{overflow:hidden;background:var(--surface2);}.ac-av.has-img img{width:100%;height:100%;object-fit:cover;display:block;}
 .ac-av{width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent-text);text-transform:uppercase}
@@ -41,14 +61,67 @@
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h3>Log</h3><span class="m">{{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.ActorName}}{{end}}</span></div>
 
     <form method="GET" action="/activity" class="ac-filter">
-      <label class="muted small" for="act-actor">User</label>
-      <select name="actor" id="act-actor" class="form-input" onchange="this.form.submit()">
-        <option value="">All users</option>
-        {{$cur := .Actor}}
-        {{range .Actors}}
-        <option value="{{.Username}}"{{if eq .Username $cur}} selected{{end}}>{{.Name}}</option>
-        {{end}}
-      </select>
+      <label class="muted small" for="act-actor-btn">User</label>
+      {{$cur := .Actor}}
+      <input type="hidden" name="actor" id="act-actor" value="{{$cur}}">
+      <div class="ac-up" id="act-up">
+        <button type="button" class="ac-up-btn" id="act-actor-btn" aria-haspopup="listbox" aria-expanded="false">
+          {{if .Actor}}{{template "ubub" (userBubble .Actor)}}<span class="nm">{{.ActorName}}</span>{{else}}<span class="ubub">∗</span><span class="nm">All users</span>{{end}}
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="ac-up-pop" id="act-up-pop" hidden role="listbox">
+          <input type="text" class="ac-up-q" id="act-up-q" placeholder="Search a name or email…" autocomplete="off" aria-label="Search users">
+          <div class="ac-up-list" id="act-up-list">
+            <button type="button" class="ac-up-opt{{if not .Actor}} on{{end}}" data-v="" data-s="all users"><span class="ubub">∗</span><span class="nm">All users</span></button>
+            {{if .TopActors}}<div class="ac-up-cap" data-cap="top">Most active</div>{{end}}
+            {{range .TopActors}}<button type="button" class="ac-up-opt{{if eq .Username $cur}} on{{end}}" data-v="{{.Username}}" data-s="{{.Name}} {{.Username}}">{{template "ubub" (userBubble .Username)}}<span class="nm">{{.Name}}</span><span class="n">{{.Count}}</span></button>{{end}}
+            {{if .MoreActors}}
+            <button type="button" class="ac-up-more" id="act-up-more">… {{len .MoreActors}} more</button>
+            <div id="act-up-rest" hidden>
+              <div class="ac-up-cap" data-cap="rest">Everyone else</div>
+              {{range .MoreActors}}<button type="button" class="ac-up-opt{{if eq .Username $cur}} on{{end}}" data-v="{{.Username}}" data-s="{{.Name}} {{.Username}}" data-rest="1">{{template "ubub" (userBubble .Username)}}<span class="nm">{{.Name}}</span><span class="n">{{.Count}}</span></button>{{end}}
+            </div>
+            {{end}}
+            <div class="ac-up-none" id="act-up-none" hidden>No one matches.</div>
+          </div>
+        </div>
+      </div>
+      <script>
+      (function () {
+        var wrap = document.getElementById('act-up'), btn = document.getElementById('act-actor-btn'), pop = document.getElementById('act-up-pop');
+        var q = document.getElementById('act-up-q'), list = document.getElementById('act-up-list'), more = document.getElementById('act-up-more'), rest = document.getElementById('act-up-rest');
+        var none = document.getElementById('act-up-none'), hidden = document.getElementById('act-actor');
+        if (!wrap || !btn || !pop) return;
+        function open() { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); q.value = ''; filter(); setTimeout(function () { q.focus(); }, 30); }
+        function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+        function filter() {
+          var s = q.value.trim().toLowerCase(), shown = 0;
+          // a search looks through everyone; the fold only applies to an empty box
+          if (rest) rest.hidden = !s && !rest.dataset.open;
+          if (more) more.hidden = !!s || !!(rest && rest.dataset.open);
+          Array.prototype.forEach.call(list.querySelectorAll('.ac-up-opt'), function (o) {
+            var hit = !s || (o.dataset.s || '').toLowerCase().indexOf(s) >= 0;
+            var folded = o.dataset.rest === '1' && !s && !(rest && rest.dataset.open);
+            o.hidden = !hit || folded; if (hit && !folded) shown++;
+          });
+          Array.prototype.forEach.call(list.querySelectorAll('.ac-up-cap'), function (c) { c.hidden = !!s; });
+          none.hidden = shown > 0;
+        }
+        btn.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden ? open() : close(); });
+        if (more) more.addEventListener('click', function () { rest.dataset.open = '1'; filter(); });
+        q.addEventListener('input', filter);
+        q.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { close(); btn.focus(); }
+          if (e.key === 'Enter') { var first = list.querySelector('.ac-up-opt:not([hidden])'); if (first) first.click(); e.preventDefault(); }
+        });
+        list.addEventListener('click', function (e) {
+          var o = e.target.closest('.ac-up-opt'); if (!o) return;
+          hidden.value = o.dataset.v || '';
+          hidden.form.submit();
+        });
+        document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
+      })();
+      </script>
       <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
         Show admin

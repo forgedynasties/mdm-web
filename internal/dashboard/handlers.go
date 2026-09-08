@@ -17545,6 +17545,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 type activityActor struct {
 	Username string
 	Name     string
+	Count    int // log entries by this actor (page views excluded)
 }
 
 // ActivityPage renders the admin-only activity log — every audit entry, optionally
@@ -17584,11 +17585,24 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	}
 	var actors []activityActor
 	nameByUsername := make(map[string]string, len(users))
+	counts, _ := h.db.AuditCountsByActor(r.Context())
 	for _, u := range users {
 		nameByUsername[u.Username] = u.DisplayName()
 		if u.Email != nil && strings.HasSuffix(strings.ToLower(*u.Email), "@aioapp.com") {
-			actors = append(actors, activityActor{Username: u.Username, Name: u.DisplayName()})
+			actors = append(actors, activityActor{Username: u.Username, Name: u.DisplayName(), Count: counts[u.Username]})
 		}
+	}
+	// Most active first; the filter shows the top five and folds the rest (A–Z).
+	sort.SliceStable(actors, func(i, j int) bool {
+		if actors[i].Count != actors[j].Count {
+			return actors[i].Count > actors[j].Count
+		}
+		return strings.ToLower(actors[i].Name) < strings.ToLower(actors[j].Name)
+	})
+	topActors, moreActors := actors, []activityActor(nil)
+	if len(actors) > 5 {
+		topActors, moreActors = actors[:5], append([]activityActor(nil), actors[5:]...)
+		sort.SliceStable(moreActors, func(i, j int) bool { return strings.ToLower(moreActors[i].Name) < strings.ToLower(moreActors[j].Name) })
 	}
 	actorName := actor
 	if dn, ok := nameByUsername[actor]; ok {
@@ -17664,6 +17678,8 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"Page":          page,
 		"TotalPages":    totalPages,
 		"Actors":        actors,
+		"TopActors":     topActors,
+		"MoreActors":    moreActors,
 		"Actor":         actor,
 		"ActorName":     actorName,
 		"ShowAdmin":     showAdmin,
