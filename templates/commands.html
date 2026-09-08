@@ -100,7 +100,9 @@
 .co-gcap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:14px 2px 8px}
 .co-gcap:first-child{margin-top:0}
 .co-gcap.danger{color:var(--danger)}
-.co-agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px}
+/* auto-fit (not auto-fill): empty tracks collapse, so a group of two cards fills the
+   column instead of sitting in the left fifth of it. */
+.co-agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px}
 .co-act{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--shadow-sm);padding:12px 13px;cursor:pointer;font-family:inherit;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
 .co-act:hover{border-color:var(--rule-2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
 .co-act .ic{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
