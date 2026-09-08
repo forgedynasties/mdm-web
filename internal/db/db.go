@@ -56,6 +56,102 @@ type Device struct {
 	// DeployedEffective is true when the device is live in a restaurant (RestaurantID set);
 	// false = lab/bench unit. There is no separate deployed flag — assignment is the signal.
 	DeployedEffective bool `json:"deployed_effective"`
+	// AgentKind is how the device is managed: prod.KindFirmware (system-app client,
+	// shared key) or prod.KindDPC (Device-Owner agent, per-device key). Persisted at
+	// enrollment / check-in; use IsDPC() in templates.
+	AgentKind string `json:"agent_kind"`
+	// DeviceClass is the stored form factor (tablet/panel/kiosk/mpos/pos/other) or ""
+	// when not set; Class() resolves "" to the product's default for firmware devices.
+	DeviceClass string `json:"device_class"`
+	// Capabilities is what the agent advertised on its last keyframe (DPC agents) or
+	// nil for firmware clients that do not report one; CapSet()/Supports() apply the
+	// product defaults in that case. CapabilitiesDegraded lists features that work
+	// with limits (on-device consent, reduced scope).
+	Capabilities         []string `json:"capabilities"`
+	CapabilitiesDegraded []string `json:"capabilities_degraded"`
+	// EnrollmentStatus: "auto" (firmware, first check-in), "enrolled" (via profile),
+	// "retired", "wiped".
+	EnrollmentStatus string     `json:"enrollment_status"`
+	EnrolledAt       time.Time  `json:"enrolled_at"`
+	KeyRotatedAt     *time.Time `json:"key_rotated_at,omitempty"`
+	// OnboardedAt is nil while the device waits in the onboarding inbox (nobody has
+	// confirmed its site/group/class yet).
+	OnboardedAt *time.Time `json:"onboarded_at,omitempty"`
+}
+
+// Enrollment status values (devices.enrollment_status).
+const (
+	EnrollAuto     = "auto"
+	EnrollEnrolled = "enrolled"
+	EnrollRetired  = "retired"
+	EnrollWiped    = "wiped"
+)
+
+// IsDPC reports whether the device runs the Device-Owner DPC agent.
+func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
+
+// Class is the device's form factor: the stored class when set, else the product's
+// default (T7 → tablet, Kiosk 18/22/27 → panel), else "" (a DPC device enrolled
+// without a class on its profile).
+func (d Device) Class() string {
+	if d.DeviceClass != "" {
+		return d.DeviceClass
+	}
+	p, _ := prod.Resolve(d.Product)
+	return p.Class
+}
+
+// ClassLabel is the display label for Class() ("—" when unset).
+func (d Device) ClassLabel() string { return prod.ClassLabel(d.Class()) }
+
+// KindLabel is the display label for the agent kind.
+func (d Device) KindLabel() string {
+	if d.IsDPC() {
+		return "DPC agent"
+	}
+	return "Firmware"
+}
+
+// Retired reports whether the device has left the fleet (retired or wiped).
+func (d Device) Retired() bool {
+	return d.EnrollmentStatus == EnrollRetired || d.EnrollmentStatus == EnrollWiped
+}
+
+// NeedsOnboarding is true while the device sits in the onboarding inbox.
+func (d Device) NeedsOnboarding() bool { return d.OnboardedAt == nil && !d.Retired() }
+
+// CapSet is the effective capability set: what the agent advertised, or the product
+// defaults for a firmware device that never reported one. Template-friendly (a
+// missing key indexes to false).
+func (d Device) CapSet() map[string]bool {
+	if len(d.Capabilities) > 0 {
+		return prod.CapSet(d.Capabilities)
+	}
+	if d.IsDPC() {
+		return map[string]bool{}
+	}
+	return prod.CapSet(prod.DefaultCaps(d.Product))
+}
+
+// Supports reports whether the device can run a command type (see prod.CommandNeeds).
+// Types with no requirement are always supported. Degraded capabilities count as
+// supported; check Degraded() to add a "works with limits" note.
+func (d Device) Supports(cmdType string) bool {
+	need := prod.CommandNeeds(cmdType)
+	if need == "" {
+		return true
+	}
+	return d.CapSet()[need] || d.Degraded(cmdType)
+}
+
+// Degraded reports whether the command works on this device only with limits (the
+// agent listed its capability as degraded).
+func (d Device) Degraded(cmdType string) bool {
+	need := prod.CommandNeeds(cmdType)
+	if need == "" {
+		return false
+	}
+	return prod.CapSet(d.CapabilitiesDegraded)[need]
 }
 
 // ProductLabel is the human display label for the device's product ("T7", "Kiosk 27"),
@@ -314,6 +410,10 @@ type DeviceFilter struct {
 	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)
 	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
+	AgentKind           string    // "firmware" | "dpc" | "" (no filter)
+	Class               string    // device class; firmware devices match on their product default. "" = no filter
+	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
+	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
 	ActiveThresholdSecs int       // legacy: seconds before a device is considered offline (unused for online/offline now)
 	// Connected is the set of device IDs with a live WebSocket, used to compute
 	// online/offline from real presence rather than check-in recency. Supplied by the
@@ -1294,8 +1394,12 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	var merged json.RawMessage
 	var battery int
 	err = tx.QueryRow(ctx, fmt.Sprintf(`
-		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product)
-		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5)
+		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
+		                     agent_kind, capabilities, capabilities_degraded)
+		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5,
+		        CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE 'firmware' END,
+		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array' THEN $4::jsonb->'capabilities' ELSE '[]'::jsonb END,
+		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array' THEN $4::jsonb->'capabilities_degraded' ELSE '[]'::jsonb END)
 		ON CONFLICT (serial_number) DO UPDATE
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
@@ -1306,6 +1410,19 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
+			    -- Agent facts persist from the frame that carries them: a DPC agent
+			    -- announces itself once and stays DPC; a frame without the keys
+			    -- (delta / legacy client) leaves what was learned.
+			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE devices.agent_kind END,
+			    capabilities       = CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array'
+			                              THEN $4::jsonb->'capabilities' ELSE devices.capabilities END,
+			    capabilities_degraded = CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array'
+			                              THEN $4::jsonb->'capabilities_degraded' ELSE devices.capabilities_degraded END,
+			    -- A retired device that talks again is back in the fleet (its status,
+			    -- not its inbox state: it keeps the site/group it had).
+			    enrollment_status  = CASE WHEN devices.enrollment_status IN ('retired', 'wiped')
+			                              THEN CASE WHEN devices.enrolled_via IS NULL THEN 'auto' ELSE 'enrolled' END
+			                              ELSE devices.enrollment_status END,
 			    latest_extra       = %s
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
 	`, extraExpr), serial, buildID, batteryPct, extra, product).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
@@ -1598,7 +1715,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -1647,6 +1764,41 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "d.hidden")
 	default:
 		wheres = append(wheres, "NOT d.hidden")
+	}
+
+	// Lifecycle: retired/wiped devices stay out of every list unless asked for.
+	switch f.Lifecycle {
+	case "retired":
+		wheres = append(wheres, "d.enrollment_status IN ('retired', 'wiped')")
+	case "all":
+	default:
+		wheres = append(wheres, "d.enrollment_status NOT IN ('retired', 'wiped')")
+	}
+	switch f.Onboarding {
+	case "pending":
+		wheres = append(wheres, "d.onboarded_at IS NULL")
+	case "done":
+		wheres = append(wheres, "d.onboarded_at IS NOT NULL")
+	}
+	if f.AgentKind != "" {
+		wheres = append(wheres, fmt.Sprintf("d.agent_kind = $%d", argN))
+		args = append(args, f.AgentKind)
+		argN++
+	}
+	if f.Class != "" {
+		// Firmware devices rarely store a class; match the product default too.
+		var keys []string
+		for _, p := range prod.All() {
+			if p.Class == f.Class {
+				keys = append(keys, p.Key)
+				if p.Key == prod.DefaultKey {
+					keys = append(keys, "") // legacy pre-product rows are the default product
+				}
+			}
+		}
+		wheres = append(wheres, fmt.Sprintf("(d.device_class = $%d OR (d.device_class = '' AND d.product = ANY($%d)))", argN, argN+1))
+		args = append(args, f.Class, keys)
+		argN += 2
 	}
 
 	if f.OnlyIDs != nil {
@@ -1736,7 +1888,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			d.hidden,
 			COALESCE(r.name, ''),
 			d.discharge_total_pct, d.discharge_backfilled,
-			d.product
+			d.product,
+			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
@@ -1814,6 +1968,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 				orderClause = "d.last_seen_at ASC"
 			} else {
 				orderClause = "d.last_seen_at DESC"
+			}
+		case "enrolled_at":
+			if dir == "asc" {
+				orderClause = "d.enrolled_at ASC"
+			} else {
+				orderClause = "d.enrolled_at DESC"
 			}
 		}
 		// Append the primary key as a tiebreaker so rows sharing the sort value
@@ -2097,12 +2257,14 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			d.discharge_total_pct, d.discharge_legacy_pct, d.discharge_backfilled,
 			d.restaurant_id, COALESCE(r.name, ''),
 			(d.restaurant_id IS NOT NULL) AS deployed_effective,
-			d.product
+			d.product,
+			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective, &dev.Product)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -2172,11 +2334,13 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
 			d.hidden,
-			d.product
+			d.product,
+			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.id = $1
-	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.Product)
+	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -3263,7 +3427,7 @@ func (d *DB) CountDevicesWithPackage(ctx context.Context, ids []uuid.UUID, pkg s
 }
 
 // CountDPCDevices reports how many of the given devices run the standalone
-// Device-Owner ("dpc") agent, as advertised in latest_extra.agent_type on
+// Device-Owner ("dpc") agent (devices.agent_kind, learned from agent_type on
 // checkin. Powers the Actions console's capability-aware grid: system-app-only
 // actions dim on DPC devices, and wipe is DPC-only.
 func (d *DB) CountDPCDevices(ctx context.Context, ids []uuid.UUID) (int, error) {
@@ -3273,7 +3437,7 @@ func (d *DB) CountDPCDevices(ctx context.Context, ids []uuid.UUID) (int, error) 
 	var n int
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM devices
-		WHERE id = ANY($1) AND NOT hidden AND latest_extra->>'agent_type' = 'dpc'`, ids).Scan(&n)
+		WHERE id = ANY($1) AND NOT hidden AND agent_kind = 'dpc'`, ids).Scan(&n)
 	return n, err
 }
 
@@ -10535,6 +10699,54 @@ CREATE TABLE IF NOT EXISTS compliance_rules (
 -- the client is too old to report it; the dashboard's app lists default to
 -- launchable apps only (falling back to the full list when nothing reports the flag).
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS launchable BOOLEAN;
+
+-- Mixed fleet (firmware devices + DPC-managed outsourced devices). Facts that used
+-- to be re-derived from latest_extra on every request are persisted once at ingest:
+--   agent_kind        'firmware' (system-app client, shared key) | 'dpc' (Device-Owner
+--                     agent, per-device key). Set by EnrollDevice / UpsertCheckin.
+--   device_class      form factor: tablet | panel | kiosk | mpos | pos | other. Empty =
+--                     derive from product (firmware) or not set yet (DPC). Comes from the
+--                     enrollment profile, overridable per device.
+--   capabilities      JSON array of what the agent can do (extra.capabilities on a
+--                     keyframe). Firmware devices leave it empty and get product defaults.
+--   capabilities_degraded  same shape, features that work with limits.
+--   enrollment_status auto (firmware first check-in) | enrolled (via profile) |
+--                     retired | wiped.
+--   enrolled_at / key_rotated_at / onboarded_at  lifecycle timestamps; onboarded_at is
+--                     NULL while the device sits in the onboarding inbox.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS agent_kind TEXT NOT NULL DEFAULT 'firmware';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_class TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS capabilities JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS capabilities_degraded JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrollment_status TEXT NOT NULL DEFAULT 'auto';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_rotated_at TIMESTAMPTZ;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_devices_agent_kind ON devices(agent_kind);
+CREATE INDEX IF NOT EXISTS idx_devices_onboarding ON devices(enrolled_at) WHERE onboarded_at IS NULL;
+
+-- One-time backfill for rows that predate the columns: kind from the last keyframe,
+-- status from the enrollment credential, and every existing device counts as already
+-- onboarded so the upgrade does not dump the whole fleet into the inbox.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app_flags WHERE flag = 'mixed_fleet_v1') THEN
+        UPDATE devices SET agent_kind = 'dpc' WHERE latest_extra->>'agent_type' = 'dpc';
+        UPDATE devices SET capabilities = latest_extra->'capabilities'
+            WHERE jsonb_typeof(latest_extra->'capabilities') = 'array';
+        UPDATE devices SET enrollment_status = 'enrolled' WHERE enrolled_via IS NOT NULL;
+        UPDATE devices SET enrolled_at = created_at, onboarded_at = created_at;
+        INSERT INTO app_flags (flag) VALUES ('mixed_fleet_v1');
+    END IF;
+END $$;
+
+-- Enrollment profiles carry the intent for a batch of devices: what they are (class),
+-- where they go (site), and how long / how many the token is good for.
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS device_class TEXT NOT NULL DEFAULT '';
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS restaurant_id UUID REFERENCES restaurants(id) ON DELETE SET NULL;
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS max_enrolls INT;
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS last_enrolled_at TIMESTAMPTZ;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -13578,24 +13790,88 @@ type EnrollmentProfile struct {
 	CreatedAt   time.Time
 	RevokedAt   *time.Time
 	EnrollCount int
+	// Intent applied to every device that enrolls through this profile.
+	DeviceClass    string     // form factor (prod.Class*), "" = not set
+	RestaurantID   *uuid.UUID // site the devices are deployed to
+	RestaurantName string
+	ExpiresAt      *time.Time // token stops enrolling after this
+	MaxEnrolls     *int       // token stops enrolling after this many devices
+	LastEnrolledAt *time.Time
 }
 
 func (p EnrollmentProfile) Revoked() bool { return p.RevokedAt != nil }
 
-func (d *DB) CreateEnrollmentProfile(ctx context.Context, name, token string, groupID *uuid.UUID, notes string) (uuid.UUID, error) {
+// Expired reports whether the token's time window has closed.
+func (p EnrollmentProfile) Expired() bool {
+	return p.ExpiresAt != nil && time.Now().After(*p.ExpiresAt)
+}
+
+// Exhausted reports whether the token has enrolled its maximum number of devices.
+func (p EnrollmentProfile) Exhausted() bool {
+	return p.MaxEnrolls != nil && p.EnrollCount >= *p.MaxEnrolls
+}
+
+// Active is the single check the enroll endpoint and the dashboard use: not revoked,
+// not expired, not exhausted.
+func (p EnrollmentProfile) Active() bool { return !p.Revoked() && !p.Expired() && !p.Exhausted() }
+
+// AutoOnboards reports whether devices enrolling through this profile skip the
+// onboarding inbox: the profile already says where the device lives (site). Class and
+// group are nice-to-have; the site is what makes a device "deployed" in this system.
+func (p EnrollmentProfile) AutoOnboards() bool { return p.RestaurantID != nil }
+
+// ClassLabel is the display label for the profile's class ("—" when unset).
+func (p EnrollmentProfile) ClassLabel() string { return prod.ClassLabel(p.DeviceClass) }
+
+// EnrollmentProfileInput is what the dashboard collects when creating / editing a profile.
+type EnrollmentProfileInput struct {
+	Name         string
+	Token        string // create only
+	GroupID      *uuid.UUID
+	Notes        string
+	DeviceClass  string
+	RestaurantID *uuid.UUID
+	ExpiresAt    *time.Time
+	MaxEnrolls   *int
+}
+
+func (d *DB) CreateEnrollmentProfile(ctx context.Context, in EnrollmentProfileInput) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO enrollment_profiles (name, token, group_id, notes)
-		VALUES ($1, $2, $3, $4) RETURNING id`, name, token, groupID, notes).Scan(&id)
+		INSERT INTO enrollment_profiles (name, token, group_id, notes, device_class, restaurant_id, expires_at, max_enrolls)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		in.Name, in.Token, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls).Scan(&id)
 	return id, err
+}
+
+// UpdateEnrollmentProfile edits a profile's intent; the token never changes (revoke
+// and create a new profile for that).
+func (d *DB) UpdateEnrollmentProfile(ctx context.Context, id uuid.UUID, in EnrollmentProfileInput) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE enrollment_profiles
+		SET name = $2, group_id = $3, notes = $4, device_class = $5, restaurant_id = $6,
+		    expires_at = $7, max_enrolls = $8
+		WHERE id = $1`,
+		id, in.Name, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls)
+	return err
+}
+
+const enrollmentProfileCols = `p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
+		       p.created_at, p.revoked_at, p.enroll_count,
+		       p.device_class, p.restaurant_id, COALESCE(r.name, ''), p.expires_at, p.max_enrolls, p.last_enrolled_at`
+
+func scanEnrollmentProfile(row interface{ Scan(...any) error }, p *EnrollmentProfile) error {
+	return row.Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName, &p.Notes,
+		&p.CreatedAt, &p.RevokedAt, &p.EnrollCount,
+		&p.DeviceClass, &p.RestaurantID, &p.RestaurantName, &p.ExpiresAt, &p.MaxEnrolls, &p.LastEnrolledAt)
 }
 
 func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
-		       p.created_at, p.revoked_at, p.enroll_count
+		SELECT `+enrollmentProfileCols+`
 		FROM enrollment_profiles p
 		LEFT JOIN groups g ON g.id = p.group_id
+		LEFT JOIN restaurants r ON r.id = p.restaurant_id
 		ORDER BY p.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -13604,8 +13880,7 @@ func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, e
 	var out []EnrollmentProfile
 	for rows.Next() {
 		var p EnrollmentProfile
-		if err := rows.Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName, &p.Notes,
-			&p.CreatedAt, &p.RevokedAt, &p.EnrollCount); err != nil {
+		if err := scanEnrollmentProfile(rows, &p); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -13615,28 +13890,31 @@ func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, e
 
 func (d *DB) GetEnrollmentProfile(ctx context.Context, id uuid.UUID) (*EnrollmentProfile, error) {
 	var p EnrollmentProfile
-	err := d.pool.QueryRow(ctx, `
-		SELECT p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
-		       p.created_at, p.revoked_at, p.enroll_count
+	err := scanEnrollmentProfile(d.pool.QueryRow(ctx, `
+		SELECT `+enrollmentProfileCols+`
 		FROM enrollment_profiles p
 		LEFT JOIN groups g ON g.id = p.group_id
-		WHERE p.id = $1`, id).Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName,
-		&p.Notes, &p.CreatedAt, &p.RevokedAt, &p.EnrollCount)
+		LEFT JOIN restaurants r ON r.id = p.restaurant_id
+		WHERE p.id = $1`, id), &p)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
 }
 
-// ActiveEnrollmentProfileByToken resolves a non-revoked profile from its token.
-// Returns pgx.ErrNoRows for unknown or revoked tokens (indistinguishable on purpose).
+// ActiveEnrollmentProfileByToken resolves a usable profile from its token: not
+// revoked, not past expires_at, not at max_enrolls. Returns pgx.ErrNoRows for unknown,
+// revoked, expired and exhausted tokens alike (indistinguishable on purpose).
 func (d *DB) ActiveEnrollmentProfileByToken(ctx context.Context, token string) (*EnrollmentProfile, error) {
 	var p EnrollmentProfile
-	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, token, group_id, notes, created_at, revoked_at, enroll_count
-		FROM enrollment_profiles
-		WHERE token = $1 AND revoked_at IS NULL`, token).Scan(&p.ID, &p.Name, &p.Token,
-		&p.GroupID, &p.Notes, &p.CreatedAt, &p.RevokedAt, &p.EnrollCount)
+	err := scanEnrollmentProfile(d.pool.QueryRow(ctx, `
+		SELECT `+enrollmentProfileCols+`
+		FROM enrollment_profiles p
+		LEFT JOIN groups g ON g.id = p.group_id
+		LEFT JOIN restaurants r ON r.id = p.restaurant_id
+		WHERE p.token = $1 AND p.revoked_at IS NULL
+		  AND (p.expires_at IS NULL OR p.expires_at > NOW())
+		  AND (p.max_enrolls IS NULL OR p.enroll_count < p.max_enrolls)`, token), &p)
 	if err != nil {
 		return nil, err
 	}
@@ -13656,32 +13934,109 @@ func (d *DB) DeleteEnrollmentProfile(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// EnrollResult is what EnrollDevice learned, returned to the agent so it can show the
+// operator where the device landed.
+type EnrollResult struct {
+	DeviceID   uuid.UUID
+	ReEnrolled bool // the serial already existed: key rotated, history kept
+	Onboarded  bool // profile pre-assigned a site, so the device skipped the inbox
+}
+
 // EnrollDevice registers (or re-registers, e.g. after factory reset) a device under an
-// enrollment profile: upserts the device row, stores the new key hash (rotating out any
-// previous key), joins the profile's group, and bumps the profile counter.
-func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (uuid.UUID, error) {
-	var deviceID uuid.UUID
-	err := d.pool.QueryRow(ctx, `
-		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (serial_number) DO UPDATE
-		SET device_key_hash = EXCLUDED.device_key_hash,
-		    enrolled_via    = EXCLUDED.enrolled_via,
-		    product         = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END
-		RETURNING id`, serial, product, keyHash, profile.ID).Scan(&deviceID)
+// enrollment profile: upserts the device row as a DPC device, stores the new key hash
+// (rotating out any previous key), applies the profile's intent (class, site, group),
+// and bumps the profile counter. A profile that names a site auto-onboards the device;
+// otherwise it waits in the onboarding inbox (onboarded_at NULL). Re-enrolling keeps
+// the device's existing site/class/onboarded state unless the profile overrides them.
+func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (EnrollResult, error) {
+	var res EnrollResult
+	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, err
+		return res, err
 	}
+	defer tx.Rollback(ctx)
+
+	var onboardedAt *time.Time
+	err = tx.QueryRow(ctx, `
+		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via,
+		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at)
+		VALUES ($1, $2, $3, $4, 'dpc', 'enrolled', NOW(), $5, $6,
+		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END)
+		ON CONFLICT (serial_number) DO UPDATE
+		SET device_key_hash   = EXCLUDED.device_key_hash,
+		    key_rotated_at    = CASE WHEN devices.device_key_hash IS NOT NULL THEN NOW() ELSE devices.key_rotated_at END,
+		    enrolled_via      = EXCLUDED.enrolled_via,
+		    agent_kind        = 'dpc',
+		    enrollment_status = 'enrolled',
+		    enrolled_at       = CASE WHEN devices.enrollment_status IN ('retired', 'wiped') THEN NOW() ELSE devices.enrolled_at END,
+		    hidden            = false,
+		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
+		    device_class      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
+		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
+		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at)
+		RETURNING id, (xmax <> 0), onboarded_at`,
+		serial, product, keyHash, profile.ID, profile.DeviceClass, profile.RestaurantID).
+		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
+	if err != nil {
+		return res, err
+	}
+	res.Onboarded = onboardedAt != nil
 	if profile.GroupID != nil {
-		if _, err := d.pool.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO device_groups (device_id, group_id) VALUES ($1, $2)
-			ON CONFLICT DO NOTHING`, deviceID, *profile.GroupID); err != nil {
-			return uuid.Nil, err
+			ON CONFLICT DO NOTHING`, res.DeviceID, *profile.GroupID); err != nil {
+			return res, err
 		}
 	}
-	_, err = d.pool.Exec(ctx, `
-		UPDATE enrollment_profiles SET enroll_count = enroll_count + 1 WHERE id = $1`, profile.ID)
-	return deviceID, err
+	if _, err = tx.Exec(ctx, `
+		UPDATE enrollment_profiles
+		SET enroll_count = enroll_count + 1, last_enrolled_at = NOW()
+		WHERE id = $1`, profile.ID); err != nil {
+		return res, err
+	}
+	return res, tx.Commit(ctx)
+}
+
+// ── Device lifecycle (onboarding inbox, retire) ───────────────────────────────
+
+// MarkOnboarded confirms a device's placement and takes it out of the onboarding
+// inbox. Idempotent.
+func (d *DB) MarkOnboarded(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE devices SET onboarded_at = COALESCE(onboarded_at, NOW()) WHERE id = $1`, id)
+	return err
+}
+
+// SetDeviceClass overrides the form factor for one device ("" = back to the product
+// default / unset).
+func (d *DB) SetDeviceClass(ctx context.Context, id uuid.UUID, class string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2 WHERE id = $1`, id, class)
+	return err
+}
+
+// SetEnrollmentStatus moves a device through its lifecycle (retired / wiped / back to
+// its enrolled state). Retired devices keep their history and placement.
+func (d *DB) SetEnrollmentStatus(ctx context.Context, id uuid.UUID, status string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET enrollment_status = $2 WHERE id = $1`, id, status)
+	return err
+}
+
+// ListOnboardingInbox returns devices nobody has confirmed yet (onboarded_at NULL),
+// newest enrollment first. Retired/wiped and hidden devices are excluded.
+func (d *DB) ListOnboardingInbox(ctx context.Context, limit int) ([]Device, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	return d.ListDevices(ctx, DeviceFilter{Onboarding: "pending"}, 0, limit, "enrolled_at", "desc")
+}
+
+// CountOnboardingInbox is the badge number for the inbox.
+func (d *DB) CountOnboardingInbox(ctx context.Context) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM devices
+		WHERE onboarded_at IS NULL AND NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`).Scan(&n)
+	return n, err
 }
 
 // ResolveSerials splits a list of client-typed serials into the ones that name an
@@ -13690,7 +14045,8 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 func (d *DB) ResolveSerials(ctx context.Context, serials []string) (found, missing []string, err error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT serial_number FROM devices
-		WHERE NOT hidden AND LOWER(serial_number) = ANY($1)`, lowerAll(serials))
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		  AND LOWER(serial_number) = ANY($1)`, lowerAll(serials))
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,0 +1,330 @@
+<title>Mixed Fleet Refactor Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --surface-2:#eaeef4; --ink:#171c26; --ink-2:#4a5468; --faint:#8a94a8;
+  --rule:#d9dfe8; --rule-soft:#e8ecf2;
+  --accent:#1d6b84; --accent-ink:#155566; --accent-soft:#dcedf2;
+  --ok:#1f7a4d; --ok-soft:#dff3e7; --warn:#a1620a; --warn-soft:#fbeed3; --bad:#b23a3a; --bad-soft:#f9e1e1;
+  --code-bg:#1b2130; --code-ink:#e3e8f2;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141b; --surface:#181c25; --surface-2:#20252f; --ink:#e6e9f0; --ink-2:#aab2c3; --faint:#6f788c;
+    --rule:#2c3340; --rule-soft:#232935;
+    --accent:#5fb3cc; --accent-ink:#8fd0e2; --accent-soft:#183842;
+    --ok:#4fc38a; --ok-soft:#153327; --warn:#e0a24a; --warn-soft:#3a2c14; --bad:#e46b6b; --bad-soft:#3d1d1d;
+    --code-bg:#0c0f15; --code-ink:#d7dde8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141b; --surface:#181c25; --surface-2:#20252f; --ink:#e6e9f0; --ink-2:#aab2c3; --faint:#6f788c;
+  --rule:#2c3340; --rule-soft:#232935;
+  --accent:#5fb3cc; --accent-ink:#8fd0e2; --accent-soft:#183842;
+  --ok:#4fc38a; --ok-soft:#153327; --warn:#e0a24a; --warn-soft:#3a2c14; --bad:#e46b6b; --bad-soft:#3d1d1d;
+  --code-bg:#0c0f15; --code-ink:#d7dde8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+a:hover{border-bottom-color:var(--accent)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+code{font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--ink)}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:14px 16px;font-size:12.8px;line-height:1.55;overflow-x:auto;margin:14px 0}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+h1,h2,h3{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(30px,4vw,42px);font-weight:700;letter-spacing:-.02em}
+h2{font-size:24px;font-weight:700;letter-spacing:-.015em;margin-top:56px;padding-top:18px;border-top:2px solid var(--ink)}
+h3{font-size:17px;font-weight:700;margin-top:30px}
+p{margin:12px 0;max-width:68ch}
+ul,ol{max-width:70ch;padding-left:22px;margin:10px 0}
+li{margin:5px 0}
+li::marker{color:var(--faint)}
+strong{font-weight:600}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.eyebrow b{color:var(--accent-ink);font-weight:500}
+
+.page{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;max-width:1180px;margin:0 auto;padding:40px 32px 96px}
+@media(max-width:900px){.page{grid-template-columns:1fr;gap:20px;padding:24px 18px 64px}}
+nav.toc{position:sticky;top:24px;align-self:start;font-size:13.5px}
+@media(max-width:900px){nav.toc{position:static}}
+nav.toc .eyebrow{margin-bottom:10px}
+nav.toc ol{list-style:none;padding:0;margin:0;border-left:1px solid var(--rule)}
+nav.toc li{margin:0}
+nav.toc a{display:block;padding:5px 12px;border:0;color:var(--ink-2);border-left:2px solid transparent;margin-left:-1px}
+nav.toc a:hover{color:var(--ink);border-left-color:var(--accent)}
+nav.toc .num{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);margin-right:6px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin:18px 0 0;font-size:13px;color:var(--ink-2)}
+.meta span b{color:var(--ink);font-weight:500}
+.lede{font-size:17.5px;color:var(--ink-2);max-width:62ch;margin-top:16px}
+
+.tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid var(--rule);color:var(--ink-2);background:var(--surface);white-space:nowrap;vertical-align:middle}
+.tag.acc{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+.tag.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.tag.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.tag.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--surface);margin:16px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--rule);background:var(--surface-2);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.tbl.phases td:first-child{font-family:"IBM Plex Mono",monospace;color:var(--accent-ink);font-weight:500;width:36px;font-variant-numeric:tabular-nums}
+
+.callout{border-left:3px solid var(--accent);background:var(--surface);padding:12px 16px;border-radius:0 8px 8px 0;margin:18px 0;max-width:72ch}
+.callout.warn{border-left-color:var(--warn)}
+.callout p{margin:4px 0}
+.callout .eyebrow{margin-bottom:4px}
+
+.axes{display:grid;grid-template-columns:auto 1fr;gap:0;margin:20px 0;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--surface);max-width:640px;font-size:13px}
+.axes .corner{background:var(--surface-2);padding:10px 12px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.axes .corner .eyebrow{font-size:10.5px}
+.axes .cols{display:grid;grid-template-columns:repeat(6,1fr);background:var(--surface-2);border-bottom:1px solid var(--rule)}
+.axes .cols div{padding:10px 8px;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.04em;color:var(--ink-2)}
+.axes .rowh{padding:10px 12px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule-soft);font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-2);display:flex;align-items:center}
+.axes .cells{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--rule-soft)}
+.axes .cells div{padding:10px 8px;text-align:center;color:var(--faint)}
+.axes .cells div.y{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.axes .cells div.f{background:var(--ok-soft);color:var(--ok);font-weight:500}
+.axes .last .rowh,.axes .last .cells{border-bottom:0}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--ink-2);margin:-8px 0 8px;max-width:640px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+.flows{display:grid;gap:12px;margin:16px 0}
+.flow{border:1px solid var(--rule);border-radius:8px;background:var(--surface);padding:14px 16px}
+.flow h3{margin:0 0 6px;font-size:15.5px;display:flex;align-items:center;gap:10px}
+.flow h3 .k{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent-ink);font-weight:500;background:var(--accent-soft);padding:1px 7px;border-radius:4px}
+.flow p{margin:0;font-size:14px;color:var(--ink-2);max-width:none}
+.steps{display:flex;flex-wrap:wrap;gap:6px 0;align-items:center;font-size:13.5px;margin-top:8px}
+.steps span{background:var(--surface-2);padding:3px 9px;border-radius:5px}
+.steps em{font-style:normal;color:var(--faint);padding:0 7px}
+
+.nav-now{font-size:13.5px;color:var(--ink-2);margin:6px 0 4px}
+.nav-now s{color:var(--faint)}
+.qs{counter-reset:q;list-style:none;padding:0;max-width:72ch}
+.qs li{position:relative;padding:10px 0 10px 40px;border-top:1px solid var(--rule-soft);margin:0}
+.qs li::before{counter-increment:q;content:"Q" counter(q);position:absolute;left:0;top:11px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent-ink);font-weight:500}
+.qs li b{display:block;font-weight:600}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<div class="page">
+<nav class="toc" aria-label="Sections">
+  <div class="eyebrow">Contents</div>
+  <ol>
+    <li><a href="#why"><span class="num">0</span>Why</a></li>
+    <li><a href="#goals"><span class="num">1</span>Goals and principles</a></li>
+    <li><a href="#model"><span class="num">2</span>Domain model</a></li>
+    <li><a href="#ia"><span class="num">3</span>Information architecture</a></li>
+    <li><a href="#flows"><span class="num">4</span>Enrollment flows</a></li>
+    <li><a href="#phases"><span class="num">5</span>Delivery phases</a></li>
+    <li><a href="#open"><span class="num">6</span>Open questions</a></li>
+  </ol>
+</nav>
+
+<main>
+  <div class="eyebrow">AIO MDM · dashboard · <b>stage-dpc</b></div>
+  <h1 style="margin-top:10px">Mixed fleet UI/UX refactor</h1>
+  <p class="lede">Make the dashboard treat firmware devices and DPC-managed outsourced devices as one fleet, with enrollment as a visible lifecycle and every control derived from what the device can actually do.</p>
+  <div class="meta">
+    <span>Status <b>proposal, nothing implemented</b></span>
+    <span>Written <b>2026-09-08</b></span>
+    <span>Branch <b class="mono">stage-dpc</b> at <b class="mono">861dc95</b></span>
+    <span>Agent <b class="mono">mdm-dpc-agent</b> at <b class="mono">d5e5c81</b></span>
+    <span>Source <b class="mono">docs/ux-enrollment-refactor-plan.md</b></span>
+  </div>
+
+  <h2 id="why">0 · Why</h2>
+  <p>The server's business logic and every dashboard page were designed for one situation: every device is our own hardware (T7, later Kiosk 18/22/27), runs our firmware plus the <code>com.aioapp.mdm</code> system-app client, authenticates with one shared <code>DEVICE_API_KEY</code>, and "enrolls" itself by checking in for the first time (<code>UpsertCheckin</code> → <code>isNew</code> → <code>notifyDeviceOnboarded</code>). There was no enrollment concept because there was nothing to decide: a serial appeared, it was ours, it was a T7.</p>
+  <p>That is no longer true. The fleet now also contains outsourced Android hardware (kiosks, mPOS, POS terminals) running the Device-Owner DPC agent <code>com.skorra.agent</code>. Those devices:</p>
+  <ul>
+    <li>are heterogeneous: any manufacturer, model, form factor;</li>
+    <li>must be explicitly enrolled: profile token or QR → <code>POST /api/v1/enroll</code> → per-device <code>dvk_…</code> key;</li>
+    <li>support a different and variable command set: no screenshot, has wipe, capabilities advertised in <code>extra.capabilities</code>;</li>
+    <li>need site, group and policy assignment as part of onboarding, not as an afterthought.</li>
+  </ul>
+  <p>The DPC work already landed on <code>stage-dpc</code>: enrollment profiles, <code>deviceAgentInfo</code>, a capability-aware device page, DPC tags in the Actions console, a product catalog with generic caps for unknown products, and policy, compliance and network pages. But it was bolted onto the firmware-era information architecture, and the pieces that would make it a coherent product are hidden from the nav (commits <code>1fac252</code>, <code>e242ab8</code>, <code>7ca83d5</code>). The dashboard still <em>reads</em> as "a T7 fleet with some odd devices in it".</p>
+  <div class="callout"><div class="eyebrow">Thesis</div><p>This plan makes the mixed fleet the first-class mental model of the dashboard.</p></div>
+
+  <h2 id="goals">1 · Goals, non-goals, principles</h2>
+  <h3>Goals</h3>
+  <ol>
+    <li>One dashboard, one design language (<code>docs/ui-design-language.md</code>), for both device kinds. No "DPC section" and "firmware section".</li>
+    <li>Enrollment becomes a visible lifecycle: how does a device get here, what is it, who does it belong to, is it healthy, how does it leave. This applies to firmware devices too, even though their enrollment is automatic.</li>
+    <li>Every control the UI shows is derived from what the device can actually do (capability-driven), not from which page it is on.</li>
+    <li>Zero regression for the deployed firmware fleet: shared-key auth, auto-onboarding, T7 defaults, OTA and release matching keep working unchanged.</li>
+  </ol>
+  <h3>Non-goals</h3>
+  <ul>
+    <li>Replacing shared-key auth for firmware devices with per-device keys. That is a client OTA project; the UI only needs to <em>show</em> which auth a device uses.</li>
+    <li>Android Enterprise zero-touch or Google EMM registration. QR and adb provisioning only.</li>
+    <li>Redesigning pages unrelated to fleet composition: Releases, Alerts config, Users.</li>
+  </ul>
+  <h3>Principles</h3>
+  <p><strong>Kind</strong> (how it is managed) and <strong>class</strong> (what it is for) are separate axes.</p>
+  <div class="axes">
+    <div class="corner"><div class="eyebrow">kind ↓ · class →</div></div>
+    <div class="cols"><div>tablet</div><div>panel</div><div>kiosk</div><div>mpos</div><div>pos</div><div>other</div></div>
+    <div class="rowh">firmware</div>
+    <div class="cells"><div class="f">T7</div><div class="f">Kiosk 18/22/27</div><div>·</div><div>·</div><div>·</div><div>·</div></div>
+    <div class="last" style="display:contents">
+      <div class="rowh">dpc</div>
+      <div class="cells"><div class="y">any</div><div>·</div><div class="y">any</div><div class="y">any</div><div class="y">any</div><div class="y">any</div></div>
+    </div>
+  </div>
+  <div class="legend"><span><i style="background:var(--ok-soft);border:1px solid var(--ok)"></i>our hardware, class from product</span><span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>outsourced, class from enrollment profile</span></div>
+  <ul>
+    <li>Persist facts once at ingest; do not re-derive them from <code>latest_extra</code> JSON in every handler. Today <code>IsDPC</code> is computed from <code>latest_extra->>'agent_type'</code>, which is replaced on every keyframe and empty until the first check-in.</li>
+    <li>The enrollment profile is the <em>intent</em> (what this batch of devices should become); the device row is the <em>fact</em>. Onboarding UI reconciles the two.</li>
+  </ul>
+
+  <h2 id="model">2 · Domain model changes</h2>
+  <p>Prerequisite for the UI. All in <code>internal/db/db.go</code> migrations, <code>internal/product/product.go</code> and the ingest handlers.</p>
+  <h3>2.1 <code>devices</code> table</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>column</th><th>type</th><th>set by</th><th>purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>agent_kind</code></td><td><code>TEXT NOT NULL DEFAULT 'firmware'</code></td><td><code>EnrollDevice</code> sets <code>dpc</code>; <code>UpsertCheckin</code> sets from <code>extra.agent_type</code> when present</td><td>Stable filter and badge; replaces <code>latest_extra->>'agent_type'</code> lookups</td></tr>
+      <tr><td><code>device_class</code></td><td><code>TEXT NOT NULL DEFAULT ''</code></td><td>Enrollment profile default → admin override on device page; firmware devices derive from product (t7 → tablet, kiosk* → panel)</td><td>Fleet filter, icons, policy targeting</td></tr>
+      <tr><td><code>capabilities</code></td><td><code>JSONB NOT NULL DEFAULT '[]'</code></td><td><code>UpsertCheckin</code> from <code>extra.capabilities</code> (keyframe only, never cleared by delta)</td><td>Drives action gating everywhere</td></tr>
+      <tr><td><code>enrollment_status</code></td><td><code>TEXT NOT NULL DEFAULT 'active'</code></td><td><code>auto</code> (firmware first check-in), <code>enrolled</code> (DPC via profile), <code>retired</code>, <code>wiped</code></td><td>Lifecycle badge, "needs attention" inbox</td></tr>
+      <tr><td><code>enrolled_at</code></td><td><code>TIMESTAMPTZ</code></td><td>Enroll or first check-in</td><td>Inbox ordering, "new in last 7 days"</td></tr>
+      <tr><td><code>key_rotated_at</code></td><td><code>TIMESTAMPTZ</code></td><td>Re-enroll</td><td>Device page enrollment card</td></tr>
+      <tr><td><code>onboarded_at</code></td><td><code>TIMESTAMPTZ NULL</code></td><td>Admin clicks Done in inbox, or auto when profile pre-assigns site and group</td><td>Inbox membership: <code>onboarded_at IS NULL</code></td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Backfill.</strong> Existing rows: <code>agent_kind</code> from <code>latest_extra->>'agent_type'</code>, <code>device_class</code> from product, <code>enrollment_status</code> = <code>auto</code> for firmware rows and <code>enrolled</code> where <code>enrolled_via IS NOT NULL</code>, and <code>onboarded_at = created_at</code> for everything already present so the deploy does not flood the inbox.</p>
+  <p>Replace the two call sites of <code>deviceAgentInfo</code> (handlers.go around lines 5055 and 12108) and <code>CountDPCDevices</code> (db.go 3269) with the column. Keep <code>deviceAgentInfo</code> only as the ingest parser.</p>
+
+  <h3>2.2 <code>enrollment_profiles</code> table</h3>
+  <p>Add <code>device_class</code>, <code>restaurant_id</code> (site), <code>policy_id</code> (kiosk or policy preset applied on enroll), <code>expires_at</code>, <code>max_enrolls</code>, <code>created_by</code>, <code>last_enrolled_at</code>. <code>EnrollDevice</code> applies class, site and group; if all three are set the device is auto-onboarded.</p>
+
+  <h3>2.3 Product catalog</h3>
+  <ul>
+    <li>Add <code>Kind</code> (firmware or android) and <code>Class</code> to <code>Product</code>. Catalog entries stay hard-coded for our hardware. Unknown products (the <code>Resolve</code> fallback) get kind android and class from the device row, not the catalog.</li>
+    <li>Add <code>Caps</code> fields only where hardware truth matters and the agent cannot report it; <code>HasWLC</code> is the model. Everything the DPC agent can report (screenshot, shell, kiosk lock, wipe, app install, managed config, network provisioning) comes from <code>devices.capabilities</code>.</li>
+    <li>Firmware clients do not send capabilities today. Define a static default capability set per firmware product (<code>product.DefaultCaps(key)</code>) so the same gating code path works for both kinds. When the firmware client later reports capabilities, reported wins.</li>
+  </ul>
+
+  <h3>2.4 Capability → command table</h3>
+  <p>Single source of truth, new file <code>internal/product/caps.go</code> or <code>internal/dashboard/capability.go</code>:</p>
+<pre><code>// what a command type needs; empty = always allowed.
+// Names match mdm-dpc-agent Capabilities.kt so the agent's list is used verbatim.
+var commandNeeds = map[string]string{
+    "screenshot":    "screen_capture", // dpc: degraded (MediaProjection consent)
+    "install_apk":   "install_apk",
+    "uninstall":     "uninstall",
+    "reboot":        "reboot",
+    "shell":         "shell",          // dpc: degraded (unprivileged sh)
+    "logcat":        "logcat",         // dpc: degraded (app-scoped)
+    "ota":           "ota",            // firmware only
+    "update_splash": "update_splash",  // firmware only
+    "wipe":          "wipe",           // dpc only
+    "kiosk_set":     "kiosk",
+    "managed_config":"config",
+    "mic_gain_read": "mic_gain",       // T7 only (product cap)
+    "wlc_set":       "wlc",            // T7 only (product cap)
+}
+func (d Device) Supports(cmdType string) bool   // full support
+func (d Device) Degraded(cmdType string) bool   // works with limits; UI shows a note</code></pre>
+  <div class="callout"><div class="eyebrow">Agent change needed</div><p>The agent today sends only its <code>supported</code> list (<code>kiosk, install_apk, uninstall, reboot, wipe, config, telemetry</code>). Its <code>degraded</code> list (<code>screen_capture, input, logcat, shell</code>) stays on the device. Also send <code>capabilities_degraded</code> so the dashboard can show "works with limits" instead of "unavailable". Until then absent means unsupported.</p></div>
+  <p>Exposed as template func <code>supports .Device "screenshot"</code> and used by: device page action menu, Actions console target resolution and impact panel (<code>CommandImpact</code>), bulk command send (<code>enforceCommandTargets</code> drops unsupported devices with a reason), alert rules (skip devices lacking the metric), and Policies targeting. Today this logic exists as ad-hoc <code>IsDPC</code> checks in three places.</p>
+
+  <h3>2.5 Events</h3>
+  <p>Emit device events for <code>enrolled</code>, <code>re_enrolled</code> (key rotated), <code>onboarded</code>, <code>retired</code>, <code>wiped</code>, <code>profile_revoked</code>. The device page timeline and the Activity page show them; the Overview inbox counts them.</p>
+
+  <h2 id="ia">3 · Information architecture</h2>
+  <h3>3.1 Navigation (dock)</h3>
+  <p class="nav-now">Today: Overview · Fleet · Actions · Alerts · Releases · Users. Hidden: <s>Enrollment · Policies · Compliance · Network · Updates policy · Managed configs · Geofencing</s>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>dock item</th><th>content</th><th>change</th></tr></thead>
+    <tbody>
+      <tr><td>Overview</td><td>+ Onboarding inbox widget (N new devices need assignment), + fleet composition chip strip (kind × class)</td><td>Widget system already exists (<code>overview_layout.go</code>)</td></tr>
+      <tr><td>Fleet</td><td>Tabs: Devices · Sites · Groups · <strong>Enroll</strong></td><td>Enrollment moves under Fleet as a tab, un-hidden. Sites = restaurants, copy only, routes unchanged</td></tr>
+      <tr><td>Actions</td><td>Capability-aware console (already the target-first console)</td><td>Filters by kind, class, capability; impact panel explains skips</td></tr>
+      <tr><td>Policies</td><td>Un-hide <code>/manage</code>; tabs: Kiosk · Updates · Network · Managed configs · Compliance</td><td>One page with tabs instead of five hidden pages; targeting by kind and class</td></tr>
+      <tr><td>Alerts</td><td>Unchanged</td><td>Alert rules gain a capability guard</td></tr>
+      <tr><td>Releases</td><td>Unchanged; firmware-only content gets an explicit "applies to firmware devices" eyebrow; Agent APK release lives here</td><td>See phase 6</td></tr>
+      <tr><td>Users</td><td>Unchanged</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <p>Geofencing folds into Policies → Compliance (it is a compliance rule). The guided tour in <code>layout.html</code> gets steps for Enroll and Policies.</p>
+
+  <h3>3.2 Fleet → Devices</h3>
+  <ul>
+    <li>New filter chips (<code>.cc-seg</code>, URL semantics kept): <strong>Kind</strong> All / Firmware / DPC, <strong>Class</strong> Tablet / Panel / Kiosk / mPOS / POS, <strong>Status</strong> Active / New / Retired. Existing product, site, group and online filters stay.</li>
+    <li>Device cards and rows: kind glyph, class label, hardware model (already shown), <span class="tag acc">New</span> tag when <code>onboarded_at IS NULL</code>.</li>
+    <li>Composition strip at the top (<code>.cc-stack</code> by class with legend) so the headline can be a verdict: "26 devices · 3 new need assignment".</li>
+  </ul>
+
+  <h3>3.3 Fleet → Enroll (redesigned Enrollment page)</h3>
+  <p>Three stacked zones, built with <code>cc-*</code>.</p>
+  <ol>
+    <li><strong>Inbox: needs assignment.</strong> Rows where <code>onboarded_at IS NULL</code>: serial, model, kind, class, source (profile name or "firmware auto-enroll"), enrolled at, inline site and group selects, Done. Bulk select → assign → Done. Live: subscribe to the WS device-update channel (<code>PublishDeviceUpdate</code> already fires on enroll) so a scanned device appears within a second while the tech is standing there. Same zone appears as the Overview widget.</li>
+    <li><strong>Enrollment profiles.</strong> Cards instead of a table: name, class, site, group, policy, enrolled count, expiry, status, QR button (existing <code>qr.png</code> route), token copy. Create through a 3-step drawer (identity → assignment → policy and expiry) instead of the inline form. Revoke, reactivate and delete stay.</li>
+    <li><strong>How devices get here.</strong> Collapsed by default, three tabs: <em>QR provisioning</em> (factory reset, tap 6×, scan), <em>adb</em> (existing steps, generated with the selected profile's token instead of the shared key), <em>Firmware devices</em> (explains automatic enrollment via the shared device key, with key mask and copy for admins). The shared key stops being presented as "the" agent credential; it is the firmware credential.</li>
+  </ol>
+  <div class="callout warn"><div class="eyebrow">Blocking state</div><p>If <code>AGENT_APK_URL</code> and <code>AGENT_APK_CHECKSUM</code> are not set, profile cards show a <span class="tag warn">QR cold-provisioning off</span> tag linking to Settings → Agent APK, instead of today's inline warning paragraph.</p></div>
+
+  <h3>3.4 Device page</h3>
+  <ul>
+    <li><strong>Identity ribbon:</strong> hardware model (exists) · kind tag <span class="tag">Firmware</span> or <span class="tag">DPC agent</span> (replaces the tooltip-only <code>ddc-dpc-tag</code>) · class tag · enrollment state tag <span class="tag acc">New</span> <span class="tag">Retired</span> <span class="tag bad">Wiped</span>. Firmware devices get a tag too so the two kinds look symmetric.</li>
+    <li><strong>Actions menu</strong> built from <code>supports</code>: unsupported items render disabled with a reason (pattern already used for screenshot on DPC); a section is omitted entirely when none of its items apply.</li>
+    <li><strong>New sidebar card "Enrollment":</strong> source (profile link or "auto, firmware"), enrolled at, key type (shared or per-device, rotated at), inline site, group and class assignment, buttons Mark onboarded, Rotate key (DPC: forces re-enroll on next check-in), Retire (sets status, hides from active views, keeps history), Wipe (DPC, admin; moves here from the actions menu with the existing confirm copy).</li>
+    <li><strong>Capability-gated cards</strong> already exist for battery, charging and WLC via product caps. Extend the same pattern: the Kiosk card shows DPC lock-task mode vs firmware kiosk config; the Apps card shows managed-config controls only when the <code>managed_config</code> capability is present.</li>
+    <li><strong>Timeline</strong> gains the 2.5 events.</li>
+  </ul>
+
+  <h3>3.5 Actions console</h3>
+  <ul>
+    <li>Target rail filters: kind, class, capability ("devices that support install_apk").</li>
+    <li>Impact panel: "18 selected · 14 support this action · 4 skipped (2 firmware: wipe unsupported, 2 offline)". The send path drops unsupported devices and the history row records the skip reason per device.</li>
+    <li>The action list is filtered by the selection: choose 3 mPOS terminals and OTA and splash disappear, wipe appears.</li>
+  </ul>
+
+  <h3>3.6 Policies</h3>
+  <p>Un-hide <code>/manage</code> as one tabbed page. Each policy declares <code>applies_to</code> (kinds, classes) and the form shows only fields the target can honour. Coverage headline stays ("2 policies cover 18 of 26 devices") but the bar is split by kind so it is obvious when a policy cannot reach firmware devices.</p>
+
+  <h2 id="flows">4 · Enrollment flows, end to end</h2>
+  <div class="flows">
+    <div class="flow"><h3><span class="k">A</span>Firmware device</h3><p>Unchanged mechanics, new presentation.</p>
+      <div class="steps"><span>first check-in, shared key</span><em>→</em><span>row: firmware · auto · class from product</span><em>→</em><span>inbox "auto-enrolled"</span><em>→</em><span>operator assigns site + group</span><em>→</em><span>Done</span></div>
+      <p style="margin-top:8px">If the serial was pre-listed on a staged-devices list (optional, phase 6) with a site, it is auto-onboarded.</p></div>
+    <div class="flow"><h3><span class="k">B</span>DPC device, QR</h3>
+      <div class="steps"><span>admin creates profile (class, site, group, policy, expiry)</span><em>→</em><span>print QR</span><em>→</em><span>factory reset, tap 6×, scan</span><em>→</em><span>agent installs as Device Owner, calls /enroll</span><em>→</em><span>profile applied, PublishDeviceUpdate</span><em>→</em><span>row appears live, assigned, auto-onboarded</span></div>
+      <p style="margin-top:8px">Tech sees "Enrolled · mPOS · Site X" on the dashboard and on the agent screen.</p></div>
+    <div class="flow"><h3><span class="k">C</span>DPC device, adb or manual token</h3><p>Same as B. The adb tab renders commands with the chosen profile's token.</p></div>
+    <div class="flow"><h3><span class="k">D</span>Re-enrollment after factory reset</h3><p>Same serial hits <code>/enroll</code>: key rotates, <code>key_rotated_at</code> set, event <code>re_enrolled</code>, site, group and history kept. Inbox does not re-open unless the profile differs in class or site.</p></div>
+    <div class="flow"><h3><span class="k">E</span>Leaving</h3><p>Retire (both kinds): status <code>retired</code>, hidden from default Fleet views, excluded from alerts and policy coverage, visible under Status = Retired. Wipe (DPC): command, then status <code>wiped</code> on ack. Revoke profile: existing devices unaffected, copy says so.</p></div>
+    <div class="flow"><h3><span class="k">F</span>Failure states to design, not just handle</h3><p>Expired or revoked token scanned: agent shows the reason, profile card shows "3 rejected attempts in the last hour". Enrolled but never checked in: inbox row says "enrolled 10 min ago · no telemetry yet" with a wifi hint. Check-in from a retired serial: auto-unretire plus event.</p></div>
+  </div>
+
+  <h2 id="phases">5 · Delivery phases</h2>
+  <p>All on <code>stage-dpc</code>. Each phase is shippable on its own; the order minimises UI churn.</p>
+  <div class="tbl phases"><table>
+    <thead><tr><th>#</th><th>phase</th><th>main files</th><th>done when</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>Wireframes as demo templates (repo convention: <code>templates/demo/*.html</code>) for Enroll page, device ribbon and enrollment card, Fleet filters</td><td><code>templates/demo/enroll-*.html</code></td><td>Direction picked from 2 to 3 variants, like the Actions redesign</td></tr>
+      <tr><td>1</td><td>Data model: 2.1 to 2.5 migrations, ingest persists kind, caps, class; backfill; <code>Supports()</code> and template func; replace <code>deviceAgentInfo</code> and <code>CountDPCDevices</code> call sites</td><td><code>internal/db/db.go</code>, <code>internal/api/handlers.go</code> (Enroll, Checkin, WS checkin), <code>internal/product/*</code>, <code>internal/dashboard/handlers.go</code></td><td><code>go test ./...</code> green; device page identical for T7 and kiosk; DPC gating unchanged but read from columns</td></tr>
+      <tr><td>2</td><td>Enroll page redesign, profile drawer, inbox, live updates; un-hide as Fleet tab; Overview inbox widget</td><td><code>templates/enrollment.html</code>, <code>internal/dashboard/features.go</code>, <code>templates/layout.html</code> (fleet tabs), <code>templates/overview.html</code>, <code>overview_layout.go</code></td><td>Scan-to-visible under 2 s on the test server; profile with site and group auto-onboards</td></tr>
+      <tr><td>3</td><td>Fleet filters, badges, composition strip; Sites copy</td><td><code>templates/devices.html</code>, devices list query in handlers.go</td><td>Filters are URL-stable and combinable; counts match</td></tr>
+      <tr><td>4</td><td>Device page: ribbon, Enrollment card, actions from <code>supports</code>, retire, rotate, wipe placement, timeline events</td><td><code>templates/device.html</code>, DevicePage and command routes</td><td>No <code>IsDPC</code> left in templates; retire hides device from default views and alerts</td></tr>
+      <tr><td>5</td><td>Actions console capability filters and impact skip reasons; command send drops unsupported with per-device reason</td><td><code>templates/commands.html</code>, <code>CommandImpact</code>, <code>enforceCommandTargets</code></td><td>Wipe to a mixed selection skips firmware devices visibly; history records why</td></tr>
+      <tr><td>6</td><td>Policies tabbed page un-hidden with <code>applies_to</code>; Settings → Agent APK (upload, URL, checksum drives <code>HasAgentAPK</code>); optional staged-devices list; tour steps</td><td><code>templates/manage*.html</code>, <code>settings.html</code>, <code>features.go</code></td><td>Policy coverage split by kind; QR works without editing env vars</td></tr>
+    </tbody>
+  </table></div>
+  <p>Update <code>docs/ui-design-language.md</code> (kind and class tag conventions, inbox row pattern) and <code>docs/API_REFERENCE.md</code> plus <code>openapi.yaml</code> (new enroll response fields, capabilities schema) as part of phases 1 and 2.</p>
+
+  <h2 id="open">6 · Open questions and assumptions</h2>
+  <ol class="qs">
+    <li><b>DPC agent source: resolved.</b> <code>~/mdm-kiosk/mdm-dpc-agent</code> (<code>main</code>, <code>com.skorra.agent</code>). Facts that shape the plan: <code>product</code> is <code>Build.PRODUCT</code>, a codename and not a form factor, so class must come from the profile (Q2). Telemetry carries manufacturer, model, serial, security posture and location. The agent's status screen shows Device Owner state, serial and connection, with one credential field that accepts <code>enr_…</code> tokens. Remaining ask: an enrollment result state on that screen ("Enrolled · mPOS · Site X") fed by the <code>/enroll</code> response, which today returns only <code>device_key</code>. Extend the response with class, site, group and profile.</li>
+    <li><b>Class for outsourced devices comes from the enrollment profile, not the hardware.</b> Alternative: a model → class mapping table maintained by admins. Profile-first is simpler and matches how batches are rolled out; keep the admin override on the device.</li>
+    <li><b>Naming.</b> "Restaurants" is the existing site concept. "Sites" in copy only if non-restaurant customers are expected; routes and DB names unchanged either way.</li>
+    <li><b>Firmware device capabilities are static per product</b> until the firmware client reports them. An OTA of a client that sends <code>capabilities</code> is out of scope here.</li>
+    <li><b>mPOS and POS specific controls</b> (payment app managed config, printer status) are not designed here; they become capability-gated cards once the agent advertises them.</li>
+    <li><b>Retire vs hidden.</b> <code>devices.hidden</code> exists today. Proposal: <code>retired</code> is a lifecycle status shown in the UI; <code>hidden</code> stays the admin-only "pretend it does not exist" flag.</li>
+  </ol>
+</main>
+</div>

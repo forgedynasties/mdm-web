@@ -1,0 +1,152 @@
+package product
+
+import "strings"
+
+// Agent kinds: how a device is managed. Stored on devices.agent_kind.
+const (
+	// KindFirmware is our own hardware running the com.aioapp.mdm system-app client:
+	// shared device key, auto-enrolled on first check-in, full platform privileges.
+	KindFirmware = "firmware"
+	// KindDPC is a stock Android device managed by the com.skorra.agent Device-Owner
+	// agent: explicitly enrolled (profile token → per-device key), capabilities
+	// advertised on check-in. Matches the agent's extra.agent_type value.
+	KindDPC = "dpc"
+	// KindAndroid is the catalog's name for "not our firmware": a product outside the
+	// catalog is stock Android, and any agent on it is the DPC agent.
+	KindAndroid = "android"
+)
+
+// Device classes (form factor / role). Stored on devices.device_class; empty means
+// "derive from product" (firmware) or "not set yet" (DPC devices enrolled without a
+// class on the profile). Classes are display + filtering axes only: nothing is gated on
+// them, capabilities do that.
+const (
+	ClassTablet = "tablet" // handheld tablet (T7)
+	ClassPanel  = "panel"  // wall-mounted panel (Kiosk 18/22/27)
+	ClassKiosk  = "kiosk"  // outsourced self-service kiosk
+	ClassMPOS   = "mpos"   // mobile point of sale
+	ClassPOS    = "pos"    // counter point of sale
+	ClassOther  = "other"
+)
+
+// Classes lists every device class in display order (dashboard filters and forms).
+func Classes() []string {
+	return []string{ClassTablet, ClassPanel, ClassKiosk, ClassMPOS, ClassPOS, ClassOther}
+}
+
+// ClassLabel is the human label for a class key; unknown keys are shown as-is and an
+// empty class is "—" so templates never print a blank.
+func ClassLabel(class string) string {
+	switch strings.ToLower(strings.TrimSpace(class)) {
+	case ClassTablet:
+		return "Tablet"
+	case ClassPanel:
+		return "Panel"
+	case ClassKiosk:
+		return "Kiosk"
+	case ClassMPOS:
+		return "mPOS"
+	case ClassPOS:
+		return "POS"
+	case ClassOther:
+		return "Other"
+	case "":
+		return "—"
+	}
+	return strings.TrimSpace(class)
+}
+
+// IsClass reports whether the key names a known class.
+func IsClass(class string) bool {
+	for _, c := range Classes() {
+		if c == class {
+			return true
+		}
+	}
+	return false
+}
+
+// Capability names. These are the strings the DPC agent advertises in
+// extra.capabilities (see mdm-dpc-agent Capabilities.kt) and the names the server
+// assumes for firmware products (DefaultCaps). Keep the two in sync: a command is only
+// offered to a device when its capability set contains the command's requirement.
+const (
+	CapKiosk         = "kiosk"          // lock-task / kiosk config
+	CapInstallAPK    = "install_apk"
+	CapUninstall     = "uninstall"
+	CapReboot        = "reboot"
+	CapWipe          = "wipe"           // factory reset (Device Owner only)
+	CapConfig        = "config"         // managed app configurations
+	CapTelemetry     = "telemetry"
+	CapScreenCapture = "screen_capture" // screenshot + remote screen
+	CapInput         = "input"          // remote taps/keys
+	CapLogcat        = "logcat"
+	CapShell         = "shell"
+	CapOTA           = "ota"            // firmware OTA (system partition)
+	CapUpdateSplash  = "update_splash"  // boot splash write
+	CapMicGain       = "mic_gain"       // T7 codec gain (TX_DEC)
+	CapWLC           = "wlc"            // wireless-charging guest pad control
+)
+
+// commandNeeds maps a command type (the "type" a dashboard form or the admin API
+// sends) to the capability it requires. Types absent from the map need nothing
+// (e.g. "query"). Names line up with the DPC agent's list so its advertised
+// capabilities are used verbatim.
+var commandNeeds = map[string]string{
+	"screenshot":     CapScreenCapture,
+	"install_apk":    CapInstallAPK,
+	"uninstall":      CapUninstall,
+	"reboot":         CapReboot,
+	"shell":          CapShell,
+	"logcat":         CapLogcat,
+	"ota":            CapOTA,
+	"update_splash":  CapUpdateSplash,
+	"wipe":           CapWipe,
+	"kiosk_set":      CapKiosk,
+	"managed_config": CapConfig,
+	"mic_gain_read":  CapMicGain,
+	"mic_gain_set":   CapMicGain,
+	"wlc_set":        CapWLC,
+	"remote":         CapScreenCapture,
+}
+
+// CommandNeeds returns the capability a command type requires ("" = none).
+func CommandNeeds(cmdType string) string { return commandNeeds[cmdType] }
+
+// firmwareBaseCaps is everything the system-app client can do on any of our products.
+var firmwareBaseCaps = []string{
+	CapKiosk, CapInstallAPK, CapUninstall, CapReboot, CapTelemetry,
+	CapScreenCapture, CapInput, CapLogcat, CapShell, CapOTA, CapUpdateSplash,
+}
+
+// DefaultCaps is the capability set assumed for a firmware device that has not
+// reported one (today's system-app client never does). Product-specific hardware
+// (the T7's codec gain and wireless-charging pad) is added from the catalog so the
+// same gating path serves both device kinds. Returns nil for non-firmware products:
+// a stock device must advertise what it can do.
+func DefaultCaps(productKey string) []string {
+	p, _ := Resolve(productKey)
+	if p.Kind != KindFirmware {
+		return nil
+	}
+	out := append([]string(nil), firmwareBaseCaps...)
+	if p.Caps.HasWLC {
+		out = append(out, CapWLC)
+	}
+	if p.Key == KeyT7 {
+		out = append(out, CapMicGain)
+	}
+	return out
+}
+
+// CapSet turns a capability list into a lookup set (template-friendly: map index
+// on a missing key is false).
+func CapSet(caps []string) map[string]bool {
+	m := make(map[string]bool, len(caps))
+	for _, c := range caps {
+		if c = strings.TrimSpace(c); c != "" {
+			m[c] = true
+		}
+	}
+	return m
+}

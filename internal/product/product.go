@@ -42,6 +42,14 @@ type Product struct {
 	Key   string // stable machine key sent by the client and stored on the device (e.g. "t7", "kiosk27")
 	Label string // human label for the dashboard (e.g. "T7", "Kiosk 27")
 	Caps  Caps
+	// Kind is how the product is managed: KindFirmware for our own hardware (system-app
+	// client, shared key, auto-enrol on first check-in) or KindAndroid for stock devices
+	// managed by the Device-Owner DPC agent (explicit enrollment, per-device key).
+	Kind string
+	// Class is the default form factor for devices of this product (ClassTablet for
+	// the T7, ClassPanel for the wall kiosks). Empty for non-catalog products: their
+	// class is set per device at enrollment, not implied by hardware.
+	Class string
 }
 
 // Keys for the known products. Clients send these verbatim in the check-in payload.
@@ -66,10 +74,10 @@ var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 // catalog is the declared capability set per product. Order here drives dashboard
 // dropdown order (see All).
 var catalog = []Product{
-	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}},
-	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}},
-	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}},
-	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}},
+	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassTablet},
+	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
+	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
+	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
 }
 
 var byKey = func() map[string]Product {
@@ -100,7 +108,7 @@ func Resolve(key string) (Product, bool) {
 	if norm == "" {
 		return byKey[DefaultKey], false
 	}
-	return Product{Key: norm, Label: strings.TrimSpace(key), Caps: genericCaps}, false
+	return Product{Key: norm, Label: strings.TrimSpace(key), Caps: genericCaps, Kind: KindAndroid}, false
 }
 
 // CapsFor is the common shortcut: capabilities for a product key (T7 caps when the

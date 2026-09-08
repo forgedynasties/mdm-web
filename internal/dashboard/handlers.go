@@ -1273,6 +1273,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			sort.Slice(aps, func(i, j int) bool { return aps[i].RSSI > aps[j].RSSI })
 			return aps
 		},
+		// Capability gating (see internal/product/caps.go): offer a control only when the
+		// device can honour it. `supports` is the yes/no; `degraded` adds "with limits".
+		"supports":   func(d db.Device, cmdType string) bool { return d.Supports(cmdType) },
+		"degraded":   func(d db.Device, cmdType string) bool { return d.Degraded(cmdType) },
+		"classLabel": product.ClassLabel,
+		"classes":    product.Classes,
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
@@ -3606,6 +3612,11 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Charging:            r.URL.Query().Get("charging"),
 		Timezone:            r.URL.Query().Get("timezone"),
 		Product:             r.URL.Query().Get("product"),
+		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
+		AgentKind:           r.URL.Query().Get("kind"),
+		Class:               r.URL.Query().Get("class"),
+		Onboarding:          r.URL.Query().Get("onboarding"),
+		Lifecycle:           r.URL.Query().Get("lifecycle"),
 		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
@@ -5052,12 +5063,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Server-Timing: visible in the browser's Network panel, so a slow page can be
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
-	isDPC, deviceCaps := deviceAgentInfo(device.LatestExtra)
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
-		"IsDPC":               isDPC,
-		"Caps":                deviceCaps,
+		"IsDPC":               device.IsDPC(),
+		"Caps":                device.CapSet(),
 		"DeviceCrashCount":    crashCount,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
@@ -12200,7 +12210,7 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	// filter/subset by capability. ListDevices already carries latest_extra.
 	dpc := make(map[uuid.UUID]bool, len(devices))
 	for _, d := range devices {
-		if isDPC, _ := deviceAgentInfo(d.LatestExtra); isDPC {
+		if d.IsDPC() {
 			dpc[d.ID] = true
 		}
 	}
@@ -15247,29 +15257,6 @@ func agoString(t time.Time) string {
 
 // extraHasCoords reports whether a device's latest extra payload carries a
 // resolved latitude/longitude (so the device page will render the Maps Embed).
-// deviceAgentInfo reports whether a device runs the standalone Device-Owner ("dpc") agent and
-// which capabilities it advertised on checkin (extra.agent_type / extra.capabilities). The device
-// page uses this to gray out actions the DPC agent can't do and to show a Wipe action it can.
-// A legacy system-app client sends no agent_type, so isDPC is false and caps is empty — every
-// existing action stays enabled exactly as before.
-func deviceAgentInfo(raw json.RawMessage) (isDPC bool, caps map[string]bool) {
-	caps = map[string]bool{}
-	if len(raw) == 0 {
-		return false, caps
-	}
-	var m struct {
-		AgentType    string   `json:"agent_type"`
-		Capabilities []string `json:"capabilities"`
-	}
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return false, caps
-	}
-	for _, c := range m.Capabilities {
-		caps[c] = true
-	}
-	return m.AgentType == "dpc", caps
-}
-
 func extraHasCoords(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false
@@ -17864,6 +17851,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/{id}/revoke", h.requireAdminOrOperator(h.EnrollmentProfileRevoke))
 	post("POST /enrollment/profiles/{id}/activate", h.requireAdminOrOperator(h.EnrollmentProfileActivate))
 	post("POST /enrollment/profiles/{id}/delete", h.requireAdminOrOperator(h.EnrollmentProfileDelete))
+	post("POST /enrollment/profiles/{id}/update", h.requireAdminOrOperator(h.EnrollmentProfileUpdate))
+	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
+	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
+	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
+	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
+	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
 	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
 	mux.HandleFunc("GET /compliance", h.requireAuth(h.CompliancePage))
