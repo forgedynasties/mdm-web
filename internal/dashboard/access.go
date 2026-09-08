@@ -81,7 +81,7 @@ func roleCeiling(role string) map[string]bool {
 	}
 	m := map[string]bool{}
 	for _, a := range accessActions {
-		// DevOnly actions belong to the dev ceiling; the OTA admin gets exactly one of
+		// DevOnly actions belong to the dev ceiling; the super op gets exactly one of
 		// them, the firmware push.
 		if a.DevOnly && role != "dev" && !(role == "super_op" && a.Key == "ota") {
 			continue
