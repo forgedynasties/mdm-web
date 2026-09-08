@@ -64,7 +64,7 @@ Two layers: a **role** (the ceiling: what an account can ever do) and per-accoun
 | `admin` (super admin) | everything, everywhere; rules never apply | nobody |
 | `dev` | operator ceiling + `shell` + `ota` | admin |
 | `user_manager` (access admin) | operator ceiling + Users pages | admin |
-| `super_op` (super op) | access-admin ceiling + `ota` (deploy releases, add targets, retry / cancel); no release-package management | admin |
+| `super_op` (super op) | operator ceiling + Users pages (rules, roles, passwords; no create / delete / merge) + `ota` (deploy releases, add targets, retry / cancel); no release-package management | admin |
 | `operator` | device actions, kiosk, notes, queue, logcat, fleet actions, `remote` (explicit only) | admin, access admin |
 | `viewer` | `view`, `screenshot` | admin, access admin |
 | `owner` | `view` on allowed venues only, owner home | admin, access admin |

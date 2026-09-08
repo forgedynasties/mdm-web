@@ -337,7 +337,7 @@ func roleCeilingSentence(role string) string {
 	case "user_manager":
 		return "An access admin can do everything an operator can, and manage users. Rules say where."
 	case "super_op":
-		return "A super op can do everything an access admin can, and push firmware updates — but not create or edit release packages. Rules say where."
+		return "A super op can do everything an operator can, edit access rules, and push firmware updates — but not create accounts or manage release packages. Rules say where."
 	case "viewer":
 		return "A viewer only looks. Rules say which devices they see."
 	case "owner":

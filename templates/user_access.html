@@ -182,10 +182,10 @@
           </div>
         </div>
         {{if .CanDelete}}
-        <div class="ua-danger">
+        {{if canCreateUsers .Role}}<div class="ua-danger">
           <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
           <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
-        </div>
+        </div>{{end}}
         {{end}}
       </div>
   <div class="cc-card ua-card"><div class="ua-empty">Super admins have every permission everywhere. There are no access rules to configure.</div></div>
@@ -232,10 +232,10 @@
           </div>
         </div>
         {{if .CanDelete}}
-        <div class="ua-danger">
+        {{if canCreateUsers .Role}}<div class="ua-danger">
           <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
           <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
-        </div>
+        </div>{{end}}
         {{end}}
       </div>
       {{if .HasBase}}

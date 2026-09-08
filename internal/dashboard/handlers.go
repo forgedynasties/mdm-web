@@ -702,6 +702,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOTA":     roleCanOTA,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
+		"canCreateUsers": roleCreatesUsers,
 		"roleLabel":      roleLabel,
 		"roleLevel":      roleLevel,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
@@ -2779,6 +2780,23 @@ func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleCanOTA(s.Role) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// requireAccountAdmin guards account creation / deletion / merge: admin or access
+// admin. A super op may open the Users pages and edit rules but not add accounts.
+func (h *Handler) requireAccountAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if !roleCreatesUsers(s.Role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -13179,6 +13197,11 @@ func roleIsOperatorLike(role string) bool { return role == "operator" || role ==
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
 func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "super_op" }
 
+// roleCreatesUsers: may create, delete or merge accounts. The super op manages
+// access rules, roles and passwords of existing accounts but does not add or
+// remove them.
+func roleCreatesUsers(role string) bool { return role == "admin" || role == "user_manager" }
+
 // assignableRoles lists the roles an actor may grant: strictly below their level,
 // except an admin who may also make admins.
 func assignableRoles(actorRole string) []string {
@@ -18176,15 +18199,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /activity", h.requireUserManager(h.ActivityPage))
 	mux.HandleFunc("GET /users", h.requireUserManager(h.UserList))
-	post("POST /users", h.requireUserManager(h.UserCreate))
+	post("POST /users", h.requireAccountAdmin(h.UserCreate))
 	post("POST /users/{id}/role", h.requireUserManager(h.UserSetRole))
 	post("POST /users/{id}/name", h.requireUserManager(h.UserSetName))
 	mux.HandleFunc("GET /users/{id}/avatar.png", h.requireAuth(h.UserAvatar))
 	post("POST /users/{id}/avatar", h.requireAuth(h.UserSetAvatar))
 	post("POST /users/{id}/avatar/delete", h.requireAuth(h.UserClearAvatar))
 	post("POST /users/{id}/password", h.requireUserManager(h.UserSetPassword))
-	post("POST /users/{id}/delete", h.requireUserManager(h.UserDelete))
-	post("POST /users/merge", h.requireUserManager(h.UserMergeActor))
+	post("POST /users/{id}/delete", h.requireAccountAdmin(h.UserDelete))
+	post("POST /users/merge", h.requireAccountAdmin(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
