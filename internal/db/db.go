@@ -3525,6 +3525,27 @@ func (d *DB) CountDPCDevices(ctx context.Context, ids []uuid.UUID) (int, error) 
 // GetDeviceIDsInGroups expands a set of group IDs into the distinct device IDs that
 // belong to any of them. Used to target ad-hoc actions (e.g. a fleet log capture)
 // at whole groups while operating on concrete devices.
+// GetDeviceIDsInRestaurants lists the active devices placed at any of the sites.
+func (d *DB) GetDeviceIDsInRestaurants(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT id FROM devices WHERE restaurant_id = ANY($1) AND NOT hidden`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetDeviceIDsInGroups(ctx context.Context, groupIDs []uuid.UUID) ([]uuid.UUID, error) {
 	if len(groupIDs) == 0 {
 		return nil, nil
