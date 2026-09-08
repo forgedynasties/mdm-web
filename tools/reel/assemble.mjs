@@ -83,7 +83,8 @@ function cameraExpr(c) {
   const segs = [];
   for (const e of ev) { segs.push({ t: e.t, d: e.d, from: k0, to: e.k }); k0 = e.k; }
   // rebuild as: if(t<T1, from1, if(t<T1+D1, ease, if(t<T2, to1, ...)))
-  const ease = (u) => `(${u})*(${u})*(3-2*(${u}))`;
+  // smootherstep: eases in and out with no kick at either end (zoom and pan)
+  const ease = (u) => `((${u})*(${u})*(${u})*((${u})*((${u})*6-15)+10))`;
   let expr = `${segs[segs.length - 1].to}`;
   for (let i = segs.length - 1; i >= 0; i--) {
     const sgm = segs[i];
@@ -133,7 +134,13 @@ clips.forEach((c, i) => {
     const { z, px, py } = cameraExpr(c);
     const T = (e) => e.replace(/\bt\b/g, `(in/${FPS})`);
     if (process.env.DEBUG) console.log("cam", c.file, "\n  z =", z, "\n  px =", px, "py =", py);
-    chain.push(`zoompan=z='${T(z)}':x='clip(${T(px)}*(1-1/zoom),0,iw-iw/zoom)':y='clip(${T(py)}*(1-1/zoom),0,ih-ih/zoom)':d=1:s=${W}x${H}:fps=${FPS}`);
+    // zoompan crops at whole input pixels, so on a 1080p source a slow move steps a
+    // full pixel at a time (visible jitter). Feed it a 3x upscale: the crop then
+    // steps in thirds of an output pixel and the pull-in reads as one smooth motion.
+    // Focus expressions are in 1080p coordinates, hence the *SS on x/y.
+    const SS = parseInt(env("SUPERSAMPLE", "3"), 10);
+    chain.push(`scale=${W * SS}:${H * SS}:flags=lanczos`);
+    chain.push(`zoompan=z='${T(z)}':x='clip((${T(px)})*${SS}*(1-1/zoom),0,iw-iw/zoom)':y='clip((${T(py)})*${SS}*(1-1/zoom),0,ih-ih/zoom)':d=1:s=${W}x${H}:fps=${FPS}`);
   }
   // fps last: setpts/trim leave the frame rate "unknown", and xfade insists on CFR
   // tpad clones the last frame so a clip a few frames shorter than its beat-snapped

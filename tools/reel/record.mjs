@@ -137,8 +137,9 @@ class Scene {
     // keep the target clear of the fixed top bar / bottom dock (they'd eat the click)
     // (at 1.45x the top bar is ~130px and the bottom dock ~150px)
     if (b.y < 160 || b.y + b.height > H - 170) {
-      await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "instant" }));
-      await sleep(350);
+      // smooth, not instant: an instant scroll is a hard cut in the recording
+      await el.evaluate((e) => e.scrollIntoView({ block: "center", behavior: "smooth" }));
+      await sleep(750);
       b = await el.boundingBox();
     }
     return b;
