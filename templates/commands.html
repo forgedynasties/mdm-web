@@ -54,8 +54,9 @@
 .co-scope .m{display:block;font-size:10.5px;color:var(--muted)}
 .co-scope .add{margin-left:auto;flex:none;font-size:11px;font-weight:700;color:var(--text-faint)}
 .co-scope.on .add{color:var(--accent-text)}
-.co-devlist{max-height:230px;overflow-y:auto;margin:0 -2px;padding:0 2px}
-.co-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:5px;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
+.co-devlist{max-height:230px;overflow-y:auto;margin:0 -2px;padding:0 2px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:5px;align-content:start}
+.co-devlist .co-paste,.co-devlist .co-listempty{grid-column:1/-1}
+.co-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:0;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
 .co-dev:hover{border-color:var(--rule-2)}
 .co-dev.on{border-color:var(--accent-edge);background:var(--accent-soft)}
 .co-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
@@ -752,6 +753,8 @@ window.CMD_PREFILL = {{.Prefill}};
       var bat = row.querySelector('.dp-bchip'); var sub = row.querySelector('.cb-sub');
       out.push({ serial: cb.value, online: !!row.querySelector('.cb-status i.on'),
                  dpc: row.getAttribute('data-dpc') === '1',
+                 product: row.getAttribute('data-product') || '',
+                 model: row.getAttribute('data-model') || '',
                  bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
                  sub: sub ? sub.textContent.trim() : '' });
     });
@@ -816,7 +819,7 @@ window.CMD_PREFILL = {{.Prefill}};
       var on = S.targets.some(function (t) { return t.kind === 'device' && t.serial === d.serial; });
       html += '<button type="button" class="co-dev' + (on ? ' on' : '') + '" data-serial="' + esc(d.serial) + '">'
         + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
-        + '<span class="bd"><span class="sn">' + esc(d.serial) + '</span>' + (d.sub || d.bat ? '<span class="mt">' + esc([d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
+        + '<span class="bd"><span class="sn">' + esc(d.serial) + '</span>' + (d.product || d.sub || d.bat ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
         + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
         + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
     });
@@ -1548,7 +1551,8 @@ window.CMD_PREFILL = {{.Prefill}};
 {{if .Devices}}
 <div class="cb-list">
   {{range .Devices}}
-  <label class="cb-row"{{if index $.DPC .ID}} data-dpc="1"{{end}}>
+  {{$model := extraField .LatestExtra "model"}}
+  <label class="cb-row"{{if index $.DPC .ID}} data-dpc="1"{{end}} data-product="{{.ProductLabel}}"{{if and (ne $model "") (ne $model "—")}} data-model="{{$model}}"{{end}}>
     <input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)">
     {{if .BatteryPct}}<span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>{{else}}<span class="dp-bchip cb-bat-na">—</span>{{end}}
     <span class="cb-id">
