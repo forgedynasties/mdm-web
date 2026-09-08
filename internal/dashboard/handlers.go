@@ -9775,11 +9775,6 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	h.renderReleaseWorkspace(w, r, r.URL.Query().Get("tab"))
 }
 
-// ReleaseQAPage keeps the legacy /releases/{id}/qa URL working (bookmarks + the non-JS
-// POST-redirect fallbacks) by deep-linking into the QA tab of the unified workspace.
-func (h *Handler) ReleaseQAPage(w http.ResponseWriter, r *http.Request) {
-	h.renderReleaseWorkspace(w, r, "qa")
-}
 
 func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request, tab string) {
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -10057,46 +10052,7 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
-// ReleaseTestingDone marks a release's testing complete — the finish line that moves it
-// from active to inactive (it drops out of the hub's active slot). Admin/dev/operator (see
-// requireAdminOrOperator) — the test team closes out their own testing. Advisory, not gated
-// on QA/sign-off state.
-func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "qa") {
-		return
-	}
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetReleaseTestingDone(r.Context(), id, h.currentUsername(r)); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "release.testing_done", strconv.Itoa(id), "")
-	h.hub.PublishProblemUpdate() // the hub's active release changed — refresh open hubs
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
-}
 
-// ReleaseReopenTesting reopens a finished release, making it active again. Admin/dev.
-func (h *Handler) ReleaseReopenTesting(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "qa") {
-		return
-	}
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.ClearReleaseTestingDone(r.Context(), id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "release.testing_reopen", strconv.Itoa(id), "")
-	h.hub.PublishProblemUpdate()
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
-}
 
 // ReleaseCreateBranch forks an off-mainline branch build from a release (admin/dev) — a
 // temporary test build that stays off the main path (see CreateBranchRelease). Redirects
@@ -10268,64 +10224,6 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
-// ReleaseSetTestResult records an operator's outcome for one case on a release.
-func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "qa") {
-		return
-	}
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-	caseID, err := uuid.Parse(r.FormValue("test_case_id"))
-	if err != nil {
-		http.Error(w, "Invalid test case", http.StatusBadRequest)
-		return
-	}
-	status := r.FormValue("status")
-	if !validTestStatuses[status] {
-		http.Error(w, "Invalid status", http.StatusBadRequest)
-		return
-	}
-	notes := strings.TrimSpace(r.FormValue("notes"))
-	if err := h.db.SetTestResult(r.Context(), id, caseID, status, notes, h.currentUsername(r)); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	// Keep the Problems list in sync with QA (two-way): a failed case opens a
-	// linked problem; passing it later resolves that problem. Best-effort.
-	switch status {
-	case "fail":
-		// A "Verify fix" case (linked to a manual bug via problem_id) reopens that
-		// bug directly — no separate QA-source problem needed, or we'd show a
-		// duplicate on the board. For a plain QA case (no problem_id link), the
-		// usual UpsertQAProblem creates/opens the QA-source record.
-		if reopened, err := h.db.ReopenProblemForCase(r.Context(), caseID); err != nil {
-			log.Printf("[qa] reopen linked problem on fail: %v", err)
-		} else if !reopened {
-			if err := h.db.UpsertQAProblem(r.Context(), id, caseID, notes, h.currentUsername(r)); err != nil {
-				log.Printf("[qa] upsert problem from fail: %v", err)
-			}
-		}
-	case "pass":
-		if err := h.db.ResolveQAProblem(r.Context(), id, caseID); err != nil {
-			log.Printf("[qa] resolve problem on pass: %v", err)
-		}
-		// A "Verify fix" case (linked to a carried-over bug) verifies that bug when it passes.
-		if err := h.db.VerifyProblemForCase(r.Context(), caseID, id); err != nil {
-			log.Printf("[qa] verify linked problem on pass: %v", err)
-		}
-	}
-	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
-	h.hub.PublishProblemUpdate() // QA marks can create/resolve problems + shift readiness
-	if hxReq(r) {
-		h.writeReleaseQAResponse(w, r, id, &caseID)
-		return
-	}
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
-}
 
 // releaseQAData gathers the QA + Problems state that the release page and its htmx
 // OOB fragments render from. Keys match what the rd-* partials expect.
@@ -10402,26 +10300,6 @@ func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
-// ReleaseSetSkipBase toggles whether this release's QA skips the base (standard)
-// test cases and only checks its release-specific cases.
-func (h *Handler) ReleaseSetSkipBase(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	skip := r.FormValue("skip_base_tests") == "on"
-	if err := h.db.SetReleaseSkipBaseTests(r.Context(), id, skip); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	state := "base+specific"
-	if skip {
-		state = "specific-only"
-	}
-	h.audit(r, "release.qa_scope", strconv.Itoa(id), state)
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
-}
 
 // PackageDelete removes a single package from a release.
 func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
@@ -18224,7 +18102,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))
 	post("POST /releases", h.requireReleaseAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
-	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrOperator(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireReleaseAdmin(h.PackageInspect))
 	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.ReleaseCrashes))
@@ -18239,7 +18116,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/version/unhide", h.requireReleaseAdmin(h.VersionUnhide))
 	post("POST /releases/{id}/meta", h.requireReleaseAdmin(h.ReleaseEditMeta))
 	post("POST /releases/{id}/rename", h.requireReleaseAdmin(h.ReleaseRename))
-	post("POST /releases/{id}/qa-base", h.requireReleaseAdmin(h.ReleaseSetSkipBase))
 	post("POST /releases/{id}/hide", h.requireReleaseAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
@@ -18249,11 +18125,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deploy", h.requireReleaseAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
-	post("POST /releases/{id}/testing-done", h.requireAdminOrOperator(h.ReleaseTestingDone))
-	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrOperator(h.ReleaseReopenTesting))
 	post("POST /releases/{id}/branch", h.requireReleaseAdmin(h.ReleaseCreateBranch))
 	post("POST /releases/{id}/merge", h.requireReleaseAdmin(h.ReleaseMerge))
-	post("POST /releases/{id}/test-results", h.requireOperatorRole(h.ReleaseSetTestResult))
 	// Problem reports: any operator/operator can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
 	post("POST /releases/{id}/problems/{pid}", h.requireOperatorOrAdmin(h.ReleaseProblemUpdate))

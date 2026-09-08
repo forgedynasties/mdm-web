@@ -42,7 +42,6 @@ var accessActions = []accessAction{
 	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Dev accounts only."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
 	{Key: "groups", Label: "Manage groups & venues", Group: "Fleet", Fleet: true},
-	{Key: "qa", Label: "Record QA results", Group: "Fleet", Fleet: true},
 	{Key: "deploy", Label: "Cancel deployments", Group: "Fleet", Fleet: true},
 }
 
