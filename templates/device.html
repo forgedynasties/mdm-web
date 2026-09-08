@@ -644,6 +644,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
   {{if .Device.HasBattery}}
   <div id="chart-panel-battery">
+    {{/* The pad legend only makes sense on hardware with a wireless charging pad;
+         DPC-agent devices and products without a pad get the plain battery chart. */}}
+    {{if and .Caps.HasWLC (not .IsDPC)}}
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging active</span>
@@ -652,6 +655,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
       </div>
     </div>
+    {{end}}
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
   </div>
   {{end}}
