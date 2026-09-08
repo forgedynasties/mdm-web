@@ -14,7 +14,7 @@
 .ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;white-space:nowrap}
 .ro-badge svg{stroke:var(--muted);flex:none}
 
-.co-main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;margin-top:20px;align-items:start}
+.co-main{display:grid;grid-template-columns:minmax(360px,2fr) minmax(0,3fr);gap:18px;margin-top:20px;align-items:start}
 @media(max-width:1000px){.co-main{grid-template-columns:1fr}}
 .co-main.is-readonly .co-rail,.co-main.is-readonly .co-right-int{opacity:.68;pointer-events:none}
 .p-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1132,7 +1132,7 @@ window.CMD_PREFILL = {{.Prefill}};
       DS.apps.forEach(function (a) {
         if (!match(a.name + ' ' + (a.pkg || ''), q)) return;
         var sel = S.apps.some(function (x) { return x.url === a.url; });
-        opts.push({ img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel, keepOpen: true,
+        opts.push({ img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel,
           pick: function () { if (sel) S.apps = S.apps.filter(function (x) { return x.url !== a.url; }); else S.apps.push({ url: a.url, name: a.name }); } });
       });
       empty = DS.apps.length ? 'No app matches.' : 'No apps in the library yet — add one in Settings → App library.';
@@ -1141,7 +1141,7 @@ window.CMD_PREFILL = {{.Prefill}};
       (pkgsList || []).forEach(function (p) {
         if (!match(p.name + ' ' + p.pkg, q)) return;
         var sel = S.pkgs.some(function (x) { return x.pkg === p.pkg; });
-        opts.push({ img: p.img || '', title: p.name, meta: p.pkg + (p.count ? ' · ' + p.count : ''), sel: sel, keepOpen: true, icon: 'uninstall',
+        opts.push({ img: p.img || '', title: p.name, meta: p.pkg + (p.count ? ' · ' + p.count : ''), sel: sel, icon: 'uninstall',
           pick: function () { if (sel) S.pkgs = S.pkgs.filter(function (x) { return x.pkg !== p.pkg; }); else S.pkgs.push({ pkg: p.pkg, name: p.name }); } });
       });
       if (!pkgsLoading && !(pkgsList || []).length) empty = S.targets.length ? 'No uninstallable apps reported on the selection.' : 'Pick a target first — the list shows what is actually installed there.';
