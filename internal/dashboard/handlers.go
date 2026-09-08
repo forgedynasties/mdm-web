@@ -5143,6 +5143,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Device":              device,
 		"IsDPC":               device.IsDPC(),
 		"Caps":                device.CapSet(),
+		"Classes":             product.Classes(),
 		"DeviceCrashCount":    crashCount,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
