@@ -10361,7 +10361,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		deployments = kept
 	}
 
-	canDeploy := role == "admin" || role == "dev"
+	canDeploy := roleCanOTA(role)
 	var devices []db.Device
 	if canDeploy {
 		devices, _ = h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")

@@ -26,9 +26,10 @@
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
   </div>
   <div class="cc-actions">
+    {{/* Push is an OTA right (admin, dev, super op); publishing a release stays with canRelease. */}}
+    {{if and (canOTA $role) (eq $rel.Status "published") .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</a>{{end}}
     {{if $isAdmin}}
       {{if eq $rel.Status "published"}}
-        {{if .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</a>{{end}}
       {{else}}
         <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
           <button type="submit" class="cc-btn primary"{{if not .HasFull}} onclick="return confirm('No full update package added yet — publish anyway?')"{{end}}>Publish</button>
