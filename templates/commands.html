@@ -791,6 +791,8 @@ window.CMD_PREFILL = {{.Prefill}};
       b.classList.toggle('on', !!QF[k]);
       var n = b.querySelector('.n');
       if (n && qfCounts && k !== 'kiosk') n.textContent = qfCounts[k];
+      // No DPC devices in the fleet → the DPC filter has nothing to do; hide it.
+      if (k === 'dpc' && qfCounts) b.hidden = !qfCounts.dpc && !QF.dpc;
     });
   }
   function pasteTokens() {
