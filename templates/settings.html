@@ -862,11 +862,27 @@ function kioskAddPkg(pkg, el){
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
     <h3>DPC agent for QR provisioning</h3>
-    {{if and .AgentAPKURL .AgentAPKChecksum}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
+    {{if or .AgentAPKHosted (and .AgentAPKURL .AgentAPKChecksum)}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
     {{if .AgentAPKFromEnv}}<span class="cc-tag" title="Values come from AGENT_APK_URL / AGENT_APK_CHECKSUM in the server env; saving here overrides them">from env</span>{{end}}
   </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:10px;"><b>Host it here.</b> Upload the signed agent APK and this server serves it at <span class="mono">{{.AgentAPKHostedInfo.URL}}</span>, with the file checksum the provisioning QR needs. Simplest path.</div>
+    {{if .AgentAPKHosted}}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="cc-tag ok">hosted</span>
+      <span class="mono small">{{.AgentAPKHostedInfo.Name}}</span>
+      <span class="muted small">{{.AgentAPKHostedInfo.Size}} bytes · uploaded {{timeSince .AgentAPKHostedInfo.At}}</span>
+      <span class="muted small mono" title="SHA-256, URL-safe base64">{{.AgentAPKHostedInfo.SHA}}</span>
+      <form action="/settings/agent-apk/remove" method="POST" hx-boost="false" style="display:inline;margin-left:auto;" onsubmit="return confirm('Stop hosting the agent APK? Enrollment QRs stop cold-provisioning until a new one is uploaded.')"><button type="submit" class="cc-btn sm">Remove</button></form>
+    </div>
+    {{end}}
+    <form action="/settings/agent-apk/upload" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required class="form-input" style="max-width:360px;">
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;">{{if .AgentAPKHosted}}Replace APK{{else}}Upload APK{{end}}</button>
+    </form>
+  </div>
   <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:10px;">A factory-reset device that scans an enrollment QR downloads the agent from this URL and verifies it against the signing-certificate checksum (URL-safe base64 SHA-256, as Android's provisioning expects). Leave both blank to provision by adb only.</div>
+    <div class="muted small" style="margin-bottom:10px;"><b>Or point elsewhere.</b> A factory-reset device that scans an enrollment QR downloads the agent from this URL and verifies it against the signing-certificate checksum (URL-safe base64 SHA-256, as Android's provisioning expects). Leave both blank to provision by adb only.</div>
     <form action="/settings/agent-apk" method="POST" hx-boost="false" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto;gap:8px;align-items:end;">
       <label class="muted small" style="display:block;">Agent APK URL<input type="url" name="agent_apk_url" value="{{.AgentAPKURL}}" placeholder="https://…/skorra-agent.apk" class="form-input" style="width:100%;margin-top:4px;"></label>
       <label class="muted small" style="display:block;">Signature checksum<input type="text" name="agent_apk_checksum" value="{{.AgentAPKChecksum}}" placeholder="base64url SHA-256 of the signing cert" class="form-input mono" style="width:100%;margin-top:4px;"></label>

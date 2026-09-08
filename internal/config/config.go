@@ -1,6 +1,7 @@
 package config
 
 import (
+	"time"
 	"encoding/json"
 	"log"
 	"os"
@@ -65,6 +66,13 @@ type Config struct {
 	// are the fallback when unset here, so existing deployments keep working.
 	AgentAPKURLVal      string `json:"agent_apk_url"`
 	AgentAPKChecksumVal string `json:"agent_apk_checksum"`
+	// An agent APK uploaded through Settings and served by this server at
+	// /agent/skorra-agent.apk. HostedSHA is the URL-safe base64 SHA-256 of the file
+	// (PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM); HostedName/Size/At describe it.
+	AgentAPKHostedSHA  string    `json:"agent_apk_hosted_sha"`
+	AgentAPKHostedName string    `json:"agent_apk_hosted_name"`
+	AgentAPKHostedSize int64     `json:"agent_apk_hosted_size"`
+	AgentAPKHostedAt   time.Time `json:"agent_apk_hosted_at"`
 
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
@@ -698,6 +706,33 @@ func (c *Config) AgentAPKChecksum() string {
 		return c.AgentAPKChecksumVal
 	}
 	return os.Getenv("AGENT_APK_CHECKSUM")
+}
+
+// AgentAPKHosted reports whether an uploaded agent APK is being served by this server.
+func (c *Config) AgentAPKHosted() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AgentAPKHostedSHA != ""
+}
+
+// AgentAPKHostedInfo returns the hosted APK's checksum, original name, size and time.
+func (c *Config) AgentAPKHostedInfo() (sha, name string, size int64, at time.Time) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AgentAPKHostedSHA, c.AgentAPKHostedName, c.AgentAPKHostedSize, c.AgentAPKHostedAt
+}
+
+func (c *Config) SetAgentAPKHosted(sha, name string, size int64) error {
+	c.mu.Lock()
+	c.AgentAPKHostedSHA, c.AgentAPKHostedName, c.AgentAPKHostedSize = sha, name, size
+	if sha != "" {
+		c.AgentAPKHostedAt = time.Now()
+	} else {
+		c.AgentAPKHostedAt = time.Time{}
+	}
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetAgentAPK(url, checksum string) error {

@@ -15203,6 +15203,11 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Title":                "Settings",
 		"AgentAPKURL":          h.cfg.AgentAPKURL(),
 		"AgentAPKChecksum":     h.cfg.AgentAPKChecksum(),
+		"AgentAPKHosted":       h.cfg.AgentAPKHosted(),
+		"AgentAPKHostedInfo": func() map[string]any {
+			sha, name, size, at := h.cfg.AgentAPKHostedInfo()
+			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
+		}(),
 		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 		"Apps":                 repoApps,
 		"Productions":          productions,
@@ -18127,6 +18132,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
+	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
+	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
+	// Public on purpose: a factory-reset phone downloads the agent from the QR.
+	mux.HandleFunc("GET /agent/skorra-agent.apk", h.AgentAPKDownload)
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)

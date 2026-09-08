@@ -1,6 +1,9 @@
 package dashboard
 
 import (
+	"path/filepath"
+	"io"
+	"crypto/sha256"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/csv"
@@ -64,7 +67,8 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Classes":        product.Classes(),
 		"Inbox":          inbox,
 		"Stats":          stats,
-		"HasAgentAPK":    h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != "",
+		"HasAgentAPK":    h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
+		"AgentAPKURL":    h.agentAPKURL(r),
 	})
 }
 
@@ -199,11 +203,20 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 	}
 	// QR provisioning needs a downloadable agent APK; without these env vars the code
 	// still carries the extras (usable for docs/manual flows) but can't cold-provision.
-	if apkURL := h.cfg.AgentAPKURL(); apkURL != "" {
-		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = apkURL
-	}
-	if sum := h.cfg.AgentAPKChecksum(); sum != "" {
-		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] = sum
+	// A hosted APK wins: this server serves it and knows its file hash (the
+	// PACKAGE_CHECKSUM variant). Otherwise an external URL + signing-certificate
+	// checksum from Settings / env.
+	if h.cfg.AgentAPKHosted() {
+		sha, _, _, _ := h.cfg.AgentAPKHostedInfo()
+		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = h.baseURL(r) + agentAPKRoute
+		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM"] = sha
+	} else {
+		if apkURL := h.cfg.AgentAPKURL(); apkURL != "" {
+			payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = apkURL
+		}
+		if sum := h.cfg.AgentAPKChecksum(); sum != "" {
+			payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] = sum
+		}
 	}
 	blob, err := json.Marshal(payload)
 	if err != nil {
@@ -1199,6 +1212,110 @@ func (h *Handler) ReportActivityCSV(w http.ResponseWriter, r *http.Request) {
 		cw.Write([]string{s.Day.Format("2006-01-02"), strconv.Itoa(s.Active), strconv.FormatInt(s.Checkins, 10)})
 	}
 	cw.Flush()
+}
+
+// agentAPKURL is the address a device downloads the agent from: this server's hosted
+// copy when one is uploaded, else the external URL from Settings / env.
+func (h *Handler) agentAPKURL(r *http.Request) string {
+	if h.cfg.AgentAPKHosted() {
+		return h.baseURL(r) + agentAPKRoute
+	}
+	return h.cfg.AgentAPKURL()
+}
+
+// AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
+// data/agent — the same data volume as splash images).
+func AgentAPKDir() string {
+	if d := strings.TrimSpace(os.Getenv("AGENT_APK_DIR")); d != "" {
+		return d
+	}
+	return "data/agent"
+}
+
+const agentAPKFile = "skorra-agent.apk"
+const agentAPKRoute = "/agent/" + agentAPKFile
+
+// AgentAPKDownload serves the hosted agent APK. Unauthenticated on purpose: a
+// factory-reset phone fetches it from the provisioning QR before any account
+// exists. It contains nothing secret — the enrollment token travels in the QR's
+// admin extras, not in the APK.
+func (h *Handler) AgentAPKDownload(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.AgentAPKHosted() {
+		http.NotFound(w, r)
+		return
+	}
+	path := filepath.Join(AgentAPKDir(), agentAPKFile)
+	f, err := os.Open(path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+agentAPKFile+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeContent(w, r, agentAPKFile, st.ModTime(), f)
+}
+
+// SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe
+// base64, as PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM wants it). From then on the
+// enrollment QR points at this server's copy.
+func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 128<<20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		h.hxDoneToast(w, r, "/settings", "Upload failed: file too large or malformed", "error")
+		return
+	}
+	file, hdr, err := r.FormFile("apk")
+	if err != nil {
+		h.hxDoneToast(w, r, "/settings", "Choose an APK file first", "error")
+		return
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// An APK is a zip: PK. Anything else is a wrong file.
+	if len(data) < 4 || string(data[:2]) != "PK" {
+		h.hxDoneToast(w, r, "/settings", "That is not an APK (zip) file", "error")
+		return
+	}
+	if err := os.MkdirAll(AgentAPKDir(), 0o755); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	path := filepath.Join(AgentAPKDir(), agentAPKFile)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	sum := sha256.Sum256(data)
+	sha := base64.RawURLEncoding.EncodeToString(sum[:])
+	if err := h.cfg.SetAgentAPKHosted(sha, filepath.Base(hdr.Filename), int64(len(data))); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.agent_apk_upload", hdr.Filename, fmt.Sprintf("%d bytes sha256 %s", len(data), sha))
+	h.hxDoneToast(w, r, "/settings", "Agent APK hosted — QR cold-provisioning is on", "success")
+}
+
+// SettingsAgentAPKRemove stops hosting the uploaded APK.
+func (h *Handler) SettingsAgentAPKRemove(w http.ResponseWriter, r *http.Request) {
+	_ = os.Remove(filepath.Join(AgentAPKDir(), agentAPKFile))
+	if err := h.cfg.SetAgentAPKHosted("", "", 0); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.agent_apk_remove", "", "")
+	h.hxDoneToast(w, r, "/settings", "Hosted agent APK removed", "success")
 }
 
 // SettingsAgentAPK stores where QR provisioning downloads the DPC agent from and
