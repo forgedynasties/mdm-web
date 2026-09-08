@@ -38,12 +38,40 @@ var overviewWidgets = []overviewWidget{
 	{"vitals", "Fleet vitals", "right"},
 }
 
+// widgetSize is a widget's footprint on the home-screen grid: W columns (1 = half,
+// 2 = full width) and H (1 = compact, body scrolls; 2 = natural; 3 = tall).
+type widgetSize struct {
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
 // overviewLayout is what gets stored per user and handed to the template.
+//
+// The grid is a single two-column canvas ("home screen"): Order lists the column
+// widgets in reading order and Sizes gives each its footprint. Left/Right are the
+// pre-grid two-column model, kept so saved layouts and presets keep working: when
+// Order is empty it is derived by zipping the two columns.
 type overviewLayout struct {
-	Preset string   `json:"preset"` // default | operations | releases | minimal | custom
-	Hidden []string `json:"hidden"`
-	Left   []string `json:"left"`
-	Right  []string `json:"right"`
+	Preset string                `json:"preset"` // default | operations | releases | minimal | custom
+	Hidden []string              `json:"hidden"`
+	Left   []string              `json:"left,omitempty"`
+	Right  []string              `json:"right,omitempty"`
+	Order  []string              `json:"order"`
+	Sizes  map[string]widgetSize `json:"sizes"`
+}
+
+// Size is the template accessor: a widget's footprint with defaults applied.
+func (l overviewLayout) Size(id string) widgetSize {
+	if s, ok := l.Sizes[id]; ok {
+		if s.W < 1 || s.W > 2 {
+			s.W = 1
+		}
+		if s.H < 1 || s.H > 3 {
+			s.H = 2
+		}
+		return s
+	}
+	return widgetSize{W: 1, H: 2}
 }
 
 // overviewPreset is a named, built-in arrangement.
@@ -59,6 +87,7 @@ var overviewPresets = []overviewPreset{
 		Preset: "default",
 		Left:   []string{"inbox", "sites", "map", "activity"},
 		Right:  []string{"rollouts", "adoption", "vitals"},
+		Sizes:  map[string]widgetSize{"map": {W: 2, H: 2}},
 	}},
 	{"operations", "Operations", "Sites, map and vitals for the on-call desk.", overviewLayout{
 		Preset: "operations",
@@ -127,16 +156,46 @@ func normalizeOverviewLayout(in overviewLayout) overviewLayout {
 		}
 		return col
 	}
-	out.Left = take(in.Left)
-	out.Right = take(in.Right)
+	// Order: the saved grid order, else the two columns zipped (L0 R0 L1 R1 …) so a
+	// pre-grid layout keeps roughly the same picture. Anything the layout does not
+	// mention (a widget added later) goes at the end.
+	if len(in.Order) > 0 {
+		out.Order = take(in.Order)
+	} else {
+		l, r := in.Left, in.Right
+		var zipped []string
+		for i := 0; i < len(l) || i < len(r); i++ {
+			if i < len(l) {
+				zipped = append(zipped, l[i])
+			}
+			if i < len(r) {
+				zipped = append(zipped, r[i])
+			}
+		}
+		out.Order = take(zipped)
+	}
 	for _, w := range overviewWidgets {
 		if w.Slot == "top" || seen[w.ID] || hidden[w.ID] {
 			continue
 		}
-		if w.Slot == "left" {
-			out.Left = append(out.Left, w.ID)
-		} else {
-			out.Right = append(out.Right, w.ID)
+		out.Order = append(out.Order, w.ID)
+	}
+	if out.Order == nil {
+		out.Order = []string{}
+	}
+	out.Sizes = map[string]widgetSize{}
+	for id, s := range in.Sizes {
+		if _, ok := overviewWidgetByID(id); !ok {
+			continue
+		}
+		if s.W < 1 || s.W > 2 {
+			s.W = 1
+		}
+		if s.H < 1 || s.H > 3 {
+			s.H = 2
+		}
+		if s.W != 1 || s.H != 2 {
+			out.Sizes[id] = s
 		}
 	}
 	if out.Hidden == nil {
@@ -188,7 +247,6 @@ func (h *Handler) overviewLayoutData(r *http.Request) map[string]any {
 		"Presets":       overviewPresets,
 		"IsHidden":      hidden,
 		"IsCustomized":  l.Preset != "default" || len(l.Hidden) > 0,
-		"SingleColumn":  len(l.Left) == 0 || len(l.Right) == 0,
 	}
 }
 
@@ -206,7 +264,7 @@ func (h *Handler) OverviewLayoutSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var l overviewLayout
-	if p, ok := overviewPresetByID(strings.TrimSpace(body.Preset)); ok && body.Left == nil && body.Right == nil && body.Hidden == nil {
+	if p, ok := overviewPresetByID(strings.TrimSpace(body.Preset)); ok && body.Left == nil && body.Right == nil && body.Hidden == nil && body.Order == nil {
 		l = normalizeOverviewLayout(p.Layout)
 	} else {
 		body.Preset = "custom"

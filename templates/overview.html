@@ -99,9 +99,12 @@
 .ov3-sp-empty{height:30px;margin-top:6px}
 
 /* main grid */
-.ov3-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+/* one home-screen grid: each widget spans 1 (half) or 2 (full) columns */
+.ov3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 @media(max-width:980px){.ov3-grid{grid-template-columns:1fr}}
-.ov3-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ov3-w[data-cw="2"]{grid-column:1/-1}
+.ov3-w[data-ch="1"] > .ov3-card{max-height:300px;overflow:auto}
+.ov3-w[data-ch="3"] > .ov3-card{min-height:560px}
 .ov3-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
 .ov3-ch{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid var(--border-soft)}
 .ov3-ch h3{font-size:14px;font-weight:700;margin:0;letter-spacing:-.005em}
@@ -212,13 +215,37 @@
 .ov3-ch .m~.ov3-hide,.ov3-ch .r~.ov3-hide,.ov3-ch .ov3-sfilter~.ov3-hide,.ov3-ch .ov3-ch-btn~.ov3-hide{margin-left:8px}
 .ov3-w-top .ov3-hide{position:absolute;top:8px;right:8px;z-index:2;background:var(--surface);border-color:var(--border)}
 @media(hover:none){.ov3-hide{opacity:1}}
-.ov3-ch.ov3-drag{cursor:grab;user-select:none}.ov3-ch.ov3-drag:active{cursor:grabbing}
-.ov3-w.dragging{opacity:.4}
-.ov3-col.ov3-over{outline:2px dashed var(--accent-edge);outline-offset:6px;border-radius:14px}
-.ov3-col:empty{min-height:120px;border:1px dashed var(--border);border-radius:14px}
-.ov3-drop{height:4px;border-radius:99px;background:var(--accent);margin:-10px 0 -10px;opacity:.9}
-.ov3-grid.single{grid-template-columns:1fr}
-.ov3-grid.single .ov3-col:empty{display:none}
+/* edit mode ("Customize"): wiggle, per-widget toolbar, drag to reorder, add tray */
+.ov3-editing .ov3-w:not(.ov3-w-top){animation:ov3wig 1.6s ease-in-out infinite;transform-origin:50% 50%}
+.ov3-editing .ov3-w:not(.ov3-w-top):nth-child(2n){animation-delay:-.8s}
+@keyframes ov3wig{0%,100%{transform:rotate(-.25deg)}50%{transform:rotate(.25deg)}}
+@media(prefers-reduced-motion:reduce){.ov3-editing .ov3-w{animation:none!important}}
+.ov3-editing .ov3-w:not(.ov3-w-top)>.ov3-card{outline:2px dashed var(--accent-edge);outline-offset:3px;cursor:grab}
+.ov3-editing .ov3-w.dragging{opacity:.35}
+.ov3-editing .ov3-w>.ov3-card{pointer-events:none}
+.ov3-tools{display:none;position:absolute;top:-12px;right:10px;z-index:4;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;box-shadow:var(--shadow-pop)}
+.ov3-editing .ov3-w:not(.ov3-w-top) .ov3-tools{display:inline-flex}
+.ov3-tools button{width:28px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:700}
+.ov3-tools button:hover{background:var(--surface2);color:var(--text)}
+.ov3-tools button.on{background:var(--accent-soft);color:var(--accent-text)}
+.ov3-tools button.grab{cursor:grab}
+.ov3-tools button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ov3-tools .sep{width:1px;background:var(--border);margin:4px 2px}
+.ov3-tools button.x{color:var(--danger)}
+.ov3-drop{grid-column:span 1;min-height:64px;border:2px dashed var(--accent);border-radius:14px;background:var(--accent-soft);opacity:.7}
+.ov3-drop.wide{grid-column:1/-1}
+.ov3-tray{display:none;grid-column:1/-1;border:1px dashed var(--border);border-radius:14px;padding:12px 14px;background:var(--surface2)}
+.ov3-editing .ov3-tray{display:block}
+.ov3-tray .cap{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+.ov3-tray .row{display:flex;gap:8px;flex-wrap:wrap}
+.ov3-tray button{font:inherit;font-size:12.5px;font-weight:650;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
+.ov3-tray button:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.ov3-tray .none{font-size:12px;color:var(--muted)}
+.ov3-editbar{display:none;position:sticky;top:8px;z-index:2;align-items:center;gap:10px;margin:0 0 14px;padding:8px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:12px;font-size:12.5px;color:var(--accent-text)}
+.ov3-editing .ov3-editbar{display:flex}
+.ov3-editbar b{font-weight:700}
+.ov3-editbar .done{margin-left:auto;font:inherit;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:99px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.ov3-editing .ov3-hide{display:none}
 .ov3-ch .ov3-ch-btn{font:inherit;font-size:11.5px;font-weight:650;padding:4px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;margin-left:8px;white-space:nowrap}
 .ov3-ch .ov3-ch-btn:hover{color:var(--text);border-color:var(--rule-2)}
 .ov3-ch .ov3-ch-btn:disabled{opacity:.6;cursor:wait}
@@ -285,7 +312,8 @@
           {{if eq .Layout.Preset "custom"}}<div class="ov3-pop-item on static"><b>Custom</b><span>Your own arrangement, saved to your account.</span></div>{{end}}
           <div class="ov3-pop-sec">Hidden widgets</div>
           <div id="ov3-hidden-list">{{range .HiddenWidgets}}<button type="button" class="ov3-pop-item" data-show="{{.ID}}"><b>{{.Title}}</b><span>Show again</span></button>{{else}}<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>{{end}}</div>
-          <div class="ov3-pop-hint">Drag a card by its header to move it between columns. Changes save to your account.</div>
+          <button type="button" class="ov3-pop-item" id="ov3-edit"><b>Edit layout</b><span>Drag to reorder, resize half / full width and short / tall, hide or add widgets.</span></button>
+          <div class="ov3-pop-hint">Changes save to your account.</div>
           <button type="button" class="ov3-pop-item reset" id="ov3-reset"><b>Reset to default</b><span>Show every widget in the standard order.</span></button>
         </div>
       </div>
@@ -380,10 +408,11 @@
   {{template "ai-report-evidence" .}}
   </div>{{end}}
 
-  {{/* ── Main grid: two columns of user-arranged widgets ── */}}
-  <div class="ov3-grid{{if .SingleColumn}} single{{end}}" id="ov3-grid">
-    <div class="ov3-col" id="ov3-left" data-col="left">{{range .Layout.Left}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}</div>
-    <div class="ov3-col" id="ov3-right" data-col="right">{{range .Layout.Right}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}</div>
+  {{/* ── Home-screen grid: user-arranged, user-sized widgets ── */}}
+  <div class="ov3-editbar" id="ov3-editbar"><b>Editing the layout.</b> Drag a card to move it, use its buttons to resize or hide it, add widgets from the tray.<button type="button" class="done" id="ov3-edit-done">Done</button></div>
+  <div class="ov3-grid" id="ov3-grid">
+    {{range .Layout.Order}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}
+    <div class="ov3-tray" id="ov3-tray"><div class="cap">Add a widget</div><div class="row" id="ov3-tray-row"></div></div>
   </div>
 
 </div>
@@ -424,25 +453,25 @@
 
 
 <script>
-// ── Widget system: hide / show / drag between columns / presets / reset ──
-// Layout is rendered server-side from the user's saved arrangement; this script
-// only mutates the DOM for the immediate change and persists the new layout.
+// ── Widget system: home-screen grid. Edit mode (Customize → Edit layout): drag to
+// reorder, half/full width, compact/normal/tall, hide, add from the tray. Presets
+// and reset live in the popover. Every change saves to the account.
 (function () {
   var root = document.getElementById('ov3');
   if (!root) return;
-  var layout, widgets;
+  var grid = document.getElementById('ov3-grid');
   function readJSON(id, fallback) {
     try {
       var v = JSON.parse(document.getElementById(id).textContent);
-      if (typeof v === 'string') v = JSON.parse(v); // tolerate a double-encoded blob
+      if (typeof v === 'string') v = JSON.parse(v);
       return v == null ? fallback : v;
     } catch (e) { return fallback; }
   }
-  layout = readJSON('ov3-layout', {hidden: [], left: [], right: []});
-  widgets = readJSON('ov3-widgets', []);
+  var layout = readJSON('ov3-layout', { hidden: [], order: [], sizes: {} });
+  var widgets = readJSON('ov3-widgets', []);
   if (!Array.isArray(widgets)) widgets = [];
-  var titles = {}; widgets.forEach(function (w) { titles[w.id] = w.title; });
-  layout.hidden = layout.hidden || [];
+  var titles = {}, slot = {}; widgets.forEach(function (w) { titles[w.id] = w.title; slot[w.id] = w.slot; });
+  layout.hidden = layout.hidden || []; layout.sizes = layout.sizes || {};
 
   function toast(msg) {
     var t = document.getElementById('ov3-toast');
@@ -450,100 +479,161 @@
     t.textContent = msg; t.classList.add('show');
     clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 1800);
   }
-  function ids(col) { return Array.prototype.map.call(col.querySelectorAll(':scope > .ov3-w'), function (e) { return e.getAttribute('data-w'); }); }
+  function cells() { return Array.prototype.filter.call(grid.children, function (e) { return e.classList.contains('ov3-w'); }); }
   function collect() {
-    return { preset: 'custom', hidden: layout.hidden.slice(),
-      left: ids(document.getElementById('ov3-left')), right: ids(document.getElementById('ov3-right')) };
+    var sizes = {};
+    cells().forEach(function (w) {
+      var cw = parseInt(w.getAttribute('data-cw') || '1', 10), ch = parseInt(w.getAttribute('data-ch') || '2', 10);
+      if (cw !== 1 || ch !== 2) sizes[w.getAttribute('data-w')] = { w: cw, h: ch };
+    });
+    return { preset: 'custom', hidden: layout.hidden.slice(), order: cells().map(function (e) { return e.getAttribute('data-w'); }), sizes: sizes };
   }
-  function save(body) {
+  var saveTimer = null;
+  function save(body, msg) {
     return fetch('/overview/layout', { method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { if (!r.ok) throw new Error('save failed'); return r.json(); })
+      .then(function (j) { if (msg) toast(msg); return j; })
       .catch(function () { toast('Could not save layout'); });
   }
-  function syncGrid() {
-    var g = document.getElementById('ov3-grid');
-    var l = document.getElementById('ov3-left'), r = document.getElementById('ov3-right');
-    g.classList.toggle('single', !l.children.length || !r.children.length);
-  }
-  function refreshHiddenMenu() {
-    var host = document.getElementById('ov3-hidden-list');
-    if (!host) return;
-    host.innerHTML = '';
-    if (!layout.hidden.length) { host.innerHTML = '<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>'; return; }
-    layout.hidden.forEach(function (id) {
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'ov3-pop-item'; b.setAttribute('data-show', id);
-      b.innerHTML = '<b></b><span>Show again</span>'; b.querySelector('b').textContent = titles[id] || id;
-      host.appendChild(b);
-    });
-  }
+  function saveSoon(msg) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { layout = Object.assign(collect(), { hidden: layout.hidden }); save(layout, msg); }, 350); }
   function markCustom() {
     var btn = document.getElementById('ov3-cust-btn');
     if (btn && !btn.querySelector('.n')) { var n = document.createElement('span'); n.className = 'n'; n.textContent = 'custom'; btn.appendChild(n); }
     else if (btn) btn.querySelector('.n').textContent = 'custom';
     Array.prototype.forEach.call(document.querySelectorAll('#ov3-pop [data-preset]'), function (b) { b.classList.remove('on'); });
   }
+  function refreshHiddenMenu() {
+    var host = document.getElementById('ov3-hidden-list');
+    if (host) {
+      host.innerHTML = '';
+      if (!layout.hidden.length) host.innerHTML = '<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>';
+      layout.hidden.forEach(function (id) {
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'ov3-pop-item'; b.setAttribute('data-show', id);
+        b.innerHTML = '<b></b><span>Show again</span>'; b.querySelector('b').textContent = titles[id] || id;
+        host.appendChild(b);
+      });
+    }
+    var row = document.getElementById('ov3-tray-row');
+    if (row) {
+      row.innerHTML = '';
+      if (!layout.hidden.length) row.innerHTML = '<span class="none">Every widget is on the page.</span>';
+      layout.hidden.forEach(function (id) {
+        var b = document.createElement('button'); b.type = 'button'; b.setAttribute('data-show', id); b.textContent = '+ ' + (titles[id] || id);
+        row.appendChild(b);
+      });
+    }
+  }
 
-  // Hide buttons on every widget.
-  Array.prototype.forEach.call(root.querySelectorAll('.ov3-w'), function (w) {
+  // ── per-widget tools (edit mode) + the always-there × ──
+  function svg(d) { return '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>'; }
+  function syncTools(w) {
+    var t = w.querySelector('.ov3-tools'); if (!t) return;
+    var cw = w.getAttribute('data-cw') || '1', ch = w.getAttribute('data-ch') || '2';
+    t.querySelector('[data-cw="1"]').classList.toggle('on', cw === '1');
+    t.querySelector('[data-cw="2"]').classList.toggle('on', cw === '2');
+    Array.prototype.forEach.call(t.querySelectorAll('[data-ch]'), function (b) { b.classList.toggle('on', b.getAttribute('data-ch') === ch); });
+  }
+  function hideWidget(w, id) {
+    if (layout.hidden.indexOf(id) < 0) layout.hidden.push(id);
+    w.remove(); markCustom(); refreshHiddenMenu();
+    saveSoon((titles[id] || 'Widget') + ' hidden');
+  }
+  cells().forEach(function (w) {
     var id = w.getAttribute('data-w');
-    var btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'ov3-hide'; btn.title = 'Hide ' + (titles[id] || 'widget');
-    btn.setAttribute('aria-label', btn.title);
-    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-    btn.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      if (layout.hidden.indexOf(id) < 0) layout.hidden.push(id);
-      w.remove(); syncGrid(); markCustom(); refreshHiddenMenu();
-      layout = Object.assign(collect(), { hidden: layout.hidden });
-      save(layout).then(function () { toast((titles[id] || 'Widget') + ' hidden'); });
-    });
+    var x = document.createElement('button');
+    x.type = 'button'; x.className = 'ov3-hide'; x.title = 'Hide ' + (titles[id] || 'widget'); x.setAttribute('aria-label', x.title);
+    x.innerHTML = svg('M6 6l12 12M18 6L6 18');
+    x.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); hideWidget(w, id); });
     var head = w.querySelector('.ov3-ch');
-    if (head && !w.classList.contains('ov3-w-top')) { head.appendChild(btn); head.classList.add('ov3-drag'); head.setAttribute('draggable', 'true'); }
-    else w.appendChild(btn);
+    if (head && !w.classList.contains('ov3-w-top')) head.appendChild(x); else w.appendChild(x);
+    if (w.classList.contains('ov3-w-top')) return;
+    var tools = document.createElement('div'); tools.className = 'ov3-tools';
+    tools.innerHTML =
+      '<button type="button" class="grab" title="Drag to move" draggable="true">' + svg('M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01') + '</button><span class="sep"></span>' +
+      '<button type="button" data-cw="1" title="Half width">' + svg('M3 5h8v14H3zM13 5h8v14h-8') + '</button>' +
+      '<button type="button" data-cw="2" title="Full width">' + svg('M3 5h18v14H3z') + '</button><span class="sep"></span>' +
+      '<button type="button" data-ch="1" title="Compact (scrolls)">S</button>' +
+      '<button type="button" data-ch="2" title="Normal height">M</button>' +
+      '<button type="button" data-ch="3" title="Tall">L</button><span class="sep"></span>' +
+      '<button type="button" class="x" title="Hide">' + svg('M6 6l12 12M18 6L6 18') + '</button>';
+    w.appendChild(tools);
+    syncTools(w);
+    tools.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      if (b.classList.contains('x')) { hideWidget(w, id); return; }
+      if (b.hasAttribute('data-cw')) w.setAttribute('data-cw', b.getAttribute('data-cw'));
+      if (b.hasAttribute('data-ch')) w.setAttribute('data-ch', b.getAttribute('data-ch'));
+      syncTools(w); markCustom(); saveSoon('Layout saved');
+    });
   });
 
-  // Drag & drop between / within the two columns (pointer devices).
-  var dragging = null, marker = document.createElement('div'); marker.className = 'ov3-drop';
-  root.addEventListener('dragstart', function (e) {
-    var head = e.target.closest && e.target.closest('.ov3-ch.ov3-drag');
-    if (!head) return;
-    dragging = head.closest('.ov3-w');
-    dragging.classList.add('dragging');
-    try { e.dataTransfer.setData('text/plain', dragging.getAttribute('data-w')); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+  // ── edit mode ──
+  function setEditing(on) {
+    root.classList.toggle('ov3-editing', on);
+    cells().forEach(function (w) { if (!w.classList.contains('ov3-w-top')) w.setAttribute('draggable', on ? 'true' : 'false'); });
+    if (on) { refreshHiddenMenu(); var bar = document.getElementById('ov3-editbar'); if (bar) bar.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  }
+  document.getElementById('ov3-edit-done').addEventListener('click', function () { setEditing(false); toast('Layout saved'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && root.classList.contains('ov3-editing')) setEditing(false); });
+  var tray = document.getElementById('ov3-tray');
+  tray.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-show]'); if (!b) return;
+    var id = b.getAttribute('data-show');
+    layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
+    var body = Object.assign(collect(), { hidden: layout.hidden }); body.order.push(id);
+    save(body).then(function () { reloadOverview(true); });
   });
-  root.addEventListener('dragend', function () {
+
+  // ── drag to reorder within the grid (a drop slot follows the pointer) ──
+  var dragging = null, marker = document.createElement('div'); marker.className = 'ov3-drop';
+  grid.addEventListener('dragstart', function (e) {
+    var w = e.target.closest && e.target.closest('.ov3-w');
+    if (!w || w.classList.contains('ov3-w-top') || !root.classList.contains('ov3-editing')) { e.preventDefault(); return; }
+    dragging = w; w.classList.add('dragging');
+    marker.classList.toggle('wide', w.getAttribute('data-cw') === '2');
+    try { e.dataTransfer.setData('text/plain', w.getAttribute('data-w')); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+  });
+  grid.addEventListener('dragend', function () {
     if (dragging) dragging.classList.remove('dragging');
     dragging = null; marker.remove();
-    Array.prototype.forEach.call(root.querySelectorAll('.ov3-col'), function (c) { c.classList.remove('ov3-over'); });
   });
-  Array.prototype.forEach.call(root.querySelectorAll('.ov3-col'), function (col) {
-    col.addEventListener('dragover', function (e) {
-      if (!dragging) return;
-      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-      col.classList.add('ov3-over');
-      var after = null;
-      Array.prototype.forEach.call(col.querySelectorAll(':scope > .ov3-w'), function (w) {
-        if (w === dragging) return;
-        var r = w.getBoundingClientRect();
-        if (e.clientY > r.top + r.height / 2) after = w;
-      });
-      if (after) after.after(marker); else col.prepend(marker);
+  grid.addEventListener('dragover', function (e) {
+    if (!dragging) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    // nearest widget by centre distance; drop before it when the pointer is in its
+    // first half (x for side-by-side cards, y for stacked ones)
+    var best = null, bd = Infinity, before = false;
+    cells().forEach(function (w) {
+      if (w === dragging) return;
+      var r = w.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var d = Math.hypot(e.clientX - cx, e.clientY - cy);
+      if (d < bd) { bd = d; best = w; before = (r.width < grid.clientWidth * 0.75) ? (e.clientX < cx) : (e.clientY < cy); }
     });
-    col.addEventListener('dragleave', function (e) { if (!col.contains(e.relatedTarget)) col.classList.remove('ov3-over'); });
-    col.addEventListener('drop', function (e) {
-      if (!dragging) return;
-      e.preventDefault();
-      marker.replaceWith(dragging);
-      col.classList.remove('ov3-over');
-      syncGrid(); markCustom();
-      layout = Object.assign(collect(), { hidden: layout.hidden });
-      save(layout).then(function () { toast('Layout saved'); });
-    });
+    if (!best) { tray.before(marker); return; }
+    if (before) best.before(marker); else best.after(marker);
+  });
+  grid.addEventListener('drop', function (e) {
+    if (!dragging) return;
+    e.preventDefault();
+    if (marker.parentNode) marker.replaceWith(dragging); 
+    markCustom(); saveSoon('Layout saved');
   });
 
-  // Customize popover.
+  // ── customize popover (views, hidden, edit, reset) ──
   var cust = document.getElementById('ov3-cust'), btn = document.getElementById('ov3-cust-btn'), pop = document.getElementById('ov3-pop');
+  function reloadOverview(keepEditing) {
+    var url = location.pathname + location.search;
+    if (keepEditing) try { sessionStorage.setItem('ov3-editing', '1'); } catch (err) {}
+    if (!window.htmx || !document.querySelector('main')) { location.reload(); return; }
+    if (pop) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    try {
+      var p = window.htmx.ajax('GET', url, { source: document.body, target: 'main', swap: 'outerHTML', select: 'main' });
+      if (p && p.catch) p.catch(function () { location.reload(); });
+    } catch (e) { location.reload(); }
+  }
+  try { if (sessionStorage.getItem('ov3-editing') === '1') { sessionStorage.removeItem('ov3-editing'); setEditing(true); } } catch (err) {}
   if (btn && pop) {
     btn.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); });
     if (!window.__ov3PopBound) {
@@ -554,9 +644,6 @@
       });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var p = document.getElementById('ov3-pop'); if (p) p.hidden = true; } });
     }
-    // Re-render the Overview in place (a boosted <main> swap: instant progress
-    // bar + skeleton, no full reload of CSS/vendor scripts) once a layout change
-    // has been saved. Falls back to a hard reload if htmx is unavailable.
     function switching(t) {
       Array.prototype.forEach.call(pop.querySelectorAll('button'), function (b) { b.disabled = true; });
       Array.prototype.forEach.call(pop.querySelectorAll('.ov3-pop-item.on'), function (b) { b.classList.remove('on'); });
@@ -564,36 +651,26 @@
       btn.classList.add('busy');
       root.classList.add('ov3-switching');
     }
-    function reloadOverview() {
-      var url = location.pathname + location.search;
-      if (!window.htmx || !document.querySelector('main')) { location.reload(); return; }
-      pop.hidden = true; btn.setAttribute('aria-expanded', 'false');
-      try {
-        var p = window.htmx.ajax('GET', url, { source: document.body, target: 'main', swap: 'outerHTML', select: 'main' });
-        if (p && p.catch) p.catch(function () { location.reload(); });
-      } catch (e) { location.reload(); }
-    }
     pop.addEventListener('click', function (e) {
       var t = e.target.closest('button'); if (!t || t.disabled) return;
+      if (t.id === 'ov3-edit') { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); setEditing(true); return; }
       if (t.hasAttribute('data-preset')) {
         if (t.classList.contains('on')) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
         switching(t);
-        save({ preset: t.getAttribute('data-preset') }).then(reloadOverview);
+        save({ preset: t.getAttribute('data-preset') }).then(function () { reloadOverview(false); });
       } else if (t.hasAttribute('data-show')) {
         var id = t.getAttribute('data-show');
         layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
-        var body = Object.assign(collect(), { hidden: layout.hidden });
-        // Put the widget back where it belongs: home column, at the end.
-        var w = widgets.filter(function (x) { return x.id === id; })[0];
-        if (w && w.slot === 'left') body.left.push(id); else if (w && w.slot === 'right') body.right.push(id);
+        var body = Object.assign(collect(), { hidden: layout.hidden }); body.order.push(id);
         switching(t);
-        save(body).then(reloadOverview);
+        save(body).then(function () { reloadOverview(false); });
       } else if (t.id === 'ov3-reset') {
         switching(t);
-        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(reloadOverview, reloadOverview);
+        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(function () { reloadOverview(false); }, function () { reloadOverview(false); });
       }
     });
   }
+  refreshHiddenMenu();
 })();
 </script>
 
@@ -601,7 +678,7 @@
 {{end}}
 
 {{/* ── Widget dispatch: renders one column widget by id ── */}}
-{{define "ov3-widget"}}{{$d := .D}}<div class="ov3-w" data-w="{{.ID}}">
+{{define "ov3-widget"}}{{$d := .D}}{{$sz := $d.Layout.Size .ID}}<div class="ov3-w" data-w="{{.ID}}" data-cw="{{$sz.W}}" data-ch="{{$sz.H}}">
 {{if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
 </div>{{end}}
 
@@ -915,6 +992,4 @@
           </div>
         </div>
       </div>
-
-    </div>
   {{end}}
