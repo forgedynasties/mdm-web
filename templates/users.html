@@ -49,7 +49,7 @@
     </div>
     <div class="cc-actions">
       <a class="cc-btn js-dest" href="/users/access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access control</a>
-      <button type="button" class="cc-btn primary" onclick="document.getElementById('add-user-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add user</button>
+      {{if canCreateUsers .Role}}<button type="button" class="cc-btn primary" onclick="document.getElementById('add-user-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add user</button>{{end}}
     </div>
   </div>
 
