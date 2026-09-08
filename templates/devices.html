@@ -23,7 +23,7 @@
       {{end}}
     </div>
     <div class="dl-id">
-      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
+      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
       {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
@@ -191,7 +191,7 @@
 </div>
 
 {{if .Devices}}
-{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true)}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true)}}
 {{else}}
 <div class="dl-list">
   <div class="empty-state" style="padding:40px 20px;">
@@ -282,6 +282,10 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 .fleet-rail-item .ct.warn{background:var(--warn-bg);color:var(--warn)}
 a.fleet-rail-item{min-height:40px}
 
+/* named devices: name leads, serial is the quiet second line */
+.dl-serial.has-name{display:inline-flex;flex-direction:column;gap:1px;line-height:1.2}
+.dl-serial.has-name .dl-name{font-family:inherit;font-weight:700;font-size:13.5px;color:var(--text)}
+.dl-serial.has-name .dl-sn{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500}
 /* kind / class / lifecycle tags on a card */
 .dl-ktag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:var(--surface2);color:var(--muted);margin-right:4px;vertical-align:1px}
 .dl-ktag.dpc{background:var(--accent-2-soft);color:var(--accent-2)}

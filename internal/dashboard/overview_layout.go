@@ -60,7 +60,9 @@ type overviewLayout struct {
 	Sizes  map[string]widgetSize `json:"sizes"`
 }
 
-// Size is the template accessor: a widget's footprint with defaults applied.
+// Size is the template accessor: a widget's footprint with defaults applied. The
+// three headline widgets (health hero, signal strip, daily report) default to full
+// width; everything else to half.
 func (l overviewLayout) Size(id string) widgetSize {
 	if s, ok := l.Sizes[id]; ok {
 		if s.W < 1 || s.W > 2 {
@@ -70,6 +72,9 @@ func (l overviewLayout) Size(id string) widgetSize {
 			s.H = 2
 		}
 		return s
+	}
+	if w, ok := overviewWidgetByID(id); ok && w.Slot == "top" {
+		return widgetSize{W: 2, H: 2}
 	}
 	return widgetSize{W: 1, H: 2}
 }
@@ -147,8 +152,8 @@ func normalizeOverviewLayout(in overviewLayout) overviewLayout {
 	take := func(ids []string) []string {
 		col := []string{}
 		for _, id := range ids {
-			w, ok := overviewWidgetByID(id)
-			if !ok || w.Slot == "top" || seen[id] || hidden[id] {
+			_, ok := overviewWidgetByID(id)
+			if !ok || seen[id] || hidden[id] {
 				continue
 			}
 			seen[id] = true
@@ -174,12 +179,20 @@ func normalizeOverviewLayout(in overviewLayout) overviewLayout {
 		}
 		out.Order = take(zipped)
 	}
+	// Widgets the layout doesn't mention: the headline ones (hero, signals, report)
+	// go first — that is where a pre-grid layout had them — the rest at the end.
+	var lead []string
 	for _, w := range overviewWidgets {
-		if w.Slot == "top" || seen[w.ID] || hidden[w.ID] {
+		if seen[w.ID] || hidden[w.ID] {
 			continue
 		}
-		out.Order = append(out.Order, w.ID)
+		if w.Slot == "top" {
+			lead = append(lead, w.ID)
+		} else {
+			out.Order = append(out.Order, w.ID)
+		}
 	}
+	out.Order = append(lead, out.Order...)
 	if out.Order == nil {
 		out.Order = []string{}
 	}
@@ -194,7 +207,11 @@ func normalizeOverviewLayout(in overviewLayout) overviewLayout {
 		if s.H < 1 || s.H > 3 {
 			s.H = 2
 		}
-		if s.W != 1 || s.H != 2 {
+		def := widgetSize{W: 1, H: 2}
+		if w, _ := overviewWidgetByID(id); w.Slot == "top" {
+			def.W = 2
+		}
+		if s != def {
 			out.Sizes[id] = s
 		}
 	}

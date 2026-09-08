@@ -213,18 +213,18 @@
 .ov3-hide:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
 .ov3-ch .ov3-hide{margin-left:auto}
 .ov3-ch .m~.ov3-hide,.ov3-ch .r~.ov3-hide,.ov3-ch .ov3-sfilter~.ov3-hide,.ov3-ch .ov3-ch-btn~.ov3-hide{margin-left:8px}
-.ov3-w-top .ov3-hide{position:absolute;top:8px;right:8px;z-index:2;background:var(--surface);border-color:var(--border)}
+.ov3-w>.ov3-hide{position:absolute;top:8px;right:8px;z-index:2;background:var(--surface);border-color:var(--border)}
 @media(hover:none){.ov3-hide{opacity:1}}
 /* edit mode ("Customize"): wiggle, per-widget toolbar, drag to reorder, add tray */
-.ov3-editing .ov3-w:not(.ov3-w-top){animation:ov3wig 1.6s ease-in-out infinite;transform-origin:50% 50%}
-.ov3-editing .ov3-w:not(.ov3-w-top):nth-child(2n){animation-delay:-.8s}
+.ov3-editing .ov3-w{animation:ov3wig 1.6s ease-in-out infinite;transform-origin:50% 50%}
+.ov3-editing .ov3-w:nth-child(2n){animation-delay:-.8s}
 @keyframes ov3wig{0%,100%{transform:rotate(-.25deg)}50%{transform:rotate(.25deg)}}
 @media(prefers-reduced-motion:reduce){.ov3-editing .ov3-w{animation:none!important}}
-.ov3-editing .ov3-w:not(.ov3-w-top)>.ov3-card{outline:2px dashed var(--accent-edge);outline-offset:3px;cursor:grab}
+.ov3-editing .ov3-w{outline:2px dashed var(--accent-edge);outline-offset:3px;border-radius:var(--r-4);cursor:grab}
 .ov3-editing .ov3-w.dragging{opacity:.35}
-.ov3-editing .ov3-w>.ov3-card{pointer-events:none}
+.ov3-editing .ov3-w>*:not(.ov3-tools){pointer-events:none}
 .ov3-tools{display:none;position:absolute;top:-12px;right:10px;z-index:4;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;box-shadow:var(--shadow-pop)}
-.ov3-editing .ov3-w:not(.ov3-w-top) .ov3-tools{display:inline-flex}
+.ov3-editing .ov3-w .ov3-tools{display:inline-flex}
 .ov3-tools button{width:28px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:700}
 .ov3-tools button:hover{background:var(--surface2);color:var(--text)}
 .ov3-tools button.on{background:var(--accent-soft);color:var(--accent-text)}
@@ -281,8 +281,7 @@
 .ov3-brief .rep-rows{margin-top:0;gap:8px}
 .ov3-brief .rep-row .meta{font-size:12.5px;line-height:1.45}
 .ov3-brief:not(.open) .rep-row:nth-child(n+4){display:none}
-.ov3-w-top.fh-report{margin-bottom:16px}
-.ov3-w-top.fh-report #ai-summary-card{margin-bottom:16px}
+.ov3-w[data-w="report"] #ai-summary-card{margin-bottom:0}
 .ov3-brief-more{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px}
 .ov3-brief-more button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:0}
 .ov3-brief-more a{color:var(--muted);text-decoration:none;font-weight:600;margin-left:auto}
@@ -320,93 +319,6 @@
       <a class="ov3-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>
     </div>
   </div>
-
-  {{if not (index .IsHidden "hero")}}<div class="ov3-w ov3-w-top" data-w="hero">
-  {{/* ── Hero: score · verdict · composition ── */}}
-  <div class="ov3-hero is-{{.ScoreClass}}">
-    <div class="ov3-score">
-      <div class="ov3-ring">
-        <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"><animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/></circle></svg>
-        <b>{{.Score}}<small>score</small></b>
-      </div>
-      <div>
-        <div class="ov3-st">Fleet health</div>
-        <span class="ov3-pill">{{.StatusWord}}</span>
-        <div class="ov3-delta">7-day window{{if ne .ScoreDelta 0}}<br><b class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}}</b> vs prior week{{else}}<br>steady vs prior week{{end}}</div>
-      </div>
-    </div>
-
-    <div class="ov3-msg">
-      <div class="ov3-st">Right now</div>
-      <div class="ov3-facts">
-        <a class="ov3-fact" href="/devices?status=online"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg><b>{{.Summary.RecentlyActive}}</b> online</a>
-        <a class="ov3-fact{{if gt .Offline 0}} warn{{end}}" href="/devices?status=offline"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg><b>{{.Offline}}</b> offline</a>
-        <a class="ov3-fact{{if gt .Crashes24h 0}} bad{{end}}" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</a>
-        <a class="ov3-fact{{if gt .AlertsOpenCount 0}} warn{{end}}" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg><b>{{.AlertsOpenCount}}</b> open alert{{if ne .AlertsOpenCount 1}}s{{end}}</a>
-        <a class="ov3-fact{{if gt .Hot 0}} bad{{end}}" href="/devices?sort=temp&dir=desc"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg><b>{{.Hot}}</b> running hot</a>
-        <span class="ov3-fact"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>{{.KioskPct}}%</b> in kiosk mode</span>
-      </div>
-      <div class="ov3-sub" style="margin-top:14px">Sites: <b>{{.SitesOK}}</b> healthy · <b>{{.SitesWarn}}</b> to watch · <b>{{.SitesBad}}</b> at risk{{if .RolloutsCount}} · <b>{{.RolloutsCount}}</b> rollout{{if ne .RolloutsCount 1}}s{{end}} in flight{{end}}</div>
-    </div>
-
-    <div class="ov3-comp">
-      <div class="t"><span>Fleet composition</span><a href="/devices">All devices →</a></div>
-      <div class="big tnum">{{.Summary.Total}}<small>devices</small></div>
-      {{if .Products}}
-      <div class="ov3-stack">{{range $i, $p := .Products}}<i class="ov3-c{{add $i 1}}" style="flex:{{$p.Count}}" title="{{$p.Label}} · {{$p.Count}}"></i>{{end}}</div>
-      <div class="ov3-legend">{{range $i, $p := .Products}}<span><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></span>{{end}}</div>
-      {{end}}
-      <div class="ov3-mini">
-        <div><b>{{.DeployedCount}}</b>in venues · {{.DeployedPct}}%</div>
-        <div><b>{{sub .Summary.Total .DeployedCount}}</b>lab / bench</div>
-        <div><b>{{.Summary.KioskCount}}</b>kiosk locked</div>
-        <div><b>{{.Summary.UniqueBuilds}}</b>distinct build{{if ne .Summary.UniqueBuilds 1}}s{{end}}</div>
-      </div>
-    </div>
-  </div>
-
-  </div>{{end}}
-
-  {{if not (index .IsHidden "kpis")}}<div class="ov3-w ov3-w-top" data-w="kpis">
-  {{/* ── KPI strip ── */}}
-  <div class="ov3-kpis">
-    <a class="ov3-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
-      <div class="v ok">{{.Summary.RecentlyActive}}</div>
-      <div class="d">of {{.Summary.Total}}{{with .OnlineDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{else}} · steady{{end}}{{end}}</div>
-      {{if .SparkActive}}<svg class="ov3-sp ok" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkActive}} 57,22"/><polyline points="{{.SparkActive}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span>
-      <div class="v{{if gt .Offline 0}} warn{{end}}">{{.Offline}}</div>
-      <div class="d">{{with .OfflineDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> today{{else}}not checking in{{end}}{{end}}</div>
-      {{if .SparkOff}}<svg class="ov3-sp {{if gt .Offline 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkOff}} 57,22"/><polyline points="{{.SparkOff}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span>
-      <div class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</div>
-      <div class="d">under 20%{{with .LowDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{end}}{{end}}</div>
-      {{if .SparkLow}}<svg class="ov3-sp {{if gt .Summary.LowBattery 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkLow}} 57,22"/><polyline points="{{.SparkLow}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?sort=temp&dir=desc"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span>
-      <div class="v{{if gt .Hot 0}} bad{{end}}">{{.Hot}}</div>
-      <div class="d">over threshold</div>
-      {{if .SparkHot}}<svg class="ov3-sp {{if gt .Hot 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkHot}} 57,22"/><polyline points="{{.SparkHot}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/fleet-health"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span>
-      <div class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</div>
-      <div class="d">{{with .CrashDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> · {{end}}{{end}}{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div>
-      {{if .CrashSpark}}<svg class="ov3-sp {{if gt .Crashes24h 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.CrashSpark}} 57,22"/><polyline points="{{.CrashSpark}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span>
-      <div class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</div>
-      <div class="d">unresolved</div>
-      <div class="ov3-sp-empty"></div></a>
-  </div>
-
-  </div>{{end}}
-
-  {{if not (index .IsHidden "report")}}<div class="ov3-w ov3-w-top fh-report" data-w="report">
-  {{template "ai-report-card" .}}
-  {{template "ai-report-evidence" .}}
-  </div>{{end}}
 
   {{/* ── Home-screen grid: user-arranged, user-sized widgets ── */}}
   <div class="ov3-editbar" id="ov3-editbar"><b>Editing the layout.</b> Drag a card to move it, use its buttons to resize or hide it, add widgets from the tray.<button type="button" class="done" id="ov3-edit-done">Done</button></div>
@@ -482,9 +394,10 @@
   function cells() { return Array.prototype.filter.call(grid.children, function (e) { return e.classList.contains('ov3-w'); }); }
   function collect() {
     var sizes = {};
+    // every widget's footprint, explicitly: the server knows the per-widget
+    // defaults (headline widgets are full width) and drops what matches them
     cells().forEach(function (w) {
-      var cw = parseInt(w.getAttribute('data-cw') || '1', 10), ch = parseInt(w.getAttribute('data-ch') || '2', 10);
-      if (cw !== 1 || ch !== 2) sizes[w.getAttribute('data-w')] = { w: cw, h: ch };
+      sizes[w.getAttribute('data-w')] = { w: parseInt(w.getAttribute('data-cw') || '1', 10), h: parseInt(w.getAttribute('data-ch') || '2', 10) };
     });
     return { preset: 'custom', hidden: layout.hidden.slice(), order: cells().map(function (e) { return e.getAttribute('data-w'); }), sizes: sizes };
   }
@@ -546,8 +459,7 @@
     x.innerHTML = svg('M6 6l12 12M18 6L6 18');
     x.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); hideWidget(w, id); });
     var head = w.querySelector('.ov3-ch');
-    if (head && !w.classList.contains('ov3-w-top')) head.appendChild(x); else w.appendChild(x);
-    if (w.classList.contains('ov3-w-top')) return;
+    if (head) head.appendChild(x); else w.appendChild(x);
     var tools = document.createElement('div'); tools.className = 'ov3-tools';
     tools.innerHTML =
       '<button type="button" class="grab" title="Drag to move" draggable="true">' + svg('M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01') + '</button><span class="sep"></span>' +
@@ -572,7 +484,7 @@
   // ── edit mode ──
   function setEditing(on) {
     root.classList.toggle('ov3-editing', on);
-    cells().forEach(function (w) { if (!w.classList.contains('ov3-w-top')) w.setAttribute('draggable', on ? 'true' : 'false'); });
+    cells().forEach(function (w) { w.setAttribute('draggable', on ? 'true' : 'false'); });
     if (on) { refreshHiddenMenu(); var bar = document.getElementById('ov3-editbar'); if (bar) bar.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   }
   document.getElementById('ov3-edit-done').addEventListener('click', function () { setEditing(false); toast('Layout saved'); });
@@ -590,7 +502,7 @@
   var dragging = null, marker = document.createElement('div'); marker.className = 'ov3-drop';
   grid.addEventListener('dragstart', function (e) {
     var w = e.target.closest && e.target.closest('.ov3-w');
-    if (!w || w.classList.contains('ov3-w-top') || !root.classList.contains('ov3-editing')) { e.preventDefault(); return; }
+    if (!w || !root.classList.contains('ov3-editing')) { e.preventDefault(); return; }
     dragging = w; w.classList.add('dragging');
     marker.classList.toggle('wide', w.getAttribute('data-cw') === '2');
     try { e.dataTransfer.setData('text/plain', w.getAttribute('data-w')); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
@@ -604,11 +516,13 @@
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
     // nearest widget by centre distance; drop before it when the pointer is in its
     // first half (x for side-by-side cards, y for stacked ones)
+    // the widget under the pointer wins; otherwise the nearest by centre
     var best = null, bd = Infinity, before = false;
     cells().forEach(function (w) {
       if (w === dragging) return;
       var r = w.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      var d = Math.hypot(e.clientX - cx, e.clientY - cy);
+      var inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      var d = inside ? -1 : Math.hypot(e.clientX - cx, e.clientY - cy);
       if (d < bd) { bd = d; best = w; before = (r.width < grid.clientWidth * 0.75) ? (e.clientX < cx) : (e.clientY < cy); }
     });
     if (!best) { tray.before(marker); return; }
@@ -678,8 +592,95 @@
 {{end}}
 
 {{/* ── Widget dispatch: renders one column widget by id ── */}}
+{{define "ov3-w-hero"}}
+  {{/* ── Hero: score · verdict · composition ── */}}
+  <div class="ov3-hero is-{{.ScoreClass}}">
+    <div class="ov3-score">
+      <div class="ov3-ring">
+        <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"><animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/></circle></svg>
+        <b>{{.Score}}<small>score</small></b>
+      </div>
+      <div>
+        <div class="ov3-st">Fleet health</div>
+        <span class="ov3-pill">{{.StatusWord}}</span>
+        <div class="ov3-delta">7-day window{{if ne .ScoreDelta 0}}<br><b class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}}</b> vs prior week{{else}}<br>steady vs prior week{{end}}</div>
+      </div>
+    </div>
+
+    <div class="ov3-msg">
+      <div class="ov3-st">Right now</div>
+      <div class="ov3-facts">
+        <a class="ov3-fact" href="/devices?status=online"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg><b>{{.Summary.RecentlyActive}}</b> online</a>
+        <a class="ov3-fact{{if gt .Offline 0}} warn{{end}}" href="/devices?status=offline"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg><b>{{.Offline}}</b> offline</a>
+        <a class="ov3-fact{{if gt .Crashes24h 0}} bad{{end}}" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</a>
+        <a class="ov3-fact{{if gt .AlertsOpenCount 0}} warn{{end}}" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg><b>{{.AlertsOpenCount}}</b> open alert{{if ne .AlertsOpenCount 1}}s{{end}}</a>
+        <a class="ov3-fact{{if gt .Hot 0}} bad{{end}}" href="/devices?sort=temp&dir=desc"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg><b>{{.Hot}}</b> running hot</a>
+        <span class="ov3-fact"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>{{.KioskPct}}%</b> in kiosk mode</span>
+      </div>
+      <div class="ov3-sub" style="margin-top:14px">Sites: <b>{{.SitesOK}}</b> healthy · <b>{{.SitesWarn}}</b> to watch · <b>{{.SitesBad}}</b> at risk{{if .RolloutsCount}} · <b>{{.RolloutsCount}}</b> rollout{{if ne .RolloutsCount 1}}s{{end}} in flight{{end}}</div>
+    </div>
+
+    <div class="ov3-comp">
+      <div class="t"><span>Fleet composition</span><a href="/devices">All devices →</a></div>
+      <div class="big tnum">{{.Summary.Total}}<small>devices</small></div>
+      {{if .Products}}
+      <div class="ov3-stack">{{range $i, $p := .Products}}<i class="ov3-c{{add $i 1}}" style="flex:{{$p.Count}}" title="{{$p.Label}} · {{$p.Count}}"></i>{{end}}</div>
+      <div class="ov3-legend">{{range $i, $p := .Products}}<span><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></span>{{end}}</div>
+      {{end}}
+      <div class="ov3-mini">
+        <div><b>{{.DeployedCount}}</b>in venues · {{.DeployedPct}}%</div>
+        <div><b>{{sub .Summary.Total .DeployedCount}}</b>lab / bench</div>
+        <div><b>{{.Summary.KioskCount}}</b>kiosk locked</div>
+        <div><b>{{.Summary.UniqueBuilds}}</b>distinct build{{if ne .Summary.UniqueBuilds 1}}s{{end}}</div>
+      </div>
+    </div>
+  </div>
+
+  {{end}}
+
+{{define "ov3-w-kpis"}}
+  {{/* ── KPI strip ── */}}
+  <div class="ov3-kpis">
+    <a class="ov3-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
+      <div class="v ok">{{.Summary.RecentlyActive}}</div>
+      <div class="d">of {{.Summary.Total}}{{with .OnlineDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{else}} · steady{{end}}{{end}}</div>
+      {{if .SparkActive}}<svg class="ov3-sp ok" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkActive}} 57,22"/><polyline points="{{.SparkActive}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
+
+    <a class="ov3-kpi" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span>
+      <div class="v{{if gt .Offline 0}} warn{{end}}">{{.Offline}}</div>
+      <div class="d">{{with .OfflineDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> today{{else}}not checking in{{end}}{{end}}</div>
+      {{if .SparkOff}}<svg class="ov3-sp {{if gt .Offline 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkOff}} 57,22"/><polyline points="{{.SparkOff}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
+
+    <a class="ov3-kpi" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span>
+      <div class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</div>
+      <div class="d">under 20%{{with .LowDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{end}}{{end}}</div>
+      {{if .SparkLow}}<svg class="ov3-sp {{if gt .Summary.LowBattery 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkLow}} 57,22"/><polyline points="{{.SparkLow}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
+
+    <a class="ov3-kpi" href="/devices?sort=temp&dir=desc"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span>
+      <div class="v{{if gt .Hot 0}} bad{{end}}">{{.Hot}}</div>
+      <div class="d">over threshold</div>
+      {{if .SparkHot}}<svg class="ov3-sp {{if gt .Hot 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkHot}} 57,22"/><polyline points="{{.SparkHot}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
+
+    <a class="ov3-kpi" href="/fleet-health"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span>
+      <div class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</div>
+      <div class="d">{{with .CrashDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> · {{end}}{{end}}{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div>
+      {{if .CrashSpark}}<svg class="ov3-sp {{if gt .Crashes24h 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.CrashSpark}} 57,22"/><polyline points="{{.CrashSpark}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
+
+    <a class="ov3-kpi" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span>
+      <div class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</div>
+      <div class="d">unresolved</div>
+      <div class="ov3-sp-empty"></div></a>
+  </div>
+
+  {{end}}
+
+{{define "ov3-w-report"}}
+  {{template "ai-report-card" .}}
+  {{template "ai-report-evidence" .}}
+  {{end}}
+
 {{define "ov3-widget"}}{{$d := .D}}{{$sz := $d.Layout.Size .ID}}<div class="ov3-w" data-w="{{.ID}}" data-cw="{{$sz.W}}" data-ch="{{$sz.H}}">
-{{if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
+{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
 </div>{{end}}
 
 {{define "ov3-w-inbox"}}
@@ -912,9 +913,6 @@
       {{end}}
 
     {{end}}
-{{define "ov3-w-report"}}
-{{template "ai-brief-card" .}}
-{{end}}
 {{define "ov3-w-rollouts"}}
 {{/* Rollouts in flight */}}
       <div class="ov3-card">
