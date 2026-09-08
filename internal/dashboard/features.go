@@ -223,6 +223,14 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// ?format=json shows the provisioning payload as text (support / verification
+	// without scanning the code).
+	if r.URL.Query().Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(blob)
+		return
+	}
 	png, err := qrcode.Encode(string(blob), qrcode.Medium, 512)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
