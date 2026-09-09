@@ -5476,13 +5476,12 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < n; i++ {
 		asc[i] = checkins[n-1-i]
 	}
-	// These devices can check in every few seconds, so a multi-day pull is huge — keep
-	// at most maxPoints evenly-strided points per series.
+	// These devices can check in every few seconds, so a multi-day pull is huge.
+	// Build every point, then decimate each series to about maxPoints while
+	// KEEPING each bucket's minimum and maximum, so a temperature spike or a
+	// battery dip that is in the CSV is also on the graph (a plain stride skipped
+	// them, which is where "the CSV says 49°C but the graph never shows it" came from).
 	const maxPoints = 2500
-	stride := 1
-	if n > maxPoints {
-		stride = (n + maxPoints - 1) / maxPoints
-	}
 	type bpt struct {
 		X   int64 `json:"x"`
 		Y   int   `json:"y"`
@@ -5493,10 +5492,10 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		Y float64 `json:"y"`
 	}
 	hasBattery := device.HasBattery()
-	battery := make([]bpt, 0, maxPoints)
-	temp := make([]pt, 0, maxPoints)
-	ram := make([]pt, 0, maxPoints)
-	for i := 0; i < n; i += stride {
+	battery := make([]bpt, 0, n)
+	temp := make([]pt, 0, n)
+	ram := make([]pt, 0, n)
+	for i := 0; i < n; i++ {
 		c := asc[i]
 		x := c.CreatedAt.UnixMilli()
 		if hasBattery {
@@ -5509,9 +5508,62 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 			ram = append(ram, pt{X: x, Y: rp})
 		}
 	}
+	if len(temp) > maxPoints {
+		temp = decimateExtremes(temp, maxPoints, func(p pt) float64 { return p.Y })
+	}
+	if len(ram) > maxPoints {
+		ram = decimateExtremes(ram, maxPoints, func(p pt) float64 { return p.Y })
+	}
+	if len(battery) > maxPoints {
+		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(map[string]any{"battery": battery, "temp": temp, "ram": ram})
+}
+
+// decimateExtremes thins a time-ordered series to about maxPoints by splitting it
+// into buckets of equal size and keeping each bucket's first point plus its minimum
+// and maximum (in time order), so peaks and dips survive the thinning.
+func decimateExtremes[T any](pts []T, maxPoints int, y func(T) float64) []T {
+	n := len(pts)
+	if n <= maxPoints || maxPoints < 3 {
+		return pts
+	}
+	bucket := (n + maxPoints/3 - 1) / (maxPoints / 3)
+	out := make([]T, 0, maxPoints+3)
+	for i := 0; i < n; i += bucket {
+		j := i + bucket
+		if j > n {
+			j = n
+		}
+		lo, hi := i, i
+		for k := i + 1; k < j; k++ {
+			if y(pts[k]) < y(pts[lo]) {
+				lo = k
+			}
+			if y(pts[k]) > y(pts[hi]) {
+				hi = k
+			}
+		}
+		idx := []int{i}
+		for _, k := range []int{lo, hi} {
+			dup := false
+			for _, e := range idx {
+				if e == k {
+					dup = true
+				}
+			}
+			if !dup {
+				idx = append(idx, k)
+			}
+		}
+		sort.Ints(idx)
+		for _, k := range idx {
+			out = append(out, pts[k])
+		}
+	}
+	return out
 }
 
 // wlcIntFromExtra returns the wireless-charging status (0..2) from a check-in's extra,
@@ -7485,7 +7537,10 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone",
 		"latitude", "longitude", "last_seen"}
 
-	header := []string{"serial_number", "timestamp"}
+	// timestamp is the row's time in the requester's wall clock (with offset),
+	// timestamp_utc the same instant in UTC, and sample_at the moment the check-in
+	// behind the values was recorded — the point you would find on the device graph.
+	header := []string{"serial_number", "timestamp", "timestamp_utc", "sample_at"}
 	for _, c := range colOrder {
 		if colSet[c] {
 			header = append(header, c)
@@ -7497,14 +7552,16 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeRow := func(row db.ExportRow) error {
-		ts := row.Timestamp
-		if cycles {
-			// Grid marks read naturally in the requester's wall clock (13:00, 14:00…).
-			ts = ts.In(loc)
+		ts := row.Timestamp.In(loc) // both modes: the requester's wall clock, offset included
+		sampleAt := ""
+		if !row.Empty && !row.SampleAt.IsZero() {
+			sampleAt = row.SampleAt.In(loc).Format(time.RFC3339)
 		}
 		rec := []string{
 			row.SerialNumber,
 			ts.Format(time.RFC3339),
+			row.Timestamp.UTC().Format(time.RFC3339),
+			sampleAt,
 		}
 		for _, c := range colOrder {
 			if !colSet[c] {

@@ -94,7 +94,7 @@
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
-        Reduce data volume by picking one row per interval per device. "All" exports every checkin.
+        Reduce data volume by picking one row per interval per device. "All" exports every checkin. Buckets start at your chosen start time. Every row carries <code>timestamp</code> in your local time, <code>timestamp_utc</code>, and <code>sample_at</code>: the moment the check-in behind the values was recorded, which is the point you will find on the device graph.
       </p>
       <div class="dur-btns" id="export-interval-btns">
         <button type="button" class="dur-btn" data-label="All rows" onclick="setSampleInterval(this, 0)">All</button>

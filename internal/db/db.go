@@ -379,6 +379,11 @@ type ExportRow struct {
 	BuildID      string          `json:"build_id"`
 	Extra        json.RawMessage `json:"extra"`
 	Timestamp    time.Time       `json:"timestamp"`
+	// SampleAt is when the check-in that supplied this row's values was actually
+	// recorded. Equal to Timestamp for raw rows; for interval rows it is the
+	// check-in chosen for the bucket; for cycles rows it is the carried-forward
+	// check-in (zero when the row is Empty). It is what a chart point shows.
+	SampleAt     time.Time       `json:"sample_at"`
 	LastSeenAt   time.Time       `json:"last_seen_at"`
 	// Empty marks a cycles-mode grid row with no check-in within one interval
 	// of the mark — data fields are zero values and should export as blanks.
@@ -2103,6 +2108,7 @@ func (d *DB) StreamExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, st
 		if err := rows.Scan(&r.SerialNumber, &r.BatteryPct, &r.BuildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
 			return err
 		}
+		r.SampleAt = r.Timestamp
 		if len(extra) > 0 {
 			r.Extra = json.RawMessage(extra)
 		} else {
@@ -2128,7 +2134,7 @@ func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSe
 					d.last_seen_at,
 					ROW_NUMBER() OVER (
 						PARTITION BY c.device_id,
-							floor(EXTRACT(EPOCH FROM c.created_at) / $4)
+							floor(EXTRACT(EPOCH FROM (c.created_at - $2)) / $4)
 						ORDER BY c.created_at
 					) AS rn
 				FROM checkins c
@@ -2170,11 +2176,11 @@ func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSe
 // itself, which would reintroduce the empty marks this exists to avoid.
 func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, g.ts, d.last_seen_at
+		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, g.ts, d.last_seen_at, c.created_at
 		FROM devices d
 		CROSS JOIN generate_series($2::timestamptz, $3::timestamptz, make_interval(secs => $4)) AS g(ts)
 		LEFT JOIN LATERAL (
-			SELECT battery_pct, build_id, extra
+			SELECT battery_pct, build_id, extra, created_at
 			FROM checkins c
 			WHERE c.device_id = d.id
 			  AND c.created_at <= g.ts
@@ -2197,8 +2203,12 @@ func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, star
 		var batteryPct *int
 		var buildID *string
 		var extra []byte
-		if err := rows.Scan(&r.SerialNumber, &batteryPct, &buildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
+		var sampleAt *time.Time
+		if err := rows.Scan(&r.SerialNumber, &batteryPct, &buildID, &extra, &r.Timestamp, &r.LastSeenAt, &sampleAt); err != nil {
 			return err
+		}
+		if sampleAt != nil {
+			r.SampleAt = *sampleAt
 		}
 		if batteryPct == nil {
 			r.Empty = true
