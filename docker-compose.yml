@@ -27,6 +27,9 @@ services:
       # Host and container both use $PORT so a non-default value still reaches the
       # server (which reads PORT from env_file); default 8082.
       - "${PORT:-8082}:${PORT:-8082}"
+      # Legacy OTA listener (otautil on pre-agent builds has host:8000 baked in).
+      # Only the /device/* routes answer here; see internal/api/legacy_ota.go.
+      - "${LEGACY_OTA_PORT:-8000}:${LEGACY_OTA_PORT:-8000}"
     env_file: .env
     environment:
       DB_HOST: postgres
@@ -35,9 +38,15 @@ services:
       # Persist the settings/config file on the data volume so all settings
       # survive container restarts and rebuilds (default config/ is not mounted).
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
+      LEGACY_OTA_PORT: ${LEGACY_OTA_PORT:-8000}
+      # Pass-through target for the legacy routes: the old ota-server, republished on
+      # host port 8001 (host.docker.internal resolves to the docker host below).
+      LEGACY_OTA_UPSTREAM: ${LEGACY_OTA_UPSTREAM:-http://host.docker.internal:8001}
       # AWS creds for S3 APK uploads — read from the mounted ~/.aws (no keys in env).
       AWS_SHARED_CREDENTIALS_FILE: /app/.aws/credentials
       AWS_CONFIG_FILE: /app/.aws/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - splashdata:/app/data
       - ${HOME}/.aws:/app/.aws:ro
