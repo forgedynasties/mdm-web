@@ -122,6 +122,7 @@
         document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
       })();
       </script>
+      {{if canAdmin .Role}}
       <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
         <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
         Show admin
@@ -130,6 +131,7 @@
         <input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">
         Include page views
       </label>
+      {{end}}
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
       {{if .Actor}}<a href="/activity?{{if .ShowAdmin}}admin=1&{{end}}{{if .ShowViews}}views=1{{end}}" class="muted small">Clear filter</a>{{end}}
     </form>
@@ -157,16 +159,16 @@
 
     {{if gt .TotalPages 1}}
     <div class="pagination">
-      {{if gt .Page 1}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{sub .Page 1}}">&#8592; Prev</a>
+      {{if gt .Page 1}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&views={{if .ShowViews}}1{{end}}&page={{sub .Page 1}}">&#8592; Prev</a>
       {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
       <div class="page-numbers">
         {{range pageList .Page .TotalPages}}
           {{if eq . 0}}<span class="page-num disabled">…</span>
           {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
-          {{else}}<a class="page-num" href="?actor={{$.Actor}}&admin={{if $.ShowAdmin}}1{{end}}&page={{.}}">{{.}}</a>{{end}}
+          {{else}}<a class="page-num" href="?actor={{$.Actor}}&admin={{if $.ShowAdmin}}1{{end}}&views={{if $.ShowViews}}1{{end}}&page={{.}}">{{.}}</a>{{end}}
         {{end}}
       </div>
-      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{add .Page 1}}">Next &#8594;</a>
+      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&views={{if .ShowViews}}1{{end}}&page={{add .Page 1}}">Next &#8594;</a>
       {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
     </div>
     <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}</div>

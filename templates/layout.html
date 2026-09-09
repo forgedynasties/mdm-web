@@ -89,6 +89,24 @@
       window.__pageTimers.forEach(function (id) { clearInterval(id); });
       window.__pageTimers = [];
     }
+    // A boosted page navigation always swaps <main>, whatever hx-target the link
+    // inherited. Links inside live regions (hx-target="this" polling panes such
+    // as the device Queue, the command detail, release rows) used to inherit that
+    // target and render the whole destination page INSIDE the pane. htmx honours
+    // detail.target / swapOverride set here.
+    // Capture phase: this must run before the in-place morph listener on <body>
+    // (which would otherwise morph the page into the pane and cancel the swap).
+    document.addEventListener('htmx:beforeSwap', function (e) {
+      var d = e.detail; if (!d || !d.boosted) return;
+      // Only boosted <a> navigations: htmx also flags a pane's own hx-get poll as
+      // "boosted" when it sits under hx-boost, and that must keep its own target.
+      // detail.elt here is the swap target, so look at what triggered the request.
+      var rc = d.requestConfig; if (rc && rc.verb && rc.verb !== 'get') return;
+      var te = rc && rc.triggeringEvent, src = te && te.target && te.target.closest ? te.target.closest('a[href]') : null;
+      if (!src || (te.type !== 'click' && te.type !== 'keydown')) return;
+      var main = document.querySelector('main'); if (!main || d.target === main) return;
+      d.target = main; d.swapOverride = 'outerHTML'; d.selectOverride = 'main';
+    }, true);
     // Tear down when a boosted navigation is about to replace <main>.
     document.addEventListener('htmx:beforeSwap', function (e) {
       var t = e.detail && e.detail.target;
@@ -1059,7 +1077,10 @@
       return freshNodes;
     };
     document.body.addEventListener('htmx:beforeSwap', function (e) {
-      var t = e.target;
+      // Use the swap target htmx resolved (detail.target), not the DOM node the
+      // event fired on: a boosted link inside a data-morph pane is retargeted to
+      // <main> above, and morphing into the pane here would nest the whole page.
+      var t = (e.detail && e.detail.target) || e.target;
       if (!t || !t.hasAttribute || !t.hasAttribute('data-morph')) return;
       if (e.detail && e.detail.shouldSwap === false) return; // diff-guard already suppressed
       var html = e.detail && e.detail.serverResponse;

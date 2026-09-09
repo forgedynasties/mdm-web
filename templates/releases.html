@@ -239,10 +239,18 @@ document.addEventListener('keydown', function (e) {
      rolled-up counts + aggregate download progress here; the per-device breakdown
      lives on the Updates page (linked below). */}}
 {{$total := len .ActiveOTA}}
-{{$dl := 0}}{{$pctSum := 0}}
-{{range .ActiveOTA}}{{if eq .Status "downloading"}}{{$dl = add $dl 1}}{{$pctSum = add $pctSum .Percent}}{{end}}{{end}}
-{{$await := sub $total $dl}}
-{{$avg := 0}}{{if gt $total 0}}{{$avg = div $pctSum $total}}{{end}}
+{{/* Per-phase counts and per-phase average percent: a device reports which
+     phase it is in (downloading, verifying, installing, finalizing) and a
+     percent that only means something within that phase, so each phase gets
+     its own pill and its own bar rather than one blended bar. */}}
+{{$dlN := 0}}{{$dlP := 0}}{{$vfN := 0}}{{$vfP := 0}}{{$inN := 0}}{{$inP := 0}}{{$fnN := 0}}{{$fnP := 0}}{{$await := 0}}
+{{range .ActiveOTA}}
+  {{if ne .Status "downloading"}}{{$await = add $await 1}}
+  {{else if eq .Phase "verifying"}}{{$vfN = add $vfN 1}}{{$vfP = add $vfP .Percent}}
+  {{else if eq .Phase "installing"}}{{$inN = add $inN 1}}{{$inP = add $inP .Percent}}
+  {{else if eq .Phase "finalizing"}}{{$fnN = add $fnN 1}}{{$fnP = add $fnP .Percent}}
+  {{else}}{{$dlN = add $dlN 1}}{{$dlP = add $dlP .Percent}}{{end}}
+{{end}}
 {{/* Link straight to the one deployment in flight when every device here belongs to
      the same one — the common case — instead of always sending you to the generic
      /updates hub to hunt for it. Falls back to the hub only when two+ deployments
@@ -263,14 +271,21 @@ document.addEventListener('keydown', function (e) {
     <span class="m">{{$total}} device{{if ne $total 1}}s{{end}} updating</span>
     <a class="r" href="{{if and (not $mixed) (gt $singleReleaseID 0)}}/releases/{{$singleReleaseID}}/deployments/{{$singleUpdateID}}{{else}}/updates{{end}}" hx-target="main" hx-swap="outerHTML">device-by-device →</a>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;padding:14px 17px;flex-wrap:wrap;">
-    {{if gt $dl 0}}
-    <span class="cc-pill info">{{$dl}} downloading</span>
-    <div style="flex:1;min-width:160px;max-width:360px;"><div class="cc-meter"><i class="accent" style="width:{{$avg}}%"></i></div></div>
-    <span class="small" style="font-variant-numeric:tabular-nums;color:var(--muted);">avg {{$avg}}%</span>
-    {{end}}
-    {{if gt $await 0}}<span class="cc-pill">{{$await}} awaiting check-in</span>{{end}}
+  <div style="display:flex;flex-direction:column;gap:8px;padding:12px 17px 14px;">
+    {{template "ota-phase-row" (dict "Label" "downloading" "N" $dlN "Sum" $dlP)}}
+    {{template "ota-phase-row" (dict "Label" "verifying" "N" $vfN "Sum" $vfP)}}
+    {{template "ota-phase-row" (dict "Label" "installing" "N" $inN "Sum" $inP)}}
+    {{template "ota-phase-row" (dict "Label" "finalizing" "N" $fnN "Sum" $fnP)}}
+    {{if gt $await 0}}<div style="display:flex;align-items:center;gap:12px;"><span class="cc-pill">{{$await}} awaiting check-in</span></div>{{end}}
   </div>
 </div>
 {{end}}
 {{end}}
+
+{{/* One phase line of the "Updates in progress" card: count pill + that phase's own bar. */}}
+{{define "ota-phase-row"}}{{if gt .N 0}}{{$avg := div .Sum .N}}
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span class="cc-pill info" style="min-width:120px;justify-content:center;">{{.N}} {{.Label}}</span>
+  <div style="flex:1;min-width:160px;max-width:360px;"><div class="cc-meter"><i class="accent" style="width:{{$avg}}%"></i></div></div>
+  <span class="small" style="font-variant-numeric:tabular-nums;color:var(--muted);">{{if gt .N 1}}avg {{end}}{{$avg}}%</span>
+</div>{{end}}{{end}}

@@ -3323,7 +3323,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Options.MaxAge = -1
 	session.Save(r, w)
-	http.Redirect(w, r, "/login", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusFound) // the public landing page
 }
 
 // newToken returns a random, unguessable, URL-safe token for the email-verify and
@@ -5061,7 +5061,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// The per-device command queue (non-terminal commands, FIFO) for the Queue tab.
 		q, _ := h.db.GetDeviceQueue(ctx, device.ID)
 		redactDeviceCommandURLs(role, q)
-		queue = filterShellDeviceCommands(role, q)
+		queue = withoutOTA(filterShellDeviceCommands(role, q))
 	})
 	run(func() {
 		a, err := h.db.ListApps(ctx)
@@ -7532,6 +7532,19 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// withoutOTA drops OTA updates from the per-device command queue: an OTA runs
+// alongside commands (its own progress card on the device page), it is not a
+// queued command and never blocks one.
+func withoutOTA(in []db.DeviceCommand) []db.DeviceCommand {
+	out := in[:0:0]
+	for _, c := range in {
+		if c.Type != "ota" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // DeviceQueuePartial renders the per-device command queue (non-terminal commands, FIFO)
 // for the Queue tab — refetched live on device-updated so it drains in place as the device
 // works through it.
@@ -7548,7 +7561,7 @@ func (h *Handler) DeviceQueuePartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redactDeviceCommandURLs(h.role(r), queue)
-	queue = filterShellDeviceCommands(h.role(r), queue)
+	queue = withoutOTA(filterShellDeviceCommands(h.role(r), queue))
 	h.renderCachedHTML(w, r, "device-queue", map[string]any{
 		"Device": device,
 		"Queue":  queue,
@@ -17587,7 +17600,10 @@ type activityActor struct {
 func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	// actor is the username selected in the "User" filter dropdown (see below).
 	actor := r.URL.Query().Get("actor")
-	showAdmin := r.URL.Query().Get("admin") == "1"
+	isAdmin := h.role(r) == "admin"
+	// The "Show admin" and "Include page views" toggles are admin-only: everyone
+	// else always sees the list without admin actions and without page views.
+	showAdmin := isAdmin && r.URL.Query().Get("admin") == "1"
 	excludeActor := ""
 	if !showAdmin {
 		excludeActor = "admin"
@@ -17602,7 +17618,7 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	// username" only ever caught the first case, silently dropping the rest of
 	// that person's own history. Matching on the resolved display name instead
 	// catches all three shapes.
-	showViews := r.URL.Query().Get("views") == "1"
+	showViews := isAdmin && r.URL.Query().Get("views") == "1"
 	entries, err := h.db.ListAuditForActivity(r.Context(), excludeActor, showViews, 1000)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
