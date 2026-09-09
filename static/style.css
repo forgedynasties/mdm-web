@@ -6622,3 +6622,24 @@ body .co-r-cap { margin-top: 14px; }
 .sc-why .sc-pop ul { margin: 0; padding-left: 16px; }
 .sc-why .sc-pop li { margin: 2px 0; font-variant-numeric: tabular-nums; }
 .sc-why .sc-pop small { display: block; margin-top: 8px; color: var(--text-faint); font-size: 11px; }
+
+/* Fleet selection: the toolbar keeps "Select all"; once devices are selected the
+   action bar is moved under <body> (#bulk-tray) and floats above the dock as a
+   glass tray, so the actions stay in reach however far the list is scrolled. */
+.selbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; margin: 0 0 6px; }
+.selbar-check { gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-2); }
+#bulk-tray { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 46; max-width: calc(100vw - 32px); }
+#bulk-tray .bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px 10px 12px; border-radius: 40px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--border-soft); box-shadow: var(--shadow-pop); }
+.bulk-count { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--accent-ink); background: var(--accent); border-radius: 40px; padding: 6px 12px; white-space: nowrap; }
+.bulk-count::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .85; }
+.selbar-match { border: 0; background: none; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--accent-text); cursor: pointer; padding: 6px 8px; border-radius: 40px; white-space: nowrap; }
+.selbar-match:hover { background: var(--accent-soft); }
+.selbar-clear { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.selbar-clear:hover { color: var(--text); border-color: var(--rule-2); }
+.selbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+.bulk-actions .cc-btn.sm { padding: 6px 13px; font-size: 12.5px; }
+.bulk-actions .selbar-danger { color: var(--danger); }
+.bulk-actions .selbar-danger:hover { background: var(--danger-bg); border-color: var(--danger-edge); }
+@media (max-width: 720px) { #bulk-tray { left: 12px; right: 12px; bottom: 84px; transform: none; max-width: none; } #bulk-tray .bulk-actions { border-radius: 20px; } .selbar-sep { display: none; } }
