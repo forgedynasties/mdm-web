@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIO MDM Roadmap</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #5f5f66; --faint: #8a8a92;
+    --line: #e9e9ed; --coral: #F9674E; --peri: #7A80F6; --coral-soft: rgba(249,103,78,.12); --peri-soft: rgba(122,128,246,.14);
+    --ok: #0f6d33; --ok-bg: rgba(21,127,60,.10); --shadow: 0 12px 40px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --coral-soft: rgba(249,128,95,.16); --peri-soft: rgba(153,161,242,.18); --ok: #55bd75; --ok-bg: rgba(85,189,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --coral-soft: rgba(249,128,95,.16); --peri-soft: rgba(153,161,242,.18); --ok: #55bd75; --ok-bg: rgba(85,189,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-weight: 300; font-size: clamp(32px, 4.5vw, 46px); letter-spacing: -.04em; line-height: 1.06; margin: 10px 0 12px; text-wrap: balance; }
+  h1 .hl { color: var(--coral); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 66ch; margin: 0 0 28px; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-bottom: 36px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  h2 { font-weight: 300; font-size: 26px; letter-spacing: -.03em; margin: 44px 0 6px; text-wrap: balance; display: flex; align-items: baseline; gap: 12px; }
+  h2 small { font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+  .why { color: var(--muted); max-width: 68ch; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .item { background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .item b { font-weight: 500; font-size: 15px; }
+  .item p { margin: 0; font-size: 13px; color: var(--muted); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tag { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; background: var(--surface-2); color: var(--muted); }
+  .tag.now { background: var(--coral-soft); color: var(--coral); }
+  .tag.next { background: var(--peri-soft); color: var(--peri); }
+  .tag.done { background: var(--ok-bg); color: var(--ok); }
+  .tag.s { background: var(--surface-2); }
+  .start { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 22px 24px; margin: 20px 0 8px; }
+  .start ol { margin: 8px 0 0; padding-left: 0; list-style: none; counter-reset: s; display: grid; gap: 10px; }
+  .start li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: start; }
+  .start li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; background: var(--coral); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
+  .start b { font-weight: 500; display: block; }
+  .start span { font-size: 13px; color: var(--muted); }
+  .start .eff { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--peri); white-space: nowrap; margin-top: 4px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .legend .tag { font-size: 9.5px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } .start li { grid-template-columns: 30px 1fr; } .start .eff { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AIO MDM · roadmap · September 2026</div>
+  <h1>What to build next, <span class="hl">grouped by what it buys us.</span></h1>
+  <p class="lede">Closest to today's pain first. Each item says who feels it and roughly how big it is. Nothing here is started unless it says so.</p>
+  <div class="meta"><span>Branches <b>stage-dpc, live-dpc</b></span><span>Fleet <b>59 devices, T7 and kiosks, DPC agents starting</b></span><span>Author <b>Ali, with Claude</b></span></div>
+  <div class="legend"><span class="tag now">now</span> start this month <span class="tag next">next</span> after that <span class="tag">later</span> when the fleet asks for it <span class="tag done">done</span> shipped <span class="tag s">S</span> days <span class="tag s">M</span> a week <span class="tag s">L</span> weeks</div>
+
+  <h2>Start here <small>five items, every role feels them</small></h2>
+  <div class="start">
+    <ol>
+      <li><div><b>Alerts that mean something</b><span>Hysteresis, per-device cooldown, flapper detection, severity that routes only critical to Teams. See the alert noise review.</span></div><span class="eff">M</span></li>
+      <li><div><b>LAN mirror for OTA packages</b><span>Per-restaurant mirror base, chosen at resolve time from the device's source IP, cloud fallback on failure, LAN/cloud chip per device.</span></div><span class="eff">M</span></li>
+      <li><div><b>Staged rollouts with auto-pause</b><span>Canary 1, then 10%, then all. Pause when failures cross a threshold; resume or roll back with one click.</span></div><span class="eff">M</span></li>
+      <li><div><b>Fleet search across everything</b><span>Name, restaurant, group, build, product, Wi-Fi, IP, installed app, pasted serial lists. Match reason shown on the card.</span></div><span class="eff">S</span></li>
+      <li><div><b>Compliance policy per product</b><span>Minimum build, kiosk on, screen lock, encrypted. Non-compliant list with auto-remediation and an owner-facing badge.</span></div><span class="eff">L</span></li>
+    </ol>
+  </div>
+
+  <h2>Rollouts and firmware <small>updates are the riskiest thing we do</small></h2>
+  <p class="why">Every deployment today is all-or-nothing and downloads from the cloud. The fixes make updates safer and faster without changing the device side.</p>
+  <div class="grid">
+    <div class="item"><b>LAN mirror per restaurant</b><p>Mirror base on the restaurant, file name on the package, device picks the mirror when its source IP is on that LAN. Falls back to S3 and says so on the row.</p><div class="tags"><span class="tag now">now</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Staged rollouts, auto-pause</b><p>Canary, percentage, everyone. Pause on failure rate, resume, or roll back to the previous build for the devices that took it.</p><div class="tags"><span class="tag now">now</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Reboot windows from opening hours</b><p>"Scheduled" means after close for that restaurant, no time typing. Owner sees the window on their page.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Rollback button</b><p>On a completed deployment: push the previous build to the same devices, same reboot setting.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Release notes on the device</b><p>Changelog on the device page and in the owner's service log once the update lands.</p><div class="tags"><span class="tag">later</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>OTA support cutoff</b><p>Per product, the oldest release with the MDM OTA agent. Older builds are marked and left out of pushes.</p><div class="tags"><span class="tag done">done</span></div></div>
+    <div class="item"><b>Full vs incremental per device</b><p>Deploy page and push picker say which package each device will get.</p><div class="tags"><span class="tag done">done</span></div></div>
+    <div class="item"><b>Per-phase OTA progress</b><p>Downloading, verifying, installing, finalizing counted and charted separately.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Enrollment and the mixed fleet <small>kiosks, mPOS and DPC agents alongside our firmware</small></h2>
+  <p class="why">DPC devices enroll one at a time by QR today. Volume needs zero-touch, and the fleet needs spares and retirement handled as flows, not SQL.</p>
+  <div class="grid">
+    <div class="item"><b>Zero-touch for DPC devices</b><p>Samsung Knox Mobile Enrollment and Android zero-touch, so camera-less kiosks enroll on first boot with the right profile.</p><div class="tags"><span class="tag next">next</span><span class="tag s">L</span></div></div>
+    <div class="item"><b>Bench enrollment over adb</b><p>Plug in, run one script, device is enrolled with placement. Built and parked; needs a decision.</p><div class="tags"><span class="tag">later</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Spare pool and swap</b><p>Mark devices as spares. One click copies placement, kiosk policy and nickname from a dead unit to its replacement.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Retirement flow</b><p>Wipe, unassign, archive, with a certificate of erasure for the record.</p><div class="tags"><span class="tag">later</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Enrollment profiles and QR</b><p>Profiles with class, restaurant, expiry and limits; hosted agent APK; QR provisioning end to end.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Operations <small>the daily work of the ops team</small></h2>
+  <p class="why">Most of ops is repetition: the same reboot every night, the same alert routed to the same person. Make the repetition a schedule and the routing a rule.</p>
+  <div class="grid">
+    <div class="item"><b>Fleet search</b><p>Name, restaurant, group, build, product, Wi-Fi, IP, app, serial lists, with a match reason on the card and prefix filters for precision.</p><div class="tags"><span class="tag now">now</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Scheduled actions</b><p>Reboot at 3 am, screenshot hourly, query nightly. Calendar view of what runs where.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Alert routing and quiet hours</b><p>Per-restaurant recipients, escalation after N minutes, quiet hours, maintenance mode that silences a site during a known outage.</p><div class="tags"><span class="tag now">now</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Remote control recordings</b><p>Record a support session, link it from the audit log and the command history.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Battery health</b><p>Cycle count and wear per device, replace-before-it-dies list, pad health from the WLC signals we already store.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Actions console, Selected pane, scopes</b><p>Who and What columns, selected well, restaurant and group scopes, validated serial paste.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Restaurant owner <small>the page we are not giving anyone yet</small></h2>
+  <p class="why">The owner home has the shape now. The previews on it are the order of work: each one turns a mock tile into a real number.</p>
+  <div class="grid">
+    <div class="item"><b>Service log, for real</b><p>Service start and end, reboots, updates landed, pads misplaced, in plain words with times.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Weekly summary email</b><p>Monday 8 am: uptime in service, incidents, battery health, stations that need attention. Owner and manager.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Support requests that reach the team</b><p>Request support, report a problem, ask for a replacement: a ticket with a number, status back on the owner page.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Menu sync and Wi-Fi health tiles</b><p>Which menu version each station shows; Wi-Fi strength per area from the scans we already collect.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Kiosk uptime SLA per month</b><p>Uptime in service hours as one number, with the incidents that cost it.</p><div class="tags"><span class="tag">later</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Owner home, grouped to-dos, previews</b><p>Verdict headline, grouped Needs you, stations, today, week, help actions.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Security and compliance <small>what an auditor asks for</small></h2>
+  <p class="why">Kiosk lock is the only control today. Compliance needs a policy that names the rest and a list of who fails it.</p>
+  <div class="grid">
+    <div class="item"><b>Compliance policy per product</b><p>Minimum build, kiosk on, screen lock, encryption, allowed apps. Non-compliant list, auto-remediation where safe.</p><div class="tags"><span class="tag now">now</span><span class="tag s">L</span></div></div>
+    <div class="item"><b>App allowlist on DPC</b><p>Block sideloading and unapproved packages, not just lock to one app.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Certificates and Wi-Fi profiles</b><p>Push Wi-Fi credentials and certificates to DPC devices from the dashboard.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Lost mode</b><p>Lock with a message and phone number, location trail, unlock from the dashboard.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>API key and session audit</b><p>Which key or session did what, from where, with revocation.</p><div class="tags"><span class="tag">later</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Roles: super op, access admin, remote by default</b><p>Super op with OTA push, access admin, remote control default for the trusted roles.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Platform <small>what lets the next customer in</small></h2>
+  <p class="why">One brand, one server, growing tables. These keep it fast and make it sellable.</p>
+  <div class="grid">
+    <div class="item"><b>Public API and webhooks</b><p>Per-key scopes; events for alert, deployment and enrollment to the customer's systems.</p><div class="tags"><span class="tag next">next</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Multi-tenant</b><p>Several brands on one server, separate fleets, admins and branding.</p><div class="tags"><span class="tag">later</span><span class="tag s">L</span></div></div>
+    <div class="item"><b>Retention and export</b><p>Keep check-ins and command results for N days; export to the warehouse. command_results is 543 MB on stage already.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Technician PWA</b><p>On-site flow: scan a serial, see the device, reboot, mark placed. Works on a phone in the kitchen.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Landing page and design language</b><p>aioapp.com look across the dashboard, sign-in and owner pages.</p><div class="tags"><span class="tag done">done</span></div></div>
+  </div>
+
+  <h2>Intelligence <small>explain, then predict</small></h2>
+  <p class="why">The score exists; nobody knows why it moved. Explanation first, prediction once there is history to learn from.</p>
+  <div class="grid">
+    <div class="item"><b>Fleet health explained</b><p>Why the score dropped, which venue, what to do: on the Overview and in the daily email. Needs the AI balance topped up; DeepSeek returns 402 today.</p><div class="tags"><span class="tag next">next</span><span class="tag s">S</span></div></div>
+    <div class="item"><b>Anomaly alerts from trends</b><p>Temperature creeping, reboots clustering at one site, instead of fixed thresholds.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Predictive replacement</b><p>Batteries and pads likely to fail in the next 30 days, from cycle and pad-flap history.</p><div class="tags"><span class="tag">later</span><span class="tag s">M</span></div></div>
+    <div class="item"><b>Ask AIO on the owner page</b><p>"Which station goes down most during dinner?" answered from telemetry.</p><div class="tags"><span class="tag">later</span><span class="tag s">L</span></div></div>
+  </div>
+</div>
+</body>
+</html>
