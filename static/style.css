@@ -6626,8 +6626,14 @@ body .co-r-cap { margin-top: 14px; }
 .selbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; margin: 0 0 6px; }
 .selbar-check { gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-2); }
 #sel-sheet { position: fixed; right: 24px; top: 50%; transform: translateY(-50%); z-index: 46; width: 232px; display: flex; flex-direction: column; gap: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--border-soft); border-radius: 24px; box-shadow: var(--shadow-pop); padding: 16px 16px 14px; }
+  /* Liquid glass, same recipe as the landing navbar. */
+  background: rgba(255, 255, 255, .55); -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.04); backdrop-filter: blur(32px) saturate(2) brightness(1.04);
+  border: 1px solid rgba(255, 255, 255, .6); border-radius: 24px; padding: 16px 16px 14px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .06), 0 12px 40px rgba(0, 0, 0, .14), inset 0 1px 0 rgba(255, 255, 255, .7); }
+html[data-theme="dark"] #sel-sheet { background: rgba(10, 10, 20, .4); border-color: rgba(255, 255, 255, .12); box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+#sel-sheet .cc-btn { background: color-mix(in srgb, var(--surface) 70%, transparent); border-color: rgba(255, 255, 255, .5); }
+html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .12); }
+#sel-sheet .cc-btn.primary { background: var(--accent); border-color: transparent; }
 #sel-sheet[hidden] { display: none; }
 .ss-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ss-acts .bulk-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
