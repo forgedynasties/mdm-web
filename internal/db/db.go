@@ -6547,7 +6547,7 @@ func (d *DB) ListAuditFilteredEx(ctx context.Context, actor, excludeActor string
 	switch {
 	case actor != "":
 		rows, err = d.pool.Query(ctx,
-			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor = $2 ORDER BY created_at DESC LIMIT $1`, limit, actor)
+			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor = $2 AND action <> '`+PageViewAction+`' ORDER BY created_at DESC LIMIT $1`, limit, actor)
 	case excludeActor != "":
 		rows, err = d.pool.Query(ctx,
 			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor != $2 ORDER BY created_at DESC LIMIT $1`, limit, excludeActor)
