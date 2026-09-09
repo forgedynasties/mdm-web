@@ -92,28 +92,6 @@
     .burger { display: none; width: 44px; height: 44px; border-radius: 50%; border: 0; background: transparent; color: var(--nav-fg); cursor: pointer; place-items: center; }
     .burger svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-    /* Mega menu: full-width panel under the pill, three columns (aioapp "Products") */
-    .mega { position: fixed; top: 93px; left: 40px; right: 40px; z-index: 59; background: var(--surface); color: var(--text); border-radius: 24px; padding: 32px; box-shadow: 0 30px 80px rgba(0, 0, 0, .28); display: none; grid-template-columns: 420px 1fr 420px; gap: 36px; }
-    .mega.open { display: grid; }
-    .mega-list { display: flex; flex-direction: column; gap: 8px; }
-    .mega-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 18px 18px 18px 18px; border-radius: 12px; cursor: pointer; transition: background .15s ease; }
-    .mega-item b { display: block; font-weight: 400; font-size: 20px; line-height: 1.2; }
-    .mega-item span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
-    .mega-item.active { background: var(--coral); color: #fff; }
-    .mega-item.active span { color: rgba(255, 255, 255, .85); }
-    .mega-item.active .arrow-circle { background: rgba(255, 255, 255, .22); }
-    .mega-item:not(.active):hover { background: var(--surface-2); }
-    .mega-pills { display: flex; flex-direction: column; gap: 8px; }
-    .mega-pill { display: block; background: var(--bg); border-radius: 12px; padding: 15px 16px; font-size: 15px; transition: background .15s ease, transform .15s ease; }
-    .mega-pill:hover { background: var(--lav-2); transform: translateX(2px); }
-    .mega-feat { background: var(--bg); border-radius: 16px; padding: 16px; }
-    .mega-feat .shot { border-radius: 12px; aspect-ratio: 16 / 10; background: var(--lav-2) center / cover no-repeat; overflow: hidden; }
-    .mega-feat .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
-    .mega-feat h4 { margin: 18px 0 8px; font-size: 17px; font-weight: 500; }
-    .mega-feat p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.5; }
-    .mega .btn.outline { background: linear-gradient(var(--bg), var(--bg)) padding-box, var(--grad) border-box; }
-    .mega-simple { grid-template-columns: 420px 1fr; }
-
     /* Mobile sheet (aioapp mobile menu) */
     .sheet { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .45); display: none; }
     .sheet.open { display: block; }
@@ -253,7 +231,7 @@
 
     /* Footer (aioapp dark) */
     .foot { background: #0a0a0a; color: #fff; padding: 72px 0 40px; margin-top: 96px; }
-    .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; }
+    .foot-grid { display: grid; grid-template-columns: 1fr auto; gap: 40px; }
     .foot img { height: 20px; width: auto; margin-bottom: 22px; }
     .foot .c { font-size: 13.5px; color: rgba(255, 255, 255, .7); line-height: 1.8; }
     .foot h6 { margin: 0 0 16px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); font-weight: 500; }
@@ -268,14 +246,11 @@
     @media (max-width: 1180px) {
       .cards5 { grid-template-columns: repeat(3, 1fr); } .pcard { height: 440px; }
       .band-box { grid-template-columns: 1fr 1fr; padding: 40px; } .band-box .frame { grid-column: 1 / -1; }
-      .mega { grid-template-columns: 1fr 1fr; } .mega-feat { display: none; } .mega-simple { grid-template-columns: 1fr; }
-      .foot-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 900px) {
       .wrap { padding: 0 20px; }
       .nav { left: 12px; right: 12px; top: 14px; height: 60px; padding: 8px 8px 8px 20px; }
       .nav-l .nav-link, .nav-login, .nav .btn { display: none; } .burger { display: grid; }
-      .mega { display: none !important; }
       .hero { padding: 120px 20px 200px; } .hero h1 { letter-spacing: -.03em; }
       .hero-side { position: static; width: 100%; margin-top: 48px; } .hero-jump { display: none; }
       .models { gap: 20px; font-size: 11px; padding: 18px 20px; }
@@ -295,9 +270,6 @@
   <nav class="nav" id="nav" aria-label="Landing navigation">
     <div class="nav-l">
       <a class="nav-logo" href="/" aria-label="AIO MDM"><img class="light" src="/static/img/landing/aio-logo-white.png" alt="AIO" width="211" height="103"><img class="dark" src="/static/img/landing/aio-logo-dark.png" alt="AIO" width="211" height="103"></a>
-      <button type="button" class="nav-link" data-mega="mega-product" aria-expanded="false" aria-controls="mega-product">Product <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      <button type="button" class="nav-link" data-mega="mega-resources" aria-expanded="false" aria-controls="mega-resources">Resources <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      <a class="nav-link" href="#guides">Guides</a>
     </div>
     <div class="nav-r">
       <button type="button" class="theme-btn" id="theme-btn" aria-label="Switch theme" title="Switch theme">
@@ -310,53 +282,10 @@
     </div>
   </nav>
 
-  {{/* Product mega menu: areas on the left, sub-pages in the middle, a feature card on the right */}}
-  <div class="mega" id="mega-product" role="region" aria-label="Product menu">
-    <div class="mega-list" id="mega-areas">
-      <a class="mega-item active" href="/devices" data-pills="Devices|/devices,Restaurants|/restaurants,Groups|/groups,Device page|/devices,Enrollment (admin)|/enrollment" data-img="/static/img/landing/overview-light.png" data-imgd="/static/img/landing/overview-dark.png" data-title="Fleet overview" data-text="Every venue at a glance: online, charging, alerts and fleet composition, worst venue first.">
-        <div><b>Fleet</b><span>Every kiosk and tablet, by venue and group</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="/commands" data-pills="Install app|/commands,Uninstall|/commands,Reboot|/commands,Screenshot|/commands,Vetted queries|/commands,Scopes: venues and groups|/commands" data-img="/static/img/landing/kiosk.webp" data-imgd="/static/img/landing/kiosk.webp" data-title="Actions console" data-text="Pick who, then what. Venues, groups or a pasted serial list; every device acknowledges live.">
-        <div><b>Actions</b><span>Install, uninstall, reboot and query in bulk</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="/alerts" data-pills="Open alerts|/alerts,Alert rules|/alerts,Daily briefing|/alerts,Acknowledge and resolve|/alerts" data-img="/static/img/landing/overview-light.png" data-imgd="/static/img/landing/overview-dark.png" data-title="Alerts that say what to do" data-text="Plain-language alerts with the fix, a daily briefing for the ops team, and filters that answer the question you have.">
-        <div><b>Alerts</b><span>What broke, where, and what to do</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="/map" data-pills="Live map|/map,Wi-Fi geolocation|/map,Clusters by venue|/map" data-img="/static/img/landing/map-light.png" data-imgd="/static/img/landing/map-dark.png" data-title="Every device on the map" data-text="Position resolved from Wi-Fi scans. No GPS, works indoors, clustered by venue.">
-        <div><b>Map</b><span>Where every device is, without GPS</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="/releases" data-pills="Release packages|/releases,Deployments|/releases,Updates hub|/releases,Reboot policy and rollback|/releases" data-img="/static/img/landing/office.webp" data-imgd="/static/img/landing/office.webp" data-title="OTA updates" data-text="Ship whole builds. A/B seamless updates with per-device progress and a rollback slot.">
-        <div><b>Updates</b><span>Firmware and app rollouts, per device</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="/devices" data-pills="Live screen|/devices,Hardware keys|/devices,Shell and logs|/devices,Screenshot|/devices" data-img="/static/img/landing/pos.webp" data-imgd="/static/img/landing/pos.webp" data-title="Remote control" data-text="Live screen, taps and keys from the browser, wherever the device is.">
-        <div><b>Remote control</b><span>Take over a screen from anywhere</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-    </div>
-    <div class="mega-pills" id="mega-pills"></div>
-    <div class="mega-feat" id="mega-feat">
-      <div class="shot"><img id="mega-img" src="/static/img/landing/overview-light.png" alt=""></div>
-      <h4 id="mega-title">Fleet overview</h4>
-      <p id="mega-text">Every venue at a glance.</p>
-      <a class="btn outline" id="mega-link" href="/devices">Open <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-    </div>
-  </div>
-
-  <div class="mega mega-simple" id="mega-resources" role="region" aria-label="Resources menu">
-    <div class="mega-list">
-      {{if false}}<a class="mega-item" href="#training"><div><b>Training</b><span>Short video chapters, one situation each</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
-      <a class="mega-item" href="#guides"><div><b>Guides</b><span>The six things people ask ops to do</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="#faq"><div><b>FAQ</b><span>Accounts, roles, online, location, kiosk mode</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      
-    </div>
-    <div class="mega-feat">
-      {{if false}}{{with index .Training 0}}<div class="shot"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}></div><h4>Chapter {{.Number}} · {{.Title}}</h4><p>{{.Intro}}</p><a class="btn outline" href="#training">Watch <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      {{end}}{{else}}<div class="shot"><img src="/static/img/landing/mobile.webp" alt=""></div><h4>Find a device in seconds</h4><p>Press Ctrl K anywhere in the dashboard and type a serial, nickname or venue.</p><a class="btn outline" href="#guides">Read the guides <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
-    </div>
-  </div>
-
   {{/* Mobile sheet */}}
   <div class="sheet" id="sheet">
     <div class="sheet-box">
       <div class="sheet-top"><img src="/static/img/landing/aio-logo-white.png" alt="AIO"><button type="button" class="theme-btn" id="sheet-close" aria-label="Close menu" style="color:#fff"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <h5>Product</h5>
-      <a class="item" href="/devices">Fleet</a><a class="item" href="/commands">Actions</a><a class="item" href="/alerts">Alerts</a><a class="item" href="/map">Map</a><a class="item" href="/releases">Updates</a>
-      <h5>Resources</h5>
-      <a class="item" href="#guides">Guides</a><a class="item" href="#faq">FAQ</a>
-      <hr>
       <a class="item" href="/login">Login</a>
       <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><a class="btn" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
         <button type="button" class="theme-btn js-theme" aria-label="Switch theme" style="color:var(--text)"><svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button></div>
@@ -540,11 +469,9 @@
       <div class="foot-grid">
         <div>
           <img src="/static/img/landing/aio-logo-white.png" alt="AIO" width="211" height="103">
-          <div class="c">AIO MDM · built in-house for AIO staff<br>mdm.aioapp.com<br>Questions: the ops channel</div>
+          <div class="c">AIO MDM · built in-house for AIO staff<br>Questions: the ops channel</div>
           <div class="socials"><a href="https://aioapp.com" aria-label="aioapp.com" target="_blank" rel="noopener">aio</a></div>
         </div>
-        <div><h6>Product</h6><a class="l" href="/devices">Fleet</a><a class="l" href="/commands">Actions</a><a class="l" href="/alerts">Alerts</a><a class="l" href="/map">Map</a><a class="l" href="/releases">Updates</a></div>
-        <div><h6>Resources</h6><a class="l" href="#guides">Guides</a><a class="l" href="#faq">FAQ</a></div>
         <div><h6>Account</h6><a class="l" href="/login">Login</a>{{if .SignupEnabled}}<a class="l" href="/signup">Sign up</a>{{end}}<a class="l" href="/forgot-password">Forgot password</a></div>
       </div>
       <div class="foot-bottom">© 2026 AIO APP, INC. All rights reserved · <a href="https://aioapp.com" target="_blank" rel="noopener">aioapp.com</a></div>
@@ -562,35 +489,7 @@
       function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('mdm-theme', t); } catch (e) {} }
       document.querySelectorAll('#theme-btn, .js-theme').forEach(function (b) { b.addEventListener('click', function () { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }); });
 
-      // Mega menus: open on hover or click, close on leave, Escape or outside click.
-      var openId = null, closeTimer = null;
-      function openMega(id) { clearTimeout(closeTimer); if (openId && openId !== id) closeMega(); var m = document.getElementById(id); m.classList.add('open'); openId = id; document.querySelectorAll('[data-mega]').forEach(function (b) { b.setAttribute('aria-expanded', b.getAttribute('data-mega') === id ? 'true' : 'false'); }); }
-      function closeMega() { if (!openId) return; document.getElementById(openId).classList.remove('open'); openId = null; document.querySelectorAll('[data-mega]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); }); }
-      function scheduleClose() { clearTimeout(closeTimer); closeTimer = setTimeout(closeMega, 180); }
-      document.querySelectorAll('[data-mega]').forEach(function (b) {
-        var id = b.getAttribute('data-mega');
-        b.addEventListener('mouseenter', function () { openMega(id); });
-        b.addEventListener('mouseleave', scheduleClose);
-        b.addEventListener('click', function () { openId === id ? closeMega() : openMega(id); });
-      });
-      document.querySelectorAll('.mega').forEach(function (m) { m.addEventListener('mouseenter', function () { clearTimeout(closeTimer); }); m.addEventListener('mouseleave', scheduleClose); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeMega(); closeSheet(); ldClose(); } });
-      document.addEventListener('click', function (e) { if (openId && !e.target.closest('.mega') && !e.target.closest('[data-mega]')) closeMega(); });
-
-      // Product mega: hovering an area swaps the sub-page pills and the feature card.
-      var pills = document.getElementById('mega-pills'), img = document.getElementById('mega-img');
-      function selectArea(a) {
-        document.querySelectorAll('#mega-areas .mega-item').forEach(function (x) { x.classList.toggle('active', x === a); });
-        pills.innerHTML = '';
-        (a.getAttribute('data-pills') || '').split(',').forEach(function (p) { var kv = p.split('|'); var el = document.createElement('a'); el.className = 'mega-pill'; el.href = kv[1] || a.href; el.textContent = kv[0]; pills.appendChild(el); });
-        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        img.src = dark ? a.getAttribute('data-imgd') : a.getAttribute('data-img');
-        document.getElementById('mega-title').textContent = a.getAttribute('data-title');
-        document.getElementById('mega-text').textContent = a.getAttribute('data-text');
-        document.getElementById('mega-link').href = a.getAttribute('href');
-      }
-      document.querySelectorAll('#mega-areas .mega-item').forEach(function (a) { a.addEventListener('mouseenter', function () { selectArea(a); }); a.addEventListener('focus', function () { selectArea(a); }); });
-      selectArea(document.querySelector('#mega-areas .mega-item'));
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeSheet(); ldClose(); } });
 
       // Mobile sheet
       var sheet = document.getElementById('sheet');
