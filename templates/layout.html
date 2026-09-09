@@ -109,6 +109,20 @@
       var main = document.querySelector('main'); if (!main || d.target === main) return;
       d.target = main; d.swapOverride = 'outerHTML'; d.selectOverride = 'main';
     }, true);
+    // Safety net for polling regions: an hx-get element with no hx-target of its
+    // own inherits the body's hx-target="main" and would replace the whole page
+    // with its fragment every tick. Only a boosted navigation may swap <main>;
+    // anything else that resolved to <main> by inheritance is redirected to the
+    // element that made the request.
+    document.addEventListener('htmx:beforeSwap', function (e) {
+      var d = e.detail; if (!d || d.boosted) return;
+      var main = document.querySelector('main'); if (!main || d.target !== main) return;
+      var el = d.elt; if (!el || el === main || el === document.body) return;
+      var own = el.closest('[hx-target]'); if (own && own !== document.body) return; // explicit target
+      d.target = el;
+      if (!el.hasAttribute('hx-swap')) d.swapOverride = 'innerHTML';
+      try { console.warn('[mdm] hx-get without hx-target retargeted to itself:', el.id || el.tagName); } catch (e2) {}
+    }, true);
     // Tear down when a boosted navigation is about to replace <main>.
     document.addEventListener('htmx:beforeSwap', function (e) {
       var t = e.detail && e.detail.target;
