@@ -285,7 +285,7 @@
     </div>
     {{if .LegacyOTAPort}}
     <form action="/settings/legacy-ota" method="POST" style="display:flex;flex-direction:column;gap:8px;max-width:560px;">
-      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="mdm"{{if eq .LegacyOTAMode "mdm"}} checked{{end}} style="margin-top:4px;"><span><b>AIO MDM answers</b><br><span class="muted small">Updates come from Deploy, like every other device. Download progress shows on the deployment page. Legacy devices get a <b>Legacy OTA</b> tag.</span></span></label>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="mdm"{{if eq .LegacyOTAMode "mdm"}} checked{{end}} style="margin-top:4px;"><span><b>AIO MDM answers</b><br><span class="muted small">These devices stay out of the fleet. Manage them, their groups and target releases under <a href="/updates/legacy">Updates › Legacy OTA</a>.</span></span></label>
       <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="passthrough"{{if eq .LegacyOTAMode "passthrough"}} checked{{end}} style="margin-top:4px;"><span><b>Pass through to the old ota-server</b><br><span class="muted small">Every request is forwarded untouched to {{if .LegacyOTAUpstream}}{{.LegacyOTAUpstream}}{{else}}the ota-server container{{end}}. Use its dashboard on port 8001 as before. The MDM stays out of it.</span></span></label>
       <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
     </form>

@@ -1060,6 +1060,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return m
 		},
+		"derefInt": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
 		"deref": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -16550,6 +16556,10 @@ func (h *Handler) SettingsSetLegacyOTA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "settings.legacy_ota_mode", "", h.cfg.LegacyOTAMode())
+	if next := r.FormValue("next"); strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		http.Redirect(w, r, next, http.StatusFound)
+		return
+	}
 	h.settingsRedirect(w, r)
 }
 
@@ -18684,6 +18694,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
+	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.LegacyOTAPage))
+	post("POST /updates/legacy/groups", h.requireOTA(h.LegacyOTAGroupCreate))
+	post("POST /updates/legacy/groups/{id}", h.requireOTA(h.LegacyOTAGroupUpdate))
+	post("POST /updates/legacy/groups/{id}/toggle", h.requireOTA(h.LegacyOTAGroupToggle))
+	post("POST /updates/legacy/groups/{id}/delete", h.requireOTA(h.LegacyOTAGroupDelete))
+	post("POST /updates/legacy/groups/{id}/serials", h.requireOTA(h.LegacyOTAGroupAddSerials))
+	post("POST /updates/legacy/groups/{id}/serials/remove", h.requireOTA(h.LegacyOTAGroupRemoveSerial))
+	post("POST /updates/legacy/devices/{serial}/forget", h.requireOTA(h.LegacyOTADeviceDelete))
 	post("POST /updates", h.requireOTA(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))

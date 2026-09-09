@@ -73,7 +73,7 @@
   <div class="eyebrow">AIO MDM · plan · September 2026</div>
   <h1>Bring the legacy OTA server <span class="hl">into the MDM.</span></h1>
   <p class="lede">Older builds ship <code>com.aioapp.otautil</code>, which polls a small FastAPI server for a system update at an address baked into the build. That address is the MDM dev box. The plan: the MDM speaks that app's protocol itself and takes over port 8000 on that host, so no device changes, and the FastAPI container retires. Progress for these devices comes from a per-device download URL and an update_engine logcat watcher, since the app never reports back.</p>
-  <div class="meta"><span>Legacy server <b>18.237.229.116:8000, same EC2 as the MDM dev box</b></span><span>Device app <b>~/A15/GMS/qssi/packages/apps/ota</b></span><span>Status <b>adapter, toggle and download progress built; logcat watcher pending a bench device</b></span></div>
+  <div class="meta"><span>Legacy server <b>18.237.229.116:8000, same EC2 as the MDM dev box</b></span><span>Device app <b>~/A15/GMS/qssi/packages/apps/ota</b></span><span>Status <b>built on stage: legacy devices kept out of the fleet, own page under Updates › Legacy OTA (groups + allowlist + target release), download progress; logcat watcher pending a bench device</b></span></div>
 
   <h2>What runs today <small>read from the box and the AOSP tree</small></h2>
   <div class="grid">
