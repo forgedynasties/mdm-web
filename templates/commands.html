@@ -855,6 +855,9 @@ window.CMD_PREFILL = {{.Prefill}};
     S.targets.forEach(function (t) { if (t.kind === 'device') picked[t.serial] = true; });
     rows.forEach(function (d) { if (!picked[d.serial] && coveredBy(d.serial)) picked[d.serial] = 'via'; });
     var shown = rows.filter(function (d) {
+      // Devices already covered by a chosen scope leave the list: the scope row
+      // in the Selected well stands for them.
+      if (coveredBy(d.serial)) return false;
       if (QF.online && !d.online) return false;
       if (QF.offline && d.online) return false;
       if (QF.dpc && !d.dpc) return false;
@@ -880,6 +883,8 @@ window.CMD_PREFILL = {{.Prefill}};
     if (!shown.length && !toks) {
       var q = (qEl.value || '').trim();
       if (devLoading) html += '<div class="co-listempty">Searching devices…</div>';
+      else if (isSel('all')) html += '<div class="co-listempty">All devices are selected.</div>';
+      else if (rows.length && S.targets.length) html += '<div class="co-listempty">Every matching device is already covered by the selected scopes.</div>';
       else if (q) html += '<button type="button" class="co-paste" id="co-addpaste" data-one="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add serial &ldquo;' + esc(q) + '&rdquo;</button><div class="co-listempty">No device matches this search — Enter checks it against the fleet.</div>';
       else html += '<div class="co-listempty">No devices match these filters.</div>';
     }
