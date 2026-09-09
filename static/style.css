@@ -17,24 +17,24 @@
      ════════════════════════════════════════════════════ */
 
   /* ── Surfaces (Explorer: airy bg, white panels, rail fills) ── */
-  --bg:        #faf8f5;          /* page background */
-  --bg-grid:   #f4f1ec;
+  --bg:        #f7f7f7;          /* page background */
+  --bg-grid:   #f2f2f4;
   --surface:   #ffffff;          /* cards */
-  --surface2:  #f6f3ee;          /* rail — subtle raised / hover fill */
-  --surface-3: #ece7e0;
+  --surface2:  #f1f1f3;          /* rail — subtle raised / hover fill */
+  --surface-3: #e6e6ea;
   --overlay:   rgba(17, 20, 24, 0.45);
 
   /* ── Borders ──────────────────────────────────────── */
-  --border:      #e8e2da;
-  --border-soft: #efe9e2;
-  --rule:        #ded6cc;
-  --rule-2:      #cfc6ba;
+  --border:      #e9e9ed;
+  --border-soft: #f0f0f3;
+  --rule:        #dcdce1;
+  --rule-2:      #c9c9d0;
 
   /* ── Text ─────────────────────────────────────────── */
-  --text:        #1c1a18;
-  --text-2:      #534e47;
-  --muted:       #6d675e;        /* WCAG AA: 5.6:1 on white, 5.3:1 on bg */
-  --text-faint:  #787167;        /* WCAG AA: 4.8:1 — used for placeholders/meta, must stay legible */
+  --text:        #1a1a1a;
+  --text-2:      #4f4f4f;
+  --muted:       #5f5f66;        /* WCAG AA: 5.6:1 on white, 5.3:1 on bg */
+  --text-faint:  #74747c;        /* WCAG AA: 4.8:1 — used for placeholders/meta, must stay legible */
 
   /* ── Signal — brand accent (crimson #d82747) ──────── */
   /* Brand: AIO coral (#F9674E) primary + periwinkle (#7A80F6) secondary,
@@ -50,7 +50,7 @@
   --ring:          0 0 0 3px rgba(249, 103, 78, 0.30);
   --accent-2:      #7a80f6;       /* secondary — periwinkle */
   --accent-2-soft: rgba(122, 128, 246, 0.12);
-  --brand-grad:    linear-gradient(92deg, #f9674e 0%, #7a80f6 100%);
+  --brand-grad:    linear-gradient(90deg, #f9674e 0%, #7a80f6 100%);
 
   /* ── Semantic (darkened for contrast on white) ────── */
   --ok:        #0f6d33;           /* AA on the 10% wash used by status pills */
@@ -74,10 +74,10 @@
   --chart-tick:    #687078;
 
   /* ── Elevation / interaction (theme-specific) ─────── */
-  --shadow-sm:  0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-md:  0 2px 8px rgba(16, 24, 40, 0.08);
-  --shadow-lg:  0 8px 24px rgba(16, 24, 40, 0.12);
-  --shadow-pop: 0 10px 30px rgba(16, 24, 40, 0.16);
+  --shadow-sm:  0 2px 10px rgba(0, 0, 0, 0.04);
+  --shadow-md:  0 6px 20px rgba(0, 0, 0, 0.06);
+  --shadow-lg:  0 12px 40px rgba(0, 0, 0, 0.08);
+  --shadow-pop: 0 30px 80px rgba(0, 0, 0, 0.18);
   --hover:      rgba(16, 24, 40, 0.04);    /* row/control hover wash */
   --selected:   var(--accent-soft);        /* selection highlight */
   --page-glow:  none;                      /* ambient body wash */
@@ -106,7 +106,7 @@
   --fw-bold:      700;
 
   /* ── Radius (Explorer: 6 chips · 9 controls · 14 cards) ── */
-  --r-1: 3px; --r-2: 6px; --r-3: 9px; --r-4: 14px;
+  --r-1: 4px; --r-2: 8px; --r-3: 12px; --r-4: 24px;
   --radius:    var(--r-3);          /* legacy alias */
 
   /* ── Motion ───────────────────────────────────────── */
@@ -118,10 +118,10 @@
   --ease-out:   cubic-bezier(0, 0, .2, 1);
 
   /* ── Type families ────────────────────────────────── */
-  --font:      'IBM Plex Sans', 'Manrope', system-ui, sans-serif;
+  --font:      'Poppins', 'IBM Plex Sans', system-ui, sans-serif;
   /* Display = same sans as body; the Fraunces serif is retired by preference
      (headings and big numbers all use IBM Plex Sans). */
-  --font-display: 'IBM Plex Sans', 'Manrope', system-ui, sans-serif;
+  --font-display: 'Poppins', 'IBM Plex Sans', system-ui, sans-serif;
   --mono:      'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', monospace;
 }
 
@@ -138,24 +138,24 @@ html[data-theme="dark"] {
      lowered the ceiling: a dark charcoal bg, a dimmer off-white for text, and more
      separation between bg/surface so cards read as distinct panels instead of
      nearly merging into the page. */
-  --bg:        #16181c;
-  --bg-grid:   #191c21;
-  --surface:   #1e2127;
-  --surface2:  #262a31;
-  --surface-3: #2f343c;
+  --bg:        #0d0d12;
+  --bg-grid:   #101016;
+  --surface:   #16161d;
+  --surface2:  #1e1e27;
+  --surface-3: #262633;
   --overlay:   rgba(0, 0, 0, 0.58);
 
   /* Borders */
-  --border:      #333941;
-  --border-soft: #262b32;
-  --rule:        #3d4450;
-  --rule-2:      #4c5462;
+  --border:      #2a2a35;
+  --border-soft: #202029;
+  --rule:        #33333f;
+  --rule-2:      #44444f;
 
   /* Text */
-  --text:        #d7dce2;
-  --text-2:      #aab1bc;
-  --muted:       #8992a0;
-  --text-faint:  #838a99;        /* WCAG AA: ~4.7:1 on surface */
+  --text:        #f4f4f6;
+  --text-2:      #b3b4bd;
+  --muted:       #a0a1ab;
+  --text-faint:  #8a8b95;        /* WCAG AA: ~4.7:1 on surface */
 
   /* Brand accent — AIO coral, dimmed slightly off the neon end so it reads as a
      brand color rather than glowing against the darker bg. */
@@ -193,10 +193,10 @@ html[data-theme="dark"] {
 
   /* Elevation / interaction — shadows eased off slightly since the lighter bg
      needs less raw darkness to read as depth. */
-  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.26);
-  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.30);
-  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.38);
-  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.48);
+  --shadow-sm:  0 2px 10px rgba(0, 0, 0, 0.3);
+  --shadow-md:  0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg:  0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 30px 80px rgba(0, 0, 0, 0.6);
   --hover:      rgba(255, 255, 255, 0.05);
   --selected:   var(--accent-soft);
   --page-glow:
@@ -243,16 +243,20 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1; /* behind everything; <main> must NOT form a stacking context, see below */
   pointer-events: none;
   background: var(--page-glow);
   opacity: 0.6;
 }
 
+/* No z-index on <main>: it used to be z-index:1 to sit above the glow, which
+   made <main> a stacking context, so every modal rendered inside a page
+   (New release, kiosk mode, confirm dialogs) was trapped under the header
+   (z 40), the dock (z 45) and the top bar (z 60): the backdrop blurred the
+   page but never the chrome. The glow now sits at z -1 instead. */
 body > nav,
 body > main {
   position: relative;
-  z-index: 1;
 }
 /* NB: .modal-backdrop must NOT get position:relative here — it is a direct child of
    <body>, and relative positioning would drop the overlay into the document flow
@@ -6518,3 +6522,90 @@ html[data-theme="dark"] .tour-spot{box-shadow:0 0 0 9999px rgba(0,0,0,.72),0 0 0
 .tour-dots i{width:6px;height:6px;border-radius:50%;background:var(--surface-3);display:inline-block}
 .tour-dots i.done{background:var(--accent-edge)}.tour-dots i.on{background:var(--accent);width:16px;border-radius:3px}
 @media (max-width:719px){.tour-dots{display:none}}
+
+/* ============================================================================
+   AIO landing design language, applied app-wide (Sept 2026, stage-dpc).
+   Source of truth is templates/landing.html: Poppins, thin large headlines,
+   coral highlight, gradient pill buttons, 24px cards carried by shadow (not
+   border), floating pill glass chrome. Tokens above were retuned to the
+   landing palette; the rules here restyle the shared components on top.
+   ============================================================================ */
+body .cc-h1, body .ov3-h1 { font-family: var(--font-display); font-weight: 300; font-size: 34px; letter-spacing: -.035em; line-height: 1.1; text-wrap: balance; }
+body .cc-h1 .hl, body .ov3-h1 .hl { color: var(--accent); }
+body .cc-h1 .hl.ok { color: var(--ok); } body .cc-h1 .hl.warn { color: var(--warn); } body .cc-h1 .hl.danger { color: var(--danger); }
+body .cc-eyebrow, body .ov3-eyebrow { font-weight: 500; letter-spacing: .12em; color: var(--accent); }
+body .cc-sub, body .ov3-sub { font-size: 14px; }
+body .cc-big, body .ov3-big { font-weight: 300; letter-spacing: -.04em; }
+body .cc-kpi .v, body .ov3-kpi .v { font-weight: 300; font-size: 30px; letter-spacing: -.04em; }
+body .cc-ch h3, body .cc-ch h2, .card-header h3 { font-weight: 500; }
+.auth2-title { font-weight: 300; font-size: 32px; letter-spacing: -.035em; }
+.brand-aio, .brand-hub { font-weight: 500; }
+
+body .cc-btn, body .ov3-btn, .btn-primary, .btn-outline, .btn-outline-sm, .btn-danger-sm, .auth2-btn { border-radius: 40px; }
+body .cc-btn, body .ov3-btn { font-weight: 500; padding: 9px 16px; }
+
+.cc-card, .card, .cc-hero, body .ov3-hero, .cc-kpi, body .ov3-kpi, .modal-box, .nbar-pop, .ddc-menu { border-color: transparent; box-shadow: var(--shadow-lg); }
+.cc-kpi, body .ov3-kpi { box-shadow: var(--shadow-md); }
+html[data-theme="dark"] .cc-card, html[data-theme="dark"] .card, html[data-theme="dark"] .cc-hero, html[data-theme="dark"] .ov3-hero, html[data-theme="dark"] .cc-kpi, html[data-theme="dark"] .ov3-kpi, html[data-theme="dark"] .modal-box { border-color: rgba(255, 255, 255, .06); }
+body .cc-tag { border-radius: 40px; padding: 2px 8px; }
+
+/* Chrome: the top bar stays the original full-width sticky header; the dock
+   keeps its glass and takes the landing's pill outline. Buttons are pills in
+   solid coral; the gradient stays on the landing page only. */
+.dock { border-radius: 100px; padding: 8px; }
+/* Boosted navigation scrolls <main> into view; keep the sticky header above
+   it instead of landing the page a header-height down. */
+main.container { scroll-margin-top: 72px; }
+.dock .nav-link { border-radius: 40px; font-weight: 500; }
+@media (max-width: 900px) { .dock { border-radius: 24px; } }
+/* Thin Poppins headlines run wider: give the headline column of every page
+   top row room and let the action group wrap under it instead of squeezing
+   the verdict into a narrow column. */
+body .cc-top > div:first-child, body .ov3-top > div:first-child { flex: 1 1 420px; min-width: min(420px, 100%); }
+body .cc-actions, body .ov3-actions { flex: 0 1 auto; max-width: 60%; }
+@media (max-width: 1000px) { body .cc-actions, body .ov3-actions { max-width: 100%; } }
+/* Every input popup blurs the page behind it (New release, What's new, the
+   command palette, the tour). */
+.modal-backdrop, .cmdk-backdrop, .tour-ov { -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2); }
+/* No outer glow on buttons, resting or hovered; solid coral, no gradient. */
+body .co-send { background: var(--accent); box-shadow: none; border-radius: 40px; }
+body .co-send:hover { background: var(--accent-h); box-shadow: none; }
+.ovx-cta:hover, .ai-orb { box-shadow: none; }
+
+/* Sign-in / sign-up / password pages in the landing language: the photo hero
+   with the thin headline and coral phrase, 12px fields, solid coral pill. */
+.auth2-hero { background: #0a0a0f url(/static/img/landing/hero.webp) center / cover no-repeat; }
+.auth2-hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .45) 55%, rgba(0, 0, 0, .75)); }
+.auth2-hero > * { position: relative; }
+.auth2-hero-top { font-size: 15px; font-weight: 500; letter-spacing: 0; }
+.auth2-hero-head { font-weight: 200; font-size: clamp(34px, 3.8vw, 54px); letter-spacing: -.045em; line-height: 1.05; max-width: 16ch; text-wrap: balance; }
+.auth2-hero-head .hl { color: var(--accent); }
+.auth2-hero-sub { font-weight: 400; margin-top: 18px; }
+.auth2-subtitle { font-size: 14px; }
+.auth2-field label { font-weight: 500; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+.auth2-field input { border-radius: 12px; background: var(--surface); }
+.auth2-btn { border-radius: 40px; font-weight: 500; background: var(--accent); }
+.auth2-btn:hover { background: var(--accent-h); filter: none; }
+.auth2-oauth { border-radius: 40px; font-weight: 500; background: var(--surface); }
+.auth2-alert { border-radius: 12px; }
+.auth2-row a, .auth2-alt a { color: var(--accent-text); }
+/* Header: the landing navbar's liquid glass, full width (light glass over the
+   light theme, dark glass over the dark theme). */
+.appbar { background: rgba(255, 255, 255, .6); border-bottom: 1px solid rgba(0, 0, 0, .06);
+  /* 12px, no saturate/brightness: a 32px filter chain on a full-width sticky
+     bar re-blurs the whole viewport width every scrolled frame and made the
+     dashboard feel sluggish on real GPUs (2026-09-09). */
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, .08), inset 0 1px 0 rgba(255, 255, 255, .6); }
+html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, .4); border-bottom-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+/* Actions page: the Scopes and Devices lists sit in recessed wells so their
+   white rows separate from the white pane (shadow-only rows vanished on it).
+   The scroll edge fades instead of chopping the last row. */
+body .co-scopelist, body .co-devlist { background: var(--surface2); border-radius: 16px; padding: 10px; margin: 0;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent); padding-bottom: 24px; }
+body .co-scopelist { max-height: 216px; }
+body .co-devlist { max-height: 250px; gap: 8px; }
+body .co-scope, body .co-devlist > label, body .co-devlist > .co-dev { border-color: transparent; box-shadow: var(--shadow-sm); }
+body .co-scope.on { border-color: var(--accent-edge); }
+body .co-r-cap { margin-top: 14px; }

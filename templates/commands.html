@@ -96,6 +96,8 @@
 .co-dev .st.off{background:var(--rule)}
 .co-tag{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:var(--accent-2-soft);color:var(--accent-2);flex:none}
 .co-listempty{font-size:12px;color:var(--muted);padding:8px 2px 10px}
+.co-sellist{display:grid;grid-template-columns:1fr;gap:6px;align-content:start;max-height:260px;overflow-y:auto;background:var(--surface2);border-radius:16px;padding:10px;margin-bottom:12px;min-height:64px}
+.co-sellist .co-scope{margin-bottom:0}
 .co-paste{width:100%;display:flex;align-items:center;gap:8px;border:1px dashed var(--rule);border-radius:var(--r-2);background:none;padding:8px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;margin-bottom:6px}
 .co-paste:hover{color:var(--accent-text);border-color:var(--accent-edge)}
 .co-paste svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;flex:none}
@@ -174,6 +176,16 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:3px;flex:none}
 .co-seg button{border:none;background:none;border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
 .co-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
+.co-what-empty{grid-column:1/-1;font-size:12.5px;color:var(--muted);padding:12px 6px}
+.co-sel-top{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:0 2px}
+.co-strip{margin:0 0 14px}
+.co-strip.empty{border-style:dashed;border-color:var(--rule);box-shadow:none;background:var(--surface2)}
+.co-strip.empty .ic{background:var(--surface);color:var(--text-faint)}
+.co-strip.empty .t{color:var(--muted);font-family:var(--font)}
+.co-strip.empty .lab>span{text-align:left}
+.co-strip.empty .lab{flex:1;min-width:0}
+.co-strip.empty .s{font-family:var(--font);white-space:normal;font-size:12px}
+.co-strip.empty .co-pay,.co-strip.empty .co-send,.co-strip.empty .co-in,.co-strip.empty .co-note{display:none!important}
 .co-paynote{font-size:12px;color:var(--muted)}
 .co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
 .co-send:disabled{opacity:.55;cursor:not-allowed}
@@ -333,7 +345,6 @@ select.co-in{flex:0 1 auto;min-width:180px}
 <div class="co-main{{if not (canOperate .Role)}} is-readonly{{end}}" id="co-main">
   <!-- left: selection builder -->
   <div>
-    <div class="p-cap">1 · Who</div>
     <div class="co-rail">
       <div class="co-r-b">
         <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="co-q" type="text" placeholder="Search serial, restaurant, group — or paste serials" aria-label="Search devices, groups and restaurants"{{if not (canOperate .Role)}} disabled{{end}}><kbd>/</kbd></div>
@@ -366,9 +377,8 @@ select.co-in{flex:0 1 auto;min-width:180px}
 
   <!-- right: capability-aware action grid + payload strip -->
   <div class="co-right-int">
-    <div class="p-cap">2 · What — the grid adapts to the selection</div>
-    <div id="co-grid"></div>
-    <div class="co-strip" id="co-strip" hidden>
+    <div class="co-sellist" id="co-sel"><div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div></div>
+    <div class="co-strip empty" id="co-strip">
       <div class="lab"><span class="ic" id="co-st-ic"></span><span><span class="t" id="co-st-t"></span><br><span class="s" id="co-st-s"></span></span></div>
       <div class="co-pay" id="co-pay"></div>
       <input class="co-in narrow" id="co-reason" placeholder="Reason — recorded in the audit log" style="display:none">
@@ -377,6 +387,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
       <div class="co-note" id="co-note"></div>
       <div class="co-menu" id="co-menu"></div>
     </div>
+    <div id="co-grid"></div>
   </div>
 </div>
 
@@ -852,14 +863,17 @@ window.CMD_PREFILL = {{.Prefill}};
     S.targets.forEach(function (t) { if (t.kind === 'device') picked[t.serial] = true; });
     rows.forEach(function (d) { if (!picked[d.serial] && coveredBy(d.serial)) picked[d.serial] = 'via'; });
     var shown = rows.filter(function (d) {
+      // Devices already covered by a chosen scope leave the list: the scope row
+      // in the Selected well stands for them.
+      if (coveredBy(d.serial)) return false;
       if (QF.online && !d.online) return false;
       if (QF.offline && d.online) return false;
       if (QF.dpc && !d.dpc) return false;
       return true;
     });
-    // Picked devices float to the top (stable within each half) so the basket is
-    // visible in the list itself, not only in the pills.
-    shown = shown.filter(function (d) { return picked[d.serial]; }).concat(shown.filter(function (d) { return !picked[d.serial]; })).slice(0, 60);
+    // Picked devices stay where they are (checked) and are listed again in the
+    // Selected pane above; moving them to the top made the list jump on click.
+    shown = shown.slice(0, 60);
     var html = '';
     var toks = pasteTokens();
     if (toks) {
@@ -877,6 +891,8 @@ window.CMD_PREFILL = {{.Prefill}};
     if (!shown.length && !toks) {
       var q = (qEl.value || '').trim();
       if (devLoading) html += '<div class="co-listempty">Searching devices…</div>';
+      else if (isSel('all')) html += '<div class="co-listempty">All devices are selected.</div>';
+      else if (rows.length && S.targets.length) html += '<div class="co-listempty">Every matching device is already covered by the selected scopes.</div>';
       else if (q) html += '<button type="button" class="co-paste" id="co-addpaste" data-one="1"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add serial &ldquo;' + esc(q) + '&rdquo;</button><div class="co-listempty">No device matches this search — Enter checks it against the fleet.</div>';
       else html += '<div class="co-listempty">No devices match these filters.</div>';
     }
@@ -985,6 +1001,28 @@ window.CMD_PREFILL = {{.Prefill}};
   }
   window.closeMissingModal = closeMissingModal;
 
+  // ── Selected pane: the chosen scopes and devices, above the lists ──
+  function renderSelected() {
+    var html = '';
+    S.targets.forEach(function (t) {
+      if (t.kind === 'device') {
+        var d = devMeta[t.serial] || {};
+        html += '<button type="button" class="co-dev on" data-serial="' + esc(t.serial) + '" title="Remove">'
+          + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
+          + '<span class="bd"><span class="sn">' + esc(t.serial) + '</span>' + (d.product || d.sub ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
+          + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
+          + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
+      } else {
+        var icon = t.kind === 'all' ? 'all' : t.kind === 'restaurant' ? 'place' : 'group';
+        html += '<button type="button" class="co-scope on" data-kind="' + t.kind + '" data-id="' + esc(t.id || '') + '" title="Remove">'
+          + '<span class="ic">' + svg(icon) + '</span>'
+          + '<span class="bd"><span class="n">' + esc(targetLabel(t).replace(/ ×\d+$/, '')) + '</span><span class="m">' + (t.kind === 'all' ? 'the whole fleet' : '<span class="kt">' + t.kind + '</span>' + (t.count != null ? t.count + ' device' + (t.count === 1 ? '' : 's') : '')) + '</span></span>'
+          + '<span class="add">Remove</span></button>';
+      }
+    });
+    if (html) html = '<div class="co-sel-top"><span>' + S.targets.length + ' selected</span><button type="button" class="co-bk-clear" id="co-sel-clear">Clear</button></div>' + html;
+    el('co-sel').innerHTML = html || '<div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div>';
+  }
   // ── Basket ──
   function targetLabel(t) {
     if (t.kind === 'all') return 'All devices';
@@ -1076,8 +1114,15 @@ window.CMD_PREFILL = {{.Prefill}};
     return '<span class="co-chip"><span class="lbl">' + esc(lbl) + '</span><button type="button" class="x" data-chip-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" aria-label="Remove ' + esc(lbl) + '">&times;</button></span>';
   }
   function renderStrip() {
-    if (!S.action) { stripEl.hidden = true; closeMenu(); return; }
     stripEl.hidden = false;
+    stripEl.classList.toggle('empty', !S.action);
+    if (!S.action) {
+      el('co-st-ic').innerHTML = svg('dot');
+      el('co-st-t').textContent = 'No action yet';
+      el('co-st-s').textContent = 'pick one from the tiles below — it lands here with its options and Send';
+      el('co-pay').innerHTML = ''; el('co-note').textContent = '';
+      closeMenu(); return;
+    }
     el('co-st-ic').innerHTML = svg(S.action.t);
     el('co-st-t').textContent = S.action.n;
     renderPay();
@@ -1400,6 +1445,7 @@ window.CMD_PREFILL = {{.Prefill}};
     syncForm();
     renderScopes();
     renderDevs();
+    renderSelected();
     renderBasket();
     renderGrid();
     renderStrip();
@@ -1445,6 +1491,11 @@ window.CMD_PREFILL = {{.Prefill}};
     el('co-scopes').addEventListener('click', function (e) {
       var b = e.target.closest('.co-scope'); if (!b) return;
       toggleScope(b.dataset.kind, b.dataset.id || null);
+    });
+    el('co-sel').addEventListener('click', function (e) {
+      if (e.target.closest('#co-sel-clear')) { S.targets = []; disarm(); updateUI(); return; }
+      var sc = e.target.closest('.co-scope'); if (sc) { toggleScope(sc.dataset.kind, sc.dataset.id || null); return; }
+      var d = e.target.closest('.co-dev'); if (d) toggleDevice(d.dataset.serial);
     });
     el('co-devs').addEventListener('click', function (e) {
       var paste = e.target.closest('#co-addpaste');
