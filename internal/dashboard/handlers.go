@@ -4666,8 +4666,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 // (launchable = true) — the full dump is mostly RRO overlays and framework
 // plumbing nobody manages. Devices whose client predates the launchable flag
 // (no row carries it) keep the full list rather than rendering an empty page.
-// Display-only: pending-install reconciliation, InstalledSet and the kiosk
-// pickers must keep working off the FULL list.
+// Display and kiosk pickers only: pending-install reconciliation and
+// InstalledSet must keep working off the FULL list.
 func launchableOnly(pkgs []db.DevicePackage) []db.DevicePackage {
 	reported := false
 	out := pkgs[:0:0]
@@ -5182,10 +5182,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		h.mapViews.Add(1)
 	}
 
-	// Kiosk locked-app choices: this device's installed apps filtered by the kiosk
-	// allowlist (empty allowlist = all apps). Keeps the picker to policy-approved apps.
+	// Kiosk locked-app choices: this device's app-drawer apps (launchable, when
+	// the client reports it) filtered by the kiosk allowlist (empty allowlist =
+	// all apps). Keeps the picker to apps a person could actually be locked into.
 	kioskApps := make([]db.DevicePackage, 0, len(installedPkgs))
-	for _, p := range installedPkgs {
+	for _, p := range launchableOnly(installedPkgs) {
 		if h.cfg.KioskAppAllowed(p.PackageName) {
 			kioskApps = append(kioskApps, p)
 		}
@@ -15210,7 +15211,15 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
-	kioskFleetApps, _ := h.db.ListPackagesAdmin(r.Context(), "")
+	// Kiosk allowlist picker: only apps that show in a launcher (DPC agents
+	// report the launchable flag; older clients fall back to "user app").
+	allPkgs, _ := h.db.ListPackagesAdmin(r.Context(), "")
+	kioskFleetApps := allPkgs[:0:0]
+	for _, p := range allPkgs {
+		if p.InAppDrawer() {
+			kioskFleetApps = append(kioskFleetApps, p)
+		}
+	}
 	googleUsage := h.buildGoogleUsage(r.Context())
 	googleUsageJSON, _ := json.Marshal(googleUsage)
 	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)

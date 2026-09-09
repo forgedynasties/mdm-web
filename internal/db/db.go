@@ -5760,6 +5760,19 @@ type AdminPackage struct {
 	AdminFlagged    bool   `json:"admin_flagged"`    // an admin override row exists
 	EffectiveSystem bool   `json:"effective_system"`
 	Icon            string `json:"icon"` // base64 PNG from app_icons, "" if none
+	// App-drawer visibility as reported by clients that send the launchable flag
+	// (the DPC agent does): rows with launchable=true vs rows that carry the flag at all.
+	ReportedLaunchable  int `json:"reported_launchable"`
+	ReportedLaunchKnown int `json:"reported_launch_known"`
+}
+
+// InAppDrawer reports whether the package shows in a launcher: launchable on at
+// least one device, or, for clients that never report the flag, a user app.
+func (p AdminPackage) InAppDrawer() bool {
+	if p.ReportedLaunchKnown > 0 {
+		return p.ReportedLaunchable > 0
+	}
+	return !p.EffectiveSystem
 }
 
 type FleetPackage struct {
@@ -6056,7 +6069,9 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 			COUNT(*) FILTER (WHERE dp.is_system IS FALSE) AS rep_user,
 			COUNT(*) FILTER (WHERE dp.is_system IS NULL)  AS rep_unknown,
 			bool_or(ov.package_name IS NOT NULL) AS admin_flagged,
-			COALESCE(MAX(ai.icon), '') AS icon
+			COALESCE(MAX(ai.icon), '') AS icon,
+			COUNT(*) FILTER (WHERE dp.launchable IS TRUE)     AS rep_launchable,
+			COUNT(*) FILTER (WHERE dp.launchable IS NOT NULL) AS rep_launch_known
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name`
@@ -6085,7 +6100,8 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 	for rows.Next() {
 		var p AdminPackage
 		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount,
-			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged, &p.Icon); err != nil {
+			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged, &p.Icon,
+			&p.ReportedLaunchable, &p.ReportedLaunchKnown); err != nil {
 			return nil, err
 		}
 		// Effective classification. The admin override forces system and overrides

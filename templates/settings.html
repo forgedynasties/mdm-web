@@ -877,7 +877,8 @@ function kioskAddPkg(pkg, el){
     </div>
     {{end}}
     <form action="/settings/agent-apk/upload" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required class="form-input" style="max-width:360px;">
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/></svg>Choose APK<input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required hidden onchange="this.closest('form').querySelector('.agent-apk-name').textContent = this.files[0] ? this.files[0].name : ''"></label>
+      <span class="agent-apk-name muted small mono"></span>
       <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;">{{if .AgentAPKHosted}}Replace APK{{else}}Upload APK{{end}}</button>
     </form>
   </div>
