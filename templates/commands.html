@@ -177,6 +177,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-seg button{border:none;background:none;border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
 .co-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
 .co-what-empty{grid-column:1/-1;font-size:12.5px;color:var(--muted);padding:12px 6px}
+.co-sel-top{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:0 2px}
 .co-paynote{font-size:12px;color:var(--muted)}
 .co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
 .co-send:disabled{opacity:.55;cursor:not-allowed}
@@ -336,7 +337,6 @@ select.co-in{flex:0 1 auto;min-width:180px}
 <div class="co-main{{if not (canOperate .Role)}} is-readonly{{end}}" id="co-main">
   <!-- left: selection builder -->
   <div>
-    <div class="p-cap">1 · Who</div>
     <div class="co-rail">
       <div class="co-r-b">
         <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="co-q" type="text" placeholder="Search serial, restaurant, group — or paste serials" aria-label="Search devices, groups and restaurants"{{if not (canOperate .Role)}} disabled{{end}}><kbd>/</kbd></div>
@@ -369,7 +369,6 @@ select.co-in{flex:0 1 auto;min-width:180px}
 
   <!-- right: capability-aware action grid + payload strip -->
   <div class="co-right-int">
-    <div class="p-cap">2 · What — the grid adapts to the selection</div>
     <div class="co-sellist" id="co-sel"><div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div></div>
     <div id="co-grid"></div>
     <div class="co-strip" id="co-strip" hidden>
@@ -1008,6 +1007,7 @@ window.CMD_PREFILL = {{.Prefill}};
           + '<span class="add">Remove</span></button>';
       }
     });
+    if (html) html = '<div class="co-sel-top"><span>' + S.targets.length + ' selected</span><button type="button" class="co-bk-clear" id="co-sel-clear">Clear</button></div>' + html;
     el('co-sel').innerHTML = html || '<div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div>';
   }
   // ── Basket ──
@@ -1473,6 +1473,7 @@ window.CMD_PREFILL = {{.Prefill}};
       toggleScope(b.dataset.kind, b.dataset.id || null);
     });
     el('co-sel').addEventListener('click', function (e) {
+      if (e.target.closest('#co-sel-clear')) { S.targets = []; disarm(); updateUI(); return; }
       var sc = e.target.closest('.co-scope'); if (sc) { toggleScope(sc.dataset.kind, sc.dataset.id || null); return; }
       var d = e.target.closest('.co-dev'); if (d) toggleDevice(d.dataset.serial);
     });
