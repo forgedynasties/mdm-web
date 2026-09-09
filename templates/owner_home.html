@@ -1,67 +1,90 @@
 {{define "owner_home.html"}}
 {{template "header" .}}
 <style>
-.A{font-family:var(--font);max-width:980px;margin:0 auto;padding:32px 22px 80px;color:var(--text)}
-.A .eyebrow{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.A h1{font-size:clamp(30px,5vw,46px);font-weight:700;letter-spacing:-.025em;line-height:1.02;margin:8px 0 0;text-wrap:balance}
-.A .lede{font-size:17px;color:var(--text-2);max-width:60ch;margin:14px 0 0;line-height:1.5}
-.A .lede b{color:var(--text)}
-.A .pulse{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin:28px 0 0}
-.A .pulse div{padding:14px 0 14px 16px;border-left:1px solid var(--border)}
-.A .pulse div:first-child{border-left:0;padding-left:0}
-.A .pulse .v{font:700 34px/1 var(--font-display);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
-.A .pulse .v.ok{color:var(--ok)}.A .pulse .v.bad{color:var(--danger)}.A .pulse .v.warn{color:var(--warn)}
-.A .pulse .k{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
-.A h2{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.A h2 span{font-weight:600;letter-spacing:0;text-transform:none;font-size:12.5px;text-align:right}
-.A .roster{border-top:1px solid var(--text)}
-.A .row{display:grid;grid-template-columns:14px 1.4fr 1fr 1.2fr 2fr;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit}
-.A .row:hover{background:color-mix(in srgb,var(--surface) 70%,transparent)}
-.A .st{width:14px;height:14px;border-radius:50%}
-.A .st.ok{background:var(--ok)}.A .st.warn{background:var(--warn)}.A .st.bad{background:var(--danger)}
-.A .nm{font-weight:650;font-size:16px;letter-spacing:-.01em}
-.A .nm small{display:block;font:500 11px var(--mono);color:var(--muted);letter-spacing:.02em;margin-top:2px}
-.A .word{font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
-.A .word.ok{color:var(--ok)}.A .word.warn{color:var(--warn)}.A .word.bad{color:var(--danger)}
-.A .batt{display:flex;align-items:center;gap:8px;font:600 12.5px var(--mono);color:var(--text-2);font-variant-numeric:tabular-nums}
-.A .batt i{flex:1;height:6px;border-radius:3px;background:var(--border);position:relative;overflow:hidden}
-.A .batt i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--ok);border-radius:3px}
-.A .batt.low i::after{background:var(--danger)}.A .batt.mid i::after{background:var(--warn)}
-.A .batt.mains{color:var(--muted)}
-.A .do{font-size:13.5px;color:var(--text-2);line-height:1.45}
-.A .do b{color:var(--text)}
-.A .day{margin-top:6px;display:grid;grid-template-columns:repeat(24,1fr);gap:2px;height:54px;align-items:end}
-.A .day i{display:block;background:var(--border);height:100%;position:relative;border-radius:2px}
-.A .day i.svc{background:var(--accent-soft)}
-.A .day i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--ok);border-radius:2px}
-.A .day i.low::after{background:var(--warn)}
-.A .day i.now{outline:1px solid var(--accent)}
-.A .axis{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:4px;font:500 10px var(--mono);color:var(--muted)}
-.A .axis span:nth-child(3n+2),.A .axis span:nth-child(3n){visibility:hidden}
-.A .week{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--text)}
-.A .week div{padding:14px 16px 14px 0}
-.A .week .v{font:700 26px/1 var(--font-display);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.A .week .k{font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
-.A .week .d{font-size:12.5px;margin-top:4px}.A .d.up{color:var(--ok)}.A .d.dn{color:var(--danger)}
-.A .empty{padding:40px 0;color:var(--muted);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin-top:28px}
-@media(max-width:720px){.A .row{grid-template-columns:12px 1fr 1fr;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.A .st{grid-area:s}.A .nm{grid-area:n}.A .word{grid-area:w;text-align:right}.A .batt{grid-area:b}.A .do{grid-area:d}.A .pulse{grid-template-columns:repeat(2,1fr)}.A .pulse div:nth-child(3){border-left:0;padding-left:0}.A .pulse div:nth-child(n+3){border-top:1px solid var(--border)}}
+/* Restaurant owner home, in the landing design language: thin Poppins headline
+   with the verdict in coral, 24px shadow cards, pills, one soft accent. */
+.oh{max-width:1080px;margin:0 auto;padding:28px 22px 96px;color:var(--text)}
+.oh .eyebrow{font-size:11.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.oh h1{font-family:var(--font-display);font-size:clamp(32px,4.4vw,50px);font-weight:300;letter-spacing:-.04em;line-height:1.06;margin:10px 0 0;text-wrap:balance}
+.oh h1 .hl{color:var(--accent)}
+.oh .lede{font-size:16px;color:var(--muted);max-width:64ch;margin:14px 0 0;line-height:1.55}
+.oh .lede b{color:var(--text);font-weight:500}
+.oh .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:26px}
+.oh .kpi{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px 22px 18px;min-width:0}
+.oh .kpi .v{font-family:var(--font-display);font-size:38px;font-weight:300;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.oh .kpi .v.ok{color:var(--ok)}.oh .kpi .v.bad{color:var(--danger)}.oh .kpi .v.warn{color:var(--warn)}
+.oh .kpi .k{font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.oh h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:36px 0 12px;font-family:var(--font-display);font-size:22px;font-weight:300;letter-spacing:-.02em}
+.oh h2 span{font-family:var(--font);font-size:12.5px;color:var(--muted);text-align:right;letter-spacing:0}
+.oh .todo{display:grid;gap:10px}
+.oh .todo a{display:flex;align-items:flex-start;gap:14px;background:var(--surface);border-radius:18px;box-shadow:var(--shadow-md);padding:14px 18px;text-decoration:none;color:inherit;transition:transform .15s ease}
+.oh .todo a:hover{transform:translateY(-2px)}
+.oh .todo .dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px}
+.oh .dot.bad{background:var(--danger)}.oh .dot.warn{background:var(--warn)}.oh .dot.info{background:var(--accent-2)}.oh .dot.ok{background:var(--ok)}
+.oh .todo b{display:block;font-weight:500;font-size:15px}
+.oh .todo p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.45}
+.oh .todo .go{margin-left:auto;flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
+.oh .todo .go svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.oh .roster{display:grid;gap:10px}
+.oh .row{display:grid;grid-template-columns:12px 1.5fr 120px 1.2fr 2fr;gap:16px;align-items:center;background:var(--surface);border-radius:18px;box-shadow:var(--shadow-md);padding:14px 18px;text-decoration:none;color:inherit;transition:transform .15s ease}
+.oh .row:hover{transform:translateY(-2px)}
+.oh .st{width:12px;height:12px;border-radius:50%}
+.oh .st.ok{background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg)}.oh .st.warn{background:var(--warn);box-shadow:0 0 0 4px var(--warn-bg)}.oh .st.bad{background:var(--danger);box-shadow:0 0 0 4px var(--danger-bg)}
+.oh .nm{font-weight:500;font-size:15.5px;letter-spacing:-.01em;min-width:0}
+.oh .nm small{display:block;font:500 11px var(--mono);color:var(--muted);letter-spacing:.02em;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oh .word{display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-radius:40px;padding:5px 11px;white-space:nowrap}
+.oh .word.ok{background:var(--ok-bg);color:var(--ok)}.oh .word.warn{background:var(--warn-bg);color:var(--warn)}.oh .word.bad{background:var(--danger-bg);color:var(--danger)}
+.oh .batt{display:flex;align-items:center;gap:10px;font:500 12.5px var(--mono);color:var(--text-2);font-variant-numeric:tabular-nums}
+.oh .batt i{flex:1;height:6px;border-radius:3px;background:var(--surface2);position:relative;overflow:hidden}
+.oh .batt i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--ok);border-radius:3px}
+.oh .batt.low i::after{background:var(--danger)}.oh .batt.mid i::after{background:var(--warn)}
+.oh .batt.mains{color:var(--muted);font-family:var(--font)}
+.oh .do{font-size:13.5px;color:var(--muted);line-height:1.45}
+.oh .do b{color:var(--text);font-weight:500}
+.oh .card{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px 22px}
+.oh .day{display:grid;grid-template-columns:repeat(24,1fr);gap:4px;height:72px;align-items:end}
+.oh .day i{display:block;background:var(--surface2);height:100%;position:relative;border-radius:6px;overflow:hidden}
+.oh .day i.svc{background:var(--accent-soft)}
+.oh .day i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--ok);border-radius:6px}
+.oh .day i.low::after{background:var(--warn)}
+.oh .day i.now{outline:2px solid var(--accent);outline-offset:1px}
+.oh .axis{display:grid;grid-template-columns:repeat(24,1fr);gap:4px;margin-top:8px;font:500 10px var(--mono);color:var(--muted)}
+.oh .axis span:nth-child(3n+2),.oh .axis span:nth-child(3n){visibility:hidden}
+.oh .legend{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
+.oh .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.oh .week{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.oh .week .kpi .d{font-size:12.5px;margin-top:8px;font-weight:500}
+.oh .d.up{color:var(--ok)}.oh .d.dn{color:var(--danger)}
+.oh .empty{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:40px 28px;color:var(--muted);margin-top:28px;font-size:15px;line-height:1.5}
+.oh .empty b{display:block;color:var(--text);font-weight:400;font-family:var(--font-display);font-size:22px;letter-spacing:-.02em;margin-bottom:6px}
+@media(max-width:900px){.oh .cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.oh{padding:18px 14px 110px}.oh .row{grid-template-columns:12px 1fr auto;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.oh .st{grid-area:s}.oh .nm{grid-area:n}.oh .word{grid-area:w}.oh .batt{grid-area:b}.oh .do{grid-area:d}.oh .week{grid-template-columns:1fr}.oh .day{height:56px;gap:2px}.oh .axis{gap:2px}}
 </style>
 {{/* The refresh poller lives OUTSIDE the content: htmx attributes are inherited,
      so hx-target/hx-select on the container would hijack every boosted link
      inside it (a device click swapped the device page into this box). */}}
 <div hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="#oh-root" hx-swap="outerHTML" hidden></div>
-<div class="A" id="oh-root">
+<div class="oh" id="oh-root">
   <div class="eyebrow">{{.DateLine}} · {{.TimeLine}}{{if eq .VenueCount 1}}{{range .Venues}} · {{.Name}}{{end}}{{end}}</div>
-  <h1>{{.Greeting}}, {{.Name}}.<br>{{.Headline}}</h1>
+  <h1>{{.Greeting}}, {{.Name}}.<br><span class="hl">{{.Headline}}</span></h1>
   {{if .Lede}}<p class="lede">{{.Lede}}</p>{{end}}
 
   {{if .Total}}
-  <div class="pulse">
-    <div><div class="v{{if eq .Online .Total}} ok{{end}}">{{.Online}}</div><div class="k">online</div></div>
-    <div><div class="v{{if .Offline}} bad{{end}}">{{.Offline}}</div><div class="k">offline</div></div>
-    <div><div class="v{{if .LowBatt}} warn{{end}}">{{.LowBatt}}</div><div class="k">low battery</div></div>
-    {{if ge .ServiceUptime 0}}<div><div class="v">{{.ServiceUptime}}%</div><div class="k">uptime in service</div></div>{{else}}<div><div class="v">{{.Score}}</div><div class="k">health score</div></div>{{end}}
+  <div class="cards">
+    <div class="kpi"><div class="v{{if eq .Online .Total}} ok{{end}}">{{.Online}}</div><div class="k">online</div></div>
+    <div class="kpi"><div class="v{{if .Offline}} bad{{end}}">{{.Offline}}</div><div class="k">offline</div></div>
+    <div class="kpi"><div class="v{{if .LowBatt}} warn{{end}}">{{.LowBatt}}</div><div class="k">low battery</div></div>
+    {{if ge .ServiceUptime 0}}<div class="kpi"><div class="v">{{.ServiceUptime}}%</div><div class="k">uptime in service</div></div>{{else}}<div class="kpi"><div class="v {{.ScoreClass}}">{{.Score}}</div><div class="k">health score{{if .ScoreWord}} · {{.ScoreWord}}{{end}}</div></div>{{end}}
   </div>
+
+  {{if .Todos}}
+  <h2>Needs you <span>{{len .Todos}} thing{{if ne (len .Todos) 1}}s{{end}} to sort out</span></h2>
+  <div class="todo">
+    {{range .Todos}}
+    <a href="/devices/{{.Serial}}"><span class="dot {{.Sev}}"></span><span style="min-width:0"><b>{{.Title}}</b>{{if .Body}}<p>{{.Body}}</p>{{end}}</span><span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+    {{end}}
+  </div>
+  {{end}}
 
   {{range .Venues}}
   <h2>{{if gt $.VenueCount 1}}{{.Name}}{{else}}Stations{{end}} <span>worst first · tap a row for details</span></h2>
@@ -70,10 +93,10 @@
     <a class="row" href="/devices/{{.Serial}}">
       <span class="st {{.State}}"></span>
       <div class="nm">{{.Name}}<small>{{if ne .Name .Serial}}{{.Serial}}{{else}}{{.Product}}{{end}}</small></div>
-      <div class="word {{.State}}">{{.Word}}</div>
-      {{if not .Online}}<div class="batt mains">— last seen {{timeSince .LastSeen}}</div>
+      <span class="word {{.State}}">{{.Word}}</span>
+      {{if not .Online}}<div class="batt mains">last seen {{timeSince .LastSeen}}</div>
       {{else if .HasBattery}}<div class="batt{{if lt .Battery 20}} low{{else if lt .Battery 50}} mid{{end}}" style="--p:{{.Battery}}%"><i></i>{{.Battery}}%</div>
-      {{else}}<div class="batt mains">— mains powered</div>{{end}}
+      {{else}}<div class="batt mains">mains powered</div>{{end}}
       <div class="do">{{.Do}}</div>
     </a>
     {{end}}
@@ -81,17 +104,20 @@
   {{end}}
 
   <h2>Today <span>stations online each hour{{if .ServiceLabel}} · service {{.ServiceLabel}} shaded{{end}}</span></h2>
-  <div class="day">{{range .Hours}}<i class="{{if .Service}}svc {{end}}{{if and (gt .Pct 0) (lt .Pct 60)}}low {{end}}{{if .Now}}now{{end}}" style="--p:{{.Pct}}%" title="{{.Label}}: {{.Pct}}% online"></i>{{end}}</div>
-  <div class="axis">{{range .Hours}}<span>{{.Label}}</span>{{end}}</div>
+  <div class="card">
+    <div class="day">{{range .Hours}}<i class="{{if .Service}}svc {{end}}{{if and (gt .Pct 0) (lt .Pct 60)}}low {{end}}{{if .Now}}now{{end}}" style="--p:{{.Pct}}%" title="{{.Label}}: {{.Pct}}% online"></i>{{end}}</div>
+    <div class="axis">{{range .Hours}}<span>{{.Label}}</span>{{end}}</div>
+    <div class="legend"><span><i style="background:var(--ok)"></i>online</span><span><i style="background:var(--warn)"></i>under 60% online</span>{{if .ServiceLabel}}<span><i style="background:var(--accent-soft)"></i>service hours</span>{{end}}<span><i style="background:transparent;outline:2px solid var(--accent);outline-offset:-2px"></i>now</span></div>
+  </div>
 
   {{if .Report}}
   <h2>This week <span>against last week</span></h2>
   <div class="week">
-    {{range .Report}}<div><div class="v">{{.Value}}</div><div class="k">{{.Label}}</div>{{if .Prev}}<div class="d {{if .Better}}up{{else}}dn{{end}}">{{if .Up}}▲{{else}}▼{{end}} from {{.Prev}}</div>{{end}}</div>{{end}}
+    {{range .Report}}<div class="kpi"><div class="v">{{.Value}}</div><div class="k">{{.Label}}</div>{{if .Prev}}<div class="d {{if .Better}}up{{else}}dn{{end}}">{{if .Up}}▲{{else}}▼{{end}} from {{.Prev}} last week</div>{{end}}</div>{{end}}
   </div>
   {{end}}
   {{else}}
-  <div class="empty">Nothing to show yet. Ask your MDM administrator to assign devices to your restaurant.</div>
+  <div class="empty"><b>Nothing to show yet.</b>Ask your MDM administrator to assign devices to your restaurant. They will appear here with their status the moment they check in.</div>
   {{end}}
 </div>
 {{template "footer" .}}
