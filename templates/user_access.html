@@ -321,7 +321,7 @@
           </div>
           <div class="ua-step">
             <div class="t"><span class="n">3</span> Which actions</div>
-            <label class="ua-any"><input type="checkbox" name="actions" value="*" id="ua-any"> <b>Any action</b> <small>everything the role allows, except remote control{{if eq .User.Role "dev"}}, shell and OTA{{end}}</small></label>
+            <label class="ua-any"><input type="checkbox" name="actions" value="*" id="ua-any"> <b>Any action</b> <small>everything the role allows{{if eq .User.Role "operator"}}, except remote control{{else if eq .User.Role "dev"}}, except shell and OTA{{end}}</small></label>
             <div class="ua-acts-grid">
               {{range .ActionGroups}}
               <div class="ua-ag"><div class="h">{{.Name}}</div>

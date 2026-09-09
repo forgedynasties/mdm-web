@@ -37,7 +37,7 @@ var accessActions = []accessAction{
 	{Key: "kiosk", Label: "Kiosk settings", Group: "Device"},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
-	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Must be named explicitly; \"any action\" never includes it."},
+	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Dev, super op and access admin have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
 	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Dev accounts only."},
 	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Dev accounts only."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
@@ -265,8 +265,10 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 		return decision{false, "Owners only see what a rule grants", nil}
 	}
 	// Sensitive actions need an explicit allow rule — except for the roles whose
-	// ceiling exists for them: dev (all of them) and the super op (firmware pushes).
-	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") {
+	// ceiling exists for them: dev (all of them), the super op (firmware pushes),
+	// and remote control, which the super op and the access admin have by default.
+	// Operators still need a rule that names the device.
+	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") && !(action == "remote" && (a.role == "super_op" || a.role == "user_manager")) {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
 	if action == "view" && a.role == "viewer" {
