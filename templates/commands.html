@@ -182,6 +182,8 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-strip.empty{border-style:dashed;border-color:var(--rule);box-shadow:none;background:var(--surface2)}
 .co-strip.empty .ic{background:var(--surface);color:var(--text-faint)}
 .co-strip.empty .t{color:var(--muted)}
+.co-strip.empty .lab{flex:1;min-width:0}
+.co-strip.empty .s{font-family:var(--font);white-space:normal;font-size:12px}
 .co-strip.empty .co-pay,.co-strip.empty .co-send,.co-strip.empty .co-in,.co-strip.empty .co-note{display:none!important}
 .co-paynote{font-size:12px;color:var(--muted)}
 .co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
@@ -1116,7 +1118,7 @@ window.CMD_PREFILL = {{.Prefill}};
     if (!S.action) {
       el('co-st-ic').innerHTML = svg('dot');
       el('co-st-t').textContent = 'No action yet';
-      el('co-st-s').textContent = 'pick one from the tiles below; it lands here with its options and the send button';
+      el('co-st-s').textContent = 'pick one from the tiles below — it lands here with its options and Send';
       el('co-pay').innerHTML = ''; el('co-note').textContent = '';
       closeMenu(); return;
     }
