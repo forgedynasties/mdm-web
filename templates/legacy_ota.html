@@ -67,7 +67,7 @@
 <div class="lo-grid">
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3><span class="m muted small">newest activity first</span></div>
-    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s" hx-swap="innerHTML">
+    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s" hx-target="this" hx-swap="innerHTML">
       {{template "legacy-devices" .}}
     </div>
   </div>
