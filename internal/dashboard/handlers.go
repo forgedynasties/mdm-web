@@ -3735,11 +3735,11 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
-	// The "Retired" view (hidden=only) is admin-only; everyone else only ever sees
-	// active devices. Any other value collapses to active-only (there is no mixed view).
-	role := h.role(r)
+	// The "Inactive" view (hidden=only) is available to every role, read-only;
+	// marking a device inactive stays admin-only. Any other value collapses to
+	// active-only (there is no mixed view).
 	hiddenParam := ""
-	if r.URL.Query().Get("hidden") == "only" && role == "admin" {
+	if r.URL.Query().Get("hidden") == "only" {
 		hiddenParam = "only"
 	}
 	return db.DeviceFilter{
