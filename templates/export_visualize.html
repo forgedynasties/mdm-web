@@ -454,7 +454,7 @@ html[data-theme="dark"] .evz-root {
       var at = tbl.cols.indexOf(k); if (at !== -1) { if (tbl.cols.length > 1) tbl.cols.splice(at, 1); } else tbl.cols.push(k); renderTables();
     });
     document.getElementById('evz-devs-wrap').hidden = tbl.view !== 'compare';
-    document.getElementById('evz-bucket-wrap').hidden = tbl.view !== 'compare';
+    document.getElementById('evz-bucket-wrap').hidden = tbl.view === 'all';
     var note = document.getElementById('evz-tbl-note'); note.hidden = true;
     var hint = document.getElementById('evz-tbl-hint');
     var newest = lastKept.slice().reverse();
@@ -464,8 +464,17 @@ html[data-theme="dark"] .evz-root {
       return;
     }
     if (tbl.view === 'device') {
-      var byDev = {};
-      newest.forEach(function (x) { (byDev[x.serial] = byDev[x.serial] || []).push(x); });
+      // Same "Align to" as Compare: rows collapse onto a time bucket per device,
+      // the latest report in each bucket wins (newest is first, so first seen wins).
+      var byDev = {}, bd = tbl.bucket;
+      newest.forEach(function (x) {
+        var arr = byDev[x.serial] = byDev[x.serial] || [];
+        if (!bd) { arr.push(x); return; }
+        var k = Math.floor(x.ts / bd) * bd;
+        if (arr.length && arr[arr.length - 1].ts === k) return;
+        arr.push({ serial: x.serial, ts: k, rec: x.rec });
+      });
+      if (bd) { note.hidden = false; note.textContent = 'Rows are aligned to ' + (bd >= 3600000 ? bd / 3600000 + '-hour' : bd / 60000 + '-minute') + ' buckets; when a device reported more than once in a bucket the latest value is shown.'; }
       hint.textContent = deviceOrderAll.length + ' device' + (deviceOrderAll.length === 1 ? '' : 's') + ', one table each';
       tablesBox.innerHTML = deviceOrderAll.map(function (serial, idx) {
         var rows = byDev[serial] || [];
