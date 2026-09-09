@@ -178,6 +178,11 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
 .co-what-empty{grid-column:1/-1;font-size:12.5px;color:var(--muted);padding:12px 6px}
 .co-sel-top{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:0 2px}
+.co-strip{margin:0 0 14px}
+.co-strip.empty{border-style:dashed;border-color:var(--rule);box-shadow:none;background:var(--surface2)}
+.co-strip.empty .ic{background:var(--surface);color:var(--text-faint)}
+.co-strip.empty .t{color:var(--muted)}
+.co-strip.empty .co-pay,.co-strip.empty .co-send,.co-strip.empty .co-in,.co-strip.empty .co-note{display:none!important}
 .co-paynote{font-size:12px;color:var(--muted)}
 .co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
 .co-send:disabled{opacity:.55;cursor:not-allowed}
@@ -370,8 +375,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
   <!-- right: capability-aware action grid + payload strip -->
   <div class="co-right-int">
     <div class="co-sellist" id="co-sel"><div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div></div>
-    <div id="co-grid"></div>
-    <div class="co-strip" id="co-strip" hidden>
+    <div class="co-strip empty" id="co-strip">
       <div class="lab"><span class="ic" id="co-st-ic"></span><span><span class="t" id="co-st-t"></span><br><span class="s" id="co-st-s"></span></span></div>
       <div class="co-pay" id="co-pay"></div>
       <input class="co-in narrow" id="co-reason" placeholder="Reason — recorded in the audit log" style="display:none">
@@ -380,6 +384,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
       <div class="co-note" id="co-note"></div>
       <div class="co-menu" id="co-menu"></div>
     </div>
+    <div id="co-grid"></div>
   </div>
 </div>
 
@@ -1106,8 +1111,15 @@ window.CMD_PREFILL = {{.Prefill}};
     return '<span class="co-chip"><span class="lbl">' + esc(lbl) + '</span><button type="button" class="x" data-chip-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" aria-label="Remove ' + esc(lbl) + '">&times;</button></span>';
   }
   function renderStrip() {
-    if (!S.action) { stripEl.hidden = true; closeMenu(); return; }
     stripEl.hidden = false;
+    stripEl.classList.toggle('empty', !S.action);
+    if (!S.action) {
+      el('co-st-ic').innerHTML = svg('dot');
+      el('co-st-t').textContent = 'No action yet';
+      el('co-st-s').textContent = 'pick one from the tiles below; it lands here with its options and the send button';
+      el('co-pay').innerHTML = ''; el('co-note').textContent = '';
+      closeMenu(); return;
+    }
     el('co-st-ic').innerHTML = svg(S.action.t);
     el('co-st-t').textContent = S.action.n;
     renderPay();
