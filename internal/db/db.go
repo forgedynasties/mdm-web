@@ -328,6 +328,7 @@ type Update struct {
 	ScheduledTime   *time.Time     `json:"scheduled_time"`
 	Status          string         `json:"status"` // "pending", "active", "complete"
 	CreatedAt       time.Time      `json:"created_at"`
+	CreatedBy       string         `json:"created_by"` // username that pushed it ("" for legacy rows)
 	OtaPackage      *OTAPackage    `json:"ota_package,omitempty"`
 	Release         *Release       `json:"release,omitempty"`
 	Targets         []UpdateTarget `json:"targets,omitempty"`
@@ -9846,6 +9847,7 @@ ALTER TABLE groups  ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES o
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES ota_packages(id) ON DELETE SET NULL;
 
 ALTER TABLE updates ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE updates ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS update_devices (
 	update_id  INTEGER   NOT NULL REFERENCES updates(id) ON DELETE CASCADE,
@@ -11777,30 +11779,30 @@ func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPac
 
 // ── Updates (Deployments) ─────────────────────────────────────────────────────
 
-func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string, scheduledTime *time.Time) (*Update, error) {
+func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string, scheduledTime *time.Time, createdBy string) (*Update, error) {
 	var u Update
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO updates (ota_package_id, release_id, reboot_behavior, scheduled_time, status)
-		SELECT $1, p.release_id, $2, $3, 'pending' FROM ota_packages p WHERE p.id = $1
-		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at
-	`, otaPackageID, rebootBehavior, scheduledTime).
-		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt)
+		INSERT INTO updates (ota_package_id, release_id, reboot_behavior, scheduled_time, status, created_by)
+		SELECT $1, p.release_id, $2, $3, 'pending', $4 FROM ota_packages p WHERE p.id = $1
+		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at, created_by
+	`, otaPackageID, rebootBehavior, scheduledTime, createdBy).
+		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.CreatedBy)
 	return &u, err
 }
 
 // CreateReleaseUpdate creates a deployment for a whole release. ota_package_id is
 // set to the release's full package when present (representative / back-compat);
 // the per-device artifact is chosen at resolve time by ResolveUpdateForDevice.
-func (d *DB) CreateReleaseUpdate(ctx context.Context, releaseID int, rebootBehavior string, scheduledTime *time.Time) (*Update, error) {
+func (d *DB) CreateReleaseUpdate(ctx context.Context, releaseID int, rebootBehavior string, scheduledTime *time.Time, createdBy string) (*Update, error) {
 	var u Update
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO updates (release_id, ota_package_id, reboot_behavior, scheduled_time, status)
+		INSERT INTO updates (release_id, ota_package_id, reboot_behavior, scheduled_time, status, created_by)
 		VALUES ($1,
 		        (SELECT id FROM ota_packages WHERE release_id = $1 AND type = 'full' ORDER BY created_at DESC LIMIT 1),
-		        $2, $3, 'pending')
-		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at
-	`, releaseID, rebootBehavior, scheduledTime).
-		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt)
+		        $2, $3, 'pending', $4)
+		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at, created_by
+	`, releaseID, rebootBehavior, scheduledTime, createdBy).
+		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.CreatedBy)
 	return &u, err
 }
 
@@ -11865,7 +11867,7 @@ func (d *DB) ListDeploymentsByRelease(ctx context.Context, releaseID int) ([]Upd
 func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.ota_package_id, 0), COALESCE(u.release_id, 0), u.reboot_behavior,
-		       u.scheduled_time, u.status, u.created_at, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'),
+		       u.scheduled_time, u.status, u.created_at, u.created_by, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'),
 		       COUNT(ud.device_id) AS device_total,
 		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed,
 		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
@@ -11886,7 +11888,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		var u Update
 		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
-			&u.Status, &u.CreatedAt, &version, &product, &u.DeviceTotal, &u.DeviceInstalled,
+			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.DeviceTotal, &u.DeviceInstalled,
 			&u.DeviceDownloading, &u.DeviceFailed); err != nil {
 			return nil, err
 		}
@@ -11952,12 +11954,12 @@ func (d *DB) GetUpdate(ctx context.Context, id int) (*Update, error) {
 	var u Update
 	var rel Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
+		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, u.created_by,
 		       rel.id, rel.version, rel.name, rel.changelog, rel.status, rel.created_at, rel.published_at
 		FROM updates u
 		JOIN releases rel ON rel.id = u.release_id
 		WHERE u.id = $1
-	`, id).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt,
+	`, id).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.CreatedBy,
 		&rel.ID, &rel.Version, &rel.Name, &rel.Changelog, &rel.Status, &rel.CreatedAt, &rel.PublishedAt)
 	if err != nil {
 		return nil, err
@@ -12374,6 +12376,25 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 			WHERE update_id = $1 AND status NOT IN ('installed', 'failed', 'canceled')
 		)
 	`, updateID)
+	return err
+}
+
+// CompleteSettledDeployments marks 'complete' every active deployment whose
+// devices have all reached a terminal state. CheckAndCompleteUpdate only runs on
+// the ack paths; a device that reached the target build through a check-in, or a
+// deployment reactivated by add-targets after it had completed, could otherwise
+// sit 'active' with every device installed. Called when the hub or a deployment
+// page is opened.
+func (d *DB) CompleteSettledDeployments(ctx context.Context) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE updates u SET status = 'complete'
+		WHERE u.status = 'active'
+		AND EXISTS (SELECT 1 FROM update_devices ud WHERE ud.update_id = u.id)
+		AND NOT EXISTS (
+			SELECT 1 FROM update_devices ud
+			WHERE ud.update_id = u.id AND ud.status NOT IN ('installed', 'failed', 'canceled')
+		)
+	`)
 	return err
 }
 

@@ -10394,6 +10394,7 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 // release and its targets. Operators/operators can view the list but not deploy.
 func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
+	_ = h.db.CompleteSettledDeployments(r.Context())
 	deployments, _ := h.db.ListDeployments(r.Context())
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
@@ -10502,6 +10503,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 
 				updating, _ := h.db.SerialsUpdating(r.Context())
 				data["DevicesUpdating"] = updating
+				data["OTAUnsupported"] = h.otaUnsupportedBuilds(r.Context(), rel.Product)
 				blockedNewer, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
 				data["DevicesBlocked"] = blockedNewer
 
@@ -10669,7 +10671,7 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		return
 	}
 
-	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime)
+	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -10693,6 +10695,7 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 }
 
 func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
+	_ = h.db.CompleteSettledDeployments(r.Context())
 	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -10828,6 +10831,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// A deployment is restricted to its release's product — the resolver only ever
 	// hands the update to matching devices, so the picker must only offer those.
 	wantProduct, _ := product.Resolve(upd.Release.Product)
+	unsupported := h.otaUnsupportedBuilds(r.Context(), upd.Release.Product)
 	eligible := devices[:0]
 	for _, d := range devices {
 		if existing[d.ID] {
@@ -10837,6 +10841,9 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if !hasFull && !sourceBuilds[d.BuildID] {
+			continue
+		}
+		if unsupported[d.BuildID] { // firmware older than the OTA support cutoff
 			continue
 		}
 		eligible = append(eligible, d)
@@ -15303,6 +15310,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"MaintenanceMode":      h.cfg.MaintenanceMode(),
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
+		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
 		"KioskFleetApps":       kioskFleetApps,
 		"GoogleUsage":          googleUsage,
 		"GoogleUsageJSON":      template.JS(googleUsageJSON),
@@ -16137,6 +16145,83 @@ func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 		h.cfg.SetDensity(d)
 	}
 	h.cfg.SetUse24Hour(r.FormValue("time_format") == "24")
+	h.settingsRedirect(w, r)
+}
+
+// otaCutoffRow is one product's "oldest build with MDM OTA support" setting row.
+type otaCutoffRow struct {
+	ProductKey   string
+	ProductLabel string
+	Releases     []db.Release // published releases of this product, newest first
+	Current      int          // chosen cutoff release id, 0 = none
+}
+
+func (h *Handler) otaCutoffRows(ctx context.Context) []otaCutoffRow {
+	rels, _ := h.db.ListReleases(ctx)
+	cur := h.cfg.OTAMinRelease()
+	byProduct := map[string][]db.Release{}
+	var order []string
+	for _, rel := range rels {
+		if rel.Status != "published" {
+			continue
+		}
+		pk := product.Normalize(rel.Product)
+		if _, ok := byProduct[pk]; !ok {
+			order = append(order, pk)
+		}
+		byProduct[pk] = append(byProduct[pk], rel)
+	}
+	sort.Strings(order)
+	var rows []otaCutoffRow
+	for _, pk := range order {
+		list := byProduct[pk]
+		sort.SliceStable(list, func(i, j int) bool { return list[i].CreatedAt.After(list[j].CreatedAt) })
+		rows = append(rows, otaCutoffRow{ProductKey: pk, ProductLabel: product.Label(pk), Releases: list, Current: cur[pk]})
+	}
+	return rows
+}
+
+// otaUnsupportedBuilds returns the release versions of a product that predate
+// the configured OTA support cutoff (their firmware has no MDM OTA agent), or
+// nil when no cutoff is set for that product.
+func (h *Handler) otaUnsupportedBuilds(ctx context.Context, productKey string) map[string]bool {
+	pk := product.Normalize(productKey)
+	id := h.cfg.OTAMinRelease()[pk]
+	if id == 0 {
+		return nil
+	}
+	cutoff, err := h.db.GetRelease(ctx, id)
+	if err != nil || cutoff == nil {
+		return nil
+	}
+	rels, _ := h.db.ListReleases(ctx)
+	out := map[string]bool{}
+	for _, rel := range rels {
+		if product.Normalize(rel.Product) == pk && rel.CreatedAt.Before(cutoff.CreatedAt) {
+			out[rel.Version] = true
+		}
+	}
+	return out
+}
+
+// SettingsSetOTAMinRelease stores, per product, the oldest release with MDM OTA
+// support (form fields ota_min_<product>, 0 or empty = no cutoff).
+func (h *Handler) SettingsSetOTAMinRelease(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	m := map[string]int{}
+	for k, v := range r.Form {
+		if !strings.HasPrefix(k, "ota_min_") || len(v) == 0 {
+			continue
+		}
+		if id, err := strconv.Atoi(strings.TrimSpace(v[0])); err == nil && id > 0 {
+			m[strings.TrimPrefix(k, "ota_min_")] = id
+		}
+	}
+	if err := h.cfg.SetOTAMinRelease(m); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.ota_min_release", "", fmt.Sprint(m))
 	h.settingsRedirect(w, r)
 }
 
@@ -18195,6 +18280,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
+	post("POST /settings/ota-min-release", h.requireStrictAdmin(h.SettingsSetOTAMinRelease))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireStrictAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireStrictAdmin(h.SettingsSetServiceWindow))

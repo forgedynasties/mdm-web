@@ -98,7 +98,8 @@
         {{$newer := index $.DevicesBlocked .SerialNumber}}
         {{/* incremental-only release + device not on a source build → no artifact applies */}}
         {{$noArtifact := and (not $.HasFull) (not (index $.SourceBuilds .BuildID))}}
-        {{$blocked := or $onTarget (ne $updating "") (ne $newer "") $noArtifact}}
+        {{$noOTA := index $.OTAUnsupported .BuildID}}
+        {{$blocked := or $onTarget (ne $updating "") (ne $newer "") $noArtifact $noOTA}}
         <label class="push-dev" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" style="display:flex;align-items:center;gap:11px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:{{if $blocked}}default{{else}}pointer{{end}};{{if $blocked}}opacity:.5;{{end}}">
           <input type="checkbox" name="serials" value="{{.SerialNumber}}" class="push-ck"{{if $blocked}} disabled{{end}} onchange="pushOnDeviceToggle()">
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{if notStale .LastSeenAt $.ActiveThresholdSecs}}#3ecf8e{{else}}#7a7f9a{{end}};" title="{{if notStale .LastSeenAt $.ActiveThresholdSecs}}online{{else}}offline{{end}}"></span>
@@ -108,6 +109,7 @@
           </span>
           <span style="flex:1;"></span>
           {{if $onTarget}}<span class="rchip muted">up to date</span>
+          {{else if $noOTA}}<span class="rchip muted" title="Build {{.BuildID}} predates the MDM OTA support cutoff (Settings › Devices & Kiosk); this firmware has no OTA agent">no MDM OTA support</span>
           {{else if $newer}}<span class="rchip" style="color:#e0982a;border-color:rgba(224,152,42,.4);" title="On a newer release ({{$newer}}) — can't OTA an older release onto it">newer installed</span>
           {{else if $updating}}<span class="rchip" style="color:#5aa9e6;border-color:rgba(90,169,230,.4);">● updating{{if ne $updating $rel.Version}} → {{$updating}}{{end}}</span>
           {{else if $noArtifact}}<span class="rchip muted" title="Incremental-only release with no update from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}">no update for this build</span>

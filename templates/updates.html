@@ -95,7 +95,7 @@
         <span class="up-ver">{{.Release.Version}}</span>
         <span class="cc-tag">{{productLabel .Product}}</span>
       </div>
-      <div class="up-meta reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}} · {{.RebootBehavior}} reboot</div>
+      <div class="up-meta"><span class="reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}}</span> · {{.RebootBehavior}} reboot{{if .CreatedBy}}{{$by := userBubble .CreatedBy}}{{if not $by.Admin}} · pushed by <b>{{$by.Name}}</b>{{end}}{{end}}</div>
     </div>
     <div class="up-roll">
       {{if gt .DeviceTotal 0}}
