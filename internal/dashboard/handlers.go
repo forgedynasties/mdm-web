@@ -704,6 +704,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOTA":     roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,
+		// canSeeInactive: the Inactive device view, roles above operator.
+		"canSeeInactive": roleAboveOperator,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
 		"canCreateUsers": roleCreatesUsers,
@@ -2850,8 +2852,14 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 // elevation checks (who may edit whom) live in the handlers via mayManageUser.
 // requireOTA guards firmware pushes: admin, dev, or the super op (who may deploy
 // releases but not manage the release packages themselves).
-// roleCanAppLibrary: the app library (upload, register, delete) is open to the
-// roles that push software: admin, dev and super op.
+// roleAboveOperator is true for the roles ranked above operator in roleLevels:
+// access admin, super op, dev and admin.
+func roleAboveOperator(role string) bool {
+	return roleLevels[role] > roleLevels["operator"]
+}
+
+// roleCanAppLibrary: the app library (browse, upload, register) is open to the
+// roles that push software: admin, dev and super op. Removing an APK is admin-only.
 func roleCanAppLibrary(role string) bool {
 	return role == "admin" || role == "dev" || role == "super_op"
 }
@@ -3769,11 +3777,11 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
-	// The "Inactive" view (hidden=only) is available to every role, read-only;
-	// marking a device inactive stays admin-only. Any other value collapses to
-	// active-only (there is no mixed view).
+	// The "Inactive" view (hidden=only) is for the roles above operator (access
+	// admin, super op, dev, admin), read-only; marking a device inactive stays
+	// admin-only. Any other value collapses to active-only (there is no mixed view).
 	hiddenParam := ""
-	if r.URL.Query().Get("hidden") == "only" {
+	if r.URL.Query().Get("hidden") == "only" && roleAboveOperator(h.role(r)) {
 		hiddenParam = "only"
 	}
 	return db.DeviceFilter{
@@ -18439,7 +18447,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
-	post("POST /setup/apps/{id}/delete", h.requireAppLibrary(h.SetupDeleteApp))
+	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))
