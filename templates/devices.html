@@ -1048,16 +1048,42 @@ function updateBulkBar() {
   }
 
   bar.style.display = serials.length > 0 ? 'flex' : 'none';
-  // Float the bar as a tray above the dock while there is a selection. It has to
-  // live under <body>: position:fixed inside the (transformed) page container
-  // would anchor it to the container, not the viewport.
-  var tray = document.getElementById('bulk-tray');
-  if (serials.length > 0) {
-    if (!tray) { tray = document.createElement('div'); tray.id = 'bulk-tray'; document.body.appendChild(tray); }
-    if (bar.parentElement !== tray) tray.appendChild(bar);
-    tray.style.display = '';
-  } else if (tray) {
-    tray.style.display = 'none';
+  // Side sheet: with a selection, the actions and the list of picked devices live
+  // in a panel to the right of the list (inside #dv-split, which is a flex row).
+  var split = document.getElementById('dv-split');
+  var sheet = document.getElementById('sel-sheet');
+  if (serials.length > 0 && split) {
+    if (!sheet) {
+      sheet = document.createElement('aside'); sheet.id = 'sel-sheet'; sheet.setAttribute('aria-label', 'Selected devices');
+      sheet.innerHTML = '<div class="ss-head"><span class="bulk-count" id="ss-count"></span><button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button></div><div class="ss-acts" id="ss-acts"></div><ul class="ss-list" id="ss-list"></ul>';
+      split.appendChild(sheet);
+    }
+    var acts = document.getElementById('ss-acts');
+    if (bar.parentElement !== acts) acts.appendChild(bar);
+    document.getElementById('ss-count').textContent = serials.length + ' selected';
+    var byRow = {};
+    document.querySelectorAll('.device-cb').forEach(function (cb) {
+      var row = cb.closest('.dl-row, tr, .dl-card, li, .device-row') || cb.parentElement;
+      var nm = row ? row.querySelector('.dl-name') : null;
+      byRow[cb.value] = nm ? nm.textContent.trim() : '';
+    });
+    var list = document.getElementById('ss-list'); list.innerHTML = '';
+    serials.slice(0, 200).forEach(function (sn) {
+      var li = document.createElement('li');
+      var name = byRow[sn] || '';
+      var ssEsc = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      li.innerHTML = '<span class="ss-n">' + (name ? ssEsc(name) : '<span class="mono">' + ssEsc(sn) + '</span>') + '</span>' + (name ? '<small class="mono">' + ssEsc(sn) + '</small>' : '') + '<button type="button" class="selbar-clear ss-x" title="Remove from selection" aria-label="Remove ' + ssEsc(sn) + '">&times;</button>';
+      li.querySelector('.ss-x').onclick = function () {
+        if (selectAllMatchingSet) selectAllMatchingSet.delete(sn);
+        var cb = document.querySelector('.device-cb[value="' + sn.replace(/"/g, '\\"') + '"]'); if (cb) cb.checked = false;
+        updateBulkBar();
+      };
+      list.appendChild(li);
+    });
+    if (serials.length > 200) { var more = document.createElement('li'); more.className = 'ss-more'; more.textContent = '… and ' + (serials.length - 200) + ' more'; list.appendChild(more); }
+    sheet.hidden = false; split.classList.add('has-sel');
+  } else if (sheet) {
+    sheet.hidden = true; split.classList.remove('has-sel');
   }
   count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
 
