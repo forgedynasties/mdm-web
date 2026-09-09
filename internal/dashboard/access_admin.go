@@ -223,7 +223,7 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	if pol.Base == "deny" {
 		base = "Starts with nothing"
 	}
-	if u.Role == "operator" || u.Role == "user_manager" || u.Role == "super_op" {
+	if u.Role == "operator" {
 		hasRemote := false
 		for _, g := range pol.Grants {
 			if g.Effect == "allow" && g.Has("remote") {
