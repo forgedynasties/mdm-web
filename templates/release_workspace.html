@@ -92,13 +92,26 @@
     <div><button type="submit" class="cc-btn primary">Save</button></div>
   </form>
 </div>
-{{else if $rel.Changelog}}
+{{else}}
+{{/* Read-only view (operators, super ops): the release facts always render, so the
+     page is never blank; the changelog shows when there is one. */}}
+{{$full := 0}}{{$inc := 0}}{{range .Packages}}{{if eq .Status "active"}}{{if eq .Type "full"}}{{$full = add $full 1}}{{else}}{{$inc = add $inc 1}}{{end}}{{end}}{{end}}
+<div class="cc-kpis" style="margin-bottom:18px;">
+  <div class="cc-kpi"><span class="k">Released</span><div class="v" style="font-size:18px;">{{localTime $rel.CreatedAt}}</div><div class="d">{{timeSince $rel.CreatedAt}}</div></div>
+  <div class="cc-kpi"><span class="k">Packages</span><div class="v">{{add $full $inc}}</div><div class="d">{{$full}} full · {{$inc}} incremental</div></div>
+  <div class="cc-kpi"><span class="k">Deployments</span><div class="v">{{len .Deployments}}</div><div class="d">{{if .Deployments}}latest {{timeSince (index .Deployments 0).CreatedAt}}{{else}}none yet{{end}}</div></div>
+  <div class="cc-kpi"><span class="k">Devices on it</span><div class="v">{{len .DevicesOnVersion}}</div><div class="d">reporting this build</div></div>
+</div>
 <div class="cc-card" style="margin-bottom:18px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
     <h3>Changelog</h3>
   </div>
+  {{if $rel.Changelog}}
   <div class="cc-cb" style="white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
+  {{else}}
+  <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><div><b>No changelog for {{$rel.Version}} yet.</b>An admin writes it under Releases › {{$rel.Version}} › Release details. You can still push this release from Actions or Updates if you have OTA rights.</div></div>
+  {{end}}
 </div>
 {{end}}
 
