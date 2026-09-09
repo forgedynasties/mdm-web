@@ -914,109 +914,7 @@ function kioskAddPkg(pkg, el){
     <div class="muted small" style="margin-top:8px;">Get the checksum from the signed APK: <code>keytool -printcert -jarfile skorra-agent.apk</code>, then base64url-encode the SHA-256 without padding.</div>
   </div>
 </div>
-<style>
-  .lib-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px;padding:16px;}
-  .lib-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 12px;border-radius:14px;border:1px solid transparent;text-align:center;}
-  .lib-tile:hover{background:var(--surface-3);border-color:var(--border);}
-  .lib-icon,.lib-mono{width:54px;height:54px;border-radius:15px;flex:none;}
-  .lib-icon{object-fit:contain;background:var(--surface-3);}
-  .lib-mono{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;text-transform:uppercase;background:var(--surface-3);color:var(--text-faint);}
-  .lib-name{font-size:12.5px;font-weight:650;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
-  .lib-pkg{font-size:10.5px;color:var(--text-faint);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .lib-ver{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
-  .lib-del-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}
-  .lib-tile:hover .lib-del-form{opacity:1;}
-  .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .lib-del:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
-  .ul-wrap{padding:10px 16px 0;display:flex;flex-direction:column;gap:8px;}
-  .ul-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
-  .ul-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s ease;}
-  .ul-row{display:flex;align-items:center;gap:11px;padding:9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);}
-  .ul-ic{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .ul-ic img{width:100%;height:100%;object-fit:contain;}
-  .ul-m{flex:1;min-width:0;}
-  .ul-nm{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px;}
-  .ul-st{font-size:11px;color:var(--muted);margin-top:4px;}
-  .ul-st.is-error{color:var(--danger,#c0392b);}
-  .ul-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .ul-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
-  .cf-list{display:flex;flex-direction:column;gap:8px;}
-  .cf-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;}
-  .cf-ic{width:44px;height:44px;flex:none;border-radius:11px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .cf-ic img{width:100%;height:100%;object-fit:contain;}
-  .cf-m{flex:1;min-width:0;}
-  .cf-nm{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cf-pk{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cf-meta{font-size:11.5px;color:var(--muted);white-space:nowrap;flex:none;}
-  .cf-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .cf-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
-</style>
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch">
-    <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-    <h3>App library</h3>
-    <div class="card-header-actions" style="margin-left:auto">
-      <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
-      <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" multiple hidden onchange="libUploadApks(this.files); this.value='';">
-      <button type="button" class="cc-btn sm primary" onclick="document.getElementById('lib-apk-file').click()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upload APKs</button>
-    </div>
-  </div>
-  <div class="ul-wrap" id="lib-ul-list" hidden></div>
-  {{if .Apps}}
-  <div class="lib-drawer" id="lib-drawer">
-    {{range .Apps}}
-    <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}" role="button" tabindex="0" style="cursor:pointer;"
-         onclick="libInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libInfoOpen(this);}"
-         data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-version="{{.VersionName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
-      {{if .Icon}}<img class="lib-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
-      <div class="lib-name">{{.Name}}</div>
-      {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
-      <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
-      <form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>
-    </div>
-    {{end}}
-  </div>
-  {{else}}
-  <div class="empty-state" style="padding:28px 18px;">
-    <div class="empty-state-copy"><div class="empty-state-title">No apps yet</div><div class="empty-state-text">Upload an APK — then install it on devices from the device page.</div></div>
-  </div>
-  {{end}}
-</div>
-
-<!-- App details modal (opened by clicking a library tile) -->
-<style>
-  .li-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
-  .li-head .lib-icon,.li-head .lib-mono{width:60px;height:60px;}
-  .li-title{font-size:16px;font-weight:750;line-height:1.2;word-break:break-word;}
-  .li-row{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;}
-  .li-k{flex:none;width:96px;color:var(--text-faint);}
-  .li-v{min-width:0;word-break:break-all;}
-</style>
-<div id="lib-info-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-info-modal')libInfoClose()">
-  <div class="modal-box" role="dialog" aria-modal="true" aria-label="App details">
-    <div class="modal-header"><span class="modal-title">App details</span><button type="button" class="modal-close" onclick="libInfoClose()" aria-label="Close">&times;</button></div>
-    <div class="modal-body">
-      <div class="li-head"><span id="li-icon"></span><div><div id="li-name" class="li-title"></div><div id="li-pkg" class="mono muted" style="font-size:12px;"></div></div></div>
-      <div class="li-row"><span class="li-k">Package</span><span id="li-pkg2" class="li-v mono"></span></div>
-      <div class="li-row" id="li-ver-row" style="display:none;"><span class="li-k">Version</span><span id="li-ver" class="li-v mono"></span></div>
-      <div class="li-row"><span class="li-k">APK URL</span><a id="li-url" class="li-v mono" target="_blank" rel="noopener"></a></div>
-      <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
-    </div>
-    <div class="modal-footer">
-      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
-      <button type="button" class="cc-btn primary" onclick="libInfoClose()">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirm-before-add modal (shown after uploads finish) -->
-<div id="lib-confirm-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-confirm-modal')libConfirmClose()">
-  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Confirm apps to add">
-    <div class="modal-header"><span class="modal-title">Add to library</span><button type="button" class="modal-close" onclick="libConfirmClose()" aria-label="Close">&times;</button></div>
-    <div class="modal-body"><div class="cf-list" id="lib-confirm-list"></div><div id="lib-confirm-err" class="alert alert-error" style="display:none;margin-top:10px;"></div></div>
-    <div class="modal-footer"><button type="button" class="btn-outline" onclick="libConfirmClose()">Cancel</button><button type="button" class="cc-btn primary" id="lib-confirm-add" onclick="libConfirmAdd()">Add <span id="lib-confirm-n"></span></button></div>
-  </div>
-</div>
+  {{template "app-library" .}}
   </section>
 
   <!-- ── Productions ── -->
@@ -1068,105 +966,7 @@ function kioskAddPkg(pkg, el){
 </div><!-- /.settings-wrap -->
 </div><!-- /.cc-wrap -->
 
-<script>
-// ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
-function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
-function libIconPng(ic){return new Promise(function(res){if(!ic)return res('');var src=ic.indexOf('data:')===0?ic:('data:image/png;base64,'+ic);var img=new Image();img.onload=function(){try{var c=document.createElement('canvas');c.width=96;c.height=96;c.getContext('2d').drawImage(img,0,0,96,96);res(c.toDataURL('image/png').split(',')[1]||'');}catch(e){res('');}};img.onerror=function(){res('');};img.src=src;});}
-function libFmt(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
-function libS3Put(url,file,onp,onXhr){return new Promise(function(res,rej){var x=new XMLHttpRequest();if(onXhr)onXhr(x);x.open('PUT',url);x.setRequestHeader('Content-Type','application/vnd.android.package-archive');x.upload.onprogress=function(e){if(e.lengthComputable&&onp)onp(e.loaded,e.total);};x.onload=function(){(x.status>=200&&x.status<300)?res():rej(new Error('S3 upload failed ('+x.status+')'));};x.onerror=function(){rej(new Error('network error uploading to S3'));};x.onabort=function(){rej(new Error('cancelled'));};x.send(file);});}
-// Multi-file APK upload: each file parses + uploads to S3 with its own progress and a
-// cancel button; once uploads finish, a confirmation window lists the parsed details and
-// only then (on confirm) registers them into the library.
-var libQueue = [];
-function libUploadApks(files){
-  if(!files||!files.length)return;
-  var list=document.getElementById('lib-ul-list'); list.hidden=false;
-  Array.prototype.forEach.call(files,function(file){
-    var item={id:'ul_'+libQueue.length+'_'+(+new Date()),file:file,name:file.name,pkg:'',ver:'',icon:'',size:file.size,key:'',xhr:null,state:'reading',err:''};
-    libQueue.push(item); list.appendChild(libUlRow(item)); libProcess(item);
-  });
-}
-function libUlRow(item){
-  var row=document.createElement('div'); row.className='ul-row'; row.id=item.id;
-  row.innerHTML='<div class="ul-ic"></div><div class="ul-m"><div class="ul-nm"></div><div class="ul-bar"><div class="ul-fill"></div></div><div class="ul-st"></div></div><button type="button" class="ul-x" title="Cancel">&times;</button>';
-  row.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
-  row.querySelector('.ul-x').onclick=function(){libCancel(item);};
-  return row;
-}
-function libUlSet(item,txt,pct,err){
-  var row=document.getElementById(item.id); if(!row)return;
-  var st=row.querySelector('.ul-st'); if(txt!=null)st.textContent=txt; st.classList.toggle('is-error',!!err);
-  if(pct!=null)row.querySelector('.ul-fill').style.width=pct+'%';
-}
-function libProcess(item){
-  libUlSet(item,'Reading…',0);
-  libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();}).then(function(info){
-    item.pkg=info.package||'';
-    var lbl=(info.application&&info.application.label)||info.label||item.pkg; if(Array.isArray(lbl))lbl=lbl[0]; item.name=String(lbl||item.pkg);
-    var v=info.versionName||(info.apkInfo&&info.apkInfo.versionName)||''; item.ver=v?String(v):'';
-    var r=document.getElementById(item.id); if(r)r.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
-    return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.ul-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
-  }).catch(function(){})
-  .then(function(){ if(item.state==='cancelled')throw new Error('cancelled'); return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:item.file.name})}); })
-  .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
-  .then(function(d){ item.key=d.key; item.state='uploading'; libUlSet(item,'Uploading… 0%',0);
-    return libS3Put(d.url,item.file,function(l,t){var p=Math.round(l/t*100);libUlSet(item,'Uploading… '+p+'%',p);},function(x){item.xhr=x;}); })
-  .then(function(){ item.state='uploaded'; item.xhr=null; libUlSet(item,'Uploaded ✓',100); libMaybeConfirm(); })
-  .catch(function(err){ if(item.state==='cancelled'){libUlSet(item,'Cancelled',null,true);} else {item.state='error'; item.err=err.message; libUlSet(item,'Error: '+err.message,null,true);} libMaybeConfirm(); });
-}
-function libCancel(item){
-  if(item.state==='uploaded'||item.state==='error'||item.state==='cancelled'){
-    var r=document.getElementById(item.id); if(r)r.remove(); var i=libQueue.indexOf(item); if(i>=0)libQueue.splice(i,1); libMaybeConfirm(); return;
-  }
-  item.state='cancelled'; if(item.xhr)item.xhr.abort(); libUlSet(item,'Cancelled',null,true);
-}
-function libMaybeConfirm(){
-  if(libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';}))return; // still working
-  var ok=libQueue.filter(function(it){return it.state==='uploaded';});
-  if(ok.length)libShowConfirm(ok);
-}
-function libShowConfirm(items){
-  var list=document.getElementById('lib-confirm-list'); list.innerHTML='';
-  items.forEach(function(it){
-    var row=document.createElement('div'); row.className='cf-row';
-    row.innerHTML='<div class="cf-ic">'+(it.icon?'<img src="data:image/png;base64,'+it.icon+'" alt="">':'')+'</div><div class="cf-m"><div class="cf-nm"></div><div class="cf-pk mono"></div></div><div class="cf-meta"></div><button type="button" class="cf-x" title="Remove">&times;</button>';
-    row.querySelector('.cf-nm').textContent=it.name||it.pkg||'(unknown)';
-    row.querySelector('.cf-pk').textContent=it.pkg||'';
-    row.querySelector('.cf-meta').textContent=(it.ver?'v'+it.ver+' · ':'')+libFmt(it.size);
-    row.querySelector('.cf-x').onclick=function(){var i=items.indexOf(it);if(i>=0)items.splice(i,1);row.remove();var q=libQueue.indexOf(it);if(q>=0)libQueue.splice(q,1);document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';if(!items.length)libConfirmClose();};
-    list.appendChild(row);
-  });
-  window.__libConfirmItems=items;
-  document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';
-  document.getElementById('lib-confirm-err').style.display='none';
-  document.getElementById('lib-confirm-modal').classList.add('modal-open');
-}
-function libConfirmClose(){document.getElementById('lib-confirm-modal').classList.remove('modal-open');}
-function libConfirmAdd(){
-  var items=window.__libConfirmItems||[]; if(!items.length){libConfirmClose();return;}
-  var btn=document.getElementById('lib-confirm-add'); btn.disabled=true; btn.textContent='Adding…';
-  var err=document.getElementById('lib-confirm-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
-  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed'); added++;});});}); });
-  chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.innerHTML='Add <span id="lib-confirm-n">('+items.length+')</span>';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
-}
-function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
-function libInfoOpen(tile){
-  var iconEl=document.getElementById('li-icon');
-  var img=tile.querySelector('.lib-icon'),mono=tile.querySelector('.lib-mono');
-  iconEl.innerHTML=img?('<img class="lib-icon" src="'+img.getAttribute('src')+'" alt="">'):('<div class="lib-mono">'+(mono?mono.textContent:'')+'</div>');
-  document.getElementById('li-name').textContent=tile.dataset.name||'';
-  document.getElementById('li-pkg').textContent=tile.dataset.pkg||'';
-  document.getElementById('li-pkg2').textContent=tile.dataset.pkg||'—';
-  var ver=tile.dataset.version||'';
-  document.getElementById('li-ver-row').style.display=ver?'':'none';
-  document.getElementById('li-ver').textContent=ver;
-  var url=tile.dataset.url||'',a=document.getElementById('li-url');a.textContent=url||'—';if(url)a.setAttribute('href',url);else a.removeAttribute('href');
-  document.getElementById('li-added').textContent=tile.dataset.added||'—';
-  document.getElementById('li-del-form').setAttribute('action','/setup/apps/'+tile.dataset.id+'/delete');
-  document.getElementById('lib-info-modal').classList.add('modal-open');
-}
-function libInfoClose(){document.getElementById('lib-info-modal').classList.remove('modal-open');}
-</script>
+
 
 <script src="/static/vendor/chart.umd.min.js"></script>
 <script>
@@ -1284,4 +1084,210 @@ document.addEventListener('submit', function (e) {
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{/* app-library: the library card with upload, the details and confirm modals and the upload script. Rendered inside Settings (admin) and on /apps (admin, dev, super op). Needs .Apps. */}}
+{{define "app-library"}}
+<style>
+  .lib-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px;padding:16px;}
+  .lib-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 12px;border-radius:14px;border:1px solid transparent;text-align:center;}
+  .lib-tile:hover{background:var(--surface-3);border-color:var(--border);}
+  .lib-icon,.lib-mono{width:54px;height:54px;border-radius:15px;flex:none;}
+  .lib-icon{object-fit:contain;background:var(--surface-3);}
+  .lib-mono{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;text-transform:uppercase;background:var(--surface-3);color:var(--text-faint);}
+  .lib-name{font-size:12.5px;font-weight:650;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+  .lib-pkg{font-size:10.5px;color:var(--text-faint);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lib-ver{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .lib-del-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}
+  .lib-tile:hover .lib-del-form{opacity:1;}
+  .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .lib-del:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
+  .ul-wrap{padding:10px 16px 0;display:flex;flex-direction:column;gap:8px;}
+  .ul-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+  .ul-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s ease;}
+  .ul-row{display:flex;align-items:center;gap:11px;padding:9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);}
+  .ul-ic{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .ul-ic img{width:100%;height:100%;object-fit:contain;}
+  .ul-m{flex:1;min-width:0;}
+  .ul-nm{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px;}
+  .ul-st{font-size:11px;color:var(--muted);margin-top:4px;}
+  .ul-st.is-error{color:var(--danger,#c0392b);}
+  .ul-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .ul-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
+  .cf-list{display:flex;flex-direction:column;gap:8px;}
+  .cf-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;}
+  .cf-ic{width:44px;height:44px;flex:none;border-radius:11px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .cf-ic img{width:100%;height:100%;object-fit:contain;}
+  .cf-m{flex:1;min-width:0;}
+  .cf-nm{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cf-pk{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cf-meta{font-size:11.5px;color:var(--muted);white-space:nowrap;flex:none;}
+  .cf-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .cf-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
+</style>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+    <h3>App library</h3>
+    <div class="card-header-actions" style="margin-left:auto">
+      <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
+      <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" multiple hidden onchange="libUploadApks(this.files); this.value='';">
+      <button type="button" class="cc-btn sm primary" onclick="document.getElementById('lib-apk-file').click()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upload APKs</button>
+    </div>
+  </div>
+  <div class="ul-wrap" id="lib-ul-list" hidden></div>
+  {{if .Apps}}
+  <div class="lib-drawer" id="lib-drawer">
+    {{range .Apps}}
+    <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}" role="button" tabindex="0" style="cursor:pointer;"
+         onclick="libInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libInfoOpen(this);}"
+         data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-version="{{.VersionName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
+      {{if .Icon}}<img class="lib-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
+      <div class="lib-name">{{.Name}}</div>
+      {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
+      <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
+      <form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state" style="padding:28px 18px;">
+    <div class="empty-state-copy"><div class="empty-state-title">No apps yet</div><div class="empty-state-text">Upload an APK — then install it on devices from the device page.</div></div>
+  </div>
+  {{end}}
+</div>
+
+<!-- App details modal (opened by clicking a library tile) -->
+<style>
+  .li-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+  .li-head .lib-icon,.li-head .lib-mono{width:60px;height:60px;}
+  .li-title{font-size:16px;font-weight:750;line-height:1.2;word-break:break-word;}
+  .li-row{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;}
+  .li-k{flex:none;width:96px;color:var(--text-faint);}
+  .li-v{min-width:0;word-break:break-all;}
+</style>
+<div id="lib-info-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-info-modal')libInfoClose()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="App details">
+    <div class="modal-header"><span class="modal-title">App details</span><button type="button" class="modal-close" onclick="libInfoClose()" aria-label="Close">&times;</button></div>
+    <div class="modal-body">
+      <div class="li-head"><span id="li-icon"></span><div><div id="li-name" class="li-title"></div><div id="li-pkg" class="mono muted" style="font-size:12px;"></div></div></div>
+      <div class="li-row"><span class="li-k">Package</span><span id="li-pkg2" class="li-v mono"></span></div>
+      <div class="li-row" id="li-ver-row" style="display:none;"><span class="li-k">Version</span><span id="li-ver" class="li-v mono"></span></div>
+      <div class="li-row"><span class="li-k">APK URL</span><a id="li-url" class="li-v mono" target="_blank" rel="noopener"></a></div>
+      <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
+    </div>
+    <div class="modal-footer">
+      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
+      <button type="button" class="cc-btn primary" onclick="libInfoClose()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm-before-add modal (shown after uploads finish) -->
+<div id="lib-confirm-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-confirm-modal')libConfirmClose()">
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Confirm apps to add">
+    <div class="modal-header"><span class="modal-title">Add to library</span><button type="button" class="modal-close" onclick="libConfirmClose()" aria-label="Close">&times;</button></div>
+    <div class="modal-body"><div class="cf-list" id="lib-confirm-list"></div><div id="lib-confirm-err" class="alert alert-error" style="display:none;margin-top:10px;"></div></div>
+    <div class="modal-footer"><button type="button" class="btn-outline" onclick="libConfirmClose()">Cancel</button><button type="button" class="cc-btn primary" id="lib-confirm-add" onclick="libConfirmAdd()">Add <span id="lib-confirm-n"></span></button></div>
+  </div>
+</div>
+<script>
+// ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
+function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
+function libIconPng(ic){return new Promise(function(res){if(!ic)return res('');var src=ic.indexOf('data:')===0?ic:('data:image/png;base64,'+ic);var img=new Image();img.onload=function(){try{var c=document.createElement('canvas');c.width=96;c.height=96;c.getContext('2d').drawImage(img,0,0,96,96);res(c.toDataURL('image/png').split(',')[1]||'');}catch(e){res('');}};img.onerror=function(){res('');};img.src=src;});}
+function libFmt(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
+function libS3Put(url,file,onp,onXhr){return new Promise(function(res,rej){var x=new XMLHttpRequest();if(onXhr)onXhr(x);x.open('PUT',url);x.setRequestHeader('Content-Type','application/vnd.android.package-archive');x.upload.onprogress=function(e){if(e.lengthComputable&&onp)onp(e.loaded,e.total);};x.onload=function(){(x.status>=200&&x.status<300)?res():rej(new Error('S3 upload failed ('+x.status+')'));};x.onerror=function(){rej(new Error('network error uploading to S3'));};x.onabort=function(){rej(new Error('cancelled'));};x.send(file);});}
+// Multi-file APK upload: each file parses + uploads to S3 with its own progress and a
+// cancel button; once uploads finish, a confirmation window lists the parsed details and
+// only then (on confirm) registers them into the library.
+var libQueue = [];
+function libUploadApks(files){
+  if(!files||!files.length)return;
+  var list=document.getElementById('lib-ul-list'); list.hidden=false;
+  Array.prototype.forEach.call(files,function(file){
+    var item={id:'ul_'+libQueue.length+'_'+(+new Date()),file:file,name:file.name,pkg:'',ver:'',icon:'',size:file.size,key:'',xhr:null,state:'reading',err:''};
+    libQueue.push(item); list.appendChild(libUlRow(item)); libProcess(item);
+  });
+}
+function libUlRow(item){
+  var row=document.createElement('div'); row.className='ul-row'; row.id=item.id;
+  row.innerHTML='<div class="ul-ic"></div><div class="ul-m"><div class="ul-nm"></div><div class="ul-bar"><div class="ul-fill"></div></div><div class="ul-st"></div></div><button type="button" class="ul-x" title="Cancel">&times;</button>';
+  row.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
+  row.querySelector('.ul-x').onclick=function(){libCancel(item);};
+  return row;
+}
+function libUlSet(item,txt,pct,err){
+  var row=document.getElementById(item.id); if(!row)return;
+  var st=row.querySelector('.ul-st'); if(txt!=null)st.textContent=txt; st.classList.toggle('is-error',!!err);
+  if(pct!=null)row.querySelector('.ul-fill').style.width=pct+'%';
+}
+function libProcess(item){
+  libUlSet(item,'Reading…',0);
+  libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();}).then(function(info){
+    item.pkg=info.package||'';
+    var lbl=(info.application&&info.application.label)||info.label||item.pkg; if(Array.isArray(lbl))lbl=lbl[0]; item.name=String(lbl||item.pkg);
+    var v=info.versionName||(info.apkInfo&&info.apkInfo.versionName)||''; item.ver=v?String(v):'';
+    var r=document.getElementById(item.id); if(r)r.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
+    return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.ul-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
+  }).catch(function(){})
+  .then(function(){ if(item.state==='cancelled')throw new Error('cancelled'); return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:item.file.name})}); })
+  .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
+  .then(function(d){ item.key=d.key; item.state='uploading'; libUlSet(item,'Uploading… 0%',0);
+    return libS3Put(d.url,item.file,function(l,t){var p=Math.round(l/t*100);libUlSet(item,'Uploading… '+p+'%',p);},function(x){item.xhr=x;}); })
+  .then(function(){ item.state='uploaded'; item.xhr=null; libUlSet(item,'Uploaded ✓',100); libMaybeConfirm(); })
+  .catch(function(err){ if(item.state==='cancelled'){libUlSet(item,'Cancelled',null,true);} else {item.state='error'; item.err=err.message; libUlSet(item,'Error: '+err.message,null,true);} libMaybeConfirm(); });
+}
+function libCancel(item){
+  if(item.state==='uploaded'||item.state==='error'||item.state==='cancelled'){
+    var r=document.getElementById(item.id); if(r)r.remove(); var i=libQueue.indexOf(item); if(i>=0)libQueue.splice(i,1); libMaybeConfirm(); return;
+  }
+  item.state='cancelled'; if(item.xhr)item.xhr.abort(); libUlSet(item,'Cancelled',null,true);
+}
+function libMaybeConfirm(){
+  if(libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';}))return; // still working
+  var ok=libQueue.filter(function(it){return it.state==='uploaded';});
+  if(ok.length)libShowConfirm(ok);
+}
+function libShowConfirm(items){
+  var list=document.getElementById('lib-confirm-list'); list.innerHTML='';
+  items.forEach(function(it){
+    var row=document.createElement('div'); row.className='cf-row';
+    row.innerHTML='<div class="cf-ic">'+(it.icon?'<img src="data:image/png;base64,'+it.icon+'" alt="">':'')+'</div><div class="cf-m"><div class="cf-nm"></div><div class="cf-pk mono"></div></div><div class="cf-meta"></div><button type="button" class="cf-x" title="Remove">&times;</button>';
+    row.querySelector('.cf-nm').textContent=it.name||it.pkg||'(unknown)';
+    row.querySelector('.cf-pk').textContent=it.pkg||'';
+    row.querySelector('.cf-meta').textContent=(it.ver?'v'+it.ver+' · ':'')+libFmt(it.size);
+    row.querySelector('.cf-x').onclick=function(){var i=items.indexOf(it);if(i>=0)items.splice(i,1);row.remove();var q=libQueue.indexOf(it);if(q>=0)libQueue.splice(q,1);document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';if(!items.length)libConfirmClose();};
+    list.appendChild(row);
+  });
+  window.__libConfirmItems=items;
+  document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';
+  document.getElementById('lib-confirm-err').style.display='none';
+  document.getElementById('lib-confirm-modal').classList.add('modal-open');
+}
+function libConfirmClose(){document.getElementById('lib-confirm-modal').classList.remove('modal-open');}
+function libConfirmAdd(){
+  var items=window.__libConfirmItems||[]; if(!items.length){libConfirmClose();return;}
+  var btn=document.getElementById('lib-confirm-add'); btn.disabled=true; btn.textContent='Adding…';
+  var err=document.getElementById('lib-confirm-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
+  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed'); added++;});});}); });
+  chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.innerHTML='Add <span id="lib-confirm-n">('+items.length+')</span>';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
+}
+function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
+function libInfoOpen(tile){
+  var iconEl=document.getElementById('li-icon');
+  var img=tile.querySelector('.lib-icon'),mono=tile.querySelector('.lib-mono');
+  iconEl.innerHTML=img?('<img class="lib-icon" src="'+img.getAttribute('src')+'" alt="">'):('<div class="lib-mono">'+(mono?mono.textContent:'')+'</div>');
+  document.getElementById('li-name').textContent=tile.dataset.name||'';
+  document.getElementById('li-pkg').textContent=tile.dataset.pkg||'';
+  document.getElementById('li-pkg2').textContent=tile.dataset.pkg||'—';
+  var ver=tile.dataset.version||'';
+  document.getElementById('li-ver-row').style.display=ver?'':'none';
+  document.getElementById('li-ver').textContent=ver;
+  var url=tile.dataset.url||'',a=document.getElementById('li-url');a.textContent=url||'—';if(url)a.setAttribute('href',url);else a.removeAttribute('href');
+  document.getElementById('li-added').textContent=tile.dataset.added||'—';
+  document.getElementById('li-del-form').setAttribute('action','/setup/apps/'+tile.dataset.id+'/delete');
+  document.getElementById('lib-info-modal').classList.add('modal-open');
+}
+function libInfoClose(){document.getElementById('lib-info-modal').classList.remove('modal-open');}
+</script>
 {{end}}
