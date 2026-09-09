@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alert Noise Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #5f5f66; --faint: #8a8a92;
+    --line: #e9e9ed; --coral: #F9674E; --peri: #7A80F6; --ok: #0f6d33; --warn: #8f4209; --bad: #b42318;
+    --ok-bg: rgba(21,127,60,.10); --warn-bg: rgba(180,83,9,.10); --bad-bg: rgba(180,35,24,.10); --shadow: 0 12px 40px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, sans-serif; font-weight: 400; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-weight: 300; font-size: clamp(32px, 4.5vw, 46px); letter-spacing: -.04em; line-height: 1.06; margin: 10px 0 12px; text-wrap: balance; }
+  h1 .hl { color: var(--coral); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 64ch; margin: 0 0 32px; }
+  h2 { font-weight: 300; font-size: 26px; letter-spacing: -.03em; margin: 48px 0 12px; text-wrap: balance; }
+  h3 { font-weight: 500; font-size: 15px; margin: 22px 0 8px; }
+  p { max-width: 68ch; margin: 0 0 12px; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-bottom: 28px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; margin: 24px 0; }
+  .kpi { padding: 20px 22px 18px; border-left: 1px solid var(--line); }
+  .kpi:first-child { border-left: 0; }
+  .kpi .v { font-size: 38px; font-weight: 300; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi .v.bad { color: var(--bad); } .kpi .v.ok { color: var(--ok); }
+  .kpi .k { font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 22px 24px; margin: 16px 0 24px; }
+  .card h3:first-child { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 10px 10px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.n, th.n { text-align: right; padding-right: 0; }
+  .tw { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.off { background: var(--surface-2); color: var(--muted); }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 200px 1fr 60px; gap: 12px; align-items: center; font-size: 13px; }
+  .bar .lbl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .lbl b { color: var(--text); font-weight: 500; font-family: 'Poppins', sans-serif; }
+  .bar i { display: block; height: 12px; border-radius: 6px; background: var(--surface-2); position: relative; overflow: hidden; }
+  .bar i::after { content: ""; position: absolute; inset: 0; width: var(--p); background: var(--coral); border-radius: 6px; }
+  .bar.warn i::after { background: var(--warn); } .bar.peri i::after { background: var(--peri); }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; height: 90px; align-items: end; }
+  .hours i { display: block; background: var(--surface-2); height: 100%; border-radius: 5px; position: relative; overflow: hidden; }
+  .hours i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: var(--peri); border-radius: 5px; }
+  .hours i.svc::after { background: var(--coral); }
+  .axis { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; margin-top: 6px; font: 500 10px ui-monospace, monospace; color: var(--faint); }
+  .axis span:nth-child(3n+2), .axis span:nth-child(3n) { visibility: hidden; }
+  .callout { border-left: 3px solid var(--coral); padding: 4px 0 4px 16px; margin: 18px 0; color: var(--muted); }
+  .callout b { color: var(--text); font-weight: 500; }
+  ol.plan { padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; margin: 0; }
+  ol.plan li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr auto; gap: 14px; align-items: start; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 14px 18px; }
+  ol.plan li::before { content: counter(step); width: 30px; height: 30px; border-radius: 50%; background: var(--coral); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; }
+  ol.plan b { display: block; font-weight: 500; font-size: 15px; }
+  ol.plan span { font-size: 13px; color: var(--muted); }
+  ol.plan .who { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--peri); white-space: nowrap; margin-top: 4px; }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rules ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+  .rules li { margin: 3px 0; }
+  .rules li b { color: var(--text); font-weight: 500; }
+  .small { font-size: 12.5px; color: var(--muted); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+  @media (max-width: 720px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .bar { grid-template-columns: 120px 1fr 48px; } .rules { grid-template-columns: 1fr; } ol.plan li { grid-template-columns: 34px 1fr; } ol.plan .who { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AIO MDM · live fleet · alerts</div>
+  <h1>Alerts fire <span class="hl">147 times</span> in two days. About 12 deserve a look.</h1>
+  <p class="lede">A review of every alert in the live database, why most of them are noise, and the rule changes that turn the list back into something an operator reads.</p>
+  <div class="meta"><span>Source <b>mdm.dev.aioapp.com, alerts table, 8 to 9 September 2026</b></span><span>Fleet <b>59 devices, 41 online</b></span><span>Author <b>Ali, with Claude</b></span></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v bad">147</div><div class="k">alerts in 2 days</div></div>
+    <div class="kpi"><div class="v">2</div><div class="k">devices made 74% of them</div></div>
+    <div class="kpi"><div class="v">99%</div><div class="k">overheating gone within 10 min</div></div>
+    <div class="kpi"><div class="v ok">~12</div><div class="k">after the changes below</div></div>
+  </div>
+
+  <div class="callout"><b>History is only two days long.</b> "Clear all" and "Resolve all" were used 27 times, which deletes the evidence. Everything below is from the last 48 hours, which is plenty: the pattern is the same every day.</div>
+
+  <h2>What fired</h2>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Type</th><th class="n">Alerts</th><th class="n">Devices</th><th class="n">Median open</th><th class="n">Resolved under 10 min</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>overheating</td><td class="n">126</td><td class="n">13</td><td class="n">1 min</td><td class="n">99%</td><td><span class="pill bad">noise</span></td></tr>
+        <tr><td>device_crash</td><td class="n">17</td><td class="n">4</td><td class="n">15 min</td><td class="n">0%</td><td><span class="pill warn">repeats</span></td></tr>
+        <tr><td>battery_low (peak)</td><td class="n">4</td><td class="n">4</td><td class="n">88 min</td><td class="n">0%</td><td><span class="pill ok">real</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Median open is the time from firing to auto-resolve. An alert that resolves itself in one minute was never something a person could act on.</p>
+  </div>
+
+  <h3>Where it came from</h3>
+  <div class="card">
+    <div class="bars">
+      <div class="bar"><span class="lbl"><b>AT070AABU00746</b> · Flights Vegas · overheating</span><i style="--p:100%"></i><span class="n">95</span></div>
+      <div class="bar warn"><span class="lbl"><b>AT070AABU00064</b> · unplaced · crash</span><i style="--p:15%"></i><span class="n">14</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00583</b> · Flights Vegas · overheating</span><i style="--p:9%"></i><span class="n">9</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00802</b> · Flights Vegas · overheating</span><i style="--p:7%"></i><span class="n">7</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00673</b> · Flights Vegas · overheating</span><i style="--p:4%"></i><span class="n">4</span></div>
+      <div class="bar peri"><span class="lbl"><b>everything else</b> · 13 devices</span><i style="--p:19%"></i><span class="n">18</span></div>
+    </div>
+    <p class="small" style="margin:14px 0 0">Flights Vegas: 121 of 147. Two devices: 109 of 147.</p>
+  </div>
+
+  <h3>When it fired (UTC, last 14 days)</h3>
+  <div class="card">
+    <div class="hours">
+      <i style="--p:0%"></i><i style="--p:5%"></i><i style="--p:0%"></i><i style="--p:5%"></i><i style="--p:18%"></i><i class="svc" style="--p:91%"></i><i class="svc" style="--p:95%"></i><i class="svc" style="--p:100%"></i><i class="svc" style="--p:82%"></i><i class="svc" style="--p:73%"></i><i class="svc" style="--p:77%"></i><i class="svc" style="--p:41%"></i><i class="svc" style="--p:36%"></i><i style="--p:5%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:23%"></i><i style="--p:9%"></i><i style="--p:9%"></i><i style="--p:0%"></i><i style="--p:0%"></i>
+    </div>
+    <div class="axis"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span></div>
+    <p class="small" style="margin:12px 0 0">05:00 to 12:00 UTC is the Vegas dinner service. Devices get warm when they are busy; that is expected, not an incident.</p>
+  </div>
+
+  <h2>Why overheating is noise</h2>
+  <p>The rule fires the moment battery temperature reads at or above 45°C and auto-resolves the minute it reads below. The readings that fired were 45.0, 45.5 and 45.7 against a limit of 45. A device hovering at the line fires, resolves, fires again, every few minutes for the whole service.</p>
+  <div class="rules">
+    <div class="card">
+      <h3>The rule today</h3>
+      <ul>
+        <li><b>Fire</b> when the latest reading is ≥ 45°C off the pad, ≥ 65°C on the pad</li>
+        <li><b>Resolve</b> the next minute the reading is below</li>
+        <li>No minimum duration, no hysteresis, no cooldown</li>
+        <li>Each episode is a new row, so one device made 95 rows</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Evidence</h3>
+      <ul>
+        <li>Median time open: <b>1 minute</b></li>
+        <li><b>99%</b> resolved before anyone could open them</li>
+        <li>Summaries read "46°C off pad (limit 45°C)"</li>
+        <li>Healthy T7s sit at 44 to 46°C during service</li>
+      </ul>
+    </div>
+  </div>
+  <p>The crash rule is better built: a 15 minute window and one row per episode. But a device that crashes every window still produces a fresh alert each time instead of "this device has crashed 14 times today".</p>
+
+  <h2>What is on and what is off</h2>
+  <div class="card">
+    <div class="rules">
+      <div>
+        <h3>On</h3>
+        <ul>
+          <li><b>overheating</b> 45 / 65°C <span class="pill bad">the noisy one</span></li>
+          <li><b>storage_low</b> 5 GB</li>
+          <li><b>storage_filling</b> 2 GB drop</li>
+          <li><b>storage_warning</b> 14 GB</li>
+          <li><b>memory_low</b> 400 MB</li>
+          <li><b>new_device</b></li>
+          <li><b>battery_low</b> 20% at peak</li>
+          <li><b>device_crash</b> 15 min window</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Off</h3>
+        <ul>
+          <li><b>offline</b> 30 min <span class="pill warn">should be on</span></li>
+          <li><b>offline_peak</b> 5 min <span class="pill warn">should be on</span></li>
+          <li><b>wifi_weak</b>, <b>wifi_unstable</b></li>
+          <li><b>charger_flapping</b>, <b>wlc_dead</b>, <b>wlc_continuous</b></li>
+          <li><b>slow_charge_night</b>, <b>battery_high_night</b></li>
+          <li><b>temp_elevated</b>, <b>memory_pressure</b></li>
+        </ul>
+      </div>
+    </div>
+    <p class="small" style="margin:14px 0 0">Turning off "offline" removed the one alert an operator can always act on, while the rule producing 86% of the volume stayed on. The Teams channel receives warning and above in realtime, so every overheating blip reached the channel too.</p>
+  </div>
+
+  <h2>What an alert should be</h2>
+  <p>An alert is a condition that a named person can do something about, that lasts long enough to be looked at, and that is stated once. Everything else is telemetry and belongs on the device page, not in the inbox.</p>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Severity</th><th>Qualifies</th><th>Goes to</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill bad">critical</span></td><td>Offline in service. Crash loop: 3 crashes in an hour. Storage under 1 GB. Battery under 10% and not charging at peak.</td><td>Teams channel, realtime, and the page</td></tr>
+        <tr><td><span class="pill warn">warning</span></td><td>Sustained heat, low storage, low memory, misplaced pad, slow overnight charge.</td><td>The page, and one 8 am digest</td></tr>
+        <tr><td><span class="pill off">info</span></td><td>New device onboarded, update landed, kiosk mode changed.</td><td>Activity log only</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h2>The plan</h2>
+  <ol class="plan">
+    <li><div><b>Hysteresis and duration on every threshold rule</b><span>Fire when the condition has held for N minutes (overheating: 5). Resolve only after it has been clear for M minutes (10) and below a lower bound (42°C). One episode, one alert.</span></div><span class="who">build</span></li>
+    <li><div><b>Cooldown per device per type</b><span>The same alert on the same device within 30 minutes of resolving reopens the old row and bumps its count. The list reads "746 overheated 6 times today", one line.</span></div><span class="who">build</span></li>
+    <li><div><b>Overheating limit 48°C off pad</b><span>45°C is where healthy T7s sit during service. Keep 65°C on the wireless pad.</span></div><span class="who">setting</span></li>
+    <li><div><b>Offline back on, with a real threshold</b><span>15 minutes during service hours, 60 minutes outside. Offline is the alert restaurants feel.</span></div><span class="who">setting</span></li>
+    <li><div><b>Severity that routes</b><span>Only critical goes to Teams in realtime. Warnings stay on the page. Info goes to the activity log.</span></div><span class="who">build</span></li>
+    <li><div><b>Flapper detection</b><span>A device that fires the same alert more than 5 times in a day gets one "flapping" alert and is muted for that type until an operator resolves it. Would have turned 95 alerts into 1.</span></div><span class="who">build</span></li>
+    <li><div><b>Daily digest for warnings</b><span>One Teams post at 8 am: "3 devices worth a look", linking to the alerts page.</span></div><span class="who">build</span></li>
+    <li><div><b>Stop clearing the inbox</b><span>With 1 to 6 in place the list stays short by itself, and history survives for trend analysis.</span></div><span class="who">habit</span></li>
+  </ol>
+
+  <h2>Expected result</h2>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th></th><th class="n">Today</th><th class="n">After</th></tr></thead>
+      <tbody>
+        <tr><td>Alerts in those two days</td><td class="n">147</td><td class="n">≈ 12</td></tr>
+        <tr><td>Critical, sent to Teams</td><td class="n">147</td><td class="n">3 to 4</td></tr>
+        <tr><td>Rows for device 746</td><td class="n">95</td><td class="n">1</td></tr>
+        <tr><td>Offline devices alerted</td><td class="n">0</td><td class="n">all of them</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <p class="small">Items 3 and 4 are settings under Alerts › Alert rules and can be changed today. Items 1, 2, 5 and 6 are the first build batch; 7 follows.</p>
+</div>
+</body>
+</html>
