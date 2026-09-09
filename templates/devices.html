@@ -166,13 +166,13 @@
     <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
     <span class="selbar-sep"></span>
     {{if true}}
-    <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
+    {{if canAdmin .Role}}<form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
-      <button type="submit" class="cc-btn sm selbar-danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}>Mark inactive</button>
-    </form>
-    <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
+      <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
+    </form>{{end}}
+    {{if canAdmin .Role}}<form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
       <button type="submit" class="cc-btn sm">Reactivate</button>
-    </form>
+    </form>{{end}}
     {{end}}
     {{if true}}
     <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
