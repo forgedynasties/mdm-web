@@ -1682,8 +1682,15 @@ func (h *Handler) currentDisplayName(r *http.Request) string {
 			return u.DisplayName()
 		}
 	}
+	if s.Username == "admin" {
+		return builtinAdminDisplayName
+	}
 	return s.Username
 }
+
+// builtinAdminDisplayName is shown for the config-defined "admin" login, which has
+// no users row (and so no first/last name) to draw a display name from.
+const builtinAdminDisplayName = "Ali"
 
 // audit records an admin action (best-effort; never blocks the request).
 //
@@ -13177,7 +13184,7 @@ var commandRoles = map[string][]string{
 
 var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "super_op": 2, "dev": 3, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "super_op": "Super op", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
+var roleLabels = map[string]string{"admin": "Super Admin", "dev": "Dev", "user_manager": "Access admin", "super_op": "Super op", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
 
 // roleOrder is every assignable role, highest first.
 var roleOrder = []string{"admin", "dev", "user_manager", "super_op", "operator", "viewer", "owner"}
