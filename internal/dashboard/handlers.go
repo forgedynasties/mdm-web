@@ -4279,6 +4279,12 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	case score >= 50:
 		scoreClass = "warn"
 	}
+	// "Why this score": the venue penalties behind the ring, biggest first.
+	healthReasons := explainFleetHealth(groups, crashStats.ByRestaurant)
+	healthLost := 0.0
+	for _, r := range healthReasons {
+		healthLost += r.Points
+	}
 
 	offline := summary.Total - summary.RecentlyActive
 	attention := offline + summary.LowBattery + hot
@@ -4672,6 +4678,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"Hot":             hot,
 		"Attention":       attention,
 		"Score":           score,
+		"HealthReasons":   healthReasons,
+		"HealthLost":      healthLost,
 		"ScoreClass":      scoreClass,
 		// 2π·r44 = 276.5; the ring template animates to this offset.
 		"RingOffset":           fmt.Sprintf("%.1f", 276.5*float64(100-score)/100),
@@ -16129,7 +16137,7 @@ func (h *Handler) AISummaryRefresh(w http.ResponseWriter, r *http.Request) {
 // fires on the first housekeeping run at or after 08:00 local each day, so the
 // summary reflects daytime service rather than overnight charging.
 func (h *Handler) maybeSendDigest(ctx context.Context) {
-	if !h.cfg.AIDigestEnabled() || !h.cfg.AIEnabled() {
+	if !h.cfg.AIDigestEnabled() {
 		return
 	}
 	url := h.cfg.AlertWebhookURL()
@@ -16153,19 +16161,36 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	deployed, lab, _ := h.db.DeploymentCounts(cctx)
-	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(cctx))
-	if err != nil {
-		log.Printf("[digest] analyze: %v", err)
-		return
+	// Deterministic "fleet health, explained" is the floor: it always goes out.
+	// The AI narrative is layered on top when it is configured and answers.
+	fleetScore, den := 0, 0
+	for _, g := range groups {
+		fleetScore += g.Score * g.DeviceCount
+		den += g.DeviceCount
 	}
-	if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
-		log.Printf("[digest] record usage: %v", err)
+	if den > 0 {
+		fleetScore /= den
+	} else {
+		fleetScore = 100
 	}
-	// The report is structured JSON; flatten it to readable text for the webhook.
-	msg := text
-	if rep, ok := ai.ParseReport(text); ok {
-		msg = rep.Text()
+	crashStats, _ := h.db.GetFleetCrashStats(cctx, 4)
+	msg := healthExplainText(fleetScore, 0, explainFleetHealth(groups, crashStats.ByRestaurant))
+	if h.cfg.AIEnabled() {
+		client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
+		text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(cctx))
+		if err != nil {
+			log.Printf("[digest] analyze: %v (sending the explained score instead)", err)
+		} else {
+			if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
+				log.Printf("[digest] record usage: %v", err)
+			}
+			// The report is structured JSON; flatten it to readable text for the webhook.
+			narrative := text
+			if rep, ok := ai.ParseReport(text); ok {
+				narrative = rep.Text()
+			}
+			msg = narrative + "\n\n" + msg
+		}
 	}
 	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+msg); err != nil {
 		log.Printf("[digest] webhook: %v", err)

@@ -69,8 +69,19 @@
 </div>
 {{else}}
 <div class="ov3-card">
-  <div class="ov3-ch"><span class="ic ai"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 16l2.5-3 2 2 3.5-4"/></svg></span><h3>Daily report</h3><a class="r" href="/fleet-health" style="margin-left:auto">Fleet health →</a></div>
-  <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span><div><b>No report yet</b>The hourly AI briefing appears here once it has been generated from Fleet health.</div></div>
+  <div class="ov3-ch"><span class="ic ai"><svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 16l2.5-3 2 2 3.5-4"/></svg></span><h3>Daily report</h3><span class="m">fleet health, explained</span></div>
+  {{if .HealthReasons}}
+  <div class="ov3-brief-body" style="padding-top:10px">
+    <div class="ov3-brief-lede">Fleet health is <b>{{.Score}}</b>{{if ne .ScoreDelta 0}} ({{if lt .ScoreDelta 0}}{{.ScoreDelta}}{{else}}+{{.ScoreDelta}}{{end}} vs last week){{end}}. {{len .HealthReasons}} thing{{if ne (len .HealthReasons) 1}}s{{end}} pull it down, biggest first.</div>
+    {{$lost := (index .HealthReasons 0).Points}}
+    {{range $i, $r := .HealthReasons}}{{if lt $i 5}}
+    <a class="ov3-reason {{$r.Class}}" href="{{$r.Href}}"><span class="pts">{{$r.PointsLabel}}</span><span class="bar"><i style="width:{{$r.Pct $lost}}%"></i></span><span class="txt"><b>{{$r.Venue}}</b> · {{$r.What}}<small>{{$r.Do}}</small></span></a>
+    {{end}}{{end}}
+    <div class="ov3-brief-more"><a href="/fleet-health">Full analysis →</a></div>
+  </div>
+  {{else}}
+  <div class="ov3-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Fleet health is {{.Score}}</b>Nothing is pulling the score down right now.</div></div>
+  {{end}}
 </div>
 {{end}}
 {{end}}

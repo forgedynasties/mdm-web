@@ -46,6 +46,25 @@
 .ov3-pill{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
 .ov3-hero.is-ok .ov3-pill{background:var(--ok-bg);color:var(--ok)}.ov3-hero.is-danger .ov3-pill{background:var(--danger-bg);color:var(--danger)}
 .ov3-delta{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4}
+.ov3-why{margin-top:10px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--surface);border-radius:40px;padding:5px 11px;font:inherit;font-size:12px;font-weight:500;color:var(--accent-text);cursor:pointer}
+.ov3-why svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;transition:transform .15s}
+.ov3-why.on svg{transform:rotate(180deg)}
+.ov3-explain{grid-column:1/-1;border-top:1px solid var(--border-soft);padding:14px 26px 16px;background:var(--surface2)}
+.ov3-explain[hidden]{display:none}
+.ov3-explain-h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:500;margin-bottom:10px}
+.ov3-explain-h .m{font-weight:400;font-size:11.5px;color:var(--muted)}
+.ov3-reason{display:grid;grid-template-columns:52px 120px 1fr;gap:12px;align-items:center;padding:9px 12px;border-radius:12px;background:var(--surface);margin-bottom:6px;text-decoration:none;color:inherit;box-shadow:var(--shadow-sm)}
+.ov3-reason:hover{background:var(--hover)}
+.ov3-reason .pts{font-family:var(--font-display);font-size:18px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--warn)}
+.ov3-reason.bad .pts{color:var(--danger)}.ov3-reason.ok .pts{color:var(--ok)}
+.ov3-reason .bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden}
+.ov3-reason .bar i{display:block;height:100%;background:var(--warn);border-radius:3px}
+.ov3-reason.bad .bar i{background:var(--danger)}
+.ov3-reason .txt{font-size:13px;min-width:0}
+.ov3-reason .txt b{font-weight:500}
+.ov3-reason .txt small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.ov3-explain-f{font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5}
+@media(max-width:720px){.ov3-reason{grid-template-columns:48px 1fr}.ov3-reason .bar{display:none}}
 .ov3-delta b{font-weight:700}.ov3-delta b.up{color:var(--ok)}.ov3-delta b.down{color:var(--danger)}
 .ov3-msg{padding:22px 26px;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .ov3-facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
@@ -604,6 +623,7 @@
         <div class="ov3-st">Fleet health</div>
         <span class="ov3-pill">{{.StatusWord}}</span>
         <div class="ov3-delta">7-day window{{if ne .ScoreDelta 0}}<br><b class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}}</b> vs prior week{{else}}<br>steady vs prior week{{end}}</div>
+        <button type="button" class="ov3-why" onclick="var p=document.getElementById('ov3-explain');p.hidden=!p.hidden;this.classList.toggle('on',!p.hidden)" aria-controls="ov3-explain" aria-expanded="false">Why {{.Score}}? <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       </div>
     </div>
 
@@ -634,6 +654,23 @@
         <div><b>{{.Summary.UniqueBuilds}}</b>distinct build{{if ne .Summary.UniqueBuilds 1}}s{{end}}</div>
       </div>
     </div>
+  <div class="ov3-explain" id="ov3-explain" hidden>
+    <div class="ov3-explain-h"><span>Why {{.Score}} and not 100</span>{{if .HealthReasons}}<span class="m">{{len .HealthReasons}} reason{{if ne (len .HealthReasons) 1}}s{{end}} · biggest first · points are fleet points, weighted by each venue's share of devices</span>{{end}}</div>
+    {{if .HealthReasons}}
+    {{$lost := (index .HealthReasons 0).Points}}
+    {{range $i, $r := .HealthReasons}}{{if lt $i 8}}
+    <a class="ov3-reason {{$r.Class}}" href="{{$r.Href}}">
+      <span class="pts">{{$r.PointsLabel}}</span>
+      <span class="bar"><i style="width:{{$r.Pct $lost}}%"></i></span>
+      <span class="txt"><b>{{$r.Venue}}</b> · {{$r.What}}<small>{{$r.Do}}</small></span>
+    </a>
+    {{end}}{{end}}
+    {{if gt (len .HealthReasons) 8}}<a class="ov3-foot" href="/fleet-health">{{sub (len .HealthReasons) 8}} more reasons, smallest last →</a>{{end}}
+    {{else}}
+    <div class="ov3-reason ok"><span class="pts">−0</span><span class="txt"><b>Nothing is pulling the score down.</b><small>Every venue is online, charging, cool and on one build, with no open alerts.</small></span></div>
+    {{end}}
+    <div class="ov3-explain-f">Score = 100 minus, per venue: offline share (up to 40) · critical alerts (15 each) · warnings (4 each) · poor charging (15) · battery decline (15) · a device at 45°C or more (15) · extra builds (5 each). Venues count by their number of devices.</div>
+  </div>
   </div>
 
   {{end}}
