@@ -96,6 +96,11 @@
 .co-dev .st.off{background:var(--rule)}
 .co-tag{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:var(--accent-2-soft);color:var(--accent-2);flex:none}
 .co-listempty{font-size:12px;color:var(--muted);padding:8px 2px 10px}
+.co-sellist{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px;align-content:start;max-height:220px;overflow-y:auto}
+.co-sellist .co-scope{grid-column:1/-1;margin-bottom:0}
+.co-sel-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);text-align:center;margin-left:4px}
+.co-fly{position:fixed;z-index:200;pointer-events:none;margin:0;box-shadow:var(--shadow-pop)}
+@media(prefers-reduced-motion:reduce){.co-fly{display:none}}
 .co-paste{width:100%;display:flex;align-items:center;gap:8px;border:1px dashed var(--rule);border-radius:var(--r-2);background:none;padding:8px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;margin-bottom:6px}
 .co-paste:hover{color:var(--accent-text);border-color:var(--accent-edge)}
 .co-paste svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;flex:none}
@@ -343,6 +348,8 @@ select.co-in{flex:0 1 auto;min-width:180px}
           <button type="button" class="co-qf" data-qf="dpc">DPC <span class="n"></span></button>
           <button type="button" class="co-qf" data-qf="kiosk">In kiosk</button>
         </div>
+        <div class="co-r-cap" id="co-sel-cap" hidden>Selected <span class="co-sel-n" id="co-sel-n"></span></div>
+        <div class="co-sellist" id="co-sel" hidden></div>
         <div class="co-r-cap co-r-cap-tabs">Scopes — one click adds all
           <span class="co-stabs" id="co-stabs" role="tablist">
             <button type="button" class="co-stab on" data-stab="all" role="tab">All</button>
@@ -857,9 +864,9 @@ window.CMD_PREFILL = {{.Prefill}};
       if (QF.dpc && !d.dpc) return false;
       return true;
     });
-    // Picked devices float to the top (stable within each half) so the basket is
-    // visible in the list itself, not only in the pills.
-    shown = shown.filter(function (d) { return picked[d.serial]; }).concat(shown.filter(function (d) { return !picked[d.serial]; })).slice(0, 60);
+    // Picked devices stay where they are (checked) and are listed again in the
+    // Selected pane above; moving them to the top made the list jump on click.
+    shown = shown.slice(0, 60);
     var html = '';
     var toks = pasteTokens();
     if (toks) {
@@ -890,6 +897,9 @@ window.CMD_PREFILL = {{.Prefill}};
   // the selection and counts each device once (target_type=mixed).
   function toggleScope(kind, id) {
     disarm();
+    var wasOn = isSel(kind, id);
+    var srcSel = '.co-scope[data-kind="' + kind + '"][data-id="' + (id || '') + '"]';
+    var src = findRow(wasOn ? 'co-sel' : 'co-scopes', srcSel); src = src && src.cloneNode(true); var srcRect = src && findRow(wasOn ? 'co-sel' : 'co-scopes', srcSel).getBoundingClientRect();
     if (kind === 'all') {
       S.targets = isSel('all') ? [] : [{ kind: 'all' }];
     } else if (isSel(kind, id)) {
@@ -906,17 +916,22 @@ window.CMD_PREFILL = {{.Prefill}};
       loadScopeMembers({ kind: kind, id: id });
     }
     updateUI();
+    flyFrom(src, srcRect, findRow(wasOn ? 'co-scopes' : 'co-sel', srcSel));
   }
   function toggleDevice(serial) {
     disarm();
     if (coveredBy(serial)) { toast('Already included via ' + coveredBy(serial), 'info'); return; }
-    if (S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; })) {
+    var wasOn = S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; });
+    var srcSel = '.co-dev[data-serial="' + serial.replace(/"/g, '\\"') + '"]';
+    var srcEl = findRow(wasOn ? 'co-sel' : 'co-devs', srcSel); var src = srcEl && srcEl.cloneNode(true); var srcRect = srcEl && srcEl.getBoundingClientRect();
+    if (wasOn) {
       S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === serial); });
     } else {
       S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
       S.targets.push({ kind: 'device', serial: serial });
     }
     updateUI();
+    flyFrom(src, srcRect, findRow(wasOn ? 'co-devs' : 'co-sel', srcSel));
   }
   // Which devices each chosen scope contains, so the device list can show them
   // as included (checked, "via Harbor Grill") and duplicates don't double up.
@@ -984,6 +999,48 @@ window.CMD_PREFILL = {{.Prefill}};
     if (m && (!e || e.target === m)) m.classList.remove('modal-open');
   }
   window.closeMissingModal = closeMissingModal;
+
+  // ── Selected pane: the chosen scopes and devices, above the lists ──
+  function renderSelected() {
+    var html = '';
+    S.targets.forEach(function (t) {
+      if (t.kind === 'device') {
+        var d = devMeta[t.serial] || {};
+        html += '<button type="button" class="co-dev on" data-serial="' + esc(t.serial) + '" title="Remove">'
+          + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
+          + '<span class="bd"><span class="sn">' + esc(t.serial) + '</span>' + (d.product || d.sub ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
+          + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
+          + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
+      } else {
+        var icon = t.kind === 'all' ? 'all' : t.kind === 'restaurant' ? 'place' : 'group';
+        html += '<button type="button" class="co-scope on" data-kind="' + t.kind + '" data-id="' + esc(t.id || '') + '" title="Remove">'
+          + '<span class="ic">' + svg(icon) + '</span>'
+          + '<span class="bd"><span class="n">' + esc(targetLabel(t).replace(/ ×\d+$/, '')) + '</span><span class="m">' + (t.kind === 'all' ? 'the whole fleet' : '<span class="kt">' + t.kind + '</span>' + (t.count != null ? t.count + ' device' + (t.count === 1 ? '' : 's') : '')) + '</span></span>'
+          + '<span class="add">Remove</span></button>';
+      }
+    });
+    var has = S.targets.length > 0;
+    el('co-sel-cap').hidden = !has; el('co-sel').hidden = !has;
+    el('co-sel').innerHTML = html;
+    el('co-sel-n').textContent = S.targets.length;
+  }
+  // A picked row flies from where it was clicked to its place in the Selected
+  // pane (and back when removed) instead of teleporting. See flyFrom.
+  function findRow(root, sel) { return el(root) ? el(root).querySelector(sel) : null; }
+  function flyFrom(ghostSrc, a, to) {
+    if (!ghostSrc || !a || !to || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var b = to.getBoundingClientRect();
+    if (!a.width || !b.width) return;
+    var ghost = ghostSrc; ghost.className += ' co-fly';
+    ghost.style.left = a.left + 'px'; ghost.style.top = a.top + 'px'; ghost.style.width = a.width + 'px'; ghost.style.height = a.height + 'px'; ghost.style.transformOrigin = '0 0';
+    document.body.appendChild(ghost);
+    to.style.visibility = 'hidden';
+    var anim = ghost.animate([
+      { transform: 'translate(0,0)', opacity: 1 },
+      { transform: 'translate(' + (b.left - a.left) + 'px,' + (b.top - a.top) + 'px) scale(' + (b.width / a.width) + ')', opacity: .9 }
+    ], { duration: 360, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    anim.onfinish = anim.oncancel = function () { ghost.remove(); to.style.visibility = ''; };
+  }
 
   // ── Basket ──
   function targetLabel(t) {
@@ -1400,6 +1457,7 @@ window.CMD_PREFILL = {{.Prefill}};
     syncForm();
     renderScopes();
     renderDevs();
+    renderSelected();
     renderBasket();
     renderGrid();
     renderStrip();
@@ -1445,6 +1503,10 @@ window.CMD_PREFILL = {{.Prefill}};
     el('co-scopes').addEventListener('click', function (e) {
       var b = e.target.closest('.co-scope'); if (!b) return;
       toggleScope(b.dataset.kind, b.dataset.id || null);
+    });
+    el('co-sel').addEventListener('click', function (e) {
+      var sc = e.target.closest('.co-scope'); if (sc) { toggleScope(sc.dataset.kind, sc.dataset.id || null); return; }
+      var d = e.target.closest('.co-dev'); if (d) toggleDevice(d.dataset.serial);
     });
     el('co-devs').addEventListener('click', function (e) {
       var paste = e.target.closest('#co-addpaste');

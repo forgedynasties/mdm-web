@@ -6595,3 +6595,13 @@ body .co-send:hover { background: var(--accent-h); box-shadow: none; }
   box-shadow: 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, .08), inset 0 1px 0 rgba(255, 255, 255, .6); }
 html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, .4); border-bottom-color: rgba(255, 255, 255, .12);
   box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+/* Actions page: the Scopes and Devices lists sit in recessed wells so their
+   white rows separate from the white pane (shadow-only rows vanished on it).
+   The scroll edge fades instead of chopping the last row. */
+body .co-scopelist, body .co-devlist { background: var(--surface2); border-radius: 16px; padding: 10px; margin: 0;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent); padding-bottom: 24px; }
+body .co-scopelist { max-height: 216px; }
+body .co-devlist { max-height: 250px; gap: 8px; }
+body .co-scope, body .co-devlist > label, body .co-devlist > .co-dev { border-color: transparent; box-shadow: var(--shadow-sm); }
+body .co-scope.on { border-color: var(--accent-edge); }
+body .co-r-cap { margin-top: 14px; }
