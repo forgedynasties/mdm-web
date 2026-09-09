@@ -702,6 +702,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
 		"canOTA":     roleCanOTA,
+		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
+		"canAppLibrary": roleCanAppLibrary,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
 		"canCreateUsers": roleCreatesUsers,
@@ -2848,6 +2850,38 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 // elevation checks (who may edit whom) live in the handlers via mayManageUser.
 // requireOTA guards firmware pushes: admin, dev, or the super op (who may deploy
 // releases but not manage the release packages themselves).
+// roleCanAppLibrary: the app library (upload, register, delete) is open to the
+// roles that push software: admin, dev and super op.
+func roleCanAppLibrary(role string) bool {
+	return role == "admin" || role == "dev" || role == "super_op"
+}
+
+// requireAppLibrary guards the app library page and its upload endpoints.
+func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if !roleCanAppLibrary(s.Role) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// AppLibraryPage renders /apps: the library with upload, for admin, dev and super op.
+func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
+	apps, _ := h.db.ListApps(r.Context())
+	h.render(w, r, "apps.html", map[string]any{
+		"Title":      "App library",
+		"ActivePage": "commands",
+		"Apps":       apps,
+	})
+}
+
 func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -18400,11 +18434,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
-	post("POST /apps/upload-url", h.requireAdmin(h.AppUploadURL))
-	post("POST /apps/register", h.requireAdmin(h.AppRegister))
+	mux.HandleFunc("GET /apps", h.requireAppLibrary(h.AppLibraryPage))
+	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
+	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
-	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
+	post("POST /setup/apps/{id}/delete", h.requireAppLibrary(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))

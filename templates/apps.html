@@ -1,0 +1,17 @@
+{{define "apps.html"}}
+{{template "header" .}}
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Actions · app library</div>
+      <h1 class="cc-h1">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}} <span class="hl">ready to install</span></h1>
+      <div class="cc-sub">Upload an APK here, then push it from Actions › Install app. Uploads go straight to storage and are parsed in your browser; nothing installs until you send it.</div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn" href="/commands"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
+    </div>
+  </div>
+  {{template "app-library" .}}
+</div>
+{{template "footer" .}}
+{{end}}
