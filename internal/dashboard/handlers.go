@@ -10841,6 +10841,8 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		online[cid] = true
 	}
 	data["Devices"] = devices
+	data["HasFull"] = hasFull
+	data["SourceBuilds"] = sourceBuilds
 	data["Online"] = online
 	data["Groups"] = groups
 
