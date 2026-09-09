@@ -1146,7 +1146,7 @@ document.addEventListener('submit', function (e) {
       <div class="lib-name">{{.Name}}</div>
       {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
       <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
-      <form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>
+      {{if canAdmin $.Role}}<form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>{{end}}
     </div>
     {{end}}
   </div>
@@ -1177,7 +1177,7 @@ document.addEventListener('submit', function (e) {
       <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
     </div>
     <div class="modal-footer">
-      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
+{{if canAdmin .Role}}      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>{{end}}
       <button type="button" class="cc-btn primary" onclick="libInfoClose()">Close</button>
     </div>
   </div>

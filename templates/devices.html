@@ -74,7 +74,7 @@
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>
+      {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
 {{/* Collection toolbar next to the roster heading: manage/rename/delete the
