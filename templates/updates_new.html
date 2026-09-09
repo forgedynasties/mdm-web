@@ -39,7 +39,7 @@
   </div>
   <div class="cc-cb">
     {{if .Releases}}
-    <select class="form-input" style="max-width:420px;" onchange="if(this.value)location.href='/updates/new?release='+this.value;">
+    <select class="form-input" style="max-width:420px;" onchange="if(this.value)location.href='/updates/new?release='+this.value+(new URLSearchParams(location.search).get('serials')?'&amp;serials='+encodeURIComponent(new URLSearchParams(location.search).get('serials')):'');">
       <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
       {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}} · {{productLabel .Product}}</option>{{end}}
     </select>
@@ -215,7 +215,12 @@ function pushCount(){
   if(lbl)lbl.textContent='Push to '+n+' device'+(n===1?'':'s');
   if(btn)btn.disabled=!hasRel||n===0;
 }
-document.addEventListener('DOMContentLoaded',pushCount);
+document.addEventListener('DOMContentLoaded',function(){
+  pushCount();
+  // ?serials= (from the fleet selection panel) pre-ticks those rows once a release is chosen.
+  var pre=new URLSearchParams(location.search).get('serials'), ta=document.getElementById('push-paste');
+  if(pre&&ta){ ta.value=pre.split(',').join('\n'); if(!ta.disabled) pushPasteSelect(); else { var n=document.getElementById('push-paste-note'); if(n) n.textContent=pre.split(',').filter(Boolean).length+' devices waiting · choose a release'; } }
+});
 // Paste a serial list → tick the matching eligible rows and float them up.
 function pushPasteSelect(){
   var ta=document.getElementById('push-paste'); if(!ta) return;

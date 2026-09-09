@@ -4128,6 +4128,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	if nicknames == nil {
 		nicknames = map[uuid.UUID]string{}
 	}
+	libraryApps, _ := h.db.ListApps(r.Context())
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
@@ -4159,6 +4160,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"SortDir":              dir,
 		"Online":               online,
 		"Groups":               groups,
+		"Apps":                 libraryApps,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
 		"Products":             product.All(),
@@ -8892,6 +8894,129 @@ func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.hxDoneToastEvents(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
+}
+
+// BulkNickname renames the selected devices from one pattern. {n} is the 1-based
+// position in the selection (order as picked on the page), {serial} the full
+// serial and {last4} its tail, so "Register {n}" or "POS-{last4}" both work.
+// An empty pattern clears the nicknames.
+func (h *Handler) BulkNickname(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/devices", http.StatusSeeOther)
+		return
+	}
+	pattern := strings.TrimSpace(r.FormValue("pattern"))
+	start, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("start")))
+	if start <= 0 {
+		start = 1
+	}
+	done, denied := 0, 0
+	acc := h.access(r)
+	for i, serial := range serials {
+		device, err := h.db.GetDevice(r.Context(), serial)
+		if err != nil {
+			continue
+		}
+		if !acc.decide("notes", &device.ID).Allowed {
+			denied++
+			continue
+		}
+		last4 := serial
+		if len(last4) > 4 {
+			last4 = last4[len(last4)-4:]
+		}
+		name := strings.NewReplacer("{n}", strconv.Itoa(start+i), "{serial}", serial, "{last4}", last4).Replace(pattern)
+		if len(name) > 40 {
+			name = name[:40]
+		}
+		if err := h.db.SetNickname(r.Context(), device.ID, name); err != nil {
+			continue
+		}
+		h.hub.PublishDeviceUpdate(device.ID)
+		done++
+	}
+	h.audit(r, "device.bulk_nickname", strings.Join(serials, ","), fmt.Sprintf("%d devices: %q", done, pattern))
+	msg := fmt.Sprintf("Renamed %d device%s", done, plural(done))
+	if pattern == "" {
+		msg = fmt.Sprintf("Cleared %d nickname%s", done, plural(done))
+	}
+	typ := "success"
+	if denied > 0 {
+		msg += fmt.Sprintf(" · %d not allowed by your access policy", denied)
+		if done == 0 {
+			typ = "error"
+		}
+	}
+	h.hxDoneToastEvents(w, r, "/devices", msg, typ, "refresh-devices")
+}
+
+// BulkClass sets the device type (tablet, panel, kiosk, ...) on the selection.
+func (h *Handler) BulkClass(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/devices", http.StatusSeeOther)
+		return
+	}
+	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
+	if c != "" && !product.IsClass(c) {
+		http.Error(w, "Unknown class", http.StatusBadRequest)
+		return
+	}
+	done := 0
+	for _, serial := range serials {
+		device, err := h.db.GetDevice(r.Context(), serial)
+		if err != nil {
+			continue
+		}
+		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
+			continue
+		}
+		h.hub.PublishDeviceUpdate(device.ID)
+		done++
+	}
+	h.audit(r, "device.bulk_class", strings.Join(serials, ","), fmt.Sprintf("%d devices: %s", done, c))
+	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Set type on %d device%s", done, plural(done)), "success", "refresh-devices")
+}
+
+// BulkRetire takes the selection out of the active fleet (lists, alerts, policy
+// coverage) while keeping history and placement; a later check-in brings a device
+// back. With action=unretire it does the reverse.
+func (h *Handler) BulkRetire(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/devices", http.StatusSeeOther)
+		return
+	}
+	unretire := r.FormValue("action") == "unretire"
+	done := 0
+	for _, serial := range serials {
+		device, err := h.db.GetDevice(r.Context(), serial)
+		if err != nil {
+			continue
+		}
+		status := db.EnrollRetired
+		if unretire {
+			status = db.EnrollAuto
+			if device.IsDPC() {
+				status = db.EnrollEnrolled
+			}
+		}
+		if err := h.db.SetEnrollmentStatus(r.Context(), device.ID, status); err != nil {
+			continue
+		}
+		h.hub.PublishDeviceUpdate(device.ID)
+		done++
+	}
+	verb, act := "Retired", "device.bulk_retire"
+	if unretire {
+		verb, act = "Brought back", "device.bulk_unretire"
+	}
+	h.audit(r, act, strings.Join(serials, ","), fmt.Sprintf("%d devices", done))
+	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, done, plural(done)), "success", "refresh-devices")
 }
 
 // BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
@@ -18293,6 +18418,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
+	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
+	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))
+	post("POST /devices/bulk-retire", h.requireStrictAdmin(h.BulkRetire))
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))

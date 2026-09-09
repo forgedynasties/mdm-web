@@ -1655,9 +1655,18 @@ window.CMD_PREFILL = {{.Prefill}};
   };
 
   // Init: URL serials → selection; clone prefill; base device list for the rail.
-  var qs = new URLSearchParams(window.location.search).get('serials');
+  var qsp = new URLSearchParams(window.location.search), qs = qsp.get('serials');
   if (qs && CAN) addSerials(qs);
   if (window.CMD_PREFILL && CAN) applyPrefill(window.CMD_PREFILL);
+  // ?type=reboot|screenshot|install_apk[&apk_url=] from the fleet selection panel:
+  // pick the action too, so the page opens ready to send.
+  if (qsp.get('type') && CAN && !window.CMD_PREFILL) {
+    var pf0 = { type: qsp.get('type'), serials: qs ? qs.split(',').map(function (x) { return x.trim(); }).filter(Boolean) : [] };
+    if (qsp.get('apk_url')) pf0.apk_url = qsp.get('apk_url');
+    if (applyPrefill(pf0) && pf0.serials.length) {
+      var main0 = document.getElementById('co-main'); if (main0) main0.scrollIntoView({ block: 'start' });
+    }
+  }
   updateUI();
   ensureDevices(true);
 })();

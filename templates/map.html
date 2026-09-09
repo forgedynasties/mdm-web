@@ -36,6 +36,8 @@
 .fm-seg .n{font-size:10.5px;font-weight:700;color:var(--text-faint)}
 .fm-seg i.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
 .fm-seg i.dot.ok{background:var(--ok)}.fm-seg i.dot.off{background:var(--rule-2)}
+.fm-only{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text)}
+.fm-only a{color:inherit;font-weight:600;white-space:nowrap}
 .fm-search{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:0 10px;background:var(--surface)}
 .fm-search svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;flex:none}
 .fm-search input{flex:1;border:0;background:transparent;font:inherit;font-size:13px;padding:9px 0;color:var(--text);outline:none;min-width:0}
@@ -130,7 +132,18 @@
 (function () {
   var pts = [];
   try { pts = JSON.parse(document.getElementById('fm-data').textContent || '[]'); } catch (e) {}
-  var state = { q: '', status: 'all', product: 'all', site: 'all', cluster: true, labels: false, style: 'auto' };
+  var state = { q: '', status: 'all', product: 'all', site: 'all', cluster: true, labels: false, style: 'auto', only: null };
+  // ?serials=A,B,C from the fleet selection panel: show only those devices.
+  (function () {
+    var raw = new URLSearchParams(location.search).get('serials'); if (!raw) return;
+    var set = {}; raw.split(',').forEach(function (x) { x = x.trim(); if (x) set[x] = true; });
+    state.only = set;
+    var n = Object.keys(set).length, have = pts.filter(function (p) { return set[p.serial]; }).length;
+    var host = document.querySelector('.fm-opts'); if (!host) return;
+    var chip = document.createElement('div'); chip.className = 'fm-only';
+    chip.innerHTML = '<span>Showing <b>' + have + '</b> of ' + n + ' selected device' + (n === 1 ? '' : 's') + (have < n ? ' · ' + (n - have) + ' without a location' : '') + '</span><a href="/map">Show whole fleet</a>';
+    host.insertBefore(chip, host.firstChild);
+  })();
   var map = null, markers = [], clusterer = null, iw = null, byId = {};
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function ago(iso){ var d=(Date.now()-new Date(iso).getTime())/1000; if(!isFinite(d)) return ''; if(d<90) return 'just now'; if(d<3600) return Math.round(d/60)+'m ago'; if(d<86400) return Math.round(d/3600)+'h ago'; return Math.round(d/86400)+'d ago'; }
@@ -154,6 +167,7 @@
   function visible() {
     var q = state.q.trim().toLowerCase();
     return pts.filter(function (p) {
+      if (state.only && !state.only[p.serial]) return false;
       if (state.status === 'online' && !p.online) return false;
       if (state.status === 'offline' && p.online) return false;
       if (state.product !== 'all' && (p.product || '—') !== state.product) return false;

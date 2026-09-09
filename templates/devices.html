@@ -165,25 +165,59 @@
     <button type="button" id="select-all-matching" class="selbar-match" style="display:none;" onclick="selectAllMatching()"></button>
     <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
     <span class="selbar-sep"></span>
-    {{if true}}
-    {{if canAdmin .Role}}<form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
-          onsubmit="return confirmBulkHide(event)">
-      <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
-    </form>{{end}}
-    {{if canAdmin .Role}}<form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
-      <button type="submit" class="cc-btn sm">Reactivate</button>
-    </form>{{end}}
+
+    {{if canAdminOrOperator .Role}}
+    <div class="ss-sec">
+      <div class="ss-lbl">Send</div>
+      <button type="button" class="cc-btn sm primary ss-w" onclick="bulkAction()"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
+        <button type="button" class="cc-btn sm" onclick="openBulkInstallModal()" title="Pick an app from the library to install on these devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+        {{if canOTA .Role}}<button type="button" class="cc-btn sm" onclick="bulkGo('/updates/new')" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
+      </div>
+    </div>
     {{end}}
-    {{if true}}
-    <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
-    <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
-    {{if .ActiveGroup}}
-    <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')">Remove from group</button>
-    {{end}}
-    {{end}}
-    {{if true}}
-    <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
-    <button type="button" class="cc-btn sm primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="bulkAction()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+
+    <div class="ss-sec">
+      <div class="ss-lbl">Organize</div>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
+        <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
+        {{if canAdminOrOperator .Role}}
+        <button type="button" class="cc-btn sm" onclick="bulkSaveAsGroup()" title="Create a new group from this selection so you can reuse it">Save as group</button>
+        <button type="button" class="cc-btn sm" onclick="openBulkRenameModal()" title="Nickname the selection from a pattern, e.g. Register {n}">Rename</button>
+        {{end}}
+        {{if .ActiveGroup}}
+        <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')">Remove from group</button>
+        {{end}}
+      </div>
+    </div>
+
+    <div class="ss-sec">
+      <div class="ss-lbl">Data</div>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/export/visualize')" title="Chart the last 7 days of these devices side by side"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg>Compare</button>
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/map')" title="Show only these devices on the map"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Show on map</button>
+        <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
+      </div>
+    </div>
+
+    {{if canAdmin .Role}}
+    <div class="ss-sec">
+      <div class="ss-lbl">Admin</div>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the device type (tablet, panel, kiosk…)">Set type</button>
+        <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
+        <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:contents;" onsubmit="return confirmBulkHide(event)">
+          <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
+        </form>
+        <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
+          <button type="submit" class="cc-btn sm">Reactivate</button>
+        </form>
+      </div>
+    </div>
     {{end}}
   </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
@@ -328,7 +362,6 @@ a.fleet-rail-item{min-height:40px}
     <div class="cc-actions fl-actions">
       {{if canAdmin .Role}}<a class="cc-btn" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
       {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
-      <button type="button" class="cc-btn" id="export-btn" onclick="bulkExport()" disabled title="Select devices to export them"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
   </div>
@@ -1127,6 +1160,111 @@ function bulkExport() {
     + '&from=' + encodeURIComponent(location.pathname + location.search);
 }
 
+// Open another page with the selection carried along (?serials=A,B,C plus extras).
+function bulkGo(path, extra) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var q = new URLSearchParams(); q.set('serials', serials.join(','));
+  Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
+  window.location.href = path + '?' + q.toString();
+}
+function bulkCopySerials() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var text = serials.join('\n');
+  var done = function () { if (window.showToast) showToast('Copied ' + serials.length + ' serial' + (serials.length === 1 ? '' : 's'), 'success'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { ssCopyFallback(text); done(); });
+  else { ssCopyFallback(text); done(); }
+}
+function ssCopyFallback(text) {
+  var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove();
+}
+// Put the current selection into a form as hidden serials inputs.
+function ssFillSerials(form) {
+  var serials = getSelectedSerials();
+  form.querySelectorAll('input[name="serials"]').forEach(function (i) { i.remove(); });
+  serials.forEach(function (s) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'serials'; i.value = s; form.appendChild(i); });
+  return serials.length;
+}
+function ssOpen(id) { var m = document.getElementById(id); if (m) m.classList.add('modal-open'); }
+function ssClose(id, event) { var m = document.getElementById(id); if (!m) return; if (!event || event.target === m) m.classList.remove('modal-open'); }
+// Save as group: the Add-to-group modal, pre-set to "new group" with a suggested name.
+function bulkSaveAsGroup() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  openBulkGroupModal();
+  var sel = document.getElementById('bulk-group-select');
+  if (sel) { sel.value = '__new__'; onBulkGroupSelect(); }
+  var name = document.getElementById('bulk-group-name');
+  if (name && !name.value) {
+    var d = new Date(), mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    name.value = 'Selection ' + mon + ' ' + d.getDate() + ' · ' + serials.length;
+    name.select();
+  }
+}
+// Install app: library picker, then hands off to Actions with the APK and devices ready.
+function openBulkInstallModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var c = document.getElementById('bulk-install-count'); if (c) c.textContent = serials.length;
+  ssOpen('bulk-install-modal');
+}
+function submitBulkInstall(event) {
+  event.preventDefault();
+  var pick = document.querySelector('#bulk-install-modal input[name="apk_url"]:checked');
+  if (!pick) return false;
+  bulkGo('/commands', { type: 'install_apk', apk_url: pick.value });
+  return false;
+}
+// Rename: pattern with {n}, {serial}, {last4}; live preview of the first names.
+function openBulkRenameModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var c = document.getElementById('bulk-rename-count'); if (c) c.textContent = serials.length;
+  ssPreviewRename();
+  ssOpen('bulk-rename-modal');
+  var inp = document.getElementById('bulk-rename-pattern'); if (inp) { inp.focus(); inp.select(); }
+}
+function ssPreviewRename() {
+  var serials = getSelectedSerials();
+  var pat = (document.getElementById('bulk-rename-pattern') || {}).value || '';
+  var start = parseInt((document.getElementById('bulk-rename-start') || {}).value, 10); if (!(start > 0)) start = 1;
+  var out = document.getElementById('bulk-rename-preview'); if (!out) return;
+  if (!pat.trim()) { out.innerHTML = '<span class="muted">Empty pattern clears the nicknames.</span>'; return; }
+  var rows = serials.slice(0, 4).map(function (s, i) {
+    var n = pat.replace(/\{n\}/g, String(start + i)).replace(/\{serial\}/g, s).replace(/\{last4\}/g, s.slice(-4)).slice(0, 40);
+    return '<div><code>' + ssEscape(s) + '</code> → <b>' + ssEscape(n) + '</b></div>';
+  });
+  if (serials.length > 4) rows.push('<div class="muted">… and ' + (serials.length - 4) + ' more</div>');
+  out.innerHTML = rows.join('');
+}
+function ssEscape(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function submitBulkRename(event) {
+  var f = event.target;
+  if (!ssFillSerials(f)) { event.preventDefault(); return false; }
+  return true;
+}
+// Set type (admin): one class for the whole selection.
+function openBulkClassModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var c = document.getElementById('bulk-class-count'); if (c) c.textContent = serials.length;
+  ssOpen('bulk-class-modal');
+}
+function submitBulkClass(event) {
+  if (!ssFillSerials(event.target)) { event.preventDefault(); return false; }
+  return true;
+}
+// Retire (admin): out of the active fleet, history kept; a check-in brings a device back.
+function bulkRetire() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  if (!confirm('Retire ' + serials.length + ' device' + (serials.length === 1 ? '' : 's') + '?\n\nThey leave lists, alerts and policy coverage but keep their history. A later check-in brings a device back.')) return;
+  var f = document.getElementById('bulk-retire-form'); if (!f) return;
+  ssFillSerials(f); f.submit();
+}
+
 // Remove the selected devices from the group currently filtering the roster.
 // Only wired up when a group filter is active (?group=<id>); reloads to reflect
 // the shrunken roster.
@@ -1840,6 +1978,81 @@ document.addEventListener('keydown', function(e) {
     </div>
   </div>
 </div>
+
+<div id="bulk-install-modal" class="modal-backdrop" onclick="ssClose('bulk-install-modal', event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Install app</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-install-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small">Pick an app from the library. Actions opens next with the APK and <span id="bulk-install-count">0</span> device(s) ready to send.</div>
+      <form onsubmit="return submitBulkInstall(event)" style="margin-top:12px;">
+        <div class="ss-apps">
+          {{range $i, $a := .Apps}}
+          <label class="ss-app">
+            <input type="radio" name="apk_url" value="{{$a.ApkURL}}"{{if eq $i 0}} checked{{end}}>
+            {{if $a.Icon}}<img src="{{$a.Icon}}" alt="" width="28" height="28">{{else}}<span class="ss-app-ph"></span>{{end}}
+            <span class="ss-app-t"><b>{{$a.Name}}</b><small>{{if $a.VersionName}}v{{$a.VersionName}} · {{end}}{{$a.PackageName}}</small></span>
+          </label>
+          {{else}}
+          <div class="muted small">The library is empty.{{if canAppLibrary $.Role}} <a href="/apps">Add an app →</a>{{end}}</div>
+          {{end}}
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top:12px;"{{if not .Apps}} disabled{{end}}>Continue to Actions</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="bulk-rename-modal" class="modal-backdrop" onclick="ssClose('bulk-rename-modal', event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Rename devices</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-rename-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small"><span id="bulk-rename-count">0</span> selected device(s) get a nickname from the pattern, in the order they were picked. <code>{n}</code> counts up, <code>{serial}</code> and <code>{last4}</code> insert the serial.</div>
+      <form action="/devices/bulk-nickname" method="POST" class="command-form" style="padding:0;margin-top:12px;" onsubmit="return submitBulkRename(event)">
+        <div class="form-row">
+          <label class="form-label" for="bulk-rename-pattern">Pattern</label>
+          <input type="text" name="pattern" id="bulk-rename-pattern" class="form-input" value="Register {n}" maxlength="40" oninput="ssPreviewRename()">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="bulk-rename-start">Start counting at</label>
+          <input type="number" name="start" id="bulk-rename-start" class="form-input" value="1" min="1" style="max-width:120px;" oninput="ssPreviewRename()">
+        </div>
+        <div class="ss-preview" id="bulk-rename-preview"></div>
+        <button type="submit" class="btn-primary">Rename</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{{if canAdmin .Role}}
+<div id="bulk-class-modal" class="modal-backdrop" onclick="ssClose('bulk-class-modal', event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Set device type</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-class-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small"><span id="bulk-class-count">0</span> selected device(s) get this type. It drives filters and the capability defaults.</div>
+      <form action="/devices/bulk-class" method="POST" class="command-form" style="padding:0;margin-top:12px;" onsubmit="return submitBulkClass(event)">
+        <div class="form-row">
+          <label class="form-label" for="bulk-class-select">Type</label>
+          <select name="device_class" id="bulk-class-select" class="form-input">
+            {{range classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
+            <option value="">Not set</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">Set type</button>
+      </form>
+    </div>
+  </div>
+</div>
+<form action="/devices/bulk-retire" method="POST" id="bulk-retire-form" hidden></form>
+{{end}}
 
 <div id="bulk-restaurant-modal" class="modal-backdrop" onclick="closeBulkRestaurantModal(event)">
   <div class="modal-box">
