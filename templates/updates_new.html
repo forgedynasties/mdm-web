@@ -110,7 +110,9 @@
           {{if $onTarget}}<span class="rchip muted">up to date</span>
           {{else if $newer}}<span class="rchip" style="color:#e0982a;border-color:rgba(224,152,42,.4);" title="On a newer release ({{$newer}}) — can't OTA an older release onto it">newer installed</span>
           {{else if $updating}}<span class="rchip" style="color:#5aa9e6;border-color:rgba(90,169,230,.4);">● updating{{if ne $updating $rel.Version}} → {{$updating}}{{end}}</span>
-          {{else if $noArtifact}}<span class="rchip muted" title="Incremental-only release with no update from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}">no update for this build</span>{{end}}
+          {{else if $noArtifact}}<span class="rchip muted" title="Incremental-only release with no update from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}">no update for this build</span>
+          {{else if index $.SourceBuilds .BuildID}}<span class="rchip" style="color:#3ecf8e;border-color:rgba(62,207,142,.4);" title="An incremental package exists from build {{.BuildID}} — a small delta download">incremental OTA</span>
+          {{else if $.HasFull}}<span class="rchip muted" title="No incremental from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}; the full image is sent">full OTA</span>{{end}}
         </label>
         {{end}}
         {{if not .PushDevices}}<div class="muted small" style="padding:16px;">No {{productLabel $rel.Product}} devices reporting yet.</div>{{end}}
