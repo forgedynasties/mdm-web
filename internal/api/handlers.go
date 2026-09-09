@@ -66,7 +66,6 @@ type Handler struct {
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
-	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, adminAPIKey string) *Handler {

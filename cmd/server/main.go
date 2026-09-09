@@ -149,9 +149,6 @@ func main() {
 	// it as "stuck" every ~90s even while the device is actively working on it. See
 	// shell.Manager.OnOTAProgress.
 	shellMgr.OnOTAProgress = func(deviceID, commandID uuid.UUID) {
-		if commandID == uuid.Nil { // legacy OTA progress has no command behind it
-			return
-		}
 		if err := database.MarkCommandReceived(context.Background(), commandID, deviceID); err != nil && !errors.Is(err, db.ErrCommandNotTargeted) {
 			log.Printf("OnOTAProgress: MarkCommandReceived error: %v", err)
 		}
@@ -536,32 +533,10 @@ func main() {
 		}
 	}()
 
-	// Legacy OTA listener: the otautil system app on pre-agent builds has this host
-	// and port baked in. Only its routes live here (internal/api/legacy_ota.go).
-	var legacyServer *http.Server
-	if lp := getEnv("LEGACY_OTA_PORT", ""); lp != "" {
-		apiHandler.SetLegacyOTAUpstream(getEnv("LEGACY_OTA_UPSTREAM", "http://host.docker.internal:8001"))
-		legacyServer = &http.Server{
-			Addr:              ":" + lp,
-			Handler:           middleware.AccessLog(apiHandler.LegacyOTAMux()),
-			ReadHeaderTimeout: 10 * time.Second,
-			IdleTimeout:       120 * time.Second,
-		}
-		go func() {
-			log.Printf("Legacy OTA listening on :%s (mode %s)", lp, cfg.LegacyOTAMode())
-			if err := legacyServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("legacy OTA server error: %v", err)
-			}
-		}()
-	}
-
 	<-shutCtx.Done()
 	log.Println("shutdown: draining in-flight requests…")
 	sdCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
-	if legacyServer != nil {
-		_ = legacyServer.Shutdown(sdCtx)
-	}
 	if err := server.Shutdown(sdCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
