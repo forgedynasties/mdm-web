@@ -6549,15 +6549,12 @@ body .cc-btn, body .ov3-btn { font-weight: 500; padding: 9px 16px; }
 html[data-theme="dark"] .cc-card, html[data-theme="dark"] .card, html[data-theme="dark"] .cc-hero, html[data-theme="dark"] .ov3-hero, html[data-theme="dark"] .cc-kpi, html[data-theme="dark"] .ov3-kpi, html[data-theme="dark"] .modal-box { border-color: rgba(255, 255, 255, .06); }
 body .cc-tag { border-radius: 40px; padding: 2px 8px; }
 
-/* Chrome: the top bar stays the original full-width sticky header; the dock
-   keeps its glass and takes the landing's pill outline. Buttons are pills in
-   solid coral; the gradient stays on the landing page only. */
-.dock { border-radius: 100px; padding: 8px; }
+/* Chrome: the top bar stays the original full-width sticky header and the
+   dock keeps its original glass and radius. Buttons are pills in solid coral;
+   the gradient stays on the landing page only. */
 /* Boosted navigation scrolls <main> into view; keep the sticky header above
    it instead of landing the page a header-height down. */
 main.container { scroll-margin-top: 72px; }
-.dock .nav-link { border-radius: 40px; font-weight: 500; }
-@media (max-width: 900px) { .dock { border-radius: 24px; } }
 /* Thin Poppins headlines run wider: give the headline column of every page
    top row room and let the action group wrap under it instead of squeezing
    the verdict into a narrow column. */
