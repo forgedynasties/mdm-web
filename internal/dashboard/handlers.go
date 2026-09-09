@@ -10715,7 +10715,8 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	counts := make(map[string]int)
 	done := 0
 	durSum, durCount := 0, 0
-	for _, t := range targets {
+	for i := range targets {
+		t := targets[i]
 		// Once a target has a terminal DB status, never show its live progress bar —
 		// shell.Manager's in-memory cache has no TTL and nothing clears it when a
 		// status is corrected out-of-band (e.g. a manual DB fix after a lost ack), so
@@ -10723,6 +10724,13 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		if t.Status != "installed" && t.Status != "failed" {
 			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
 				otaProgress[t.DeviceID.String()] = p
+				// The row's updated_at only moves at status checkpoints; progress
+				// frames land in memory. Let the freshest progress frame count as the
+				// row's last update so "Updated" and the 10-minute "stalled" check
+				// reflect a download that is actually moving.
+				if p.UpdatedAt.After(targets[i].UpdatedAt) {
+					targets[i].UpdatedAt = p.UpdatedAt
+				}
 			}
 		}
 		counts[t.Status]++
