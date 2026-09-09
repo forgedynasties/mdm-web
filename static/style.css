@@ -243,16 +243,20 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1; /* behind everything; <main> must NOT form a stacking context, see below */
   pointer-events: none;
   background: var(--page-glow);
   opacity: 0.6;
 }
 
+/* No z-index on <main>: it used to be z-index:1 to sit above the glow, which
+   made <main> a stacking context, so every modal rendered inside a page
+   (New release, kiosk mode, confirm dialogs) was trapped under the header
+   (z 40), the dock (z 45) and the top bar (z 60): the backdrop blurred the
+   page but never the chrome. The glow now sits at z -1 instead. */
 body > nav,
 body > main {
   position: relative;
-  z-index: 1;
 }
 /* NB: .modal-backdrop must NOT get position:relative here — it is a direct child of
    <body>, and relative positioning would drop the overlay into the document flow
