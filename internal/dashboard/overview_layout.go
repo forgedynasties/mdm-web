@@ -244,18 +244,30 @@ func (h *Handler) overviewLayoutFor(r *http.Request) overviewLayout {
 // hidden (title-resolved, for the "show again" list).
 func (h *Handler) overviewLayoutData(r *http.Request) map[string]any {
 	l := h.overviewLayoutFor(r)
+	// The onboarding inbox is admin-only (enrollment is): non-admins never get
+	// it rendered, listed in the customise menu, or offered under "show again".
+	widgets := overviewWidgets
+	if h.access(r).role != "admin" {
+		l = dropOverviewWidget(l, "inbox")
+		widgets = widgets[:0:0]
+		for _, w := range overviewWidgets {
+			if w.ID != "inbox" {
+				widgets = append(widgets, w)
+			}
+		}
+	}
 	hidden := map[string]bool{}
 	for _, id := range l.Hidden {
 		hidden[id] = true
 	}
 	var hiddenW []overviewWidget
-	for _, w := range overviewWidgets {
+	for _, w := range widgets {
 		if hidden[w.ID] {
 			hiddenW = append(hiddenW, w)
 		}
 	}
 	lj, _ := json.Marshal(l)
-	wj, _ := json.Marshal(overviewWidgets)
+	wj, _ := json.Marshal(widgets)
 	return map[string]any{
 		"Layout":        l,
 		"LayoutJSON":    template.JS(lj),
@@ -406,4 +418,19 @@ func (h *Handler) ServiceWorker(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Service-Worker-Allowed", "/")
 	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeFile(w, r, "static/sw.js")
+}
+
+// dropOverviewWidget removes a widget from every list of a layout.
+func dropOverviewWidget(l overviewLayout, id string) overviewLayout {
+	rm := func(in []string) []string {
+		out := in[:0:0]
+		for _, x := range in {
+			if x != id {
+				out = append(out, x)
+			}
+		}
+		return out
+	}
+	l.Hidden, l.Left, l.Right, l.Order = rm(l.Hidden), rm(l.Left), rm(l.Right), rm(l.Order)
+	return l
 }

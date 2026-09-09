@@ -313,7 +313,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{if .KioskApps}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
-              <div id="kiosk-apps-src" hidden>{{range .KioskApps}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
+              <div id="kiosk-apps-src" hidden data-allow="{{.KioskAllowlistCSV}}">{{range .KioskApps}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
               <div class="kpk" id="kiosk-picker">
                 <div class="kpk-top">
                   <span class="kpk-search">
@@ -3633,10 +3633,16 @@ async function saveNewApp() {
       var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
       out.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon'), missing: el.hasAttribute('data-missing') });
     });
+    // The live drawer merge must respect the kiosk allowlist (Settings › Devices
+    // & Kiosk), otherwise every installed app leaks into the picker.
+    var allow = (src && src.getAttribute('data-allow') || '').split(',').filter(Boolean).map(function (pat) {
+      return new RegExp('^' + pat.trim().split('*').map(function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('.*') + '$');
+    });
+    function allowed(pkg) { if (!allow.length) return true; for (var i = 0; i < allow.length; i++) if (allow[i].test(pkg)) return true; return false; }
     var live = document.getElementById('apps-live');
     if (live) [].forEach.call(live.querySelectorAll('.app-tile:not(.sys)'), function (t) {
       if (t.classList.contains('app-uninstalling') || t.classList.contains('app-installing')) return;
-      var v = t.getAttribute('data-pkg'); if (!v || seen[v]) return; seen[v] = 1;
+      var v = t.getAttribute('data-pkg'); if (!v || seen[v] || !allowed(v)) return; seen[v] = 1;
       var icon = '', img = t.querySelector('img.app-icon');
       if (img) { var s = img.getAttribute('src') || '', k = s.indexOf('base64,'); if (k >= 0) icon = s.slice(k + 7); }
       out.push({ v: v, n: t.getAttribute('data-name') || v, icon: icon, missing: false });
