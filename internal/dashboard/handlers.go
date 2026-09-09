@@ -2021,6 +2021,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	}
 	type todo struct {
 		Sev, Title, Body, Serial string
+		Kind, Station            string // Kind groups like problems into one "Needs you" row
 	}
 	type venue struct {
 		Name            string
@@ -2074,7 +2075,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		} else {
 			v.Offline++
 			st.State = "bad"
-			todos = append(todos, todo{Sev: "bad", Title: st.Name + " is offline", Serial: d.SerialNumber,
+			todos = append(todos, todo{Sev: "bad", Kind: "offline", Station: st.Name, Title: st.Name + " is offline", Serial: d.SerialNumber,
 				Body: "Last seen " + timeSinceStr(d.LastSeenAt) + ". Check that it is powered on and connected to Wi-Fi."})
 		}
 		if st.HasBattery && st.Battery < 20 {
@@ -2083,7 +2084,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 				if st.State == "ok" {
 					st.State = "warn"
 				}
-				todos = append(todos, todo{Sev: "warn", Title: st.Name + " is at " + strconv.Itoa(st.Battery) + "% and not charging", Serial: d.SerialNumber,
+				todos = append(todos, todo{Sev: "warn", Kind: "battery", Station: st.Name, Title: st.Name + " is at " + strconv.Itoa(st.Battery) + "% and not charging", Serial: d.SerialNumber,
 					Body: "Put it back on its charging dock so it lasts through service."})
 			}
 		}
@@ -2091,15 +2092,15 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			if st.State == "ok" {
 				st.State = "warn"
 			}
-			todos = append(todos, todo{Sev: "warn", Title: st.Name + "'s charging pad is misplaced", Serial: d.SerialNumber,
+			todos = append(todos, todo{Sev: "warn", Kind: "pad", Station: st.Name, Title: st.Name + "'s charging pad is misplaced", Serial: d.SerialNumber,
 				Body: "Connection issue between the pad and the device. Please place it again; if it keeps happening, let the MDM team know."})
 		}
 		if on && !d.KioskEnabled {
-			todos = append(todos, todo{Sev: "info", Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
+			todos = append(todos, todo{Sev: "info", Kind: "kiosk", Station: st.Name, Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
 				Body: "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."})
 		}
 		if st.Crashes >= 3 {
-			todos = append(todos, todo{Sev: "warn", Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
+			todos = append(todos, todo{Sev: "warn", Kind: "crashes", Station: st.Name, Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
 				Body: "The MDM team can see the details; a restart usually helps in the meantime."})
 		}
 		switch {
@@ -2353,7 +2354,73 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	} else if total > 0 {
 		lede = "Every station is charged, locked to the menu and online."
 	}
+	// "Needs you" needGroups like problems into one row each (7 stations offline,
+	// 13 pads misplaced, …) instead of one row per station per problem; the
+	// stations list below already carries the per-station detail.
+	type needGroup struct {
+		Sev, Kind, Title, Body string
+		Stations               []todo
+		More                   int // stations beyond the first few chips
+	}
+	var needGroups []needGroup
+	{
+		idx := map[string]int{}
+		order := []string{"offline", "battery", "pad", "crashes", "kiosk"}
+		for _, k := range order {
+			idx[k] = -1
+		}
+		for _, t := range todos {
+			i, ok := idx[t.Kind]
+			if !ok {
+				continue
+			}
+			if i == -1 {
+				needGroups = append(needGroups, needGroup{Sev: t.Sev, Kind: t.Kind, Body: t.Body})
+				i = len(needGroups) - 1
+				idx[t.Kind] = i
+			}
+			needGroups[i].Stations = append(needGroups[i].Stations, t)
+		}
+		sort.SliceStable(needGroups, func(a, b int) bool {
+			pos := func(k string) int {
+				for i, o := range order {
+					if o == k {
+						return i
+					}
+				}
+				return len(order)
+			}
+			return pos(needGroups[a].Kind) < pos(needGroups[b].Kind)
+		})
+		for i := range needGroups {
+			n := len(needGroups[i].Stations)
+			plural := map[bool]string{true: "s", false: ""}[n != 1]
+			switch needGroups[i].Kind {
+			case "offline":
+				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " offline"
+				needGroups[i].Body = "Check that they are powered on and connected to Wi-Fi."
+			case "battery":
+				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " low and not charging"
+				needGroups[i].Body = "Put them back on their charging docks so they last through service."
+			case "pad":
+				needGroups[i].Title = strconv.Itoa(n) + " charging pad" + plural + " misplaced"
+				needGroups[i].Body = "Place each device again on its pad. If it keeps happening, let the MDM team know."
+			case "crashes":
+				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " crashing this week"
+				needGroups[i].Body = "The MDM team can see the details; a restart usually helps in the meantime."
+			case "kiosk":
+				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " not locked to the app"
+				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."
+			}
+			if n > 6 {
+				needGroups[i].More = n - 6
+				needGroups[i].Stations = needGroups[i].Stations[:6]
+			}
+		}
+	}
 	h.render(w, r, "owner_home.html", map[string]any{
+		"TodoGroups":    needGroups,
+		"TodoCount":     len(todos),
 		"Headline":      headline,
 		"Lede":          template.HTML(lede),
 		"Title":         "Home",

@@ -9,25 +9,61 @@
 .oh h1 .hl{color:var(--accent)}
 .oh .lede{font-size:16px;color:var(--muted);max-width:64ch;margin:14px 0 0;line-height:1.55}
 .oh .lede b{color:var(--text);font-weight:500}
-.oh .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:26px}
-.oh .kpi{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px 22px 18px;min-width:0}
+.oh .cards{display:grid;grid-template-columns:repeat(4,1fr);margin-top:26px;background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .kpi{padding:20px 22px 18px;min-width:0;border-left:1px solid var(--border-soft)}
+.oh .cards .kpi:first-child{border-left:0}
 .oh .kpi .v{font-family:var(--font-display);font-size:38px;font-weight:300;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
 .oh .kpi .v.ok{color:var(--ok)}.oh .kpi .v.bad{color:var(--danger)}.oh .kpi .v.warn{color:var(--warn)}
 .oh .kpi .k{font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
 .oh h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:36px 0 12px;font-family:var(--font-display);font-size:22px;font-weight:300;letter-spacing:-.02em}
 .oh h2 span{font-family:var(--font);font-size:12.5px;color:var(--muted);text-align:right;letter-spacing:0}
-.oh .todo{display:grid;gap:10px}
-.oh .todo a{display:flex;align-items:flex-start;gap:14px;background:var(--surface);border-radius:18px;box-shadow:var(--shadow-md);padding:14px 18px;text-decoration:none;color:inherit;transition:transform .15s ease}
-.oh .todo a:hover{transform:translateY(-2px)}
+.oh .todo{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .todo a{display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-top:1px solid var(--border-soft);text-decoration:none;color:inherit;transition:background .15s ease}
+.oh .todo a:first-child{border-top:0}
+.oh .todo a:hover{background:var(--hover)}
 .oh .todo .dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px}
 .oh .dot.bad{background:var(--danger)}.oh .dot.warn{background:var(--warn)}.oh .dot.info{background:var(--accent-2)}.oh .dot.ok{background:var(--ok)}
 .oh .todo b{display:block;font-weight:500;font-size:15px}
 .oh .todo p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.45}
+.oh .todo .tg{display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-top:1px solid var(--border-soft)}
+.oh .todo .tg:first-child{border-top:0}
+.oh .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.oh .chips a{font:500 11.5px var(--mono);color:var(--text-2);background:var(--surface2);border-radius:40px;padding:4px 10px;text-decoration:none}
+.oh .chips a:hover{background:var(--accent-soft);color:var(--accent-text)}
+.oh .chips .more{font-size:11.5px;color:var(--muted);padding:4px 4px}
+.oh .help{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .hb{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:20px 22px;border:0;border-left:1px solid var(--border-soft);background:none;font:inherit;color:inherit;cursor:pointer;transition:background .15s ease}
+.oh .hb:first-child{border-left:0}.oh .hb:hover{background:var(--hover)}
+.oh .hb .ic{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+.oh .hb .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.oh .hb b{font-weight:500;font-size:14.5px}.oh .hb span:last-child{font-size:12.5px;color:var(--muted);line-height:1.45}
+.oh .soon{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .tile{position:relative;padding:20px 22px 18px;border-left:1px solid var(--border-soft);min-width:0}
+.oh .tile:first-child,.oh .tile:nth-child(5){border-left:0}.oh .tile:nth-child(n+5){border-top:1px solid var(--border-soft)}
+.oh .tile .v{font-family:var(--font-display);font-size:30px;font-weight:300;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.oh .tile .v.ok{color:var(--ok)}.oh .tile .v.warn{color:var(--warn)}
+.oh .tile .k{font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.oh .tile .d{font-size:12px;color:var(--muted);margin-top:6px}
+.oh .pv{position:absolute;top:12px;right:12px;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);background:var(--accent-2-soft);border-radius:40px;padding:3px 8px}
+.oh .soon2{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px;margin-top:16px}
+.oh .soon2>div{position:relative;background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:20px 22px}
+.oh .ai{display:flex;gap:14px;align-items:flex-start}
+.oh .ai .orb{width:40px;height:40px;border-radius:12px;background:var(--brand-grad);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.oh .ai .orb svg{width:18px;height:18px;fill:currentColor}
+.oh .ai b,.oh .list b{font-weight:500;font-size:15px}
+.oh .ai p{margin:6px 0 12px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.oh .fake-in{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:40px;padding:9px 14px;font-size:13px;color:var(--text-faint);background:var(--surface2)}
+.oh .fake-in i{font-style:normal;font-size:12px;color:var(--muted)}
+.oh .list .li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.oh .list .li:first-of-type{border-top:0}
+.oh .list .li em{margin-left:auto;font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.oh .list .li .dot{width:8px;height:8px;margin:0;flex:none}
 .oh .todo .go{margin-left:auto;flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
 .oh .todo .go svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.oh .roster{display:grid;gap:10px}
-.oh .row{display:grid;grid-template-columns:12px 1.5fr 120px 1.2fr 2fr;gap:16px;align-items:center;background:var(--surface);border-radius:18px;box-shadow:var(--shadow-md);padding:14px 18px;text-decoration:none;color:inherit;transition:transform .15s ease}
-.oh .row:hover{transform:translateY(-2px)}
+.oh .roster{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .row{display:grid;grid-template-columns:12px 1.5fr 120px 1.2fr 2fr;gap:16px;align-items:center;padding:14px 20px;border-top:1px solid var(--border-soft);text-decoration:none;color:inherit;transition:background .15s ease}
+.oh .row:first-child{border-top:0}
+.oh .row:hover{background:var(--hover)}
 .oh .st{width:12px;height:12px;border-radius:50%}
 .oh .st.ok{background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg)}.oh .st.warn{background:var(--warn);box-shadow:0 0 0 4px var(--warn-bg)}.oh .st.bad{background:var(--danger);box-shadow:0 0 0 4px var(--danger-bg)}
 .oh .nm{font-weight:500;font-size:15.5px;letter-spacing:-.01em;min-width:0}
@@ -52,13 +88,15 @@
 .oh .axis span:nth-child(3n+2),.oh .axis span:nth-child(3n){visibility:hidden}
 .oh .legend{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
 .oh .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-.oh .week{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.oh .week{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .week .kpi{border-left:1px solid var(--border-soft)}
+.oh .week .kpi:first-child{border-left:0}
 .oh .week .kpi .d{font-size:12.5px;margin-top:8px;font-weight:500}
 .oh .d.up{color:var(--ok)}.oh .d.dn{color:var(--danger)}
 .oh .empty{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);padding:40px 28px;color:var(--muted);margin-top:28px;font-size:15px;line-height:1.5}
 .oh .empty b{display:block;color:var(--text);font-weight:400;font-family:var(--font-display);font-size:22px;letter-spacing:-.02em;margin-bottom:6px}
-@media(max-width:900px){.oh .cards{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.oh{padding:18px 14px 110px}.oh .row{grid-template-columns:12px 1fr auto;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.oh .st{grid-area:s}.oh .nm{grid-area:n}.oh .word{grid-area:w}.oh .batt{grid-area:b}.oh .do{grid-area:d}.oh .week{grid-template-columns:1fr}.oh .day{height:56px;gap:2px}.oh .axis{gap:2px}}
+@media(max-width:900px){.oh .soon{grid-template-columns:repeat(2,1fr)}.oh .tile:nth-child(odd){border-left:0}.oh .tile:nth-child(n+3){border-top:1px solid var(--border-soft)}.oh .soon2{grid-template-columns:1fr}.oh .help{grid-template-columns:repeat(2,1fr)}.oh .hb:nth-child(3){border-left:0}.oh .hb:nth-child(n+3){border-top:1px solid var(--border-soft)}.oh .cards{grid-template-columns:repeat(2,1fr)}.oh .cards .kpi:nth-child(3){border-left:0}.oh .cards .kpi:nth-child(n+3){border-top:1px solid var(--border-soft)}}
+@media(max-width:720px){.oh{padding:18px 14px 110px}.oh .row{grid-template-columns:12px 1fr auto;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.oh .st{grid-area:s}.oh .nm{grid-area:n}.oh .word{grid-area:w}.oh .batt{grid-area:b}.oh .do{grid-area:d}.oh .soon{grid-template-columns:1fr}.oh .tile{border-left:0;border-top:1px solid var(--border-soft)}.oh .tile:first-child{border-top:0}.oh .help{grid-template-columns:1fr}.oh .hb{border-left:0;border-top:1px solid var(--border-soft)}.oh .hb:first-child{border-top:0}.oh .week{grid-template-columns:1fr}.oh .week .kpi{border-left:0;border-top:1px solid var(--border-soft)}.oh .week .kpi:first-child{border-top:0}.oh .day{height:56px;gap:2px}.oh .axis{gap:2px}}
 </style>
 {{/* The refresh poller lives OUTSIDE the content: htmx attributes are inherited,
      so hx-target/hx-select on the container would hijack every boosted link
@@ -77,11 +115,14 @@
     {{if ge .ServiceUptime 0}}<div class="kpi"><div class="v">{{.ServiceUptime}}%</div><div class="k">uptime in service</div></div>{{else}}<div class="kpi"><div class="v {{.ScoreClass}}">{{.Score}}</div><div class="k">health score{{if .ScoreWord}} · {{.ScoreWord}}{{end}}</div></div>{{end}}
   </div>
 
-  {{if .Todos}}
-  <h2>Needs you <span>{{len .Todos}} thing{{if ne (len .Todos) 1}}s{{end}} to sort out</span></h2>
+  {{if .TodoGroups}}
+  <h2>Needs you <span>{{.TodoCount}} thing{{if ne .TodoCount 1}}s{{end}} across {{len .TodoGroups}} problem{{if ne (len .TodoGroups) 1}}s{{end}}</span></h2>
   <div class="todo">
-    {{range .Todos}}
-    <a href="/devices/{{.Serial}}"><span class="dot {{.Sev}}"></span><span style="min-width:0"><b>{{.Title}}</b>{{if .Body}}<p>{{.Body}}</p>{{end}}</span><span class="go"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+    {{range .TodoGroups}}
+    <div class="tg"><span class="dot {{.Sev}}"></span><div style="min-width:0;flex:1">
+      <b>{{.Title}}</b><p>{{.Body}}</p>
+      <div class="chips">{{range .Stations}}<a href="/devices/{{.Serial}}" title="{{.Title}}">{{.Station}}</a>{{end}}{{if .More}}<span class="more">+{{.More}} more below</span>{{end}}</div>
+    </div></div>
     {{end}}
   </div>
   {{end}}
@@ -116,9 +157,83 @@
     {{range .Report}}<div class="kpi"><div class="v">{{.Value}}</div><div class="k">{{.Label}}</div>{{if .Prev}}<div class="d {{if .Better}}up{{else}}dn{{end}}">{{if .Up}}▲{{else}}▼{{end}} from {{.Prev}} last week</div>{{end}}</div>{{end}}
   </div>
   {{end}}
+
+  <h2>Coming soon <span>preview · mock data, not live yet</span></h2>
+  <div class="soon">
+    <div class="tile"><span class="pv">Preview</span><div class="v">184</div><div class="k">orders today</div><div class="d up">▲ 12% vs last Wednesday</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v">$27.40</div><div class="k">average order</div><div class="d up">▲ $1.10</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v">2m 10s</div><div class="k">guest wait at the kiosk</div><div class="d dn">▲ 20s slower than usual</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v">3 / 3</div><div class="k">payment terminals ok</div><div class="d">last transaction 40s ago</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v ok">Synced</div><div class="k">menu on every station</div><div class="d">v41 · pushed 09:12 today</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v warn">1 low</div><div class="k">receipt printers</div><div class="d">Bar printer paper under 10%</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v">Strong</div><div class="k">Wi-Fi in the dining room</div><div class="d">weakest: patio, -71 dBm</div></div>
+    <div class="tile"><span class="pv">Preview</span><div class="v">Tue 02:00</div><div class="k">next maintenance window</div><div class="d">software update, 15 min, no service impact</div></div>
+  </div>
+
+  <div class="soon2">
+    <div class="ai"><span class="pv">Preview</span>
+      <div class="orb"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></div>
+      <div style="min-width:0;flex:1">
+        <b>Ask AIO</b>
+        <p>"Which station goes down most during dinner?" · "Is the patio kiosk charging?" · "Reboot Register 1 at close."</p>
+        <div class="fake-in"><span>Ask about your stations…</span><i>↵</i></div>
+      </div>
+    </div>
+    <div class="list"><span class="pv">Preview</span>
+      <b>Service log</b>
+      <div class="li"><span class="dot ok"></span><span>Lunch service ended · every station stayed online</span><em>2:31 pm</em></div>
+      <div class="li"><span class="dot warn"></span><span>Register 1 rebooted itself once during lunch</span><em>12:48 pm</em></div>
+      <div class="li"><span class="dot info"></span><span>Menu v41 reached all stations</span><em>9:12 am</em></div>
+      <div class="li"><span class="dot ok"></span><span>Morning check: 6 of 6 charged and locked</span><em>7:00 am</em></div>
+    </div>
+    <div class="list"><span class="pv">Preview</span>
+      <b>Weekly summary email</b>
+      <p style="margin:6px 0 10px;font-size:13px;color:var(--muted);line-height:1.5">Every Monday 8 am: uptime in service, incidents, battery health and the stations that need attention. Sent to you and your manager.</p>
+      <div class="li"><span class="dot ok"></span><span>Recipients: you, manager@flightsvegas.com</span><em>on</em></div>
+      <div class="li"><span class="dot info"></span><span>Also on WhatsApp</span><em>off</em></div>
+    </div>
+  </div>
+
+  <h2>Help <span>the MDM team answers within the day</span></h2>
+  <div class="help">
+    <button type="button" class="hb" onclick="ohHelp('support')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 17h.01"/></svg></span><b>Request support</b><span>Something is not working and you need a hand.</span></button>
+    <button type="button" class="hb" onclick="ohHelp('problem')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span><b>Report a problem</b><span>A station misbehaves, a screen is cracked, a pad is dead.</span></button>
+    <button type="button" class="hb" onclick="ohHelp('replace')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span><b>Ask for a replacement</b><span>A station needs swapping before the next service.</span></button>
+    <button type="button" class="hb" onclick="ohHelp('question')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><b>Ask a question</b><span>Anything about the stations, the menu lock or charging.</span></button>
+  </div>
   {{else}}
   <div class="empty"><b>Nothing to show yet.</b>Ask your MDM administrator to assign devices to your restaurant. They will appear here with their status the moment they check in.</div>
   {{end}}
 </div>
+
+<div id="oh-help" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header"><span class="modal-title" id="oh-help-t">Request support</span><button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('oh-help').classList.remove('modal-open')">&times;</button></div>
+    <div class="modal-body">
+      <form onsubmit="return ohHelpSend(event)" style="display:flex;flex-direction:column;gap:12px;">
+        <input type="hidden" id="oh-help-kind" value="support">
+        <label class="muted small" style="display:flex;flex-direction:column;gap:6px;">Station (optional)
+          <select id="oh-help-st" class="form-input"><option value="">Not about one station</option>{{range .Venues}}{{range .Stations}}<option value="{{.Serial}}">{{.Name}}{{if ne .Name .Serial}} · {{.Serial}}{{end}}</option>{{end}}{{end}}</select></label>
+        <label class="muted small" style="display:flex;flex-direction:column;gap:6px;">What is going on?
+          <textarea id="oh-help-msg" class="form-input" rows="4" placeholder="Tell us what you see, when it started, and how urgent it is." required></textarea></label>
+        <button type="submit" class="cc-btn primary" style="align-self:flex-start;">Send to the MDM team</button>
+        <div class="muted small">This goes to the AIO MDM team. You will hear back on your usual channel.</div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  var OH_HELP = { support: 'Request support', problem: 'Report a problem', replace: 'Ask for a replacement', question: 'Ask a question' };
+  function ohHelp(kind) { document.getElementById('oh-help-kind').value = kind; document.getElementById('oh-help-t').textContent = OH_HELP[kind] || 'Help'; document.getElementById('oh-help').classList.add('modal-open'); setTimeout(function () { document.getElementById('oh-help-msg').focus(); }, 50); }
+  function ohHelpSend(e) {
+    e.preventDefault();
+    // Placeholder: no backend yet. Closes and confirms so the flow can be reviewed.
+    document.getElementById('oh-help').classList.remove('modal-open');
+    document.getElementById('oh-help-msg').value = '';
+    if (window.showToast) showToast('Sent. The MDM team will get back to you.', 'success');
+    else alert('Sent. The MDM team will get back to you.');
+    return false;
+  }
+</script>
 {{template "footer" .}}
 {{end}}
