@@ -153,34 +153,37 @@
   <button type="button" class="fchip-clear" onclick="clearFilters()">Clear all</button>
 </div>
 {{end}}
-<div class="table-toolbar">
-  <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);">
-    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.Total}}"> Select All
+<div class="table-toolbar selbar">
+  <label class="checkbox-label selbar-check">
+    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.Total}}"> Select all
   </label>
   {{/* Shown only once every checkbox on the current page is checked and more devices
        match the active filter than fit on this page — lets a bulk action reach the
        full filtered set instead of silently stopping at the current page. */}}
-  <button type="button" id="select-all-matching" class="link-btn" style="display:none;font-size:12.5px;" onclick="selectAllMatching()"></button>
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
+    <button type="button" id="select-all-matching" class="selbar-match" style="display:none;" onclick="selectAllMatching()"></button>
+    <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
+    <span class="selbar-sep"></span>
     {{if true}}
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
-      <button type="submit" class="btn-danger-sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}>Mark Inactive</button>
+      <button type="submit" class="cc-btn sm selbar-danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}>Mark inactive</button>
     </form>
     <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
-      <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Reactivate Selected</button>
+      <button type="submit" class="cc-btn sm">Reactivate</button>
     </form>
     {{end}}
     {{if true}}
-    <button type="button" class="btn-outline{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()" style="padding:3px 12px;font-size:12px;"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
-    <button type="button" class="btn-outline{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()" style="padding:3px 12px;font-size:12px;"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
+    <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
+    <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
     {{if .ActiveGroup}}
-    <button type="button" class="btn-danger-sm" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')" style="padding:3px 10px;font-size:12px;">Remove from group</button>
+    <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')">Remove from group</button>
     {{end}}
     {{end}}
     {{if true}}
-    <button type="button" class="btn-primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="bulkAction()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}} style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+    <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
+    <button type="button" class="cc-btn sm primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="bulkAction()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     {{end}}
   </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
@@ -1014,6 +1017,12 @@ function selectAllMatching() {
     });
 }
 
+function clearSelection() {
+  selectAllMatchingSet = null;
+  document.querySelectorAll('.device-cb').forEach(function (b) { b.checked = false; });
+  var all = document.getElementById('select-all'); if (all) { all.checked = false; all.indeterminate = false; }
+  updateBulkBar();
+}
 function updateBulkBar() {
   var serials = getSelectedSerials();
   var bar = document.getElementById('bulk-bar');
@@ -1039,6 +1048,17 @@ function updateBulkBar() {
   }
 
   bar.style.display = serials.length > 0 ? 'flex' : 'none';
+  // Float the bar as a tray above the dock while there is a selection. It has to
+  // live under <body>: position:fixed inside the (transformed) page container
+  // would anchor it to the container, not the viewport.
+  var tray = document.getElementById('bulk-tray');
+  if (serials.length > 0) {
+    if (!tray) { tray = document.createElement('div'); tray.id = 'bulk-tray'; document.body.appendChild(tray); }
+    if (bar.parentElement !== tray) tray.appendChild(bar);
+    tray.style.display = '';
+  } else if (tray) {
+    tray.style.display = 'none';
+  }
   count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
 
   // Inject the current selection into the bulk hide/unhide forms.
