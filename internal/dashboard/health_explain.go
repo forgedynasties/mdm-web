@@ -135,3 +135,51 @@ func healthExplainText(score, delta int, reasons []healthReason) string {
 	}
 	return b.String()
 }
+
+// whyScore lists, for one venue or group, the penalties behind its own score
+// (venue points, not fleet-weighted), for the "?" popover next to every score.
+// Accepts a GroupHealth or a pointer to one; anything else yields nothing.
+func whyScore(v any) []string {
+	var g db.GroupHealth
+	switch x := v.(type) {
+	case db.GroupHealth:
+		g = x
+	case *db.GroupHealth:
+		if x == nil {
+			return nil
+		}
+		g = *x
+	default:
+		return nil
+	}
+	if g.DeviceCount == 0 {
+		return nil
+	}
+	var out []string
+	if g.OfflineCount > 0 {
+		out = append(out, fmt.Sprintf("%d of %d offline (−%d)", g.OfflineCount, g.DeviceCount, int(float64(g.OfflineCount)/float64(g.DeviceCount)*40)))
+	}
+	if g.OpenCritical > 0 {
+		out = append(out, fmt.Sprintf("%d critical alert%s (−%d)", g.OpenCritical, plural(g.OpenCritical), g.OpenCritical*15))
+	}
+	if g.OpenWarning > 0 {
+		out = append(out, fmt.Sprintf("%d warning%s (−%d)", g.OpenWarning, plural(g.OpenWarning), g.OpenWarning*4))
+	}
+	if g.ChargingAvg != nil && *g.ChargingAvg < 0.3 {
+		out = append(out, fmt.Sprintf("on charge only %d%% of the time (−15)", int(*g.ChargingAvg*100+0.5)))
+	}
+	if g.BatteryDelta != nil && *g.BatteryDelta < -10 {
+		out = append(out, fmt.Sprintf("overnight battery down %d vs last week (−15)", int(-*g.BatteryDelta+0.5)))
+	}
+	if g.TempMax != nil && *g.TempMax >= 45 {
+		if g.TempMaxSerial != nil && *g.TempMaxSerial != "" {
+			out = append(out, fmt.Sprintf("%s peaked at %.0f°C (−15)", *g.TempMaxSerial, *g.TempMax))
+		} else {
+			out = append(out, fmt.Sprintf("a device peaked at %.0f°C (−15)", *g.TempMax))
+		}
+	}
+	if g.DistinctBuilds > 1 {
+		out = append(out, fmt.Sprintf("%d different builds (−%d)", g.DistinctBuilds, (g.DistinctBuilds-1)*5))
+	}
+	return out
+}

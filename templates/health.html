@@ -2,6 +2,7 @@
 {{template "header" .}}
 
 <style>
+.fh-why{display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:12px}.fh-why a{color:var(--text-2);text-decoration:none}.fh-why a:hover{color:var(--accent-text)}.fh-why b{font-weight:600;color:var(--danger);font-variant-numeric:tabular-nums;margin-right:4px}
 /* ── Fleet Health · Command center ─────────────────────── */
 .fh-wrap .cc-hero{grid-template-columns:auto 1fr minmax(220px,260px)}
 .fh-crashspark{display:inline-flex;align-items:flex-end;gap:6px;height:44px;margin-top:8px}
@@ -56,6 +57,7 @@
       <div>
         <div class="cc-label">Fleet health</div>
         <span class="cc-pill {{.ScoreClass}}">{{.StatusWord}}</span>
+        {{if .HealthReasons}}<div class="fh-why">{{range $i, $r := .HealthReasons}}{{if lt $i 4}}<a href="{{$r.Href}}"><b>{{$r.PointsLabel}}</b> {{$r.Venue}} · {{$r.What}}</a>{{end}}{{end}}{{if gt (len .HealthReasons) 4}}<span class="muted small">+{{sub (len .HealthReasons) 4}} more below</span>{{end}}</div>{{end}}
       </div>
     </div>
 

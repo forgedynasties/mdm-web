@@ -1,3 +1,5 @@
+{{/* score-why: a "?" next to any venue/group score that opens the penalties behind it on hover, tap or focus. Pass the []string from whyScore. */}}
+{{define "score-why"}}{{if .}}<span class="sc-why" tabindex="0" role="button" aria-label="Why this score"><i>?</i><span class="sc-pop"><b>Why this score</b><ul>{{range .}}<li>{{.}}</li>{{end}}</ul><small>100 minus these. Click through for the devices.</small></span></span>{{end}}{{end}}
 {{/* ubub: avatar bubble — picture when the user has one, else the initial. Pass the
      result of (userBubble name). Add class "sm"/"lg" on the caller for other sizes. */}}
 {{/* role-locked: a control the viewer's role can't use. Rendered (so people see
