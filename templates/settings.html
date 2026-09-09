@@ -278,6 +278,28 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>MDM OTA support cutoff</h3><span class="muted small m">per product</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Firmware older than the chosen release has no MDM OTA agent. Devices on any release published before it are marked <b>no MDM OTA support</b> on the Deploy page and left out of "Push to more devices". Leave on "No cutoff" to offer OTA to every build.
+    </div>
+    {{if .OTACutoffRows}}
+    <form action="/settings/ota-min-release" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      {{range .OTACutoffRows}}
+      <label class="muted small" style="display:flex;align-items:center;gap:10px;">
+        <span style="min-width:90px;font-weight:600;color:var(--text);">{{.ProductLabel}}</span>
+        <select name="ota_min_{{.ProductKey}}" class="form-input" style="flex:1;">
+          <option value="0">No cutoff — every build</option>
+          {{$cur := .Current}}{{range .Releases}}<option value="{{.ID}}"{{if eq .ID $cur}} selected{{end}}>{{.Version}} · {{formatTime .CreatedAt}}</option>{{end}}
+        </select>
+      </label>
+      {{end}}
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save cutoff</button></div>
+    </form>
+    {{else}}<div class="muted small">No published releases yet.</div>{{end}}
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">

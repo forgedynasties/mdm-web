@@ -108,6 +108,9 @@ type Config struct {
 	// Kiosk. Package-name patterns (glob, '*' wildcard, e.g. "com.aioapp.*") that
 	// may be chosen as the locked kiosk app. Empty list = any installed app is allowed.
 	KioskAllowlistVal []string `json:"kiosk_allowlist"`
+	// OTAMinReleaseVal is, per product key, the oldest release whose firmware has
+	// the MDM OTA agent. Devices on a build older than it get no MDM OTA.
+	OTAMinReleaseVal map[string]int `json:"ota_min_release,omitempty"`
 
 	// Products whose hardware carries a wireless-charging guest pad (WLC). Pad
 	// UI/telemetry surfaces render only for these products. Absent = default {"t7"}.
@@ -487,6 +490,31 @@ func (c *Config) KioskAllowlist() []string {
 
 // SetKioskAllowlist replaces the kiosk allowlist (patterns already trimmed/deduped
 // by the caller).
+// OTAMinRelease returns the per-product OTA support cutoff (release id), a copy.
+func (c *Config) OTAMinRelease() map[string]int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make(map[string]int, len(c.OTAMinReleaseVal))
+	for k, v := range c.OTAMinReleaseVal {
+		out[k] = v
+	}
+	return out
+}
+
+// SetOTAMinRelease replaces the per-product OTA support cutoff (0 = none).
+func (c *Config) SetOTAMinRelease(m map[string]int) error {
+	c.mu.Lock()
+	c.OTAMinReleaseVal = map[string]int{}
+	for k, v := range m {
+		if v > 0 {
+			c.OTAMinReleaseVal[k] = v
+		}
+	}
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
 func (c *Config) SetKioskAllowlist(patterns []string) error {
 	c.mu.Lock()
 	c.KioskAllowlistVal = patterns
