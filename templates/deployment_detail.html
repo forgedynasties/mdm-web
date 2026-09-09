@@ -398,8 +398,8 @@
 <div class="cc-card dpl-reboot">
   <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span>
   <div class="dpl-reboot-t">
-    <b>Reboot after install</b>
-    <span>{{if eq $dep.RebootBehavior "immediate"}}Immediate — devices restart as soon as the update is installed{{else if eq $dep.RebootBehavior "scheduled"}}Scheduled{{if $dep.ScheduledTime}} for {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}}{{else}}Manual — devices wait for a reboot from the dashboard or on site{{end}}</span>
+    <b>{{if eq $dep.RebootBehavior "immediate"}}Immediate reboot{{else if eq $dep.RebootBehavior "scheduled"}}Scheduled reboot{{if $dep.ScheduledTime}} · {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}}{{else}}Manual reboot{{end}}</b>
+    <span>{{if eq $dep.RebootBehavior "immediate"}}Devices restart as soon as the update is installed.{{else if eq $dep.RebootBehavior "scheduled"}}Devices restart at the scheduled time.{{else}}Devices wait for a reboot from the dashboard or on site.{{end}} Click the gear to change it.</span>
   </div>
   <button type="button" class="cc-btn sm dpl-gear" onclick="dplOpen('dpl-reboot-modal')" aria-label="Edit reboot settings" title="Edit reboot settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
 </div>
