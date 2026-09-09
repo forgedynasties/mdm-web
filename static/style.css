@@ -6602,10 +6602,12 @@ html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, .4); border-botto
 /* Actions page: the Scopes and Devices lists sit in recessed wells so their
    white rows separate from the white pane (shadow-only rows vanished on it).
    The scroll edge fades instead of chopping the last row. */
-body .co-scopelist, body .co-devlist { background: var(--surface2); border-radius: 16px; padding: 10px; margin: 0;
-  -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent); padding-bottom: 24px; }
+/* No mask-image on these scrolling wells: a mask forces the whole list to be
+   re-rasterised through it on every scroll frame, which made the Actions page
+   crawl on real GPUs (2026-09-09). */
+body .co-scopelist, body .co-devlist { background: var(--surface2); border-radius: 16px; padding: 10px; margin: 0; }
 body .co-scopelist { max-height: 216px; }
 body .co-devlist { max-height: 250px; gap: 8px; }
-body .co-scope, body .co-devlist > label, body .co-devlist > .co-dev { border-color: transparent; box-shadow: var(--shadow-sm); }
+body .co-scope, body .co-devlist > label, body .co-devlist > .co-dev { border-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
 body .co-scope.on { border-color: var(--accent-edge); }
 body .co-r-cap { margin-top: 14px; }
