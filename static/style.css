@@ -6585,3 +6585,10 @@ body .co-send:hover { background: var(--accent-h); box-shadow: none; }
 .auth2-oauth { border-radius: 40px; font-weight: 500; background: var(--surface); }
 .auth2-alert { border-radius: 12px; }
 .auth2-row a, .auth2-alt a { color: var(--accent-text); }
+/* Header: the landing navbar's liquid glass, full width (light glass over the
+   light theme, dark glass over the dark theme). */
+.appbar { background: rgba(255, 255, 255, .55); border-bottom: 1px solid rgba(0, 0, 0, .06);
+  -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.04); backdrop-filter: blur(32px) saturate(2) brightness(1.04);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, .08), inset 0 1px 0 rgba(255, 255, 255, .6); }
+html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, .4); border-bottom-color: rgba(255, 255, 255, .12);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
