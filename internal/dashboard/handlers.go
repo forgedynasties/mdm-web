@@ -697,6 +697,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
 		"canAdmin": func(role string) bool { return role == "admin" },
+		// whyScore: the penalties behind a venue/group score, for the "?" popover.
+		"whyScore": whyScore,
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
 		"canOTA":     roleCanOTA,
@@ -4460,6 +4462,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		Hot          bool
 		BatteryAvg   int
 		HasBattery   bool
+		Why          []string // penalties behind the score, for the "?" popover
 	}
 	var sites []siteTile
 	sitesOK, sitesWarn, sitesBad, deployedN := 0, 0, 0, 0
@@ -4474,6 +4477,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 			Critical: g.OpenCritical, Warning: g.OpenWarning,
 			Crashes: crashStats.ByRestaurant[g.GroupID],
 			Hot:     g.TempMax != nil && *g.TempMax >= 45,
+			Why:     whyScore(g),
 		}
 		if g.BatteryAvg != nil {
 			t.BatteryAvg, t.HasBattery = int(math.Round(*g.BatteryAvg)), true
@@ -6784,6 +6788,7 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"HotSerials":      serialsJSON(hot),
 		"WindowDays":      windowDays,
 		"Score":           score,
+		"HealthReasons":   explainFleetHealth(groups, crashStats.ByRestaurant),
 		"ScoreClass":      scoreClass,
 		// 2π·r40 = 251.3; the hero ring animates to this offset.
 		"RingOffset": fmt.Sprintf("%.1f", 251.3*float64(100-score)/100),

@@ -79,7 +79,7 @@
   <div class="fl-site {{$cls}}" title="{{.Name}} · score {{if gt $h.DeviceCount 0}}{{$h.Score}}{{else}}n/a{{end}}">
     <a class="fl-site-hit" href="/restaurants/{{.ID}}" aria-label="Open {{.Name}}"></a>
     <div class="n">{{.Name}}</div>
-    <div class="row"><span class="s">{{if gt $h.DeviceCount 0}}{{$h.Score}}<small>/100</small>{{else}}—{{end}}</span><span class="dv">{{.DeviceCount}} dev{{if ne .DeviceCount 1}}s{{end}}</span></div>
+    <div class="row"><span class="s">{{if gt $h.DeviceCount 0}}{{$h.Score}}<small>/100</small>{{template "score-why" (whyScore $h)}}{{else}}—{{end}}</span><span class="dv">{{.DeviceCount}} dev{{if ne .DeviceCount 1}}s{{end}}</span></div>
     <div class="addr">{{if .Address}}{{.Address}}{{else}}no address{{end}}</div>
     <div class="tags">
       {{if gt $h.OfflineCount 0}}<span class="cc-tag warn">{{$h.OfflineCount}} offline</span>{{end}}

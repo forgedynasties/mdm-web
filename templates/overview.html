@@ -754,7 +754,7 @@
           {{range $i, $s := .Sites}}
           <a class="ov3-site {{$s.Class}}{{if ge $i 24}} hide xtra{{end}}" data-c="{{$s.Class}}" href="/restaurants/{{$s.ID}}" title="{{$s.Name}} · score {{$s.Score}}">
             <div class="n">{{$s.Name}}</div>
-            <div class="row"><span class="s">{{$s.Score}}<small>/100</small></span><span class="dv">{{$s.Devices}} dev{{if ne $s.Devices 1}}s{{end}}</span></div>
+            <div class="row"><span class="s">{{$s.Score}}<small>/100</small>{{template "score-why" $s.Why}}</span><span class="dv">{{$s.Devices}} dev{{if ne $s.Devices 1}}s{{end}}</span></div>
             <div class="tags">
               {{if gt $s.Offline 0}}<span class="ov3-tag warn">{{$s.Offline}} offline</span>{{end}}
               {{if gt $s.Critical 0}}<span class="ov3-tag bad">{{$s.Critical}} critical</span>{{end}}

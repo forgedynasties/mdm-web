@@ -6611,3 +6611,14 @@ body .co-devlist { max-height: 250px; gap: 8px; }
 body .co-scope, body .co-devlist > label, body .co-devlist > .co-dev { border-color: transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
 body .co-scope.on { border-color: var(--accent-edge); }
 body .co-r-cap { margin-top: 14px; }
+
+/* "?" next to a venue/group score: hover, tap or focus shows the penalties. */
+.sc-why { position: relative; display: inline-flex; vertical-align: middle; margin-left: 4px; }
+.sc-why > i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font: 600 10px/14px var(--font); text-align: center; font-style: normal; cursor: help; }
+.sc-why:hover > i, .sc-why:focus > i, .sc-why:focus-within > i { color: var(--accent-text); border-color: var(--accent-edge); }
+.sc-why .sc-pop { display: none; position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); z-index: 70; width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-pop); padding: 12px 14px; text-align: left; font-size: 12.5px; line-height: 1.45; color: var(--text); white-space: normal; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.sc-why:hover .sc-pop, .sc-why:focus .sc-pop, .sc-why:focus-within .sc-pop { display: block; }
+.sc-why .sc-pop b { display: block; font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+.sc-why .sc-pop ul { margin: 0; padding-left: 16px; }
+.sc-why .sc-pop li { margin: 2px 0; font-variant-numeric: tabular-nums; }
+.sc-why .sc-pop small { display: block; margin-top: 8px; color: var(--text-faint); font-size: 11px; }
