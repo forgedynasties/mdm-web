@@ -6545,17 +6545,15 @@ body .cc-btn, body .ov3-btn { font-weight: 500; padding: 9px 16px; }
 html[data-theme="dark"] .cc-card, html[data-theme="dark"] .card, html[data-theme="dark"] .cc-hero, html[data-theme="dark"] .ov3-hero, html[data-theme="dark"] .cc-kpi, html[data-theme="dark"] .ov3-kpi, html[data-theme="dark"] .modal-box { border-color: rgba(255, 255, 255, .06); }
 body .cc-tag { border-radius: 40px; padding: 2px 8px; }
 
-/* Chrome: the top bar and the dock keep their original glass (blur 10px / 4px,
-   see .appbar and .dock above) but take the landing's pill outline. Buttons
-   are pills in solid coral; the gradient stays on the landing page only. */
-.appbar { position: sticky; top: 14px; margin: 14px 24px 0; border-radius: 100px; border: 1px solid var(--border-soft); padding: 12px 24px 12px 32px; box-shadow: var(--shadow-md); }
+/* Chrome: the top bar stays the original full-width sticky header; the dock
+   keeps its glass and takes the landing's pill outline. Buttons are pills in
+   solid coral; the gradient stays on the landing page only. */
 .dock { border-radius: 100px; padding: 8px; }
-/* Boosted navigation scrolls <main> into view; keep the floating top bar and
-   its margin above it instead of landing the page 80px down. */
-main.container { scroll-margin-top: 100px; }
-.topbar { top: 26px; right: 40px; }
+/* Boosted navigation scrolls <main> into view; keep the sticky header above
+   it instead of landing the page a header-height down. */
+main.container { scroll-margin-top: 72px; }
 .dock .nav-link { border-radius: 40px; font-weight: 500; }
-@media (max-width: 900px) { .appbar { margin: 10px 12px 0; top: 10px; padding: 8px 12px 8px 20px; } .topbar { top: 18px; right: 24px; } .dock { border-radius: 24px; } }
+@media (max-width: 900px) { .dock { border-radius: 24px; } }
 /* Thin Poppins headlines run wider: give the headline column of every page
    top row room and let the action group wrap under it instead of squeezing
    the verdict into a narrow column. */
@@ -6569,3 +6567,21 @@ body .cc-actions, body .ov3-actions { flex: 0 1 auto; max-width: 60%; }
 body .co-send { background: var(--accent); box-shadow: none; border-radius: 40px; }
 body .co-send:hover { background: var(--accent-h); box-shadow: none; }
 .ovx-cta:hover, .ai-orb { box-shadow: none; }
+
+/* Sign-in / sign-up / password pages in the landing language: the photo hero
+   with the thin headline and coral phrase, 12px fields, solid coral pill. */
+.auth2-hero { background: #0a0a0f url(/static/img/landing/hero.webp) center / cover no-repeat; }
+.auth2-hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .45) 55%, rgba(0, 0, 0, .75)); }
+.auth2-hero > * { position: relative; }
+.auth2-hero-top { font-size: 15px; font-weight: 500; letter-spacing: 0; }
+.auth2-hero-head { font-weight: 200; font-size: clamp(34px, 3.8vw, 54px); letter-spacing: -.045em; line-height: 1.05; max-width: 16ch; text-wrap: balance; }
+.auth2-hero-head .hl { color: var(--accent); }
+.auth2-hero-sub { font-weight: 400; margin-top: 18px; }
+.auth2-subtitle { font-size: 14px; }
+.auth2-field label { font-weight: 500; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+.auth2-field input { border-radius: 12px; background: var(--surface); }
+.auth2-btn { border-radius: 40px; font-weight: 500; background: var(--accent); }
+.auth2-btn:hover { background: var(--accent-h); filter: none; }
+.auth2-oauth { border-radius: 40px; font-weight: 500; background: var(--surface); }
+.auth2-alert { border-radius: 12px; }
+.auth2-row a, .auth2-alt a { color: var(--accent-text); }
