@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legacy OTA into AIO MDM</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #5f5f66; --faint: #8a8a92;
+    --line: #e9e9ed; --coral: #F9674E; --peri: #7A80F6; --coral-soft: rgba(249,103,78,.12); --peri-soft: rgba(122,128,246,.14);
+    --ok: #0f6d33; --ok-bg: rgba(21,127,60,.10); --warn: #9a5b00; --warn-bg: rgba(230,150,0,.14); --shadow: 0 12px 40px rgba(0,0,0,.08);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --coral-soft: rgba(249,128,95,.16); --peri-soft: rgba(153,161,242,.18); --ok: #55bd75; --ok-bg: rgba(85,189,117,.14); --warn: #f0b354; --warn-bg: rgba(240,179,84,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --coral-soft: rgba(249,128,95,.16); --peri-soft: rgba(153,161,242,.18); --ok: #55bd75; --ok-bg: rgba(85,189,117,.14); --warn: #f0b354; --warn-bg: rgba(240,179,84,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-weight: 300; font-size: clamp(32px, 4.5vw, 46px); letter-spacing: -.04em; line-height: 1.06; margin: 10px 0 12px; text-wrap: balance; }
+  h1 .hl { color: var(--coral); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 66ch; margin: 0 0 28px; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-bottom: 36px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  h2 { font-weight: 300; font-size: 26px; letter-spacing: -.03em; margin: 44px 0 6px; text-wrap: balance; display: flex; align-items: baseline; gap: 12px; }
+  h2 small { font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+  h3 { font-weight: 500; font-size: 15px; margin: 22px 0 6px; }
+  p { max-width: 70ch; }
+  .why { color: var(--muted); max-width: 68ch; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .item { background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .item b { font-weight: 500; font-size: 15px; }
+  .item p { margin: 0; font-size: 13px; color: var(--muted); }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tag { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; background: var(--surface-2); color: var(--muted); }
+  .tag.now { background: var(--coral-soft); color: var(--coral); }
+  .tag.next { background: var(--peri-soft); color: var(--peri); }
+  .tag.done { background: var(--ok-bg); color: var(--ok); }
+  .tag.warn { background: var(--warn-bg); color: var(--warn); }
+  .card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 22px 24px; margin: 16px 0; }
+  .card ol { margin: 8px 0 0; padding-left: 0; list-style: none; counter-reset: s; display: grid; gap: 10px; }
+  .card ol li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: start; }
+  .card ol li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; background: var(--coral); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+  .card ol b { font-weight: 500; display: block; }
+  .card ol span { font-size: 13px; color: var(--muted); }
+  .card .eff { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--peri); white-space: nowrap; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--muted); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; border-top: 0; }
+  .tbl { overflow-x: auto; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border-radius: 6px; padding: 1px 6px; }
+  pre { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border-radius: 14px; padding: 14px 16px; overflow-x: auto; margin: 10px 0; line-height: 1.5; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+  .flow div { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); padding: 12px 14px; font-size: 12.5px; }
+  .flow div b { display: block; font-weight: 500; font-size: 13.5px; margin-bottom: 4px; }
+  .flow div small { color: var(--muted); }
+  .note { border-left: 3px solid var(--coral); padding: 6px 14px; color: var(--muted); font-size: 13.5px; margin: 14px 0; max-width: 70ch; }
+  .q { background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); padding: 16px 20px; margin: 10px 0; }
+  .q b { font-weight: 500; }
+  .q p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+  @media (max-width: 720px) { .grid, .flow { grid-template-columns: 1fr; } .card ol li { grid-template-columns: 30px 1fr; } .card .eff { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AIO MDM · plan · September 2026</div>
+  <h1>Bring the legacy OTA server <span class="hl">into the MDM.</span></h1>
+  <p class="lede">Older builds ship <code>com.aioapp.otautil</code>, which polls a small FastAPI server for a system update. The MDM already has the same package model. The plan: the MDM speaks that app's protocol itself, the S3 discovery file points at the MDM, and the FastAPI container retires. Progress for these devices comes from a per-device download URL and an update_engine logcat watcher, since the app never reports back.</p>
+  <div class="meta"><span>Legacy server <b>18.237.229.116:8000, same EC2 as the MDM dev box</b></span><span>Device app <b>~/A15/GMS/qssi/packages/apps/ota</b></span><span>Status <b>plan only, nothing built</b></span></div>
+
+  <h2>What runs today <small>read from the box and the AOSP tree</small></h2>
+  <div class="grid">
+    <div class="item"><b>Server: FastAPI, JSON files, one container</b>
+      <p><code>/home/ubuntu/ota-server/ota_server</code>, container <code>ota_server-ota-server-1</code> on :8000. State is three files under <code>data/</code>: devices.json (serial → build_id, last_seen), groups.json (name, allowlist of serials, one update config, enabled flag), update_config.json (unused legacy global). No auth on device routes, an admin login for the dashboard.</p>
+      <div class="tags"><span class="tag">3 device routes</span><span class="tag">htmx admin UI</span></div></div>
+    <div class="item"><b>Protocol: three POSTs, JSON bodies</b>
+      <p><code>/device/poll</code> and <code>/device/check-update</code> take <code>{serial_number, build_id}</code>. check-update answers <code>{update_available, update_url, payload_offset, payload_size, payload_headers[]}</code>. <code>/device/update-status</code> exists <code>{serial_number, build_id, phase, progress?, error?}</code>, but the shipped app never calls it.</p>
+      <div class="tags"><span class="tag warn">no status reports</span></div></div>
+    <div class="item"><b>Discovery: one JSON file on S3</b>
+      <p><code>ota-update-packages/ota_config.json</code> gives <code>api_base_url</code> (now 18.237.229.116:8000), <code>poll_interval_ms</code> (30000, but the app clamps to a 15 minute floor) and a reboot policy (force_reboot true, window 13 to 15). Changing this file moves every device to a new server on its next poll.</p>
+      <div class="tags"><span class="tag">poll ≥ 15 min</span><span class="tag">cutover switch</span></div></div>
+    <div class="item"><b>Device app: download, hand to UpdateEngine, reboot</b>
+      <p>Every poll: check-update with <code>Build.getSerial()</code> and <code>ro.build.id</code>. On an update: resumable download to <code>cache/update_temp.zip</code>, move to <code>/data/ota_package/update.zip</code>, <code>UpdateEngine.applyPayload(offset, size, headers)</code>, then reboot per policy or window. Status 6 (UPDATED_NEED_REBOOT) short-circuits to a reboot.</p>
+      <div class="tags"><span class="tag">A/B seamless</span><span class="tag">Range resume</span></div></div>
+  </div>
+  <div class="note">The MDM's <code>ota_packages</code> table already stores exactly what check-update returns: update_url, payload_offset, payload_size, payload_headers, plus target and source build. Nothing about the package model changes. The legacy devices.json shows only bench serials (AIO-001 to AIO-020, last seen February), so the cutover should not disturb a live fleet, but confirm that before flipping discovery.</div>
+
+  <h2>Design <small>the MDM becomes the OTA server</small></h2>
+  <div class="flow">
+    <div><b>1 · Adapter routes</b><small>MDM serves <code>/device/poll</code>, <code>/device/check-update</code>, <code>/device/update-status</code> in the legacy shape. Unauthenticated like today, rate limited per IP and serial, answers only for serials it knows or a pending deployment.</small></div>
+    <div><b>2 · Same deploy model</b><small>A push from Deploy creates the usual updates and update_devices rows. check-update resolves the device's pending row and returns the package. Incrementals only when the reported build matches the source build, same rule as TryCreateOTACommand.</small></div>
+    <div><b>3 · Per-device download URL</b><small>update_url becomes an MDM link with a per-device token that streams the S3 object. The server counts bytes as they leave, so download progress is exact with no shell access.</small></div>
+    <div><b>4 · Install watcher</b><small>Once a device reports downloading, the MDM opens a logcat stream filtered to update_engine through the kiosk agent, parses progress and status lines, and feeds the same per-phase progress card the new agent uses.</small></div>
+  </div>
+
+  <h3>How a legacy device shows up in the fleet</h3>
+  <p>A serial that only ever hits <code>/device/poll</code> is a device without the MDM agent. The adapter upserts it with enrollment <code>legacy</code>, product from the serial prefix, capability set <code>ota</code> only, and last_seen from the poll. The device card gets a "Legacy OTA · pull" chip, and Deploy lists it with "polls every 15 min" instead of "online". If the same serial later enrolls the MDM agent, the record is the same row and the chip goes away. This also covers the "may run an HTTP check-in in firmware" case: anything that speaks the poll shape is accepted, nothing assumes a WebSocket.</p>
+
+  <h3>Progress without a reporting app</h3>
+  <div class="tbl"><table>
+    <tr><th>Phase</th><th>Signal</th><th>How the MDM reads it</th></tr>
+    <tr><td>Pending</td><td>update_devices row, no poll yet</td><td>Deploy shows "waiting for next poll (≤ 15 min)".</td></tr>
+    <tr><td>Downloading</td><td>Bytes streamed through the per-device download URL</td><td>Byte counter per token, percent of the package size from <code>internal/ota</code> Inspect. Range resumes add to the same counter. No shell needed. Fallback if the URL must stay on S3: shell <code>stat -c %s /data/data/com.aioapp.otautil/cache/update_temp.zip</code> every 30 s, which only works if the kiosk agent can read that private directory (to verify on one device, see open questions).</td></tr>
+    <tr><td>Installing</td><td><code>logcat -s update_engine</code></td><td>Watcher starts a logstream with filter <code>update_engine:I *:S</code> when the download completes. Lines like <code>Progress: 0.43</code> and <code>Updating boot flags</code> map to installing / verifying / finalizing percent. <code>UPDATED_NEED_REBOOT</code> marks installed, waiting for reboot. Error codes map to failed with the code in the row.</td></tr>
+    <tr><td>Rebooting</td><td>Poll or check-in arrives with the new build_id</td><td>Row flips to done. Same settle logic as CompleteSettledDeployments.</td></tr>
+    <tr><td>Stalled</td><td>No bytes and no logcat lines for 20 min</td><td>Existing stalled / Retry path. Retry re-arms the pending row; the app picks it up on the next poll.</td></tr>
+  </table></div>
+  <p class="why">The logcat route depends on the kiosk agent being present and allowed to read logs on those builds, which it already is for the Logs tab. Where there is no agent at all, progress stops at the download phase and the next poll with the new build closes it.</p>
+
+  <h3>Cutover</h3>
+  <div class="card"><ol>
+    <li><div><b>Ship the adapter on stage-dpc, test with curl</b><span>Same request bodies the app sends. Confirm a pending deployment answers with the package and a device on the target build gets update_available false.</span></div><span class="eff">1 day</span></li>
+    <li><div><b>One bench device on the legacy app</b><span>Sideload a build with the otautil app, point a copy of ota_config.json at the stage instance through a temporary S3 key, push a full package from Deploy, watch download and install progress land on the deployment page.</span></div><span class="eff">½ day</span></li>
+    <li><div><b>Import legacy groups.json</b><span>Allowlist becomes an MDM group "legacy-testing"; its config becomes a release with an update package. One-off script, run once.</span></div><span class="eff">1 hour</span></li>
+    <li><div><b>Flip discovery</b><span>Change <code>api_base_url</code> in the S3 file to the MDM host. Revert is the same one-line edit. Devices move on their next poll.</span></div><span class="eff">minutes</span></li>
+    <li><div><b>Retire the FastAPI container</b><span>After a week with no hits in its server.log. Keep the folder; it is in git on the box.</span></div><span class="eff">minutes</span></li>
+  </ol></div>
+
+  <h2>Work items <small>files and sizes</small></h2>
+  <div class="tbl"><table>
+    <tr><th>Item</th><th>Where</th><th>Size</th></tr>
+    <tr><td>Legacy routes: poll, check-update, update-status; serial check, rate limit, upsert of legacy devices</td><td><code>internal/api/legacy_ota.go</code>, routes in handlers</td><td>M</td></tr>
+    <tr><td>Pull resolver: pending update for serial + build → package; flips row to downloading; incremental source rule</td><td><code>internal/db</code>, reuse TryCreateOTACommand's checks</td><td>S</td></tr>
+    <tr><td>Per-device download URL: token, S3 stream with Range passthrough, byte counter feeding SetOTAProgress</td><td><code>internal/api/ota_download.go</code>, <code>internal/shell</code> progress</td><td>M</td></tr>
+    <tr><td>update_engine logcat watcher: start stream on download done, parse, stop on reboot or timeout</td><td><code>internal/ota/legacywatch.go</code>, uses <code>internal/logstream</code></td><td>M</td></tr>
+    <tr><td>Enrollment status <code>legacy</code>, caps ota-only, "Legacy OTA · pull" chip on device page and Deploy list, poll hint instead of online</td><td><code>internal/product</code>, <code>templates/device.html</code>, <code>templates/updates_new.html</code></td><td>S</td></tr>
+    <tr><td>Settings: discovery config editor that writes ota_config.json to S3 (base URL, poll interval, reboot window)</td><td><code>templates/settings.html</code>, S3 put with the existing credentials</td><td>S, optional</td></tr>
+    <tr><td>Import script for groups.json → group + release</td><td><code>tools/legacy-ota-import</code></td><td>S</td></tr>
+  </table></div>
+
+  <h2>Risks and limits</h2>
+  <div class="grid">
+    <div class="item"><b>Unauthenticated device routes</b><p>Same as today. Mitigation: serial format check, per-IP and per-serial limiter, answer only serials that exist or have a pending row, download tokens that expire with the deployment.</p></div>
+    <div class="item"><b>15 minute floor</b><p>The app ignores the 30 s in the config. A pull deploy starts within 15 minutes, not seconds. The UI must say so instead of showing stalled.</p></div>
+    <div class="item"><b>Reboot policy lives in the app</b><p>Force reboot and the window come from ota_config.json, not from the deployment's reboot setting. Either keep the S3 file the source of truth or send an agent reboot when the deployment says immediate and the device has an agent.</p></div>
+    <div class="item"><b>Private cache directory</b><p>The shell fallback for download progress needs the kiosk agent to read another app's cache. Likely denied on user builds; the per-device URL avoids the question.</p></div>
+  </div>
+
+  <h2>Open questions</h2>
+  <div class="q"><b>Which devices are actually on the legacy app in the field?</b><p>devices.json only shows bench serials from February. If production units poll it, the cutover needs a maintenance note; if not, it can happen any afternoon.</p></div>
+  <div class="q"><b>Should update_url move behind the MDM?</b><p>Yes for progress and for the LAN mirror item on the roadmap. It makes the MDM host a bandwidth path for multi-GB files; the dev box can do it, a CDN in front would be better for scale.</p></div>
+  <div class="q"><b>Keep the legacy admin dashboard?</b><p>Proposed: no. Groups, allowlists and packages all have MDM equivalents. The one thing it has that the MDM does not is the discovery file editor, which is the optional Settings item above.</p></div>
+</div>
+</body>
+</html>
