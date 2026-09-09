@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selection bar options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); color: var(--text); font-family: var(--font); margin: 0; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-weight: 300; font-size: 34px; letter-spacing: -.035em; margin: 0 0 6px; }
+  .lede { color: var(--muted); margin: 0 0 28px; }
+  h2 { font-weight: 300; font-size: 24px; letter-spacing: -.03em; margin: 44px 0 4px; }
+  .why { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; max-width: 70ch; }
+  .demo { position: relative; }
+  .card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .list { max-height: 330px; overflow-y: auto; }
+  .row { display: grid; grid-template-columns: 28px 90px 1fr 200px 90px; gap: 14px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border-soft); font-size: 13px; }
+  .row:first-child { border-top: 0; }
+  .row .nm { font-weight: 500; } .row .nm small { display: block; font: 500 11px var(--mono); color: var(--muted); }
+  .batt { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--mono); }
+  .batt i { display: inline-block; width: 44px; height: 6px; border-radius: 3px; background: var(--surface2); position: relative; overflow: hidden; }
+  .batt i::after { content: ""; position: absolute; inset: 0; width: var(--p); background: var(--ok); }
+  .on { color: var(--ok); font-weight: 500; }
+  .cnt { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: #fff; background: var(--accent); border-radius: 40px; padding: 6px 12px; white-space: nowrap; }
+  .cnt::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .85; }
+  .pill { border: 1px solid var(--border); background: var(--surface); border-radius: 40px; padding: 6px 13px; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; }
+  .pill.primary { background: var(--accent); border-color: transparent; color: #fff; }
+  .pill.danger { color: var(--danger); }
+  .pill.ghost { border-color: transparent; color: var(--accent-text); }
+  .x { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+  .chk { gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-2); display: inline-flex; align-items: center; }
+  .acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* 1. toolbar swap: the row above the list becomes the bar; sticky inside the list */
+  .tb { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--border-soft); }
+  .tb.sel { background: var(--accent-soft); }
+  .tb .acts { margin-left: auto; }
+  /* 2. header takeover */
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 0 0 18px; }
+  .hdr .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  .hdr h3 { font-weight: 300; font-size: 32px; letter-spacing: -.035em; margin: 6px 0 0; }
+  .hdr h3 .hl { color: var(--accent); }
+  .hdr .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  /* 3. side sheet */
+  .split { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  .sheet { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow-lg); padding: 16px 18px; position: sticky; top: 16px; }
+  .sheet h4 { margin: 0 0 12px; font-weight: 500; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+  .sheet .acts { margin-bottom: 12px; }
+  .sheet ul { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; }
+  .sheet li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
+  .sheet li:first-child { border-top: 0; }
+  .sheet li small { font: 500 11px var(--mono); color: var(--muted); margin-left: auto; }
+  .sheet li .x { width: 20px; height: 20px; font-size: 13px; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; background: var(--accent-soft); color: var(--accent-text); margin-left: 8px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Selection bar, three ways</h1>
+  <p class="lede">Same 25 selected devices, three placements. Each list scrolls; scroll inside to see what stays in reach.</p>
+
+  <h2>1 · Toolbar swap <span class="tag">recommended</span></h2>
+  <p class="why">The row above the list keeps "Select all". With a selection it becomes the bar: count on the left, actions on the right, tinted so it reads as a state. It is sticky inside the list, so it stays at the top while you scroll.</p>
+  <div class="demo card">
+    <div class="list" id="l1">
+      <div class="tb sel">
+        <label class="chk"><input type="checkbox" checked> Select all</label>
+        <span class="cnt">25 selected</span>
+        <button class="pill ghost">Select all 58 matching →</button>
+        <button class="x" title="Clear">×</button>
+        <div class="acts"><button class="pill danger">Mark inactive</button><button class="pill">Add to group</button><button class="pill">Add to restaurant</button><button class="pill">Export</button><button class="pill primary">⚡ Action</button></div>
+      </div>
+      <div class="rows"></div>
+    </div>
+  </div>
+
+  <h2>2 · Header takeover</h2>
+  <p class="why">Nothing new appears. The page header swaps its headline to "25 devices selected" and its buttons to the selection actions. Cleanest look; on a long list you scroll back up to act.</p>
+  <div class="demo">
+    <div class="hdr">
+      <div><div class="eyebrow">Fleet · devices</div><h3><span class="hl">25 selected</span> of 59 devices</h3><div class="sub">Viewing All devices · 59 devices · <a href="#" style="color:var(--accent-text)">select all 58 matching →</a></div></div>
+      <div class="acts" style="padding-top:22px"><button class="x" title="Clear">×</button><button class="pill danger">Mark inactive</button><button class="pill">Add to group</button><button class="pill">Add to restaurant</button><button class="pill">Export</button><button class="pill primary">⚡ Action</button></div>
+    </div>
+    <div class="card"><div class="tb"><label class="chk"><input type="checkbox" checked> Select all</label></div><div class="list" id="l2"><div class="rows"></div></div></div>
+  </div>
+
+  <h2>3 · Side sheet</h2>
+  <p class="why">Selecting opens a panel on the right that lists what you picked, with the actions on top and a remove on each row. Like the Selected well on the Actions page. Best when you want to check the set before acting; heavier for "select all, reboot".</p>
+  <div class="demo split">
+    <div class="card"><div class="tb"><label class="chk"><input type="checkbox" checked> Select all</label><button class="pill ghost" style="margin-left:6px">Select all 58 matching →</button></div><div class="list" id="l3"><div class="rows"></div></div></div>
+    <div class="sheet">
+      <h4><span class="cnt">25 selected</span><button class="x" style="margin-left:auto" title="Clear">×</button></h4>
+      <div class="acts"><button class="pill primary">⚡ Action</button><button class="pill">Add to group</button><button class="pill">Add to restaurant</button><button class="pill">Export</button><button class="pill danger">Mark inactive</button></div>
+      <ul id="sheet-list"></ul>
+    </div>
+  </div>
+</div>
+<script>
+  var names = ['Register 1','Kitchen pass','Bar','Drive-thru','Host stand','Self-order A','Self-order B','Patio','Counter 2','Expo','Pickup','Bar 2','Window','Booth 4','Booth 5','Lobby kiosk','Catering','Manager','Office','Spare 1','Spare 2','Terrace','Takeout','Counter 3','Kids corner'];
+  function rows(n) { var h = ''; for (var i = 0; i < n; i++) { var s = 'AT070AA26001' + String(10 + i).padStart(2, '0'); var b = 40 + (i * 7) % 60; h += '<div class="row"><input type="checkbox" ' + (i < 25 ? 'checked' : '') + '><span class="batt"><i style="--p:' + b + '%"></i>' + b + '%</span><span class="nm">' + names[i % names.length] + '<small>' + s + '</small></span><span class="muted small">v2.0.8i5 · AIO T7 · Onboarded Jul 23</span><span class="on">● Online</span></div>'; } return h; }
+  document.querySelectorAll('.rows').forEach(function (r) { r.innerHTML = rows(30); });
+  document.getElementById('sheet-list').innerHTML = names.slice(0, 25).map(function (n, i) { return '<li><span>' + n + '</span><small>AT070AA26001' + String(10 + i).padStart(2, '0') + '</small><button class="x">×</button></li>'; }).join('');
+</script>
+</body>
+</html>
