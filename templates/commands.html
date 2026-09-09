@@ -154,7 +154,7 @@
 .co-act.danger.on .nm{color:var(--danger)}
 
 /* ── payload strip ── */
-.co-strip{position:relative;margin-top:14px;background:var(--surface);border:1px solid var(--accent-edge);border-radius:var(--r-4);box-shadow:var(--shadow-sm),0 0 0 4px var(--accent-soft);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.co-strip{position:relative;margin:0 0 6px;background:var(--surface2);border:1px solid transparent;border-radius:16px;box-shadow:none;padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .co-strip[hidden]{display:none}
 .co-strip .lab{display:flex;align-items:center;gap:9px;flex:none}
 .co-strip .lab .ic{width:30px;height:30px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
@@ -177,6 +177,9 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:3px;flex:none}
 .co-seg button{border:none;background:none;border-radius:6px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
 .co-seg button.on{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow-sm)}
+.co-what-empty[hidden]{display:none}
+.co-what-empty{background:var(--surface2);border-radius:16px;padding:22px 16px;min-height:64px;display:flex;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.co-strip .lab{background:var(--surface);border-radius:12px;padding:8px 12px;box-shadow:var(--shadow-sm)}
 .co-paynote{font-size:12px;color:var(--muted)}
 .co-send{flex:none;display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--r-3);background:var(--brand-grad);color:var(--accent-ink);font-size:13.5px;font-weight:700;padding:10px 18px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;font-family:inherit;transition:background .14s}
 .co-send:disabled{opacity:.55;cursor:not-allowed}
@@ -372,7 +375,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
   <!-- right: capability-aware action grid + payload strip -->
   <div class="co-right-int">
     <div class="p-cap">2 · What — the grid adapts to the selection</div>
-    <div id="co-grid"></div>
+    <div class="co-what-empty" id="co-what-empty">Nothing chosen yet. Pick an action below and it appears here with its options.</div>
     <div class="co-strip" id="co-strip" hidden>
       <div class="lab"><span class="ic" id="co-st-ic"></span><span><span class="t" id="co-st-t"></span><br><span class="s" id="co-st-s"></span></span></div>
       <div class="co-pay" id="co-pay"></div>
@@ -382,6 +385,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
       <div class="co-note" id="co-note"></div>
       <div class="co-menu" id="co-menu"></div>
     </div>
+    <div id="co-grid"></div>
   </div>
 </div>
 
@@ -1105,6 +1109,7 @@ window.CMD_PREFILL = {{.Prefill}};
     return '<span class="co-chip"><span class="lbl">' + esc(lbl) + '</span><button type="button" class="x" data-chip-rm="' + rmKind + '" data-key="' + esc(rmKey || '') + '" aria-label="Remove ' + esc(lbl) + '">&times;</button></span>';
   }
   function renderStrip() {
+    el('co-what-empty').hidden = !!S.action;
     if (!S.action) { stripEl.hidden = true; closeMenu(); return; }
     stripEl.hidden = false;
     el('co-st-ic').innerHTML = svg(S.action.t);
