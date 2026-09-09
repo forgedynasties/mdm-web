@@ -340,7 +340,7 @@
       {{if false}}<a class="mega-item" href="#training"><div><b>Training</b><span>Short video chapters, one situation each</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>{{end}}
       <a class="mega-item" href="#guides"><div><b>Guides</b><span>The six things people ask ops to do</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
       <a class="mega-item" href="#faq"><div><b>FAQ</b><span>Accounts, roles, online, location, kiosk mode</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-      <a class="mega-item" href="#roles"><div><b>Who does what</b><span>Viewer, operator, admin</span></div><span class="arrow-circle sm"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      
     </div>
     <div class="mega-feat">
       {{if false}}{{with index .Training 0}}<div class="shot"{{if .Poster}} style="background-image:url('{{.Poster}}')"{{end}}></div><h4>Chapter {{.Number}} · {{.Title}}</h4><p>{{.Intro}}</p><a class="btn outline" href="#training">Watch <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
@@ -485,6 +485,8 @@
     </div>
   </section>
 
+  {{/* "Who does what": hidden (user request 2026-09-09) */}}
+  {{if false}}
   <section class="sec" id="roles" style="padding-top:0">
     <div class="wrap">
       <div class="sec-head left">
@@ -498,6 +500,7 @@
       </div>
     </div>
   </section>
+  {{end}}
 
   <section class="sec" id="faq" style="padding-top:0">
     <div class="wrap">
@@ -541,7 +544,7 @@
           <div class="socials"><a href="https://aioapp.com" aria-label="aioapp.com" target="_blank" rel="noopener">aio</a></div>
         </div>
         <div><h6>Product</h6><a class="l" href="/devices">Fleet</a><a class="l" href="/commands">Actions</a><a class="l" href="/alerts">Alerts</a><a class="l" href="/map">Map</a><a class="l" href="/releases">Updates</a></div>
-        <div><h6>Resources</h6><a class="l" href="#guides">Guides</a><a class="l" href="#faq">FAQ</a><a class="l" href="#roles">Who does what</a></div>
+        <div><h6>Resources</h6><a class="l" href="#guides">Guides</a><a class="l" href="#faq">FAQ</a></div>
         <div><h6>Account</h6><a class="l" href="/login">Login</a>{{if .SignupEnabled}}<a class="l" href="/signup">Sign up</a>{{end}}<a class="l" href="/forgot-password">Forgot password</a></div>
       </div>
       <div class="foot-bottom">© 2026 AIO APP, INC. All rights reserved · <a href="https://aioapp.com" target="_blank" rel="noopener">aioapp.com</a></div>
