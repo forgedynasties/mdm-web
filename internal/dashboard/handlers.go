@@ -5234,6 +5234,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Apps":                apps,
 		"InstalledPackages":   launchableOnly(installedPkgs),
 		"KioskApps":           kioskApps,
+		"KioskAllowlistCSV":   strings.Join(h.cfg.KioskAllowlist(), ","),
 		"KioskExtras":         kioskExtras,
 		"PendingInstalls":     pendingInstalls,
 		"Uninstalling":        pendingUninstallPkgs(commands),
