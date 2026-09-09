@@ -99,8 +99,6 @@
 .co-sellist{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px;align-content:start;max-height:220px;overflow-y:auto}
 .co-sellist .co-scope{grid-column:1/-1;margin-bottom:0}
 .co-sel-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);text-align:center;margin-left:4px}
-.co-fly{position:fixed;z-index:200;pointer-events:none;margin:0;box-shadow:var(--shadow-pop)}
-@media(prefers-reduced-motion:reduce){.co-fly{display:none}}
 .co-paste{width:100%;display:flex;align-items:center;gap:8px;border:1px dashed var(--rule);border-radius:var(--r-2);background:none;padding:8px 11px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;margin-bottom:6px}
 .co-paste:hover{color:var(--accent-text);border-color:var(--accent-edge)}
 .co-paste svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;flex:none}
@@ -897,9 +895,6 @@ window.CMD_PREFILL = {{.Prefill}};
   // the selection and counts each device once (target_type=mixed).
   function toggleScope(kind, id) {
     disarm();
-    var wasOn = isSel(kind, id);
-    var srcSel = '.co-scope[data-kind="' + kind + '"][data-id="' + (id || '') + '"]';
-    var src = findRow(wasOn ? 'co-sel' : 'co-scopes', srcSel); src = src && src.cloneNode(true); var srcRect = src && findRow(wasOn ? 'co-sel' : 'co-scopes', srcSel).getBoundingClientRect();
     if (kind === 'all') {
       S.targets = isSel('all') ? [] : [{ kind: 'all' }];
     } else if (isSel(kind, id)) {
@@ -916,22 +911,17 @@ window.CMD_PREFILL = {{.Prefill}};
       loadScopeMembers({ kind: kind, id: id });
     }
     updateUI();
-    flyFrom(src, srcRect, findRow(wasOn ? 'co-scopes' : 'co-sel', srcSel));
   }
   function toggleDevice(serial) {
     disarm();
     if (coveredBy(serial)) { toast('Already included via ' + coveredBy(serial), 'info'); return; }
-    var wasOn = S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; });
-    var srcSel = '.co-dev[data-serial="' + serial.replace(/"/g, '\\"') + '"]';
-    var srcEl = findRow(wasOn ? 'co-sel' : 'co-devs', srcSel); var src = srcEl && srcEl.cloneNode(true); var srcRect = srcEl && srcEl.getBoundingClientRect();
-    if (wasOn) {
+    if (S.targets.some(function (t) { return t.kind === 'device' && t.serial === serial; })) {
       S.targets = S.targets.filter(function (t) { return !(t.kind === 'device' && t.serial === serial); });
     } else {
       S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
       S.targets.push({ kind: 'device', serial: serial });
     }
     updateUI();
-    flyFrom(src, srcRect, findRow(wasOn ? 'co-devs' : 'co-sel', srcSel));
   }
   // Which devices each chosen scope contains, so the device list can show them
   // as included (checked, "via Harbor Grill") and duplicates don't double up.
@@ -1024,24 +1014,6 @@ window.CMD_PREFILL = {{.Prefill}};
     el('co-sel').innerHTML = html;
     el('co-sel-n').textContent = S.targets.length;
   }
-  // A picked row flies from where it was clicked to its place in the Selected
-  // pane (and back when removed) instead of teleporting. See flyFrom.
-  function findRow(root, sel) { return el(root) ? el(root).querySelector(sel) : null; }
-  function flyFrom(ghostSrc, a, to) {
-    if (!ghostSrc || !a || !to || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    var b = to.getBoundingClientRect();
-    if (!a.width || !b.width) return;
-    var ghost = ghostSrc; ghost.className += ' co-fly';
-    ghost.style.left = a.left + 'px'; ghost.style.top = a.top + 'px'; ghost.style.width = a.width + 'px'; ghost.style.height = a.height + 'px'; ghost.style.transformOrigin = '0 0';
-    document.body.appendChild(ghost);
-    to.style.visibility = 'hidden';
-    var anim = ghost.animate([
-      { transform: 'translate(0,0)', opacity: 1 },
-      { transform: 'translate(' + (b.left - a.left) + 'px,' + (b.top - a.top) + 'px) scale(' + (b.width / a.width) + ')', opacity: .9 }
-    ], { duration: 360, easing: 'cubic-bezier(.2,.7,.2,1)' });
-    anim.onfinish = anim.oncancel = function () { ghost.remove(); to.style.visibility = ''; };
-  }
-
   // ── Basket ──
   function targetLabel(t) {
     if (t.kind === 'all') return 'All devices';
