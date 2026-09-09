@@ -72,7 +72,7 @@
 <div class="wrap">
   <div class="eyebrow">AIO MDM · plan · September 2026</div>
   <h1>Bring the legacy OTA server <span class="hl">into the MDM.</span></h1>
-  <p class="lede">Older builds ship <code>com.aioapp.otautil</code>, which polls a small FastAPI server for a system update. The MDM already has the same package model. The plan: the MDM speaks that app's protocol itself, the S3 discovery file points at the MDM, and the FastAPI container retires. Progress for these devices comes from a per-device download URL and an update_engine logcat watcher, since the app never reports back.</p>
+  <p class="lede">Older builds ship <code>com.aioapp.otautil</code>, which polls a small FastAPI server for a system update at an address baked into the build. That address is the MDM dev box. The plan: the MDM speaks that app's protocol itself and takes over port 8000 on that host, so no device changes, and the FastAPI container retires. Progress for these devices comes from a per-device download URL and an update_engine logcat watcher, since the app never reports back.</p>
   <div class="meta"><span>Legacy server <b>18.237.229.116:8000, same EC2 as the MDM dev box</b></span><span>Device app <b>~/A15/GMS/qssi/packages/apps/ota</b></span><span>Status <b>plan only, nothing built</b></span></div>
 
   <h2>What runs today <small>read from the box and the AOSP tree</small></h2>
@@ -83,9 +83,9 @@
     <div class="item"><b>Protocol: three POSTs, JSON bodies</b>
       <p><code>/device/poll</code> and <code>/device/check-update</code> take <code>{serial_number, build_id}</code>. check-update answers <code>{update_available, update_url, payload_offset, payload_size, payload_headers[]}</code>. <code>/device/update-status</code> exists <code>{serial_number, build_id, phase, progress?, error?}</code>, but the shipped app never calls it.</p>
       <div class="tags"><span class="tag warn">no status reports</span></div></div>
-    <div class="item"><b>Discovery: one JSON file on S3</b>
-      <p><code>ota-update-packages/ota_config.json</code> gives <code>api_base_url</code> (now 18.237.229.116:8000), <code>poll_interval_ms</code> (30000, but the app clamps to a 15 minute floor) and a reboot policy (force_reboot true, window 13 to 15). Changing this file moves every device to a new server on its next poll.</p>
-      <div class="tags"><span class="tag">poll ≥ 15 min</span><span class="tag">cutover switch</span></div></div>
+    <div class="item"><b>Address: hardcoded in the devices</b>
+      <p>Devices in the field carry <code>http://18.237.229.116:8000</code> in the build. Newer app versions also read <code>ota-update-packages/ota_config.json</code> on S3, but the hardcoded address is what has to keep working. That address is the MDM dev box itself (i-0bda11fb1feceaa74), and it is the instance's auto-assigned public IP, not an Elastic IP: a stop and start would lose it for good. A reboot keeps it.</p>
+      <div class="tags"><span class="tag warn">never stop the instance</span><span class="tag">port 8000 is the cutover</span></div></div></div>
     <div class="item"><b>Device app: download, hand to UpdateEngine, reboot</b>
       <p>Every poll: check-update with <code>Build.getSerial()</code> and <code>ro.build.id</code>. On an update: resumable download to <code>cache/update_temp.zip</code>, move to <code>/data/ota_package/update.zip</code>, <code>UpdateEngine.applyPayload(offset, size, headers)</code>, then reboot per policy or window. Status 6 (UPDATED_NEED_REBOOT) short-circuits to a reboot.</p>
       <div class="tags"><span class="tag">A/B seamless</span><span class="tag">Range resume</span></div></div>
@@ -94,7 +94,7 @@
 
   <h2>Design <small>the MDM becomes the OTA server</small></h2>
   <div class="flow">
-    <div><b>1 · Adapter routes</b><small>MDM serves <code>/device/poll</code>, <code>/device/check-update</code>, <code>/device/update-status</code> in the legacy shape. Unauthenticated like today, rate limited per IP and serial, answers only for serials it knows or a pending deployment.</small></div>
+    <div><b>1 · Adapter routes on :8000</b><small>MDM serves <code>/device/poll</code>, <code>/device/check-update</code>, <code>/device/update-status</code> in the legacy shape, published on the host's port 8000 (compose maps 8000 to the MDM container; only the <code>/device/*</code> paths answer there). Unauthenticated like today, rate limited per IP and serial, answers only for serials it knows or a pending deployment.</small></div>
     <div><b>2 · Same deploy model</b><small>A push from Deploy creates the usual updates and update_devices rows. check-update resolves the device's pending row and returns the package. Incrementals only when the reported build matches the source build, same rule as TryCreateOTACommand.</small></div>
     <div><b>3 · Per-device download URL</b><small>update_url becomes an MDM link with a per-device token that streams the S3 object. The server counts bytes as they leave, so download progress is exact with no shell access.</small></div>
     <div><b>4 · Install watcher</b><small>Once a device reports downloading, the MDM opens a logcat stream filtered to update_engine through the kiosk agent, parses progress and status lines, and feeds the same per-phase progress card the new agent uses.</small></div>
@@ -119,7 +119,7 @@
     <li><div><b>Ship the adapter on stage-dpc, test with curl</b><span>Same request bodies the app sends. Confirm a pending deployment answers with the package and a device on the target build gets update_available false.</span></div><span class="eff">1 day</span></li>
     <li><div><b>One bench device on the legacy app</b><span>Sideload a build with the otautil app, point a copy of ota_config.json at the stage instance through a temporary S3 key, push a full package from Deploy, watch download and install progress land on the deployment page.</span></div><span class="eff">½ day</span></li>
     <li><div><b>Import legacy groups.json</b><span>Allowlist becomes an MDM group "legacy-testing"; its config becomes a release with an update package. One-off script, run once.</span></div><span class="eff">1 hour</span></li>
-    <li><div><b>Flip discovery</b><span>Change <code>api_base_url</code> in the S3 file to the MDM host. Revert is the same one-line edit. Devices move on their next poll.</span></div><span class="eff">minutes</span></li>
+    <li><div><b>Swap port 8000</b><span>Stop the ota_server container, add <code>8000:8082</code> to the MDM compose ports, <code>up -d</code>. Devices notice nothing; their next poll lands on the MDM. Revert is starting the old container again. Also point <code>api_base_url</code> in the S3 file at the same address so both app generations agree.</span></div><span class="eff">minutes</span></li>
     <li><div><b>Retire the FastAPI container</b><span>After a week with no hits in its server.log. Keep the folder; it is in git on the box.</span></div><span class="eff">minutes</span></li>
   </ol></div>
 
@@ -137,6 +137,7 @@
 
   <h2>Risks and limits</h2>
   <div class="grid">
+    <div class="item"><b>The address is not an Elastic IP</b><p>Stopping the instance loses 18.237.229.116 and orphans every hardcoded device. Options: never stop it (reboots are fine), or plan a firmware release that adds the S3 discovery lookup so a future move is possible.</p></div>
     <div class="item"><b>Unauthenticated device routes</b><p>Same as today. Mitigation: serial format check, per-IP and per-serial limiter, answer only serials that exist or have a pending row, download tokens that expire with the deployment.</p></div>
     <div class="item"><b>15 minute floor</b><p>The app ignores the 30 s in the config. A pull deploy starts within 15 minutes, not seconds. The UI must say so instead of showing stalled.</p></div>
     <div class="item"><b>Reboot policy lives in the app</b><p>Force reboot and the window come from ota_config.json, not from the deployment's reboot setting. Either keep the S3 file the source of truth or send an agent reboot when the deployment says immediate and the device has an agent.</p></div>
@@ -145,6 +146,7 @@
 
   <h2>Open questions</h2>
   <div class="q"><b>Which devices are actually on the legacy app in the field?</b><p>devices.json only shows bench serials from February. If production units poll it, the cutover needs a maintenance note; if not, it can happen any afternoon.</p></div>
+  <div class="q"><b>Do all field builds have the S3 discovery lookup?</b><p>The tree in ~/A15 does; the user reports older builds with only the hardcoded address. Until every build reads discovery, the host and port are fixed.</p></div>
   <div class="q"><b>Should update_url move behind the MDM?</b><p>Yes for progress and for the LAN mirror item on the roadmap. It makes the MDM host a bandwidth path for multi-GB files; the dev box can do it, a CDN in front would be better for scale.</p></div>
   <div class="q"><b>Keep the legacy admin dashboard?</b><p>Proposed: no. Groups, allowlists and packages all have MDM equivalents. The one thing it has that the MDM does not is the discovery file editor, which is the optional Settings item above.</p></div>
 </div>
