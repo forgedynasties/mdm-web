@@ -209,6 +209,42 @@
     <li><div><b>Stop clearing the inbox</b><span>With 1 to 6 in place the list stays short by itself, and history survives for trend analysis.</span></div><span class="who">habit</span></li>
   </ol>
 
+  <h2>Follow-up: every rule on <small style="font-size:13px;color:var(--muted);font-weight:400">9 September, 14:40 to 19:20 UTC</small></h2>
+  <p>All 19 rules were switched on at 14:40 UTC. In the next five hours 69 alerts fired on 39 online devices. Same shape as before: a few real ones, a lot of repeats, and one new pattern, the same dead device alerting three times under three names.</p>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Type</th><th class="n">Alerts</th><th class="n">Devices</th><th class="n">Median open</th><th class="n">Under 10 min</th><th class="n">Still open</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>temp_elevated</td><td class="n">25</td><td class="n">5</td><td class="n">9 min</td><td class="n">72%</td><td class="n">1</td><td><span class="pill bad">flapping</span> 20 of 25 from one device</td></tr>
+        <tr><td>offline</td><td class="n">21</td><td class="n">21</td><td class="n">318 min</td><td class="n">5%</td><td class="n">20</td><td><span class="pill ok">real</span> but 13 are lab units nobody placed</td></tr>
+        <tr><td>wifi_weak</td><td class="n">6</td><td class="n">2</td><td class="n">4 min</td><td class="n">100%</td><td class="n">0</td><td><span class="pill bad">flapping</span> at −75 dBm, best reading −76</td></tr>
+        <tr><td>offline_peak</td><td class="n">6</td><td class="n">6</td><td class="n">59 min</td><td class="n">0%</td><td class="n">6</td><td><span class="pill warn">duplicate</span> of offline, escalated to critical</td></tr>
+        <tr><td>battery_low</td><td class="n">4</td><td class="n">4</td><td class="n">59 min</td><td class="n">0%</td><td class="n">4</td><td><span class="pill ok">real</span></td></tr>
+        <tr><td>overheating</td><td class="n">2</td><td class="n">2</td><td class="n">3 min</td><td class="n">100%</td><td class="n">0</td><td><span class="pill bad">noise</span></td></tr>
+        <tr><td>device_crash</td><td class="n">2</td><td class="n">1</td><td class="n">14 min</td><td class="n">0%</td><td class="n">0</td><td><span class="pill warn">repeats</span> same device as before</td></tr>
+        <tr><td>storage_filling, memory_pressure, wlc_dead</td><td class="n">1 each</td><td class="n">1</td><td class="n">259 min</td><td class="n">0%</td><td class="n">3</td><td><span class="pill warn">wlc_dead is false</span>: the device is offline, so the pad "never reads"</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+  <div class="callout"><b>New pattern: one cause, three alerts.</b> AT070AABU00034 has been off for a day. It holds an <i>offline</i> warning, an <i>offline_peak</i> critical and a <i>wlc_dead</i> warning at the same time. Every rule that reads telemetry from a device that is not reporting will do this.</div>
+  <h3>What this adds to the plan</h3>
+  <div class="rules">
+    <div class="card">
+      <ul>
+        <li><b>Suppress dependent alerts while a device is offline.</b> No temperature, Wi-Fi, charging, storage or memory alert for a device that is not reporting; the offline alert owns it.</li>
+        <li><b>Fold offline_peak into offline.</b> One alert per device that steps up to critical when the outage overlaps service hours, instead of a second row.</li>
+        <li><b>Offline only for placed devices.</b> 13 of the 21 offline alerts are bench units with no restaurant. Lab devices get no offline alert, or a separate "lab" severity that never reaches Teams.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <ul>
+        <li><b>Hysteresis on temp_elevated and wifi_weak</b> as planned for overheating: 20 of 25 temperature alerts were one device crossing 38°C back and forth.</li>
+        <li><b>Crash loop, not crash.</b> AT070AABU00064 has now crashed 16 times in two days and never produced a critical. Three in an hour should.</li>
+        <li>With the four suppressions above the five hours become <b>about 9 alerts</b>: 8 placed devices offline (one row each), 4 low batteries, 1 storage, 1 memory. The Teams channel would have received 4.</li>
+      </ul>
+    </div>
+  </div>
+
   <h2>Expected result</h2>
   <div class="card">
     <div class="tw"><table>
