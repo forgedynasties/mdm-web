@@ -233,6 +233,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
         {{if .IsDPC}}<span class="cc-tag info" tabindex="0" role="note" title="Managed by the AIO MDM Device-Owner agent on a stock device. Actions the agent cannot run are disabled in the Actions menu.">DPC agent</span>{{else}}<span class="cc-tag" title="Our hardware running the system-app client">Firmware</span>{{end}}
+        {{if eq (extraStr .Device.LatestExtra "ota_client") "otautil"}}<span class="cc-tag warn" tabindex="0" role="note" title="This build runs the legacy otautil updater: it polls the MDM on port 8000 every 15 minutes and pulls system updates from Deploy. Download progress shows on the deployment page; install progress arrives with the next poll on the new build.">Legacy OTA · pull</span>{{end}}
         {{if .Device.Class}}<span class="cc-tag" title="Device type">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
