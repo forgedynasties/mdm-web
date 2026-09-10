@@ -253,13 +253,15 @@ func (d *DB) PickLegacyOTAPackage(ctx context.Context, releaseID int, buildID st
 	return &p, nil
 }
 
-// ListReleasesWithPackages lists published releases that carry an active package,
-// for the group's target picker.
+// ListReleasesWithPackages lists published releases that carry an active FULL
+// package, for the legacy group's target picker. A legacy device can be on any
+// build, so only a full image is a safe target; incrementals still get picked
+// per device at check-update time when their source build matches.
 func (d *DB) ListReleasesWithPackages(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.version, r.product, r.created_at
 		FROM releases r
-		WHERE r.status = 'published' AND EXISTS (SELECT 1 FROM ota_packages p WHERE p.release_id = r.id AND p.status = 'active')
+		WHERE r.status = 'published' AND EXISTS (SELECT 1 FROM ota_packages p WHERE p.release_id = r.id AND p.status = 'active' AND p.type = 'full')
 		ORDER BY r.product, r.created_at DESC`)
 	if err != nil {
 		return nil, err
