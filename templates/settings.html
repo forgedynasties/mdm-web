@@ -1366,6 +1366,8 @@ function libConfirmAdd(){
   items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});added++;});}); });
   chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.textContent='Add '+items.length+' to library';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
 }
+function libFamOpen(id){var m=document.getElementById('lf-'+id);if(m)m.classList.add('modal-open');}
+function libFamClose(m){if(m)m.classList.remove('modal-open');}
 // Drag and drop: anywhere on the page. Capture phase on document so no region's own
 // handlers can swallow it; files taken from dataTransfer.files or .items (some
 // browsers only fill one of them for an OS drag).
