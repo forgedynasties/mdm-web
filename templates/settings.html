@@ -1264,6 +1264,27 @@ document.addEventListener('submit', function (e) {
   </div>
 </div>
 {{end}}
+<!-- Add apps: drop zone + per-file parse/upload rows + one confirm. Dropping APKs
+     anywhere on the page opens this too. -->
+<div id="lib-add-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-add-modal')libAddClose()">
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Add apps to the library">
+    <div class="modal-header"><span class="modal-title">Add apps</span><button type="button" class="modal-close" onclick="libAddClose()" aria-label="Close">&times;</button></div>
+    <div class="modal-body">
+      <div class="la-drop" id="la-drop" role="button" tabindex="0" onclick="document.getElementById('lib-apk-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('lib-apk-file').click();}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="la-dt">Drop APK files here, or <span class="l">browse</span></div>
+        <div class="la-ds">Several at once is fine. Each one is read in your browser, then uploaded straight to storage.</div>
+      </div>
+      <div class="la-list" id="la-list"></div>
+      <div id="la-err" class="alert alert-error" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <span class="muted small" id="la-sum" style="margin-right:auto;"></span>
+      <button type="button" class="btn-outline" onclick="libAddClose()">Cancel</button>
+      <button type="button" class="cc-btn primary" id="la-add" onclick="libConfirmAdd()" disabled>Add to library</button>
+    </div>
+  </div>
+</div>
 <script>
 // ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
 function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
@@ -1345,27 +1366,20 @@ function libConfirmAdd(){
   items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});added++;});}); });
   chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.textContent='Add '+items.length+' to library';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
 }
-// Drag and drop: the drop zone, and the whole library card (which opens the modal).
+// Drag and drop: anywhere on the page. Capture phase on document so no region's own
+// handlers can swallow it; files taken from dataTransfer.files or .items (some
+// browsers only fill one of them for an OS drag).
 (function(){
-  function stop(e){e.preventDefault();e.stopPropagation();}
-  function hasFiles(e){return e.dataTransfer&&Array.prototype.some.call(e.dataTransfer.types||[],function(t){return t==='Files';});}
-  var card=document.getElementById('lib-card'), zone=document.getElementById('la-drop');
-  [card,zone].forEach(function(el){ if(!el)return;
-    el.addEventListener('dragenter',function(e){if(!hasFiles(e))return;stop(e);el.classList.add('is-over');});
-    el.addEventListener('dragover',function(e){if(!hasFiles(e))return;stop(e);el.classList.add('is-over');});
-    el.addEventListener('dragleave',function(e){if(e.relatedTarget&&el.contains(e.relatedTarget))return;el.classList.remove('is-over');});
-    el.addEventListener('drop',function(e){if(!hasFiles(e))return;stop(e);el.classList.remove('is-over');libUploadApks(e.dataTransfer.files);});
-  });
-  // Anywhere on the page counts: dragging files in highlights the library, dropping
-  // them anywhere opens Add apps with those files.
+  if(window.__libDnD){return;} window.__libDnD=true;
+  function hasFiles(e){var dt=e.dataTransfer; if(!dt)return false; var t=dt.types; if(t){ if(Array.prototype.some.call(t,function(x){return x==='Files'||x==='application/x-moz-file';}))return true; } if(dt.items){for(var i=0;i<dt.items.length;i++){if(dt.items[i].kind==='file')return true;}} return !!(dt.files&&dt.files.length);}
+  function filesOf(e){var dt=e.dataTransfer, out=[]; if(dt.files&&dt.files.length){for(var i=0;i<dt.files.length;i++)out.push(dt.files[i]);} else if(dt.items){for(var j=0;j<dt.items.length;j++){var f=dt.items[j].kind==='file'?dt.items[j].getAsFile():null; if(f)out.push(f);}} return out;}
   var depth=0;
-  window.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();depth++;document.body.classList.add('lib-dragging');});
-  window.addEventListener('dragleave',function(e){if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)document.body.classList.remove('lib-dragging');});
-  window.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
-  window.addEventListener('drop',function(e){if(!hasFiles(e))return;e.preventDefault();depth=0;document.body.classList.remove('lib-dragging');if(card&&card.contains(e.target))return;if(zone&&zone.contains(e.target))return;libUploadApks(e.dataTransfer.files);});
+  function card(){return document.getElementById('lib-card');}
+  function zone(){return document.getElementById('la-drop');}
+  document.addEventListener('dragenter',function(e){ if(!hasFiles(e))return; e.preventDefault(); depth++; document.body.classList.add('lib-dragging'); var c=card(); if(c&&c.contains(e.target))c.classList.add('is-over'); var z=zone(); if(z&&z.contains(e.target))z.classList.add('is-over'); },true);
+  document.addEventListener('dragover',function(e){ if(!hasFiles(e))return; e.preventDefault(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; },true);
+  document.addEventListener('dragleave',function(e){ if(!hasFiles(e))return; depth=Math.max(0,depth-1); if(!depth){document.body.classList.remove('lib-dragging'); var c=card(); if(c)c.classList.remove('is-over'); var z=zone(); if(z)z.classList.remove('is-over');} },true);
+  document.addEventListener('drop',function(e){ if(!hasFiles(e)){ try{console.warn('[mdm] drop ignored: no files in dataTransfer', e.dataTransfer&&e.dataTransfer.types);}catch(x){} return; } e.preventDefault(); e.stopPropagation(); depth=0; document.body.classList.remove('lib-dragging'); var c=card(); if(c)c.classList.remove('is-over'); var z=zone(); if(z)z.classList.remove('is-over'); var files=filesOf(e); try{console.info('[mdm] drop:', files.map(function(f){return f.name;}));}catch(x){} if(!files.length){ if(window.showToast)showToast('Nothing droppable in that drag', 'error'); return; } if(typeof libUploadApks==='function')libUploadApks(files); },true);
 })();
-function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
-function libFamOpen(id){var m=document.getElementById('lf-'+id);if(m)m.classList.add('modal-open');}
-function libFamClose(m){if(m)m.classList.remove('modal-open');}
 </script>
 {{end}}
