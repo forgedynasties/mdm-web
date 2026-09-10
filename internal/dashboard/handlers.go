@@ -15567,6 +15567,7 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	setFams, setSugg, setMode := h.libraryData(r.Context())
 	dbStats, _ := h.db.TableStats(r.Context())
 	aiTotals, _ := h.db.GetAIUsageTotals(r.Context())
 	aiDaily, _ := h.db.GetAIUsageDaily(r.Context(), 30)
@@ -15599,7 +15600,6 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AgentAPKHosted":       h.cfg.AgentAPKHosted(),
 		"AgentAPKHostedInfo": func() map[string]any {
 			sha, name, size, at := h.cfg.AgentAPKHostedInfo()
-	setFams, setSugg, setMode := h.libraryData(r.Context())
 			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
 		}(),
 		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
