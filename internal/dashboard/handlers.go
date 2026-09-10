@@ -12332,7 +12332,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		frequent = frequent[:n]
 	}
 
-	libFams, libSugg, libMode := h.libraryData(r.Context())
 	data := map[string]any{
 		"Title":            "Actions",
 		"DeviceQueries":    actionQueries,
@@ -12350,9 +12349,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Builds":           builds,
 		"Apps":             apps,
 		"AppNames":         apkURLToName(apps),
-		"Families":         libFams,
-		"Suggestions":      libSugg,
-		"AppFamilyMode":    libMode,
 		"FleetPackages":    fleetPackages,
 		"Recipes":          recipes,
 		"Summaries":        summaries,
@@ -15603,10 +15599,14 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AgentAPKHosted":       h.cfg.AgentAPKHosted(),
 		"AgentAPKHostedInfo": func() map[string]any {
 			sha, name, size, at := h.cfg.AgentAPKHostedInfo()
+	setFams, setSugg, setMode := h.libraryData(r.Context())
 			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
 		}(),
 		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 		"Apps":                 repoApps,
+		"Families":             setFams,
+		"Suggestions":          setSugg,
+		"AppFamilyMode":        setMode,
 		"Productions":          productions,
 		"DeviceQueries":        deviceQueries,
 		"BaseCases":            baseCases,
