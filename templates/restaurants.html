@@ -43,7 +43,7 @@
 
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Fleet · Restaurants <span class="cc-live"><span class="dot"></span>Live</span></div>
+    <div class="cc-eyebrow">Fleet · Restaurants</div>
     <h1 class="cc-h1">{{if gt $needLook 0}}<span class="hl {{if ge $needLook 3}}danger{{else}}warn{{end}}">{{$needLook}} of {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} need{{if eq $needLook 1}}s{{end}} a look{{else}}<span class="hl ok">All {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} are healthy{{end}}</h1>
     <div class="cc-sub">{{$total}} venue{{if ne $total 1}}s{{end}} · <b>{{$devSum}}</b> device{{if ne $devSum 1}}s{{end}} deployed{{if gt $offlineSum 0}} · <b>{{$offlineSum}}</b> offline{{end}}{{if gt $critSum 0}} · <b>{{$critSum}}</b> critical alert{{if ne $critSum 1}}s{{end}}{{end}}</div>
   </div>

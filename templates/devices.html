@@ -351,7 +351,7 @@ a.fleet-rail-item{min-height:40px}
 <div class="fl-wrap">
   <div class="fl-top cc-top">
     <div>
-      <div class="cc-eyebrow">Fleet · Devices <span class="cc-live"><span class="dot"></span>Live</span></div>
+      <div class="cc-eyebrow">Fleet · Devices</div>
       <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
       <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
     </div>
@@ -539,12 +539,7 @@ a.fleet-rail-item{min-height:40px}
            swap — without this it never re-rendered, leaving the toolbar showing
            the previous (or no) collection's controls. ── */}}
       <span id="coll-tools-wrap">{{template "coll-tools-block" .}}</span>
-
-      <span class="ov-live" style="margin-left:auto;"><i></i>live</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
-      <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Refresh
-      </button>
     </div>
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
