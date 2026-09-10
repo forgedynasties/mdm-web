@@ -111,6 +111,10 @@ type Config struct {
 	// OTAMinReleaseVal is, per product key, the oldest release whose firmware has
 	// the MDM OTA agent. Devices on a build older than it get no MDM OTA.
 	OTAMinReleaseVal map[string]int `json:"ota_min_release,omitempty"`
+	// LegacyOTAModeVal decides who answers the legacy otautil routes on the legacy
+	// OTA port: "mdm" (this server, from its own deployments) or "passthrough"
+	// (forwarded verbatim to the old ota-server container). "" = mdm.
+	LegacyOTAModeVal string `json:"legacy_ota_mode,omitempty"`
 
 	// Products whose hardware carries a wireless-charging guest pad (WLC). Pad
 	// UI/telemetry surfaces render only for these products. Absent = default {"t7"}.
@@ -491,6 +495,28 @@ func (c *Config) KioskAllowlist() []string {
 // SetKioskAllowlist replaces the kiosk allowlist (patterns already trimmed/deduped
 // by the caller).
 // OTAMinRelease returns the per-product OTA support cutoff (release id), a copy.
+// LegacyOTAMode is "mdm" or "passthrough"; see LegacyOTAModeVal.
+func (c *Config) LegacyOTAMode() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LegacyOTAModeVal == "passthrough" {
+		return "passthrough"
+	}
+	return "mdm"
+}
+
+// SetLegacyOTAMode switches the legacy OTA routes between the MDM and the old server.
+func (c *Config) SetLegacyOTAMode(mode string) error {
+	if mode != "passthrough" {
+		mode = "mdm"
+	}
+	c.mu.Lock()
+	c.LegacyOTAModeVal = mode
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
 func (c *Config) OTAMinRelease() map[string]int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

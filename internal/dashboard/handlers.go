@@ -669,6 +669,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// isLegacyBuild reports whether a build ID is on the configured legacy (WS-incapable)
 		// firmware list — such devices only HTTP check-in and never hold a live WebSocket.
 		"isLegacyBuild": cfg.IsLegacyBuild,
+		// extraStr reads one string key out of a device's latest_extra JSON blob.
+		"extraStr": func(extra json.RawMessage, key string) string {
+			var m map[string]any
+			if json.Unmarshal(extra, &m) != nil {
+				return ""
+			}
+			if v, ok := m[key].(string); ok {
+				return v
+			}
+			return ""
+		},
 		// pct returns done/total as an integer percentage (0-100), for progress bars.
 		"pct": func(done, total int) int {
 			if total <= 0 {
@@ -1048,6 +1059,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				m[k] = kv[i+1]
 			}
 			return m
+		},
+		"derefInt": func(p *int) int {
+			if p == nil {
+				return 0
+			}
+			return *p
 		},
 		"deref": func(t *time.Time) time.Time {
 			if t == nil {
@@ -15615,6 +15632,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
+		"LegacyOTAMode":        h.cfg.LegacyOTAMode(),
+		"LegacyOTAPort":        os.Getenv("LEGACY_OTA_PORT"),
+		"LegacyOTAUpstream":    os.Getenv("LEGACY_OTA_UPSTREAM"),
 		"KioskFleetApps":       kioskFleetApps,
 		"GoogleUsage":          googleUsage,
 		"GoogleUsageJSON":      template.JS(googleUsageJSON),
@@ -16527,6 +16547,22 @@ func (h *Handler) otaUnsupportedBuilds(ctx context.Context, productKey string) m
 
 // SettingsSetOTAMinRelease stores, per product, the oldest release with MDM OTA
 // support (form fields ota_min_<product>, 0 or empty = no cutoff).
+// SettingsSetLegacyOTA switches the legacy otautil routes between the MDM and the
+// old ota-server (pass-through). Takes effect on the next device poll.
+func (h *Handler) SettingsSetLegacyOTA(w http.ResponseWriter, r *http.Request) {
+	mode := r.FormValue("legacy_ota_mode")
+	if err := h.cfg.SetLegacyOTAMode(mode); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.legacy_ota_mode", "", h.cfg.LegacyOTAMode())
+	if next := r.FormValue("next"); strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		http.Redirect(w, r, next, http.StatusFound)
+		return
+	}
+	h.settingsRedirect(w, r)
+}
+
 func (h *Handler) SettingsSetOTAMinRelease(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	m := map[string]int{}
@@ -18605,6 +18641,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
 	post("POST /settings/ota-min-release", h.requireStrictAdmin(h.SettingsSetOTAMinRelease))
+	post("POST /settings/legacy-ota", h.requireStrictAdmin(h.SettingsSetLegacyOTA))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireStrictAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireStrictAdmin(h.SettingsSetServiceWindow))
@@ -18657,6 +18694,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
+	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.LegacyOTAPage))
+	post("POST /updates/legacy/groups", h.requireOTA(h.LegacyOTAGroupCreate))
+	post("POST /updates/legacy/groups/{id}", h.requireOTA(h.LegacyOTAGroupUpdate))
+	post("POST /updates/legacy/groups/{id}/toggle", h.requireOTA(h.LegacyOTAGroupToggle))
+	post("POST /updates/legacy/groups/{id}/delete", h.requireOTA(h.LegacyOTAGroupDelete))
+	post("POST /updates/legacy/groups/{id}/serials", h.requireOTA(h.LegacyOTAGroupAddSerials))
+	post("POST /updates/legacy/groups/{id}/serials/remove", h.requireOTA(h.LegacyOTAGroupRemoveSerial))
+	post("POST /updates/legacy/devices/{serial}/forget", h.requireOTA(h.LegacyOTADeviceDelete))
 	post("POST /updates", h.requireOTA(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))

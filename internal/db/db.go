@@ -1354,6 +1354,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, migrationSQL); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, legacyOTASchema); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -10969,6 +10972,25 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// GetOTAPayloadMeta returns the cached payload location for a package (what the
+// legacy otautil client is told), ok=false when it was never computed.
+func (d *DB) GetOTAPayloadMeta(ctx context.Context, id int) (offset, size int64, headers []string, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `SELECT payload_offset, payload_size, payload_headers FROM ota_packages WHERE id = $1`, id).Scan(&offset, &size, &headers)
+	if err != nil {
+		return 0, 0, nil, false, err
+	}
+	return offset, size, headers, size > 0, nil
+}
+
+// SetOTAPayloadMeta caches the payload location computed from the package zip.
+func (d *DB) SetOTAPayloadMeta(ctx context.Context, id int, offset, size int64, headers []string) error {
+	if headers == nil {
+		headers = []string{}
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE ota_packages SET payload_offset = $2, payload_size = $3, payload_headers = $4 WHERE id = $1`, id, offset, size, headers)
+	return err
 }
 
 func (d *DB) GetOTAPackage(ctx context.Context, id int) (*OTAPackage, error) {

@@ -39,6 +39,7 @@
     <div class="cc-sub">Every rollout and how each one is landing across the fleet.{{if gt $failed 0}} <b>{{$failed}}</b> device{{if ne $failed 1}}s{{end}} need a retry.{{end}}</div>
   </div>
   <div class="cc-actions">
+    <a href="/updates/legacy" class="cc-btn" title="Devices on pre-agent builds that poll the old OTA protocol"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg>Legacy OTA</a>
     <a href="/releases" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"/><path d="M7.5 7.5h.01"/></svg>Releases</a>
     {{if .CanDeploy}}<a href="/updates/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New update</a>{{end}}
   </div>

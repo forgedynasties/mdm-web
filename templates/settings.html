@@ -278,6 +278,21 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></span><h3>Legacy OTA server</h3><span class="muted small m">{{if .LegacyOTAPort}}port {{.LegacyOTAPort}}{{else}}listener off{{end}}</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Builds without the MDM agent run <code>com.aioapp.otautil</code>, which polls this host on port 8000 for a system update (this listener is on port {{.LegacyOTAPort}}). Choose who answers. Switching takes effect on the device's next poll (every 15 minutes at least). The old ota-server keeps running on port 8001 either way.
+    </div>
+    {{if .LegacyOTAPort}}
+    <form action="/settings/legacy-ota" method="POST" style="display:flex;flex-direction:column;gap:8px;max-width:560px;">
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="mdm"{{if eq .LegacyOTAMode "mdm"}} checked{{end}} style="margin-top:4px;"><span><b>AIO MDM answers</b><br><span class="muted small">These devices stay out of the fleet. Manage them, their groups and target releases under <a href="/updates/legacy">Updates › Legacy OTA</a>.</span></span></label>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="passthrough"{{if eq .LegacyOTAMode "passthrough"}} checked{{end}} style="margin-top:4px;"><span><b>Pass through to the old ota-server</b><br><span class="muted small">Every request is forwarded untouched to {{if .LegacyOTAUpstream}}{{.LegacyOTAUpstream}}{{else}}the ota-server container{{end}}. Use its dashboard on port 8001 as before. The MDM stays out of it.</span></span></label>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
+    </form>
+    {{else}}<div class="muted small">Set <code>LEGACY_OTA_PORT</code> in the server environment to turn the listener on.</div>{{end}}
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>MDM OTA support cutoff</h3><span class="muted small m">per product</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
