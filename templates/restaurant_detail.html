@@ -14,7 +14,7 @@
 {{$offCount := sub .Restaurant.DeviceCount $onCount}}
 <div class="cc-top" style="margin-top:10px">
   <div>
-    <div class="cc-eyebrow">Fleet · Restaurants <span class="cc-live"><span class="dot"></span>Live</span></div>
+    <div class="cc-eyebrow">Fleet · Restaurants</div>
     <h1 class="cc-h1">{{.Restaurant.Name}}</h1>
     <div class="cc-sub">
       <b>{{.Restaurant.DeviceCount}}</b> device{{if ne .Restaurant.DeviceCount 1}}s{{end}} deployed{{if gt .Restaurant.DeviceCount 0}} · <b>{{$onCount}}</b> online · <b>{{$offCount}}</b> offline{{end}}

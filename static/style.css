@@ -6674,3 +6674,7 @@ html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .
 .install-pick[hidden] { display: none; }
 .install-tile .app-tmeta { font-size: 10px; font-weight: 600; letter-spacing: .04em; color: var(--accent-text); background: var(--accent-soft); border-radius: 40px; padding: 2px 8px; white-space: nowrap; margin-top: 2px; }
 .install-tile.is-family .app-icon, .install-tile.is-family .app-mono { box-shadow: 3px 3px 0 0 var(--surface2), 6px 6px 0 0 var(--border); }
+
+/* Alerts: the count cards are the view tabs. */
+.cc-kpi.on { box-shadow: 0 0 0 2px var(--accent) inset, var(--shadow-lg); }
+a.cc-kpi { text-decoration: none; color: inherit; }

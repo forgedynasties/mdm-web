@@ -75,20 +75,15 @@
   </div>
 
   <div class="cc-kpis">
-    <a class="cc-kpi" href="/alerts?view=needs{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Needs action</span><div class="v {{if gt .NeedsCount 0}}danger{{end}}">{{.NeedsCount}}</div></a>
-    <a class="cc-kpi" href="/alerts?view=watching{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Watching</span><div class="v {{if gt .WatchCount 0}}warn{{end}}">{{.WatchCount}}</div></a>
-    <a class="cc-kpi" href="/alerts?view=crashes{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes</span><div class="v {{if gt .CrashCount 0}}danger{{end}}">{{.CrashCount}}</div></a>
+    <a class="cc-kpi{{if eq .View "needs"}} on{{end}}" href="/alerts?view=needs{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Needs action</span><div class="v {{if gt .NeedsCount 0}}danger{{end}}">{{.NeedsCount}}</div></a>
+    <a class="cc-kpi{{if eq .View "watching"}} on{{end}}" href="/alerts?view=watching{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Watching</span><div class="v {{if gt .WatchCount 0}}warn{{end}}">{{.WatchCount}}</div></a>
+    <a class="cc-kpi{{if eq .View "crashes"}} on{{end}}" href="/alerts?view=crashes{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes</span><div class="v {{if gt .CrashCount 0}}danger{{end}}">{{.CrashCount}}</div></a>
     <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolved</span><div class="v ok">{{.Summary.Resolved}}</div></div>
   </div>
 
   {{$dev := ""}}{{if .DeviceFilter}}{{$dev = printf "&device=%s" .DeviceFilter}}{{end}}
   <div class="al-controls">
-    <div class="cc-seg">
-      <a href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
-      <a href="/alerts?view=needs{{$dev}}" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
-      <a href="/alerts?view=watching{{$dev}}" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
-      <a href="/alerts?view=crashes{{$dev}}" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
-    </div>
+    {{if .View}}<a class="cc-btn sm" href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}">All alerts{{if .ActiveCount}} · {{.ActiveCount}}{{end}}</a>{{end}}
     <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
 

@@ -68,7 +68,7 @@
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Fleet · Enroll <span class="cc-live"><span class="dot"></span>Live</span></div>
+      <div class="cc-eyebrow">Fleet · Enroll</div>
       <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> device{{if ne $inboxN 1}}s{{end}} need{{if eq $inboxN 1}}s{{end}} a site{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
       <div class="cc-sub"><b>{{.Stats.Firmware}}</b> firmware · <b>{{.Stats.DPC}}</b> DPC agent{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</div>
     </div>
