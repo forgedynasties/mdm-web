@@ -1376,6 +1376,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return ""
 			}
 			switch code {
+			case "UPDATE_ERROR_21":
+				return "The package on the device did not read as an update (invalid payload header). Usually a resumed download on top of an older cancelled one — Retry downloads it fresh."
 			case "SLOT_SWITCH_FAILED":
 				return "Rebooted, but came back on the old build — the update was written but the slot switch did not take. Push the update again."
 			case "DOWNLOAD_ERROR":
