@@ -15576,7 +15576,18 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/setup", http.StatusFound)
+	_ = h.db.DeleteEmptyAppFamilies(r.Context())
+	h.audit(r, "apps.delete", id.String(), "")
+	if r.Header.Get("X-Requested-With") == "fetch" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Back to the library the user was on (/apps or Settings), never the old /setup.
+	if ref := r.Header.Get("Referer"); strings.Contains(ref, "/settings") {
+		http.Redirect(w, r, "/settings#applibrary", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/apps", http.StatusSeeOther)
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
