@@ -800,6 +800,8 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		if pkg.TargetBuildID == req.BuildID {
 			_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "installed")
 			_ = h.db.CheckAndCompleteUpdate(r.Context(), upd.ID)
+		} else if upd.DeviceStatus == "reboot_sent" && bootedAfter(req.Extra, upd.DeviceRebootSentAt) {
+			h.failSlotSwitch(r.Context(), upd, deviceID, req.SerialNumber, req.BuildID)
 		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
 			// Installed to the inactive slot, reboot pending (manual/scheduled)
 			// — don't re-issue the OTA command.
@@ -1114,6 +1116,38 @@ func (h *Handler) pushRebootFor(ctx context.Context, upd *db.Update, deviceID uu
 	h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
 }
 
+// bootedAfter reports whether the device's current boot (now − uptime_seconds
+// from the check-in extra) started after t. Used to tell "still waiting for the
+// reboot" from "rebooted and came back on the old build".
+func bootedAfter(extra json.RawMessage, t *time.Time) bool {
+	if t == nil || len(extra) == 0 {
+		return false
+	}
+	var m struct {
+		Uptime *float64 `json:"uptime_seconds"`
+	}
+	if json.Unmarshal(extra, &m) != nil || m.Uptime == nil || *m.Uptime < 0 {
+		return false
+	}
+	bootedAt := time.Now().Add(-time.Duration(*m.Uptime * float64(time.Second)))
+	return bootedAt.After(t.Add(15 * time.Second))
+}
+
+// failSlotSwitch marks a reboot_sent row failed when the device has rebooted but
+// reports the old build: update_engine applied the payload, the slot switch did
+// not take. The deployment page shows it as failed with SLOT_SWITCH_FAILED.
+func (h *Handler) failSlotSwitch(ctx context.Context, upd *db.Update, deviceID uuid.UUID, serial, buildID string) {
+	_ = h.db.SetUpdateDeviceFailed(ctx, upd.ID, deviceID, "SLOT_SWITCH_FAILED")
+	h.shell.ClearOTAProgress(deviceID)
+	_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
+	h.hub.PublishDeploymentUpdate()
+	target := ""
+	if upd.OtaPackage != nil {
+		target = upd.OtaPackage.TargetBuildID
+	}
+	log.Printf("[ota] %s rebooted but is on %s, not %s: slot switch failed (deployment %d)", serial, buildID, target, upd.ID)
+}
+
 // optimisticallyCompleteReboot wraps db.OptimisticallyCompleteReboot + the same
 // CheckAndCompleteUpdate the confirming checkin path uses to flip the parent
 // deployment to 'complete' — see db.OptimisticallyCompleteReboot for why every
@@ -1389,6 +1423,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		if pkg.TargetBuildID == req.BuildID {
 			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "installed")
 			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
+		} else if upd.DeviceStatus == "reboot_sent" && bootedAfter(req.Extra, upd.DeviceRebootSentAt) {
+			h.failSlotSwitch(ctx, upd, id, req.SerialNumber, req.BuildID)
 		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
 			// Installed to the inactive slot, reboot pending — don't re-issue.
 		} else if cmd, err := h.db.TryCreateOTACommand(ctx, upd, id, req.BuildID); err != nil {

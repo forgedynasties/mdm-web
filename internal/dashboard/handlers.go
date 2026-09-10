@@ -1376,6 +1376,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return ""
 			}
 			switch code {
+			case "SLOT_SWITCH_FAILED":
+				return "Rebooted, but came back on the old build — the update was written but the slot switch did not take. Push the update again."
 			case "DOWNLOAD_ERROR":
 				return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."
 			case "UPDATE_ENGINE_BIND_ERROR":
@@ -7887,13 +7889,18 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	devices = h.access(r).keepVisible(devices)
-	h.render(w, r, "group_detail.html", map[string]any{
+	data := map[string]any{
 		"Title":               g.Name,
 		"Group":               g,
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
-	})
+	}
+	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
+		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "group_detail.html", data)
 }
 
 // GroupDevicesModal serves just the "add/remove devices" card + members list —
@@ -8209,14 +8216,19 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	devices = h.access(r).keepVisible(devices)
 	win, hasOwn, _ := h.db.GetRestaurantServiceWindow(r.Context(), id)
-	h.render(w, r, "restaurant_detail.html", map[string]any{
+	data := map[string]any{
 		"Title":               rest.Name,
 		"Restaurant":          rest,
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
-	})
+	}
+	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated
+		_ = h.tmpl.ExecuteTemplate(w, "restaurant-kpis", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "restaurant_detail.html", data)
 }
 
 // RestaurantDevicesModal serves just the "deploy devices" card + members list —
@@ -9043,6 +9055,9 @@ func (h *Handler) BulkRetire(w http.ResponseWriter, r *http.Request) {
 // BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
 // bulk-selection bar.
 func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") { // "Manage groups & venues"
+		return
+	}
 	r.ParseForm()
 	serials := parseSerialsField(r.Form["serials"])
 	rid, err := uuid.Parse(strings.TrimSpace(r.FormValue("restaurant_id")))
@@ -18471,7 +18486,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemote)))
 	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
-	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
+	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
 	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))
 	post("POST /devices/bulk-retire", h.requireStrictAdmin(h.BulkRetire))

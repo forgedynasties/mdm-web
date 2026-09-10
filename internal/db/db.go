@@ -338,6 +338,7 @@ type Update struct {
 	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
 	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
 	DeviceStatus      string       `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
+	DeviceRebootSentAt *time.Time  `json:"-"`                             // populated by ResolveUpdateForDevice
 }
 
 type UpdateTarget struct {
@@ -2798,9 +2799,10 @@ func (d *DB) EnrollmentStats(ctx context.Context) (EnrollmentStats, error) {
 
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
+		LEFT JOIN devices dv ON dv.id = dg.device_id
 		GROUP BY g.id, g.name, g.created_at
 		ORDER BY g.name
 	`)
@@ -2823,9 +2825,10 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
+		LEFT JOIN devices dv ON dv.id = dg.device_id
 		WHERE g.id = $1
 		GROUP BY g.id, g.name, g.created_at
 	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount)
@@ -12102,7 +12105,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	// exists, otherwise the full image. Only published releases and active
 	// packages are eligible.
 	err := d.pool.QueryRow(ctx, `
-		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, ud.status,
+		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, ud.status, ud.reboot_sent_at,
 		       p.id, p.release_id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id
@@ -12132,7 +12135,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 		  )
 		ORDER BY u.created_at DESC
 		LIMIT 1
-	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus,
+	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus, &u.DeviceRebootSentAt,
 		&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

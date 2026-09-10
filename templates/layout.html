@@ -123,6 +123,32 @@
       if (!el.hasAttribute('hx-swap')) d.swapOverride = 'innerHTML';
       try { console.warn('[mdm] hx-get without hx-target retargeted to itself:', el.id || el.tagName); } catch (e2) {}
     }, true);
+    // "← Back" links return to the page the user actually came from (tracked
+    // per tab across boosted navigations); the href stays the sensible default
+    // for a fresh tab or a deep link.
+    (function () {
+      var K = 'mdm-nav-prev', C = 'mdm-nav-cur';
+      function here() { return location.pathname + location.search; }
+      function track() {
+        try {
+          var cur = sessionStorage.getItem(C), now = here();
+          if (cur && cur !== now) sessionStorage.setItem(K, cur);
+          sessionStorage.setItem(C, now);
+        } catch (e) {}
+      }
+      track();
+      document.addEventListener('htmx:pushedIntoHistory', track);
+      window.addEventListener('popstate', function () { setTimeout(track, 0); });
+      document.addEventListener('click', function (e) {
+        var a = e.target.closest && e.target.closest('a.back-link[href]');
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        var prev = null; try { prev = sessionStorage.getItem(K); } catch (e2) {}
+        if (!prev || prev === here() || prev.indexOf('/login') === 0) return;
+        e.preventDefault(); e.stopPropagation();
+        var t = document.createElement('a'); t.href = prev; t.setAttribute('hx-boost', 'true'); t.setAttribute('hx-target', 'main'); t.setAttribute('hx-swap', 'outerHTML'); t.setAttribute('hx-select', 'main'); t.hidden = true;
+        document.body.appendChild(t); if (window.htmx) htmx.process(t); t.click(); setTimeout(function () { t.remove(); }, 0);
+      }, true);
+    })();
     // Tear down when a boosted navigation is about to replace <main>.
     document.addEventListener('htmx:beforeSwap', function (e) {
       var t = e.detail && e.detail.target;
