@@ -287,14 +287,10 @@
   </label>
 </div>
 
-<script>
-// Bind pagination
-document.querySelectorAll('.page-nav').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    navigateDevices({page: btn.dataset.page});
-  });
-});
-</script>
+{{/* Pagination clicks are delegated from the page (see the devices.html script):
+     this partial is re-rendered in place by the live morph, which does not run
+     inline scripts, so a per-button binding here would be lost on the first
+     refresh. */}}
 {{end}}
 
 
@@ -1180,6 +1176,15 @@ function toggleSelectAll(cb) {
 
 // Open the Actions composer targeting the selected devices — one entry point for
 // every action (reboot, kiosk, install, screenshot, …) instead of separate bulk buttons.
+// Pager buttons live inside the live-refreshed list; delegate so a re-render never
+// loses the click.
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('.page-nav[data-page]');
+  if (!b || !b.closest('#device-table-container')) return;
+  e.preventDefault();
+  navigateDevices({ page: b.dataset.page });
+});
+
 function bulkAction() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
@@ -1729,7 +1734,7 @@ document.addEventListener('keydown', function(e) {
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-indicator="#refresh-indicator"
-       hx-vals='js:getFilterVals()'>
+       hx-vals='js:{...getFilterVals()}'>
     {{template "device-table" .}}
   </div>
   <aside class="device-inspector" id="device-inspector" aria-label="Device inspector" hidden>
