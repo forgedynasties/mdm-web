@@ -2494,7 +2494,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
         <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-        {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the library, then install it here"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Want to add an app?</a>{{end}}Install app</button>
+        Install app</button>
       </div>
     </div>
     {{if canOperate .Role}}
@@ -2505,7 +2505,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
         <div class="install-modal-head">
           <span class="modal-title">Install app</span>
           <span class="install-head-actions">
-            {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the library"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Want to add an app?</a>{{end}}
+            {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the app library, then install it from here"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add app</a>{{end}}
             <button type="button" class="modal-close" onclick="installModalClose()" aria-label="Close">&times;</button>
           </span>
         </div>
