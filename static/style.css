@@ -4638,8 +4638,11 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
    vs .dl-status-col (1 line online, 2 offline with "Last seen") differ, so
    centering independently put their first lines at different heights: an
    offline row's RAM/Temp/Cycles rows didn't line up with an online row's. */
-.dl-card > .dl-metrics { grid-area: metrics; align-self: start; }
-.dl-card > .dl-status-col { grid-area: status; align-self: start; }
+.dl-card > .dl-metrics { grid-area: metrics; align-self: start; min-width: 104px; }
+.dl-card > .dl-status-col { grid-area: status; align-self: start; min-width: 124px; }
+/* Each card is its own grid, so a wider status column (Legacy pill + "Last seen")
+   used to shift that row's vitals left of its neighbours'. Fixed width keeps every
+   row's RAM/TEMP/CYCLES on the same line. */
 .dl-card > .dl-act { grid-area: act; }
 
 /* battery — tinted chip: glyph + % on a level-tinted pill */
