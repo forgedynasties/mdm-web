@@ -2528,9 +2528,9 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
                  (prod, newest first); the chooser under a selected tile picks which
                  APK goes into the hidden apk_url input. */}}
             <div class="install-tile-wrap">
-            <button type="button" class="app-row app-tile install-tile{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
+            <button type="button" class="app-row app-tile install-tile{{if or .Grouped (gt .Versions 1)}} is-family{{end}}{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{$prod.Latest.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
-              <span class="app-tname">{{.Name}}</span>{{if $prod.Latest.VersionName}}<span class="app-tver">v{{$prod.Latest.VersionName}}{{if .Grouped}} · {{$prod.Label}}{{end}}</span>{{end}}
+              <span class="app-tname">{{.Name}}</span>{{if $prod.Latest.VersionName}}<span class="app-tver">v{{$prod.Latest.VersionName}}{{if .Grouped}} · {{$prod.Label}}{{end}}</span>{{end}}{{if or .Grouped (gt .Versions 1)}}<span class="app-tmeta">{{if .Grouped}}{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{end}}{{.Versions}} version{{if ne .Versions 1}}s{{end}}</span>{{end}}
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
             {{if or .Grouped (gt .Versions 1)}}
