@@ -6651,14 +6651,6 @@ html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .
 .ss-grid .cc-btn svg { flex: none; margin-right: 5px; }
 .ss-w, .ss-grid > form.ss-w, .ss-grid > .ss-w { grid-column: 1 / -1; }
 .ss-grid > form { display: contents; }
-.ss-apps { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow: auto; }
-.ss-app { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
-.ss-app:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
-.ss-app input { margin: 0; }
-.ss-app img, .ss-app-ph { width: 28px; height: 28px; border-radius: 7px; flex: none; background: var(--surface2); }
-.ss-app-t { display: flex; flex-direction: column; min-width: 0; }
-.ss-app-t b { font-weight: 500; font-size: 13px; }
-.ss-app-t small { font: 500 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ss-preview { font-size: 12.5px; line-height: 1.7; margin: 4px 0 12px; padding: 8px 12px; border-radius: 12px; background: var(--surface2); }
 .ss-preview code { font: 500 11px var(--mono); color: var(--muted); }
 .ss-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -6677,3 +6669,9 @@ html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .
 .bulk-actions .selbar-danger { color: var(--danger); }
 .bulk-actions .selbar-danger:hover { background: var(--danger-bg); border-color: var(--danger-edge); }
 @media (max-width: 900px) { #sel-sheet { right: 12px; left: 12px; top: auto; bottom: 84px; transform: none; width: auto; } .ss-acts .bulk-actions { flex-direction: row; flex-wrap: wrap; } }
+
+/* Install popup: family tiles with a variant/version chooser under a selected tile. */
+.install-tile-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.install-tile-wrap .install-tile { width: 100%; }
+.install-pick { font-size: 11px; padding: 3px 6px; max-width: 100%; }
+.install-pick[hidden] { display: none; }
