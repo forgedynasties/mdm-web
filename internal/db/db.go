@@ -12120,6 +12120,10 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 			LIMIT 1
 		) p ON true
 		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND rel.status = 'published'
+		  -- A failed slot switch is not retried on its own: the device would download
+		  -- and install the same image again and fall back again. Retry on the
+		  -- deployment page resets the row to pending on purpose.
+		  AND NOT (ud.status = 'failed' AND ud.error_code = 'SLOT_SWITCH_FAILED')
 		  -- Per-product safety gate: never resolve a release whose product differs from the
 		  -- device's own. A legacy/empty device product counts as t7 (the pre-product fleet).
 		  AND rel.product = CASE WHEN d.product = '' THEN 't7' ELSE d.product END
