@@ -209,6 +209,8 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .cam-mono{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--muted)}
 .cam-name{font-size:12.5px;font-weight:600;line-height:1.2;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cam-ver{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cam-meta{font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--accent-text);background:var(--accent-soft);border-radius:40px;padding:2px 8px;white-space:nowrap}
+.cam-tile.is-family .cam-btn img,.cam-tile.is-family .cam-mono{box-shadow:3px 3px 0 0 var(--surface2),6px 6px 0 0 var(--border)}
 .cam-tick{position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center}
 .cam-tick svg{width:11px;height:11px}
 .cam-tile.on .cam-tick{display:flex}
@@ -1283,10 +1285,11 @@ window.CMD_PREFILL = {{.Prefill}};
       if (q && hay.indexOf(q) < 0) return;
       shown++;
       var cur = AM.sel[f.key], on = !!cur, pick = on ? f.entries.filter(function (a) { return a.url === cur; })[0] || f.def : f.def;
-      var w = document.createElement('div'); w.className = 'cam-tile' + (on ? ' on' : '');
+      var nv = f.order.length, ne = f.entries.length, grouped = nv > 1 || ne > 1;
+      var w = document.createElement('div'); w.className = 'cam-tile' + (on ? ' on' : '') + (grouped ? ' is-family' : '');
       var ic = f.icon ? '<img src="data:image/png;base64,' + f.icon + '" alt="">' : '<span class="cam-mono">' + esc((f.name || '?').slice(0, 1)) + '</span>';
       var vlabel = (pick.variant && pick.variant !== 'prod' ? pick.variant + ' · ' : '') + (pick.ver ? 'v' + pick.ver : '');
-      var h = '<button type="button" class="cam-btn">' + ic + '<span class="cam-name">' + esc(f.name) + '</span><span class="cam-ver">' + esc(vlabel) + '</span><span class="cam-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span></button>';
+      var h = '<button type="button" class="cam-btn">' + ic + '<span class="cam-name">' + esc(f.name) + '</span><span class="cam-ver">' + esc(vlabel) + '</span>' + (grouped ? '<span class="cam-meta">' + (nv > 1 ? nv + ' variant' + (nv === 1 ? '' : 's') + ' · ' : '') + ne + ' version' + (ne === 1 ? '' : 's') + '</span>' : '') + '<span class="cam-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span></button>';
       if (f.entries.length > 1) {
         h += '<select class="form-input cam-pick"' + (on ? '' : ' hidden') + '>';
         f.order.forEach(function (v) {
