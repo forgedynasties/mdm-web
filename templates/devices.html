@@ -493,7 +493,6 @@ a.fleet-rail-item{min-height:40px}
   {{else if .ViewColl}}
     {{/* ───────── Collection detail ───────── */}}
     {{$isRest := eq .View "restaurant"}}
-    <a class="back-link" href="/devices?view={{if $isRest}}restaurants{{else}}groups{{end}}">← {{if $isRest}}Restaurants{{else}}Groups{{end}}</a>
     {{with .ViewColl}}
     <div class="dt-head">
       <span class="cl-score {{if le .DeviceCount 0}}is-empty{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}">{{if gt .DeviceCount 0}}{{.Score}}{{else}}—{{end}}</span>{{template "score-why" (whyScore .)}}

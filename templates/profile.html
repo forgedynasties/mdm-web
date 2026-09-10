@@ -50,7 +50,7 @@
       </div>
     </div>
     <div class="cc-actions">
-      {{if .CanManage}}<a class="cc-btn" href="/users/access">← Access control</a>{{else if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+      {{if .CanManage}}<a class="cc-btn" href="/users/access">Access control</a>{{else if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
       {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
