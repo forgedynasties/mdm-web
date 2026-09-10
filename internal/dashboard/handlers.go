@@ -11007,7 +11007,7 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		return
 	}
 	if len(eligible) == 0 {
-		http.Error(w, "No eligible devices — everything selected is already on this build or newer, or has no applicable package.", http.StatusBadRequest)
+		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, or is mid-update on another deployment.", http.StatusBadRequest)
 		return
 	}
 
