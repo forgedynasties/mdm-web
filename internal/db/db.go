@@ -12089,7 +12089,10 @@ func (d *DB) DeviceHasActiveUpdate(ctx context.Context, deviceID uuid.UUID) (boo
 		SELECT EXISTS (
 			SELECT 1 FROM update_devices ud
 			JOIN updates u ON u.id = ud.update_id
-			WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed'
+			WHERE ud.device_id = $1 AND u.status = 'active'
+			  -- in flight only: a failed / cancelled row on another deployment must
+			  -- not block a new push to this device
+			  AND ud.status NOT IN ('installed', 'failed', 'canceled')
 		)
 	`, deviceID).Scan(&exists)
 	return exists, err
