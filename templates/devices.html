@@ -416,20 +416,20 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/releases">Releases</a><a href="/releases" class="add" title="All releases" aria-label="All releases">→</a></div>
-    {{/* Builds never stop accumulating, so they are a picker, not rows. Only builds with
-         at least one device; manage all releases on /releases. */}}
-    {{$hasRel := false}}{{range .RailReleases}}{{if gt .DeviceCount 0}}{{$hasRel = true}}{{end}}{{end}}
-    {{if $hasRel}}
-    <div class="fleet-rail-pick">
-      <select class="form-input" aria-label="Filter by build" onchange="location.href = this.value ? '/devices?build=' + encodeURIComponent(this.value) : '/devices'">
-        <option value=""{{if not .FilterBuild}} selected{{end}}>Any build</option>
-        {{range .RailReleases}}{{if gt .DeviceCount 0}}<option value="{{.Version}}"{{if eq .Version $.FilterBuild}} selected{{end}}>{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}} · {{.DeviceCount}}</option>{{end}}{{end}}
-      </select>
-      {{if .FilterBuild}}{{range .RailReleases}}{{if eq .Version $.FilterBuild}}<a class="fleet-rail-pick-go" href="/releases/{{.ID}}">Open {{.Version}} →</a>{{end}}{{end}}{{end}}
+    <div class="fleet-rail-cap"><a href="/releases">Releases</a></div>
+    {{/* Only releases with at least one device on them — 0-device releases are noise here;
+         manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
+    <div class="fleet-rail-list" data-sec="releases">
+    {{range .RailReleases}}{{if gt .DeviceCount 0}}
+    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}">
+      <a class="ri-main" href="/devices?build={{.Version}}"><span class="dot ok"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span></a>
+      <a class="ri-go" href="/releases/{{.ID}}" title="Manage {{.Version}}" aria-label="Manage {{.Version}}">→</a>
+      <span class="ct">{{.DeviceCount}}</span>
     </div>
-    {{else}}
-    <div class="fleet-rail-empty">None with devices</div>
+    {{end}}{{end}}
+    </div>
+    {{if not .RailReleases}}
+    <div class="fleet-rail-empty">None published</div>
     {{end}}
   </aside>
   <script>
