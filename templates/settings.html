@@ -1117,40 +1117,43 @@ document.addEventListener('submit', function (e) {
   .lib-tile:hover .lib-del-form{opacity:1;}
   .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .lib-del:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
-  .ul-wrap{padding:10px 16px 0;display:flex;flex-direction:column;gap:8px;}
-  .ul-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
-  .ul-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s ease;}
-  .ul-row{display:flex;align-items:center;gap:11px;padding:9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);}
-  .ul-ic{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .ul-ic img{width:100%;height:100%;object-fit:contain;}
-  .ul-m{flex:1;min-width:0;}
-  .ul-nm{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px;}
-  .ul-st{font-size:11px;color:var(--muted);margin-top:4px;}
-  .ul-st.is-error{color:var(--danger,#c0392b);}
-  .ul-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .ul-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
-  .cf-list{display:flex;flex-direction:column;gap:8px;}
-  .cf-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;}
-  .cf-ic{width:44px;height:44px;flex:none;border-radius:11px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .cf-ic img{width:100%;height:100%;object-fit:contain;}
-  .cf-m{flex:1;min-width:0;}
-  .cf-nm{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cf-pk{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cf-meta{font-size:11.5px;color:var(--muted);white-space:nowrap;flex:none;}
-  .cf-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
-  .cf-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
+  .lib-card{position:relative;}
+  .lib-card.is-over::after{content:"Drop to add to the library";position:absolute;inset:6px;border:2px dashed var(--accent);border-radius:20px;background:color-mix(in srgb,var(--accent) 8%,transparent);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--accent-text);pointer-events:none;z-index:2;}
+  .la-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 16px;border:1.5px dashed var(--border);border-radius:16px;background:var(--surface-2);text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
+  .la-drop:hover,.la-drop:focus-visible,.la-drop.is-over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2));outline:none;}
+  .la-drop svg{width:30px;height:30px;color:var(--accent);}
+  .la-dt{font-size:14px;font-weight:500;}
+  .la-dt .l{color:var(--accent-text);text-decoration:underline;text-underline-offset:3px;}
+  .la-ds{font-size:12px;color:var(--muted);max-width:46ch;}
+  .la-list{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+  .la-list:empty{display:none;}
+  .la-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);}
+  .la-ic{width:44px;height:44px;flex:none;border-radius:11px;background:var(--surface-3);overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .la-ic img{width:100%;height:100%;object-fit:contain;}
+  .la-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .la-nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px;}
+  .la-dup{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-radius:40px;padding:2px 8px;background:var(--warn-bg,rgba(230,150,0,.14));color:var(--warn,#9a5b00);flex:none;}
+  .la-pk{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .la-bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+  .la-bar[hidden]{display:none;}
+  .la-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s ease;}
+  .la-st{font-size:11px;color:var(--muted);}
+  .la-st.is-error{color:var(--danger,#c0392b);}
+  .la-st.is-ok{color:var(--ok);font-weight:600;}
+  .la-meta{font-size:11.5px;color:var(--muted);white-space:nowrap;flex:none;font-variant-numeric:tabular-nums;}
+  .la-x{width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .la-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
 </style>
-<div class="cc-card" style="margin-bottom:16px;">
+<div class="cc-card lib-card" id="lib-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
     <h3>App library</h3>
     <div class="card-header-actions" style="margin-left:auto">
       <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
       <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" multiple hidden onchange="libUploadApks(this.files); this.value='';">
-      <button type="button" class="cc-btn sm primary" onclick="document.getElementById('lib-apk-file').click()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upload APKs</button>
+      <button type="button" class="cc-btn sm primary" onclick="libAddOpen()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Add apps</button>
     </div>
   </div>
-  <div class="ul-wrap" id="lib-ul-list" hidden></div>
   {{if .Apps}}
   <div class="lib-drawer" id="lib-drawer">
     {{range .Apps}}
@@ -1198,12 +1201,25 @@ document.addEventListener('submit', function (e) {
   </div>
 </div>
 
-<!-- Confirm-before-add modal (shown after uploads finish) -->
-<div id="lib-confirm-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-confirm-modal')libConfirmClose()">
-  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Confirm apps to add">
-    <div class="modal-header"><span class="modal-title">Add to library</span><button type="button" class="modal-close" onclick="libConfirmClose()" aria-label="Close">&times;</button></div>
-    <div class="modal-body"><div class="cf-list" id="lib-confirm-list"></div><div id="lib-confirm-err" class="alert alert-error" style="display:none;margin-top:10px;"></div></div>
-    <div class="modal-footer"><button type="button" class="btn-outline" onclick="libConfirmClose()">Cancel</button><button type="button" class="cc-btn primary" id="lib-confirm-add" onclick="libConfirmAdd()">Add <span id="lib-confirm-n"></span></button></div>
+<!-- Add apps: drop zone + per-file parse/upload rows + one confirm. Dropping APKs
+     anywhere on the library card opens this too. -->
+<div id="lib-add-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-add-modal')libAddClose()">
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Add apps to the library">
+    <div class="modal-header"><span class="modal-title">Add apps</span><button type="button" class="modal-close" onclick="libAddClose()" aria-label="Close">&times;</button></div>
+    <div class="modal-body">
+      <div class="la-drop" id="la-drop" role="button" tabindex="0" onclick="document.getElementById('lib-apk-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('lib-apk-file').click();}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div class="la-dt">Drop APK files here, or <span class="l">browse</span></div>
+        <div class="la-ds">Several at once is fine. Each one is read in your browser, then uploaded straight to storage.</div>
+      </div>
+      <div class="la-list" id="la-list"></div>
+      <div id="la-err" class="alert alert-error" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <span class="muted small" id="la-sum" style="margin-right:auto;"></span>
+      <button type="button" class="btn-outline" onclick="libAddClose()">Cancel</button>
+      <button type="button" class="cc-btn primary" id="la-add" onclick="libConfirmAdd()" disabled>Add to library</button>
+    </div>
   </div>
 </div>
 <script>
@@ -1216,77 +1232,92 @@ function libS3Put(url,file,onp,onXhr){return new Promise(function(res,rej){var x
 // cancel button; once uploads finish, a confirmation window lists the parsed details and
 // only then (on confirm) registers them into the library.
 var libQueue = [];
+// Packages already in the library (from the tiles), for the duplicate hint.
+function libExisting(){var m={};document.querySelectorAll('.lib-tile[data-pkg]').forEach(function(t){m[t.dataset.pkg]=t.dataset.version||'';});return m;}
+function libAddOpen(){document.getElementById('lib-add-modal').classList.add('modal-open');libSum();}
+function libAddClose(){
+  if(libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';})&&!confirm('Uploads are still running. Close and cancel them?'))return;
+  libQueue.forEach(function(it){if(it.state==='reading'||it.state==='uploading'){it.state='cancelled';if(it.xhr)it.xhr.abort();}});
+  libQueue=[]; document.getElementById('la-list').innerHTML=''; document.getElementById('la-err').style.display='none';
+  document.getElementById('lib-add-modal').classList.remove('modal-open');
+}
 function libUploadApks(files){
   if(!files||!files.length)return;
-  var list=document.getElementById('lib-ul-list'); list.hidden=false;
-  Array.prototype.forEach.call(files,function(file){
+  var apks=Array.prototype.filter.call(files,function(f){return /\.apk$/i.test(f.name)||f.type==='application/vnd.android.package-archive';});
+  var skipped=files.length-apks.length;
+  libAddOpen();
+  if(skipped){var e=document.getElementById('la-err');e.textContent=skipped+' file'+(skipped===1?' is':'s are')+' not an APK and '+(skipped===1?'was':'were')+' ignored.';e.style.display='block';}
+  apks.forEach(function(file){
     var item={id:'ul_'+libQueue.length+'_'+(+new Date()),file:file,name:file.name,pkg:'',ver:'',icon:'',size:file.size,key:'',xhr:null,state:'reading',err:''};
-    libQueue.push(item); list.appendChild(libUlRow(item)); libProcess(item);
+    libQueue.push(item); document.getElementById('la-list').appendChild(libUlRow(item)); libProcess(item);
   });
+  libSum();
 }
 function libUlRow(item){
-  var row=document.createElement('div'); row.className='ul-row'; row.id=item.id;
-  row.innerHTML='<div class="ul-ic"></div><div class="ul-m"><div class="ul-nm"></div><div class="ul-bar"><div class="ul-fill"></div></div><div class="ul-st"></div></div><button type="button" class="ul-x" title="Cancel">&times;</button>';
-  row.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
-  row.querySelector('.ul-x').onclick=function(){libCancel(item);};
+  var row=document.createElement('div'); row.className='la-row'; row.id=item.id;
+  row.innerHTML='<div class="la-ic"></div><div class="la-m"><div class="la-nm"></div><div class="la-pk mono"></div><div class="la-bar"><div class="la-fill"></div></div><div class="la-st"></div></div><div class="la-meta"></div><button type="button" class="la-x" title="Remove">&times;</button>';
+  row.querySelector('.la-nm').textContent=item.name;
+  row.querySelector('.la-meta').textContent=libFmt(item.size);
+  row.querySelector('.la-x').onclick=function(){libCancel(item);};
   return row;
 }
 function libUlSet(item,txt,pct,err){
   var row=document.getElementById(item.id); if(!row)return;
-  var st=row.querySelector('.ul-st'); if(txt!=null)st.textContent=txt; st.classList.toggle('is-error',!!err);
-  if(pct!=null)row.querySelector('.ul-fill').style.width=pct+'%';
+  var st=row.querySelector('.la-st'); if(txt!=null)st.textContent=txt; st.classList.toggle('is-error',!!err); st.classList.toggle('is-ok',txt==='Ready');
+  if(pct!=null)row.querySelector('.la-fill').style.width=pct+'%';
+  row.querySelector('.la-bar').hidden=(pct==null||pct>=100||!!err);
+  libSum();
+}
+function libSum(){
+  var ready=libQueue.filter(function(it){return it.state==='uploaded';}).length, busy=libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';});
+  var btn=document.getElementById('la-add'), sum=document.getElementById('la-sum'); if(!btn)return;
+  btn.disabled=busy||!ready; btn.textContent=ready?('Add '+ready+' to library'):'Add to library';
+  sum.textContent=!libQueue.length?'':busy?'Uploading…':(ready+' ready');
 }
 function libProcess(item){
   libUlSet(item,'Reading…',0);
+  var r=document.getElementById(item.id);
   libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();}).then(function(info){
     item.pkg=info.package||'';
     var lbl=(info.application&&info.application.label)||info.label||item.pkg; if(Array.isArray(lbl))lbl=lbl[0]; item.name=String(lbl||item.pkg);
     var v=info.versionName||(info.apkInfo&&info.apkInfo.versionName)||''; item.ver=v?String(v):'';
-    var r=document.getElementById(item.id); if(r)r.querySelector('.ul-nm').textContent=item.name+' ('+libFmt(item.size)+')';
-    return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.ul-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
-  }).catch(function(){})
+    if(r){ r.querySelector('.la-nm').textContent=item.name; r.querySelector('.la-pk').textContent=item.pkg; r.querySelector('.la-meta').textContent=(item.ver?'v'+item.ver+' · ':'')+libFmt(item.size);
+      var have=libExisting(); if(item.pkg&&item.pkg in have){var tag=document.createElement('span');tag.className='la-dup';tag.textContent=have[item.pkg]===item.ver?'already in library':'in library as v'+(have[item.pkg]||'?');r.querySelector('.la-nm').appendChild(tag);} }
+    return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.la-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
+  }).catch(function(){ if(r){r.querySelector('.la-pk').textContent='could not read the manifest; the file still uploads';} })
   .then(function(){ if(item.state==='cancelled')throw new Error('cancelled'); return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:item.file.name})}); })
   .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
   .then(function(d){ item.key=d.key; item.state='uploading'; libUlSet(item,'Uploading… 0%',0);
     return libS3Put(d.url,item.file,function(l,t){var p=Math.round(l/t*100);libUlSet(item,'Uploading… '+p+'%',p);},function(x){item.xhr=x;}); })
-  .then(function(){ item.state='uploaded'; item.xhr=null; libUlSet(item,'Uploaded ✓',100); libMaybeConfirm(); })
-  .catch(function(err){ if(item.state==='cancelled'){libUlSet(item,'Cancelled',null,true);} else {item.state='error'; item.err=err.message; libUlSet(item,'Error: '+err.message,null,true);} libMaybeConfirm(); });
+  .then(function(){ item.state='uploaded'; item.xhr=null; libUlSet(item,'Ready',100); })
+  .catch(function(err){ if(item.state==='cancelled'){libUlSet(item,'Cancelled',null,true);} else {item.state='error'; item.err=err.message; libUlSet(item,'Error: '+err.message,null,true);} });
 }
 function libCancel(item){
-  if(item.state==='uploaded'||item.state==='error'||item.state==='cancelled'){
-    var r=document.getElementById(item.id); if(r)r.remove(); var i=libQueue.indexOf(item); if(i>=0)libQueue.splice(i,1); libMaybeConfirm(); return;
-  }
-  item.state='cancelled'; if(item.xhr)item.xhr.abort(); libUlSet(item,'Cancelled',null,true);
+  if(item.state==='reading'||item.state==='uploading'){item.state='cancelled'; if(item.xhr)item.xhr.abort();}
+  var r=document.getElementById(item.id); if(r)r.remove(); var i=libQueue.indexOf(item); if(i>=0)libQueue.splice(i,1); libSum();
 }
-function libMaybeConfirm(){
-  if(libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';}))return; // still working
-  var ok=libQueue.filter(function(it){return it.state==='uploaded';});
-  if(ok.length)libShowConfirm(ok);
-}
-function libShowConfirm(items){
-  var list=document.getElementById('lib-confirm-list'); list.innerHTML='';
-  items.forEach(function(it){
-    var row=document.createElement('div'); row.className='cf-row';
-    row.innerHTML='<div class="cf-ic">'+(it.icon?'<img src="data:image/png;base64,'+it.icon+'" alt="">':'')+'</div><div class="cf-m"><div class="cf-nm"></div><div class="cf-pk mono"></div></div><div class="cf-meta"></div><button type="button" class="cf-x" title="Remove">&times;</button>';
-    row.querySelector('.cf-nm').textContent=it.name||it.pkg||'(unknown)';
-    row.querySelector('.cf-pk').textContent=it.pkg||'';
-    row.querySelector('.cf-meta').textContent=(it.ver?'v'+it.ver+' · ':'')+libFmt(it.size);
-    row.querySelector('.cf-x').onclick=function(){var i=items.indexOf(it);if(i>=0)items.splice(i,1);row.remove();var q=libQueue.indexOf(it);if(q>=0)libQueue.splice(q,1);document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';if(!items.length)libConfirmClose();};
-    list.appendChild(row);
-  });
-  window.__libConfirmItems=items;
-  document.getElementById('lib-confirm-n').textContent=items.length?('('+items.length+')'):'';
-  document.getElementById('lib-confirm-err').style.display='none';
-  document.getElementById('lib-confirm-modal').classList.add('modal-open');
-}
-function libConfirmClose(){document.getElementById('lib-confirm-modal').classList.remove('modal-open');}
 function libConfirmAdd(){
-  var items=window.__libConfirmItems||[]; if(!items.length){libConfirmClose();return;}
-  var btn=document.getElementById('lib-confirm-add'); btn.disabled=true; btn.textContent='Adding…';
-  var err=document.getElementById('lib-confirm-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
-  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed'); added++;});});}); });
-  chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.innerHTML='Add <span id="lib-confirm-n">('+items.length+')</span>';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
+  var items=libQueue.filter(function(it){return it.state==='uploaded';}); if(!items.length)return;
+  var btn=document.getElementById('la-add'); btn.disabled=true; btn.textContent='Adding…';
+  var err=document.getElementById('la-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
+  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});added++;});}); });
+  chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.textContent='Add '+items.length+' to library';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
 }
+// Drag and drop: the drop zone, and the whole library card (which opens the modal).
+(function(){
+  function stop(e){e.preventDefault();e.stopPropagation();}
+  function hasFiles(e){return e.dataTransfer&&Array.prototype.some.call(e.dataTransfer.types||[],function(t){return t==='Files';});}
+  var card=document.getElementById('lib-card'), zone=document.getElementById('la-drop');
+  [card,zone].forEach(function(el){ if(!el)return;
+    el.addEventListener('dragenter',function(e){if(!hasFiles(e))return;stop(e);el.classList.add('is-over');});
+    el.addEventListener('dragover',function(e){if(!hasFiles(e))return;stop(e);el.classList.add('is-over');});
+    el.addEventListener('dragleave',function(e){if(e.relatedTarget&&el.contains(e.relatedTarget))return;el.classList.remove('is-over');});
+    el.addEventListener('drop',function(e){if(!hasFiles(e))return;stop(e);el.classList.remove('is-over');libUploadApks(e.dataTransfer.files);});
+  });
+  // A stray drop elsewhere on the page must not navigate away to the file.
+  window.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
+  window.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();});
+})();
 function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
 function libInfoOpen(tile){
   var iconEl=document.getElementById('li-icon');
