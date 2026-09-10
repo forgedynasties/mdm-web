@@ -1118,6 +1118,9 @@ document.addEventListener('submit', function (e) {
   .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .lib-del:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
   .lib-card{position:relative;}
+  #lib-add-modal .modal-body{padding:18px 20px;}
+  #lib-add-modal .modal-footer{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}
+  body.lib-dragging .lib-card{outline:2px dashed var(--accent);outline-offset:4px;border-radius:24px;}
   .lib-card.is-over::after{content:"Drop to add to the library";position:absolute;inset:6px;border:2px dashed var(--accent);border-radius:20px;background:color-mix(in srgb,var(--accent) 8%,transparent);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--accent-text);pointer-events:none;z-index:2;}
   .la-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 16px;border:1.5px dashed var(--border);border-radius:16px;background:var(--surface-2);text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
   .la-drop:hover,.la-drop:focus-visible,.la-drop.is-over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2));outline:none;}
@@ -1314,9 +1317,13 @@ function libConfirmAdd(){
     el.addEventListener('dragleave',function(e){if(e.relatedTarget&&el.contains(e.relatedTarget))return;el.classList.remove('is-over');});
     el.addEventListener('drop',function(e){if(!hasFiles(e))return;stop(e);el.classList.remove('is-over');libUploadApks(e.dataTransfer.files);});
   });
-  // A stray drop elsewhere on the page must not navigate away to the file.
+  // Anywhere on the page counts: dragging files in highlights the library, dropping
+  // them anywhere opens Add apps with those files.
+  var depth=0;
+  window.addEventListener('dragenter',function(e){if(!hasFiles(e))return;e.preventDefault();depth++;document.body.classList.add('lib-dragging');});
+  window.addEventListener('dragleave',function(e){if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)document.body.classList.remove('lib-dragging');});
   window.addEventListener('dragover',function(e){if(hasFiles(e))e.preventDefault();});
-  window.addEventListener('drop',function(e){if(hasFiles(e))e.preventDefault();});
+  window.addEventListener('drop',function(e){if(!hasFiles(e))return;e.preventDefault();depth=0;document.body.classList.remove('lib-dragging');if(card&&card.contains(e.target))return;if(zone&&zone.contains(e.target))return;libUploadApks(e.dataTransfer.files);});
 })();
 function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
 function libInfoOpen(tile){
