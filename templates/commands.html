@@ -198,6 +198,22 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .co-subset:hover{background:var(--accent-2-soft)}
 .co-wipebox{flex:0 1 190px}
 /* dropdown menu inside the strip */
+#co-app-modal .modal-body{padding:16px 20px;max-height:60vh;overflow:auto}
+#co-app-modal .modal-footer{display:flex;align-items:center;gap:8px;padding:12px 20px;border-top:1px solid var(--border)}
+.cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.cam-tile{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cam-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px 10px;border:1px solid var(--border);border-radius:16px;background:var(--surface);cursor:pointer;font:inherit;color:var(--text);width:100%}
+.cam-btn:hover{background:var(--surface2)}
+.cam-tile.on .cam-btn{border-color:var(--accent);background:var(--accent-soft)}
+.cam-btn img,.cam-mono{width:46px;height:46px;border-radius:12px;object-fit:contain;background:var(--surface2)}
+.cam-mono{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--muted)}
+.cam-name{font-size:12.5px;font-weight:600;line-height:1.2;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cam-ver{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cam-tick{position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center}
+.cam-tick svg{width:11px;height:11px}
+.cam-tile.on .cam-tick{display:flex}
+.cam-pick{font-size:11px;padding:3px 6px}
+.cam-pick[hidden]{display:none}
 .co-menu{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none;width:min(400px,92vw)}
 .co-menu.on{display:block;animation:co-fade var(--dur-slow) var(--ease)}
 @keyframes co-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
@@ -492,6 +508,17 @@ select.co-in{flex:0 1 auto;min-width:180px}
 
 <!-- Pin-current (save-as-recipe) modal -->
 {{if canOperate .Role}}
+<div id="co-app-modal" class="modal-backdrop" onclick="closeAppModal(event)">
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Pick apps from the library">
+    <div class="modal-header"><span class="modal-title">Pick apps from the library</span><button type="button" class="modal-close" onclick="closeAppModal()" aria-label="Close">&times;</button></div>
+    <div class="modal-body">
+      <input type="search" id="cam-q" class="form-input" placeholder="Search apps, packages, variants…" oninput="amSearch()" style="margin-bottom:12px;">
+      <div class="cam-grid" id="cam-grid"></div>
+      <div id="cam-empty" class="muted small" hidden style="padding:18px 0;text-align:center;">No app matches.{{if canAppLibrary .Role}} <a href="/apps">Add apps to the library →</a>{{end}}</div>
+    </div>
+    <div class="modal-footer"><span class="muted small" id="cam-count" style="margin-right:auto;">Pick one or more apps</span><button type="button" class="btn-outline" onclick="closeAppModal()">Cancel</button><button type="button" class="cc-btn primary" id="cam-add" onclick="amApply()" disabled>Add</button></div>
+  </div>
+</div>
 <div id="co-missing-modal" class="modal-backdrop" onclick="closeMissingModal(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -1223,6 +1250,71 @@ window.CMD_PREFILL = {{.Prefill}};
   // ── Strip dropdown menu (apps / packages / kiosk app / shell suggestions) ──
   var menu = { kind: null, anchor: null };
   function closeMenu() { menu.kind = null; menu.anchor = null; menuEl.classList.remove('on'); }
+
+  // ── App picker popup: one tile per app family, variant/version chooser under a
+  // selected tile, multi-select, one Add. Built from DS.apps (ordered family,
+  // prod first, newest first; each row carries family/variant/latest). ──
+  var AM = { fams: [], sel: {} };
+  function amFamilies() {
+    var map = {}, out = [];
+    DS.apps.forEach(function (a) {
+      var key = a.family || a.name || a.pkg; var f = map[key];
+      if (!f) { f = { key: key, name: a.family || a.name, icon: '', entries: [], variants: {}, order: [] }; map[key] = f; out.push(f); }
+      if (!f.icon && a.icon) f.icon = a.icon;
+      var v = a.variant || 'prod'; if (!f.variants[v]) { f.variants[v] = []; f.order.push(v); }
+      f.variants[v].push(a); f.entries.push(a);
+    });
+    out.forEach(function (f) { f.def = (f.variants.prod && f.variants.prod[0]) || f.entries[0]; });
+    return out;
+  }
+  window.openAppModal = function () {
+    if (!CAN) return;
+    AM.fams = amFamilies(); AM.sel = {};
+    AM.fams.forEach(function (f) { f.entries.forEach(function (a) { if (S.apps.some(function (x) { return x.url === a.url; })) AM.sel[f.key] = a.url; }); });
+    var q = el('cam-q'); if (q) q.value = '';
+    amRender(); el('co-app-modal').classList.add('modal-open'); if (q) setTimeout(function () { q.focus(); }, 30);
+  };
+  window.closeAppModal = function (e) { if (e && e.target && e.target !== el('co-app-modal')) return; el('co-app-modal').classList.remove('modal-open'); };
+  function amRender() {
+    var q = (el('cam-q').value || '').toLowerCase(), grid = el('cam-grid'), n = 0, shown = 0;
+    grid.innerHTML = '';
+    AM.fams.forEach(function (f) {
+      var hay = (f.name + ' ' + f.entries.map(function (a) { return a.pkg + ' ' + (a.variant || ''); }).join(' ')).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      shown++;
+      var cur = AM.sel[f.key], on = !!cur, pick = on ? f.entries.filter(function (a) { return a.url === cur; })[0] || f.def : f.def;
+      var w = document.createElement('div'); w.className = 'cam-tile' + (on ? ' on' : '');
+      var ic = f.icon ? '<img src="data:image/png;base64,' + f.icon + '" alt="">' : '<span class="cam-mono">' + esc((f.name || '?').slice(0, 1)) + '</span>';
+      var vlabel = (pick.variant && pick.variant !== 'prod' ? pick.variant + ' · ' : '') + (pick.ver ? 'v' + pick.ver : '');
+      var h = '<button type="button" class="cam-btn">' + ic + '<span class="cam-name">' + esc(f.name) + '</span><span class="cam-ver">' + esc(vlabel) + '</span><span class="cam-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span></button>';
+      if (f.entries.length > 1) {
+        h += '<select class="form-input cam-pick"' + (on ? '' : ' hidden') + '>';
+        f.order.forEach(function (v) {
+          h += '<optgroup label="' + esc(v) + '">';
+          f.variants[v].forEach(function (a) { h += '<option value="' + esc(a.url) + '"' + (a.url === pick.url ? ' selected' : '') + '>' + esc(a.ver ? 'v' + a.ver : 'unversioned') + (a.latest ? ' (latest)' : '') + '</option>'; });
+          h += '</optgroup>';
+        });
+        h += '</select>';
+      }
+      w.innerHTML = h;
+      w.querySelector('.cam-btn').addEventListener('click', function () {
+        if (AM.sel[f.key]) delete AM.sel[f.key]; else { var sl = w.querySelector('.cam-pick'); AM.sel[f.key] = sl ? sl.value : f.def.url; }
+        amRender();
+      });
+      var sl = w.querySelector('.cam-pick'); if (sl) sl.addEventListener('change', function () { AM.sel[f.key] = sl.value; amRender(); });
+      grid.appendChild(w);
+    });
+    n = Object.keys(AM.sel).length;
+    el('cam-count').textContent = n ? n + ' selected' : 'Pick one or more apps';
+    el('cam-add').disabled = !n; el('cam-add').textContent = n ? 'Add ' + n + ' app' + (n === 1 ? '' : 's') : 'Add';
+    el('cam-empty').hidden = shown > 0;
+  }
+  window.amApply = function () {
+    var picked = [];
+    AM.fams.forEach(function (f) { var u = AM.sel[f.key]; if (!u) return; var a = f.entries.filter(function (x) { return x.url === u; })[0]; if (a) picked.push({ url: a.url, name: f.name + (a.variant && a.variant !== 'prod' ? ' · ' + a.variant : '') + (a.ver ? ' v' + a.ver : '') }); });
+    S.apps = picked; updateUI(); el('co-app-modal').classList.remove('modal-open');
+  };
+  window.amSearch = function () { amRender(); };
   function openMenu(kind, anchor) {
     if (!CAN) return;
     menu.kind = kind; menu.anchor = anchor || null;
@@ -1250,9 +1342,14 @@ window.CMD_PREFILL = {{.Prefill}};
     var opts = [], empty = 'Nothing here.';
     if (menu.kind === 'apps') {
       DS.apps.forEach(function (a) {
-        if (!match(a.name + ' ' + (a.pkg || ''), q)) return;
+        if (!match(a.name + ' ' + (a.family || '') + ' ' + (a.variant || '') + ' ' + (a.pkg || ''), q)) return;
+        // Older versions stay out of the list until searched for, so the catalogue
+        // shows one row per variant.
+        if (!a.latest && !q) return;
         var sel = S.apps.some(function (x) { return x.url === a.url; });
-        opts.push({ img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: a.name + (a.ver ? ' v' + a.ver : ''), meta: a.pkg || tail(a.url), sel: sel,
+        var title = a.family && a.family !== a.name ? a.family + ' · ' + (a.variant || 'prod') : (a.name + (a.variant && a.variant !== 'prod' ? ' · ' + a.variant : ''));
+        title += (a.ver ? ' v' + a.ver : '') + (a.latest ? '' : ' (older)');
+        opts.push({ img: a.icon ? 'data:image/png;base64,' + a.icon : '', title: title, meta: a.pkg || tail(a.url), sel: sel,
           pick: function () { if (sel) S.apps = S.apps.filter(function (x) { return x.url !== a.url; }); else S.apps.push({ url: a.url, name: a.name }); } });
       });
       empty = DS.apps.length ? 'No app matches.' : 'No apps in the library yet — add one in Settings → App library.';
@@ -1548,6 +1645,7 @@ window.CMD_PREFILL = {{.Prefill}};
         return;
       }
       var add = e.target.closest('[data-menu]');
+      if (add && add.dataset.menu === 'apps') { openAppModal(); return; }
       if (add) { openMenu(add.dataset.menu, add); return; }
     });
     menuEl.addEventListener('mousedown', function (e) { if (!e.target.closest('.msrch')) e.preventDefault(); });

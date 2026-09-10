@@ -2899,11 +2899,15 @@ func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 
 // AppLibraryPage renders /apps: the library with upload, for admin, dev and super op.
 func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
+	families, suggestions, mode := h.libraryData(r.Context())
 	apps, _ := h.db.ListApps(r.Context())
 	h.render(w, r, "apps.html", map[string]any{
-		"Title":      "App library",
-		"ActivePage": "commands",
-		"Apps":       apps,
+		"Title":         "App library",
+		"ActivePage":    "commands",
+		"Apps":          apps,
+		"Families":      families,
+		"Suggestions":   suggestions,
+		"AppFamilyMode": mode,
 	})
 }
 
@@ -4145,7 +4149,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	if nicknames == nil {
 		nicknames = map[uuid.UUID]string{}
 	}
-	libraryApps, _ := h.db.ListApps(r.Context())
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
@@ -4177,7 +4180,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"SortDir":              dir,
 		"Online":               online,
 		"Groups":               groups,
-		"Apps":                 libraryApps,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
 		"Products":             product.All(),
@@ -5013,7 +5015,7 @@ func otaStatusView(status string, p *shell.OTAProgress) (label, class string, pe
 	case "awaiting_reboot":
 		return "Awaiting reboot", "done", 100
 	case "reboot_sent":
-		return "Rebooting", "done", 95
+		return "Reboot pending", "done", 95
 	case "failed":
 		return "Failed", "fail", 100
 	case "installed":
@@ -5342,6 +5344,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Server-Timing: visible in the browser's Network panel, so a slow page can be
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
+	devFams, _, _ := h.libraryData(r.Context())
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -5372,6 +5375,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
+		"Families":            devFams,
 		"InstalledPackages":   launchableOnly(installedPkgs),
 		"KioskApps":           kioskApps,
 		"KioskAllowlistCSV":   strings.Join(h.cfg.KioskAllowlist(), ","),
@@ -12064,15 +12068,25 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 
 		type palApp struct {
-			URL  string `json:"url"`
-			Name string `json:"name"`
-			Ver  string `json:"ver,omitempty"`
-			Pkg  string `json:"pkg,omitempty"`
-			Icon string `json:"icon,omitempty"`
+			URL     string `json:"url"`
+			Name    string `json:"name"`
+			Ver     string `json:"ver,omitempty"`
+			Pkg     string `json:"pkg,omitempty"`
+			Icon    string `json:"icon,omitempty"`
+			Family  string `json:"family,omitempty"`
+			Variant string `json:"variant,omitempty"`
+			Latest  bool   `json:"latest,omitempty"`
 		}
+		// Ordered by family, prod first, newest first, so the picker reads as a catalogue.
+		palFams, _, _ := h.libraryData(r.Context())
 		palApps := make([]palApp, 0, len(apps))
-		for _, a := range apps {
-			palApps = append(palApps, palApp{URL: a.ApkURL, Name: a.Name, Ver: a.VersionName, Pkg: a.PackageName, Icon: a.Icon})
+		for _, f := range palFams {
+			for _, v := range f.Variants {
+				for _, ver := range v.Versions {
+					a := ver.App
+					palApps = append(palApps, palApp{URL: a.ApkURL, Name: a.Name, Ver: a.VersionName, Pkg: a.PackageName, Icon: a.Icon, Family: f.Name, Variant: v.Label, Latest: ver.Latest})
+				}
+			}
 		}
 		type palCollection struct {
 			ID    string `json:"id"`
@@ -12318,6 +12332,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		frequent = frequent[:n]
 	}
 
+	libFams, libSugg, libMode := h.libraryData(r.Context())
 	data := map[string]any{
 		"Title":            "Actions",
 		"DeviceQueries":    actionQueries,
@@ -12335,6 +12350,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Builds":           builds,
 		"Apps":             apps,
 		"AppNames":         apkURLToName(apps),
+		"Families":         libFams,
+		"Suggestions":      libSugg,
+		"AppFamilyMode":    libMode,
 		"FleetPackages":    fleetPackages,
 		"Recipes":          recipes,
 		"Summaries":        summaries,
@@ -18667,6 +18685,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /apps", h.requireAppLibrary(h.AppLibraryPage))
 	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
+	post("POST /apps/families", h.requireAppLibrary(h.AppFamilyCreate))
+	post("POST /apps/families/{id}/rename", h.requireAppLibrary(h.AppFamilyRename))
+	post("POST /apps/families/{id}/ungroup", h.requireAppLibrary(h.AppFamilyUngroup))
+	post("POST /apps/package/assign", h.requireAppLibrary(h.AppPackageAssign))
+	post("POST /settings/app-family-mode", h.requireStrictAdmin(h.SettingsSetAppFamilyMode))
 	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only

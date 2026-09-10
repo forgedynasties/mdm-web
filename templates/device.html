@@ -236,7 +236,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{if .Device.Class}}<span class="cc-tag" title="Device type">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
-      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span> · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .Device.HasBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
+      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .Device.HasBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
     </div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <div class="ddc-actions cc-actions">
@@ -2523,12 +2523,22 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           <span class="install-hidden"></span>
           <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
           <div class="app-drawer install-drawer" id="install-drawer">
-            {{range .Apps}}
-            <button type="button" class="app-row app-tile install-tile{{if index $.InstalledSet .PackageName}} install-installed{{end}}" data-app="{{.Name}}" data-url="{{.ApkURL}}" data-pkg="{{.PackageName}}" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}" onclick="installToggle(this)">
-              {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
-              <span class="app-tname">{{.Name}}</span>{{if .VersionName}}<span class="app-tver">v{{.VersionName}}</span>{{end}}
+            {{range .Families}}{{$prod := .Prod}}
+            {{/* One tile per app family. data-opts lists every variant × version
+                 (prod, newest first); the chooser under a selected tile picks which
+                 APK goes into the hidden apk_url input. */}}
+            <div class="install-tile-wrap">
+            <button type="button" class="app-row app-tile install-tile{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
+              {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{$prod.Latest.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
+              <span class="app-tname">{{.Name}}</span>{{if $prod.Latest.VersionName}}<span class="app-tver">v{{$prod.Latest.VersionName}}{{if .Grouped}} · {{$prod.Label}}{{end}}</span>{{end}}
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
+            {{if or .Grouped (gt .Versions 1)}}
+            <select class="form-input install-pick" aria-label="Variant and version for {{.Name}}" hidden onchange="installPick(this)" onclick="event.stopPropagation()">
+              {{range .Variants}}<optgroup label="{{.Label}} · {{.Package}}">{{range .Versions}}<option value="{{.App.ApkURL}}" data-pkg="{{.App.PackageName}}">{{if .App.VersionName}}v{{.App.VersionName}}{{else}}unversioned{{end}}{{if .Latest}} (latest){{end}}</option>{{end}}</optgroup>{{end}}
+            </select>
+            {{end}}
+            </div>
             {{end}}
           </div>
           <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
@@ -2783,9 +2793,12 @@ window.filterInstallApps = function (q) {
   q = (q || '').trim().toLowerCase();
   var vis = 0;
   document.querySelectorAll('#install-drawer .install-tile').forEach(function (f) {
-    if (f.classList.contains('install-installed')) { f.style.display = 'none'; return; }  // already on device
+    var box = f.closest('.install-tile-wrap') || f, pick = box.querySelector && box.querySelector('.install-pick');
+    // Already on the device and nothing else to offer: hide. A family with other
+    // variants or versions stays, so an upgrade or a variant switch is one click.
+    if (f.classList.contains('install-installed') && !pick) { box.style.display = 'none'; return; }
     var show = (f.getAttribute('data-app') || '').toLowerCase().indexOf(q) !== -1;
-    f.style.display = show ? '' : 'none'; if (show) vis++;
+    box.style.display = show ? '' : 'none'; if (show) vis++;
   });
   var nm = document.getElementById('install-no-match');
   if (nm) nm.style.display = (q && vis === 0) ? '' : 'none';
@@ -2806,6 +2819,8 @@ window.installToggle = function (btn) {
   var form = document.getElementById('install-form'); if (!form) return;
   var holder = form.querySelector('.install-hidden');
   var on = btn.classList.toggle('on');
+  var pick = btn.parentElement && btn.parentElement.querySelector('.install-pick');
+  if (pick) { pick.hidden = !on; if (on) { pick.value = url; } }
   var existing = holder.querySelector('input[data-url="' + (window.CSS && CSS.escape ? CSS.escape(url) : url) + '"]');
   if (on && !existing) {
     var i = document.createElement('input');
@@ -2836,6 +2851,18 @@ window.installOptimistic = function () {
     var sub = document.createElement('div'); sub.className = 'app-tsub'; sub.textContent = 'installing'; tile.appendChild(sub);
     table.insertBefore(tile, table.firstChild);
   });
+};
+// A family's chooser changed: point the tile (and its hidden input) at that APK.
+window.installPick = function (sel) {
+  var wrap = sel.parentElement, btn = wrap && wrap.querySelector('.install-tile'); if (!btn) return;
+  var form = document.getElementById('install-form'), holder = form && form.querySelector('.install-hidden'); if (!holder) return;
+  var old = btn.getAttribute('data-url'), esc = window.CSS && CSS.escape ? CSS.escape(old) : old;
+  var inp = holder.querySelector('input[data-url="' + esc + '"]');
+  var opt = sel.options[sel.selectedIndex];
+  btn.setAttribute('data-url', sel.value); btn.setAttribute('data-pkg', opt.getAttribute('data-pkg') || '');
+  if (inp) { inp.value = sel.value; inp.setAttribute('data-url', sel.value); }
+  var ver = btn.querySelector('.app-tver'); if (ver) ver.textContent = opt.textContent.replace(' (latest)', '') + ' · ' + opt.parentElement.label.split(' · ')[0];
+  if (window.installUpdateCount) installUpdateCount();
 };
 // Optimistic uninstall: dim the tile + show "Uninstalling…" the instant it's clicked,
 // before the server responds; the drawer refresh then reconciles to the real state.
@@ -3875,6 +3902,8 @@ async function saveNewApp() {
     <span class="dq-pill {{.OtaClass}}">{{.OtaLabel}}</span>
     {{if eq .OtaUpdate.DeviceStatus "awaiting_reboot"}}
     <span class="ddc-ota-target">Will boot into build <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}the new build{{end}}</b> on reboot</span>
+    {{else if eq .OtaUpdate.DeviceStatus "reboot_sent"}}
+    <span class="ddc-ota-target">Reboot pushed for build <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}the new build{{end}}</b> · the build ID updates at the next check-in</span>
     {{else}}
     <span class="ddc-ota-target">Updating to <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}new build{{end}}</b></span>
     {{end}}

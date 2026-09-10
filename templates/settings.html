@@ -1152,22 +1152,35 @@ document.addEventListener('submit', function (e) {
     <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
     <h3>App library</h3>
     <div class="card-header-actions" style="margin-left:auto">
-      <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
+      {{if canAdmin .Role}}<form action="/settings/app-family-mode" method="POST" class="lib-mode" title="How package variants (x, x.internal, x.uatv2) are shown"><input type="hidden" name="next" value="/apps"><span>Variants</span><select name="app_family_mode" class="form-input" onchange="this.form.submit()"><option value="auto"{{if eq .AppFamilyMode "auto"}} selected{{end}}>grouped automatically</option><option value="suggest"{{if eq .AppFamilyMode "suggest"}} selected{{end}}>suggest merges</option><option value="off"{{if eq .AppFamilyMode "off"}} selected{{end}}>never grouped</option></select></form>{{end}}
+      <span class="muted small" style="margin-right:6px;">{{len .Families}} app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}</span>
       <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" multiple hidden onchange="libUploadApks(this.files); this.value='';">
       <button type="button" class="cc-btn sm primary" onclick="libAddOpen()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Add apps</button>
     </div>
   </div>
-  {{if .Apps}}
+  {{if and .Suggestions (canAppLibrary .Role)}}
+  <div class="lib-sugg">
+    {{range .Suggestions}}{{$sg := .}}
+    <form action="/apps/families" method="POST" class="lib-sugg-row">
+      <input type="hidden" name="next" value="/apps"><input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="base_package" value="{{.BasePackage}}">
+      {{range .Packages}}<input type="hidden" name="packages" value="{{.}}">{{end}}
+      <span class="lib-sugg-t"><b>{{.Name}}</b> looks like one app in {{len .Packages}} variants: {{range $i, $p := .Packages}}{{if $i}}, {{end}}<span class="mono">{{index $sg.Variants $p}}</span>{{end}}</span>
+      <button type="submit" class="cc-btn sm primary">Merge into one tile</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .Families}}
   <div class="lib-drawer" id="lib-drawer">
-    {{range .Apps}}
-    <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}" role="button" tabindex="0" style="cursor:pointer;"
-         onclick="libInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libInfoOpen(this);}"
-         data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-version="{{.VersionName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
+    {{range .Families}}
+    {{$prod := .Prod}}
+    <div class="lib-tile{{if .Grouped}} is-family{{end}}" data-app="{{.Name}} {{range .Variants}}{{.Package}} {{end}}" role="button" tabindex="0" style="cursor:pointer;"
+         onclick="libFamOpen('{{.ID}}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libFamOpen('{{.ID}}');}">
       {{if .Icon}}<img class="lib-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
       <div class="lib-name">{{.Name}}</div>
-      {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
-      <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
-      {{if canAdmin $.Role}}<form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>{{end}}
+      {{if $prod.Latest.VersionName}}<div class="lib-ver">v{{$prod.Latest.VersionName}}{{if ne $prod.Label "prod"}} · {{$prod.Label}}{{end}}</div>{{end}}
+      {{if .Grouped}}<div class="lib-pkg" title="{{range .Variants}}{{.Package}}&#10;{{end}}">{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{.Versions}} version{{if ne .Versions 1}}s{{end}}</div>
+      {{else}}<div class="lib-pkg mono" title="{{.BasePackage}}">{{.BasePackage}}</div>{{if gt .Versions 1}}<div class="lib-pkg">{{.Versions}} versions</div>{{end}}{{end}}
     </div>
     {{end}}
   </div>
@@ -1178,53 +1191,79 @@ document.addEventListener('submit', function (e) {
   {{end}}
 </div>
 
-<!-- App details modal (opened by clicking a library tile) -->
+<!-- Family modals: one per tile, server rendered. Variants as sections, versions
+     newest first, manual grouping controls for app-library roles. -->
 <style>
-  .li-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
-  .li-head .lib-icon,.li-head .lib-mono{width:60px;height:60px;}
-  .li-title{font-size:16px;font-weight:750;line-height:1.2;word-break:break-word;}
-  .li-row{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);font-size:13px;}
-  .li-k{flex:none;width:96px;color:var(--text-faint);}
-  .li-v{min-width:0;word-break:break-all;}
+  .lf-head{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+  .lf-head .lib-icon,.lf-head .lib-mono{width:60px;height:60px;}
+  .lf-title{font-size:17px;font-weight:600;line-height:1.2;word-break:break-word;}
+  .lf-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .lf-var{border-top:1px solid var(--border);padding:12px 0 6px;}
+  .lf-var-h{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .lf-var-h .cc-tag{font-size:10px;}
+  .lf-var-h .mono{font-size:11.5px;color:var(--text-faint);}
+  .lf-var-h form{margin-left:auto;display:inline-flex;gap:6px;align-items:center;}
+  .lf-var-h .form-input{font-size:11.5px;padding:3px 7px;}
+  .lf-ver{display:flex;align-items:center;gap:10px;padding:6px 0 6px 4px;font-size:12.5px;}
+  .lf-ver .v{font-family:var(--mono);font-weight:600;min-width:120px;}
+  .lf-ver .d{color:var(--muted);flex:1;}
+  .lf-ver a{color:var(--accent-text);font-size:12px;}
+  .lf-ver form{margin:0;}
+  .lf-ver .x{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;}
+  .lf-ver .x:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
+  .lf-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .lf-tools form{display:inline-flex;gap:6px;align-items:center;margin:0;}
+  .lf-tools .form-input{font-size:12px;padding:5px 8px;}
+  .lib-sugg{padding:12px 16px 0;display:flex;flex-direction:column;gap:8px;}
+  .lib-sugg-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;background:var(--accent-soft);font-size:13px;margin:0;}
+  .lib-sugg-t{flex:1;min-width:0;}
+  .lib-sugg-t .mono{font-size:11.5px;}
+  .lib-tile.is-family .lib-icon,.lib-tile.is-family .lib-mono{box-shadow:3px 3px 0 0 var(--surface-3),6px 6px 0 0 var(--border);}
+  .lib-mode{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-right:8px;}
+  .lib-mode select{font-size:12px;padding:3px 6px;}
 </style>
-<div id="lib-info-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-info-modal')libInfoClose()">
-  <div class="modal-box" role="dialog" aria-modal="true" aria-label="App details">
-    <div class="modal-header"><span class="modal-title">App details</span><button type="button" class="modal-close" onclick="libInfoClose()" aria-label="Close">&times;</button></div>
+{{range .Families}}
+<div id="lf-{{.ID}}" class="modal-backdrop lf-modal" onclick="if(event.target===this)libFamClose(this)">
+  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="{{.Name}}">
+    <div class="modal-header"><span class="modal-title">{{if .Grouped}}App family{{else}}App{{end}}</span><button type="button" class="modal-close" onclick="libFamClose(this.closest('.lf-modal'))" aria-label="Close">&times;</button></div>
     <div class="modal-body">
-      <div class="li-head"><span id="li-icon"></span><div><div id="li-name" class="li-title"></div><div id="li-pkg" class="mono muted" style="font-size:12px;"></div></div></div>
-      <div class="li-row"><span class="li-k">Package</span><span id="li-pkg2" class="li-v mono"></span></div>
-      <div class="li-row" id="li-ver-row" style="display:none;"><span class="li-k">Version</span><span id="li-ver" class="li-v mono"></span></div>
-      <div class="li-row"><span class="li-k">APK URL</span><a id="li-url" class="li-v mono" target="_blank" rel="noopener"></a></div>
-      <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
-    </div>
-    <div class="modal-footer">
-{{if canAdmin .Role}}      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>{{end}}
-      <button type="button" class="cc-btn primary" onclick="libInfoClose()">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add apps: drop zone + per-file parse/upload rows + one confirm. Dropping APKs
-     anywhere on the library card opens this too. -->
-<div id="lib-add-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-add-modal')libAddClose()">
-  <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Add apps to the library">
-    <div class="modal-header"><span class="modal-title">Add apps</span><button type="button" class="modal-close" onclick="libAddClose()" aria-label="Close">&times;</button></div>
-    <div class="modal-body">
-      <div class="la-drop" id="la-drop" role="button" tabindex="0" onclick="document.getElementById('lib-apk-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('lib-apk-file').click();}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-        <div class="la-dt">Drop APK files here, or <span class="l">browse</span></div>
-        <div class="la-ds">Several at once is fine. Each one is read in your browser, then uploaded straight to storage.</div>
+      <div class="lf-head">{{if .Icon}}<img class="lib-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
+        <div><div class="lf-title">{{.Name}}</div><div class="lf-sub">{{if .Grouped}}{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{end}}{{.Versions}} version{{if ne .Versions 1}}s{{end}}{{if .BasePackage}} · <span class="mono">{{.BasePackage}}</span>{{end}}</div></div>
       </div>
-      <div class="la-list" id="la-list"></div>
-      <div id="la-err" class="alert alert-error" style="display:none;margin-top:10px;"></div>
-    </div>
-    <div class="modal-footer">
-      <span class="muted small" id="la-sum" style="margin-right:auto;"></span>
-      <button type="button" class="btn-outline" onclick="libAddClose()">Cancel</button>
-      <button type="button" class="cc-btn primary" id="la-add" onclick="libConfirmAdd()" disabled>Add to library</button>
+      {{$fam := .}}
+      {{range .Variants}}
+      <div class="lf-var">
+        <div class="lf-var-h">
+          <span class="cc-tag {{if eq .Label "prod"}}ok{{else}}info{{end}}">{{.Label}}</span><span class="mono">{{.Package}}</span>
+          {{if and $fam.Grouped $fam.FamilyID (canAppLibrary $.Role)}}
+          <form action="/apps/package/assign" method="POST" onclick="event.stopPropagation()"><input type="hidden" name="next" value="/apps"><input type="hidden" name="package" value="{{.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{.Label}}" class="form-input" style="width:90px;" aria-label="Variant label"><button type="submit" class="cc-btn sm">Rename</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own tile">Detach</button></form>
+          {{end}}
+        </div>
+        {{range .Versions}}
+        <div class="lf-ver"><span class="v">{{if .App.VersionName}}v{{.App.VersionName}}{{else}}unversioned{{end}}</span>{{if .Latest}}<span class="cc-tag ok">latest</span>{{end}}<span class="d">added {{localTime .App.CreatedAt}}</span><a href="{{.App.ApkURL}}" target="_blank" rel="noopener">APK</a>{{if canAdmin $.Role}}<form action="/setup/apps/{{.App.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" class="x" title="Delete this version" aria-label="Delete v{{.App.VersionName}}">&times;</button></form>{{end}}</div>
+        {{end}}
+      </div>
+      {{end}}
+      {{if canAppLibrary $.Role}}
+      <div class="lf-tools">
+        {{if and .Grouped .FamilyID}}
+        <form action="/apps/families/{{.FamilyID}}/rename" method="POST"><input type="hidden" name="next" value="/apps"><input type="text" name="name" value="{{.Name}}" class="form-input" style="width:160px;" aria-label="Family name"><button type="submit" class="cc-btn sm">Rename family</button></form>
+        <form action="/apps/families/{{.FamilyID}}/ungroup" method="POST" onsubmit="return confirm('Split {{.Name}} into separate tiles?')"><input type="hidden" name="next" value="/apps"><button type="submit" class="cc-btn sm">Ungroup</button></form>
+        {{else if .Grouped}}
+        <form action="/apps/families" method="POST"><input type="hidden" name="next" value="/apps"><input type="hidden" name="base_package" value="{{.BasePackage}}">{{range .Variants}}<input type="hidden" name="packages" value="{{.Package}}">{{end}}<input type="text" name="name" value="{{.Name}}" class="form-input" style="width:160px;" aria-label="Family name"><button type="submit" class="cc-btn sm">Keep as a family</button></form>
+        <span class="muted small">Grouped automatically. Keeping it lets you rename variants and pin the grouping.</span>
+        {{else}}
+        <form action="/apps/package/assign" method="POST"><input type="hidden" name="next" value="/apps"><input type="hidden" name="package" value="{{.BasePackage}}">
+          <select name="family_id" class="form-input" aria-label="Add to family"><option value="">Add to a family…</option>{{range $.Families}}{{if and .FamilyID (ne .ID $fam.ID)}}<option value="{{.FamilyID}}">{{.Name}}</option>{{end}}{{end}}</select>
+          <input type="text" name="variant" class="form-input" style="width:90px;" placeholder="variant"><button type="submit" class="cc-btn sm">Add</button></form>
+        <form action="/apps/families" method="POST"><input type="hidden" name="next" value="/apps"><input type="hidden" name="base_package" value="{{.BasePackage}}"><input type="hidden" name="packages" value="{{.BasePackage}}"><input type="text" name="name" value="{{.Name}}" class="form-input" style="width:140px;" aria-label="New family name"><button type="submit" class="cc-btn sm">Start a family</button></form>
+        {{end}}
+      </div>
+      {{end}}
     </div>
   </div>
 </div>
+{{end}}
 <script>
 // ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
 function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
@@ -1326,21 +1365,7 @@ function libConfirmAdd(){
   window.addEventListener('drop',function(e){if(!hasFiles(e))return;e.preventDefault();depth=0;document.body.classList.remove('lib-dragging');if(card&&card.contains(e.target))return;if(zone&&zone.contains(e.target))return;libUploadApks(e.dataTransfer.files);});
 })();
 function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
-function libInfoOpen(tile){
-  var iconEl=document.getElementById('li-icon');
-  var img=tile.querySelector('.lib-icon'),mono=tile.querySelector('.lib-mono');
-  iconEl.innerHTML=img?('<img class="lib-icon" src="'+img.getAttribute('src')+'" alt="">'):('<div class="lib-mono">'+(mono?mono.textContent:'')+'</div>');
-  document.getElementById('li-name').textContent=tile.dataset.name||'';
-  document.getElementById('li-pkg').textContent=tile.dataset.pkg||'';
-  document.getElementById('li-pkg2').textContent=tile.dataset.pkg||'—';
-  var ver=tile.dataset.version||'';
-  document.getElementById('li-ver-row').style.display=ver?'':'none';
-  document.getElementById('li-ver').textContent=ver;
-  var url=tile.dataset.url||'',a=document.getElementById('li-url');a.textContent=url||'—';if(url)a.setAttribute('href',url);else a.removeAttribute('href');
-  document.getElementById('li-added').textContent=tile.dataset.added||'—';
-  document.getElementById('li-del-form').setAttribute('action','/setup/apps/'+tile.dataset.id+'/delete');
-  document.getElementById('lib-info-modal').classList.add('modal-open');
-}
-function libInfoClose(){document.getElementById('lib-info-modal').classList.remove('modal-open');}
+function libFamOpen(id){var m=document.getElementById('lf-'+id);if(m)m.classList.add('modal-open');}
+function libFamClose(m){if(m)m.classList.remove('modal-open');}
 </script>
 {{end}}

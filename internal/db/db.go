@@ -1357,6 +1357,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, legacyOTASchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, appFamilySchema); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -5124,16 +5127,20 @@ type App struct {
 	S3Key       string    `json:"s3_key,omitempty"`       // set for S3-hosted uploads; empty for URL apps
 	Icon        string    `json:"icon,omitempty"`         // resolved from app_icons on the read path
 	CreatedAt   time.Time `json:"created_at"`
+	// Family grouping (app_family.go). Variant is "prod" for the base package.
+	FamilyID     *uuid.UUID `json:"family_id,omitempty"`
+	Variant      string     `json:"variant,omitempty"`
+	FamilyPinned bool       `json:"-"`
 }
 
 func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	// Resolve each app's icon from the shared app_icons index (populated when an APK is
 	// uploaded and parsed) so the library can render real icons.
 	rows, err := d.pool.Query(ctx, `
-		SELECT a.id, a.name, a.apk_url, a.package_name, a.version_name, a.created_at, COALESCE(ai.icon, '')
+		SELECT a.id, a.name, a.apk_url, a.package_name, a.version_name, a.created_at, COALESCE(ai.icon, ''), a.family_id, a.variant, a.family_pinned
 		FROM apps a
 		LEFT JOIN app_icons ai ON ai.package_name = a.package_name
-		ORDER BY a.name ASC`)
+		ORDER BY a.name ASC, a.created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -5141,7 +5148,7 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	var out []App
 	for rows.Next() {
 		var a App
-		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.VersionName, &a.CreatedAt, &a.Icon); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.VersionName, &a.CreatedAt, &a.Icon, &a.FamilyID, &a.Variant, &a.FamilyPinned); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -12251,63 +12258,16 @@ func (d *DB) RemoveDeviceFromUpdate(ctx context.Context, updateID int, deviceID 
 	return tag.RowsAffected() > 0, nil
 }
 
-// OptimisticallyCompleteReboot marks one update_devices row installed and updates
-// the device's tracked build_id to the update's resolved target build, the moment
-// a reboot command is pushed for it — without waiting for a confirming checkin.
-// The durable confirmation path (CompleteUpdatesAtTargetBuild, below) relies on the
-// device checking back in against THIS server; in a multi-instance deployment where
-// a device may check in against a different MDM instance after rebooting, that
-// confirmation can structurally never arrive here, permanently stranding the row at
-// awaiting_reboot/reboot_sent. Deliberate accepted tradeoff: if the reboot silently
-// fails or an A/B slot rolls back, this row won't self-correct, since it's already
-// terminal by the time any contradicting checkin could arrive.
-//
-// No-op (not an error) if the row isn't currently awaiting_reboot/reboot_sent, so a
-// redrive of an already-completed row is safe to call again.
+// OptimisticallyCompleteReboot used to mark the row installed and rewrite the
+// device's build_id the moment a reboot was pushed. That showed the new build
+// before the device had actually booted into it, so it is now a no-op: the row
+// stays at reboot_sent ("Reboot pending" on the device page) until the device
+// checks in on the target build and CompleteUpdatesAtTargetBuild confirms it.
+// RedriveStuckReboots re-issues the reboot if that never happens. Kept as a
+// function so the call sites read the same; it only touches updated_at.
 func (d *DB) OptimisticallyCompleteReboot(ctx context.Context, updateID int, deviceID uuid.UUID) error {
-	// Same per-device package-selection rule as ResolveUpdateForDevice's LATERAL
-	// join: prefer the incremental whose source build matches the device's current
-	// build, else the full image.
-	var targetBuildID string
-	err := d.pool.QueryRow(ctx, `
-		SELECT p.target_build_id
-		FROM update_devices ud
-		JOIN updates u ON u.id = ud.update_id
-		JOIN devices dv ON dv.id = ud.device_id
-		JOIN LATERAL (
-			SELECT pk.target_build_id FROM ota_packages pk
-			WHERE pk.release_id = u.release_id AND pk.status = 'active'
-			  AND (pk.type = 'full'
-			       OR (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = dv.build_id))
-			ORDER BY (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = dv.build_id) DESC, pk.created_at DESC
-			LIMIT 1
-		) p ON true
-		WHERE ud.update_id = $1 AND ud.device_id = $2
-	`, updateID, deviceID).Scan(&targetBuildID)
-	if err != nil {
-		return err
-	}
-
-	tx, err := d.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	tag, err := tx.Exec(ctx, `
-		UPDATE update_devices SET status = 'installed', updated_at = NOW()
-		WHERE update_id = $1 AND device_id = $2 AND status IN ('awaiting_reboot', 'reboot_sent')
-	`, updateID, deviceID)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return nil // already installed/failed/etc — nothing to do (safe re-drive no-op)
-	}
-	if _, err := tx.Exec(ctx, `UPDATE devices SET build_id = $2 WHERE id = $1`, deviceID, targetBuildID); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	_, err := d.pool.Exec(ctx, `UPDATE update_devices SET updated_at = NOW() WHERE update_id = $1 AND device_id = $2 AND status IN ('awaiting_reboot', 'reboot_sent')`, updateID, deviceID)
+	return err
 }
 
 // CompleteUpdatesAtTargetBuild marks installed every active, not-yet-terminal
