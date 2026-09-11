@@ -11082,7 +11082,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			ld := rolloutRow{
-				URL: "/updates/legacy", Version: d.ReleaseVersion, Product: d.ReleaseProduct,
+				URL: fmt.Sprintf("/updates/legacy/deployments/%d", d.ID), Version: d.ReleaseVersion, Product: d.ReleaseProduct,
 				Status: d.Status, CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy,
 				Legacy: true, Total: d.Total, Installed: d.Installed, Failed: d.Failed,
 			}

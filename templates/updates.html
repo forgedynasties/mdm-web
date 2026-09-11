@@ -13,15 +13,18 @@
 .uh-row{display:flex;align-items:center;gap:13px;padding:12px 16px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background .12s}
 .uh-row:first-of-type{border-top:none}
 .uh-row:hover{background:var(--surface2);color:inherit}
-/* A rollout row fills with green as it lands: the fill IS the progress bar, so the
-   list reads at a glance from across the room. Children sit above the fill. */
+/* Progress reads two ways on a rollout row: a hairline bar pinned to its bottom
+   edge, exact to the percent, and — only while it is still moving — a soft tint
+   that fades out to the right. A finished rollout gets neither: a list where every
+   line is filled green says nothing about which one needs attention. */
 .uh-row.uh-roll-row{position:relative;overflow:hidden}
-.uh-row.uh-roll-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);
-  background:color-mix(in srgb, var(--ok) 14%, transparent);
-  border-right:1px solid color-mix(in srgb, var(--ok) 26%, transparent);
+.uh-row.uh-roll-row.is-live::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--fill,0%);
+  background:var(--ok);opacity:.9;transition:width .5s ease}
+.uh-row.uh-roll-row.is-live::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);
+  background:linear-gradient(90deg, color-mix(in srgb, var(--ok) 13%, transparent), color-mix(in srgb, var(--ok) 2%, transparent));
   transition:width .5s ease;pointer-events:none}
 @supports not (background: color-mix(in srgb, red 10%, transparent)){
-  .uh-row.uh-roll-row::before{background:rgba(52,168,83,.13);border-right-color:rgba(52,168,83,.26)}
+  .uh-row.uh-roll-row.is-live::before{background:linear-gradient(90deg, rgba(52,168,83,.13), rgba(52,168,83,.02))}
 }
 .uh-row.uh-roll-row>*{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}}
@@ -142,7 +145,7 @@
     {{range .Rollouts}}
     {{$pending := sub .Total (add (add .Installed .Installing) .Failed)}}{{if lt $pending 0}}{{$pending = 0}}{{end}}
     {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
-    <a class="uh-row uh-roll-row" href="{{.URL}}" style="--fill:{{.Progress}}%">
+    <a class="uh-row uh-roll-row {{if eq .Status "active"}}is-live{{else}}is-done{{end}}" href="{{.URL}}" style="--fill:{{.Progress}}%">
       <div class="uh-id">
         <div class="uh-top">
           <span class="uh-ver">{{.Version}}</span>
@@ -156,11 +159,15 @@
         {{/* One number: the download is half the journey and applying it the other
              half, so a fleet mid-download reads as moving instead of stuck at 0. */}}
         <span class="uh-pct">{{.Progress}}%</span> <span class="muted small">{{if ge .Progress 100}}done{{else}}through{{end}}</span>
+        {{/* The split bar earns its space only when the rollout is actually split —
+             on a finished one it is a grey rectangle saying "100%" twice. */}}
+        {{if or (gt .Installing 0) (gt .Failed 0)}}
         <div class="cc-stack">
           {{if gt .Installed 0}}<i class="c4" style="width:{{pctOf .Installed .Total}}%"></i>{{end}}
           {{if gt .Installing 0}}<i class="c2" style="width:{{pctOf .Installing .Total}}%"></i>{{end}}
           {{if gt .Failed 0}}<i class="c5" style="width:{{pctOf .Failed .Total}}%;background:var(--danger)"></i>{{end}}
         </div>
+        {{end}}
         <span class="muted small">{{.Installed}} of {{.Total}} installed{{if gt .Installing 0}} · {{.Installing}} in flight{{end}}{{if gt .Failed 0}} · {{.Failed}} failed{{end}}</span>
         {{else}}<span class="muted small">no targets</span>{{end}}
       </div>

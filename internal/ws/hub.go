@@ -652,7 +652,11 @@ func (c *Client) WritePump() {
 		case msg, ok := <-c.Send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				// With a status code, not an empty payload: a bare close frame reaches
+				// the client as 1005 ("no status"), which is reserved — OkHttp refuses
+				// to echo it, reports a failure instead, and the agent reconnects a
+				// second later, forever.
+				c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 				return
 			}
 			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
