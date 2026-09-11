@@ -81,7 +81,11 @@ func (h *Handler) SettleLegacyAtBuild(ctx context.Context, serial, buildID strin
 		return
 	}
 	dev, err := h.db.GetLegacyOTADevice(ctx, serial)
-	if err != nil || dev == nil || dev.Status == "idle" || dev.Status == "updated" {
+	if err != nil {
+		log.Printf("[legacy-ota] settle lookup for %s: %v", serial, err)
+		return
+	}
+	if dev == nil || dev.Status == "idle" || dev.Status == "updated" {
 		return
 	}
 	if dev.BuildID != buildID {
