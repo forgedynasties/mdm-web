@@ -1706,7 +1706,8 @@ window.CMD_PREFILL = {{.Prefill}};
 <div class="cb-list">
   {{range .Devices}}
   {{$model := extraField .LatestExtra "model"}}
-  <label class="cb-row"{{if index $.DPC .ID}} data-dpc="1"{{end}} data-product="{{.ProductLabel}}"{{if and (ne $model "") (ne $model "—")}} data-model="{{$model}}"{{end}}>
+  {{$blk := index $.Blocked .SerialNumber}}{{$art := index $.Artifact .SerialNumber}}
+  <label class="cb-row"{{if index $.DPC .ID}} data-dpc="1"{{end}}{{if $blk}} data-blocked="{{$blk}}"{{end}}{{if $art}} data-artifact="{{$art}}"{{end}} data-product="{{.ProductLabel}}"{{if and (ne $model "") (ne $model "—")}} data-model="{{$model}}"{{end}}>
     <input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)">
     {{if .BatteryPct}}<span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>{{else}}<span class="dp-bchip cb-bat-na">—</span>{{end}}
     <span class="cb-id">

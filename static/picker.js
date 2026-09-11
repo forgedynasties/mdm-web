@@ -33,6 +33,7 @@
     var p = new URLSearchParams();
     if (rail.dataset.excludeGroup) p.set('exclude_group', rail.dataset.excludeGroup);
     if (rail.dataset.excludeRestaurant) p.set('exclude_restaurant', rail.dataset.excludeRestaurant);
+    if (rail.dataset.release) p.set('release', rail.dataset.release);
     return p;
   }
   function parseRows(html) {
@@ -44,6 +45,8 @@
         serial: cb.value,
         online: !!row.querySelector('.cb-status i.on'),
         dpc: row.getAttribute('data-dpc') === '1',
+        blocked: row.getAttribute('data-blocked') || '',
+        artifact: row.getAttribute('data-artifact') || '',
         bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
         sub: sub ? sub.textContent.trim() : ''
       });
@@ -104,6 +107,11 @@
   }
   function render() {
     var host = el('pk-devs'), rows = visible(), html = '';
+    var free = rows.filter(function (d) { return !d.blocked; });
+    if (rail.dataset.selectAll && free.length) {
+      var allOn = free.every(function (d) { return picked[d.serial]; });
+      html += '<button type="button" class="co-paste" id="pk-all">' + (allOn ? 'Clear these ' + free.length : 'Select all ' + free.length + ' eligible') + '</button>';
+    }
     var tokens = pasteTokens();
     if (tokens) {
       html += '<button type="button" class="co-paste" id="pk-paste"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Add ' + tokens.length + ' pasted serial' + (tokens.length === 1 ? '' : 's') + '</button>';
@@ -112,9 +120,13 @@
     else if (!rows.length) html += '<div class="co-listempty">No device matches.</div>';
     rows.forEach(function (d) {
       var on = !!picked[d.serial];
-      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + '" data-serial="' + esc(d.serial) + '">' +
+      // A blocked row stays visible and says why — "why can't I pick this device"
+      // is the first question on a release push.
+      var meta = d.blocked ? d.blocked : (d.artifact ? d.sub + ' · ' + d.artifact + ' OTA' : d.sub);
+      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + (d.blocked ? ' blocked" disabled' : '"') +
+        ' data-serial="' + esc(d.serial) + '"' + (d.blocked ? ' title="' + esc(d.blocked) + '"' : '') + '>' +
         '<span class="cb">' + (on ? '<svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>' : '') + '</span>' +
-        '<span class="bd"><span class="sn">' + esc(d.serial) + '</span><span class="mt">' + esc(d.sub) + '</span></span>' +
+        '<span class="bd"><span class="sn">' + esc(d.serial) + '</span><span class="mt">' + esc(meta) + '</span></span>' +
         '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
     });
     host.innerHTML = html;
@@ -145,12 +157,25 @@
   }
 
   // ── interaction ─────────────────────────────────────────────────────────────
-  function add(serial) { if (serial) picked[serial] = meta[serial] || { serial: serial }; }
+  function add(serial) {
+    if (!serial) return;
+    var m = meta[serial];
+    if (m && m.blocked) return;   // a scope must not drag in devices the push would drop
+    picked[serial] = m || { serial: serial };
+  }
   function toggle(serial) { if (picked[serial]) delete picked[serial]; else add(serial); render(); }
 
   rail.addEventListener('click', function (e) {
     var dev = e.target.closest('.co-dev');
     if (dev) { toggle(dev.dataset.serial); return; }
+    var all = e.target.closest('#pk-all');
+    if (all) {
+      var free = visible().filter(function (d) { return !d.blocked; });
+      var allOn = free.every(function (d) { return picked[d.serial]; });
+      free.forEach(function (d) { if (allOn) delete picked[d.serial]; else add(d.serial); });
+      render();
+      return;
+    }
     var paste = e.target.closest('#pk-paste');
     if (paste) { (pasteTokens() || []).forEach(add); el('pk-q').value = ''; load(true); return; }
     var qf = e.target.closest('.co-qf');

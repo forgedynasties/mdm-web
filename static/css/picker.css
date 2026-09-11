@@ -100,3 +100,10 @@
 .co-bk-warn{display:flex;gap:6px;align-items:flex-start;font-size:11px;color:var(--warn);margin-top:8px}
 .co-bk-warn[hidden]{display:none}
 .co-bk-warn svg{width:12px;height:12px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;margin-top:1px}
+
+/* A row the current release can't be pushed to: visible, greyed, with the reason
+   in place of the build line. */
+.co-dev.blocked{opacity:.5;cursor:not-allowed}
+.co-dev.blocked:hover{border-color:var(--border)}
+.co-dev.blocked .cb{visibility:hidden}
+.co-dev.blocked .mt{color:var(--warn,#9a5b00)}

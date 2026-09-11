@@ -6,6 +6,8 @@
        ScopesJSON        [{kind,id,name,count}] for those shortcuts
        ExcludeGroup      group id whose members are already in (hidden from the list)
        ExcludeRestaurant same, for a venue
+       Release           release id — rows come back marked eligible or blocked
+       SelectAll         true to offer "select all eligible"
        Preselect         newline-separated serials to start with (optional)
        Prompt            placeholder for the search box
      Styles live in static/css/picker.css, behaviour in static/picker.js. */}}
@@ -14,7 +16,9 @@
      data-field="{{.Field}}"
      {{if .Scopes}}data-scopes="1"{{end}}
      {{if .ExcludeGroup}}data-exclude-group="{{.ExcludeGroup}}"{{end}}
-     {{if .ExcludeRestaurant}}data-exclude-restaurant="{{.ExcludeRestaurant}}"{{end}}>
+     {{if .ExcludeRestaurant}}data-exclude-restaurant="{{.ExcludeRestaurant}}"{{end}}
+     {{if .Release}}data-release="{{.Release}}"{{end}}
+     {{if .SelectAll}}data-select-all="1"{{end}}>
   <div class="co-r-b">
     <div class="co-srch">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>

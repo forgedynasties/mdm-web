@@ -10974,6 +10974,10 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					return !blockedFor(pushDevices[i]) && blockedFor(pushDevices[j])
 				})
 				data["PushDevices"] = pushDevices
+				data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+				// ?serials= (the fleet selection panel's "Push update") starts the
+				// picker with those devices already chosen.
+				data["PreSerials"] = parseSerialsField([]string{r.URL.Query().Get("serials")})
 
 				// Group/venue → member-serial maps (restricted to this push list) so the
 				// target rail can tick a collection's devices in the list below and float
@@ -12702,6 +12706,17 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ProductionID = id
 		}
 	}
+	// ?release=<id>: a release only ever targets its own product, so scope the list
+	// the way the push path does instead of listing devices it could never reach.
+	var pushRel *db.Release
+	if relRaw := strings.TrimSpace(r.URL.Query().Get("release")); relRaw != "" {
+		if relID, err := strconv.Atoi(relRaw); err == nil {
+			if rel, err := h.db.GetRelease(r.Context(), relID); err == nil && rel != nil {
+				pushRel = rel
+				filter.Product = rel.Product
+			}
+		}
+	}
 	if gid := r.URL.Query().Get("exclude_group"); gid != "" {
 		if id, err := uuid.Parse(gid); err == nil {
 			filter.ExcludeGroupID = id
@@ -12731,11 +12746,67 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			dpc[d.ID] = true
 		}
 	}
+	// ?release=<id>: annotate each row with whether this release can be pushed to
+	// that device and, if it can, which artifact it would get. The Deploy page's
+	// picker needs it; every other caller leaves the maps empty and the rows render
+	// exactly as before.
+	blocked, artifact := map[string]string{}, map[string]string{}
+	if pushRel != nil {
+		blocked, artifact = h.releaseEligibility(r.Context(), pushRel, devices)
+	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
-		"Devices": devices,
-		"Online":  online,
-		"DPC":     dpc,
+		"Devices":  devices,
+		"Online":   online,
+		"DPC":      dpc,
+		"Blocked":  blocked,
+		"Artifact": artifact,
 	})
+}
+
+// releaseEligibility answers, per serial, why a release cannot be pushed to that
+// device ("" when it can) and which artifact it would receive. Same rules the
+// push path enforces, so the picker can't offer a device the deploy would drop:
+// already on the build, mid-update, on a newer release, no applicable package,
+// or firmware older than the product's MDM OTA cutoff.
+func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devices []db.Device) (map[string]string, map[string]string) {
+	blocked, artifact := map[string]string{}, map[string]string{}
+	relID := rel.ID
+	hasFull := false
+	sourceBuilds := map[string]bool{}
+	pkgs, _ := h.db.ListPackagesByRelease(ctx, relID)
+	for _, p := range pkgs {
+		if p.Status != "active" {
+			continue
+		}
+		if p.Type == "full" {
+			hasFull = true
+		} else if p.SourceBuildID != "" {
+			sourceBuilds[p.SourceBuildID] = true
+		}
+	}
+	updating, _ := h.db.SerialsUpdating(ctx)
+	newer, _ := h.db.SerialsOnNewerRelease(ctx, relID)
+	noOTA := h.otaUnsupportedBuilds(ctx, rel.Product)
+	for _, d := range devices {
+		s := d.SerialNumber
+		switch {
+		case d.BuildID == rel.Version:
+			blocked[s] = "up to date"
+		case noOTA[d.BuildID]:
+			blocked[s] = "no MDM OTA support"
+		case newer[s] != "":
+			blocked[s] = "newer installed (" + newer[s] + ")"
+		case updating[s] != "":
+			blocked[s] = "already updating"
+		case !hasFull && !sourceBuilds[d.BuildID]:
+			blocked[s] = "no update for this build"
+		case sourceBuilds[d.BuildID]:
+			artifact[s] = "incremental"
+		default:
+			artifact[s] = "full"
+		}
+	}
+	return blocked, artifact
 }
 
 // CommandImpact renders the Actions builder's live "blast radius" panel: given
