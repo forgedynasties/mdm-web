@@ -155,18 +155,25 @@
     document.addEventListener('htmx:confirm', function (e) {
       var q = e.detail && e.detail.question; if (!q) return;
       e.preventDefault();
-      var m = document.getElementById('mdm-confirm');
+      var m = document.getElementById('mdm-hxconfirm');
       if (!m) {
-        m = document.createElement('div'); m.id = 'mdm-confirm'; m.className = 'modal-backdrop';
-        m.innerHTML = '<div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="mdm-confirm-msg"><div class="modal-body" style="padding:22px 22px 8px;font-size:14px;line-height:1.5;" id="mdm-confirm-msg"></div><div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 18px;"><button type="button" class="btn-outline" data-x>Cancel</button><button type="button" class="cc-btn primary" data-ok>OK</button></div></div>';
+        m = document.createElement('div'); m.id = 'mdm-hxconfirm'; m.className = 'modal-backdrop';
+        m.innerHTML = '<div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="mdm-hxconfirm-msg"><div class="modal-body" style="padding:22px 22px 8px;font-size:14px;line-height:1.5;" id="mdm-hxconfirm-msg"></div><div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 18px;"><button type="button" class="btn-outline" data-x>Cancel</button><button type="button" class="cc-btn primary" data-ok>OK</button></div></div>';
         document.body.appendChild(m);
       }
-      m.querySelector('#mdm-confirm-msg').textContent = q;
+      m.querySelector('#mdm-hxconfirm-msg').textContent = q;
       var ok = m.querySelector('[data-ok]'), no = m.querySelector('[data-x]');
-      function close() { m.classList.remove('modal-open'); ok.onclick = no.onclick = m.onclick = null; document.removeEventListener('keydown', esc); }
-      function esc(ev) { if (ev.key === 'Escape') close(); }
-      ok.onclick = function () { close(); e.detail.issueRequest(true); };
-      no.onclick = close; m.onclick = function (ev) { if (ev.target === m) close(); };
+      var src = e.detail && (e.detail.elt || e.target), form = src && src.closest ? src.closest('form') : null;
+      function close(cancelled) {
+        m.classList.remove('modal-open'); ok.onclick = no.onclick = m.onclick = null; document.removeEventListener('keydown', esc);
+        // The submit-lock already fired on the click; put the button back if the
+        // user backs out, otherwise it stays disabled with its spinner forever.
+        if (cancelled && form && window.mdmResetSubmitting) window.mdmResetSubmitting(form);
+        if (cancelled && window.mdmEndBusy) window.mdmEndBusy();
+      }
+      function esc(ev) { if (ev.key === 'Escape') close(true); }
+      ok.onclick = function () { close(false); e.detail.issueRequest(true); };
+      no.onclick = function () { close(true); }; m.onclick = function (ev) { if (ev.target === m) close(true); };
       document.addEventListener('keydown', esc);
       m.classList.add('modal-open'); setTimeout(function () { ok.focus(); }, 30);
     });
@@ -1252,6 +1259,7 @@
       });
     }
 
+    window.mdmResetSubmitting = function (root) { resetSubmitting(root); };
     function resetSubmitting(root) {
       var scope = root || document;
       if (scope.matches && scope.matches('form[data-submitting="true"]')) {
