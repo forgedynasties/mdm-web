@@ -1330,6 +1330,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// device can honour it. `supports` is the yes/no; `degraded` adds "with limits".
 		"supports":   func(d db.Device, cmdType string) bool { return d.Supports(cmdType) },
 		"degraded":   func(d db.Device, cmdType string) bool { return d.Degraded(cmdType) },
+		// joinLines renders a serial list for the shared picker's hidden field.
+		"joinLines": func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
 		"classes":    product.Classes,
 		"extraField": func(raw []byte, key string) string {
@@ -7389,42 +7391,43 @@ func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 	// render with nothing chosen and let the page's picker build the list, rather
 	// than bouncing back to Fleet or silently exporting everything.
 	fleetTotal := 0
-	if len(serialList) == 0 {
-		if n, err := h.db.CountDevices(r.Context(), db.DeviceFilter{}); err == nil {
-			fleetTotal = n
-		}
+	if n, err := h.db.CountDevices(r.Context(), db.DeviceFilter{}); err == nil {
+		fleetTotal = n
 	}
 
 	h.render(w, r, "export.html", map[string]any{
 		"Title":      "Export Data",
 		"Serials":    serialList,
-		"PickMode":   len(serialList) == 0,
 		"FleetTotal": fleetTotal,
+		"ScopesJSON": h.pickerScopesJSON(r.Context()),
 		"From":       backPath(r),
 	})
 }
 
-// ExportDeviceSearch feeds the export page's device picker (the shared two-pane
-// picker used by groups and venues).
-func (h *Handler) ExportDeviceSearch(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{
-		Search:              query,
-		Online:              r.URL.Query().Get("status"),
-		Battery:             r.URL.Query().Get("battery"),
-		ActiveThresholdSecs: h.cfg.CheckinInterval() * 3,
-	}, 0, 60, "", "")
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+// pickerScopesJSON is the restaurants + groups list the shared device picker
+// offers as one-click shortcuts (templates/_picker.html).
+func (h *Handler) pickerScopesJSON(ctx context.Context) template.JS {
+	type scope struct {
+		Kind  string `json:"kind"`
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Count int    `json:"count"`
 	}
-	devices = h.access(r).keepVisible(devices)
-	_ = h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
-		"Query":    query,
-		"Devices":  devices,
-		"Relocate": false,
-	})
+	out := []scope{}
+	if rests, err := h.db.ListRestaurants(ctx); err == nil {
+		for _, r := range rests {
+			out = append(out, scope{Kind: "restaurant", ID: r.ID.String(), Name: r.Name, Count: r.DeviceCount})
+		}
+	}
+	if groups, err := h.db.ListGroups(ctx); err == nil {
+		for _, g := range groups {
+			out = append(out, scope{Kind: "group", ID: g.ID.String(), Name: g.Name, Count: g.DeviceCount})
+		}
+	}
+	b, _ := json.Marshal(out)
+	return template.JS(b)
 }
+
 
 // backPath resolves where a "← Back" link should return to: an explicit ?from=
 // param if the caller set one, else the referring page (path+query only — the
@@ -7893,6 +7896,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "group_form.html", map[string]any{
+		"ScopesJSON": h.pickerScopesJSON(r.Context()),
 		"Title":       "New Group",
 		"Devices":     devices,
 		"Online":      online,
@@ -7997,6 +8001,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
+	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return
@@ -8239,6 +8244,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
+		"ScopesJSON": h.pickerScopesJSON(r.Context()),
 		"Title":     "New restaurant",
 		"Timezones": restaurantTimezones,
 	})
@@ -8325,6 +8331,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
+	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-kpis", h.withRole(r, data))
 		return
@@ -8401,6 +8408,7 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 	// footer/back-link) since layout.html's boosted shell already supplies it.
 	embed := r.Header.Get("HX-Request") == "true"
 	h.render(w, r, "restaurant_form.html", map[string]any{
+		"ScopesJSON": h.pickerScopesJSON(r.Context()),
 		"Title":      "Edit " + rest.Name,
 		"Restaurant": rest,
 		"Timezones":  restaurantTimezones,
@@ -10966,6 +10974,10 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					return !blockedFor(pushDevices[i]) && blockedFor(pushDevices[j])
 				})
 				data["PushDevices"] = pushDevices
+				data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+				// ?serials= (the fleet selection panel's "Push update") starts the
+				// picker with those devices already chosen.
+				data["PreSerials"] = parseSerialsField([]string{r.URL.Query().Get("serials")})
 
 				// Group/venue → member-serial maps (restricted to this push list) so the
 				// target rail can tick a collection's devices in the list below and float
@@ -12694,6 +12706,22 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ProductionID = id
 		}
 	}
+	// ?release=<id>: a release only ever targets its own product, so scope the list
+	// the way the push path does instead of listing devices it could never reach.
+	var pushRel *db.Release
+	if relRaw := strings.TrimSpace(r.URL.Query().Get("release")); relRaw != "" {
+		if relID, err := strconv.Atoi(relRaw); err == nil {
+			if rel, err := h.db.GetRelease(r.Context(), relID); err == nil && rel != nil {
+				pushRel = rel
+				filter.Product = rel.Product
+			}
+		}
+	}
+	if gid := r.URL.Query().Get("exclude_group"); gid != "" {
+		if id, err := uuid.Parse(gid); err == nil {
+			filter.ExcludeGroupID = id
+		}
+	}
 	if rid := r.URL.Query().Get("restaurant"); rid != "" {
 		if id, err := uuid.Parse(rid); err == nil {
 			filter.RestaurantID = id
@@ -12718,11 +12746,67 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			dpc[d.ID] = true
 		}
 	}
+	// ?release=<id>: annotate each row with whether this release can be pushed to
+	// that device and, if it can, which artifact it would get. The Deploy page's
+	// picker needs it; every other caller leaves the maps empty and the rows render
+	// exactly as before.
+	blocked, artifact := map[string]string{}, map[string]string{}
+	if pushRel != nil {
+		blocked, artifact = h.releaseEligibility(r.Context(), pushRel, devices)
+	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
-		"Devices": devices,
-		"Online":  online,
-		"DPC":     dpc,
+		"Devices":  devices,
+		"Online":   online,
+		"DPC":      dpc,
+		"Blocked":  blocked,
+		"Artifact": artifact,
 	})
+}
+
+// releaseEligibility answers, per serial, why a release cannot be pushed to that
+// device ("" when it can) and which artifact it would receive. Same rules the
+// push path enforces, so the picker can't offer a device the deploy would drop:
+// already on the build, mid-update, on a newer release, no applicable package,
+// or firmware older than the product's MDM OTA cutoff.
+func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devices []db.Device) (map[string]string, map[string]string) {
+	blocked, artifact := map[string]string{}, map[string]string{}
+	relID := rel.ID
+	hasFull := false
+	sourceBuilds := map[string]bool{}
+	pkgs, _ := h.db.ListPackagesByRelease(ctx, relID)
+	for _, p := range pkgs {
+		if p.Status != "active" {
+			continue
+		}
+		if p.Type == "full" {
+			hasFull = true
+		} else if p.SourceBuildID != "" {
+			sourceBuilds[p.SourceBuildID] = true
+		}
+	}
+	updating, _ := h.db.SerialsUpdating(ctx)
+	newer, _ := h.db.SerialsOnNewerRelease(ctx, relID)
+	noOTA := h.otaUnsupportedBuilds(ctx, rel.Product)
+	for _, d := range devices {
+		s := d.SerialNumber
+		switch {
+		case d.BuildID == rel.Version:
+			blocked[s] = "up to date"
+		case noOTA[d.BuildID]:
+			blocked[s] = "no MDM OTA support"
+		case newer[s] != "":
+			blocked[s] = "newer installed (" + newer[s] + ")"
+		case updating[s] != "":
+			blocked[s] = "already updating"
+		case !hasFull && !sourceBuilds[d.BuildID]:
+			blocked[s] = "no update for this build"
+		case sourceBuilds[d.BuildID]:
+			artifact[s] = "incremental"
+		default:
+			artifact[s] = "full"
+		}
+	}
+	return blocked, artifact
 }
 
 // CommandImpact renders the Actions builder's live "blast radius" panel: given
@@ -18605,7 +18689,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
-	mux.HandleFunc("GET /export/device-search", h.requireAuth(h.ExportDeviceSearch))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.ReportInventoryCSV))
 	mux.HandleFunc("GET /export/report/compliance.csv", h.requireAuth(h.ReportComplianceCSV))

@@ -1,5 +1,6 @@
 {{define "group_form.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <div class="cc-wrap">
 <a href="/devices?view=groups" class="back-link">← Groups</a>
@@ -37,30 +38,8 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
 
     <div class="card-header" style="border-top:1px solid var(--border-soft);"><h3>Add devices</h3><span class="muted small">optional — you can add devices later</span></div>
     <div style="padding:14px 20px 0;">
-      <div class="dp-tp">
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">all devices</span></div>
-          <div class="dp-search">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" id="dp-q" placeholder="Search serial…" aria-label="Search available devices by serial" autocomplete="off" oninput="dpReloadDebounced()">
-          </div>
-          <div class="dp-pills">
-            <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>
-            <button type="button" class="dp-pill" data-status="online" onclick="dpPill(this)">Online</button>
-            <button type="button" class="dp-pill" data-status="offline" onclick="dpPill(this)">Offline</button>
-            <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
-          </div>
-          <div id="dp-rows" class="dp-rows" data-endpoint="/groups/new/devices"
-               hx-get="/groups/new/devices" hx-select="unset" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
-        </div>
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">In this group</span><span class="n"><span data-dp-count>0</span> staged</span></div>
-          <div id="dp-basket" class="dp-basket"></div>
-        </div>
-      </div>
-    </div>
-
-    <input type="hidden" name="serials" id="dp-serials">
+      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}
+    
     <div style="padding:14px 20px;display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;">
       <span class="muted small">Creating <b id="gf-sum-name" style="color:var(--text);">a new group</b> with <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
       <span style="flex:1;"></span>
@@ -70,7 +49,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
   </div>
 </form>
 
-<script src="/static/device-picker.js"></script>
+<script src="/static/picker.js"></script>
 <script>
 function gfSync(){
   var name = document.getElementById('group-name').value.trim();

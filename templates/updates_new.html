@@ -1,5 +1,6 @@
 {{define "updates_new.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 {{/* Standalone push screen. Pick a publishable release (auto-navigates with ?release=)
      and the Devices + Options panes below fill in place — they are always present, not
      spawned on selection. Then POST /updates. */}}
@@ -64,62 +65,14 @@
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
       <h3>2 · Devices</h3>
-      {{if $rel}}<span class="m">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
+      {{if $rel}}<span class="m">{{productLabel $rel.Product}} devices · <span data-dp-count>0</span> chosen</span>
       {{else}}<span class="m">choose a release to load its devices</span>{{end}}
     </div>
-    {{/* Target rail — picking All / a restaurant / a group TICKS that collection's
-         member devices in the list below and floats them to the top. The push always
-         sends exactly the ticked serials, so what you see selected is what gets pushed. */}}
-    <script>window.PUSH_GROUP_MEMBERS={{if .PushGroupMembers}}{{.PushGroupMembers}}{{else}}{}{{end}};window.PUSH_REST_MEMBERS={{if .PushRestMembers}}{{.PushRestMembers}}{{else}}{}{{end}};</script>
-    <div class="push-scope" style="border-bottom:1px solid var(--border);padding:12px 16px 14px;">
-      <div class="form-label" style="margin-bottom:8px;">Target</div>
-      <div class="push-rail" role="radiogroup" aria-label="Target scope">
-        <button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="all" onclick="pushSelectScope('all','',this)"><span class="dot ok"></span><span class="nm">All eligible</span></button>
-        {{if .Restaurants}}<div class="pr-src">Restaurants</div>{{range .Restaurants}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.ID}}" onclick="pushSelectScope('restaurant','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-        {{if .Groups}}<div class="pr-src">Groups</div>{{range .Groups}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="pushSelectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-      </div>
-      <div class="muted small" style="margin-top:9px;">Picking a group or venue ticks its devices below and floats them to the top. Fine-tune by ticking devices directly, or paste a serial list. The push targets exactly the ticked devices.</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
-      <input type="text" id="push-search" class="form-input" placeholder="Search devices…" style="max-width:240px;" oninput="pushFilter()"{{if not $rel}} disabled{{end}}>
-      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="push-all" onclick="pushToggleAll(this)"{{if not $rel}} disabled{{end}}> Select all eligible</label>
-    </div>
-    {{/* Paste a serial list to auto-tick the matching eligible devices below. This does
-         not add off-list/off-product serials — it only selects rows already shown. */}}
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
-      <textarea id="push-paste" class="form-input" rows="1" placeholder="Paste serials to auto-select — comma or newline separated…" style="flex:1;min-width:240px;resize:vertical;" oninput="pushPasteSelect()"{{if not $rel}} disabled{{end}}></textarea>
-      <span class="muted small" id="push-paste-note" style="align-self:center;"></span>
-    </div>
-    <div id="push-list" style="max-height:380px;overflow:auto;">
+    <div style="padding:14px 16px 16px;">
       {{if $rel}}
-        {{range .PushDevices}}
-        {{$onTarget := eq .BuildID $rel.Version}}
-        {{$updating := index $.DevicesUpdating .SerialNumber}}
-        {{$newer := index $.DevicesBlocked .SerialNumber}}
-        {{/* incremental-only release + device not on a source build → no artifact applies */}}
-        {{$noArtifact := and (not $.HasFull) (not (index $.SourceBuilds .BuildID))}}
-        {{$noOTA := index $.OTAUnsupported .BuildID}}
-        {{$blocked := or $onTarget (ne $updating "") (ne $newer "") $noArtifact $noOTA}}
-        <label class="push-dev" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" style="display:flex;align-items:center;gap:11px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:{{if $blocked}}default{{else}}pointer{{end}};{{if $blocked}}opacity:.5;{{end}}">
-          <input type="checkbox" name="serials" value="{{.SerialNumber}}" class="push-ck"{{if $blocked}} disabled{{end}} onchange="pushOnDeviceToggle()">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{if notStale .LastSeenAt $.ActiveThresholdSecs}}#3ecf8e{{else}}#7a7f9a{{end}};" title="{{if notStale .LastSeenAt $.ActiveThresholdSecs}}online{{else}}offline{{end}}"></span>
-          <span style="min-width:0;">
-            <span class="mono" style="font-weight:600;">{{.SerialNumber}}</span>
-            <span class="muted small"> · {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span>
-          </span>
-          <span style="flex:1;"></span>
-          {{if $onTarget}}<span class="rchip muted">up to date</span>
-          {{else if $noOTA}}<span class="rchip muted" title="Build {{.BuildID}} predates the MDM OTA support cutoff (Settings › Devices & Kiosk); this firmware has no OTA agent">no MDM OTA support</span>
-          {{else if $newer}}<span class="rchip" style="color:#e0982a;border-color:rgba(224,152,42,.4);" title="On a newer release ({{$newer}}) — can't OTA an older release onto it">newer installed</span>
-          {{else if $updating}}<span class="rchip" style="color:#5aa9e6;border-color:rgba(90,169,230,.4);">● updating{{if ne $updating $rel.Version}} → {{$updating}}{{end}}</span>
-          {{else if $noArtifact}}<span class="rchip muted" title="Incremental-only release with no update from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}">no update for this build</span>
-          {{else if index $.SourceBuilds .BuildID}}<span class="rchip" style="color:#3ecf8e;border-color:rgba(62,207,142,.4);" title="An incremental package exists from build {{.BuildID}} — a small delta download">incremental OTA</span>
-          {{else if $.HasFull}}<span class="rchip muted" title="No incremental from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}; the full image is sent">full OTA</span>{{end}}
-        </label>
-        {{end}}
-        {{if not .PushDevices}}<div class="muted small" style="padding:16px;">No {{productLabel $rel.Product}} devices reporting yet.</div>{{end}}
+      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Release" $rel.ID "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
       {{else}}
-        <div class="muted small" style="padding:20px 16px;text-align:center;">Devices appear here once you choose a release above.</div>
+      <div class="muted small" style="padding:20px 16px;text-align:center;">Devices appear here once you choose a release above.</div>
       {{end}}
     </div>
   </div>
@@ -154,7 +107,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);">
       <span style="flex:1;"></span>
-      <button type="submit" class="cc-btn primary" id="push-btn" disabled><span id="push-lbl">Push to 0 devices</span></button>
+      <button type="submit" class="cc-btn primary" id="push-btn" data-dp-submit disabled><span id="push-lbl">Push to 0 devices</span></button>
     </div>
   </div>
 </form>
@@ -162,88 +115,21 @@
 </div>
 
 <script>
-function pushFilter(){var q=(document.getElementById('push-search').value||'').toLowerCase().trim();document.querySelectorAll('#push-list .push-dev').forEach(function(r){r.style.display=(r.getAttribute('data-search')||'').toLowerCase().indexOf(q)>=0?'':'none';});}
-
-// The push always submits the ticked serials. The target rail is a convenience
-// selector: picking All / a group / a venue ticks that collection's eligible member
-// devices in the list below and floats them to the top — so "what you see selected is
-// what gets pushed", and a group/venue push can't silently widen to the whole fleet.
-function pushSetRailActive(el){
-  document.querySelectorAll('.push-rail .pr-item').forEach(function(b){var on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-checked',on?'true':'false');});
-}
-function pushClearRail(){ document.querySelectorAll('.push-rail .pr-item').forEach(function(b){b.classList.remove('on');b.setAttribute('aria-checked','false');}); }
-// Float ticked (enabled) rows to the top of the list, preserving relative order.
-function pushFloatSelected(){
-  var list=document.getElementById('push-list'); if(!list)return;
-  var rows=Array.prototype.slice.call(list.querySelectorAll('.push-dev'));
-  rows.sort(function(a,b){
-    var ca=((a.querySelector('.push-ck')||{}).checked)?0:1;
-    var cb=((b.querySelector('.push-ck')||{}).checked)?0:1;
-    return ca-cb; // stable in modern engines → original order kept within each group
-  });
-  rows.forEach(function(r){list.appendChild(r);});
-}
-// Rail click → tick that collection's eligible members (All = every eligible), float up.
-function pushSelectScope(mode,id,el){
-  var serials=null; // null = every eligible device (All)
-  if(mode==='group') serials=(window.PUSH_GROUP_MEMBERS||{})[id]||[];
-  else if(mode==='restaurant') serials=(window.PUSH_REST_MEMBERS||{})[id]||[];
-  var want=null;
-  if(serials){ want={}; serials.forEach(function(s){want[s]=true;}); }
-  document.querySelectorAll('#push-list .push-ck').forEach(function(c){
-    if(c.disabled){ c.checked=false; return; }
-    c.checked=(want===null)||!!want[c.value];
-  });
-  pushSetRailActive(el);
-  pushFloatSelected();
-  pushCount();
-}
-function pushToggleAll(cb){
-  document.querySelectorAll('#push-list .push-ck:not([disabled])').forEach(function(c){var row=c.closest('.push-dev');if(row&&row.style.display!=='none')c.checked=cb.checked;});
-  pushClearRail();
-  pushFloatSelected();
-  pushCount();
-}
-// Manual per-device toggle: the selection no longer matches a named scope, so drop the
-// rail highlight. Don't reorder here — floating rows out from under the cursor is jarring.
-function pushOnDeviceToggle(){ pushClearRail(); pushCount(); }
+// The device list is the shared picker (static/picker.js); the count and the
+// push button follow its basket.
 function pushCount(){
-  var n=document.querySelectorAll('#push-list .push-ck:checked').length;
+  var f=document.getElementById('pk-serials');
+  var n=f&&f.value?f.value.split('\n').filter(Boolean).length:0;
   var hasRel=(((document.querySelector('#push-form input[name="release_id"]'))||{}).value||'')!=='';
-  var btn=document.getElementById('push-btn');
   var lbl=document.getElementById('push-lbl');
   if(lbl)lbl.textContent='Push to '+n+' device'+(n===1?'':'s');
+  var btn=document.getElementById('push-btn');
   if(btn)btn.disabled=!hasRel||n===0;
 }
-document.addEventListener('DOMContentLoaded',function(){
-  pushCount();
-  // ?serials= (from the fleet selection panel) pre-ticks those rows once a release is chosen.
-  var pre=new URLSearchParams(location.search).get('serials'), ta=document.getElementById('push-paste');
-  if(pre&&ta){ ta.value=pre.split(',').join('\n'); if(!ta.disabled) pushPasteSelect(); else { var n=document.getElementById('push-paste-note'); if(n) n.textContent=pre.split(',').filter(Boolean).length+' devices waiting · choose a release'; } }
-});
-// Paste a serial list → tick the matching eligible rows and float them up.
-function pushPasteSelect(){
-  var ta=document.getElementById('push-paste'); if(!ta) return;
-  var wanted=(ta.value||'').split(/[\s,]+/).map(function(x){return x.trim();}).filter(Boolean);
-  var note=document.getElementById('push-paste-note');
-  if(!wanted.length){ if(note)note.textContent=''; pushCount(); return; }
-  var set={}; wanted.forEach(function(s){set[s]=true;});
-  var seen={}, matched=0, blocked=0;
-  document.querySelectorAll('#push-list .push-ck').forEach(function(c){
-    if(!set[c.value]) return;
-    seen[c.value]=true;
-    if(c.disabled){ blocked++; return; }
-    c.checked=true; matched++;
-  });
-  var missing=0; wanted.forEach(function(s){ if(!seen[s]) missing++; });
-  if(note){ var p=[matched+' selected']; if(blocked)p.push(blocked+' not eligible'); if(missing)p.push(missing+' not found'); note.textContent=p.join(' · '); }
-  pushClearRail();
-  pushFloatSelected();
-  pushCount();
-}
-// Confirm before pushing — always spells out the exact device count.
+document.addEventListener('pk:change', pushCount);
+document.addEventListener('DOMContentLoaded', pushCount);
 function pushConfirm(e){
-  var n=document.querySelectorAll('#push-list .push-ck:checked').length;
+  var f=document.getElementById('pk-serials'); var n=f&&f.value?f.value.split('\n').filter(Boolean).length:0;
   if(n===0){ e.preventDefault(); return false; }
   return mdmConfirmSubmit(e,{title:'Push update?',body:'This pushes the update to '+n+' selected device'+(n===1?'':'s')+'.',confirmLabel:'Push update'});
 }
@@ -251,5 +137,6 @@ function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.pa
 function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 </script>
 
+<script src="/static/picker.js"></script>
 {{template "footer" .}}
 {{end}}

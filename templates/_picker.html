@@ -1,0 +1,57 @@
+{{/* Shared device picker — the Actions-page rail, reused wherever devices are
+     chosen. Callers pass:
+       Field             name of the hidden input the chosen serials land in
+                         (newline separated, which parseSerialsField accepts)
+       Scopes            true to show the restaurants/groups shortcuts
+       ScopesJSON        [{kind,id,name,count}] for those shortcuts
+       ExcludeGroup      group id whose members are already in (hidden from the list)
+       ExcludeRestaurant same, for a venue
+       Release           release id — rows come back marked eligible or blocked
+       SelectAll         true to offer "select all eligible"
+       Preselect         newline-separated serials to start with (optional)
+       Prompt            placeholder for the search box
+     Styles live in static/css/picker.css, behaviour in static/picker.js. */}}
+{{define "picker"}}
+<div class="co-rail pk-rail" id="pk-rail"
+     data-field="{{.Field}}"
+     {{if .Scopes}}data-scopes="1"{{end}}
+     {{if .ExcludeGroup}}data-exclude-group="{{.ExcludeGroup}}"{{end}}
+     {{if .ExcludeRestaurant}}data-exclude-restaurant="{{.ExcludeRestaurant}}"{{end}}
+     {{if .Release}}data-release="{{.Release}}"{{end}}
+     {{if .SelectAll}}data-select-all="1"{{end}}>
+  <div class="co-r-b">
+    <div class="co-srch">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="pk-q" type="text" autocomplete="off" placeholder="{{if .Prompt}}{{.Prompt}}{{else}}Search serial, restaurant, group — or paste serials{{end}}">
+    </div>
+    <div class="co-quick" id="pk-quick">
+      <button type="button" class="co-qf" data-qf="online">Online <span class="n"></span></button>
+      <button type="button" class="co-qf" data-qf="offline">Offline <span class="n"></span></button>
+      <button type="button" class="co-qf" data-qf="dpc">DPC <span class="n"></span></button>
+      <button type="button" class="co-qf" data-qf="kiosk">In kiosk</button>
+    </div>
+    {{if .Scopes}}
+    <div class="co-r-cap co-r-cap-tabs">Scopes — one click adds all
+      <span class="co-stabs" id="pk-stabs" role="tablist">
+        <button type="button" class="co-stab on" data-stab="all" role="tab">All</button>
+        <button type="button" class="co-stab" data-stab="restaurant" role="tab">Restaurants</button>
+        <button type="button" class="co-stab" data-stab="group" role="tab">Groups</button>
+      </span>
+    </div>
+    <div class="co-scopelist" id="pk-scopes"></div>
+    {{end}}
+    <div class="co-r-cap">Devices</div>
+    <div class="co-devlist" id="pk-devs"></div>
+  </div>
+  <div class="co-basket">
+    <div class="co-bk-top">
+      <span class="co-bk-n" id="pk-count">0</span>
+      <span class="co-bk-t" id="pk-count-t">devices selected</span>
+      <button type="button" class="co-bk-clear" id="pk-clear">Clear</button>
+    </div>
+    <div class="co-bk-pills" id="pk-pills"></div>
+  </div>
+  <script type="application/json" id="pk-scope-data">{{if .ScopesJSON}}{{.ScopesJSON}}{{else}}[]{{end}}</script>
+  <input type="hidden" name="{{.Field}}" id="pk-serials"{{if .Preselect}} value="{{.Preselect}}"{{end}}>
+</div>
+{{end}}
