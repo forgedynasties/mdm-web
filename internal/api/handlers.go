@@ -1054,6 +1054,9 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 	h.hub.PublishLogcatUpdate(deviceID)
+	if dev, err := h.db.GetDeviceByID(ctx, deviceID); err == nil && dev != nil {
+		h.legacyProgressFromLogcat(ctx, dev.SerialNumber, body.Content)
+	}
 }
 
 // otaVerdict answers whether this check-in's device can take an MDM OTA: what the
@@ -1542,6 +1545,9 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishLogcatUpdate(device.ID)
+	// A device mid legacy install with no live socket is followed through these
+	// dumps — see pollLegacyInstall.
+	h.legacyProgressFromLogcat(r.Context(), body.SerialNumber, body.Content)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

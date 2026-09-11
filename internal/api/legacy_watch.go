@@ -46,6 +46,14 @@ var (
 // minutes, and the device's own poll on the new build closes the row anyway.
 const legacyWatchTimeout = 90 * time.Minute
 
+// How often to ask a socket-less device for its update_engine log, and how many lines
+// to ask for: an install logs a progress line every ~30s, so 60 lines covers the gap
+// with room for the partition/finalize markers.
+const (
+	legacyPollEvery = 2 * time.Minute
+	legacyPollLines = 60
+)
+
 var legacyWatching sync.Map // serial -> struct{}
 
 // ResumeLegacyWatch re-attaches the watcher when a device turns up with a legacy
@@ -87,9 +95,13 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 
 		device, err := h.db.GetDevice(ctx, serial)
 		if err != nil || device == nil {
-			return // legacy-only device: nothing to stream from
+			return // legacy-only device: nothing to read from
 		}
 		if !h.hub.IsConnected(device.ID) {
+			// No socket, but the client still checks in over HTTP and the command
+			// queue rides along with it — so ask for a logcat dump every couple of
+			// minutes instead of streaming. Slower, same answer.
+			h.pollLegacyInstall(ctx, device.ID, serial, depID)
 			return
 		}
 		reqID := uuid.NewString()
@@ -197,4 +209,107 @@ func parseUpdateEngineLine(line string) (done, phase string, pct int) {
 		phase = "finalizing"
 	}
 	return "", phase, pct
+}
+
+
+// pollLegacyInstall follows an install on a device with no live WebSocket by queueing
+// a logcat request the device picks up on its next HTTP check-in. The result comes
+// back through SubmitLogcat, where legacyProgressFromLogcat reads it — this loop only
+// keeps asking. One request in flight at a time, and it stops as soon as the row
+// leaves the installing states.
+func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, serial string, depID int) {
+	log.Printf("[legacy-ota] polling update_engine on %s over check-ins (deployment %d)", serial, depID)
+	ticker := time.NewTicker(legacyPollEvery)
+	defer ticker.Stop()
+	for {
+		dev, err := h.db.GetLegacyOTADevice(ctx, serial)
+		if err != nil || dev == nil {
+			return
+		}
+		switch dev.Status {
+		case "installing", "verifying", "finalizing":
+		default:
+			return // installed, awaiting reboot, failed — nothing left to follow
+		}
+		// The stream is better when it is available: if the socket came back, hand
+		// over to it and stop polling.
+		if h.hub.IsConnected(deviceID) {
+			go func() {
+				legacyWatching.Delete(serial)
+				h.watchLegacyInstall(serial, depID)
+			}()
+			return
+		}
+		if _, err := h.db.CreateLogcatRequest(ctx, deviceID, "I", legacyPollLines, "update_engine"); err != nil {
+			log.Printf("[legacy-ota] logcat request for %s: %v", serial, err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// legacyProgressFromLogcat reads a logcat dump for a device that is mid legacy install
+// and moves its row along. Called for every logcat result, whichever way it arrived,
+// so a dump someone pulled by hand counts too. No-ops unless the device is installing.
+func (h *Handler) legacyProgressFromLogcat(ctx context.Context, serial, content string) {
+	if serial == "" || content == "" {
+		return
+	}
+	dev, err := h.db.GetLegacyOTADevice(ctx, serial)
+	if err != nil || dev == nil {
+		return
+	}
+	switch dev.Status {
+	case "installing", "verifying", "finalizing":
+	default:
+		return
+	}
+	depID := h.legacyDeploymentFor(ctx, serial)
+	phase, pct, done, reason := "", -1, "", ""
+	for _, line := range strings.Split(content, "\n") {
+		d, ph, p := parseUpdateEngineLine(line)
+		if ph != "" {
+			phase = ph
+		}
+		if p >= 0 {
+			pct = p
+		}
+		if d != "" {
+			done, reason = d, ph
+		}
+	}
+	switch done {
+	case "ok":
+		ota.Legacy.Set(serial, "awaiting_reboot", 100)
+		_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "awaiting_reboot", "", "")
+		if depID > 0 {
+			_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "awaiting_reboot", 100, "", "")
+		}
+		log.Printf("[legacy-ota] %s: update applied (from a logcat dump), waiting for its reboot", serial)
+		return
+	case "fail":
+		if reason == "" {
+			reason = "update_engine failed"
+		}
+		ota.Legacy.Clear(serial)
+		_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "failed", "", reason)
+		if depID > 0 {
+			_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "failed", -1, reason, "")
+		}
+		log.Printf("[legacy-ota] %s: %s (from a logcat dump)", serial, reason)
+		return
+	}
+	if pct < 0 {
+		return
+	}
+	if phase == "" {
+		phase = "installing"
+	}
+	ota.Legacy.Set(serial, phase, pct)
+	if depID > 0 {
+		_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, phase, pct, "", "")
+	}
 }
