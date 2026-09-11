@@ -15,8 +15,8 @@
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Export</div>
-    <h1 class="cc-h1">Export data for <span class="hl">{{len .Serials}}</span> device{{if ne (len .Serials) 1}}s{{end}}</h1>
-    <div class="cc-sub">Choose a time range, row shape, sampling interval and columns, then download a CSV.</div>
+    <h1 class="cc-h1">Export data for <span class="hl">{{if .WholeFleet}}the whole fleet{{else}}{{len .Serials}} device{{if ne (len .Serials) 1}}s{{end}}{{end}}</span></h1>
+    <div class="cc-sub">Choose a time range, row shape, sampling interval and columns, then download a CSV.{{if .WholeFleet}} All <b>{{len .Serials}}</b> devices you can see are included — to export a few, pick them on <a href="/devices">Fleet</a> and use Export there.{{end}}</div>
   </div>
 </div>
 
