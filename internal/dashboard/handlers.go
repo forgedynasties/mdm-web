@@ -7382,39 +7382,49 @@ func safeCSVFilename(name, fallback string) string {
 
 func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 	var serialList []string
-	wholeFleet := false
 	if serials := r.URL.Query().Get("serials"); serials != "" {
 		serialList = strings.Split(serials, ",")
-	} else {
-		// Opened without a selection (the Overview's Export button, or a bare
-		// /export): offer the whole visible fleet rather than bouncing the user
-		// back to Fleet to pick devices first.
-		devs, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, exportFleetCap, "serial", "asc")
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
+	}
+	// Opened without a selection (the Overview's Export button, or a bare /export):
+	// render with nothing chosen and let the page's picker build the list, rather
+	// than bouncing back to Fleet or silently exporting everything.
+	fleetTotal := 0
+	if len(serialList) == 0 {
+		if n, err := h.db.CountDevices(r.Context(), db.DeviceFilter{}); err == nil {
+			fleetTotal = n
 		}
-		for _, d := range h.access(r).keepVisible(devs) {
-			serialList = append(serialList, d.SerialNumber)
-		}
-		if len(serialList) == 0 {
-			http.Redirect(w, r, "/devices", http.StatusFound)
-			return
-		}
-		wholeFleet = true
 	}
 
 	h.render(w, r, "export.html", map[string]any{
 		"Title":      "Export Data",
 		"Serials":    serialList,
-		"WholeFleet": wholeFleet,
+		"PickMode":   len(serialList) == 0,
+		"FleetTotal": fleetTotal,
 		"From":       backPath(r),
 	})
 }
 
-// exportFleetCap bounds a no-selection export so a very large fleet can't turn
-// one click into an unbounded query; past it, pick devices on Fleet first.
-const exportFleetCap = 500
+// ExportDeviceSearch feeds the export page's device picker (the shared two-pane
+// picker used by groups and venues).
+func (h *Handler) ExportDeviceSearch(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{
+		Search:              query,
+		Online:              r.URL.Query().Get("status"),
+		Battery:             r.URL.Query().Get("battery"),
+		ActiveThresholdSecs: h.cfg.CheckinInterval() * 3,
+	}, 0, 60, "", "")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	devices = h.access(r).keepVisible(devices)
+	_ = h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
+		"Query":    query,
+		"Devices":  devices,
+		"Relocate": false,
+	})
+}
 
 // backPath resolves where a "← Back" link should return to: an explicit ?from=
 // param if the caller set one, else the referring page (path+query only — the
@@ -7565,7 +7575,9 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
 		return
 	}
-	serials := r.Form["serials"]
+	// The device picker posts one newline-separated field; the Fleet selection and
+	// the device page post one value per serial. parseSerialsField takes both.
+	serials := parseSerialsField(r.Form["serials"])
 	if len(serials) == 0 {
 		http.Error(w, "No devices selected", http.StatusBadRequest)
 		return
@@ -18593,6 +18605,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
+	mux.HandleFunc("GET /export/device-search", h.requireAuth(h.ExportDeviceSearch))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.ReportInventoryCSV))
 	mux.HandleFunc("GET /export/report/compliance.csv", h.requireAuth(h.ReportComplianceCSV))
