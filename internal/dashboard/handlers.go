@@ -978,7 +978,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		// productLabel maps a product key (e.g. "kiosk22") to its display label for the
 		// releases UI, mirroring Device.ProductLabel() on the device side.
-		"productLabel": product.Label,
+		// productLabel: the catalog label, or the real model name for a product the
+		// catalog does not know ("Sunmi D3 PRO", not the wire key "d3_pro").
+		"productLabel": productLabel,
 		// clFormat makes a changelog line scannable: the lead sentence (up to the
 		// first ". ") becomes a bold headline, the rest stays as body text. Input is
 		// HTML-escaped first, so entries are plain text authored in version.go.
@@ -4155,7 +4157,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	} else if pk := product.Normalize(qv.Get("product")); pk != "" {
 		// A product selected from the rail scopes the roster too — name it by the
 		// product label and count the filtered result, so the heading isn't "All devices".
-		selectedCollection, selectedCount = product.Label(pk), total
+		selectedCollection, selectedCount = productLabel(pk), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
@@ -9403,6 +9405,22 @@ func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), msg, "success")
 }
 
+// productLabels holds the model names learned from what devices report, keyed by
+// product. Package-level because the template func map is built before any Handler
+// exists; written by productFilters, read by the productLabel template func.
+var productLabels atomic.Value // map[string]string
+
+// productLabel is the template-facing label for a product key: a learned model name
+// when we have one, else the catalog label (which falls back to the key itself).
+func productLabel(key string) string {
+	if m, ok := productLabels.Load().(map[string]string); ok {
+		if label := m[product.Normalize(key)]; label != "" {
+			return label
+		}
+	}
+	return product.Label(key)
+}
+
 // productFilters is the catalog plus every other product the fleet actually reports,
 // so a device that is not our own hardware — a Sunmi D3 PRO, a stock Pixel running the
 // DPC agent — can still be filtered for instead of hiding behind "All products".
@@ -9417,6 +9435,13 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 	if err != nil {
 		return out
 	}
+	learned := map[string]string{}
+	for _, c := range counts {
+		if label := modelLabel(c.Manufacturer, c.Model); label != "" && !product.IsKnown(c.Product) {
+			learned[product.Normalize(c.Product)] = label
+		}
+	}
+	productLabels.Store(learned)
 	for _, c := range counts {
 		key := product.Normalize(c.Product)
 		if key == "" || seen[key] {
@@ -11677,11 +11702,16 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	durSum, durCount := 0, 0
 	for i := range targets {
 		t := targets[i]
-		// Once a target has a terminal DB status, never show its live progress bar —
+		// Once a target is past the work, never show its live progress bar —
 		// shell.Manager's in-memory cache has no TTL and nothing clears it when a
 		// status is corrected out-of-band (e.g. a manual DB fix after a lost ack), so
 		// a stale in-memory percent could otherwise sit next to "Installed" forever.
-		if t.Status != "installed" && t.Status != "failed" {
+		// reboot_sent and canceled count too: a row reading "reboot sent · installing
+		// 0%" looks like the reboot was pushed mid-install, when in fact the percent
+		// is left over from a later, unrelated attempt.
+		switch t.Status {
+		case "installed", "failed", "canceled", "reboot_sent", "awaiting_reboot":
+		default:
 			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
 				otaProgress[t.DeviceID.String()] = p
 				// The row's updated_at only moves at status checkpoints; progress

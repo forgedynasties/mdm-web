@@ -12302,9 +12302,13 @@ func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID u
 // a row was actually removed (false when the device already moved past pending or was
 // not a target). Once a device has started downloading it can no longer be removed.
 func (d *DB) RemoveDeviceFromUpdate(ctx context.Context, updateID int, deviceID uuid.UUID) (bool, error) {
+	// Pending, or terminal-and-not-installed: a row that failed (a cancelled download,
+	// a device that never came back) is finished work nobody wants in the rollout's
+	// numbers any more, and removing it is how an operator says "not this one". An
+	// installed row stays — it is the record that this device got the build.
 	tag, err := d.pool.Exec(ctx, `
 		DELETE FROM update_devices
-		WHERE update_id = $1 AND device_id = $2 AND status = 'pending'
+		WHERE update_id = $1 AND device_id = $2 AND status IN ('pending', 'failed', 'canceled')
 	`, updateID, deviceID)
 	if err != nil {
 		return false, err

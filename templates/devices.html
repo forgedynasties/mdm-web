@@ -134,7 +134,7 @@
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
@@ -142,7 +142,7 @@
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
-  {{if .FilterProduct}}<span class="fchip"><span class="k">Product</span> {{range $.Products}}{{if eq .Key $.FilterProduct}}{{.Label}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
+  {{if .FilterProduct}}<span class="fchip"><span class="k">Product</span> {{productLabel .FilterProduct}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
   {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
   {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
   {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
@@ -374,6 +374,8 @@ a.fleet-rail-item{min-height:40px}
     </a>
 
 
+    {{/* Hardware is an admin's concern — an operator navigates by venue, not by model. */}}
+    {{if canAdmin .Role}}
     <div class="fleet-rail-cap"><span>Products</span></div>
     {{range .RailProducts}}
     <a class="fleet-rail-item{{if eq .Key $.FilterProduct}} on{{end}}" href="/devices?product={{.Key}}">
@@ -382,6 +384,7 @@ a.fleet-rail-item{min-height:40px}
     {{end}}
     {{if not .RailProducts}}
     <div class="fleet-rail-empty">None reporting</div>
+    {{end}}
     {{end}}
 
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>

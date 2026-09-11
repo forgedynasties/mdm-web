@@ -92,9 +92,11 @@
           <button type="submit" class="btn-primary btn-sm" title="Update is installed and waiting — reboot to apply it">Reboot to apply</button>
         </form>
       {{end}}
-      {{if and (eq .Status "pending") (canOperate $.Role)}}
+      {{if and (or (eq .Status "pending") (eq .Status "failed") (eq .Status "canceled")) (canOperate $.Role)}}
+        {{/* A failed row is finished work: removing it takes it out of the rollout's
+             numbers, which is how an operator says "not this one". */}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
-              hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
+              hx-confirm="{{if eq .Status "pending"}}Remove {{.SerialNumber}} from this deployment? It will not receive the update.{{else}}Remove {{.SerialNumber}} from this deployment? Its failure stops counting against the rollout; push again later to retry.{{end}}">
           <button type="submit" class="btn-outline btn-sm">Remove</button>
         </form>
       {{end}}
