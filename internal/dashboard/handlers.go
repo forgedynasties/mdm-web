@@ -833,7 +833,21 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return fmt.Sprintf("in %dd", int(d.Hours()/24))
 			}
 		},
-		"timeSince": func(t time.Time) string {
+		// timeSince takes a time.Time or a *time.Time so templates can print an
+		// optional timestamp without unwrapping it first.
+		"timeSince": func(v any) string {
+			var t time.Time
+			switch x := v.(type) {
+			case time.Time:
+				t = x
+			case *time.Time:
+				if x == nil {
+					return "never"
+				}
+				t = *x
+			default:
+				return ""
+			}
 			d := time.Since(t)
 			switch {
 			case d < time.Minute:
@@ -12706,6 +12720,13 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ProductionID = id
 		}
 	}
+	// ?source=legacy: rows come from the otautil devices instead of the fleet.
+	// They are not in the devices table by design, so they get their own path here
+	// and the same markup, which is what lets one picker serve both.
+	if r.URL.Query().Get("source") == "legacy" {
+		h.browseLegacyDevices(w, r)
+		return
+	}
 	// ?release=<id>: a release only ever targets its own product, so scope the list
 	// the way the push path does instead of listing devices it could never reach.
 	var pushRel *db.Release
@@ -18929,12 +18950,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
 	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.LegacyOTAPage))
-	post("POST /updates/legacy/groups", h.requireOTA(h.LegacyOTAGroupCreate))
-	post("POST /updates/legacy/groups/{id}", h.requireOTA(h.LegacyOTAGroupUpdate))
-	post("POST /updates/legacy/groups/{id}/toggle", h.requireOTA(h.LegacyOTAGroupToggle))
-	post("POST /updates/legacy/groups/{id}/delete", h.requireOTA(h.LegacyOTAGroupDelete))
-	post("POST /updates/legacy/groups/{id}/serials", h.requireOTA(h.LegacyOTAGroupAddSerials))
-	post("POST /updates/legacy/groups/{id}/serials/remove", h.requireOTA(h.LegacyOTAGroupRemoveSerial))
+	post("POST /updates/legacy/push", h.requireOTA(h.LegacyOTAPush))
+	post("POST /updates/legacy/deployments/{id}/cancel", h.requireOTA(h.LegacyOTACancel))
+	post("POST /updates/legacy/deployments/{id}/devices/{serial}/retry", h.requireOTA(h.LegacyOTARetry))
 	post("POST /updates/legacy/devices/{serial}/forget", h.requireOTA(h.LegacyOTADeviceDelete))
 	post("POST /updates", h.requireOTA(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))

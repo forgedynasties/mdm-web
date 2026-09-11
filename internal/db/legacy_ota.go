@@ -42,6 +42,28 @@ CREATE TABLE IF NOT EXISTS legacy_ota_group_devices (
 	serial   TEXT    NOT NULL,
 	PRIMARY KEY (group_id, serial)
 );
+-- Legacy deployments: the same shape as a fleet rollout (a release pushed to a
+-- set of devices, tracked per device) but keyed by serial, because otautil
+-- devices deliberately never enter the devices table. Replaces the older
+-- group + allowlist model, whose tables are left in place but unused.
+CREATE TABLE IF NOT EXISTS legacy_ota_deployments (
+	id         SERIAL      PRIMARY KEY,
+	release_id INTEGER     NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+	status     TEXT        NOT NULL DEFAULT 'active',
+	created_by TEXT        NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS legacy_ota_deployment_devices (
+	deployment_id INTEGER     NOT NULL REFERENCES legacy_ota_deployments(id) ON DELETE CASCADE,
+	serial        TEXT        NOT NULL,
+	status        TEXT        NOT NULL DEFAULT 'pending',
+	percent       INTEGER     NOT NULL DEFAULT 0,
+	error         TEXT        NOT NULL DEFAULT '',
+	offered_build TEXT        NOT NULL DEFAULT '',
+	updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (deployment_id, serial)
+);
+CREATE INDEX IF NOT EXISTS idx_legacy_dep_devices_serial ON legacy_ota_deployment_devices(serial);
 `
 
 // LegacyOTADevice is one otautil client as last seen.
@@ -276,4 +298,199 @@ func (d *DB) ListReleasesWithPackages(ctx context.Context) ([]Release, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// ── Legacy deployments ────────────────────────────────────────────────────────
+
+// LegacyDeployment is one release pushed to a set of otautil devices.
+type LegacyDeployment struct {
+	ID             int
+	ReleaseID      int
+	ReleaseVersion string
+	ReleaseProduct string
+	Status         string
+	CreatedBy      string
+	CreatedAt      time.Time
+	Devices        []LegacyDeploymentDevice
+	Total          int
+	Installed      int
+	Failed         int
+}
+
+// LegacyDeploymentDevice is one device's progress inside a legacy deployment.
+type LegacyDeploymentDevice struct {
+	Serial       string
+	Status       string
+	Percent      int
+	Error        string
+	OfferedBuild string
+	UpdatedAt    time.Time
+	BuildID      string // the device's current build, joined from legacy_ota_devices
+	LastSeen     *time.Time
+	InFleet      bool // the same serial also runs the MDM client
+}
+
+// CreateLegacyDeployment records a push and its target serials.
+func (d *DB) CreateLegacyDeployment(ctx context.Context, releaseID int, serials []string, createdBy string) (int, error) {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var id int
+	if err := tx.QueryRow(ctx, `INSERT INTO legacy_ota_deployments (release_id, created_by) VALUES ($1, $2) RETURNING id`, releaseID, createdBy).Scan(&id); err != nil {
+		return 0, err
+	}
+	for _, s := range serials {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO legacy_ota_deployment_devices (deployment_id, serial) VALUES ($1, $2) ON CONFLICT DO NOTHING`, id, s); err != nil {
+			return 0, err
+		}
+	}
+	return id, tx.Commit(ctx)
+}
+
+// ResolveLegacyDeployment returns the newest active deployment row still owed to
+// this serial, or nil. Terminal rows (installed, failed, canceled) are skipped,
+// so a failure waits for an operator's retry exactly like a fleet rollout.
+func (d *DB) ResolveLegacyDeployment(ctx context.Context, serial string) (*LegacyDeployment, *LegacyDeploymentDevice, error) {
+	var dep LegacyDeployment
+	var dev LegacyDeploymentDevice
+	err := d.pool.QueryRow(ctx, `
+		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at,
+		       t.serial, t.status, t.percent, t.error, t.offered_build, t.updated_at
+		FROM legacy_ota_deployment_devices t
+		JOIN legacy_ota_deployments p ON p.id = t.deployment_id
+		JOIN releases r ON r.id = p.release_id
+		WHERE t.serial = $1 AND p.status = 'active' AND t.status NOT IN ('installed', 'failed', 'canceled')
+		ORDER BY p.created_at DESC
+		LIMIT 1`, serial).
+		Scan(&dep.ID, &dep.ReleaseID, &dep.ReleaseVersion, &dep.ReleaseProduct, &dep.Status, &dep.CreatedBy, &dep.CreatedAt,
+			&dev.Serial, &dev.Status, &dev.Percent, &dev.Error, &dev.OfferedBuild, &dev.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return &dep, &dev, nil
+}
+
+// SetLegacyDeploymentDevice moves one target row along. Empty strings leave the
+// matching field untouched; percent < 0 leaves the percent alone.
+func (d *DB) SetLegacyDeploymentDevice(ctx context.Context, depID int, serial, status string, percent int, errText, offeredBuild string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE legacy_ota_deployment_devices
+		SET status = COALESCE(NULLIF($3, ''), status),
+		    percent = CASE WHEN $4 >= 0 THEN $4 ELSE percent END,
+		    error = CASE WHEN $3 = 'failed' THEN $5 ELSE '' END,
+		    offered_build = COALESCE(NULLIF($6, ''), offered_build),
+		    updated_at = NOW()
+		WHERE deployment_id = $1 AND serial = $2`, depID, serial, status, percent, errText, offeredBuild)
+	return err
+}
+
+// CompleteLegacyDeploymentsAtBuild marks every open row for this serial installed
+// once it reports the build that row was offered, and closes deployments whose
+// devices have all settled.
+func (d *DB) CompleteLegacyDeploymentsAtBuild(ctx context.Context, serial, buildID string) error {
+	if buildID == "" {
+		return nil
+	}
+	if _, err := d.pool.Exec(ctx, `
+		UPDATE legacy_ota_deployment_devices t
+		SET status = 'installed', percent = 100, error = '', updated_at = NOW()
+		FROM legacy_ota_deployments p, releases r
+		WHERE p.id = t.deployment_id AND r.id = p.release_id
+		  AND t.serial = $1 AND r.version = $2
+		  AND t.status NOT IN ('installed', 'canceled')`, serial, buildID); err != nil {
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE legacy_ota_deployments p SET status = 'complete'
+		WHERE p.status = 'active'
+		  AND NOT EXISTS (
+		      SELECT 1 FROM legacy_ota_deployment_devices t
+		      WHERE t.deployment_id = p.id AND t.status NOT IN ('installed', 'failed', 'canceled')
+		  )`)
+	return err
+}
+
+// ListLegacyDeployments returns every legacy rollout, newest first, with its rows.
+func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
+		FROM legacy_ota_deployments p
+		LEFT JOIN releases r ON r.id = p.release_id
+		ORDER BY p.created_at DESC
+		LIMIT 50`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LegacyDeployment
+	byID := map[int]int{}
+	for rows.Next() {
+		var p LegacyDeployment
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		byID[p.ID] = len(out)
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil || len(out) == 0 {
+		return out, err
+	}
+	drows, err := d.pool.Query(ctx, `
+		SELECT t.deployment_id, t.serial, t.status, t.percent, t.error, t.offered_build, t.updated_at,
+		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial)
+		FROM legacy_ota_deployment_devices t
+		LEFT JOIN legacy_ota_devices v ON v.serial = t.serial
+		ORDER BY t.serial`)
+	if err != nil {
+		return out, err
+	}
+	defer drows.Close()
+	for drows.Next() {
+		var depID int
+		var dv LegacyDeploymentDevice
+		if err := drows.Scan(&depID, &dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet); err != nil {
+			return out, err
+		}
+		i, ok := byID[depID]
+		if !ok {
+			continue
+		}
+		out[i].Devices = append(out[i].Devices, dv)
+		out[i].Total++
+		switch dv.Status {
+		case "installed":
+			out[i].Installed++
+		case "failed":
+			out[i].Failed++
+		}
+	}
+	return out, drows.Err()
+}
+
+// CancelLegacyDeployment stops a rollout; devices mid-flight keep whatever they
+// have already downloaded but are offered nothing further.
+func (d *DB) CancelLegacyDeployment(ctx context.Context, id int) error {
+	if _, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployments SET status = 'canceled' WHERE id = $1`, id); err != nil {
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployment_devices SET status = 'canceled', updated_at = NOW() WHERE deployment_id = $1 AND status NOT IN ('installed', 'failed')`, id)
+	return err
+}
+
+// RetryLegacyDeploymentDevice re-arms one failed row.
+func (d *DB) RetryLegacyDeploymentDevice(ctx context.Context, id int, serial string) error {
+	if _, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployments SET status = 'active' WHERE id = $1 AND status <> 'active'`, id); err != nil {
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployment_devices SET status = 'pending', percent = 0, error = '', updated_at = NOW() WHERE deployment_id = $1 AND serial = $2`, id, serial)
+	return err
 }

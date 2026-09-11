@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"mdm/internal/db"
 	"mdm/internal/ota"
 )
 
@@ -17,13 +18,19 @@ import (
 func (h *Handler) legacyOTAData(r *http.Request) map[string]any {
 	ctx := r.Context()
 	devices, _ := h.db.ListLegacyOTADevices(ctx)
-	groups, _ := h.db.ListLegacyOTAGroups(ctx)
+	deployments, _ := h.db.ListLegacyDeployments(ctx)
 	releases, _ := h.db.ListReleasesWithPackages(ctx)
-	builds := map[string]string{}
-	for _, d := range devices {
-		builds[d.Serial] = d.BuildID
+
+	// Which of these serials also run the MDM client, so the list can link to the
+	// device page for the ones that have one.
+	inFleet := map[string]bool{}
+	if fleet, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 2000, "serial", "asc"); err == nil {
+		for _, d := range fleet {
+			inFleet[d.SerialNumber] = true
+		}
 	}
-	kpi := map[string]int{"seen": len(devices), "recent": 0, "updating": 0, "updated": 0, "failed": 0, "enabled": 0}
+
+	kpi := map[string]int{"seen": len(devices), "recent": 0, "updating": 0, "updated": 0, "failed": 0, "active": 0}
 	for i := range devices {
 		d := &devices[i]
 		if st, ok := ota.Legacy.Get(d.Serial); ok {
@@ -44,22 +51,31 @@ func (h *Handler) legacyOTAData(r *http.Request) map[string]any {
 		case "failed":
 			kpi["failed"]++
 		}
-		if time.Since(d.LastSeen) < 20*time.Minute {
+		if time.Since(d.LastSeen) < 30*time.Minute {
 			kpi["recent"]++
 		}
 	}
-	for _, g := range groups {
-		if g.Enabled {
-			kpi["enabled"]++
+	for i := range deployments {
+		if deployments[i].Status == "active" {
+			kpi["active"]++
+		}
+		for j := range deployments[i].Devices {
+			dv := &deployments[i].Devices[j]
+			if st, ok := ota.Legacy.Get(dv.Serial); ok && (dv.Status == "downloading" || dv.Status == "installing" || dv.Status == "offered") {
+				dv.Percent = st.Percent
+				if st.Phase != "" && st.Phase != "installed" {
+					dv.Status = st.Phase
+				}
+			}
 		}
 	}
 	return map[string]any{
 		"Title":             "Legacy OTA",
 		"ActivePage":        "updates",
 		"Devices":           devices,
-		"DeviceBuild":       builds,
-		"Groups":            groups,
+		"Deployments":       deployments,
 		"Releases":          releases,
+		"InFleet":           inFleet,
 		"KPI":               kpi,
 		"LegacyOTAMode":     h.cfg.LegacyOTAMode(),
 		"LegacyOTAPort":     os.Getenv("LEGACY_OTA_PORT"),
@@ -79,104 +95,50 @@ func (h *Handler) LegacyOTAPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "legacy_ota.html", data)
 }
 
-func legacyReleaseID(v string) *int {
-	id, err := strconv.Atoi(strings.TrimSpace(v))
-	if err != nil || id <= 0 {
-		return nil
-	}
-	return &id
-}
-
-func (h *Handler) LegacyOTAGroupCreate(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimSpace(r.FormValue("name"))
-	if name == "" {
-		h.hxDoneToast(w, r, "/updates/legacy", "Give the group a name", "error")
+// LegacyOTAPush creates a legacy deployment: one release offered to the chosen
+// otautil serials, tracked per device like a fleet rollout.
+func (h *Handler) LegacyOTAPush(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	relID, err := strconv.Atoi(strings.TrimSpace(r.FormValue("release_id")))
+	if err != nil || relID <= 0 {
+		h.hxDoneToast(w, r, "/updates/legacy", "Choose a release first", "error")
 		return
 	}
-	id, err := h.db.CreateLegacyOTAGroup(r.Context(), name, legacyReleaseID(r.FormValue("release_id")), r.FormValue("enabled") == "on")
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		h.hxDoneToast(w, r, "/updates/legacy", "Pick at least one device", "error")
+		return
+	}
+	id, err := h.db.CreateLegacyDeployment(r.Context(), relID, serials, h.currentUsername(r))
 	if err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not create the group (name taken?)", "error")
+		h.hxDoneToast(w, r, "/updates/legacy", "Could not create the deployment", "error")
 		return
 	}
-	n, _ := h.db.AddLegacyOTAGroupSerials(r.Context(), id, parseSerialsField([]string{r.FormValue("serials")}))
-	h.audit(r, "legacy_ota.group_create", name, fmt.Sprintf("%d serials", n))
-	h.hxDoneToast(w, r, "/updates/legacy", "Group created", "success")
+	h.audit(r, "legacy_ota.push", strconv.Itoa(relID), strings.Join(serials, ","))
+	h.hxDoneToast(w, r, "/updates/legacy",
+		fmt.Sprintf("Deployment #%d created · %d device%s get it on their next poll", id, len(serials), plural(len(serials))), "success")
 }
 
-func (h *Handler) LegacyOTAGroupUpdate(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) LegacyOTACancel(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
-	name := strings.TrimSpace(r.FormValue("name"))
-	if id <= 0 || name == "" {
-		h.hxDoneToast(w, r, "/updates/legacy", "Give the group a name", "error")
+	if err := h.db.CancelLegacyDeployment(r.Context(), id); err != nil {
+		h.hxDoneToast(w, r, "/updates/legacy", "Could not cancel", "error")
 		return
 	}
-	prio, _ := strconv.Atoi(r.FormValue("priority"))
-	enabled := r.FormValue("enabled") == "on"
-	if err := h.db.UpdateLegacyOTAGroup(r.Context(), id, name, legacyReleaseID(r.FormValue("release_id")), enabled, prio); err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not save the group", "error")
-		return
-	}
-	h.audit(r, "legacy_ota.group_update", name, fmt.Sprintf("release=%s enabled=%v", r.FormValue("release_id"), enabled))
-	msg := "Group saved"
-	if enabled {
-		msg = "Group saved · devices get the update on their next poll"
-	}
-	h.hxDoneToast(w, r, "/updates/legacy", msg, "success")
+	h.audit(r, "legacy_ota.cancel", strconv.Itoa(id), "")
+	h.hxDoneToast(w, r, "/updates/legacy", "Deployment canceled", "success")
 }
 
-func (h *Handler) LegacyOTAGroupToggle(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) LegacyOTARetry(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
-	groups, _ := h.db.ListLegacyOTAGroups(r.Context())
-	for _, g := range groups {
-		if g.ID == id {
-			rid := g.ReleaseID
-			if err := h.db.UpdateLegacyOTAGroup(r.Context(), id, g.Name, rid, !g.Enabled, g.Priority); err != nil {
-				h.hxDoneToast(w, r, "/updates/legacy", "Could not save", "error")
-				return
-			}
-			h.audit(r, "legacy_ota.group_toggle", g.Name, fmt.Sprintf("enabled=%v", !g.Enabled))
-			if !g.Enabled {
-				h.hxDoneToast(w, r, "/updates/legacy", "Rollout enabled · devices get it on their next poll", "success")
-			} else {
-				h.hxDoneToast(w, r, "/updates/legacy", "Rollout paused", "success")
-			}
-			return
-		}
-	}
-	http.NotFound(w, r)
-}
-
-func (h *Handler) LegacyOTAGroupDelete(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.Atoi(r.PathValue("id"))
-	if err := h.db.DeleteLegacyOTAGroup(r.Context(), id); err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not delete", "error")
+	serial := strings.TrimSpace(r.PathValue("serial"))
+	if err := h.db.RetryLegacyDeploymentDevice(r.Context(), id, serial); err != nil {
+		h.hxDoneToast(w, r, "/updates/legacy", "Could not retry", "error")
 		return
 	}
-	h.audit(r, "legacy_ota.group_delete", strconv.Itoa(id), "")
-	h.hxDoneToast(w, r, "/updates/legacy", "Group deleted", "success")
-}
-
-func (h *Handler) LegacyOTAGroupAddSerials(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.Atoi(r.PathValue("id"))
-	serials := parseSerialsField([]string{r.FormValue("serials")})
-	n, err := h.db.AddLegacyOTAGroupSerials(r.Context(), id, serials)
-	if err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not add", "error")
-		return
-	}
-	h.audit(r, "legacy_ota.group_add", strconv.Itoa(id), strings.Join(serials, ","))
-	h.hxDoneToast(w, r, "/updates/legacy", fmt.Sprintf("Added %d serial%s", n, plural(n)), "success")
-}
-
-func (h *Handler) LegacyOTAGroupRemoveSerial(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.Atoi(r.PathValue("id"))
-	serial := strings.TrimSpace(r.FormValue("serial"))
-	if err := h.db.RemoveLegacyOTAGroupSerial(r.Context(), id, serial); err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not remove", "error")
-		return
-	}
-	h.audit(r, "legacy_ota.group_remove", strconv.Itoa(id), serial)
-	h.hxDoneToast(w, r, "/updates/legacy", "Removed "+serial, "success")
+	_ = h.db.SetLegacyOTADeviceStatus(r.Context(), serial, "idle", "", "")
+	h.audit(r, "legacy_ota.retry", strconv.Itoa(id), serial)
+	h.hxDoneToast(w, r, "/updates/legacy", "Retrying "+serial+" on its next poll", "success")
 }
 
 func (h *Handler) LegacyOTADeviceDelete(w http.ResponseWriter, r *http.Request) {
@@ -188,4 +150,77 @@ func (h *Handler) LegacyOTADeviceDelete(w http.ResponseWriter, r *http.Request) 
 	ota.Legacy.Clear(serial)
 	h.audit(r, "legacy_ota.device_forget", serial, "")
 	h.hxDoneToast(w, r, "/updates/legacy", "Forgot "+serial+" · it comes back on its next poll", "success")
+}
+
+// browseLegacyDevices feeds the shared picker on the Legacy OTA page: the same
+// row markup as the fleet browser, built from legacy_ota_devices. With ?release=
+// each row says whether that release can be offered to it.
+func (h *Handler) browseLegacyDevices(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.db.ListLegacyOTADevices(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+	status := r.URL.Query().Get("status")
+	blocked, artifact := map[string]string{}, map[string]string{}
+
+	var rel *db.Release
+	hasFull := false
+	sourceBuilds := map[string]bool{}
+	if raw := strings.TrimSpace(r.URL.Query().Get("release")); raw != "" {
+		if id, err := strconv.Atoi(raw); err == nil {
+			if got, err := h.db.GetRelease(r.Context(), id); err == nil && got != nil {
+				rel = got
+				pkgs, _ := h.db.ListPackagesByRelease(r.Context(), id)
+				for _, p := range pkgs {
+					if p.Status != "active" {
+						continue
+					}
+					if p.Type == "full" {
+						hasFull = true
+					} else if p.SourceBuildID != "" {
+						sourceBuilds[p.SourceBuildID] = true
+					}
+				}
+			}
+		}
+	}
+
+	// A legacy device counts as reachable while it is polling; the app's floor is
+	// 15 minutes, so anything quiet for half an hour is treated as offline.
+	const liveWindow = 30 * time.Minute
+	rows := make([]legacyPickerRow, 0, len(devices))
+	for _, d := range devices {
+		if q != "" && !strings.Contains(strings.ToLower(d.Serial+" "+d.BuildID), q) {
+			continue
+		}
+		online := time.Since(d.LastSeen) < liveWindow
+		if (status == "online" && !online) || (status == "offline" && online) {
+			continue
+		}
+		if rel != nil {
+			switch {
+			case d.BuildID == rel.Version:
+				blocked[d.Serial] = "up to date"
+			case !hasFull && !sourceBuilds[d.BuildID]:
+				blocked[d.Serial] = "no update for this build"
+			case d.Status == "offered" || d.Status == "downloading" || d.Status == "installing":
+				blocked[d.Serial] = "already updating"
+			case sourceBuilds[d.BuildID]:
+				artifact[d.Serial] = "incremental"
+			default:
+				artifact[d.Serial] = "full"
+			}
+		}
+		rows = append(rows, legacyPickerRow{Device: d, Online: online})
+	}
+	_ = h.tmpl.ExecuteTemplate(w, "legacy-picker-rows", map[string]any{
+		"Rows": rows, "Blocked": blocked, "Artifact": artifact,
+	})
+}
+
+type legacyPickerRow struct {
+	Device db.LegacyOTADevice
+	Online bool
 }

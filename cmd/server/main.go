@@ -294,7 +294,7 @@ func main() {
 		geocoder = geolocate.NewGeocoder(key)
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, adminAPIKey)
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)
 	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
 	// /connect flush can fire before the socket opens, and a never-delivered command has
 	// nothing else to re-trigger it, so it would sit in the queue until the next reconnect.

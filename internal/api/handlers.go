@@ -23,6 +23,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
+	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
@@ -67,10 +68,11 @@ type Handler struct {
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
 	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
+	logs        *logstream.Manager // live logcat, used to follow legacy installs (legacy_watch.go)
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
 }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB

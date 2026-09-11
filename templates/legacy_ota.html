@@ -1,33 +1,31 @@
 {{define "legacy_ota.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 <style>
 .lo-mode { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; }
-.lo-mode .cc-tag { font-size:11px; }
-.lo-grid { display:grid; grid-template-columns: minmax(0, 1fr) 360px; gap:16px; align-items:start; }
-.lo-group { border-top:1px solid var(--border-soft); padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
-.lo-group:first-of-type { border-top:0; }
-.lo-group .hd { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.lo-group .hd b { font-weight:500; font-size:14.5px; }
-.lo-group .hd .m { color:var(--muted); font-size:12.5px; }
-.lo-group form.inline { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.lo-group .form-input { font-size:12.5px; padding:5px 9px; }
-.lo-serials { display:flex; flex-wrap:wrap; gap:6px; }
-.lo-serials form { display:inline; }
-.lo-serials .s { display:inline-flex; align-items:center; gap:6px; font:500 11.5px var(--mono); background:var(--surface2); border-radius:40px; padding:3px 6px 3px 10px; }
-.lo-serials .s.seen { background: color-mix(in srgb, var(--ok) 14%, transparent); }
-.lo-serials .s.on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.lo-serials .s button { border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:0 2px; }
-.lo-serials .s button:hover { color:var(--danger); }
 .lo-tbl { width:100%; border-collapse:collapse; font-size:13px; }
 .lo-tbl th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--border-soft); }
 .lo-tbl td { padding:10px 14px; border-top:1px solid var(--border-soft); vertical-align:middle; }
 .lo-tbl td.mono { font:500 12px var(--mono); }
+.lo-tbl a.sn { color:var(--accent-text); text-decoration:none; }
+.lo-tbl a.sn:hover { text-decoration:underline; }
 .lo-bar { display:inline-block; width:90px; height:6px; border-radius:3px; background:var(--surface2); vertical-align:middle; margin-right:6px; overflow:hidden; }
 .lo-bar i { display:block; height:100%; background:var(--accent); }
 .lo-empty { padding:28px 16px; color:var(--muted); font-size:13.5px; text-align:center; }
-.lo-legend { display:flex; gap:12px; flex-wrap:wrap; font-size:11.5px; color:var(--muted); padding:8px 16px 12px; }
-.lo-legend i { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:-1px; margin-right:4px; }
-@media (max-width: 900px) { .lo-grid { grid-template-columns: 1fr; } }
+.lo-dep { border-top:1px solid var(--border-soft); padding:14px 16px; }
+.lo-dep:first-of-type { border-top:0; }
+.lo-dep-h { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.lo-dep-h b { font-weight:500; font-size:14.5px; }
+.lo-dep-h .m { color:var(--muted); font-size:12.5px; flex-basis:100%; }
+.lo-dep-h form { margin:0; }
+.lo-dep-rows { display:flex; flex-direction:column; gap:4px; }
+.lo-dep-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:4px 0; }
+.lo-dep-row .sn { font:500 12px var(--mono); min-width:170px; }
+.lo-dep-row .st { color:var(--muted); flex:1; }
+.lo-push { display:flex; flex-direction:column; gap:14px; }
+.lo-push-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border-soft); padding-top:14px; }
+@media (max-width: 900px) { .lo-grid { grid-template-columns:1fr; } }
+.lo-grid { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:16px; align-items:start; }
 </style>
 
 <div class="cc-wrap">
@@ -35,7 +33,7 @@
   <div>
     <div class="cc-eyebrow">Updates · Legacy OTA</div>
     <h1 class="cc-h1">{{.KPI.seen}} legacy device{{if ne .KPI.seen 1}}s{{end}} <span class="hl {{if gt .KPI.failed 0}}danger{{else}}ok{{end}}">· {{.KPI.updating}} updating</span></h1>
-    <div class="cc-sub">Builds without the MDM agent poll this host on port 8000 with the old <code>otautil</code> protocol. They stay out of the fleet; a group's target release is what they get on their next poll (every 15 minutes at least).</div>
+    <div class="cc-sub">Builds without the MDM agent poll this host on port {{if .LegacyOTAPort}}{{.LegacyOTAPort}}{{else}}8000{{end}} with the old <code>otautil</code> protocol. They stay out of the fleet. Push a release to them here; each device picks it up on its next poll, every 15 minutes at least.</div>
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn">Updates hub</a>
@@ -44,25 +42,52 @@
 </div>
 
 <div class="cc-kpis">
-  <div class="cc-kpi"><span class="k">Seen</span><div class="v">{{.KPI.seen}}</div><div class="d">{{.KPI.recent}} polled in the last 20 min</div></div>
+  <div class="cc-kpi"><span class="k">Seen</span><div class="v">{{.KPI.seen}}</div><div class="d">{{.KPI.recent}} polled in the last 30 min</div></div>
   <div class="cc-kpi"><span class="k">Updating</span><div class="v{{if gt .KPI.updating 0}} info{{end}}">{{.KPI.updating}}</div><div class="d">offered, downloading or installing</div></div>
   <div class="cc-kpi"><span class="k">Updated</span><div class="v{{if gt .KPI.updated 0}} ok{{end}}">{{.KPI.updated}}</div><div class="d">polled on the offered build</div></div>
-  <div class="cc-kpi"><span class="k">Rollouts on</span><div class="v">{{.KPI.enabled}}</div><div class="d">of {{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}}</div></div>
+  <div class="cc-kpi"><span class="k">Rollouts</span><div class="v">{{.KPI.active}}</div><div class="d">active of {{len .Deployments}}</div></div>
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-cb lo-mode">
     <span>Who answers port {{if .LegacyOTAPort}}{{.LegacyOTAPort}}{{else}}8000{{end}}:</span>
-    {{if eq .LegacyOTAMode "mdm"}}<span class="cc-tag ok">AIO MDM</span><span class="muted small">updates come from the groups below</span>{{else}}<span class="cc-tag warn">Pass-through</span><span class="muted small">every request is forwarded to the old ota-server{{if .LegacyOTAUpstream}} at {{.LegacyOTAUpstream}}{{end}}; nothing below is used</span>{{end}}
+    {{if eq .LegacyOTAMode "mdm"}}<span class="cc-tag ok">AIO MDM</span><span class="muted small">updates come from the rollouts below</span>{{else}}<span class="cc-tag warn">Pass-through</span><span class="muted small">every request is forwarded to the old ota-server{{if .LegacyOTAUpstream}} at {{.LegacyOTAUpstream}}{{end}}; nothing below is used</span>{{end}}
     {{if canAdmin .Role}}
     <form action="/settings/legacy-ota" method="POST" style="margin-left:auto;display:inline;">
       <input type="hidden" name="next" value="/updates/legacy">
-      {{if eq .LegacyOTAMode "mdm"}}<input type="hidden" name="legacy_ota_mode" value="passthrough"><button type="submit" class="cc-btn sm" onclick="return confirm('Forward every legacy device request to the old ota-server? The groups here stop being used until you switch back.')">Switch to pass-through</button>
+      {{if eq .LegacyOTAMode "mdm"}}<input type="hidden" name="legacy_ota_mode" value="passthrough"><button type="submit" class="cc-btn sm" onclick="return confirm('Forward every legacy device request to the old ota-server? Rollouts here stop being offered until you switch back.')">Switch to pass-through</button>
       {{else}}<input type="hidden" name="legacy_ota_mode" value="mdm"><button type="submit" class="cc-btn sm primary">Switch to AIO MDM</button>{{end}}
     </form>
     {{end}}
   </div>
 </div>
+
+{{if .CanEdit}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>New legacy update</h3><span class="m muted small">only releases with a full image can reach any legacy build</span></div>
+  <form action="/updates/legacy/push" method="POST" class="cc-cb lo-push" id="lo-push-form">
+    <div>
+      <div class="form-label" style="margin-bottom:7px;">Release</div>
+      {{if .Releases}}
+      <select name="release_id" id="lo-release" class="form-input" style="max-width:420px;" onchange="loRelease(this.value)">
+        <option value="">Choose a release…</option>
+        {{range .Releases}}<option value="{{.ID}}">{{.Version}} · {{productLabel .Product}}</option>{{end}}
+      </select>
+      {{else}}
+      <div class="muted small">No release has a full image yet. <a href="/releases">Add one on Releases →</a></div>
+      {{end}}
+    </div>
+    <div id="lo-picker-wrap" hidden>
+      {{template "picker" (dict "Field" "serials" "Scopes" false "Source" "legacy" "SelectAll" true "Prompt" "Search serial or build — or paste serials")}}
+    </div>
+    <div class="lo-push-bar">
+      <span class="muted small"><b data-dp-count>0</b> selected</span>
+      <span style="flex:1"></span>
+      <button type="submit" class="cc-btn primary" id="lo-push-btn" data-dp-submit disabled>Push to legacy devices</button>
+    </div>
+  </form>
+</div>
+{{end}}
 
 <div class="lo-grid">
   <div class="cc-card">
@@ -72,65 +97,57 @@
     </div>
   </div>
 
-  <div>
-    <div class="cc-card" style="margin-bottom:16px;">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19a6 6 0 0 1 12 0"/><path d="M16 5l4 4-4 4"/></svg></span><h3>Groups</h3><span class="m muted small">allowlist + target release</span></div>
-      {{range .Groups}}
-      <div class="lo-group">
-        <div class="hd">
-          <b>{{.Name}}</b>
-          {{if .Enabled}}<span class="cc-tag ok">on</span>{{else}}<span class="cc-tag">paused</span>{{end}}
-          <span class="m">{{if .ReleaseVersion}}→ {{.ReleaseVersion}} · {{productLabel .ReleaseProduct}}{{else}}no target release{{end}}</span>
-          <span class="m">· {{len .Serials}} serial{{if ne (len .Serials) 1}}s{{end}}, {{.SeenCount}} seen, {{.OnTargetCount}} on target</span>
-        </div>
-        {{if $.CanEdit}}
-        <form class="inline" action="/updates/legacy/groups/{{.ID}}" method="POST">
-          <input type="text" name="name" value="{{.Name}}" class="form-input" style="width:130px;" required>
-          <select name="release_id" class="form-input" style="flex:1;min-width:150px;">
-            <option value="">No target release</option>
-            {{$rid := .ReleaseID}}{{range $.Releases}}<option value="{{.ID}}"{{if and $rid (eq .ID (derefInt $rid))}} selected{{end}}>{{.Version}} · {{productLabel .Product}}</option>{{end}}
-          </select>
-          <input type="hidden" name="priority" value="{{.Priority}}">
-          <label class="muted small" style="display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> enabled</label>
-          <button type="submit" class="cc-btn sm">Save</button>
-          <button type="submit" class="cc-btn sm selbar-danger" formaction="/updates/legacy/groups/{{.ID}}/delete" onclick="return confirm('Delete group {{.Name}}? Devices in it stop getting updates.')">Delete</button>
-        </form>
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><h3>Rollouts</h3><span class="m muted small">newest first</span></div>
+    {{range .Deployments}}
+    <div class="lo-dep">
+      <div class="lo-dep-h">
+        <b>{{.ReleaseVersion}}</b>
+        {{if eq .Status "active"}}<span class="cc-tag info">active</span>{{else if eq .Status "complete"}}<span class="cc-tag ok">complete</span>{{else}}<span class="cc-tag">{{.Status}}</span>{{end}}
+        {{if and $.CanEdit (eq .Status "active")}}
+        <form action="/updates/legacy/deployments/{{.ID}}/cancel" method="POST" style="margin-left:auto;" hx-confirm="Cancel rollout #{{.ID}}? Devices that have not started get nothing further."><button type="submit" class="cc-btn sm selbar-danger">Cancel</button></form>
         {{end}}
-        <div class="lo-serials">
-          {{$g := .}}{{range .Serials}}
-          {{$b := index $.DeviceBuild .}}<span class="s{{if $b}}{{if eq $b $g.ReleaseVersion}} on{{else}} seen{{end}}{{end}}" title="{{if not $b}}never polled{{else if eq $b $g.ReleaseVersion}}on target build{{else}}on {{$b}}{{end}}">{{.}}{{if $.CanEdit}}<form action="/updates/legacy/groups/{{$g.ID}}/serials/remove" method="POST"><input type="hidden" name="serial" value="{{.}}"><button type="submit" title="Remove from group" aria-label="Remove {{.}}">&times;</button></form>{{end}}</span>
-          {{else}}<span class="muted small">No serials yet.</span>{{end}}
+        <span class="m">#{{.ID}} · {{.Installed}}/{{.Total}} installed{{if .Failed}} · {{.Failed}} failed{{end}} · {{timeSince .CreatedAt}}</span>
+      </div>
+      <div class="lo-dep-rows">
+        {{$dep := .}}
+        {{range .Devices}}
+        <div class="lo-dep-row">
+          <span class="sn">{{if index $.InFleet .Serial}}<a class="sn" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}{{.Serial}}{{end}}</span>
+          <span class="st">
+            {{if eq .Status "installed"}}<span class="cc-tag ok">installed</span>
+            {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span> {{.Error}}
+            {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
+            {{else if eq .Status "pending"}}waiting for its next poll
+            {{else}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% {{.Status}}{{end}}
+          </span>
+          {{if and $.CanEdit (eq .Status "failed")}}
+          <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/retry" method="POST"><button type="submit" class="cc-btn sm">Retry</button></form>
+          {{end}}
         </div>
-        {{if $.CanEdit}}
-        <form class="inline" action="/updates/legacy/groups/{{.ID}}/serials" method="POST">
-          <input type="text" name="serials" class="form-input" style="flex:1;min-width:180px;" placeholder="Add serials, comma or space separated">
-          <button type="submit" class="cc-btn sm">Add</button>
-        </form>
         {{end}}
       </div>
-      {{else}}
-      <div class="lo-empty">No groups yet. A device only gets an update when a group lists its serial.</div>
-      {{end}}
     </div>
-
-    {{if .CanEdit}}
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><h3>New group</h3></div>
-      <form class="cc-cb" action="/updates/legacy/groups" method="POST" style="display:flex;flex-direction:column;gap:8px;">
-        <input type="text" name="name" class="form-input" placeholder="Group name, e.g. pilot-stores" required>
-        <select name="release_id" class="form-input">
-          <option value="">No target release yet</option>
-          {{range .Releases}}<option value="{{.ID}}">{{.Version}} · {{productLabel .Product}}</option>{{end}}
-        </select>
-        <textarea name="serials" class="form-input" rows="3" placeholder="Serials, one per line or comma separated"></textarea>
-        <label class="muted small" style="display:inline-flex;align-items:center;gap:6px;"><input type="checkbox" name="enabled"> Enable right away</label>
-        <div><button type="submit" class="cc-btn primary sm">Create group</button></div>
-      </form>
-    </div>
+    {{else}}
+    <div class="lo-empty">No legacy rollout yet. Pick a release and some devices above.</div>
     {{end}}
   </div>
 </div>
 </div>
+
+<script src="/static/picker.js"></script>
+<script>
+// The picker's rows depend on the chosen release (eligible vs blocked), so a
+// change re-points it and reloads.
+function loRelease(id) {
+  var rail = document.getElementById('pk-rail'), wrap = document.getElementById('lo-picker-wrap');
+  if (!rail) return;
+  if (wrap) wrap.hidden = !id;
+  rail.dataset.release = id || '';
+  if (window.pkClear) pkClear();
+  if (window.pkReload) pkReload();
+}
+</script>
 {{template "footer" .}}
 {{end}}
 
@@ -138,21 +155,20 @@
 {{if .Devices}}
 <div style="overflow-x:auto;">
 <table class="lo-tbl">
-  <tr><th>Serial</th><th>Build</th><th>Group</th><th>State</th><th>Last poll</th><th>Last check</th><th>IP</th>{{if $.CanEdit}}<th></th>{{end}}</tr>
+  <tr><th>Serial</th><th>Build</th><th>State</th><th>Last poll</th><th>Last check</th><th>IP</th>{{if $.CanEdit}}<th></th>{{end}}</tr>
   {{range .Devices}}
   <tr>
-    <td class="mono">{{.Serial}}</td>
+    <td class="mono">{{if index $.InFleet .Serial}}<a class="sn" href="/devices/{{.Serial}}" title="Also runs the MDM client">{{.Serial}}</a>{{else}}{{.Serial}}{{end}}</td>
     <td class="mono">{{.BuildID}}</td>
-    <td>{{if .GroupName}}{{.GroupName}}{{else}}<span class="muted">none</span>{{end}}</td>
     <td>
       {{if eq .Status "downloading"}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% downloading
-      {{else if eq .Status "installing"}}<span class="cc-tag info">installing</span> <span class="muted small">→ {{.OfferedBuild}}, waits for reboot</span>
+      {{else if eq .Status "installing"}}<span class="cc-tag info">installing</span> <span class="muted small">{{if .Percent}}{{.Percent}}% · {{end}}→ {{.OfferedBuild}}</span>
       {{else if eq .Status "offered"}}<span class="cc-tag info">offered</span> <span class="muted small">→ {{.OfferedBuild}}</span>
       {{else if eq .Status "updated"}}<span class="cc-tag ok">updated</span> <span class="muted small">{{if .StatusAt}}{{timeSince .StatusAt}}{{end}}</span>
       {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span> <span class="muted small">{{.Error}}</span>
       {{else}}<span class="muted small">up to date / idle</span>{{end}}
     </td>
-    <td><span class="reltime" data-ts="{{.LastSeen.Unix}}">{{timeSince .LastSeen}}</span> <span class="muted small">· {{.Polls}} polls</span></td>
+    <td><span class="reltime" data-ts="{{.LastSeen.Unix}}">{{timeSince .LastSeen}}</span> <span class="muted small">· {{.Polls}} poll{{if ne .Polls 1}}s{{end}}</span></td>
     <td>{{if .LastCheck}}<span class="reltime" data-ts="{{.LastCheck.Unix}}">{{timeSince .LastCheck}}</span>{{else}}<span class="muted">never</span>{{end}}</td>
     <td class="mono muted">{{.LastIP}}</td>
     {{if $.CanEdit}}<td><form action="/updates/legacy/devices/{{.Serial}}/forget" method="POST" style="display:inline;"><button type="submit" class="cc-btn sm" title="Drop this row; it returns on the next poll">Forget</button></form></td>{{end}}
@@ -160,8 +176,28 @@
   {{end}}
 </table>
 </div>
-<div class="lo-legend"><span><i style="background:var(--accent)"></i>bar = bytes streamed through the MDM</span><span>installing = file delivered, update_engine running; done when the device polls on the new build</span></div>
 {{else}}
-<div class="lo-empty">No legacy device has polled yet. They show up here within 15 minutes of the listener being on port 8000.</div>
+<div class="lo-empty">No legacy device has polled yet. They show up here within 15 minutes of the listener being on its port.</div>
+{{end}}
+{{end}}
+
+{{define "legacy-picker-rows"}}
+{{if .Rows}}
+<div class="cb-list">
+  {{range .Rows}}
+  {{$blk := index $.Blocked .Device.Serial}}{{$art := index $.Artifact .Device.Serial}}
+  <label class="cb-row"{{if $blk}} data-blocked="{{$blk}}"{{end}}{{if $art}} data-artifact="{{$art}}"{{end}} data-product="legacy">
+    <input type="checkbox" class="cmd-browse-cb" value="{{.Device.Serial}}">
+    <span class="dp-bchip cb-bat-na">—</span>
+    <span class="cb-id">
+      <span class="cb-serial mono">{{.Device.Serial}}</span>
+      <span class="cb-sub">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}unknown build{{end}} · {{timeSince .Device.LastSeen}}</span>
+    </span>
+    <span class="cb-status" title="{{if .Online}}Polled recently{{else}}Quiet{{end}}"><i class="{{if .Online}}on{{end}}"></i></span>
+  </label>
+  {{end}}
+</div>
+{{else}}
+<div class="muted small" style="padding:14px 12px;">No legacy device matches.</div>
 {{end}}
 {{end}}

@@ -137,6 +137,9 @@ func (h *Handler) legacyIdentify(w http.ResponseWriter, r *http.Request, isCheck
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return nil, false
 	}
+	// Reporting the build a deployment offered closes that row, and the rollout
+	// once every device has settled.
+	_ = h.db.CompleteLegacyDeploymentsAtBuild(r.Context(), req.SerialNumber, req.BuildID)
 	return &req, true
 }
 
@@ -164,24 +167,25 @@ func (h *Handler) LegacyCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	none := func() { writeJSON(w, http.StatusOK, legacyUpdateResp{UpdateAvailable: false}) }
-	g, err := h.db.LegacyOTAGroupForSerial(r.Context(), req.SerialNumber)
+	dep, target, err := h.db.ResolveLegacyDeployment(r.Context(), req.SerialNumber)
 	if err != nil {
-		log.Printf("[legacy-ota] group for %s: %v", req.SerialNumber, err)
+		log.Printf("[legacy-ota] resolve deployment for %s: %v", req.SerialNumber, err)
 		none()
 		return
 	}
-	if g == nil || !g.Enabled || g.ReleaseID == nil || g.ReleaseVersion == "" || g.ReleaseVersion == req.BuildID {
+	if dep == nil || dep.ReleaseVersion == "" || dep.ReleaseVersion == req.BuildID {
 		none()
 		return
 	}
-	pkg, err := h.db.PickLegacyOTAPackage(r.Context(), *g.ReleaseID, req.BuildID)
+	pkg, err := h.db.PickLegacyOTAPackage(r.Context(), dep.ReleaseID, req.BuildID)
 	if err != nil || pkg == nil {
 		if err != nil {
-			log.Printf("[legacy-ota] package for %s (release %d): %v", req.SerialNumber, *g.ReleaseID, err)
+			log.Printf("[legacy-ota] package for %s (release %d): %v", req.SerialNumber, dep.ReleaseID, err)
 		}
 		none()
 		return
 	}
+	_ = target
 	meta, err := h.legacyPayloadMeta(r.Context(), pkg)
 	if err != nil {
 		log.Printf("[legacy-ota] payload metadata for package %d (%s): %v", pkg.ID, pkg.UpdateURL, err)
@@ -189,12 +193,13 @@ func (h *Handler) LegacyCheckUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, "offered", pkg.TargetBuildID, "")
+	_ = h.db.SetLegacyDeploymentDevice(r.Context(), dep.ID, req.SerialNumber, "offered", 0, "", pkg.TargetBuildID)
 	scheme := "http"
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
 	dlURL := scheme + "://" + r.Host + "/device/pkg/" + h.legacyToken(pkg.ID, req.SerialNumber)
-	log.Printf("[legacy-ota] %s on %s -> %s (group %q, package %d %s)", req.SerialNumber, req.BuildID, pkg.TargetBuildID, g.Name, pkg.ID, pkg.Type)
+	log.Printf("[legacy-ota] %s on %s -> %s (deployment %d, package %d %s)", req.SerialNumber, req.BuildID, pkg.TargetBuildID, dep.ID, pkg.ID, pkg.Type)
 	off, size := meta.Offset, meta.Size
 	writeJSON(w, http.StatusOK, legacyUpdateResp{UpdateAvailable: true, UpdateURL: dlURL, PayloadOffset: &off, PayloadSize: &size, PayloadHeaders: meta.Headers})
 }
@@ -313,6 +318,10 @@ func (h *Handler) LegacyPackage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	_ = h.db.SetLegacyOTADeviceStatus(r.Context(), serial, "downloading", "", "")
+	depID := h.legacyDeploymentFor(r.Context(), serial)
+	if depID > 0 {
+		_ = h.db.SetLegacyDeploymentDevice(r.Context(), depID, serial, "downloading", 0, "", "")
+	}
 	w.WriteHeader(resp.StatusCode)
 	buf := make([]byte, 256*1024)
 	sent := start
@@ -328,6 +337,9 @@ func (h *Handler) LegacyPackage(w http.ResponseWriter, r *http.Request) {
 				if pct := int(sent * 100 / total); pct != lastPct {
 					lastPct = pct
 					ota.Legacy.Set(serial, "downloading", pct)
+					if depID > 0 && pct%5 == 0 {
+						_ = h.db.SetLegacyDeploymentDevice(context.Background(), depID, serial, "downloading", pct, "", "")
+					}
 				}
 			}
 		}
@@ -343,7 +355,13 @@ func (h *Handler) LegacyPackage(w http.ResponseWriter, r *http.Request) {
 		// status report this stays "installing" until the next poll on the new build.
 		ota.Legacy.Set(serial, "installing", 0)
 		_ = h.db.SetLegacyOTADeviceStatus(context.Background(), serial, "installing", "", "")
+		if depID > 0 {
+			_ = h.db.SetLegacyDeploymentDevice(context.Background(), depID, serial, "installing", 0, "", "")
+		}
 		log.Printf("[legacy-ota] package %d fully sent to %s", pkg.ID, serial)
+		// Watch update_engine over the device's own logcat, if it also runs the
+		// MDM client — the otautil app itself never reports install progress.
+		h.watchLegacyInstall(serial, depID)
 	}
 }
 
@@ -369,9 +387,15 @@ func (h *Handler) LegacyUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	case "installed", "success", "need_reboot", "updated_need_reboot":
 		ota.Legacy.Set(req.SerialNumber, "installed", 100)
 		_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, "installing", "", "")
+		if id := h.legacyDeploymentFor(r.Context(), req.SerialNumber); id > 0 {
+			_ = h.db.SetLegacyDeploymentDevice(r.Context(), id, req.SerialNumber, "installing", 100, "", "")
+		}
 	case "error", "failed":
 		ota.Legacy.Clear(req.SerialNumber)
 		_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, "failed", "", req.Error)
+		if id := h.legacyDeploymentFor(r.Context(), req.SerialNumber); id > 0 {
+			_ = h.db.SetLegacyDeploymentDevice(r.Context(), id, req.SerialNumber, "failed", -1, req.Error, "")
+		}
 	default:
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown phase"})
 		return
@@ -379,3 +403,12 @@ func (h *Handler) LegacyUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+
+// legacyDeploymentFor is the deployment currently owed to this serial, or 0.
+func (h *Handler) legacyDeploymentFor(ctx context.Context, serial string) int {
+	dep, _, err := h.db.ResolveLegacyDeployment(ctx, serial)
+	if err != nil || dep == nil {
+		return 0
+	}
+	return dep.ID
+}
