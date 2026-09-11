@@ -926,6 +926,56 @@ function mdmBootCharts() {
       .catch(function () {})
       .then(function () { chartFetching = false; if (done) done(); });
   }
+  // ── Catch up on live points an open tab missed ──────────────────────────────
+  // The visible window is anchored to the newest loaded sample. A tab left open
+  // while the SSE stream dropped (laptop asleep, server redeploy, a device that
+  // went quiet for days) therefore kept drawing its old window with no hint that
+  // newer check-ins existed — the "graph shows Sep 8 but the CSV has today" report.
+  // Pull anything newer than what's loaded whenever the tab comes back, the stream
+  // reconnects, or every couple of minutes.
+  function chartNewestX() {
+    var xs = [];
+    if (allBattery.length) xs.push(allBattery[allBattery.length - 1].x);
+    if (allTemp.length) xs.push(allTemp[allTemp.length - 1].x);
+    if (allRam.length) xs.push(allRam[allRam.length - 1].x);
+    return xs.length ? Math.max.apply(null, xs) : 0;
+  }
+  let chartCatchingUp = false;
+  function chartCatchUp() {
+    if (chartCatchingUp || chartFetching) return;
+    var newest = chartNewestX();
+    if (!newest || Date.now() - newest < 120000) return;   // already current
+    chartCatchingUp = true;
+    fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + (Math.floor(newest) + 1) + '&until=' + Math.floor(Date.now()), { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        var added = 0;
+        function fresher(pts) { return (pts || []).filter(function (p) { return p.x > newest; }); }
+        if (HAS_BATTERY) {
+          var b = fresher(d.battery);
+          if (b.length) { allBattery = allBattery.concat(b); if (window.mdmChart) window.mdmChart.allBattery = allBattery; added += b.length; }
+        }
+        if (tempLoaded) {
+          var t = fresher(d.temp);
+          if (t.length) { allTemp = allTemp.concat(t); if (window.mdmChart) window.mdmChart.allTemp = allTemp; added += t.length; }
+        }
+        if (ramLoaded) {
+          var m = fresher(d.ram);
+          if (m.length) { allRam = allRam.concat(m); if (window.mdmChart) window.mdmChart.allRam = allRam; added += m.length; }
+        }
+        if (!added) return;
+        if (window.mdmChart) window.mdmChart.lastPlottedMs = chartNewestX();
+        updateCharts();
+        if (activeTab === 'all' && unifiedChart) applyUnifiedData();
+      })
+      .catch(function () {})
+      .then(function () { chartCatchingUp = false; });
+  }
+  window.mdmChartCatchUp = chartCatchUp;
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) chartCatchUp(); });
+  (window.mdmInterval || setInterval)(chartCatchUp, 120000);
+
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
   const buildMarkers = [{{range .BuildChanges}}{x: {{.At.UnixMilli}}, from: {{printf "%q" .From}}, to: {{printf "%q" .To}}},{{end}}];
@@ -3390,6 +3440,8 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var serial = '{{.Device.SerialNumber}}';
     if (!serial || !window.EventSource) return;
     var es = window.mdmStream('/devices/' + encodeURIComponent(serial) + '/events');
+    // A reconnect means frames were missed while the stream was down.
+    es.addEventListener('open', function () { if (window.mdmChartCatchUp) window.mdmChartCatchUp(); });
 
     es.addEventListener('device', function (e) {
       var d = {};
