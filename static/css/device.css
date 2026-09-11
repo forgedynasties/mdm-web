@@ -90,7 +90,8 @@
 
 /* device.html block @592 */
 .chart-card{position:relative;}
-.chart-loading{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:var(--surface,#fff);border-radius:inherit;transition:opacity .28s ease;}
+.chart-body{position:relative;}
+.chart-loading{position:absolute;inset:0;z-index:6;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:var(--surface,#fff);border-radius:inherit;transition:opacity .28s ease;}
 .chart-loading.hide{opacity:0;pointer-events:none;}
 .chart-spin{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--border,#e8e2da);border-top-color:var(--accent,#f9674e);animation:chartspin .7s linear infinite;}
 .chart-loading-t{font-size:12.5px;color:var(--muted,#7e776d);font-weight:500;letter-spacing:.01em;}

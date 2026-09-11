@@ -598,7 +598,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
 
 <div class="card chart-card">
-  <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
   <div class="card-header cc-ch" style="align-items:flex-start;">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><h3 style="flex:none;">Vitals</h3>
@@ -680,6 +679,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 
 
   <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
+  <div class="chart-body" id="chart-body">
+    <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   {{if .Device.HasBattery}}
   <div id="chart-panel-battery">
     {{/* The pad legend only makes sense on hardware with a wireless charging pad;
@@ -720,6 +721,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
   </div>
 
+  </div><!-- /chart-body -->
   <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;">
     <span id="chart-footer-text">—</span>
     {{/* Visible-window label — subtle, below the graph. A wide custom/shifted range
