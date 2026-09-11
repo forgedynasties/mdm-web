@@ -7381,19 +7381,40 @@ func safeCSVFilename(name, fallback string) string {
 // ── Export ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
-	serials := r.URL.Query().Get("serials")
-	if serials == "" {
-		http.Redirect(w, r, "/devices", http.StatusFound)
-		return
+	var serialList []string
+	wholeFleet := false
+	if serials := r.URL.Query().Get("serials"); serials != "" {
+		serialList = strings.Split(serials, ",")
+	} else {
+		// Opened without a selection (the Overview's Export button, or a bare
+		// /export): offer the whole visible fleet rather than bouncing the user
+		// back to Fleet to pick devices first.
+		devs, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, exportFleetCap, "serial", "asc")
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		for _, d := range h.access(r).keepVisible(devs) {
+			serialList = append(serialList, d.SerialNumber)
+		}
+		if len(serialList) == 0 {
+			http.Redirect(w, r, "/devices", http.StatusFound)
+			return
+		}
+		wholeFleet = true
 	}
-	serialList := strings.Split(serials, ",")
 
 	h.render(w, r, "export.html", map[string]any{
-		"Title":   "Export Data",
-		"Serials": serialList,
-		"From":    backPath(r),
+		"Title":      "Export Data",
+		"Serials":    serialList,
+		"WholeFleet": wholeFleet,
+		"From":       backPath(r),
 	})
 }
+
+// exportFleetCap bounds a no-selection export so a very large fleet can't turn
+// one click into an unbounded query; past it, pick devices on Fleet first.
+const exportFleetCap = 500
 
 // backPath resolves where a "← Back" link should return to: an explicit ?from=
 // param if the caller set one, else the referring page (path+query only — the
