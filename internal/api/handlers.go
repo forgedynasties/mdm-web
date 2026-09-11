@@ -1003,6 +1003,9 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+		// Same probe hook as the HTTP ack path: a device with a socket answers here
+		// instead, and its progress probe would otherwise be read by nobody.
+		h.LegacyProbeOutput(ctx, body.CommandID, body.Output)
 	}
 	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
