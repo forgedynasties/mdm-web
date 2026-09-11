@@ -1836,7 +1836,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
 	case strings.HasPrefix(path, "/releases"):
-		data["ActivePage"] = "releases"
+		// One dock entry ("Updates") covers releases and rollouts alike.
+		data["ActivePage"] = "updates"
 	case strings.HasPrefix(path, "/updates-policy"):
 		data["ActivePage"] = "updates-policy"
 	case strings.HasPrefix(path, "/updates"):
@@ -1877,7 +1878,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 // see the Cache-Control comment below for why this can't just apply everywhere.
 var prefetchableTemplates = map[string]bool{
 	"overview.html": true, "devices.html": true, "health.html": true,
-	"commands.html": true, "releases.html": true,
+	"commands.html": true, "updates.html": true,
 }
 
 // pageViewSkip are full-page templates that are not "the user looked at
@@ -10855,7 +10856,172 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 // UpdatesHub renders the global Updates page: every deployment across releases with
 // its progress, plus a "new deployment" composer (admin/dev) that picks a published
 // release and its targets. Operators/operators can view the list but not deploy.
+// UpdatesHub is the combined Updates landing page: the releases we track and the
+// rollouts carrying them, side by side, because a release and its rollout are the
+// same story told twice. Legacy (otautil) rollouts join the same list, tagged, so
+// what is deploying reads in one place. Full lists live at /releases and
+// /updates/rollouts.
 func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_ = h.db.CompleteSettledDeployments(ctx)
+
+	filterProduct := strings.TrimSpace(r.URL.Query().Get("product"))
+	productMatches := func(p string) bool {
+		if filterProduct == "" {
+			return true
+		}
+		want, _ := product.Resolve(filterProduct)
+		got, _ := product.Resolve(p)
+		return want.Key == got.Key
+	}
+
+	// ── rollouts: fleet deployments, newest first, with legacy ones merged in ──
+	deployments, _ := h.db.ListDeployments(ctx)
+	type rolloutRow struct {
+		URL        string
+		Version    string
+		Product    string
+		Status     string
+		CreatedAt  time.Time
+		CreatedBy  string
+		Reboot     string
+		Legacy     bool
+		Total      int
+		Installed  int
+		Installing int
+		Failed     int
+	}
+	var rollouts []rolloutRow
+	active, installing, failed, installed := 0, 0, 0, 0
+	for _, d := range deployments {
+		if !productMatches(d.Product) {
+			continue
+		}
+		ver := ""
+		if d.Release != nil {
+			ver = d.Release.Version
+		}
+		rollouts = append(rollouts, rolloutRow{
+			URL:       fmt.Sprintf("/releases/%d/deployments/%d", d.ReleaseID, d.ID),
+			Version:   ver,
+			Product:   d.Product,
+			Status:    d.Status,
+			CreatedAt: d.CreatedAt,
+			CreatedBy: d.CreatedBy,
+			Reboot:    d.RebootBehavior,
+			Total:     d.DeviceTotal, Installed: d.DeviceInstalled,
+			Installing: d.DeviceDownloading, Failed: d.DeviceFailed,
+		})
+		if d.Status == "active" {
+			active++
+		}
+		installing += d.DeviceDownloading
+		failed += d.DeviceFailed
+		installed += d.DeviceInstalled
+	}
+	// Legacy rollouts carry no product of their own — they are T7 builds by
+	// definition — so they show unless another product is being filtered for.
+	if legacy, err := h.db.ListLegacyDeployments(ctx); err == nil && productMatches("t7") {
+		for _, d := range legacy {
+			ld := rolloutRow{
+				URL: "/updates/legacy", Version: d.ReleaseVersion, Product: d.ReleaseProduct,
+				Status: d.Status, CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy,
+				Legacy: true, Total: d.Total, Installed: d.Installed, Failed: d.Failed,
+			}
+			for _, dev := range d.Devices {
+				switch dev.Status {
+				case "offered", "downloading", "installing", "verifying", "finalizing":
+					ld.Installing++
+				}
+			}
+			rollouts = append(rollouts, ld)
+			if d.Status == "active" {
+				active++
+			}
+			installing += ld.Installing
+			failed += ld.Failed
+			installed += ld.Installed
+		}
+	}
+	sort.SliceStable(rollouts, func(i, j int) bool { return rollouts[i].CreatedAt.After(rollouts[j].CreatedAt) })
+	rolloutTotal := len(rollouts)
+	if len(rollouts) > 8 {
+		rollouts = rollouts[:8]
+	}
+
+	// ── releases: the tracked list, newest first, with fleet adoption ──
+	releases, _ := h.db.ListReleases(ctx)
+	adoption := map[string]int{}
+	if fleet, err := h.db.GetFleetVersions(ctx); err == nil {
+		for _, fv := range fleet {
+			adoption[fv.Version] = fv.DeviceCount
+		}
+	}
+	fleetTotal, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
+	type releaseRow struct {
+		ID       int
+		Version  string
+		Name     string
+		Product  string
+		Status   string
+		Branch   bool
+		Packages int
+		Deploys  int
+		Devices  int
+		Pct      int
+		Created  time.Time
+	}
+	var relRows []releaseRow
+	published, latestPublishedPct, tracked := 0, 0, 0
+	for _, rel := range releases {
+		if rel.Hidden || !productMatches(rel.Product) {
+			continue
+		}
+		tracked++
+		n := adoption[rel.Version]
+		pct := 0
+		if fleetTotal > 0 {
+			pct = n * 100 / fleetTotal
+		}
+		if rel.Status == "published" {
+			published++
+			if latestPublishedPct == 0 {
+				latestPublishedPct = pct
+			}
+		}
+		if len(relRows) < 8 {
+			relRows = append(relRows, releaseRow{
+				ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
+				Status: rel.Status, Branch: rel.IsBranch,
+				Packages: rel.PackageCount, Deploys: rel.DeployCount,
+				Devices: n, Pct: pct, Created: rel.CreatedAt,
+			})
+		}
+	}
+
+	legacySeen, _ := h.db.CountLegacyOTADevices(ctx)
+	h.render(w, r, "updates.html", map[string]any{
+		"Title":              "Updates",
+		"Rollouts":           rollouts,
+		"RolloutTotal":       rolloutTotal,
+		"ReleaseRows":        relRows,
+		"ReleaseTotal":       tracked,
+		"PublishedCount":     published,
+		"LatestPublishedPct": latestPublishedPct,
+		"ActiveCount":        active,
+		"InstallingCount":    installing,
+		"FailedCount":        failed,
+		"InstalledCount":     installed,
+		"LegacySeen":         legacySeen,
+		"CanDeploy":          roleCanOTA(h.role(r)),
+		"Products":           product.All(),
+		"FilterProduct":      filterProduct,
+	})
+}
+
+// UpdatesRollouts is the full rollout list — every deployment and how it is landing.
+// The combined Updates page (UpdatesHub) shows the newest handful and links here.
+func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	_ = h.db.CompleteSettledDeployments(r.Context())
 	deployments, _ := h.db.ListDeployments(r.Context())
@@ -10886,8 +11052,8 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	for cid := range connected {
 		online[cid] = true
 	}
-	h.render(w, r, "updates.html", map[string]any{
-		"Title":         "Updates",
+	h.render(w, r, "updates_rollouts.html", map[string]any{
+		"Title":         "Rollouts",
 		"Deployments":   deployments,
 		"Releases":      deployable,
 		"Devices":       devices,
@@ -18948,6 +19114,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
+	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(h.UpdatesRollouts))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
 	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.LegacyOTAPage))
 	post("POST /updates/legacy/push", h.requireOTA(h.LegacyOTAPush))

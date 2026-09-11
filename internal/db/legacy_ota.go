@@ -494,3 +494,11 @@ func (d *DB) RetryLegacyDeploymentDevice(ctx context.Context, id int, serial str
 	_, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployment_devices SET status = 'pending', percent = 0, error = '', updated_at = NOW() WHERE deployment_id = $1 AND serial = $2`, id, serial)
 	return err
 }
+
+// CountLegacyOTADevices is the number of otautil devices that have ever polled —
+// the Updates page shows it so the legacy fleet is visible without a detour.
+func (d *DB) CountLegacyOTADevices(ctx context.Context) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM legacy_ota_devices`).Scan(&n)
+	return n, err
+}
