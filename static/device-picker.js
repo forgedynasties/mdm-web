@@ -102,5 +102,9 @@
   document.body.addEventListener('htmx:afterSettle', function (e) {
     if (e.detail && e.detail.target && e.detail.target.id === 'dp-rows') syncRows();
   });
-  document.addEventListener('DOMContentLoaded', renderBasket);
+  // The page this sits on is usually reached by a boosted navigation, where
+  // DOMContentLoaded has long since fired — render the empty basket (and the
+  // disabled submit) straight away in that case.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderBasket);
+  else renderBasket();
 })();
