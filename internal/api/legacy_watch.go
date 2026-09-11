@@ -51,7 +51,9 @@ const legacyWatchTimeout = 90 * time.Minute
 // with room for the partition/finalize markers.
 const (
 	legacyPollEvery = 2 * time.Minute
-	legacyPollCmd   = "logcat -d -s update_engine -t 60"
+	// Piped through tail, not "logcat -t": the client on these old builds runs the
+	// string through a shell and its logcat returns nothing at all for -t.
+	legacyPollCmd = "logcat -d -s update_engine | tail -n 60"
 )
 
 // legacyProbes are the shell commands this package issued to read update_engine on a
