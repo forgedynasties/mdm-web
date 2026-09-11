@@ -590,3 +590,10 @@ func (d *DB) GetLegacyOTADevice(ctx context.Context, serial string) (*LegacyOTAD
 	}
 	return &v, nil
 }
+
+// SetLegacyOTADeviceBuild records the build a legacy device is running, learned from
+// somewhere other than its own poll (its MDM check-in, when it runs both).
+func (d *DB) SetLegacyOTADeviceBuild(ctx context.Context, serial, buildID string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE legacy_ota_devices SET build_id = $2 WHERE serial = $1`, serial, buildID)
+	return err
+}

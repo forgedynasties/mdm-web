@@ -795,6 +795,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A device that also updates over the legacy path may just have booted into the
+	// build that rollout offered — settle it here rather than waiting up to fifteen
+	// minutes for its next otautil poll.
+	h.SettleLegacyAtBuild(r.Context(), req.SerialNumber, req.BuildID)
+
 	// OTA check: resolve update from update_devices table.
 	if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
 		log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)

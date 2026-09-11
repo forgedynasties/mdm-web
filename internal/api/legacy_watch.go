@@ -19,10 +19,21 @@ import (
 //
 // The otautil app reports nothing once it hands the package to update_engine, so
 // the only way to follow an install is update_engine's own log. Where the device
-// ALSO runs the MDM client (our firmware carries both on builds that predate the
-// agent's OTA support), the client can stream logcat over its WebSocket — the
-// same pipe the Logs tab uses. Start a filtered stream when the download
-// finishes, read the percentages out of it, and stop at the first terminal line.
+// ALSO runs the MDM client — our firmware carries both on builds that predate the
+// agent's OTA support — we can ask for that log.
+//
+// One mechanism does it: a shell command, once a minute, until the install ends.
+//
+//	logcat -d -s update_engine | tail -n 60
+//
+// Commands reach a device either way it is connected, over its socket or on its
+// next HTTP check-in, and the output comes back on the ack. An earlier version
+// streamed logcat over the WebSocket instead and kept finding new ways to miss the
+// answer: the stream only carries what is logged after it attaches, so an install
+// that finished while nothing was watching showed its last percentage forever;
+// "logcat -T" (the stream's history replay) returns nothing on the older builds;
+// and a device with no socket had no stream at all. Polling is slower and duller
+// and it works everywhere.
 //
 // Lines this reads, from a real T7 install:
 //
@@ -32,8 +43,8 @@ import (
 //	update_engine: [INFO:vabc_partition_writer.cc(416)] Finalizing product COW image
 //	update_engine: [INFO:update_attempter_android.cc(…)] Update successfully applied…
 //
-// A device without the MDM client simply has no stream: the row stays
-// "installing" until it polls on the new build, which is the existing behaviour.
+// A device that is not in the fleet has no client to ask: its row stays
+// "installing" until it polls on the new build, which closes the rollout anyway.
 
 var (
 	reOverall   = regexp.MustCompile(`overall progress (\d+)%`)
@@ -42,19 +53,14 @@ var (
 	reErrCode   = regexp.MustCompile(`ErrorCode(?:::k|: )([A-Za-z0-9]+)`)
 )
 
-// legacyWatchTimeout bounds a watch: a 2 GB image on slow storage takes tens of
-// minutes, and the device's own poll on the new build closes the row anyway.
-const legacyWatchTimeout = 90 * time.Minute
-
-// How often to ask a socket-less device for its update_engine log, and how much of it
-// to ask for: an install logs a progress line every ~30s, so 60 lines covers the gap
-// with room for the partition/finalize markers.
 const (
-	legacyPollEvery = 2 * time.Minute
-	// Lines of history to replay when attaching the stream — enough to cover a whole
-	// install's worth of progress lines plus its terminal marker.
-	legacyStreamTail = 400
-	// Piped through tail, not "logcat -t": the client on these old builds runs the
+	// A 2 GB image on slow storage takes tens of minutes; the device's own poll on
+	// the new build closes the row anyway, so this is only a backstop.
+	legacyWatchTimeout = 90 * time.Minute
+	// Once a minute: update_engine logs progress every ~30s, and 60 lines of tail
+	// covers the gap with room for the partition, finalize and terminal markers.
+	legacyPollEvery = time.Minute
+	// Piped through tail, not "logcat -t": the client on these builds runs the
 	// string through a shell and its logcat returns nothing at all for -t.
 	legacyPollCmd = "logcat -d -s update_engine | tail -n 60"
 )
@@ -65,6 +71,30 @@ const (
 var legacyProbes sync.Map
 
 var legacyWatching sync.Map // serial -> struct{}
+
+// SettleLegacyAtBuild closes a legacy rollout for a device that is ALSO in the fleet,
+// the moment its MDM check-in reports the build it was offered. Otherwise the row
+// would keep saying "awaiting reboot" until the device's next legacy poll — up to
+// fifteen minutes after it has already booted into the new build and told us so.
+func (h *Handler) SettleLegacyAtBuild(ctx context.Context, serial, buildID string) {
+	if serial == "" || buildID == "" {
+		return
+	}
+	dev, err := h.db.GetLegacyOTADevice(ctx, serial)
+	if err != nil || dev == nil || dev.Status == "idle" || dev.Status == "updated" {
+		return
+	}
+	if dev.BuildID != buildID {
+		_ = h.db.SetLegacyOTADeviceBuild(ctx, serial, buildID)
+	}
+	if dev.OfferedBuild != "" && dev.OfferedBuild != buildID {
+		return // still on the old build: nothing to settle
+	}
+	_ = h.db.CompleteLegacyDeploymentsAtBuild(ctx, serial, buildID)
+	_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "updated", "", "")
+	ota.Legacy.Clear(serial)
+	log.Printf("[legacy-ota] %s checked in on %s: rollout settled", serial, buildID)
+}
 
 // ResumeLegacyWatches re-attaches every in-flight legacy install after a restart.
 // A watcher lives in memory, so a deploy in the middle of a 40-minute install
@@ -104,13 +134,10 @@ func (h *Handler) ResumeLegacyWatch(ctx context.Context, deviceID uuid.UUID) {
 	}
 }
 
-// watchLegacyInstall follows update_engine on one device, if it is reachable.
-// Safe to call for any serial: it returns immediately when the device is not in
-// the fleet, has no live WebSocket, or is already being watched.
+// watchLegacyInstall follows update_engine on one device for as long as its install
+// runs. Safe to call for any serial: it no-ops when the device is not in the fleet
+// (nothing to ask) or when a watch is already running for it.
 func (h *Handler) watchLegacyInstall(serial string, depID int) {
-	if h.logs == nil {
-		return
-	}
 	if _, busy := legacyWatching.LoadOrStore(serial, struct{}{}); busy {
 		return
 	}
@@ -121,137 +148,17 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 
 		device, err := h.db.GetDevice(ctx, serial)
 		if err != nil || device == nil {
-			return // legacy-only device: nothing to read from
+			return // legacy-only device: no client of ours to ask
 		}
-		if !h.hub.IsConnected(device.ID) {
-			// No socket, but the client still checks in over HTTP and the command
-			// queue rides along with it — so ask for a logcat dump every couple of
-			// minutes instead of streaming. Slower, same answer.
-			h.pollLegacyInstall(ctx, device.ID, serial, depID)
-			return
-		}
-		reqID := uuid.NewString()
-		ch := h.logs.Open(reqID)
-		defer h.logs.Close(reqID)
-
-		// Replay recent history, don't just follow from here. An install that finished
-		// while the watcher was detached — a restart, a socket that dropped — emits
-		// nothing more, so a follow-only stream would wait out its timeout on a device
-		// that is already done. The parser is idempotent, so re-reading old lines is free.
-		start, _ := json.Marshal(map[string]any{
-			"type": "start_logcat_stream", "request_id": reqID,
-			"tag": "update_engine", "level": "I", "buffer": "main", "tail": legacyStreamTail,
-		})
-		if !h.hub.Push(device.ID, start) {
-			return
-		}
-		defer func() {
-			stop, _ := json.Marshal(map[string]any{"type": "stop_logcat_stream", "request_id": reqID})
-			h.hub.Push(device.ID, stop)
-		}()
-		log.Printf("[legacy-ota] watching update_engine on %s (deployment %d)", serial, depID)
-		// Snapshot now, in case the install already finished: a stream only carries
-		// what update_engine logs from here on, and a finished install logs nothing.
-		h.sendLegacyProbe(ctx, device.ID, serial)
-
-		phase, lastPct := "installing", -1
-		for {
-			select {
-			case <-ctx.Done():
-				log.Printf("[legacy-ota] watch on %s timed out", serial)
-				return
-			case chunk, ok := <-ch:
-				if !ok {
-					return
-				}
-				for _, line := range strings.Split(chunk, "\n") {
-					if line == "" {
-						continue
-					}
-					done, newPhase, pct := parseUpdateEngineLine(line)
-					if newPhase != "" {
-						phase = newPhase
-					}
-					if pct >= 0 && pct != lastPct {
-						lastPct = pct
-						ota.Legacy.Set(serial, phase, pct)
-						if depID > 0 {
-							_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, phase, pct, "", "")
-						}
-					}
-					switch done {
-					case "ok":
-						// "Update successfully applied, waiting to reboot" — the payload is
-						// on the inactive slot and nothing else happens until the device
-						// reboots, which the legacy client does not do on its own.
-						ota.Legacy.Set(serial, "awaiting_reboot", 100)
-						_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "awaiting_reboot", "", "")
-						if depID > 0 {
-							_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "awaiting_reboot", 100, "", "")
-						}
-						log.Printf("[legacy-ota] %s: update applied, waiting for its reboot", serial)
-						return
-					case "fail":
-						reason := newPhase
-						if reason == "" {
-							reason = "update_engine failed"
-						}
-						ota.Legacy.Clear(serial)
-						_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "failed", "", reason)
-						if depID > 0 {
-							_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "failed", -1, reason, "")
-						}
-						log.Printf("[legacy-ota] %s: %s", serial, reason)
-						return
-					}
-				}
-			}
-		}
+		h.pollLegacyInstall(ctx, device.ID, serial, depID)
 	}()
 }
 
-// parseUpdateEngineLine reads one logcat line. done is "" (keep going), "ok" or
-// "fail"; phase is the phase or, on failure, the reason; pct is -1 when the line
-// carries no progress.
-func parseUpdateEngineLine(line string) (done, phase string, pct int) {
-	pct = -1
-	// Only the WHOLE update finishing counts as done. update_engine logs
-	// "ErrorCode::kSuccess" after every internal action — UpdateBootFlagsAction,
-	// CleanupPreviousUpdateAction, InstallPlanAction — within seconds of starting,
-	// so treating a bare kSuccess as the end marked devices "awaiting reboot" at 2%.
-	switch {
-	case strings.Contains(line, "Update successfully applied"),
-		strings.Contains(line, "UPDATED_NEED_REBOOT"),
-		strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode::kSuccess"):
-		return "ok", "", 100
-	case strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode"),
-		strings.Contains(line, "Update failed"):
-		if m := reErrCode.FindStringSubmatch(line); len(m) == 2 && m[1] != "kSuccess" && m[1] != "Success" {
-			return "fail", "update_engine error " + m[1], -1
-		}
-		return "fail", "", -1
-	}
-	if m := reOverall.FindStringSubmatch(line); len(m) == 2 {
-		if n, err := strconv.Atoi(m[1]); err == nil {
-			pct = n
-		}
-	}
-	if m := rePartition.FindStringSubmatch(line); len(m) == 2 {
-		phase = "installing " + m[1]
-	} else if m := reFinalize.FindStringSubmatch(line); len(m) == 2 {
-		phase = "finalizing"
-	}
-	return "", phase, pct
-}
-
-
-// pollLegacyInstall follows an install on a device with no live WebSocket by queueing
-// a logcat request the device picks up on its next HTTP check-in. The result comes
-// back through SubmitLogcat, where legacyProgressFromLogcat reads it — this loop only
-// keeps asking. One request in flight at a time, and it stops as soon as the row
-// leaves the installing states.
+// pollLegacyInstall asks the device for its update_engine log once a minute until the
+// install ends. The output comes back on the command ack — HTTP or WebSocket, both
+// land in LegacyProbeOutput — so this loop only keeps asking.
 func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, serial string, depID int) {
-	log.Printf("[legacy-ota] polling update_engine on %s over check-ins (deployment %d)", serial, depID)
+	log.Printf("[legacy-ota] following update_engine on %s (deployment %d)", serial, depID)
 	ticker := time.NewTicker(legacyPollEvery)
 	defer ticker.Stop()
 	for {
@@ -264,19 +171,11 @@ func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, ser
 		default:
 			return // installed, awaiting reboot, failed — nothing left to follow
 		}
-		// The stream is better when it is available: if the socket came back, hand
-		// over to it and stop polling.
-		if h.hub.IsConnected(deviceID) {
-			go func() {
-				legacyWatching.Delete(serial)
-				h.watchLegacyInstall(serial, depID)
-			}()
-			return
-		}
 		// A shell command, NOT a logcat request: logcat requests only ever go out over
-		// the WebSocket, so on these devices they sit pending forever (some from
-		// months ago). Commands ride the check-in response, and the output comes back
-		// on the ack — which is how the Shell page works on this same hardware.
+		// the WebSocket, so on a device without one they sit pending forever (some on
+		// this fleet from months ago). Commands ride the check-in response too, and
+		// the output comes back on the ack — which is how the Shell page already
+		// works on this same hardware.
 		h.sendLegacyProbe(ctx, deviceID, serial)
 		select {
 		case <-ctx.Done():
@@ -378,4 +277,38 @@ func (h *Handler) legacyProgressFromLogcat(ctx context.Context, serial, content 
 	if depID > 0 {
 		_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, phase, pct, "", "")
 	}
+}
+
+// parseUpdateEngineLine reads one logcat line. done is "" (keep going), "ok" or
+// "fail"; phase is the phase or, on failure, the reason; pct is -1 when the line
+// carries no progress.
+func parseUpdateEngineLine(line string) (done, phase string, pct int) {
+	pct = -1
+	// Only the WHOLE update finishing counts as done. update_engine logs
+	// "ErrorCode::kSuccess" after every internal action — UpdateBootFlagsAction,
+	// CleanupPreviousUpdateAction, InstallPlanAction — within seconds of starting,
+	// so treating a bare kSuccess as the end marked devices "awaiting reboot" at 2%.
+	switch {
+	case strings.Contains(line, "Update successfully applied"),
+		strings.Contains(line, "UPDATED_NEED_REBOOT"),
+		strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode::kSuccess"):
+		return "ok", "", 100
+	case strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode"),
+		strings.Contains(line, "Update failed"):
+		if m := reErrCode.FindStringSubmatch(line); len(m) == 2 && m[1] != "kSuccess" && m[1] != "Success" {
+			return "fail", "update_engine error " + m[1], -1
+		}
+		return "fail", "", -1
+	}
+	if m := reOverall.FindStringSubmatch(line); len(m) == 2 {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			pct = n
+		}
+	}
+	if m := rePartition.FindStringSubmatch(line); len(m) == 2 {
+		phase = "installing " + m[1]
+	} else if m := reFinalize.FindStringSubmatch(line); len(m) == 2 {
+		phase = "finalizing"
+	}
+	return "", phase, pct
 }
