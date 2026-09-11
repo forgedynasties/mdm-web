@@ -68,6 +68,11 @@ CREATE INDEX IF NOT EXISTS idx_legacy_dep_devices_serial ON legacy_ota_deploymen
 -- The reboot that finishes a legacy update, when the device also runs the MDM client.
 -- Kept per row so the rollout can show what happened to it — queued, delivered, acked —
 -- instead of a button that looks like it did nothing.
+-- A legacy rollout can belong to a fleet deployment: one push, one page, devices
+-- served over whichever transport their build supports. Standalone rows (update_id
+-- NULL) are the ones created before the two were unified.
+ALTER TABLE legacy_ota_deployments ADD COLUMN IF NOT EXISTS update_id INTEGER REFERENCES updates(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_legacy_dep_update ON legacy_ota_deployments(update_id);
 ALTER TABLE legacy_ota_deployment_devices ADD COLUMN IF NOT EXISTS reboot_command_id UUID;
 ALTER TABLE legacy_ota_deployment_devices ADD COLUMN IF NOT EXISTS reboot_sent_at TIMESTAMPTZ;
 `
@@ -311,6 +316,7 @@ func (d *DB) ListReleasesWithPackages(ctx context.Context) ([]Release, error) {
 // LegacyDeployment is one release pushed to a set of otautil devices.
 type LegacyDeployment struct {
 	ID             int
+	UpdateID       *int // the fleet deployment this belongs to, when it is part of one
 	ReleaseID      int
 	ReleaseVersion string
 	ReleaseProduct string
@@ -337,6 +343,27 @@ type LegacyDeploymentDevice struct {
 	// The reboot that switches the slot, when one has been sent from here.
 	RebootSentAt *time.Time
 	RebootState  string // command_status for that reboot: queued | delivered | received | done
+}
+
+// LegacyDeploymentForUpdate returns the legacy half of a fleet deployment, or nil
+// when that rollout had no legacy targets.
+func (d *DB) LegacyDeploymentForUpdate(ctx context.Context, updateID int) (*LegacyDeployment, error) {
+	var id int
+	err := d.pool.QueryRow(ctx, `SELECT id FROM legacy_ota_deployments WHERE update_id = $1 ORDER BY id LIMIT 1`, updateID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return d.GetLegacyDeployment(ctx, id)
+}
+
+// LinkLegacyDeployment attaches a legacy rollout to the fleet deployment it was
+// pushed with, so both halves render as one.
+func (d *DB) LinkLegacyDeployment(ctx context.Context, legacyID, updateID int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE legacy_ota_deployments SET update_id = $2 WHERE id = $1`, legacyID, updateID)
+	return err
 }
 
 // CreateLegacyDeployment records a push and its target serials.
@@ -443,11 +470,11 @@ func (d *DB) CompleteLegacyDeploymentsAtBuild(ctx context.Context, serial, build
 func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment, error) {
 	var p LegacyDeployment
 	err := d.pool.QueryRow(ctx, `
-		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
+		SELECT p.id, p.update_id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
 		FROM legacy_ota_deployments p
 		LEFT JOIN releases r ON r.id = p.release_id
 		WHERE p.id = $1`, id).
-		Scan(&p.ID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt)
+		Scan(&p.ID, &p.UpdateID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -488,7 +515,7 @@ func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment
 
 func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
+		SELECT p.id, p.update_id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
 		FROM legacy_ota_deployments p
 		LEFT JOIN releases r ON r.id = p.release_id
 		ORDER BY p.created_at DESC
@@ -501,7 +528,7 @@ func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, err
 	byID := map[int]int{}
 	for rows.Next() {
 		var p LegacyDeployment
-		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UpdateID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		byID[p.ID] = len(out)

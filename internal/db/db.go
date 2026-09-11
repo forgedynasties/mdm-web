@@ -336,6 +336,8 @@ type Update struct {
 	DeviceTotal       int          `json:"device_total,omitempty"`       // populated by ListDeploymentsByPackage
 	DeviceInstalled   int          `json:"device_installed,omitempty"`   // populated by ListDeploymentsByPackage
 	DeviceDownloading int          `json:"device_downloading,omitempty"` // populated by ListDeployments
+	DeviceInstalling  int          `json:"device_installing,omitempty"`  // installing/verifying/finalizing
+	DeviceAwaiting    int          `json:"device_awaiting,omitempty"`    // applied, waiting on its reboot
 	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
 	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
 	ReleaseIsDev      bool         `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
@@ -11952,6 +11954,8 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		       COUNT(ud.device_id) AS device_total,
 		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed,
 		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
+		       COUNT(CASE WHEN ud.status IN ('installing', 'verifying', 'finalizing') THEN 1 END) AS device_installing,
+		       COUNT(CASE WHEN ud.status IN ('awaiting_reboot', 'reboot_sent') THEN 1 END) AS device_awaiting,
 		       COUNT(CASE WHEN ud.status = 'failed' THEN 1 END) AS device_failed
 		FROM updates u
 		LEFT JOIN releases rel ON rel.id = u.release_id
@@ -11970,7 +11974,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
 			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.ReleaseIsDev, &u.DeviceTotal, &u.DeviceInstalled,
-			&u.DeviceDownloading, &u.DeviceFailed); err != nil {
+			&u.DeviceDownloading, &u.DeviceInstalling, &u.DeviceAwaiting, &u.DeviceFailed); err != nil {
 			return nil, err
 		}
 		u.Product = product
@@ -14516,4 +14520,27 @@ func (d *DB) SourceBuildForTarget(ctx context.Context, updateID int, deviceID uu
 	var b string
 	err := d.pool.QueryRow(ctx, `SELECT source_build_id FROM update_devices WHERE update_id = $1 AND device_id = $2`, updateID, deviceID).Scan(&b)
 	return b, err
+}
+
+// SerialsForDeviceIDs maps device ids to their serial numbers, in no particular
+// order. Used where a feature is keyed by serial (the legacy OTA tables) but the
+// caller works in ids.
+func (d *DB) SerialsForDeviceIDs(ctx context.Context, ids []uuid.UUID) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT serial_number FROM devices WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }

@@ -735,7 +735,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"whyScore": whyScore,
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
-		// canSeeDev: who sees releases still marked dev — devs and admins only.
+		// canSeeDev: who sees releases still marked dev — everyone but viewers/owners.
 		"canSeeDev": roleSeesDev,
 		"canOTA":     roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
@@ -9403,10 +9403,18 @@ func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), msg, "success")
 }
 
-// roleSeesDev reports whether a role may see releases still marked dev. A new
-// release starts dev so work in progress stays off operators' screens until
-// someone turns the flag off; see SetReleaseDev.
-func roleSeesDev(role string) bool { return role == "admin" || role == "dev" }
+// roleSeesDev reports whether a role may see releases still marked dev. Everyone
+// who works the fleet can: the flag keeps work in progress out of the DEFAULT view
+// (the list folds dev releases away behind a toggle), not out of reach — so anyone
+// with OTA rights can push one when that is what the job needs. Viewers, who only
+// read, and owners, who see no fleet at all, do not.
+func roleSeesDev(role string) bool {
+	switch role {
+	case "", "viewer", "owner":
+		return false
+	}
+	return true
+}
 
 // visibleReleases drops dev-only releases for roles that may not see them.
 func visibleReleases(role string, in []db.Release) []db.Release {
@@ -11015,8 +11023,19 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Installed  int
 		Installing int
 		Failed     int
+		Progress   int // 0-100, the download half and the install half weighted equally
 	}
+
+	// deviceProgress scores one device's journey: the download is half the work and
+	// applying it is the other half, so a fleet mid-download reads ~25% rather than
+	// 0% for hours and then jumping to done.
+	const (
+		pctDownloading = 25  // partway through the first half
+		pctInstalling  = 75  // downloaded, partway through the second
+		pctDone        = 100 // applied, with or without its reboot
+	)
 	var rollouts []rolloutRow
+	rolloutsByID := map[int]int{}
 	active, installing, failed, installed := 0, 0, 0, 0
 	for _, d := range deployments {
 		if !productMatches(d.Product) {
@@ -11026,7 +11045,9 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		if d.Release != nil {
 			ver = d.Release.Version
 		}
-		rollouts = append(rollouts, rolloutRow{
+		pendingOrFailed := d.DeviceTotal - d.DeviceInstalled - d.DeviceDownloading - d.DeviceInstalling - d.DeviceAwaiting
+		_ = pendingOrFailed
+		row := rolloutRow{
 			URL:       fmt.Sprintf("/releases/%d/deployments/%d", d.ReleaseID, d.ID),
 			Version:   ver,
 			Product:   d.Product,
@@ -11035,8 +11056,14 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			CreatedBy: d.CreatedBy,
 			Reboot:    d.RebootBehavior,
 			Total:     d.DeviceTotal, Installed: d.DeviceInstalled,
-			Installing: d.DeviceDownloading, Failed: d.DeviceFailed,
-		})
+			Installing: d.DeviceDownloading + d.DeviceInstalling, Failed: d.DeviceFailed,
+		}
+		// Weighted score, in points out of 100 per device; divided by the target count
+		// below once the legacy half has been folded in.
+		row.Progress = (d.DeviceInstalled+d.DeviceAwaiting)*pctDone +
+			d.DeviceInstalling*pctInstalling + d.DeviceDownloading*pctDownloading
+		rolloutsByID[d.ID] = len(rollouts)
+		rollouts = append(rollouts, row)
 		if d.Status == "active" {
 			active++
 		}
@@ -11046,8 +11073,14 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	}
 	// Legacy rollouts carry no product of their own — they are T7 builds by
 	// definition — so they show unless another product is being filtered for.
+	legacyByUpdate := map[int]db.LegacyDeployment{}
 	if legacy, err := h.db.ListLegacyDeployments(ctx); err == nil && productMatches("t7") {
 		for _, d := range legacy {
+			// Part of a fleet deployment: its devices belong to that rollout's row.
+			if d.UpdateID != nil {
+				legacyByUpdate[*d.UpdateID] = d
+				continue
+			}
 			ld := rolloutRow{
 				URL: "/updates/legacy", Version: d.ReleaseVersion, Product: d.ReleaseProduct,
 				Status: d.Status, CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy,
@@ -11055,9 +11088,18 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			}
 			for _, dev := range d.Devices {
 				switch dev.Status {
-				case "offered", "downloading", "installing", "verifying", "finalizing":
+				case "installed", "awaiting_reboot":
+					ld.Progress += pctDone
+				case "installing", "verifying", "finalizing":
+					ld.Progress += pctInstalling
+					ld.Installing++
+				case "offered", "downloading":
+					ld.Progress += pctDownloading
 					ld.Installing++
 				}
+			}
+			if ld.Total > 0 {
+				ld.Progress /= ld.Total
 			}
 			rollouts = append(rollouts, ld)
 			if d.Status == "active" {
@@ -11066,6 +11108,40 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			installing += ld.Installing
 			failed += ld.Failed
 			installed += ld.Installed
+		}
+	}
+	// Fold each linked legacy half into its deployment's row: one push, one line.
+	for updID, d := range legacyByUpdate {
+		i, ok := rolloutsByID[updID]
+		if !ok {
+			continue
+		}
+		rollouts[i].Legacy = true
+		rollouts[i].Total += d.Total
+		rollouts[i].Installed += d.Installed
+		rollouts[i].Failed += d.Failed
+		installed += d.Installed
+		failed += d.Failed
+		for _, dev := range d.Devices {
+			switch dev.Status {
+			case "installed":
+				rollouts[i].Progress += pctDone
+			case "awaiting_reboot":
+				rollouts[i].Progress += pctDone
+			case "installing", "verifying", "finalizing":
+				rollouts[i].Progress += pctInstalling
+				rollouts[i].Installing++
+				installing++
+			case "offered", "downloading":
+				rollouts[i].Progress += pctDownloading
+				rollouts[i].Installing++
+				installing++
+			}
+		}
+	}
+	for i := range rollouts {
+		if rollouts[i].Total > 0 {
+			rollouts[i].Progress /= rollouts[i].Total
 		}
 	}
 	sort.SliceStable(rollouts, func(i, j int) bool { return rollouts[i].CreatedAt.After(rollouts[j].CreatedAt) })
@@ -11469,16 +11545,21 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Drop devices whose firmware cannot apply an MDM OTA at all — they update over
-	// the legacy path. The pickers already hide them, but a stale page, a group push
-	// or the API could still land one here, and a 2 GB download that can never be
-	// applied is the expensive kind of mistake.
-	if kept, dropped := h.filterOTACapable(r.Context(), eligible); len(dropped) > 0 {
-		log.Printf("[ota] push of %s: dropped %d device(s) with no MDM OTA support", rel.Version, len(dropped))
-		eligible = kept
+	// Split by transport rather than dropping: a build that cannot apply an MDM OTA
+	// still updates, over the legacy otautil path. Both halves belong to one rollout.
+	eligible, legacyIDs := h.splitOTACapable(r.Context(), eligible)
+	legacySerials, err := h.db.SerialsForDeviceIDs(r.Context(), legacyIDs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
-	if len(eligible) == 0 {
-		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, is mid-update on another deployment, or runs a build that updates over legacy OTA only.", http.StatusBadRequest)
+	// Serials the picker offered that are not in the fleet at all: otautil devices,
+	// which only ever had the legacy path. They come straight from the form.
+	legacySerials = append(legacySerials, h.legacyOnlySerials(r, rel)...)
+	legacySerials = dedupeStrings(legacySerials)
+
+	if len(eligible) == 0 && len(legacySerials) == 0 {
+		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, or is mid-update on another deployment.", http.StatusBadRequest)
 		return
 	}
 
@@ -11487,9 +11568,21 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	if len(eligible) > 0 {
+		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	// The legacy half: same release, same rollout, offered on each device's next
+	// otautil poll instead of pushed as a command.
+	if len(legacySerials) > 0 {
+		legacyID, err := h.db.CreateLegacyDeployment(r.Context(), relID, legacySerials, h.currentUsername(r))
+		if err != nil {
+			log.Printf("[ota] legacy half of deployment %d: %v", deployment.ID, err)
+		} else if err := h.db.LinkLegacyDeployment(r.Context(), legacyID, deployment.ID); err != nil {
+			log.Printf("[ota] linking legacy rollout %d to deployment %d: %v", legacyID, deployment.ID, err)
+		}
 	}
 	// Deliver to connected targets right now, the same way every other command
 	// type (reboot, screenshot, ...) already does — don't wait for the device's
@@ -11581,18 +11674,49 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// deployment-detail hero — precomputed here since templates have no multiply func.
 	ringOffset := 276.5 * float64(100-pct) / 100
 
+	// The legacy half of this rollout, if it has one: devices whose build cannot
+	// apply an MDM OTA were served the same release over the otautil path, and this
+	// page is where the whole push is accounted for.
+	legacyDep, _ := h.db.LegacyDeploymentForUpdate(r.Context(), did)
+	legacyRows := []db.LegacyDeploymentDevice{}
+	legacyDone := 0
+	if legacyDep != nil {
+		for i := range legacyDep.Devices {
+			dv := &legacyDep.Devices[i]
+			if st, ok := ota.Legacy.Get(dv.Serial); ok && (dv.Status == "downloading" || dv.Status == "installing" || dv.Status == "offered") {
+				dv.Percent = st.Percent
+				if st.Phase != "" {
+					dv.Status = st.Phase
+				}
+			}
+			switch {
+			case dv.Status == "installed", dv.Status == "awaiting_reboot",
+				dv.Status == "installing" && dv.Percent >= 100:
+				legacyDone++
+			}
+		}
+		legacyRows = legacyDep.Devices
+	}
+	totalTargets := len(targets) + len(legacyRows)
+	if totalTargets > 0 {
+		pct = (done + legacyDone) * 100 / totalTargets
+		ringOffset = 276.5 * float64(100-pct) / 100
+	}
+
 	data := map[string]any{
 		"Title":        fmt.Sprintf("Deployment #%d", did),
 		"Deployment":   upd,
 		"Release":      upd.Release,
 		"OTAProgress":  otaProgress,
 		"Summary":      summary,
-		"SummaryDone":  done,
-		"SummaryTotal": len(targets),
+		"SummaryDone":  done + legacyDone,
+		"SummaryTotal": totalTargets,
 		"SummaryPct":   pct,
 		"RingOffset":   ringOffset,
 		"AvgDuration":  avgDuration, // seconds, or -1 if no device finished yet
 		"DoneCount":    durCount,    // devices with a measured duration
+		"LegacyDep":    legacyDep,
+		"LegacyRows":   legacyRows,
 	}
 
 	// HTMX polling target: just the device-status table. Use the ETag/304 helper so an
@@ -11754,6 +11878,11 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.CancelDeployment(r.Context(), did); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// One rollout, both halves: cancelling the deployment cancels the legacy targets
+	// it was pushed with, or they would keep being offered on every poll.
+	if legacy, err := h.db.LegacyDeploymentForUpdate(r.Context(), did); err == nil && legacy != nil {
+		_ = h.db.CancelLegacyDeployment(r.Context(), legacy.ID)
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
 	h.hub.PublishDeploymentUpdate()
@@ -13125,15 +13254,20 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	// picker needs it; every other caller leaves the maps empty and the rows render
 	// exactly as before.
 	blocked, artifact := map[string]string{}, map[string]string{}
+	var legacyRows []legacyPickerRow
 	if pushRel != nil {
 		blocked, artifact = h.releaseEligibility(r.Context(), pushRel, devices)
+		// Devices that are not in the fleet at all but do poll the legacy listener:
+		// one push covers both kinds now, so they belong in the same list.
+		legacyRows = h.legacyPickerRows(r, pushRel, blocked, artifact, r.URL.Query().Get("q"), r.URL.Query().Get("status"))
 	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
-		"Devices":  devices,
-		"Online":   online,
-		"DPC":      dpc,
-		"Blocked":  blocked,
-		"Artifact": artifact,
+		"Devices":     devices,
+		"Online":      online,
+		"DPC":         dpc,
+		"Blocked":     blocked,
+		"Artifact":    artifact,
+		"LegacyRows":  legacyRows,
 	})
 }
 
@@ -13162,16 +13296,21 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 	newer, _ := h.db.SerialsOnNewerRelease(ctx, relID)
 	for _, d := range devices {
 		s := d.SerialNumber
-		gate := h.otaGate.Device(ctx, d)
+		// A build with no MDM OTA is not blocked any more — it is served the same
+		// release over the legacy path, in the same rollout. Only a full image can
+		// reach one, since the legacy client has no incremental story.
+		legacy := !h.otaGate.Device(ctx, d).OK
 		switch {
 		case d.BuildID == rel.Version:
 			blocked[s] = "up to date"
-		case !gate.OK:
-			blocked[s] = gate.Reason
 		case newer[s] != "":
 			blocked[s] = "newer installed (" + newer[s] + ")"
 		case updating[s] != "":
 			blocked[s] = "already updating"
+		case legacy && !hasFull:
+			blocked[s] = "legacy OTA needs a full image"
+		case legacy:
+			artifact[s] = "legacy"
 		case !hasFull && !sourceBuilds[d.BuildID]:
 			blocked[s] = "no update for this build"
 		case sourceBuilds[d.BuildID]:
@@ -17154,6 +17293,52 @@ func (h *Handler) filterOTACapable(ctx context.Context, ids []uuid.UUID) (kept, 
 		}
 	}
 	return kept, dropped
+}
+
+// splitOTACapable divides device ids by the transport their build supports.
+func (h *Handler) splitOTACapable(ctx context.Context, ids []uuid.UUID) (mdm, legacy []uuid.UUID) {
+	for _, id := range ids {
+		d, err := h.db.GetDeviceByID(ctx, id)
+		if err != nil || d == nil {
+			mdm = append(mdm, id) // can't tell: the existing paths decide
+			continue
+		}
+		if h.otaGate.Device(ctx, *d).OK {
+			mdm = append(mdm, id)
+		} else {
+			legacy = append(legacy, id)
+		}
+	}
+	return mdm, legacy
+}
+
+// legacyOnlySerials picks the submitted serials that belong to no fleet device but do
+// poll the legacy listener — otautil devices, which the unified picker now offers
+// alongside the fleet.
+func (h *Handler) legacyOnlySerials(r *http.Request, rel *db.Release) []string {
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		return nil
+	}
+	known, err := h.db.ListLegacyOTADevices(r.Context())
+	if err != nil {
+		return nil
+	}
+	legacy := make(map[string]bool, len(known))
+	for _, d := range known {
+		legacy[d.Serial] = true
+	}
+	var out []string
+	for _, s := range serials {
+		if !legacy[s] {
+			continue
+		}
+		if dev, err := h.db.GetDevice(r.Context(), s); err == nil && dev != nil {
+			continue // in the fleet: already decided by the gate
+		}
+		out = append(out, s)
+	}
+	return out
 }
 
 // otaUnsupportedForDevices is the same answer keyed by the builds these devices are

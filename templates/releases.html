@@ -127,7 +127,7 @@ a.rl-ver:hover{color:var(--accent-text)}
 </label>
 {{end}}
 {{if and (canSeeDev $.Role) (gt .DevCount 0)}}
-<label class="rl-reported-toggle" title="Releases still marked dev — only devs and admins can see them at all">
+<label class="rl-reported-toggle" title="Releases still marked dev — folded away by default; anyone who can push may push one">
   <input type="checkbox" id="rl-dev-toggle" onchange="rlDevToggle(this.checked)">
   Show {{.DevCount}} dev release{{if ne .DevCount 1}}s{{end}}
 </label>

@@ -13,6 +13,18 @@
 .uh-row{display:flex;align-items:center;gap:13px;padding:12px 16px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background .12s}
 .uh-row:first-of-type{border-top:none}
 .uh-row:hover{background:var(--surface2);color:inherit}
+/* A rollout row fills with green as it lands: the fill IS the progress bar, so the
+   list reads at a glance from across the room. Children sit above the fill. */
+.uh-row.uh-roll-row{position:relative;overflow:hidden}
+.uh-row.uh-roll-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);
+  background:color-mix(in srgb, var(--ok) 14%, transparent);
+  border-right:1px solid color-mix(in srgb, var(--ok) 26%, transparent);
+  transition:width .5s ease;pointer-events:none}
+@supports not (background: color-mix(in srgb, red 10%, transparent)){
+  .uh-row.uh-roll-row::before{background:rgba(52,168,83,.13);border-right-color:rgba(52,168,83,.26)}
+}
+.uh-row.uh-roll-row>*{position:relative;z-index:1}
+@media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}}
 .uh-id{flex:1;min-width:0}
 .uh-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .uh-ver{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -48,8 +60,7 @@
     <details class="uh-new">
       <summary class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New<svg viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="m6 9 6 6 6-6"/></svg></summary>
       <div class="uh-menu">
-        <a href="/updates/new"{{if not .CanDeploy}} class="locked" title="Requires the operator role"{{end}}>New update<span class="d">Push a release to fleet devices</span></a>
-        <a href="/updates/legacy"{{if not .CanDeploy}} class="locked" title="Requires the operator role"{{end}}>New legacy update<span class="d">Push to otautil devices, outside the fleet</span></a>
+        <a href="/updates/new"{{if not .CanDeploy}} class="locked" title="Requires the operator role"{{end}}>New update<span class="d">One push · each device served over the transport its build supports</span></a>
         <a href="/releases?new=1"{{if not (canRelease .Role)}} class="locked" title="Requires the admin role"{{end}}>New release<span class="d">Track a build and add its packages</span></a>
       </div>
     </details>
@@ -104,7 +115,7 @@
           <span class="uh-ver">{{.Version}}</span>
           {{if eq .Status "published"}}<span class="cc-pill ok">published</span>{{else}}<span class="cc-pill mut">{{.Status}}</span>{{end}}
           {{if .Branch}}<span class="cc-tag">branch</span>{{end}}
-          {{if .Dev}}<span class="cc-tag warn" title="Only devs and admins see this release">dev</span>{{end}}
+          {{if .Dev}}<span class="cc-tag warn" title="Dev release — folded away in the default list">dev</span>{{end}}
           <span class="cc-tag">{{productLabel .Product}}</span>
         </div>
         <div class="uh-sub">{{if .Name}}{{.Name}} · {{end}}{{.Packages}} package{{if ne .Packages 1}}s{{end}} · {{.Deploys}} rollout{{if ne .Deploys 1}}s{{end}} · <span class="reltime" data-ts="{{.Created.Unix}}">{{timeSince .Created}}</span></div>
@@ -131,24 +142,26 @@
     {{range .Rollouts}}
     {{$pending := sub .Total (add (add .Installed .Installing) .Failed)}}{{if lt $pending 0}}{{$pending = 0}}{{end}}
     {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
-    <a class="uh-row" href="{{.URL}}">
+    <a class="uh-row uh-roll-row" href="{{.URL}}" style="--fill:{{.Progress}}%">
       <div class="uh-id">
         <div class="uh-top">
           <span class="uh-ver">{{.Version}}</span>
           <span class="cc-pill {{$sc}}">{{.Status}}</span>
-          {{if .Legacy}}<span class="cc-tag" title="otautil device, not in the fleet">legacy</span>{{else}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
+          <span class="cc-tag">{{productLabel .Product}}</span>{{if .Legacy}}<span class="cc-tag" title="Includes devices served over the legacy otautil path">+ legacy</span>{{end}}
         </div>
         <div class="uh-sub"><span class="reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}}</span>{{if .Reboot}} · {{.Reboot}} reboot{{end}}{{if .CreatedBy}}{{$by := userBubble .CreatedBy}}{{if not $by.Admin}} · by <b>{{$by.Name}}</b>{{end}}{{end}}</div>
       </div>
       <div class="uh-roll">
         {{if gt .Total 0}}
-        <span class="uh-pct">{{pctOf .Installed .Total}}%</span> <span class="muted small">installed</span>
+        {{/* One number: the download is half the journey and applying it the other
+             half, so a fleet mid-download reads as moving instead of stuck at 0. */}}
+        <span class="uh-pct">{{.Progress}}%</span> <span class="muted small">{{if ge .Progress 100}}done{{else}}through{{end}}</span>
         <div class="cc-stack">
           {{if gt .Installed 0}}<i class="c4" style="width:{{pctOf .Installed .Total}}%"></i>{{end}}
           {{if gt .Installing 0}}<i class="c2" style="width:{{pctOf .Installing .Total}}%"></i>{{end}}
           {{if gt .Failed 0}}<i class="c5" style="width:{{pctOf .Failed .Total}}%;background:var(--danger)"></i>{{end}}
         </div>
-        <span class="muted small">{{.Installed}} of {{.Total}}{{if gt .Failed 0}} · {{.Failed}} failed{{end}}</span>
+        <span class="muted small">{{.Installed}} of {{.Total}} installed{{if gt .Installing 0}} · {{.Installing}} in flight{{end}}{{if gt .Failed 0}} · {{.Failed}} failed{{end}}</span>
         {{else}}<span class="muted small">no targets</span>{{end}}
       </div>
     </a>

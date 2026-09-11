@@ -113,8 +113,43 @@
     </td>
   </tr>
   {{end}}
-  {{else}}
+  {{else if not $.LegacyRows}}
   <tr><td colspan="7" class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</td></tr>
+  {{end}}
+  {{/* The legacy half of the same push: devices whose build has no MDM OTA, served
+       the same release over the otautil listener. One rollout, two transports. */}}
+  {{range $.LegacyRows}}
+  {{$awaiting := or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}
+  <tr>
+    <td class="dpl-dev">
+      {{if .InFleet}}<a href="/devices/{{.Serial}}" class="dpl-sn link-detail">{{.Serial}}</a>{{else}}<span class="dpl-sn">{{.Serial}}</span>{{end}}
+      <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}} · <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span></div>
+    </td>
+    <td>
+      {{if eq .Status "installed"}}<span class="dq-pill ok">installed</span>
+      {{else if eq .Status "failed"}}<span class="dq-pill bad">failed</span>
+      {{else if eq .Status "canceled"}}<span class="dq-pill">canceled</span>
+      {{else if $awaiting}}<span class="dq-pill info">awaiting reboot</span>
+      {{else if eq .Status "pending"}}<span class="dq-pill">waiting for its poll</span>
+      {{else}}<span class="dq-pill info">{{.Status}}</span>{{end}}
+    </td>
+    <td>{{if and (gt .Percent 0) (not $awaiting)}}<div class="cc-meter" style="min-width:90px;"><i style="width:{{.Percent}}%"></i></div><span class="muted small">{{.Percent}}%</span>{{else if $awaiting}}<span class="muted small">applied</span>{{else}}<span class="muted small">—</span>{{end}}</td>
+    <td class="muted small">—</td>
+    <td class="muted small">{{timeSince .UpdatedAt}}</td>
+    <td class="muted small">{{if .RebootSentAt}}{{timeSince .RebootSentAt}}{{if .RebootState}} · {{.RebootState}}{{end}}{{else}}—{{end}}</td>
+    <td class="dpl-acts">
+      {{if and (canOperate $.Role) $awaiting .InFleet}}
+      <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" class="dpl-act" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}.">
+        <button type="submit" class="btn-outline btn-sm">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button>
+      </form>
+      {{end}}
+      {{if and (canOperate $.Role) (eq .Status "failed")}}
+      <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true" class="dpl-act">
+        <button type="submit" class="btn-outline btn-sm">Retry</button>
+      </form>
+      {{end}}
+    </td>
+  </tr>
   {{end}}
   </tbody>
 </table>

@@ -233,6 +233,50 @@ func (h *Handler) LegacyOTADeviceDelete(w http.ResponseWriter, r *http.Request) 
 	h.hxDoneToast(w, r, "/updates/legacy", "Forgot "+serial+" · it comes back on its next poll", "success")
 }
 
+// legacyPickerRows are the otautil devices that are NOT in the fleet, annotated for a
+// release push. A fleet device that happens to poll the legacy listener is already in
+// the main list with its own verdict; these are the ones that would otherwise be
+// invisible to a push even though the legacy path can reach them.
+func (h *Handler) legacyPickerRows(r *http.Request, rel *db.Release, blocked, artifact map[string]string, q, status string) []legacyPickerRow {
+	devices, err := h.db.ListLegacyOTADevices(r.Context())
+	if err != nil {
+		return nil
+	}
+	hasFull := false
+	for _, p := range func() []db.OTAPackage { ps, _ := h.db.ListPackagesByRelease(r.Context(), rel.ID); return ps }() {
+		if p.Status == "active" && p.Type == "full" {
+			hasFull = true
+		}
+	}
+	q = strings.ToLower(strings.TrimSpace(q))
+	const liveWindow = 30 * time.Minute
+	var out []legacyPickerRow
+	for _, d := range devices {
+		if dev, err := h.db.GetDevice(r.Context(), d.Serial); err == nil && dev != nil {
+			continue // in the fleet: already listed
+		}
+		if q != "" && !strings.Contains(strings.ToLower(d.Serial+" "+d.BuildID), q) {
+			continue
+		}
+		online := time.Since(d.LastSeen) < liveWindow
+		if (status == "online" && !online) || (status == "offline" && online) {
+			continue
+		}
+		switch {
+		case d.BuildID == rel.Version:
+			blocked[d.Serial] = "up to date"
+		case !hasFull:
+			blocked[d.Serial] = "legacy OTA needs a full image"
+		case d.Status == "offered" || d.Status == "downloading" || d.Status == "installing" || d.Status == "awaiting_reboot":
+			blocked[d.Serial] = "already updating"
+		default:
+			artifact[d.Serial] = "legacy"
+		}
+		out = append(out, legacyPickerRow{Device: d, Online: online, LegacyOnly: true})
+	}
+	return out
+}
+
 // browseLegacyDevices feeds the shared picker on the Legacy OTA page: the same
 // row markup as the fleet browser, built from legacy_ota_devices. With ?release=
 // each row says whether that release can be offered to it.

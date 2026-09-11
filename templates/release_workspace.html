@@ -22,7 +22,7 @@
       <span class="cc-tag {{releaseStatusClass $rel.Status}}" style="font-size:11px;padding:3px 8px;">{{$rel.Status}}</span>
       <span class="mono">{{$rel.Version}}</span>
       <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
-      {{if $rel.IsDev}}<span class="cc-tag warn" title="Only devs and admins can see this release">dev</span>{{end}}
+      {{if $rel.IsDev}}<span class="cc-tag warn" title="Dev release — hidden from the default list, but pushable by anyone with OTA rights">dev</span>{{end}}
     </h1>
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
   </div>
@@ -30,7 +30,7 @@
     {{/* Dev flag: a new release starts dev and is invisible to every other role until
          someone here turns it off. Only canRelease can move it either way. */}}
     {{if canRelease $role}}
-    <form action="/releases/{{$rel.ID}}/dev" method="POST" style="display:inline;"{{if $rel.IsDev}} hx-confirm="Release {{$rel.Version}} to everyone? Operators and super ops will see it on Updates and can push it."{{end}}>
+    <form action="/releases/{{$rel.ID}}/dev" method="POST" style="display:inline;"{{if $rel.IsDev}} hx-confirm="Release {{$rel.Version}} to everyone? It stops being folded away behind the dev toggle."{{end}}>
       <input type="hidden" name="dev" value="{{if $rel.IsDev}}0{{else}}1{{end}}">
       <button type="submit" class="cc-btn" title="{{if $rel.IsDev}}Only devs and admins can see this release{{else}}Everyone can see this release{{end}}">{{if $rel.IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
     </form>

@@ -71,28 +71,10 @@
 
 {{if .CanEdit}}
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>New legacy update</h3><span class="m muted small">only releases with a full image can reach any legacy build</span></div>
-  <form action="/updates/legacy/push" method="POST" class="cc-cb lo-push" id="lo-push-form">
-    <div>
-      <div class="form-label" style="margin-bottom:7px;">Release</div>
-      {{if .Releases}}
-      <select name="release_id" id="lo-release" class="form-input" style="max-width:420px;" onchange="loRelease(this.value)">
-        <option value="">Choose a release…</option>
-        {{range .Releases}}<option value="{{.ID}}">{{.Version}} · {{productLabel .Product}}</option>{{end}}
-      </select>
-      {{else}}
-      <div class="muted small">No release has a full image yet. <a href="/releases">Add one on Releases →</a></div>
-      {{end}}
-    </div>
-    <div id="lo-picker-wrap" hidden>
-      {{template "picker" (dict "Field" "serials" "Scopes" false "Source" "legacy" "SelectAll" true "Prompt" "Search serial or build — or paste serials")}}
-    </div>
-    <div class="lo-push-bar">
-      <span class="muted small"><b data-dp-count>0</b> selected</span>
-      <span style="flex:1"></span>
-      <button type="submit" class="cc-btn primary" id="lo-push-btn" data-dp-submit disabled>Push to legacy devices</button>
-    </div>
-  </form>
+  <div class="cc-cb" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;">
+    <span>Pushing a release to these devices happens on the Updates page — one rollout covers both transports, and each device is served over whichever its build supports.</span>
+    <a href="/updates/new" class="cc-btn primary" style="margin-left:auto;">New update</a>
+  </div>
 </div>
 {{end}}
 
@@ -100,8 +82,8 @@
      and a rollout row carries a serial, a state, a progress bar and two buttons —
      it never fit in a 380px column. */}}
 <div class="cc-card" style="margin-bottom:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><h3>Rollouts</h3><span class="m muted small">newest first</span></div>
-    {{range .Deployments}}
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><h3>Rollouts</h3><span class="m muted small">legacy-only rollouts · newer pushes live on their deployment page</span></div>
+    {{range .Deployments}}{{if not .UpdateID}}
     <div class="lo-dep">
       <div class="lo-dep-h">
         <b><a href="/updates/legacy/deployments/{{.ID}}" style="color:inherit;">{{.ReleaseVersion}}</a></b>
@@ -138,8 +120,8 @@
         {{end}}
       </div>
     </div>
-    {{else}}
-    <div class="lo-empty">No legacy rollout yet. Pick a release and some devices above.</div>
+    {{end}}{{else}}
+    <div class="lo-empty">No legacy-only rollout. Pushes made from the Updates page show on their own deployment page.</div>
     {{end}}
   </div>
 
