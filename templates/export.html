@@ -1,5 +1,6 @@
 {{define "export.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
 /* datetime-local inputs have a browser-enforced minimum width that can exceed
@@ -15,73 +16,23 @@
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Export</div>
-    <h1 class="cc-h1">Export data for <span class="hl" id="ex-head-count">{{if .PickMode}}no devices yet{{else}}{{len .Serials}} device{{if ne (len .Serials) 1}}s{{end}}{{end}}</span></h1>
-    <div class="cc-sub">{{if .PickMode}}Pick the devices below, then choose a time range, row shape, sampling interval and columns.{{else}}Choose a time range, row shape, sampling interval and columns, then download a CSV.{{end}}</div>
+    <h1 class="cc-h1">Export data for <span class="hl" id="ex-head-count">{{if .Serials}}{{len .Serials}} device{{if ne (len .Serials) 1}}s{{end}}{{else}}no devices yet{{end}}</span></h1>
+    <div class="cc-sub">Pick devices, choose how far back to go, and download a CSV.</div>
   </div>
 </div>
 
-{{if .PickMode}}
+<form action="/export/csv" method="POST" hx-boost="false" data-no-spinner="true" class="export-form" id="export-form">
+  
 <div class="cc-card" id="ex-picker">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Devices</h3>
     <span class="muted small m">{{.FleetTotal}} in the fleet · <span data-dp-count>0</span> chosen</span>
   </div>
-  <div style="padding:14px 17px 16px;">
-    <div class="dp-tp">
-      <div class="dp-pane">
-        <div class="dp-pane-h"><span class="t">All devices</span><span class="n">search or filter</span></div>
-        <div class="dp-search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
-        </div>
-        <div class="dp-pills">
-          <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>
-          <button type="button" class="dp-pill" data-status="online" onclick="dpPill(this)">Online</button>
-          <button type="button" class="dp-pill" data-status="offline" onclick="dpPill(this)">Offline</button>
-          <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
-        </div>
-        <div id="dp-rows" class="dp-rows" data-endpoint="/export/device-search"
-             hx-get="/export/device-search" hx-select="unset" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
-      </div>
-      <div class="dp-pane">
-        <div class="dp-pane-h"><span class="t">Exporting</span><span class="n"><span data-dp-count>0</span> chosen</span></div>
-        <div id="dp-basket" class="dp-basket"></div>
-      </div>
-    </div>
-    <div class="dp-bar">
-      <span class="summary"><b data-dp-count>0</b> device(s) selected</span>
-      <span style="flex:1"></span>
-      <button type="button" class="btn-outline" onclick="dpClear()">Clear</button>
-    </div>
-  </div>
-</div>
-{{else}}
-<div class="cc-card">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Selected devices</h3><span class="m">{{len .Serials}}</span>
-    {{if gt (len .Serials) 10}}
-      <button type="button" class="cc-btn sm" id="toggle-serials-btn" onclick="toggleSerials(this)" style="margin-left:auto">Show all</button>
-    {{end}}
-  </div>
-  <div style="padding:12px 17px;">
-    <div class="export-serials" id="export-serials" data-collapsed="{{if gt (len .Serials) 10}}1{{else}}0{{end}}">
-      {{range $i, $s := .Serials}}
-        <span class="status-badge muted serial-chip{{if and (gt (len $.Serials) 10) (ge $i 10)}} serial-chip-hidden{{end}}">{{$s}}</span>
-      {{end}}
-    </div>
+  <div style="padding:14px 16px 16px;">
+    {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Preselect" (joinLines .Serials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
   </div>
 </div>
 
-{{end}}
-
-<form action="/export/csv" method="POST" hx-boost="false" data-no-spinner="true" class="export-form" id="export-form">
-  {{if .PickMode}}
-  {{/* The two-pane picker writes the chosen serials (newline separated) here. */}}
-  <input type="hidden" name="serials" id="dp-serials">
-  {{else}}
-  {{range .Serials}}
-    <input type="hidden" name="serials" value="{{.}}">
-  {{end}}
-  {{end}}
-  <input type="hidden" name="tz_offset" id="export-tz-offset" value="">
+<input type="hidden" name="tz_offset" id="export-tz-offset" value="">
   <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
 
   <div class="cc-card" style="margin-top:16px;">
@@ -112,24 +63,10 @@
     </div>
   </div>
 
-  <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h3>Row timestamps</h3><span class="m" id="mode-summary">Fixed cycle marks</span>
-    </div>
-    <div style="padding:16px 20px;">
-      <p class="muted small" style="margin-bottom:10px;">
-        <strong>Check-ins</strong> exports rows at the devices' actual check-in times.
-        <strong>Cycles</strong> exports one row per device at fixed marks — start, start&nbsp;+&nbsp;interval, … —
-        each carrying the last value the device reported, held forward until it reports something different.
-        Devices only transmit when a value actually changes, so a held value is what the device was reading, not a guess.
-        Cells go blank only once a device has been silent long enough to count as genuinely offline.
-      </p>
-      <div class="dur-btns" id="export-mode-btns">
-        <button type="button" class="dur-btn" data-mode="" onclick="setMode(this, '')">Check-ins</button>
-        <button type="button" class="dur-btn active" data-mode="1" onclick="setMode(this, '1')">Cycles</button>
-      </div>
-      <input type="hidden" name="cycles" id="export-cycles" value="1">
-    </div>
-  </div>
+  {{/* Rows always land on fixed marks (start, start+interval, …), each carrying
+       the last value the device reported. The raw check-in shape is still
+       available to the API via cycles=0. */}}
+  <input type="hidden" name="cycles" value="1">
 
   <div class="cc-card" style="margin-top:16px;">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h3>Sampling interval</h3><span class="m" id="interval-summary">1 row / 30 sec</span>
@@ -139,7 +76,6 @@
         Reduce data volume by picking one row per interval per device. "All" exports every checkin. Buckets start at your chosen start time. Every row carries <code>timestamp</code> in your local time, <code>timestamp_utc</code>, and <code>sample_at</code>: the moment the check-in behind the values was recorded, which is the point you will find on the device graph.
       </p>
       <div class="dur-btns" id="export-interval-btns">
-        <button type="button" class="dur-btn" data-label="All rows" onclick="setSampleInterval(this, 0)">All</button>
         <button type="button" class="dur-btn active" data-label="1 row / 30 sec" onclick="setSampleInterval(this, 30)">30 sec</button>
         <button type="button" class="dur-btn" data-label="1 row / minute" onclick="setSampleInterval(this, 60)">1 min</button>
         <button type="button" class="dur-btn" data-label="1 row / 5 min" onclick="setSampleInterval(this, 300)">5 min</button>
@@ -239,7 +175,7 @@
         · <span id="summary-interval">1 row / 30 sec</span>
       </span>
     </div>
-    <button type="submit" class="cc-btn primary" id="export-submit"{{if .PickMode}} data-dp-submit disabled{{end}}>
+    <button type="submit" class="cc-btn primary" id="export-submit" data-dp-submit disabled>
       <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
       <span id="export-submit-label">Download CSV</span>
     </button>
@@ -339,24 +275,8 @@ function toLocalISO(d) {
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 
-function setMode(btn, cycles) {
-  document.getElementById('export-cycles').value = cycles;
-  document.getElementById('export-mode-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  // Cycles needs a positive step — "All rows" makes no sense on a fixed grid.
-  var allBtn = document.querySelector('#export-interval-btns .dur-btn');
-  if (cycles) {
-    allBtn.disabled = true;
-    if (document.getElementById('export-interval').value === '0') {
-      setSampleInterval(document.querySelector('#export-interval-btns .dur-btn[data-label="1 row / hour"]'), 3600);
-    }
-    document.getElementById('mode-summary').textContent = 'Fixed cycle marks';
-  } else {
-    allBtn.disabled = false;
-    document.getElementById('mode-summary').textContent = 'Check-in times';
-  }
-}
-
+// Rows always land on fixed cycle marks, so "All rows" (no grid step) is out:
+// the interval list starts at 30 sec.
 function setSampleInterval(btn, sec) {
   document.getElementById('export-interval').value = sec;
   btn.closest('.dur-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
@@ -425,36 +345,28 @@ function toggleSerials(btn) {
 // full of gaps that are not data loss. A fixed grid holds the last reported
 // value forward and gives evenly spaced rows.
 setRange(document.querySelector('#export-range-btns .dur-btn[data-hours="48"]'), 48);
-setMode(document.querySelector('#export-mode-btns .dur-btn[data-mode="1"]'), '1');
 setSampleInterval(document.querySelector('#export-interval-btns .dur-btn[data-label="1 row / 30 sec"]'), 30);
 updateColCount();
 </script>
 
-{{if .PickMode}}
-<script src="/static/device-picker.js"></script>
+<script src="/static/picker.js"></script>
 <script>
-// Headline follows the basket, so the page says what will be exported.
+// Headline + summary follow the picker's basket, and a ?serials= arrival starts
+// with those devices already chosen.
 (function () {
   var head = document.getElementById('ex-head-count');
-  if (!head) return;
   var sum = document.getElementById('summary-devices');
-  function sync() {
-    var f = document.getElementById('dp-serials');
-    var n = f && f.value ? f.value.split('\n').filter(Boolean).length : 0;
-    head.textContent = n ? (n + ' device' + (n === 1 ? '' : 's')) : 'no devices yet';
+  document.addEventListener('pk:change', function (e) {
+    var n = (e.detail && e.detail.serials ? e.detail.serials.length : 0);
+    if (head) head.textContent = n ? (n + ' device' + (n === 1 ? '' : 's')) : 'no devices yet';
     if (sum) {
       sum.textContent = n;
-      // "1 device" / "N devices" — the plural sits in the text node after it.
       var tail = sum.nextSibling;
       if (tail && tail.nodeType === 3) tail.nodeValue = n === 1 ? ' device' : ' devices';
     }
-  }
-  document.addEventListener('click', function () { setTimeout(sync, 0); });
-  document.addEventListener('input', function () { setTimeout(sync, 0); });
-  sync();
+  });
 })();
 </script>
-{{end}}
 
 {{template "footer" .}}
 {{end}}

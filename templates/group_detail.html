@@ -1,5 +1,6 @@
 {{define "group_detail.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
 .fl-page{max-width:1280px;margin:0 auto}
@@ -43,37 +44,17 @@
   <div class="card-header"><h3>Add devices</h3></div>
   <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;"
         onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
-    <div class="dp-tp">
-      <div class="dp-pane">
-        <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">not in this group</span></div>
-        <div class="dp-search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
-        </div>
-        <div class="dp-pills">
-          <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>
-          <button type="button" class="dp-pill" data-status="online" onclick="dpPill(this)">Online</button>
-          <button type="button" class="dp-pill" data-status="offline" onclick="dpPill(this)">Offline</button>
-          <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
-        </div>
-        <div id="dp-rows" class="dp-rows" data-endpoint="/groups/{{.Group.ID}}/device-search"
-             hx-get="/groups/{{.Group.ID}}/device-search" hx-select="unset" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
-      </div>
-      <div class="dp-pane">
-        <div class="dp-pane-h"><span class="t">In this group</span><span class="n"><span data-dp-count>0</span> staged</span></div>
-        <div id="dp-basket" class="dp-basket"></div>
-      </div>
-    </div>
-    <input type="hidden" name="serials" id="dp-serials">
+    {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "ExcludeGroup" .Group.ID "Prompt" "Search serial, restaurant, group — or paste serials")}}
+    
     <div class="dp-bar">
       <span class="summary">Adding <b data-dp-count>0</b> device(s) to <b>{{.Group.Name}}</b></span>
       <span style="flex:1"></span>
-      <button type="button" class="btn-outline" onclick="dpClear()">Clear</button>
+      <button type="button" class="btn-outline" onclick="pkClear()">Clear</button>
       <button type="submit" class="btn-primary" data-dp-submit disabled>Add devices</button>
     </div>
   </form>
 </div>
-<script src="/static/device-picker.js"></script>
+<script src="/static/picker.js"></script>
 {{end}}
 
 {{/* Members list refreshes in place when a device is added/removed — the add/remove
@@ -117,7 +98,7 @@ function grpRemoveSelected(gid) {
     .then(function (r) {
       if (!r.ok) return;
       document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
-      if (window.dpReload) window.dpReload();                        // removed devices reappear in "Available devices"
+      if (window.pkReload) window.pkReload();                        // removed devices reappear in "Available devices"
     })
     .catch(function () {});
 }
@@ -127,7 +108,7 @@ function grpRemoveSelected(gid) {
 // reload the "available" pane so the just-added devices drop off it. Falls back to
 // a normal form POST if fetch is unavailable.
 function dpAddSubmit(e, gid) {
-  var field = document.getElementById('dp-serials');
+  var field = document.getElementById('pk-serials');
   if (!field || !field.value.trim() || !window.fetch) return true; // let the form submit normally
   e.preventDefault();
   var btn = document.querySelector('[data-dp-submit]');
@@ -138,8 +119,8 @@ function dpAddSubmit(e, gid) {
     .then(function (r) {
       if (!r.ok) { if (btn) btn.disabled = false; return; }
       document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
-      if (window.dpClear) window.dpClear();                          // empty the basket + reset count/button
-      if (window.dpReload) window.dpReload();                        // added devices leave the "available" pane
+      if (window.pkClear) window.pkClear();                          // empty the basket + reset count/button
+      if (window.pkReload) window.pkReload();                        // added devices leave the "available" pane
     })
     .catch(function () { if (btn) btn.disabled = false; });
   return false;
