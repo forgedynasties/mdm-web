@@ -101,7 +101,7 @@
         <input type="checkbox" id="lo-only-legacy" checked onchange="loOnlyLegacy(this.checked)"> Legacy-only devices
       </label>
     </div>
-    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s" hx-target="this" hx-swap="innerHTML">
+    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s, legacy-refresh from:body" hx-target="this" hx-swap="innerHTML">
       {{template "legacy-devices" .}}
     </div>
   </div>
@@ -128,9 +128,15 @@
             {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span> {{.Error}}
             {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
             {{else if eq .Status "pending"}}waiting for its next poll
-            {{else if or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}<span class="cc-tag info">installed · awaiting reboot</span>
+            {{else if or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}<span class="cc-tag info">installed · awaiting reboot</span>{{if .RebootSentAt}} <span class="cc-tag{{if eq .RebootState "delivered"}} ok{{else}} info{{end}}">reboot {{if .RebootState}}{{.RebootState}}{{else}}queued{{end}} · {{timeSince .RebootSentAt}}</span>{{end}}
             {{else}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% {{.Status}}{{end}}
           </span>
+          {{/* An applied update sits on the inactive slot until something reboots the
+               device; the legacy client never does. Offer it here too, not only on the
+               rollout page — this card is where the state is first seen. */}}
+          {{if and $.CanEdit (index $.InFleet .Serial) (or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100)))}}
+          <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}."><button type="submit" class="cc-btn sm{{if not .RebootSentAt}} primary{{end}}">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button></form>
+          {{end}}
           {{if and $.CanEdit (eq .Status "failed")}}
           <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/retry" method="POST"><button type="submit" class="cc-btn sm">Retry</button></form>
           {{end}}

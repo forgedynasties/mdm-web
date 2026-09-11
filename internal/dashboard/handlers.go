@@ -94,7 +94,28 @@ func hxTriggerEvents(w http.ResponseWriter, events ...string) {
 // layout.html) to show a toast. Used for inline error feedback on hx requests.
 func hxToast(w http.ResponseWriter, msg, typ string) {
 	b, _ := json.Marshal(map[string]any{"toast": map[string]string{"msg": msg, "type": typ}})
-	w.Header().Set("HX-Trigger", string(b))
+	w.Header().Set("HX-Trigger", asciiJSON(b))
+}
+
+// asciiJSON escapes every non-ASCII rune as \uXXXX. HTTP headers are bytes, and a
+// browser decodes them as latin-1, so a UTF-8 "·" in an HX-Trigger payload arrives
+// as "Â·" in the toast. JSON's own escape survives that intact.
+func asciiJSON(b []byte) string {
+	var sb strings.Builder
+	sb.Grow(len(b))
+	for _, r := range string(b) {
+		if r < 128 {
+			sb.WriteRune(r)
+			continue
+		}
+		if r > 0xFFFF { // outside the BMP: surrogate pair
+			r -= 0x10000
+			fmt.Fprintf(&sb, "\\u%04x\\u%04x", 0xD800+(r>>10), 0xDC00+(r&0x3FF))
+			continue
+		}
+		fmt.Fprintf(&sb, "\\u%04x", r)
+	}
+	return sb.String()
 }
 
 // hxRedirect issues a 303 redirect. The whole app is hx-boosted, so for htmx
@@ -158,7 +179,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 			payload[e] = nil
 		}
 		b, _ := json.Marshal(payload)
-		w.Header().Set("HX-Trigger", string(b))
+		w.Header().Set("HX-Trigger", asciiJSON(b))
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -11179,10 +11200,45 @@ func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
 	deployable = visibleReleases(h.role(r), deployable)
+	// The product is chosen first: a release only ever targets one product, and the
+	// device list is scoped to it, so picking the hardware narrows both lists before
+	// a version is even named. ?product= carries the choice; a chosen release always
+	// wins, since its own product is the truth.
+	selProduct := product.Normalize(r.URL.Query().Get("product"))
+	if r.URL.Query().Get("product") == "" {
+		selProduct = ""
+	}
+
+	// Which products actually have something to push, so the picker never offers a
+	// dead end. ListDeployableReleases doesn't carry the product, so resolve each.
+	prodOf := map[int]string{}
+	if all, err := h.db.ListReleases(r.Context()); err == nil {
+		for _, rel := range all {
+			prodOf[rel.ID] = product.Normalize(rel.Product)
+		}
+	}
+	var products []product.Product
+	seen := map[string]bool{}
+	scoped := deployable[:0]
+	for _, rel := range deployable {
+		pk := prodOf[rel.ID]
+		if !seen[pk] {
+			seen[pk] = true
+			p, _ := product.Resolve(pk)
+			products = append(products, p)
+		}
+		if selProduct == "" || pk == selProduct {
+			rel.Product = pk
+			scoped = append(scoped, rel)
+		}
+	}
+	sort.SliceStable(products, func(i, j int) bool { return products[i].Label < products[j].Label })
 
 	data := map[string]any{
 		"Title":               "New Update",
-		"Releases":            deployable,
+		"Releases":            scoped,
+		"PushProducts":        products,
+		"SelectedProduct":     selProduct,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
 	// Groups and restaurants power the target selector (deploy to a whole group/venue,
@@ -13016,6 +13072,11 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("source") == "legacy" {
 		h.browseLegacyDevices(w, r)
 		return
+	}
+	// ?product=<key>: the hardware chosen on the push screen, before a release is
+	// named. A ?release= below overrides it — the release's own product is the truth.
+	if pk := strings.TrimSpace(r.URL.Query().Get("product")); pk != "" {
+		filter.Product = product.Normalize(pk)
 	}
 	// ?release=<id>: a release only ever targets its own product, so scope the list
 	// the way the push path does instead of listing devices it could never reach.

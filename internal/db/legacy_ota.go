@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -64,6 +65,11 @@ CREATE TABLE IF NOT EXISTS legacy_ota_deployment_devices (
 	PRIMARY KEY (deployment_id, serial)
 );
 CREATE INDEX IF NOT EXISTS idx_legacy_dep_devices_serial ON legacy_ota_deployment_devices(serial);
+-- The reboot that finishes a legacy update, when the device also runs the MDM client.
+-- Kept per row so the rollout can show what happened to it — queued, delivered, acked —
+-- instead of a button that looks like it did nothing.
+ALTER TABLE legacy_ota_deployment_devices ADD COLUMN IF NOT EXISTS reboot_command_id UUID;
+ALTER TABLE legacy_ota_deployment_devices ADD COLUMN IF NOT EXISTS reboot_sent_at TIMESTAMPTZ;
 `
 
 // LegacyOTADevice is one otautil client as last seen.
@@ -328,6 +334,9 @@ type LegacyDeploymentDevice struct {
 	BuildID      string // the device's current build, joined from legacy_ota_devices
 	LastSeen     *time.Time
 	InFleet      bool // the same serial also runs the MDM client
+	// The reboot that switches the slot, when one has been sent from here.
+	RebootSentAt *time.Time
+	RebootState  string // command_status for that reboot: queued | delivered | received | done
 }
 
 // CreateLegacyDeployment records a push and its target serials.
@@ -393,6 +402,16 @@ func (d *DB) SetLegacyDeploymentDevice(ctx context.Context, depID int, serial, s
 	return err
 }
 
+// SetLegacyDeploymentReboot records the reboot pushed for one target, so the rollout
+// can show it was sent and where the command got to.
+func (d *DB) SetLegacyDeploymentReboot(ctx context.Context, depID int, serial string, cmdID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE legacy_ota_deployment_devices
+		SET reboot_command_id = $3, reboot_sent_at = NOW(), updated_at = NOW()
+		WHERE deployment_id = $1 AND serial = $2`, depID, serial, cmdID)
+	return err
+}
+
 // CompleteLegacyDeploymentsAtBuild marks every open row for this serial installed
 // once it reports the build that row was offered, and closes deployments whose
 // devices have all settled.
@@ -437,7 +456,11 @@ func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment
 	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT t.serial, t.status, t.percent, t.error, t.offered_build, t.updated_at,
-		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial)
+		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial),
+		       t.reboot_sent_at,
+		       COALESCE((SELECT cs.status FROM command_status cs
+		                  JOIN devices dv ON dv.serial_number = t.serial AND dv.id = cs.device_id
+		                 WHERE cs.command_id = t.reboot_command_id), '')
 		FROM legacy_ota_deployment_devices t
 		LEFT JOIN legacy_ota_devices v ON v.serial = t.serial
 		WHERE t.deployment_id = $1
@@ -448,7 +471,7 @@ func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment
 	defer rows.Close()
 	for rows.Next() {
 		var dv LegacyDeploymentDevice
-		if err := rows.Scan(&dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet); err != nil {
+		if err := rows.Scan(&dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet, &dv.RebootSentAt, &dv.RebootState); err != nil {
 			return &p, err
 		}
 		p.Devices = append(p.Devices, dv)
@@ -489,7 +512,11 @@ func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, err
 	}
 	drows, err := d.pool.Query(ctx, `
 		SELECT t.deployment_id, t.serial, t.status, t.percent, t.error, t.offered_build, t.updated_at,
-		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial)
+		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial),
+		       t.reboot_sent_at,
+		       COALESCE((SELECT cs.status FROM command_status cs
+		                  JOIN devices dv ON dv.serial_number = t.serial AND dv.id = cs.device_id
+		                 WHERE cs.command_id = t.reboot_command_id), '')
 		FROM legacy_ota_deployment_devices t
 		LEFT JOIN legacy_ota_devices v ON v.serial = t.serial
 		ORDER BY t.serial`)
@@ -500,7 +527,7 @@ func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, err
 	for drows.Next() {
 		var depID int
 		var dv LegacyDeploymentDevice
-		if err := drows.Scan(&depID, &dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet); err != nil {
+		if err := drows.Scan(&depID, &dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet, &dv.RebootSentAt, &dv.RebootState); err != nil {
 			return out, err
 		}
 		i, ok := byID[depID]

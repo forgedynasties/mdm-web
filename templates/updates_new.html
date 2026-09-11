@@ -24,7 +24,7 @@
   <div>
     <div class="cc-eyebrow">Updates · new rollout</div>
     <h1 class="cc-h1">New update</h1>
-    <div class="cc-sub">Choose a release, pick the devices, and push.</div>
+    <div class="cc-sub">Choose the hardware and the release, pick the devices, and push.</div>
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Updates</a>
@@ -35,19 +35,49 @@
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-    <h3>1 · Release</h3>
+    <h3>1 · Product and release</h3>
     <span class="m">only published releases with an active package</span>
   </div>
-  <div class="cc-cb">
-    {{if .Releases}}
-    <select class="form-input" style="max-width:420px;" onchange="if(this.value)location.href='/updates/new?release='+this.value+(new URLSearchParams(location.search).get('serials')?'&amp;serials='+encodeURIComponent(new URLSearchParams(location.search).get('serials')):'');">
-      <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
-      {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}} · {{productLabel .Product}}</option>{{end}}
-    </select>
-    {{else}}
-    <div class="muted small">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
-    {{end}}
+  {{/* Two steps, because they are two decisions: the hardware, then the build for it.
+       The product also scopes the device list below, so choosing it first means the
+       picker never offers devices this push could not reach. */}}
+  <div class="cc-cb" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    {{$selProduct := .SelectedProduct}}{{if $rel}}{{$selProduct = $rel.Product}}{{end}}
+    <div>
+      <div class="form-label" style="margin-bottom:6px;">Product</div>
+      <select class="form-input" style="min-width:220px;" onchange="pushPickProduct(this.value)">
+        <option value="" {{if not $selProduct}}selected{{end}}>All products</option>
+        {{range .PushProducts}}<option value="{{.Key}}"{{if eq .Key $selProduct}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <div class="form-label" style="margin-bottom:6px;">Release</div>
+      {{if .Releases}}
+      <select class="form-input" style="min-width:300px;" onchange="pushPickRelease(this.value)">
+        <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
+        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}}</option>{{end}}
+      </select>
+      {{else if $selProduct}}
+      <div class="muted small" style="padding-bottom:8px;">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
+      {{else}}
+      <div class="muted small" style="padding-bottom:8px;">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
+      {{end}}
+    </div>
   </div>
+  <script>
+  // Both selects navigate, because the release drives what the rest of the page can
+  // even show; the chosen serials ride along so a re-pick doesn't lose the basket.
+  function pushKeepSerials() {
+    var s = new URLSearchParams(location.search).get('serials');
+    return s ? '&serials=' + encodeURIComponent(s) : '';
+  }
+  function pushPickProduct(p) {
+    location.href = '/updates/new?product=' + encodeURIComponent(p) + pushKeepSerials();
+  }
+  function pushPickRelease(id) {
+    if (id) location.href = '/updates/new?release=' + id + pushKeepSerials();
+  }
+  </script>
 </div>
 
 {{/* hx-boost="false": the whole app is boosted (layout.html), and its own submit
@@ -61,16 +91,20 @@
   {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
 
   {{/* ── Step 2 · devices ── always present; fills once a release is chosen ── */}}
-  <div class="cc-card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
+  {{$step2 := or $rel .SelectedProduct}}
+  <div class="cc-card{{if not $step2}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $step2}}opacity:.55;pointer-events:none;{{end}}">
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
       <h3>2 · Devices</h3>
       {{if $rel}}<span class="m">{{productLabel $rel.Product}} devices · <span data-dp-count>0</span> chosen</span>
+      {{else if .SelectedProduct}}<span class="m">{{productLabel .SelectedProduct}} devices · choose a release to push</span>
       {{else}}<span class="m">choose a release to load its devices</span>{{end}}
     </div>
     <div style="padding:14px 16px 16px;">
       {{if $rel}}
-      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Release" $rel.ID "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Release" $rel.ID "Product" $rel.Product "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+      {{else if .SelectedProduct}}
+      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Product" .SelectedProduct "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
       {{else}}
       <div class="muted small" style="padding:20px 16px;text-align:center;">Devices appear here once you choose a release above.</div>
       {{end}}

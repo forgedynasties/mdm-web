@@ -38,6 +38,7 @@
     if (rail.dataset.excludeRestaurant) p.set('exclude_restaurant', rail.dataset.excludeRestaurant);
     if (rail.dataset.release) p.set('release', rail.dataset.release);
     if (rail.dataset.source) p.set('source', rail.dataset.source);
+    if (rail.dataset.product) p.set('product', rail.dataset.product);
     return p;
   }
   function parseRows(html) {

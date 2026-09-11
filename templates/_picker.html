@@ -8,6 +8,7 @@
        ExcludeRestaurant same, for a venue
        Release           release id — rows come back marked eligible or blocked
        Source            "legacy" to list otautil devices instead of the fleet
+       Product           product key — lists only that hardware (a Release implies its own)
        SelectAll         true to offer "select all eligible"
        Preselect         newline-separated serials to start with (optional)
        Prompt            placeholder for the search box
@@ -20,6 +21,7 @@
      {{if .ExcludeRestaurant}}data-exclude-restaurant="{{.ExcludeRestaurant}}"{{end}}
      {{if .Release}}data-release="{{.Release}}"{{end}}
      {{if .Source}}data-source="{{.Source}}"{{end}}
+     {{if .Product}}data-product="{{.Product}}"{{end}}
      {{if .SelectAll}}data-select-all="1"{{end}}>
   <div class="co-r-b">
     <div class="co-srch">

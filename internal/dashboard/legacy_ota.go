@@ -189,8 +189,15 @@ func (h *Handler) LegacyOTAReboot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	// Record it on the row: a button that vanishes is not feedback. The row now says
+	// when the reboot went out and what the delivery queue did with it.
+	_ = h.db.SetLegacyDeploymentReboot(r.Context(), id, serial, cmd.ID)
 	h.audit(r, "legacy_ota.reboot", strconv.Itoa(id), serial)
-	h.hxDoneToast(w, r, back, "Reboot sent to "+serial+" · it boots into the new build", "success")
+	msg := "Reboot queued for " + serial + " · it boots into the new build"
+	if h.hub.IsConnected(device.ID) {
+		msg = "Reboot sent to " + serial + " · it boots into the new build"
+	}
+	h.hxDoneToastEvents(w, r, back, msg, "success", "legacy-refresh")
 }
 
 func (h *Handler) LegacyOTACancel(w http.ResponseWriter, r *http.Request) {

@@ -45,7 +45,7 @@
 
 <div class="cc-card">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3><span class="m muted small">{{.Dep.Total}} targeted</span></div>
-  <div id="ld-rows" hx-get="/updates/legacy/deployments/{{.Dep.ID}}?partial=rows" hx-trigger="every 5s" hx-target="this" hx-swap="innerHTML">
+  <div id="ld-rows" hx-get="/updates/legacy/deployments/{{.Dep.ID}}?partial=rows" hx-trigger="every 5s, legacy-refresh from:body" hx-target="this" hx-swap="innerHTML">
     {{template "legacy-dep-rows" .}}
   </div>
 </div>
@@ -66,12 +66,13 @@
       {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
       {{else if eq .Status "pending"}}<span class="muted">waiting for its next poll{{if .BuildID}} · on {{.BuildID}}{{end}}</span>
       {{else if $awaiting}}<span class="cc-tag info">installed · awaiting reboot</span><span class="muted">boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}{{if not .InFleet}} — reboot it on site{{end}}</span>
+      {{if .RebootSentAt}}<span class="cc-tag{{if eq .RebootState "delivered"}} ok{{else}} info{{end}}" title="Reboot command {{if .RebootState}}{{.RebootState}}{{else}}queued for the next check-in{{end}}">reboot {{if .RebootState}}{{.RebootState}}{{else}}queued{{end}} · {{timeSince .RebootSentAt}}</span>{{end}}
       {{else}}<span class="ld-bar"><i style="width:{{.Percent}}%"></i></span><span>{{.Percent}}%</span><span class="muted">{{.Status}}{{if .OfferedBuild}} → {{.OfferedBuild}}{{end}}</span>{{end}}
       <span class="muted" style="margin-left:auto;">{{timeSince .UpdatedAt}}</span>
     </span>
     <span class="ld-act">
       {{if and $can $awaiting .InFleet}}
-      <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}."><button type="submit" class="cc-btn sm primary">Reboot</button></form>
+      <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}."><button type="submit" class="cc-btn sm{{if not .RebootSentAt}} primary{{end}}">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button></form>
       {{end}}
       {{if and $can (eq .Status "failed")}}
       <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/retry" method="POST"><button type="submit" class="cc-btn sm">Retry</button></form>
