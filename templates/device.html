@@ -2878,10 +2878,8 @@ window.filterInstallApps = function (q) {
   q = (q || '').trim().toLowerCase();
   var vis = 0;
   document.querySelectorAll('#install-drawer .install-tile').forEach(function (f) {
-    var box = f.closest('.install-tile-wrap') || f, pick = box.querySelector && box.querySelector('.install-pick');
-    // Already on the device and nothing else to offer: hide. A family with other
-    // variants or versions stays, so an upgrade or a variant switch is one click.
-    if (f.classList.contains('install-installed') && !pick) { box.style.display = 'none'; return; }
+    var box = f.closest('.install-tile-wrap') || f;
+    // Everything the library has is offered, installed or not — the tile says which.
     var show = (f.getAttribute('data-app') || '').toLowerCase().indexOf(q) !== -1;
     box.style.display = show ? '' : 'none'; if (show) vis++;
   });
@@ -2894,6 +2892,13 @@ window.mdmMarkUninstalled = function (pkg) {
   if (!pkg) return;
   document.querySelectorAll('#install-drawer .install-tile.install-installed').forEach(function (t) {
     if (t.getAttribute('data-pkg') === pkg) { t.classList.remove('install-installed'); t.style.display = ''; }
+  });
+};
+// After an install settles, mark the tile instead of leaving it looking un-installed.
+window.mdmMarkInstalled = function (pkg) {
+  if (!pkg) return;
+  document.querySelectorAll('#install-drawer .install-tile').forEach(function (t) {
+    if (t.getAttribute('data-pkg') === pkg) t.classList.add('install-installed');
   });
 };
 // Multi-select install: toggling a tile adds/removes a hidden apk_url input on the
