@@ -420,6 +420,49 @@ func (d *DB) CompleteLegacyDeploymentsAtBuild(ctx context.Context, serial, build
 }
 
 // ListLegacyDeployments returns every legacy rollout, newest first, with its rows.
+// GetLegacyDeployment returns one rollout with its device rows.
+func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment, error) {
+	var p LegacyDeployment
+	err := d.pool.QueryRow(ctx, `
+		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at
+		FROM legacy_ota_deployments p
+		LEFT JOIN releases r ON r.id = p.release_id
+		WHERE p.id = $1`, id).
+		Scan(&p.ID, &p.ReleaseID, &p.ReleaseVersion, &p.ReleaseProduct, &p.Status, &p.CreatedBy, &p.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT t.serial, t.status, t.percent, t.error, t.offered_build, t.updated_at,
+		       COALESCE(v.build_id, ''), v.last_seen, EXISTS (SELECT 1 FROM devices dv WHERE dv.serial_number = t.serial)
+		FROM legacy_ota_deployment_devices t
+		LEFT JOIN legacy_ota_devices v ON v.serial = t.serial
+		WHERE t.deployment_id = $1
+		ORDER BY t.serial`, id)
+	if err != nil {
+		return &p, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var dv LegacyDeploymentDevice
+		if err := rows.Scan(&dv.Serial, &dv.Status, &dv.Percent, &dv.Error, &dv.OfferedBuild, &dv.UpdatedAt, &dv.BuildID, &dv.LastSeen, &dv.InFleet); err != nil {
+			return &p, err
+		}
+		p.Devices = append(p.Devices, dv)
+		p.Total++
+		switch dv.Status {
+		case "installed":
+			p.Installed++
+		case "failed":
+			p.Failed++
+		}
+	}
+	return &p, rows.Err()
+}
+
 func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT p.id, p.release_id, COALESCE(r.version, ''), COALESCE(r.product, ''), p.status, p.created_by, p.created_at

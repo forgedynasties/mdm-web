@@ -114,10 +114,13 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 					}
 					switch done {
 					case "ok":
-						ota.Legacy.Set(serial, "installed", 100)
-						_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "installing", "", "")
+						// "Update successfully applied, waiting to reboot" — the payload is
+						// on the inactive slot and nothing else happens until the device
+						// reboots, which the legacy client does not do on its own.
+						ota.Legacy.Set(serial, "awaiting_reboot", 100)
+						_ = h.db.SetLegacyOTADeviceStatus(ctx, serial, "awaiting_reboot", "", "")
 						if depID > 0 {
-							_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "installing", 100, "", "")
+							_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, "awaiting_reboot", 100, "", "")
 						}
 						log.Printf("[legacy-ota] %s: update applied, waiting for its reboot", serial)
 						return

@@ -385,10 +385,13 @@ func (h *Handler) LegacyUpdateStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, st, "", "")
 	case "installed", "success", "need_reboot", "updated_need_reboot":
-		ota.Legacy.Set(req.SerialNumber, "installed", 100)
-		_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, "installing", "", "")
+		// update_engine applied the payload to the inactive slot. The device runs the
+		// new build only after a reboot, so this is its own state: the work is done,
+		// the switch is pending.
+		ota.Legacy.Set(req.SerialNumber, "awaiting_reboot", 100)
+		_ = h.db.SetLegacyOTADeviceStatus(r.Context(), req.SerialNumber, "awaiting_reboot", "", "")
 		if id := h.legacyDeploymentFor(r.Context(), req.SerialNumber); id > 0 {
-			_ = h.db.SetLegacyDeploymentDevice(r.Context(), id, req.SerialNumber, "installing", 100, "", "")
+			_ = h.db.SetLegacyDeploymentDevice(r.Context(), id, req.SerialNumber, "awaiting_reboot", 100, "", "")
 		}
 	case "error", "failed":
 		ota.Legacy.Clear(req.SerialNumber)

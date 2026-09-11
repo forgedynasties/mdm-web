@@ -137,6 +137,6 @@ function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.pa
 function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 </script>
 
-<script src="/static/picker.js"></script>
+<script src="/static/picker.js?v={{.AssetVer}}"></script>
 {{template "footer" .}}
 {{end}}

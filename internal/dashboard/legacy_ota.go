@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/db"
 	"mdm/internal/ota"
 )
@@ -25,9 +27,19 @@ func (h *Handler) legacyOTAData(r *http.Request) map[string]any {
 	// Which of these serials also run the MDM client, so the list can link to the
 	// device page for the ones that have one.
 	inFleet := map[string]bool{}
+	// legacyOnly: this serial cannot take an MDM OTA, so the legacy path is the only
+	// way to update it. A serial that never joined the fleet is legacy-only by
+	// definition; one that did is judged by the OTA gate.
+	legacyOnly := map[string]bool{}
 	if fleet, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 2000, "serial", "asc"); err == nil {
 		for _, d := range fleet {
 			inFleet[d.SerialNumber] = true
+			legacyOnly[d.SerialNumber] = !h.otaGate.Device(ctx, d).OK
+		}
+	}
+	for i := range devices {
+		if _, known := legacyOnly[devices[i].Serial]; !known {
+			legacyOnly[devices[i].Serial] = true
 		}
 	}
 
@@ -77,6 +89,7 @@ func (h *Handler) legacyOTAData(r *http.Request) map[string]any {
 		"Deployments":       deployments,
 		"Releases":          releases,
 		"InFleet":           inFleet,
+		"LegacyOnly":        legacyOnly,
 		"KPI":               kpi,
 		"LegacyOTAMode":     h.cfg.LegacyOTAMode(),
 		"LegacyOTAPort":     os.Getenv("LEGACY_OTA_PORT"),
@@ -118,6 +131,66 @@ func (h *Handler) LegacyOTAPush(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "legacy_ota.push", strconv.Itoa(relID), strings.Join(serials, ","))
 	h.hxDoneToast(w, r, "/updates/legacy",
 		fmt.Sprintf("Deployment #%d created · %d device%s get it on their next poll", id, len(serials), plural(len(serials))), "success")
+}
+
+// LegacyDeploymentPage is one legacy rollout: every target, where it got to, and
+// the two things an operator can still do — retry a failure, reboot a device that
+// has the update on its inactive slot. The legacy client never reboots itself.
+func (h *Handler) LegacyDeploymentPage(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(r.PathValue("id"))
+	dep, err := h.db.GetLegacyDeployment(r.Context(), id)
+	if err != nil || dep == nil {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	// Live percentages for the rows still moving.
+	awaiting := 0
+	for i := range dep.Devices {
+		dv := &dep.Devices[i]
+		if st, ok := ota.Legacy.Get(dv.Serial); ok && (dv.Status == "downloading" || dv.Status == "installing" || dv.Status == "offered") {
+			dv.Percent = st.Percent
+			if st.Phase != "" {
+				dv.Status = st.Phase
+			}
+		}
+		if dv.Status == "awaiting_reboot" || (dv.Status == "installing" && dv.Percent >= 100) {
+			awaiting++
+		}
+	}
+	data := map[string]any{
+		"Title":      "Legacy rollout #" + strconv.Itoa(dep.ID),
+		"ActivePage": "updates",
+		"Dep":        dep,
+		"Awaiting":   awaiting,
+		"CanEdit":    roleCanOTA(h.role(r)),
+	}
+	if r.URL.Query().Get("partial") == "rows" {
+		_ = h.tmpl.ExecuteTemplate(w, "legacy-dep-rows", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "legacy_deployment.html", data)
+}
+
+// LegacyOTAReboot reboots a device that has a legacy update applied to its inactive
+// slot. Only possible when the device also runs the MDM client — otherwise nothing
+// here can reach it and the reboot has to happen on site.
+func (h *Handler) LegacyOTAReboot(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(r.PathValue("id"))
+	serial := strings.TrimSpace(r.PathValue("serial"))
+	back := fmt.Sprintf("/updates/legacy/deployments/%d", id)
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || device == nil {
+		h.hxDoneToast(w, r, back, serial+" isn't in the fleet — reboot it on site", "error")
+		return
+	}
+	cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
+	if err != nil {
+		h.hxDoneToast(w, r, back, "Could not send the reboot", "error")
+		return
+	}
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	h.audit(r, "legacy_ota.reboot", strconv.Itoa(id), serial)
+	h.hxDoneToast(w, r, back, "Reboot sent to "+serial+" · it boots into the new build", "success")
 }
 
 func (h *Handler) LegacyOTACancel(w http.ResponseWriter, r *http.Request) {
@@ -191,6 +264,16 @@ func (h *Handler) browseLegacyDevices(w http.ResponseWriter, r *http.Request) {
 	// A legacy device counts as reachable while it is polling; the app's floor is
 	// 15 minutes, so anything quiet for half an hour is treated as offline.
 	const liveWindow = 30 * time.Minute
+	// Same question the page's toggle asks: is the legacy path the only way to update
+	// this serial? Fleet members that can take an MDM OTA are the exception.
+	mdmCapable := map[string]bool{}
+	if fleet, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 2000, "serial", "asc"); err == nil {
+		for _, d := range fleet {
+			if h.otaGate.Device(r.Context(), d).OK {
+				mdmCapable[d.SerialNumber] = true
+			}
+		}
+	}
 	rows := make([]legacyPickerRow, 0, len(devices))
 	for _, d := range devices {
 		if q != "" && !strings.Contains(strings.ToLower(d.Serial+" "+d.BuildID), q) {
@@ -214,7 +297,7 @@ func (h *Handler) browseLegacyDevices(w http.ResponseWriter, r *http.Request) {
 				artifact[d.Serial] = "full"
 			}
 		}
-		rows = append(rows, legacyPickerRow{Device: d, Online: online})
+		rows = append(rows, legacyPickerRow{Device: d, Online: online, LegacyOnly: !mdmCapable[d.Serial]})
 	}
 	_ = h.tmpl.ExecuteTemplate(w, "legacy-picker-rows", map[string]any{
 		"Rows": rows, "Blocked": blocked, "Artifact": artifact,
@@ -222,6 +305,7 @@ func (h *Handler) browseLegacyDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 type legacyPickerRow struct {
-	Device db.LegacyOTADevice
-	Online bool
+	Device     db.LegacyOTADevice
+	Online     bool
+	LegacyOnly bool // the legacy path is the only way to update this one
 }

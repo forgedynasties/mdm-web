@@ -1,0 +1,85 @@
+{{define "legacy_deployment.html"}}
+{{template "header" .}}
+{{/* One legacy rollout. The legacy client hands the payload to update_engine and
+     stops there: an applied update sits on the inactive slot until something
+     reboots the device, and the otautil app never does. So "installed · awaiting
+     reboot" is a first-class state here, with the reboot offered for the devices
+     that also run the MDM client — the rest have to be rebooted on site. */}}
+<style>
+.ld-rows { display:flex; flex-direction:column; }
+.ld-row { display:flex; align-items:center; gap:14px; padding:13px 16px; border-top:1px solid var(--border-soft); }
+.ld-row:first-child { border-top:none; }
+.ld-sn { font:600 12.5px var(--mono); min-width:180px; }
+.ld-sn a { color:var(--accent-text); text-decoration:none; }
+.ld-sn a:hover { text-decoration:underline; }
+.ld-mid { flex:1; min-width:0; display:flex; align-items:center; gap:9px; flex-wrap:wrap; font-size:12.5px; }
+.ld-bar { display:inline-block; width:120px; height:6px; border-radius:3px; background:var(--surface2); overflow:hidden; vertical-align:middle; }
+.ld-bar i { display:block; height:100%; background:var(--accent); }
+.ld-act { flex:none; display:flex; gap:7px; }
+.ld-act form { margin:0; }
+.ld-note { padding:12px 16px; border-top:1px solid var(--border-soft); font-size:12.5px; color:var(--muted); }
+</style>
+
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow"><a href="/updates/legacy" style="color:inherit;text-decoration:none;">Updates · Legacy OTA</a> · rollout #{{.Dep.ID}}</div>
+    <h1 class="cc-h1"><span class="mono">{{.Dep.ReleaseVersion}}</span> <span class="hl {{if .Dep.Failed}}danger{{else}}ok{{end}}">· {{.Dep.Installed}}/{{.Dep.Total}} installed</span></h1>
+    <div class="cc-sub">Pushed {{timeSince .Dep.CreatedAt}}{{if .Dep.CreatedBy}} by {{.Dep.CreatedBy}}{{end}} · each device picks it up on its next poll, every 15 minutes at least.{{if .Awaiting}} <b>{{.Awaiting}}</b> device{{if ne .Awaiting 1}}s have{{else}} has{{end}} the update applied and {{if ne .Awaiting 1}}are{{else}}is{{end}} waiting to reboot.{{end}}</div>
+  </div>
+  <div class="cc-actions">
+    <a href="/updates/legacy" class="cc-btn">Legacy OTA</a>
+    {{if .Dep.ReleaseID}}<a href="/releases/{{.Dep.ReleaseID}}" class="cc-btn">Release</a>{{end}}
+    {{if and .CanEdit (eq .Dep.Status "active")}}
+    <form action="/updates/legacy/deployments/{{.Dep.ID}}/cancel" method="POST" hx-confirm="Cancel rollout #{{.Dep.ID}}? Devices that have not started get nothing further."><button type="submit" class="cc-btn selbar-danger">Cancel rollout</button></form>
+    {{end}}
+  </div>
+</div>
+
+<div class="cc-kpis">
+  <div class="cc-kpi"><span class="k">Installed</span><div class="v{{if .Dep.Installed}} ok{{end}}">{{.Dep.Installed}}</div><div class="d">of {{.Dep.Total}} targeted</div></div>
+  <div class="cc-kpi"><span class="k">Awaiting reboot</span><div class="v{{if .Awaiting}} info{{end}}">{{.Awaiting}}</div><div class="d">applied, slot switches on reboot</div></div>
+  <div class="cc-kpi"><span class="k">Failed</span><div class="v{{if .Dep.Failed}} bad{{end}}">{{.Dep.Failed}}</div><div class="d">need a retry</div></div>
+  <div class="cc-kpi"><span class="k">Status</span><div class="v">{{.Dep.Status}}</div><div class="d">rollout #{{.Dep.ID}}</div></div>
+</div>
+
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3><span class="m muted small">{{.Dep.Total}} targeted</span></div>
+  <div id="ld-rows" hx-get="/updates/legacy/deployments/{{.Dep.ID}}?partial=rows" hx-trigger="every 5s" hx-target="this" hx-swap="innerHTML">
+    {{template "legacy-dep-rows" .}}
+  </div>
+</div>
+</div>
+{{template "footer" .}}
+{{end}}
+
+{{define "legacy-dep-rows"}}
+<div class="ld-rows">
+  {{$dep := .Dep}}{{$can := .CanEdit}}
+  {{range .Dep.Devices}}
+  {{$awaiting := or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}
+  <div class="ld-row">
+    <span class="ld-sn">{{if .InFleet}}<a href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}{{.Serial}}{{end}}</span>
+    <span class="ld-mid">
+      {{if eq .Status "installed"}}<span class="cc-tag ok">installed</span><span class="muted">on {{.BuildID}}</span>
+      {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span><span class="muted">{{if .Error}}{{.Error}}{{else}}no reason reported{{end}}</span>
+      {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
+      {{else if eq .Status "pending"}}<span class="muted">waiting for its next poll{{if .BuildID}} · on {{.BuildID}}{{end}}</span>
+      {{else if $awaiting}}<span class="cc-tag info">installed · awaiting reboot</span><span class="muted">boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}{{if not .InFleet}} — reboot it on site{{end}}</span>
+      {{else}}<span class="ld-bar"><i style="width:{{.Percent}}%"></i></span><span>{{.Percent}}%</span><span class="muted">{{.Status}}{{if .OfferedBuild}} → {{.OfferedBuild}}{{end}}</span>{{end}}
+      <span class="muted" style="margin-left:auto;">{{timeSince .UpdatedAt}}</span>
+    </span>
+    <span class="ld-act">
+      {{if and $can $awaiting .InFleet}}
+      <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}."><button type="submit" class="cc-btn sm primary">Reboot</button></form>
+      {{end}}
+      {{if and $can (eq .Status "failed")}}
+      <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/retry" method="POST"><button type="submit" class="cc-btn sm">Retry</button></form>
+      {{end}}
+    </span>
+  </div>
+  {{else}}
+  <div class="ld-note">This rollout has no devices.</div>
+  {{end}}
+</div>
+{{end}}

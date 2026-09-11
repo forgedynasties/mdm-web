@@ -20,7 +20,10 @@
   var picked = {};          // serial -> {serial, sub, online, bat}
   var meta = {};            // serial -> row, for pill labels
   var cache = {};           // request key -> rows
-  var QF = {};              // active quick filters
+  // Quick filters. The legacy rail starts with "legacy only" on: the page is for
+  // devices the legacy path is the only way to reach, and the fleet devices that
+  // merely also poll otautil are noise there until someone asks for them.
+  var QF = rail.dataset.source === 'legacy' ? { legacyonly: true } : {};
   var stab = 'all';
   var timer = null, loading = false, scopeBusy = '';
 
@@ -47,6 +50,7 @@
         online: !!row.querySelector('.cb-status i.on'),
         dpc: row.getAttribute('data-dpc') === '1',
         blocked: row.getAttribute('data-blocked') || '',
+        legacyonly: row.getAttribute('data-legacyonly') === '1',
         artifact: row.getAttribute('data-artifact') || '',
         bat: bat && bat.textContent !== '—' ? bat.textContent.trim() : '',
         sub: sub ? sub.textContent.trim() : ''
@@ -88,8 +92,8 @@
   var counts = null;
   function renderQuick(rows) {
     if (!counts && rows && key() === '|') {
-      counts = { online: 0, offline: 0, dpc: 0 };
-      rows.forEach(function (d) { d.online ? counts.online++ : counts.offline++; if (d.dpc) counts.dpc++; });
+      counts = { online: 0, offline: 0, dpc: 0, legacyonly: 0 };
+      rows.forEach(function (d) { d.online ? counts.online++ : counts.offline++; if (d.dpc) counts.dpc++; if (d.legacyonly) counts.legacyonly++; });
     }
     rail.querySelectorAll('#pk-quick .co-qf').forEach(function (b) {
       var k = b.dataset.qf;
@@ -97,6 +101,10 @@
       var n = b.querySelector('.n');
       if (n && counts && k !== 'kiosk') n.textContent = counts[k];
       if (k === 'dpc' && counts) b.hidden = !counts.dpc && !QF.dpc;
+      if (k === 'legacyonly') {
+        b.hidden = rail.dataset.source !== 'legacy';
+        if (n && counts) n.textContent = counts.legacyonly;
+      }
     });
   }
   function visible() {
@@ -104,6 +112,7 @@
     if (QF.online) rows = rows.filter(function (d) { return d.online; });
     if (QF.offline) rows = rows.filter(function (d) { return !d.online; });
     if (QF.dpc) rows = rows.filter(function (d) { return d.dpc; });
+    if (QF.legacyonly) rows = rows.filter(function (d) { return d.legacyonly; });
     return rows;
   }
   function render() {
