@@ -14544,3 +14544,39 @@ func (d *DB) SerialsForDeviceIDs(ctx context.Context, ids []uuid.UUID) ([]string
 	}
 	return out, rows.Err()
 }
+
+// ProductCount is one hardware product actually present in the fleet, with the
+// manufacturer and model its devices report — the name an admin recognises, rather
+// than the key the client happens to send ("Sunmi D3 PRO", not "d3_pro").
+type ProductCount struct {
+	Product      string
+	Devices      int
+	Manufacturer string
+	Model        string
+}
+
+// FleetProducts lists the distinct products devices report, with how many run each.
+// The catalog covers our own hardware; this covers everything else that turned up —
+// a Sunmi D3 PRO, a stock Pixel — so the dashboard can offer them as filters instead
+// of pretending the fleet is only what the catalog knows about.
+func (d *DB) FleetProducts(ctx context.Context) ([]ProductCount, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT COALESCE(NULLIF(product, ''), 't7') AS p, COUNT(*)::int,
+		       COALESCE((array_agg(latest_extra->>'manufacturer') FILTER (WHERE latest_extra->>'manufacturer' <> ''))[1], ''),
+		       COALESCE((array_agg(latest_extra->>'model') FILTER (WHERE latest_extra->>'model' <> ''))[1], '')
+		FROM devices WHERE NOT hidden
+		GROUP BY p ORDER BY COUNT(*) DESC, p`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProductCount
+	for rows.Next() {
+		var pc ProductCount
+		if err := rows.Scan(&pc.Product, &pc.Devices, &pc.Manufacturer, &pc.Model); err != nil {
+			return nil, err
+		}
+		out = append(out, pc)
+	}
+	return out, rows.Err()
+}

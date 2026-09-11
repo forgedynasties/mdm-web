@@ -4167,7 +4167,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		DeviceCount int
 	}
 	var railProducts []railProduct
-	for _, p := range product.All() {
+	for _, p := range h.productFilters(r.Context()) {
 		if n := prodCounts[p.Key]; n > 0 {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
@@ -4232,7 +4232,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Groups":               groups,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
-		"Products":             product.All(),
+		"Products":             h.productFilters(r.Context()),
 		"Builds":               builds,
 		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
@@ -4708,7 +4708,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		Pct   int
 	}
 	var products []productRow
-	for _, p := range product.All() {
+	for _, p := range h.productFilters(r.Context()) {
 		if n := prodCounts[p.Key]; n > 0 {
 			pct := 0
 			if summary.Total > 0 {
@@ -9403,6 +9403,55 @@ func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), msg, "success")
 }
 
+// productFilters is the catalog plus every other product the fleet actually reports,
+// so a device that is not our own hardware — a Sunmi D3 PRO, a stock Pixel running the
+// DPC agent — can still be filtered for instead of hiding behind "All products".
+// Catalog order first, then the newcomers by how many devices run them.
+func (h *Handler) productFilters(ctx context.Context) []product.Product {
+	out := product.All()
+	seen := make(map[string]bool, len(out))
+	for _, p := range out {
+		seen[p.Key] = true
+	}
+	counts, err := h.db.FleetProducts(ctx)
+	if err != nil {
+		return out
+	}
+	for _, c := range counts {
+		key := product.Normalize(c.Product)
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		p, _ := product.Resolve(c.Product)
+		if label := modelLabel(c.Manufacturer, c.Model); label != "" {
+			p.Label = label
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// modelLabel turns what a device reports about itself into the name on the box:
+// "SUNMI" + "D3 PRO" -> "Sunmi D3 PRO". Returns "" when the device said nothing,
+// leaving the product key as the label.
+func modelLabel(manufacturer, model string) string {
+	man, mod := strings.TrimSpace(manufacturer), strings.TrimSpace(model)
+	if mod == "" {
+		return ""
+	}
+	if man == "" {
+		return mod
+	}
+	// Manufacturers shout their name ("SUNMI", "SAMSUNG"); title-case it, and don't
+	// repeat it when the model already carries it ("Pixel 8" from "Google").
+	man = strings.ToUpper(man[:1]) + strings.ToLower(man[1:])
+	if strings.HasPrefix(strings.ToLower(mod), strings.ToLower(man)) {
+		return mod
+	}
+	return man + " " + mod
+}
+
 // roleSeesDev reports whether a role may see releases still marked dev. Everyone
 // who works the fleet can: the flag keeps work in progress out of the DEFAULT view
 // (the list folds dev releases away behind a toggle), not out of reach — so anyone
@@ -9795,7 +9844,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"GlobalProblems":  globalProblems,
 		"ReleaseTrain":    releaseTrain,
 		"Graph":           buildReleaseGraph(releases),
-		"Products":        product.All(),
+		"Products":        h.productFilters(r.Context()),
 		"FilterProduct":   r.URL.Query().Get("product"),
 	}
 	// Live "OTA in progress" summary card — devices mid-OTA with their last-reported
@@ -11217,7 +11266,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		"InstalledCount":     installed,
 		"LegacySeen":         legacySeen,
 		"CanDeploy":          roleCanOTA(h.role(r)),
-		"Products":           product.All(),
+		"Products":           h.productFilters(ctx),
 		"FilterProduct":      filterProduct,
 	})
 }
@@ -11266,7 +11315,7 @@ func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 		"Online":        online,
 		"CanDeploy":     canDeploy,
 		"PreRelease":    r.URL.Query().Get("release"),
-		"Products":      product.All(),
+		"Products":      h.productFilters(r.Context()),
 		"FilterProduct": filterProduct,
 	})
 }
