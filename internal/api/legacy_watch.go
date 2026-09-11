@@ -51,6 +51,9 @@ const legacyWatchTimeout = 90 * time.Minute
 // with room for the partition/finalize markers.
 const (
 	legacyPollEvery = 2 * time.Minute
+	// Lines of history to replay when attaching the stream — enough to cover a whole
+	// install's worth of progress lines plus its terminal marker.
+	legacyStreamTail = 400
 	// Piped through tail, not "logcat -t": the client on these old builds runs the
 	// string through a shell and its logcat returns nothing at all for -t.
 	legacyPollCmd = "logcat -d -s update_engine | tail -n 60"
@@ -131,9 +134,13 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 		ch := h.logs.Open(reqID)
 		defer h.logs.Close(reqID)
 
+		// Replay recent history, don't just follow from here. An install that finished
+		// while the watcher was detached — a restart, a socket that dropped — emits
+		// nothing more, so a follow-only stream would wait out its timeout on a device
+		// that is already done. The parser is idempotent, so re-reading old lines is free.
 		start, _ := json.Marshal(map[string]any{
 			"type": "start_logcat_stream", "request_id": reqID,
-			"tag": "update_engine", "level": "I", "buffer": "main", "tail": 0,
+			"tag": "update_engine", "level": "I", "buffer": "main", "tail": legacyStreamTail,
 		})
 		if !h.hub.Push(device.ID, start) {
 			return
