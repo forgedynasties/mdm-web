@@ -22,6 +22,7 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
@@ -69,10 +70,11 @@ type Handler struct {
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
 	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
 	logs        *logstream.Manager // live logcat, used to follow legacy installs (legacy_watch.go)
+	otaGate     *otagate.Gate      // which builds can take an MDM OTA (the rest go legacy)
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg)}
 }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
@@ -807,6 +809,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
 			// Installed to the inactive slot, reboot pending (manual/scheduled)
 			// — don't re-issue the OTA command.
+		} else if v := h.otaVerdict(r.Context(), req.BuildID, req.Product, req.Extra); !v.OK {
+			// The last gate before the wire: this build's client cannot apply an MDM
+			// OTA, so never hand it the command however the row got created. The
+			// device updates over the legacy otautil path instead.
+			log.Printf("[checkin] %s on %s: %s — not sending the OTA command", req.SerialNumber, req.BuildID, v.Describe())
 		} else if cmd, err := h.db.TryCreateOTACommand(r.Context(), upd, deviceID, req.BuildID); err != nil {
 			log.Printf("[checkin] create OTA command error: %v", err)
 		} else if cmd != nil {
@@ -1049,6 +1056,26 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 	h.hub.PublishLogcatUpdate(deviceID)
 }
 
+// otaVerdict answers whether this check-in's device can take an MDM OTA: what the
+// client advertised in extra.capabilities if it advertised anything, else the
+// build rules. See internal/otagate.
+func (h *Handler) otaVerdict(ctx context.Context, buildID, productKey string, extra json.RawMessage) otagate.Verdict {
+	if len(extra) > 0 {
+		var probe struct {
+			Capabilities []string `json:"capabilities"`
+		}
+		if err := json.Unmarshal(extra, &probe); err == nil {
+			if v, ok := otagate.Reported(probe.Capabilities); ok {
+				return v
+			}
+		}
+		if v, ok := otagate.ReportedExtra(extra); ok {
+			return v
+		}
+	}
+	return h.otaGate.Build(ctx, buildID, productKey)
+}
+
 // HandleWsOtaStatus processes an "ota_status" message from a device over WS.
 // afterOtaTerminal applies deployment bookkeeping and the deployment's reboot
 // policy after a device reports a terminal OTA status ("installed" or "error").
@@ -1083,6 +1110,16 @@ func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, stat
 	// resolving checkin or an operator handle it.
 	if upd == nil {
 		return
+	}
+	// Proof: the build this device was on when it was targeted CAN apply an MDM OTA.
+	// Record it, so the build gate learns from what actually happened instead of
+	// relying on the cutoff alone. Never overrides an admin's explicit answer.
+	if src, err := h.db.SourceBuildForTarget(ctx, upd.ID, deviceID); err == nil && src != "" {
+		if dev, err := h.db.GetDeviceByID(ctx, deviceID); err == nil && dev != nil {
+			if err := h.db.MarkOTAObserved(ctx, src, dev.ProductKey()); err == nil {
+				h.otaGate.Invalidate()
+			}
+		}
 	}
 	behavior := upd.RebootBehavior
 	_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "awaiting_reboot")

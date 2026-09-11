@@ -296,7 +296,7 @@
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>MDM OTA support cutoff</h3><span class="muted small m">per product</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
-      Firmware older than the chosen release has no MDM OTA agent. Devices on any release published before it are marked <b>no MDM OTA support</b> on the Deploy page and left out of "Push to more devices". Leave on "No cutoff" to offer OTA to every build.
+      Firmware older than the chosen release cannot apply an MDM OTA — those devices update over <a href="/updates/legacy">legacy OTA</a> instead. They are hidden from every push picker, dropped from a push that reaches the server anyway, and never handed the OTA command at check-in. A build with no release row counts as unsupported once a cutoff is set. Leave on "No cutoff" to offer MDM OTA to every build.
     </div>
     {{if .OTACutoffRows}}
     <form action="/settings/ota-min-release" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
@@ -312,6 +312,44 @@
       <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save cutoff</button></div>
     </form>
     {{else}}<div class="muted small">No published releases yet.</div>{{end}}
+
+    {{/* The cutoff is a rule; this is what it actually decides. Every build the fleet
+         runs, its verdict, and where that verdict came from — with a per-build
+         override for the one-offs a date cutoff can never classify. */}}
+    {{if .OTABuildRows}}
+    <div style="margin-top:18px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong class="small">Builds in the fleet</strong>
+      <span class="muted small"> · what the rule decides for each one</span>
+      <div style="overflow-x:auto;margin-top:10px;">
+      <table class="ota-builds" style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <tr>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Build</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Devices</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">MDM OTA</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Decided by</th>
+          <th style="border-bottom:1px solid var(--border-soft);"></th>
+        </tr>
+        {{range .OTABuildRows}}
+        <tr>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);"><span class="mono">{{.BuildID}}</span> <span class="cc-tag">{{.ProductLabel}}</span>{{if not .Tracked}} <span class="cc-tag warn" title="No release row — the date cutoff cannot classify this build">untracked</span>{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);">{{.Devices}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);">{{if .OK}}<span class="cc-tag ok">yes</span>{{else}}<span class="cc-tag bad">legacy only</span> <span class="muted">{{.Reason}}</span>{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);" class="muted">{{if eq .Source "device"}}the device itself{{else if eq .Source "observed"}}an update that worked{{else if eq .Source "manual"}}set here{{else if eq .Source "cutoff"}}the cutoff{{else if eq .Source "untracked"}}no release row{{else}}no cutoff set{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);text-align:right;white-space:nowrap;">
+            <form action="/settings/ota-support" method="POST" style="display:inline;">
+              <input type="hidden" name="build_id" value="{{.BuildID}}"><input type="hidden" name="product" value="{{.ProductKey}}">
+              <button type="submit" name="value" value="yes" class="cc-btn sm" title="Always allow MDM OTA on this build">MDM</button>
+              <button type="submit" name="value" value="no" class="cc-btn sm" title="Never push an MDM OTA to this build">Legacy</button>
+              {{if eq .Source "manual"}}<button type="submit" name="value" value="clear" class="cc-btn sm" title="Fall back to the cutoff">Clear</button>{{end}}
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      </table>
+      </div>
+      <div class="muted small" style="margin-top:8px;">A device that advertises its own capabilities always wins over anything set here. A build a device successfully updated from is recorded automatically.</div>
+    </div>
+    {{end}}
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">

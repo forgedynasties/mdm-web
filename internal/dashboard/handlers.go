@@ -40,6 +40,7 @@ import (
 	"mdm/internal/apkstore"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/mailer"
@@ -177,6 +178,7 @@ type Handler struct {
 	cfg         *config.Config
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
+	otaGate     *otagate.Gate // which builds can take an MDM OTA (the rest go legacy)
 
 	// mapsEmbedKey is the browser-facing Google Maps Embed API key used by the
 	// device-page location map iframe. "" disables the map (page still shows the
@@ -1521,6 +1523,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		geocoder:      geocoder,
 		startedAt:     time.Now(),
 		alerts:        alerts.NewDispatcher(d, cfg),
+		otaGate:       otagate.New(d, cfg),
 		publicOrigins:  parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:     ratelimit.New(15 * time.Minute),
 		signupAttempts: ratelimit.New(time.Hour),
@@ -5373,6 +5376,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":               device.SerialNumber,
 		"Device":              device,
 		"IsDPC":               device.IsDPC(),
+		// Which update path this device is on: a build whose client can't apply an
+		// MDM OTA still updates, over the legacy otautil listener.
+		"OTAGate":             h.otaGate.Device(r.Context(), *device),
 		"Caps":                device.CapSet(),
 		"Classes":             product.Classes(),
 		"DeviceCrashCount":    crashCount,
@@ -11233,7 +11239,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 
 				updating, _ := h.db.SerialsUpdating(r.Context())
 				data["DevicesUpdating"] = updating
-				data["OTAUnsupported"] = h.otaUnsupportedBuilds(r.Context(), rel.Product)
+				data["OTAUnsupported"] = h.otaUnsupportedForDevices(r.Context(), pushDevices)
 				blockedNewer, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
 				data["DevicesBlocked"] = blockedNewer
 
@@ -11405,8 +11411,16 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Drop devices whose firmware cannot apply an MDM OTA at all — they update over
+	// the legacy path. The pickers already hide them, but a stale page, a group push
+	// or the API could still land one here, and a 2 GB download that can never be
+	// applied is the expensive kind of mistake.
+	if kept, dropped := h.filterOTACapable(r.Context(), eligible); len(dropped) > 0 {
+		log.Printf("[ota] push of %s: dropped %d device(s) with no MDM OTA support", rel.Version, len(dropped))
+		eligible = kept
+	}
 	if len(eligible) == 0 {
-		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, or is mid-update on another deployment.", http.StatusBadRequest)
+		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, is mid-update on another deployment, or runs a build that updates over legacy OTA only.", http.StatusBadRequest)
 		return
 	}
 
@@ -11574,7 +11588,6 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// A deployment is restricted to its release's product — the resolver only ever
 	// hands the update to matching devices, so the picker must only offer those.
 	wantProduct, _ := product.Resolve(upd.Release.Product)
-	unsupported := h.otaUnsupportedBuilds(r.Context(), upd.Release.Product)
 	eligible := devices[:0]
 	for _, d := range devices {
 		if existing[d.ID] {
@@ -11586,7 +11599,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		if !hasFull && !sourceBuilds[d.BuildID] {
 			continue
 		}
-		if unsupported[d.BuildID] { // firmware older than the OTA support cutoff
+		if !h.otaGate.Device(r.Context(), d).OK { // legacy-OTA-only build
 			continue
 		}
 		eligible = append(eligible, d)
@@ -13084,14 +13097,14 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 	}
 	updating, _ := h.db.SerialsUpdating(ctx)
 	newer, _ := h.db.SerialsOnNewerRelease(ctx, relID)
-	noOTA := h.otaUnsupportedBuilds(ctx, rel.Product)
 	for _, d := range devices {
 		s := d.SerialNumber
+		gate := h.otaGate.Device(ctx, d)
 		switch {
 		case d.BuildID == rel.Version:
 			blocked[s] = "up to date"
-		case noOTA[d.BuildID]:
-			blocked[s] = "no MDM OTA support"
+		case !gate.OK:
+			blocked[s] = gate.Reason
 		case newer[s] != "":
 			blocked[s] = "newer installed (" + newer[s] + ")"
 		case updating[s] != "":
@@ -16160,6 +16173,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
+		"OTABuildRows":         h.otaBuildRows(r.Context()),
 		"LegacyOTAMode":        h.cfg.LegacyOTAMode(),
 		"LegacyOTAPort":        os.Getenv("LEGACY_OTA_PORT"),
 		"LegacyOTAUpstream":    os.Getenv("LEGACY_OTA_UPSTREAM"),
@@ -17054,20 +17068,41 @@ func (h *Handler) otaCutoffRows(ctx context.Context) []otaCutoffRow {
 // the configured OTA support cutoff (their firmware has no MDM OTA agent), or
 // nil when no cutoff is set for that product.
 func (h *Handler) otaUnsupportedBuilds(ctx context.Context, productKey string) map[string]bool {
-	pk := product.Normalize(productKey)
-	id := h.cfg.OTAMinRelease()[pk]
-	if id == 0 {
-		return nil
-	}
-	cutoff, err := h.db.GetRelease(ctx, id)
-	if err != nil || cutoff == nil {
-		return nil
-	}
-	rels, _ := h.db.ListReleases(ctx)
 	out := map[string]bool{}
-	for _, rel := range rels {
-		if product.Normalize(rel.Product) == pk && rel.CreatedAt.Before(cutoff.CreatedAt) {
-			out[rel.Version] = true
+	for build := range h.otaGate.Unsupported(ctx, productKey) {
+		out[build] = true
+	}
+	return out
+}
+
+// filterOTACapable splits device ids into those whose build can take an MDM OTA and
+// those that cannot. Ids in, ids out — the push path works in ids.
+func (h *Handler) filterOTACapable(ctx context.Context, ids []uuid.UUID) (kept, dropped []uuid.UUID) {
+	for _, id := range ids {
+		d, err := h.db.GetDeviceByID(ctx, id)
+		if err != nil || d == nil {
+			kept = append(kept, id) // can't tell: let the existing paths decide
+			continue
+		}
+		if h.otaGate.Device(ctx, *d).OK {
+			kept = append(kept, id)
+		} else {
+			dropped = append(dropped, id)
+		}
+	}
+	return kept, dropped
+}
+
+// otaUnsupportedForDevices is the same answer keyed by the builds these devices are
+// actually on, so a build nobody tracked as a release is covered too.
+func (h *Handler) otaUnsupportedForDevices(ctx context.Context, devices []db.Device) map[string]bool {
+	out := map[string]bool{}
+	for _, d := range devices {
+		if _, seen := out[d.BuildID]; seen {
+			continue
+		}
+		if !h.otaGate.Device(ctx, d).OK {
+			out[d.BuildID] = true
 		}
 	}
 	return out
@@ -17106,8 +17141,66 @@ func (h *Handler) SettingsSetOTAMinRelease(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.otaGate.Invalidate()
 	h.audit(r, "settings.ota_min_release", "", fmt.Sprint(m))
 	h.settingsRedirect(w, r)
+}
+
+// SettingsSetOTASupport records an explicit MDM OTA answer for one build, or clears
+// it so the build falls back to the product cutoff.
+func (h *Handler) SettingsSetOTASupport(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	build := strings.TrimSpace(r.FormValue("build_id"))
+	pk := product.Normalize(r.FormValue("product"))
+	if build == "" {
+		h.settingsRedirect(w, r)
+		return
+	}
+	switch r.FormValue("value") {
+	case "yes":
+		_ = h.db.SetOTASupport(r.Context(), build, pk, true, "manual", "")
+	case "no":
+		_ = h.db.SetOTASupport(r.Context(), build, pk, false, "manual", "no MDM OTA on this build — legacy OTA only")
+	default:
+		_ = h.db.DeleteOTASupport(r.Context(), build, pk)
+	}
+	h.otaGate.Invalidate()
+	h.audit(r, "settings.ota_support", build, r.FormValue("value"))
+	h.settingsRedirect(w, r)
+}
+
+// otaBuildRows lists every build the fleet is actually running with the gate's
+// verdict for it, so the cutoff can be checked against reality rather than trusted.
+type otaBuildRow struct {
+	BuildID      string
+	ProductKey   string
+	ProductLabel string
+	Devices      int
+	OK           bool
+	Reason       string
+	Source       string
+	Tracked      bool
+}
+
+func (h *Handler) otaBuildRows(ctx context.Context) []otaBuildRow {
+	fleet, _ := h.db.GetFleetVersions(ctx)
+	releases, _ := h.db.ListReleases(ctx)
+	tracked := map[string]bool{}
+	for _, rel := range releases {
+		tracked[product.Normalize(rel.Product)+"|"+rel.Version] = true
+	}
+	rows := make([]otaBuildRow, 0, len(fleet))
+	for _, fv := range fleet {
+		pk := product.Normalize(fv.Product)
+		v := h.otaGate.Build(ctx, fv.Version, pk)
+		rows = append(rows, otaBuildRow{
+			BuildID: fv.Version, ProductKey: pk, ProductLabel: product.Label(pk),
+			Devices: fv.DeviceCount, OK: v.OK, Reason: v.Reason, Source: v.Source,
+			Tracked: tracked[pk+"|"+fv.Version],
+		})
+	}
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Devices > rows[j].Devices })
+	return rows
 }
 
 // SettingsSetKioskAllowlist replaces the kiosk locked-app allowlist from a free-form
@@ -19168,6 +19261,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
+	post("POST /settings/ota-support", h.requireStrictAdmin(h.SettingsSetOTASupport))
 	post("POST /settings/ota-min-release", h.requireStrictAdmin(h.SettingsSetOTAMinRelease))
 	post("POST /settings/legacy-ota", h.requireStrictAdmin(h.SettingsSetLegacyOTA))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))

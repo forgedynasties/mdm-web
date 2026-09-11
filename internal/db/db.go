@@ -10333,6 +10333,26 @@ ALTER TABLE alert_channels ADD COLUMN IF NOT EXISTS alert_types TEXT[];
 -- deployment page next to each installed device. Backfilled once from the reboot
 -- command that followed the install for rows that predate the column.
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS reboot_sent_at TIMESTAMPTZ;
+
+-- MDM OTA support per firmware build. Builds older than the client that could
+-- actually apply an A/B update can be managed by the MDM but only update over the
+-- legacy otautil path, so pushing them an MDM OTA just wastes a download. A row
+-- here is an explicit answer for one (build, product); everything else falls back
+-- to the per-product cutoff release in config. source records where the answer came
+-- from: 'manual' (an admin said so), 'observed' (a device on that build completed an
+-- MDM OTA — proof), 'reported' (the client advertised its capabilities).
+CREATE TABLE IF NOT EXISTS ota_support (
+	build_id   TEXT        NOT NULL,
+	product    TEXT        NOT NULL,
+	supported  BOOLEAN     NOT NULL,
+	source     TEXT        NOT NULL DEFAULT 'manual',
+	note       TEXT        NOT NULL DEFAULT '',
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (build_id, product)
+);
+-- The build a device was on when the rollout targeted it, so a completed install is
+-- evidence that THAT build can apply an MDM OTA (the device now reports the new one).
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS source_build_id TEXT NOT NULL DEFAULT '';
 UPDATE update_devices ud SET reboot_sent_at = sub.at
 FROM (
 	SELECT ud2.update_id, ud2.device_id, MIN(c.created_at) AS at
@@ -12058,8 +12078,8 @@ func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []
 		// force_full pins these rows to the full image so ResolveUpdateForDevice never
 		// offers a matching incremental — the operator explicitly chose full delivery.
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO update_devices (update_id, device_id, status, force_full)
-			VALUES ($1, $2, 'pending', $3)
+			INSERT INTO update_devices (update_id, device_id, status, force_full, source_build_id)
+			VALUES ($1, $2, 'pending', $3, COALESCE((SELECT build_id FROM devices WHERE id = $2), ''))
 			ON CONFLICT DO NOTHING
 		`, updateID, did, forceFull); err != nil {
 			return err
@@ -14400,4 +14420,82 @@ func (d *DB) SetComplianceRuleEnabled(ctx context.Context, id uuid.UUID, enabled
 func (d *DB) DeleteComplianceRule(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM compliance_rules WHERE id = $1`, id)
 	return err
+}
+
+// ── MDM OTA support per build ────────────────────────────────────────────────
+// See the ota_support table: which firmware builds can actually apply an MDM OTA.
+// Builds that cannot are updated over the legacy otautil path instead.
+
+// OTASupport is one explicit answer for a (build, product).
+type OTASupport struct {
+	BuildID   string
+	Product   string
+	Supported bool
+	Source    string // manual | observed | reported
+	Note      string
+	UpdatedAt time.Time
+}
+
+// ListOTASupport returns every explicit build answer, newest change first.
+func (d *DB) ListOTASupport(ctx context.Context) ([]OTASupport, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT build_id, product, supported, source, note, updated_at
+		FROM ota_support ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OTASupport
+	for rows.Next() {
+		var o OTASupport
+		if err := rows.Scan(&o.BuildID, &o.Product, &o.Supported, &o.Source, &o.Note, &o.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// SetOTASupport records an explicit answer for a build, replacing any existing one.
+func (d *DB) SetOTASupport(ctx context.Context, buildID, product string, supported bool, source, note string) error {
+	if strings.TrimSpace(buildID) == "" {
+		return errors.New("build id is required")
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO ota_support (build_id, product, supported, source, note, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (build_id, product) DO UPDATE
+		   SET supported = EXCLUDED.supported, source = EXCLUDED.source,
+		       note = EXCLUDED.note, updated_at = NOW()`,
+		strings.TrimSpace(buildID), product, supported, source, note)
+	return err
+}
+
+// DeleteOTASupport drops an explicit answer, so the build falls back to the cutoff.
+func (d *DB) DeleteOTASupport(ctx context.Context, buildID, product string) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM ota_support WHERE build_id = $1 AND product = $2`, buildID, product)
+	return err
+}
+
+// MarkOTAObserved records proof that a build can apply an MDM OTA: a device that was
+// on it completed one. Never downgrades a manual answer — an admin's "no" stands.
+func (d *DB) MarkOTAObserved(ctx context.Context, buildID, product string) error {
+	if strings.TrimSpace(buildID) == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO ota_support (build_id, product, supported, source, note, updated_at)
+		VALUES ($1, $2, true, 'observed', 'a device on this build completed an MDM OTA', NOW())
+		ON CONFLICT (build_id, product) DO UPDATE
+		   SET supported = true, source = 'observed', note = EXCLUDED.note, updated_at = NOW()
+		 WHERE ota_support.source <> 'manual'`, strings.TrimSpace(buildID), product)
+	return err
+}
+
+// SourceBuildForTarget returns the build a device was on when a rollout targeted it
+// ("" for rows created before the column existed).
+func (d *DB) SourceBuildForTarget(ctx context.Context, updateID int, deviceID uuid.UUID) (string, error) {
+	var b string
+	err := d.pool.QueryRow(ctx, `SELECT source_build_id FROM update_devices WHERE update_id = $1 AND device_id = $2`, updateID, deviceID).Scan(&b)
+	return b, err
 }
