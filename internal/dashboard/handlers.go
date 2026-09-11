@@ -1421,6 +1421,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "The package on the device did not read as an update (invalid payload header). Usually a resumed download on top of an older cancelled one — Retry downloads it fresh."
 			case "SLOT_SWITCH_FAILED":
 				return "Rebooted, but came back on the old build — the update was written but the slot switch did not take. Push the update again."
+			case "REBOOT_NO_CHECKIN":
+				return "Rebooted and never checked in again. The device has been offline since; check it on site, then Retry."
 			case "DOWNLOAD_ERROR":
 				return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."
 			case "UPDATE_ENGINE_BIND_ERROR":

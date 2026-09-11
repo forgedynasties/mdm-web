@@ -12428,6 +12428,24 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 // sit 'active' with every device installed. Called when the hub or a deployment
 // page is opened.
 func (d *DB) CompleteSettledDeployments(ctx context.Context) error {
+	// A device that was rebooted and never checked in again is not "still updating" —
+	// it is a device someone has to look at. Without this a rollout stays active
+	// forever on a device that went dark at the reboot (a failed slot switch that
+	// never got far enough to report, a unit that was unplugged, a venue that closed),
+	// and the Updates page keeps counting it as in flight. Give it half a day, then
+	// call it: the row can still be retried, and the rollout can settle.
+	if _, err := d.pool.Exec(ctx, `
+		UPDATE update_devices ud
+		SET status = 'failed', error_code = 'REBOOT_NO_CHECKIN', updated_at = NOW()
+		FROM devices dev
+		WHERE dev.id = ud.device_id
+		  AND ud.status = 'reboot_sent'
+		  AND ud.reboot_sent_at IS NOT NULL
+		  AND ud.reboot_sent_at < NOW() - INTERVAL '12 hours'
+		  AND dev.last_seen_at < NOW() - INTERVAL '12 hours'
+	`); err != nil {
+		return err
+	}
 	_, err := d.pool.Exec(ctx, `
 		UPDATE updates u SET status = 'complete'
 		WHERE u.status = 'active'
