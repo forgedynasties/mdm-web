@@ -199,7 +199,16 @@ func main() {
 	// summary pill on the Actions page stayed "in progress" until a reload
 	// re-derived it fresh. Mirrors the same ack the WS "command_ack" path applies
 	// for every other command type.
+	// Set once the API handler exists (below): a finished shell command may be a
+	// legacy-install progress probe, and on some devices its output arrives ONLY as
+	// stream frames — their ack carries none — so this is where it gets read.
+	var onShellOutput func(deviceID, commandID uuid.UUID, output string)
 	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
+		if onShellOutput != nil {
+			if out := shellMgr.CommandOutput(commandID, deviceID); out != "" {
+				onShellOutput(deviceID, commandID, out)
+			}
+		}
 		status := "completed"
 		if exitCode != 0 {
 			status = "failed"
@@ -305,6 +314,9 @@ func main() {
 		// source until its socket is back — pick the update_engine log up now.
 		apiHandler.ResumeLegacyWatch(context.Background(), deviceID)
 	})
+	onShellOutput = func(deviceID, commandID uuid.UUID, output string) {
+		apiHandler.LegacyProbeOutput(context.Background(), commandID, output)
+	}
 	// Watchers live in memory: pick up any legacy install that was running when this
 	// process started (a deploy mid-install, a crash, a restart).
 	go apiHandler.ResumeLegacyWatches(context.Background())

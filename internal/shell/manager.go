@@ -7,6 +7,7 @@
 package shell
 
 import (
+	"strings"
 	"encoding/json"
 	"log"
 	"sync"
@@ -156,6 +157,20 @@ func (m *Manager) closeCommandOutput(key outputKey) {
 		delete(m.outputs, key)
 		m.outMu.Unlock()
 	})
+}
+
+// CommandOutput returns everything a command has printed so far, joined. Used by
+// callers that want the whole answer once rather than a live stream — a device's
+// shell output arrives as stream frames and only sometimes rides along on the ack,
+// so this is the reliable place to read it from.
+func (m *Manager) CommandOutput(commandID, deviceID uuid.UUID) string {
+	m.outMu.Lock()
+	defer m.outMu.Unlock()
+	s := m.outputs[outputKey{commandID, deviceID}]
+	if s == nil {
+		return ""
+	}
+	return strings.Join(s.chunks, "")
 }
 
 // SubscribeCommandOutput returns a channel that receives output chunks for the
