@@ -150,6 +150,9 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 			h.hub.Push(device.ID, stop)
 		}()
 		log.Printf("[legacy-ota] watching update_engine on %s (deployment %d)", serial, depID)
+		// Snapshot now, in case the install already finished: a stream only carries
+		// what update_engine logs from here on, and a finished install logs nothing.
+		h.sendLegacyProbe(ctx, device.ID, serial)
 
 		phase, lastPct := "installing", -1
 		for {
@@ -274,21 +277,31 @@ func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, ser
 		// the WebSocket, so on these devices they sit pending forever (some from
 		// months ago). Commands ride the check-in response, and the output comes back
 		// on the ack — which is how the Shell page works on this same hardware.
-		payload, _ := json.Marshal(map[string]string{"cmd": legacyPollCmd})
-		cmd, err := h.db.CreateCommandBy(ctx, "shell", "", payload, "devices", []uuid.UUID{deviceID}, "")
-		if err != nil {
-			log.Printf("[legacy-ota] progress probe for %s: %v", serial, err)
-		} else {
-			legacyProbes.Store(cmd.ID, serial)
-			// Clean up if the device never answers, so the map can't grow forever.
-			time.AfterFunc(20*time.Minute, func() { legacyProbes.Delete(cmd.ID) })
-		}
+		h.sendLegacyProbe(ctx, deviceID, serial)
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 	}
+}
+
+// sendLegacyProbe asks a device for its recent update_engine log with a shell
+// command. Works on every build we manage, over a socket or over the check-in
+// queue, which is why it is also fired the moment a stream attaches: "logcat -T"
+// (what the stream uses to replay history) returns nothing at all on the older
+// builds, so a device that finished while nothing was watching would otherwise
+// stay on its last known percentage until it rebooted.
+func (h *Handler) sendLegacyProbe(ctx context.Context, deviceID uuid.UUID, serial string) {
+	payload, _ := json.Marshal(map[string]string{"cmd": legacyPollCmd})
+	cmd, err := h.db.CreateCommandBy(ctx, "shell", "", payload, "devices", []uuid.UUID{deviceID}, "")
+	if err != nil {
+		log.Printf("[legacy-ota] progress probe for %s: %v", serial, err)
+		return
+	}
+	legacyProbes.Store(cmd.ID, serial)
+	time.AfterFunc(20*time.Minute, func() { legacyProbes.Delete(cmd.ID) })
+	h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
 }
 
 // LegacyProbeOutput feeds a probe's output back in when its ack arrives. Returns
