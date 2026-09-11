@@ -373,9 +373,9 @@
 
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">{{if not .DemoScenario}}<a href="/releases/{{$rel.ID}}" style="color:inherit;text-decoration:none;">{{$rel.Version}}</a>{{else}}{{$rel.Version}}{{end}} · deployment</div>
-    <h1 class="cc-h1">Deployment #{{$dep.ID}} <span class="cc-tag {{deployStatusClass $dep.Status}}" style="font-size:11px;">{{$dep.Status}}</span></h1>
-    <div class="cc-sub">{{productLabel $rel.Product}} · <b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}} · created {{timeSince $dep.CreatedAt}}{{if $dep.CreatedBy}}{{$by := userBubble $dep.CreatedBy}}{{if not $by.Admin}} · pushed by <b>{{$by.Name}}</b>{{end}}{{end}}</div>
+    <div class="cc-eyebrow">Releases · deployment #{{$dep.ID}}</div>
+    <h1 class="cc-h1">{{if not .DemoScenario}}<a href="/releases/{{$rel.ID}}" class="hl" style="text-decoration:none;">{{$rel.Version}}</a>{{else}}<span class="hl">{{$rel.Version}}</span>{{end}} rollout <span class="cc-tag {{deployStatusClass $dep.Status}}" style="font-size:11px;">{{$dep.Status}}</span></h1>
+    <div class="cc-sub">Release <b>{{$rel.Version}}</b>{{if $rel.Name}} · {{$rel.Name}}{{end}} · {{productLabel $rel.Product}} · <b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}} · created {{timeSince $dep.CreatedAt}}{{if $dep.CreatedBy}}{{$by := userBubble $dep.CreatedBy}}{{if not $by.Admin}} · pushed by <b>{{$by.Name}}</b>{{end}}{{end}}</div>
   </div>
   <div class="cc-actions">
     {{if and (ne $dep.Status "canceled") (canOTA .Role)}}<button type="button" class="cc-btn primary" onclick="dplOpen('dpl-push-modal')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Push to more devices</button>{{end}}
