@@ -67,6 +67,7 @@
       {{else if eq .Status "pending"}}<span class="muted">waiting for its next poll{{if .BuildID}} · on {{.BuildID}}{{end}}</span>
       {{else if $awaiting}}<span class="cc-tag info">installed · awaiting reboot</span><span class="muted">boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}{{if not .InFleet}} — reboot it on site{{end}}</span>
       {{if .RebootSentAt}}<span class="cc-tag{{if eq .RebootState "delivered"}} ok{{else}} info{{end}}" title="Reboot command {{if .RebootState}}{{.RebootState}}{{else}}queued for the next check-in{{end}}">reboot {{if .RebootState}}{{.RebootState}}{{else}}queued{{end}} · {{timeSince .RebootSentAt}}</span>{{end}}
+      {{else if and (eq .Status "installing") (le .Percent 0)}}<span class="cc-tag info">installing</span><span class="muted" title="Percentages come from update_engine on the device, read over its MDM client's connection. Without that connection the install runs blind until the device reports in.">no live progress{{if .OfferedBuild}} · → {{.OfferedBuild}}{{end}}</span>
       {{else}}<span class="ld-bar"><i style="width:{{.Percent}}%"></i></span><span>{{.Percent}}%</span><span class="muted">{{.Status}}{{if .OfferedBuild}} → {{.OfferedBuild}}{{end}}</span>{{end}}
       <span class="muted" style="margin-left:auto;">{{timeSince .UpdatedAt}}</span>
     </span>

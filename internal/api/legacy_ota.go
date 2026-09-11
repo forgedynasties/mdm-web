@@ -140,6 +140,15 @@ func (h *Handler) legacyIdentify(w http.ResponseWriter, r *http.Request, isCheck
 	// Reporting the build a deployment offered closes that row, and the rollout
 	// once every device has settled.
 	_ = h.db.CompleteLegacyDeploymentsAtBuild(r.Context(), req.SerialNumber, req.BuildID)
+	// A poll from a device that is mid-install is a chance to (re)attach the
+	// update_engine watcher: the download may have finished while its MDM socket was
+	// down, leaving the row with no progress source at all.
+	if dev, err := h.db.GetLegacyOTADevice(r.Context(), req.SerialNumber); err == nil && dev != nil {
+		switch dev.Status {
+		case "installing", "verifying", "finalizing":
+			h.watchLegacyInstall(req.SerialNumber, h.legacyDeploymentFor(r.Context(), req.SerialNumber))
+		}
+	}
 	return &req, true
 }
 

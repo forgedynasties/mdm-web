@@ -48,6 +48,28 @@ const legacyWatchTimeout = 90 * time.Minute
 
 var legacyWatching sync.Map // serial -> struct{}
 
+// ResumeLegacyWatch re-attaches the watcher when a device turns up with a legacy
+// install in flight. The watch needs a live WebSocket, and the moment the download
+// finishes is exactly when a device on a weak link may not have one — without this
+// the row sits at "installing" with no progress for the whole install. Wired to the
+// hub's onConnect hook and to the check-in path, both of which are proof the device
+// is reachable again. Cheap: one indexed lookup, and the watcher itself no-ops when
+// one is already running for that serial.
+func (h *Handler) ResumeLegacyWatch(ctx context.Context, deviceID uuid.UUID) {
+	device, err := h.db.GetDeviceByID(ctx, deviceID)
+	if err != nil || device == nil {
+		return
+	}
+	dep, dev, err := h.db.ResolveLegacyDeployment(ctx, device.SerialNumber)
+	if err != nil || dep == nil || dev == nil {
+		return
+	}
+	switch dev.Status {
+	case "installing", "verifying", "finalizing":
+		h.watchLegacyInstall(device.SerialNumber, dep.ID)
+	}
+}
+
 // watchLegacyInstall follows update_engine on one device, if it is reachable.
 // Safe to call for any serial: it returns immediately when the device is not in
 // the fleet, has no live WebSocket, or is already being watched.
@@ -148,10 +170,14 @@ func (h *Handler) watchLegacyInstall(serial string, depID int) {
 // carries no progress.
 func parseUpdateEngineLine(line string) (done, phase string, pct int) {
 	pct = -1
+	// Only the WHOLE update finishing counts as done. update_engine logs
+	// "ErrorCode::kSuccess" after every internal action — UpdateBootFlagsAction,
+	// CleanupPreviousUpdateAction, InstallPlanAction — within seconds of starting,
+	// so treating a bare kSuccess as the end marked devices "awaiting reboot" at 2%.
 	switch {
 	case strings.Contains(line, "Update successfully applied"),
 		strings.Contains(line, "UPDATED_NEED_REBOOT"),
-		strings.Contains(line, "ErrorCode::kSuccess"):
+		strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode::kSuccess"):
 		return "ok", "", 100
 	case strings.Contains(line, "onPayloadApplicationComplete") && strings.Contains(line, "ErrorCode"),
 		strings.Contains(line, "Update failed"):

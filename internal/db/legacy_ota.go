@@ -572,3 +572,21 @@ func (d *DB) CountLegacyOTADevices(ctx context.Context) (int, error) {
 	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM legacy_ota_devices`).Scan(&n)
 	return n, err
 }
+
+// GetLegacyOTADevice returns one otautil device row, or nil when it has never polled.
+func (d *DB) GetLegacyOTADevice(ctx context.Context, serial string) (*LegacyOTADevice, error) {
+	var v LegacyOTADevice
+	err := d.pool.QueryRow(ctx, `
+		SELECT serial, build_id, first_seen, last_seen, last_check, last_ip, polls,
+		       status, status_at, offered_build, offered_at, error
+		FROM legacy_ota_devices WHERE serial = $1`, serial).
+		Scan(&v.Serial, &v.BuildID, &v.FirstSeen, &v.LastSeen, &v.LastCheck, &v.LastIP, &v.Polls,
+			&v.Status, &v.StatusAt, &v.OfferedBuild, &v.OfferedAt, &v.Error)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}

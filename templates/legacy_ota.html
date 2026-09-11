@@ -122,6 +122,7 @@
             {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
             {{else if eq .Status "pending"}}waiting for its next poll
             {{else if or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}<span class="cc-tag info">installed · awaiting reboot</span>{{if .RebootSentAt}} <span class="cc-tag{{if eq .RebootState "delivered"}} ok{{else}} info{{end}}">reboot {{if .RebootState}}{{.RebootState}}{{else}}queued{{end}} · {{timeSince .RebootSentAt}}</span>{{end}}
+            {{else if and (eq .Status "installing") (le .Percent 0)}}<span class="cc-tag info">installing</span> <span class="muted small" title="Percentages come from update_engine on the device, read over its MDM client's connection. It isn't connected, so there is no live progress until it reports in.">no live progress</span>
             {{else}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% {{.Status}}{{end}}
           </span>
           {{/* An applied update sits on the inactive slot until something reboots the
@@ -204,7 +205,7 @@ function loRelease(id) {
     <td>
       {{if eq .Status "downloading"}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% downloading
       {{else if eq .Status "awaiting_reboot"}}<span class="cc-tag info">installed · awaiting reboot</span> <span class="muted small">→ {{.OfferedBuild}}</span>
-      {{else if eq .Status "installing"}}<span class="cc-tag info">installing</span> <span class="muted small">{{if .Percent}}{{.Percent}}% · {{end}}→ {{.OfferedBuild}}</span>
+      {{else if eq .Status "installing"}}<span class="cc-tag info">installing</span> <span class="muted small">{{if .Percent}}{{.Percent}}% · {{else}}no live progress · {{end}}→ {{.OfferedBuild}}</span>
       {{else if eq .Status "offered"}}<span class="cc-tag info">offered</span> <span class="muted small">→ {{.OfferedBuild}}</span>
       {{else if eq .Status "updated"}}<span class="cc-tag ok">updated</span> <span class="muted small">{{if .StatusAt}}{{timeSince .StatusAt}}{{end}}</span>
       {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span> <span class="muted small">{{.Error}}</span>
