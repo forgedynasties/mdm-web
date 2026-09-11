@@ -5476,6 +5476,59 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 // page. Older builds' data was always in the checkins table (battery + temp are
 // recorded for every build) — it just was never fetched, so widening the range showed
 // nothing before the initial window. Down-sampled to keep the payload small.
+// ── Chart window cache ────────────────────────────────────────────────────────
+// A 48h pull is thousands of rows scattered across a multi-GB checkins table, so
+// it is dominated by random heap reads (measured: 2.4s cold for 4.4k rows, ~0.3s
+// warm). The same window is asked for repeatedly — the page's background warm-up,
+// then a range click, then anyone else opening the device — so memoise the encoded
+// response briefly. Windows are keyed on their endpoints rounded to 30s so the
+// warm-up and the click that follows it share one entry.
+type chartCacheEntry struct {
+	body []byte
+	at   time.Time
+}
+
+var (
+	chartCacheMu sync.Mutex
+	chartCache   = map[string]chartCacheEntry{}
+)
+
+const (
+	chartCacheTTL     = 45 * time.Second
+	chartCacheMaxSize = 400
+)
+
+func chartCacheKey(deviceID uuid.UUID, fromMs, untilMs int64) string {
+	const round = 30_000
+	return fmt.Sprintf("%s|%d|%d", deviceID, fromMs/round, untilMs/round)
+}
+
+func chartCacheGet(key string) ([]byte, bool) {
+	chartCacheMu.Lock()
+	defer chartCacheMu.Unlock()
+	e, ok := chartCache[key]
+	if !ok || time.Since(e.at) > chartCacheTTL {
+		return nil, false
+	}
+	return e.body, true
+}
+
+func chartCachePut(key string, body []byte) {
+	chartCacheMu.Lock()
+	defer chartCacheMu.Unlock()
+	if len(chartCache) >= chartCacheMaxSize {
+		for k, e := range chartCache { // drop expired first, else start fresh
+			if time.Since(e.at) > chartCacheTTL {
+				delete(chartCache, k)
+			}
+		}
+		if len(chartCache) >= chartCacheMaxSize {
+			chartCache = map[string]chartCacheEntry{}
+		}
+	}
+	chartCache[key] = chartCacheEntry{body: body, at: time.Now()}
+}
+
 func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -5490,6 +5543,13 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	}
 	if fromMs <= 0 || fromMs >= untilMs {
 		http.Error(w, "invalid range", http.StatusBadRequest)
+		return
+	}
+	ckey := chartCacheKey(device.ID, fromMs, untilMs)
+	if body, ok := chartCacheGet(ckey); ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(body)
 		return
 	}
 	checkins, err := h.db.GetCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
@@ -5544,9 +5604,15 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	if len(battery) > maxPoints {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
+	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram})
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	chartCachePut(ckey, body)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(map[string]any{"battery": battery, "temp": temp, "ram": ram})
+	_, _ = w.Write(body)
 }
 
 // decimateExtremes thins a time-ordered series to about maxPoints by splitting it

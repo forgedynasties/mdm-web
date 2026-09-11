@@ -928,6 +928,32 @@ function mdmBootCharts() {
       .catch(function () {})
       .then(function () { chartFetching = false; if (done) done(); });
   }
+  // ── Background warm-up: widen to 48h right after first paint ────────────────
+  // The page bakes only the default 6h window (a wider bake is the biggest cost
+  // in first paint). Clicking 12h/24h/48h then had to fetch, and on a chatty
+  // device that fetch is thousands of rows off a multi-GB table — seconds of
+  // "Loading graphs…" every time. Pull the rest in the background once the first
+  // chart is on screen, in two steps so 24h is usable before 48h lands, and the
+  // range buttons become instant. Silent: no spinner, and failures are ignored
+  // because the on-demand path still covers the click.
+  function chartWarmBackground() {
+    var steps = [24 * 3600 * 1000, 48 * 3600 * 1000];
+    (function next(i) {
+      if (i >= steps.length) return;
+      var from = Date.now() - steps[i];
+      if (from >= loadedMinX) { next(i + 1); return; }   // already loaded
+      chartLoadOlder(from, function () {
+        // Redraw only if the user is looking at a range this just filled in.
+        if (currentDuration >= steps[i]) {
+          updateCharts();
+          if (activeTab === 'all' && unifiedChart) applyUnifiedData();
+        }
+        setTimeout(function () { next(i + 1); }, 400);
+      });
+    })(0);
+  }
+  window.mdmChartWarm = chartWarmBackground;
+
   // ── Catch up on live points an open tab missed ──────────────────────────────
   // The visible window is anchored to the newest loaded sample. A tab left open
   // while the SSE stream dropped (laptop asleep, server redeploy, a device that
@@ -2452,7 +2478,14 @@ function mdmBootCharts() {
 // Wait for Chart.js. Failures surface in the overlay instead of leaving it
 // spinning — a stuck spinner reads as "still working" and costs the user a
 // refresh to find out otherwise.
-window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
+window.mdmChartReady.then(mdmBootCharts).then(function () {
+  // First paint is done; widen the loaded window in the background so the range
+  // buttons don't have to fetch. Idle-scheduled so it never competes with the
+  // first render.
+  var go = function () { if (window.mdmChartWarm) window.mdmChartWarm(); };
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 3000 });
+  else setTimeout(go, 1200);
+}).catch(function (err) {
   console.error('[mdm] chart bootstrap failed:', err);
   var cl = document.getElementById('chart-loading');
   if (cl) {
