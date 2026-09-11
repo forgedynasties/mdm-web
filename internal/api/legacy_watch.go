@@ -56,6 +56,22 @@ const (
 
 var legacyWatching sync.Map // serial -> struct{}
 
+// ResumeLegacyWatches re-attaches every in-flight legacy install after a restart.
+// A watcher lives in memory, so a deploy in the middle of a 40-minute install
+// otherwise leaves those rows frozen until the device's next 15-minute poll.
+func (h *Handler) ResumeLegacyWatches(ctx context.Context) {
+	devices, err := h.db.ListLegacyOTADevices(ctx)
+	if err != nil {
+		return
+	}
+	for _, d := range devices {
+		switch d.Status {
+		case "installing", "verifying", "finalizing":
+			h.watchLegacyInstall(d.Serial, h.legacyDeploymentFor(ctx, d.Serial))
+		}
+	}
+}
+
 // ResumeLegacyWatch re-attaches the watcher when a device turns up with a legacy
 // install in flight. The watch needs a live WebSocket, and the moment the download
 // finishes is exactly when a device on a weak link may not have one — without this

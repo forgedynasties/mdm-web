@@ -301,7 +301,13 @@ func main() {
 	hub.SetOnConnect(func(deviceID uuid.UUID) {
 		defer recoverLog("ws onConnect flush for " + deviceID.String())
 		apiHandler.FlushPendingCommands(context.Background(), deviceID)
+		// A legacy install that started while this device was offline has no progress
+		// source until its socket is back — pick the update_engine log up now.
+		apiHandler.ResumeLegacyWatch(context.Background(), deviceID)
 	})
+	// Watchers live in memory: pick up any legacy install that was running when this
+	// process started (a deploy mid-install, a crash, a restart).
+	go apiHandler.ResumeLegacyWatches(context.Background())
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		// This runs on the device's WS read-loop goroutine, which net/http does not
 		// protect — a panic here would crash the process and drop the whole fleet.
