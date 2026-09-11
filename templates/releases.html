@@ -134,6 +134,7 @@ a.rl-ver:hover{color:var(--accent-text)}
         <a href="/releases/{{.ReleaseID}}" class="rl-ver" title="{{.Version}}">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</a>
         {{if .Product}}<span class="cc-tag" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="Release date — {{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
+        {{if .IsDev}}<span class="cc-tag warn" title="Only devs and admins can see this release">dev</span>{{end}}
       </div>
       <span class="rl-sub">{{if .Changelog}}{{truncate .Changelog 90}}{{else}}<span class="muted">No changelog</span>{{end}}</span>
     </div>
@@ -206,6 +207,13 @@ a.rl-ver:hover{color:var(--accent-text)}
             {{range $.Products}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
           </select>
           <div class="form-hint">The hardware this release targets. Only devices of this product are ever offered or sent it.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" style="display:flex;align-items:center;gap:9px;cursor:pointer;">
+            <input type="checkbox" name="is_dev" value="1" checked style="width:16px;height:16px;">
+            Dev release
+          </label>
+          <div class="form-hint">On by default: while it is a dev release only devs and admins see it — it stays out of everyone else's Updates page and push pickers. Turn it off here, or from the release itself, when it is ready to be seen.</div>
         </div>
         <div class="form-row">
           <label class="form-label">Changelog <span class="muted small">(optional)</span></label>

@@ -22,10 +22,19 @@
       <span class="cc-tag {{releaseStatusClass $rel.Status}}" style="font-size:11px;padding:3px 8px;">{{$rel.Status}}</span>
       <span class="mono">{{$rel.Version}}</span>
       <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
+      {{if $rel.IsDev}}<span class="cc-tag warn" title="Only devs and admins can see this release">dev</span>{{end}}
     </h1>
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
   </div>
   <div class="cc-actions">
+    {{/* Dev flag: a new release starts dev and is invisible to every other role until
+         someone here turns it off. Only canRelease can move it either way. */}}
+    {{if canRelease $role}}
+    <form action="/releases/{{$rel.ID}}/dev" method="POST" style="display:inline;"{{if $rel.IsDev}} hx-confirm="Release {{$rel.Version}} to everyone? Operators and super ops will see it on Updates and can push it."{{end}}>
+      <input type="hidden" name="dev" value="{{if $rel.IsDev}}0{{else}}1{{end}}">
+      <button type="submit" class="cc-btn" title="{{if $rel.IsDev}}Only devs and admins can see this release{{else}}Everyone can see this release{{end}}">{{if $rel.IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
+    </form>
+    {{end}}
     {{/* Push is an OTA right (admin, dev, super op); publishing a release stays with canRelease. */}}
     {{if and (canOTA $role) (eq $rel.Status "published") .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</a>{{end}}
     {{if $isAdmin}}

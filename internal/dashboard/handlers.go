@@ -712,6 +712,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"whyScore": whyScore,
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
+		// canSeeDev: who sees releases still marked dev — devs and admins only.
+		"canSeeDev": roleSeesDev,
 		"canOTA":     roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,
@@ -4005,6 +4007,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	run(func() error {
 		var err error
 		railRels, err = h.db.ListPublishedReleasesForRail(r.Context())
+		railRels = visibleRail(h.role(r), railRels)
 		return err
 	})
 	run(func() error {
@@ -9329,6 +9332,7 @@ type versionRow struct {
 	SignedOffAt       *time.Time
 	TestingDone       bool         // testing finished — the release is inactive (retired from active slot)
 	IsBranch          bool         // off-mainline branch build (shown nested under its parent in the list)
+	IsDev             bool         // dev-only release — listed for devs/admins, invisible to everyone else
 	ParentID          *int         // for a branch/derivative, the release id it forks from / matches
 	ParentVersion     string       // for a branch, the release it forked from; for a derivative, the release it matches
 	AdoptableParentID *int         // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
@@ -9349,11 +9353,91 @@ func (h *Handler) latestQfilURL(r *http.Request, releaseID int) string {
 	return ""
 }
 
+// ReleaseSetDev turns a release's dev flag on or off. Off publishes it to every
+// role; on takes it back out of sight for anyone but devs and admins.
+func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	dev := r.FormValue("dev") == "1"
+	if err := h.db.SetReleaseDev(r.Context(), id, dev); err != nil {
+		h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), "Could not change the release visibility", "error")
+		return
+	}
+	h.audit(r, "release.set_dev", strconv.Itoa(id), map[bool]string{true: "dev", false: "everyone"}[dev])
+	msg := "Released to everyone · it now shows on the Updates page for every role"
+	if dev {
+		msg = "Marked dev · only devs and admins can see it"
+	}
+	h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), msg, "success")
+}
+
+// roleSeesDev reports whether a role may see releases still marked dev. A new
+// release starts dev so work in progress stays off operators' screens until
+// someone turns the flag off; see SetReleaseDev.
+func roleSeesDev(role string) bool { return role == "admin" || role == "dev" }
+
+// visibleReleases drops dev-only releases for roles that may not see them.
+func visibleReleases(role string, in []db.Release) []db.Release {
+	if roleSeesDev(role) {
+		return in
+	}
+	out := in[:0]
+	for _, rel := range in {
+		if !rel.IsDev {
+			out = append(out, rel)
+		}
+	}
+	return out
+}
+
+// visibleRail is visibleReleases for the compact release rail.
+func visibleRail(role string, in []db.ReleaseRailItem) []db.ReleaseRailItem {
+	if roleSeesDev(role) {
+		return in
+	}
+	out := in[:0]
+	for _, rel := range in {
+		if !rel.IsDev {
+			out = append(out, rel)
+		}
+	}
+	return out
+}
+
+// visibleDeployments drops rollouts of dev-only releases for the same roles.
+func visibleDeployments(role string, in []db.Update) []db.Update {
+	if roleSeesDev(role) {
+		return in
+	}
+	out := in[:0]
+	for _, u := range in {
+		if !u.ReleaseIsDev {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	releases, err := h.db.ListReleases(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Dev releases are invisible outside dev/admin: a build a device happens to
+	// report still shows as an untracked version, which is honest — the fleet is
+	// running it — but it carries none of the release's detail.
+	if !roleSeesDev(h.role(r)) {
+		kept := releases[:0]
+		for _, rel := range releases {
+			if !rel.IsDev {
+				kept = append(kept, rel)
+			}
+		}
+		releases = kept
 	}
 	// Merge tracked releases with the versions devices actually report, into one
 	// version-centric table (fleet versions come pre-sorted by adoption desc).
@@ -9470,7 +9554,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
 			row.Product = rel.Product
 			row.Changelog = rel.Changelog
-			row.Status, row.Hidden = rel.Status, rel.Hidden
+			row.Status, row.Hidden, row.IsDev = rel.Status, rel.Hidden, rel.IsDev
 			ca := rel.CreatedAt
 			row.ReleasedAt = &ca
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
@@ -9506,7 +9590,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			Product:    rel.Product,
 			Changelog:  rel.Changelog,
 			ReleasedAt: &ca,
-			Status:     rel.Status, Hidden: rel.Hidden,
+			Status:     rel.Status, Hidden: rel.Hidden, IsDev: rel.IsDev,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 			Problems:    badgeFor(rel.ID),
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
@@ -10028,6 +10112,9 @@ func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
 	if name != "" || changelog != "" {
 		_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, changelog)
 	}
+	// New releases start dev (the form's checkbox is checked by default), so work in
+	// progress is invisible to everyone but devs and admins until it is turned off.
+	_ = h.db.SetReleaseDev(r.Context(), rel.ID, r.FormValue("is_dev") == "1")
 	h.audit(r, "release.create", version, "")
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", rel.ID), http.StatusSeeOther)
 }
@@ -10317,6 +10404,10 @@ func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request,
 	}
 	rel, err := h.db.GetRelease(r.Context(), id)
 	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	if rel.IsDev && !roleSeesDev(h.role(r)) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
@@ -10877,6 +10968,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 
 	// ── rollouts: fleet deployments, newest first, with legacy ones merged in ──
 	deployments, _ := h.db.ListDeployments(ctx)
+	deployments = visibleDeployments(h.role(r), deployments)
 	type rolloutRow struct {
 		URL        string
 		Version    string
@@ -10951,6 +11043,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 
 	// ── releases: the tracked list, newest first, with fleet adoption ──
 	releases, _ := h.db.ListReleases(ctx)
+	releases = visibleReleases(h.role(r), releases)
 	adoption := map[string]int{}
 	if fleet, err := h.db.GetFleetVersions(ctx); err == nil {
 		for _, fv := range fleet {
@@ -10965,6 +11058,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Product  string
 		Status   string
 		Branch   bool
+		Dev      bool
 		Packages int
 		Deploys  int
 		Devices  int
@@ -10992,7 +11086,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		if len(relRows) < 8 {
 			relRows = append(relRows, releaseRow{
 				ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
-				Status: rel.Status, Branch: rel.IsBranch,
+				Status: rel.Status, Branch: rel.IsBranch, Dev: rel.IsDev,
 				Packages: rel.PackageCount, Deploys: rel.DeployCount,
 				Devices: n, Pct: pct, Created: rel.CreatedAt,
 			})
@@ -11025,7 +11119,9 @@ func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	_ = h.db.CompleteSettledDeployments(r.Context())
 	deployments, _ := h.db.ListDeployments(r.Context())
+	deployments = visibleDeployments(role, deployments)
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
+	deployable = visibleReleases(role, deployable)
 	groups, _ := h.db.ListGroups(r.Context())
 
 	// Optional per-product filter (?product=): keep deployments whose release product
@@ -11072,6 +11168,7 @@ func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 // to /updates (DeployCreate). Device selection is scoped to the release's product.
 func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
+	deployable = visibleReleases(h.role(r), deployable)
 
 	data := map[string]any{
 		"Title":               "New Update",
@@ -11236,6 +11333,11 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
+	// A dev release cannot be pushed by someone who cannot even see it.
+	if rel.IsDev && !roleSeesDev(h.role(r)) {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
 	if rel.Status != "published" {
 		http.Error(w, "Release must be published before it can be deployed.", http.StatusBadRequest)
 		return
@@ -11341,6 +11443,10 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
 	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	if rel, err := h.db.GetRelease(r.Context(), relID); err == nil && rel.IsDev && !roleSeesDev(h.role(r)) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -12296,6 +12402,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// Collections for the palette's target dropdown (restaurants + releases with counts).
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
+	scopeReleases = visibleRail(h.role(r), scopeReleases)
 
 	// Diagnostics catalog for the palette (admin/dev/operator run them; the action
 	// is hidden for viewers and when the catalog is empty).
@@ -13172,6 +13279,7 @@ func (h *Handler) TargetLivePage(w http.ResponseWriter, r *http.Request) {
 	rests, _ := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7)
 	groups, _ := h.db.GetGroupHealth(ctx, h.connectedSlice())
 	rels, _ := h.db.ListPublishedReleasesForRail(ctx)
+	rels = visibleRail(h.role(r), rels)
 	all, _ := h.db.ListDevices(ctx, db.DeviceFilter{ActiveThresholdSecs: at}, 0, 20000, "serial", "asc")
 	connected := h.hub.ConnectedIDs()
 	online := 0
@@ -19103,6 +19211,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireReleaseAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireReleaseAdmin(h.ReleaseAddQFIL))
+	post("POST /releases/{id}/dev", h.requireReleaseAdmin(h.ReleaseSetDev))
 	post("POST /releases/{id}/qfil/{qid}/delete", h.requireReleaseAdmin(h.ReleaseDeleteQFIL))
 	post("POST /releases/track", h.requireReleaseAdmin(h.ReleaseTrack))
 	post("POST /releases/order", h.requireReleaseAdmin(h.ReorderVersions))

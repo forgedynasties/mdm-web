@@ -300,6 +300,7 @@ type Release struct {
 	TestingDoneBy       string     `json:"testing_done_by"`
 	ParentReleaseID     *int       `json:"parent_release_id"`       // set for branch builds — the release this forked from
 	IsBranch            bool       `json:"is_branch"`               // off-mainline temporary test build
+	IsDev               bool       `json:"is_dev"`                  // work in progress: only devs/admins see it
 	PackageCount        int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount         int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 	MergedFromReleaseID *int       `json:"merged_from_release_id"`  // mainline node: the branch it absorbed on merge
@@ -337,6 +338,7 @@ type Update struct {
 	DeviceDownloading int          `json:"device_downloading,omitempty"` // populated by ListDeployments
 	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
 	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
+	ReleaseIsDev      bool         `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
 	DeviceStatus      string       `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
 	DeviceRebootSentAt *time.Time  `json:"-"`                             // populated by ResolveUpdateForDevice
 }
@@ -10654,6 +10656,12 @@ CREATE INDEX IF NOT EXISTS idx_releases_parent ON releases(parent_release_id);
 -- merged_from_release_id is set on the new mainline node (the branch it absorbed);
 -- merged_into_release_id is set on the branch (where it landed). A branch with
 -- merged_into_release_id set is terminal ("merged") and offers no further merge.
+-- Dev releases: a build being worked on is visible only to devs and admins, so a
+-- half-finished release never shows up on an operator's Updates page or in a push
+-- picker. New releases created from the UI start dev and are published to everyone
+-- by turning the flag off. The column defaults to false so existing releases — and
+-- any release auto-created from a build a device reports — stay visible as before.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS is_dev BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_from_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_into_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_at TIMESTAMPTZ;
@@ -11105,9 +11113,9 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version, product string) (
 	p, _ := prod.Resolve(product)
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, product, name, changelog, status, created_at, published_at
+		SELECT id, version, product, name, changelog, status, is_dev, created_at, published_at
 		FROM releases WHERE version = $1 AND product = $2
-	`, version, p.Key).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
+	`, version, p.Key).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.IsDev, &r.CreatedAt, &r.PublishedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -11117,11 +11125,11 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version, product string) (
 func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, product, name, changelog, status, skip_base_tests, created_at, published_at,
+		SELECT id, version, product, name, changelog, status, skip_base_tests, is_dev, created_at, published_at,
 		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch,
 		       merged_from_release_id, merged_into_release_id, merged_at, merged_by
 		FROM releases WHERE id = $1
-	`, id).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
+	`, id).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.IsDev, &r.CreatedAt, &r.PublishedAt,
 		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch,
 		&r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy)
 	if err != nil {
@@ -11132,7 +11140,7 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.product, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
+		SELECT r.id, r.version, r.product, r.name, r.changelog, r.status, r.hidden, r.is_dev, r.created_at, r.published_at,
 		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
 		       r.parent_release_id, r.is_branch,
 		       r.merged_from_release_id, r.merged_into_release_id, r.merged_at, r.merged_by,
@@ -11151,7 +11159,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.IsDev, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -11167,18 +11175,19 @@ type ReleaseRailItem struct {
 	Version     string
 	Name        string
 	DeviceCount int
+	IsDev       bool
 }
 
 // ListPublishedReleasesForRail returns published, non-hidden releases newest-first, each
 // with the number of non-hidden devices currently on that version.
 func (d *DB) ListPublishedReleasesForRail(ctx context.Context) ([]ReleaseRailItem, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.name, COUNT(dev.build_id)::int AS device_count
+		SELECT r.id, r.version, r.name, r.is_dev, COUNT(dev.build_id)::int AS device_count
 		FROM releases r
 		LEFT JOIN devices dev ON dev.build_id = r.version AND NOT dev.hidden
 		    AND (CASE WHEN dev.product = '' THEN 't7' ELSE dev.product END) = r.product
 		WHERE r.status = 'published' AND NOT r.hidden
-		GROUP BY r.id, r.version, r.name, r.published_at, r.created_at
+		GROUP BY r.id, r.version, r.name, r.is_dev, r.published_at, r.created_at
 		ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC
 	`)
 	if err != nil {
@@ -11188,12 +11197,19 @@ func (d *DB) ListPublishedReleasesForRail(ctx context.Context) ([]ReleaseRailIte
 	var out []ReleaseRailItem
 	for rows.Next() {
 		var r ReleaseRailItem
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.DeviceCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.IsDev, &r.DeviceCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// SetReleaseDev marks a release as dev-only (visible to devs and admins) or
+// publishes it to every role.
+func (d *DB) SetReleaseDev(ctx context.Context, id int, dev bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET is_dev = $2 WHERE id = $1`, id, dev)
+	return err
 }
 
 // SetReleaseHidden hides/unhides a release from the main list (irrelevant releases).
@@ -11643,8 +11659,10 @@ func (d *DB) ClearReleaseTestingDone(ctx context.Context, id int) error {
 func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, name, changelog string) (int, error) {
 	var id int
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, product)
-		VALUES ($1, $2, $3, true, $4, (SELECT product FROM releases WHERE id = $4)) RETURNING id`,
+		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, product, is_dev)
+		VALUES ($1, $2, $3, true, $4, (SELECT product FROM releases WHERE id = $4),
+		        -- a fork of a dev release is dev too; forking a visible release keeps it visible
+		        COALESCE((SELECT is_dev FROM releases WHERE id = $4), false)) RETURNING id`,
 		version, name, changelog, parentID).Scan(&id)
 	return id, err
 }
@@ -11910,6 +11928,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.ota_package_id, 0), COALESCE(u.release_id, 0), u.reboot_behavior,
 		       u.scheduled_time, u.status, u.created_at, u.created_by, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'),
+		       COALESCE(rel.is_dev, false),
 		       COUNT(ud.device_id) AS device_total,
 		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed,
 		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
@@ -11917,7 +11936,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		FROM updates u
 		LEFT JOIN releases rel ON rel.id = u.release_id
 		LEFT JOIN update_devices ud ON ud.update_id = u.id
-		GROUP BY u.id, rel.version, rel.product
+		GROUP BY u.id, rel.version, rel.product, rel.is_dev
 		ORDER BY u.created_at DESC
 		LIMIT 200
 	`)
@@ -11930,12 +11949,12 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		var u Update
 		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
-			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.DeviceTotal, &u.DeviceInstalled,
+			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.ReleaseIsDev, &u.DeviceTotal, &u.DeviceInstalled,
 			&u.DeviceDownloading, &u.DeviceFailed); err != nil {
 			return nil, err
 		}
 		u.Product = product
-		u.Release = &Release{ID: u.ReleaseID, Version: version, Product: product}
+		u.Release = &Release{ID: u.ReleaseID, Version: version, Product: product, IsDev: u.ReleaseIsDev}
 		out = append(out, u)
 	}
 	return out, rows.Err()
@@ -11945,7 +11964,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 // package — the choices offered in the Updates-hub deploy composer.
 func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT DISTINCT r.id, r.version, r.name, r.created_at
+		SELECT DISTINCT r.id, r.version, r.name, r.is_dev, r.created_at
 		FROM releases r
 		JOIN ota_packages p ON p.release_id = r.id AND p.status = 'active'
 		WHERE r.status = 'published' AND NOT r.hidden
@@ -11957,7 +11976,7 @@ func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var rel Release
-		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.CreatedAt); err != nil {
+		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.IsDev, &rel.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, rel)

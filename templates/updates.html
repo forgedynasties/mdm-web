@@ -104,6 +104,7 @@
           <span class="uh-ver">{{.Version}}</span>
           {{if eq .Status "published"}}<span class="cc-pill ok">published</span>{{else}}<span class="cc-pill mut">{{.Status}}</span>{{end}}
           {{if .Branch}}<span class="cc-tag">branch</span>{{end}}
+          {{if .Dev}}<span class="cc-tag warn" title="Only devs and admins see this release">dev</span>{{end}}
           <span class="cc-tag">{{productLabel .Product}}</span>
         </div>
         <div class="uh-sub">{{if .Name}}{{.Name}} · {{end}}{{.Packages}} package{{if ne .Packages 1}}s{{end}} · {{.Deploys}} rollout{{if ne .Deploys 1}}s{{end}} · <span class="reltime" data-ts="{{.Created.Unix}}">{{timeSince .Created}}</span></div>

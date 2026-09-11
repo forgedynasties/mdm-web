@@ -20,6 +20,7 @@ func (h *Handler) legacyOTAData(r *http.Request) map[string]any {
 	devices, _ := h.db.ListLegacyOTADevices(ctx)
 	deployments, _ := h.db.ListLegacyDeployments(ctx)
 	releases, _ := h.db.ListReleasesWithPackages(ctx)
+	releases = visibleReleases(h.role(r), releases)
 
 	// Which of these serials also run the MDM client, so the list can link to the
 	// device page for the ones that have one.

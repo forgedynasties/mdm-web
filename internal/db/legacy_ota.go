@@ -281,7 +281,7 @@ func (d *DB) PickLegacyOTAPackage(ctx context.Context, releaseID int, buildID st
 // per device at check-update time when their source build matches.
 func (d *DB) ListReleasesWithPackages(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.product, r.created_at
+		SELECT r.id, r.version, r.product, r.is_dev, r.created_at
 		FROM releases r
 		WHERE r.status = 'published' AND EXISTS (SELECT 1 FROM ota_packages p WHERE p.release_id = r.id AND p.status = 'active' AND p.type = 'full')
 		ORDER BY r.product, r.created_at DESC`)
@@ -292,7 +292,7 @@ func (d *DB) ListReleasesWithPackages(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.IsDev, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
