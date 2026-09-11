@@ -9714,11 +9714,14 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	// KPI strip counts (releases.html cc-kpis): published / draft / under-test tracked
 	// releases in the current (product-filtered) view, plus the newest published
 	// release's fleet adoption for the page verdict headline.
-	publishedCount, draftCount, underTestCount := 0, 0, 0
+	publishedCount, draftCount, underTestCount, devCount := 0, 0, 0, 0
 	latestPublishedPct := 0
 	for _, v := range active {
 		if !v.Tracked {
 			continue
+		}
+		if v.IsDev {
+			devCount++
 		}
 		switch v.Status {
 		case "published":
@@ -9744,6 +9747,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"PublishedCount":      publishedCount,
 		"DraftCount":          draftCount,
 		"UnderTestCount":      underTestCount,
+		"DevCount":            devCount,
 		"LatestPublishedPct":  latestPublishedPct,
 		"FleetTotal":      fleetTotal,
 		"ActiveRelease":   activeRel,
