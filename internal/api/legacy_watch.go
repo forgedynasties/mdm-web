@@ -46,13 +46,18 @@ var (
 // minutes, and the device's own poll on the new build closes the row anyway.
 const legacyWatchTimeout = 90 * time.Minute
 
-// How often to ask a socket-less device for its update_engine log, and how many lines
+// How often to ask a socket-less device for its update_engine log, and how much of it
 // to ask for: an install logs a progress line every ~30s, so 60 lines covers the gap
 // with room for the partition/finalize markers.
 const (
 	legacyPollEvery = 2 * time.Minute
-	legacyPollLines = 60
+	legacyPollCmd   = "logcat -d -s update_engine -t 60"
 )
+
+// legacyProbes are the shell commands this package issued to read update_engine on a
+// device with no socket, so their output can be recognised when it comes back on the
+// command ack. commandID -> serial.
+var legacyProbes sync.Map
 
 var legacyWatching sync.Map // serial -> struct{}
 
@@ -256,8 +261,18 @@ func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, ser
 			}()
 			return
 		}
-		if _, err := h.db.CreateLogcatRequest(ctx, deviceID, "I", legacyPollLines, "update_engine"); err != nil {
-			log.Printf("[legacy-ota] logcat request for %s: %v", serial, err)
+		// A shell command, NOT a logcat request: logcat requests only ever go out over
+		// the WebSocket, so on these devices they sit pending forever (some from
+		// months ago). Commands ride the check-in response, and the output comes back
+		// on the ack — which is how the Shell page works on this same hardware.
+		payload, _ := json.Marshal(map[string]string{"cmd": legacyPollCmd})
+		cmd, err := h.db.CreateCommandBy(ctx, "shell", "", payload, "devices", []uuid.UUID{deviceID}, "")
+		if err != nil {
+			log.Printf("[legacy-ota] progress probe for %s: %v", serial, err)
+		} else {
+			legacyProbes.Store(cmd.ID, serial)
+			// Clean up if the device never answers, so the map can't grow forever.
+			time.AfterFunc(20*time.Minute, func() { legacyProbes.Delete(cmd.ID) })
 		}
 		select {
 		case <-ctx.Done():
@@ -265,6 +280,19 @@ func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, ser
 		case <-ticker.C:
 		}
 	}
+}
+
+// LegacyProbeOutput feeds a probe's output back in when its ack arrives. Returns
+// false when the command was not one of ours, so the ack path can skip the work.
+func (h *Handler) LegacyProbeOutput(ctx context.Context, cmdID uuid.UUID, output string) bool {
+	v, ok := legacyProbes.Load(cmdID)
+	if !ok {
+		return false
+	}
+	legacyProbes.Delete(cmdID)
+	serial, _ := v.(string)
+	h.legacyProgressFromLogcat(ctx, serial, output)
+	return true
 }
 
 // legacyProgressFromLogcat reads a logcat dump for a device that is mid legacy install

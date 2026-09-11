@@ -1893,6 +1893,9 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
+		// A progress probe this server issued for a legacy install on a device with no
+		// socket — read update_engine's own numbers out of it.
+		h.LegacyProbeOutput(r.Context(), cmdID, body.Output)
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		if errors.Is(err, db.ErrCommandNotTargeted) {
