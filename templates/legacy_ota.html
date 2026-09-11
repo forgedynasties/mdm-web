@@ -24,13 +24,15 @@
 .lo-dep-h .m { color:var(--muted); font-size:12.5px; flex-basis:100%; }
 .lo-dep-h form { margin:0; }
 .lo-dep-rows { display:flex; flex-direction:column; gap:4px; }
-.lo-dep-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:4px 0; }
+.lo-dep-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:6px 0; border-top:1px solid var(--border-soft); }
+.lo-dep-row:first-child { border-top:0; }
+.lo-dep-row form { margin-left:auto; }
+.lo-dep-row form + form { margin-left:0; }
 .lo-dep-row .sn { font:500 12px var(--mono); min-width:170px; }
 .lo-dep-row .st { color:var(--muted); flex:1; }
 .lo-push { display:flex; flex-direction:column; gap:14px; }
 .lo-push-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border-soft); padding-top:14px; }
-@media (max-width: 900px) { .lo-grid { grid-template-columns:1fr; } }
-.lo-grid { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:16px; align-items:start; }
+.lo-dep-row .st { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 </style>
 
 <div class="cc-wrap">
@@ -94,19 +96,10 @@
 </div>
 {{end}}
 
-<div class="lo-grid">
-  <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3>
-      <label class="lo-tog m" title="Some devices poll this listener but can also take an MDM OTA — they belong on the Updates page, not here">
-        <input type="checkbox" id="lo-only-legacy" checked onchange="loOnlyLegacy(this.checked)"> Legacy-only devices
-      </label>
-    </div>
-    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s, legacy-refresh from:body" hx-target="this" hx-swap="innerHTML">
-      {{template "legacy-devices" .}}
-    </div>
-  </div>
-
-  <div class="cc-card">
+{{/* Rollouts first and full width: what is happening now outranks the roster,
+     and a rollout row carries a serial, a state, a progress bar and two buttons —
+     it never fit in a 380px column. */}}
+<div class="cc-card" style="margin-bottom:16px;">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><h3>Rollouts</h3><span class="m muted small">newest first</span></div>
     {{range .Deployments}}
     <div class="lo-dep">
@@ -147,6 +140,17 @@
     {{else}}
     <div class="lo-empty">No legacy rollout yet. Pick a release and some devices above.</div>
     {{end}}
+  </div>
+
+<div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3>
+      <label class="lo-tog m" title="Some devices poll this listener but can also take an MDM OTA — they belong on the Updates page, not here">
+        <input type="checkbox" id="lo-only-legacy" checked onchange="loOnlyLegacy(this.checked)"> Legacy-only devices
+      </label>
+    </div>
+    <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s, legacy-refresh from:body" hx-target="this" hx-swap="innerHTML">
+      {{template "legacy-devices" .}}
+    </div>
   </div>
 </div>
 </div>
