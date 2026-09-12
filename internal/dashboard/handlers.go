@@ -11328,7 +11328,22 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	// rather than appending them under everything else.
 	sort.SliceStable(relRows, func(i, j int) bool { return relRows[i].Created.After(relRows[j].Created) })
 
+	// The legacy fleet as a line of state, not a button: how many devices speak the
+	// old protocol, how many are mid-update right now, and who is answering their
+	// port. All three are things an operator wants to see without clicking.
 	legacySeen, _ := h.db.CountLegacyOTADevices(ctx)
+	legacyUpdating, legacyRecent := 0, 0
+	if devs, err := h.db.ListLegacyOTADevices(ctx); err == nil {
+		for _, d := range devs {
+			switch d.Status {
+			case "offered", "downloading", "installing", "verifying", "finalizing", "awaiting_reboot":
+				legacyUpdating++
+			}
+			if time.Since(d.LastSeen) < 30*time.Minute {
+				legacyRecent++
+			}
+		}
+	}
 	h.render(w, r, "updates.html", map[string]any{
 		"Title":              "Updates",
 		"Rollouts":           rollouts,
@@ -11343,6 +11358,10 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		"FailedCount":        failed,
 		"InstalledCount":     installed,
 		"LegacySeen":         legacySeen,
+		"LegacyUpdating":     legacyUpdating,
+		"LegacyRecent":       legacyRecent,
+		"LegacyMode":         h.cfg.LegacyOTAMode(),
+		"LegacyPort":         os.Getenv("LEGACY_OTA_PORT"),
 		"CanDeploy":          roleCanOTA(h.role(r)),
 		"Products":           h.releaseProductFilters(ctx),
 		"FilterProduct":      filterProduct,
