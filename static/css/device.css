@@ -387,5 +387,5 @@
 .ddc-kv.mdm-move{display:block;}
 .ddc-kv.mdm-move .v{display:block;margin-top:7px;text-align:left;font-weight:400;}
 .ddc-kv.mdm-move form{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0;}
-.ddc-kv.mdm-move input[type=url]{flex:1 1 200px;min-width:0;font-size:12.5px;padding:5px 9px;}
+.ddc-kv.mdm-move select{flex:1 1 200px;min-width:0;font-size:12.5px;padding:5px 9px;}
 .ddc-kv.mdm-move .muted.small{margin-top:5px;}

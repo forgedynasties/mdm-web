@@ -115,6 +115,10 @@ type Config struct {
 	// into one library family, "suggest" only proposes merges, "off" never
 	// groups variants. Versions of one package always group. "" = auto.
 	AppFamilyModeVal string `json:"app_family_mode,omitempty"`
+	// MDMServersVal are the servers a device can be moved to from its page (the
+	// dropdown behind "Move & reboot", which sets persist.sys.mdm.url). Empty means
+	// the built-in defaults below.
+	MDMServersVal []string `json:"mdm_servers,omitempty"`
 	// LegacyOTAModeVal decides who answers the legacy otautil routes on the legacy
 	// OTA port: "mdm" (this server, from its own deployments) or "passthrough"
 	// (forwarded verbatim to the old ota-server container). "" = mdm.
@@ -494,6 +498,33 @@ func (c *Config) KioskAllowlist() []string {
 	out := make([]string, len(c.KioskAllowlistVal))
 	copy(out, c.KioskAllowlistVal)
 	return out
+}
+
+// defaultMDMServers is where a device can be pointed when nothing is configured:
+// the live server and the stage one, which is the move people actually make.
+var defaultMDMServers = []string{"https://mdm.dev.aioapp.com", "https://mdm-stage.dev.aioapp.com"}
+
+// MDMServers returns the servers offered when moving a device, a copy.
+func (c *Config) MDMServers() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.MDMServersVal) == 0 {
+		out := make([]string, len(defaultMDMServers))
+		copy(out, defaultMDMServers)
+		return out
+	}
+	out := make([]string, len(c.MDMServersVal))
+	copy(out, c.MDMServersVal)
+	return out
+}
+
+// SetMDMServers replaces that list; an empty list restores the defaults.
+func (c *Config) SetMDMServers(urls []string) error {
+	c.mu.Lock()
+	c.MDMServersVal = urls
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 // SetKioskAllowlist replaces the kiosk allowlist (patterns already trimmed/deduped

@@ -5407,6 +5407,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// Servers to offer when moving a device: this one first, then any peer named
 		// in MDM_PEER_URLS (comma separated) — a stage box, usually.
 		"MDMServers":          h.mdmServerChoices(),
+		"ThisServer":          h.thisServerURL(),
 		"Caps":                device.CapSet(),
 		"Classes":             product.Classes(),
 		"DeviceCrashCount":    crashCount,
@@ -16540,6 +16541,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
 		"OTABuildRows":         h.otaBuildRows(r.Context()),
+		"MDMServers":           h.cfg.MDMServers(),
 		"LegacyOTAMode":        h.cfg.LegacyOTAMode(),
 		"LegacyOTAPort":        os.Getenv("LEGACY_OTA_PORT"),
 		"LegacyOTAUpstream":    os.Getenv("LEGACY_OTA_UPSTREAM"),
@@ -18601,8 +18603,18 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
-// mdmServerChoices is this server's own device-facing URL plus any peers configured
-// in MDM_PEER_URLS, for the "move device" control.
+// thisServerURL is this server's own device-facing origin, so the move menu can say
+// which entry means "stay here".
+func (h *Handler) thisServerURL() string {
+	if len(h.publicOrigins) > 0 {
+		return strings.TrimRight(h.publicOrigins[0], "/")
+	}
+	return ""
+}
+
+// mdmServerChoices is the list an admin maintains in Settings — where a device can
+// be moved to. This server's own device-facing URL is folded in so "move it back"
+// is always on the menu even if someone trims the list.
 func (h *Handler) mdmServerChoices() []string {
 	var out []string
 	seen := map[string]bool{}
@@ -18614,13 +18626,38 @@ func (h *Handler) mdmServerChoices() []string {
 		seen[u] = true
 		out = append(out, u)
 	}
-	for _, o := range h.publicOrigins {
+	for _, o := range h.cfg.MDMServers() {
 		add(o)
 	}
-	for _, o := range strings.Split(os.Getenv("MDM_PEER_URLS"), ",") {
-		add(o)
-	}
+	// Only the primary origin: a box that answers on several addresses does not need
+	// all of them on this menu.
+	add(h.thisServerURL())
 	return out
+}
+
+// SettingsSetMDMServers replaces the move-a-device server list (one URL per line).
+func (h *Handler) SettingsSetMDMServers(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	var urls []string
+	seen := map[string]bool{}
+	for _, line := range strings.Split(r.FormValue("servers"), "\n") {
+		u, err := url.Parse(strings.TrimSpace(line))
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			continue
+		}
+		clean := strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/")
+		if seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		urls = append(urls, clean)
+	}
+	if err := h.cfg.SetMDMServers(urls); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.mdm_servers", "", strings.Join(urls, " "))
+	h.settingsRedirect(w, r)
 }
 
 // DeviceMoveServer points a firmware device at a different MDM and reboots it into
@@ -19742,6 +19779,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
 	post("POST /settings/ota-support", h.requireStrictAdmin(h.SettingsSetOTASupport))
+	post("POST /settings/mdm-servers", h.requireStrictAdmin(h.SettingsSetMDMServers))
 	post("POST /settings/ota-min-release", h.requireStrictAdmin(h.SettingsSetOTAMinRelease))
 	post("POST /settings/legacy-ota", h.requireStrictAdmin(h.SettingsSetLegacyOTA))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))

@@ -353,6 +353,19 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><h3>Move a device to another MDM</h3><span class="muted small m">the dropdown on a device page</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      The servers a firmware device can be pointed at from its page — it writes <code>persist.sys.mdm.url</code> and reboots, and reports there from then on. One URL per line; leave empty for the built-in live and stage servers. This server is always offered, whatever the list says.
+    </div>
+    <form action="/settings/mdm-servers" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      <textarea name="servers" rows="3" class="form-input" spellcheck="false" placeholder="https://mdm.example.com" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{range .MDMServers}}{{.}}
+{{end}}</textarea>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save servers</button></div>
+    </form>
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
