@@ -374,8 +374,8 @@ a.fleet-rail-item{min-height:40px}
     </a>
 
 
-    {{/* Hardware is an admin's concern — an operator navigates by venue, not by model. */}}
-    {{if canAdmin .Role}}
+    {{/* Everyone navigates by product; the DPC-managed hardware in this list is
+         filtered out server-side for anyone but an admin. */}}
     <div class="fleet-rail-cap"><span>Products</span></div>
     {{range .RailProducts}}
     <a class="fleet-rail-item{{if eq .Key $.FilterProduct}} on{{end}}" href="/devices?product={{.Key}}">
@@ -384,7 +384,6 @@ a.fleet-rail-item{min-height:40px}
     {{end}}
     {{if not .RailProducts}}
     <div class="fleet-rail-empty">None reporting</div>
-    {{end}}
     {{end}}
 
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>

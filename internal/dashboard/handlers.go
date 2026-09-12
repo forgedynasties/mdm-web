@@ -4169,7 +4169,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		DeviceCount int
 	}
 	var railProducts []railProduct
-	for _, p := range h.productFilters(r.Context()) {
+	for _, p := range h.fleetProductFilters(r.Context(), h.role(r)) {
 		if n := prodCounts[p.Key]; n > 0 {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
@@ -4234,7 +4234,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Groups":               groups,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
-		"Products":             h.productFilters(r.Context()),
+		"Products":             h.fleetProductFilters(r.Context(), h.role(r)),
 		"Builds":               builds,
 		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
@@ -4710,7 +4710,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		Pct   int
 	}
 	var products []productRow
-	for _, p := range h.productFilters(r.Context()) {
+	for _, p := range h.fleetProductFilters(r.Context(), h.role(r)) {
 		if n := prodCounts[p.Key]; n > 0 {
 			pct := 0
 			if summary.Total > 0 {
@@ -9457,6 +9457,40 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 	return out
 }
 
+// fleetProductFilters is productFilters for the fleet surfaces: DPC-managed hardware
+// (a Sunmi till, a stock Pixel) is an admin's concern, so only an admin sees those
+// entries. Our own products are everyone's.
+func (h *Handler) fleetProductFilters(ctx context.Context, role string) []product.Product {
+	all := h.productFilters(ctx)
+	if role == "admin" {
+		return all
+	}
+	out := all[:0:0]
+	for _, p := range all {
+		if p.Kind == product.KindAndroid {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// releaseProductFilters is productFilters for everything release-shaped — Updates,
+// Releases, rollouts, the push screen. A release is a firmware image for our own
+// hardware; a DPC-managed device has no firmware we ship, so offering its product as
+// a filter there only ever leads to an empty list.
+func (h *Handler) releaseProductFilters(ctx context.Context) []product.Product {
+	all := h.productFilters(ctx)
+	out := all[:0:0]
+	for _, p := range all {
+		if p.Kind == product.KindAndroid {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
 // modelLabel turns what a device reports about itself into the name on the box:
 // "SUNMI" + "D3 PRO" -> "Sunmi D3 PRO". Returns "" when the device said nothing,
 // leaving the product key as the label.
@@ -9869,7 +9903,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"GlobalProblems":  globalProblems,
 		"ReleaseTrain":    releaseTrain,
 		"Graph":           buildReleaseGraph(releases),
-		"Products":        h.productFilters(r.Context()),
+		"Products":        h.releaseProductFilters(r.Context()),
 		"FilterProduct":   r.URL.Query().Get("product"),
 	}
 	// Live "OTA in progress" summary card — devices mid-OTA with their last-reported
@@ -11291,7 +11325,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		"InstalledCount":     installed,
 		"LegacySeen":         legacySeen,
 		"CanDeploy":          roleCanOTA(h.role(r)),
-		"Products":           h.productFilters(ctx),
+		"Products":           h.releaseProductFilters(ctx),
 		"FilterProduct":      filterProduct,
 	})
 }
@@ -11340,7 +11374,7 @@ func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
 		"Online":        online,
 		"CanDeploy":     canDeploy,
 		"PreRelease":    r.URL.Query().Get("release"),
-		"Products":      h.productFilters(r.Context()),
+		"Products":      h.releaseProductFilters(r.Context()),
 		"FilterProduct": filterProduct,
 	})
 }
