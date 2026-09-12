@@ -2,7 +2,6 @@
 {{template "header" .}}
 <link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 <style>
-.lo-mode { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; }
 .lo-tbl { width:100%; border-collapse:collapse; font-size:13px; }
 .lo-tbl th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--border-soft); }
 .lo-tbl td { padding:10px 14px; border-top:1px solid var(--border-soft); vertical-align:middle; }
@@ -26,7 +25,7 @@
   <div>
     <div class="cc-eyebrow">Updates · Legacy OTA</div>
     <h1 class="cc-h1">{{.KPI.seen}} legacy device{{if ne .KPI.seen 1}}s{{end}} <span class="hl {{if gt .KPI.failed 0}}danger{{else}}ok{{end}}">· {{.KPI.updating}} updating</span></h1>
-    <div class="cc-sub">Builds without the MDM agent poll this host on port {{if .LegacyOTAPort}}{{.LegacyOTAPort}}{{else}}8000{{end}} with the old <code>otautil</code> protocol. They stay out of the fleet. Push a release to them here; each device picks it up on its next poll, every 15 minutes at least.</div>
+    <div class="cc-sub">Builds without the MDM agent speak the old <code>otautil</code> protocol and stay out of the fleet. They pick up an update on their next poll, every 15 minutes at least.{{if ne .LegacyOTAMode "mdm"}} <b class="hl danger">Their requests are being forwarded to the old ota-server right now</b> — nothing pushed from here reaches them until that is switched back in <a href="/settings#devices">Settings</a>.{{end}}</div>
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn">Updates</a>
@@ -40,29 +39,6 @@
   <div class="cc-kpi"><span class="k">Updated</span><div class="v{{if gt .KPI.updated 0}} ok{{end}}">{{.KPI.updated}}</div><div class="d">polled on the offered build</div></div>
   <div class="cc-kpi"><span class="k">Failed</span><div class="v{{if gt .KPI.failed 0}} bad{{end}}">{{.KPI.failed}}</div><div class="d">need a retry · see the rollout on <a href="/updates">Updates</a></div></div>
 </div>
-
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-cb lo-mode">
-    <span>Who answers port {{if .LegacyOTAPort}}{{.LegacyOTAPort}}{{else}}8000{{end}}:</span>
-    {{if eq .LegacyOTAMode "mdm"}}<span class="cc-tag ok">AIO MDM</span><span class="muted small">updates come from the rollouts below</span>{{else}}<span class="cc-tag warn">Pass-through</span><span class="muted small">every request is forwarded to the old ota-server{{if .LegacyOTAUpstream}} at {{.LegacyOTAUpstream}}{{end}}; nothing below is used</span>{{end}}
-    {{if canAdmin .Role}}
-    <form action="/settings/legacy-ota" method="POST" style="margin-left:auto;display:inline;">
-      <input type="hidden" name="next" value="/updates/legacy">
-      {{if eq .LegacyOTAMode "mdm"}}<input type="hidden" name="legacy_ota_mode" value="passthrough"><button type="submit" class="cc-btn sm" onclick="return confirm('Forward every legacy device request to the old ota-server? Rollouts here stop being offered until you switch back.')">Switch to pass-through</button>
-      {{else}}<input type="hidden" name="legacy_ota_mode" value="mdm"><button type="submit" class="cc-btn sm primary">Switch to AIO MDM</button>{{end}}
-    </form>
-    {{end}}
-  </div>
-</div>
-
-{{if .CanEdit}}
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-cb" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;">
-    <span>Pushing a release to these devices happens on the Updates page — one rollout covers both transports, and each device is served over whichever its build supports.</span>
-    <a href="/updates/new" class="cc-btn primary" style="margin-left:auto;">New update</a>
-  </div>
-</div>
-{{end}}
 
 {{/* No rollouts pane here: every legacy push is half of a deployment, and the
      Updates page lists them all — mixing in a second, legacy-only list just gave
