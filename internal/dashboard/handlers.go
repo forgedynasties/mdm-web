@@ -11259,6 +11259,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ── releases: the tracked list, newest first, with fleet adoption ──
+	const releasePaneRows = 8
 	releases, _ := h.db.ListReleases(ctx)
 	releases = visibleReleases(h.role(r), releases)
 	adoption := map[string]int{}
@@ -11283,7 +11284,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Created  time.Time
 	}
 	var relRows []releaseRow
-	published, latestPublishedPct, tracked, devShown := 0, 0, 0, 0
+	published, latestPublishedPct, tracked, devShown, shown := 0, 0, 0, 0, 0
 	for _, rel := range releases {
 		if rel.Hidden || !productMatches(rel.Product) {
 			continue
@@ -11300,18 +11301,32 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 				latestPublishedPct = pct
 			}
 		}
-		if len(relRows) < 8 {
-			if rel.IsDev {
+		// The pane shows the newest few — but dev releases are folded away by default,
+		// so counting them against the limit left the default view nearly empty when
+		// the recent releases happen to be dev (two rows, six blanks). Fill each set
+		// separately: the visible list always holds its eight, and the dev ones ride
+		// along for the toggle.
+		row := releaseRow{
+			ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
+			Status: rel.Status, Branch: rel.IsBranch, Dev: rel.IsDev,
+			Packages: rel.PackageCount, Deploys: rel.DeployCount,
+			Devices: n, Pct: pct, Created: rel.CreatedAt,
+		}
+		if rel.IsDev {
+			if devShown < releasePaneRows {
 				devShown++
+				relRows = append(relRows, row)
 			}
-			relRows = append(relRows, releaseRow{
-				ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
-				Status: rel.Status, Branch: rel.IsBranch, Dev: rel.IsDev,
-				Packages: rel.PackageCount, Deploys: rel.DeployCount,
-				Devices: n, Pct: pct, Created: rel.CreatedAt,
-			})
+			continue
+		}
+		if shown < releasePaneRows {
+			shown++
+			relRows = append(relRows, row)
 		}
 	}
+	// Back into date order, so revealing the dev ones slots them where they belong
+	// rather than appending them under everything else.
+	sort.SliceStable(relRows, func(i, j int) bool { return relRows[i].Created.After(relRows[j].Created) })
 
 	legacySeen, _ := h.db.CountLegacyOTADevices(ctx)
 	h.render(w, r, "updates.html", map[string]any{
