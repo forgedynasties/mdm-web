@@ -301,6 +301,11 @@ type Release struct {
 	ParentReleaseID     *int       `json:"parent_release_id"`       // set for branch builds — the release this forked from
 	IsBranch            bool       `json:"is_branch"`               // off-mainline temporary test build
 	IsDev               bool       `json:"is_dev"`                  // work in progress: only devs/admins see it
+	// Which artifacts a release can actually deliver, populated by ListDeployableReleases.
+	// A full image reaches any device (and is the only thing the legacy path can use);
+	// an incremental only reaches devices on its exact source build.
+	HasFull      bool `json:"has_full,omitempty"`
+	Incrementals int  `json:"incrementals,omitempty"`
 	PackageCount        int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount         int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 	MergedFromReleaseID *int       `json:"merged_from_release_id"`  // mainline node: the branch it absorbed on merge
@@ -11988,10 +11993,13 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 // package — the choices offered in the Updates-hub deploy composer.
 func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT DISTINCT r.id, r.version, r.name, r.is_dev, r.created_at
+		SELECT r.id, r.version, r.name, r.is_dev, r.created_at,
+		       bool_or(p.type = 'full') AS has_full,
+		       COUNT(*) FILTER (WHERE p.type = 'incremental')::int AS incrementals
 		FROM releases r
 		JOIN ota_packages p ON p.release_id = r.id AND p.status = 'active'
 		WHERE r.status = 'published' AND NOT r.hidden
+		GROUP BY r.id, r.version, r.name, r.is_dev, r.created_at
 		ORDER BY r.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -12000,7 +12008,7 @@ func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var rel Release
-		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.IsDev, &rel.CreatedAt); err != nil {
+		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.IsDev, &rel.CreatedAt, &rel.HasFull, &rel.Incrementals); err != nil {
 			return nil, err
 		}
 		out = append(out, rel)

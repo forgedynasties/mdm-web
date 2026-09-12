@@ -55,7 +55,11 @@
       {{if .Releases}}
       <select class="form-input" style="min-width:300px;" onchange="pushPickRelease(this.value)">
         <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
-        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}}</option>{{end}}
+        {{/* Say what each release can actually deliver: a full image reaches any
+             device (and is all the legacy path can use), an incremental only the
+             devices on its source build. Choosing between two releases without
+             that is choosing blind. */}}
+        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</option>{{end}}
       </select>
       {{else if $selProduct}}
       <div class="muted small" style="padding-bottom:8px;">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
