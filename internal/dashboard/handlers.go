@@ -13392,6 +13392,16 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 		// Devices that are not in the fleet at all but do poll the legacy listener:
 		// one push covers both kinds now, so they belong in the same list.
 		legacyRows = h.legacyPickerRows(r, pushRel, blocked, artifact, r.URL.Query().Get("q"), r.URL.Query().Get("status"))
+		// What can be pushed comes first. A blocked row still belongs in the list —
+		// "why can't I pick this one" is the next question — but scrolling past a
+		// screenful of up-to-date devices to reach the three that need the build is
+		// the picker failing at its one job.
+		sort.SliceStable(devices, func(i, j int) bool {
+			return blocked[devices[i].SerialNumber] == "" && blocked[devices[j].SerialNumber] != ""
+		})
+		sort.SliceStable(legacyRows, func(i, j int) bool {
+			return blocked[legacyRows[i].Device.Serial] == "" && blocked[legacyRows[j].Device.Serial] != ""
+		})
 	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
 		"Devices":     devices,
