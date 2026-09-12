@@ -11283,7 +11283,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Created  time.Time
 	}
 	var relRows []releaseRow
-	published, latestPublishedPct, tracked := 0, 0, 0
+	published, latestPublishedPct, tracked, devShown := 0, 0, 0, 0
 	for _, rel := range releases {
 		if rel.Hidden || !productMatches(rel.Product) {
 			continue
@@ -11301,6 +11301,9 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(relRows) < 8 {
+			if rel.IsDev {
+				devShown++
+			}
 			relRows = append(relRows, releaseRow{
 				ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
 				Status: rel.Status, Branch: rel.IsBranch, Dev: rel.IsDev,
@@ -11317,6 +11320,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		"RolloutTotal":       rolloutTotal,
 		"ReleaseRows":        relRows,
 		"ReleaseTotal":       tracked,
+		"DevCount":           devShown,
 		"PublishedCount":     published,
 		"LatestPublishedPct": latestPublishedPct,
 		"ActiveCount":        active,

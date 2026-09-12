@@ -39,6 +39,12 @@
 .uh-foot a{color:var(--accent-text);text-decoration:none;font-weight:600}
 .uh-foot a:hover{text-decoration:underline}
 .uh-foot .m{color:var(--muted);margin-left:auto}
+/* Dev releases fold away here the same way they do on the Releases page, and share
+   the same remembered choice — one switch, both lists. */
+.uh-rel-list .uh-row.devrel{display:none}
+.uh-rel-list.show-dev .uh-row.devrel{display:flex}
+.uh-devtog{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+.uh-devtog input{width:14px;height:14px}
 /* "New ▾" — native details/summary, so the menu needs no script */
 .uh-new{position:relative}
 .uh-new>summary{list-style:none;cursor:pointer}
@@ -109,10 +115,15 @@
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 11 3.8A2 2 0 0 0 9.6 3.2H4a1 1 0 0 0-1 1v5.6a2 2 0 0 0 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l4.6-4.6a2 2 0 0 0 0-2.8Z"/><path d="M7.5 7.5h.01"/></svg></span>
       <h3>Releases</h3>
-      <span class="m">newest first</span>
+      {{if and (canSeeDev .Role) (gt .DevCount 0)}}
+      <label class="uh-devtog m" title="Releases still marked dev — folded away by default">
+        <input type="checkbox" id="uh-dev-toggle" onchange="uhDevToggle(this.checked)"> Show {{.DevCount}} dev
+      </label>
+      {{else}}<span class="m">newest first</span>{{end}}
     </div>
+    <div class="uh-rel-list">
     {{range .ReleaseRows}}
-    <a class="uh-row" href="/releases/{{.ID}}">
+    <a class="uh-row{{if .Dev}} devrel{{end}}" href="/releases/{{.ID}}">
       <div class="uh-id">
         <div class="uh-top">
           <span class="uh-ver">{{.Version}}</span>
@@ -132,6 +143,7 @@
     {{else}}
     <div class="cc-empty"><div><b>No releases{{if .FilterProduct}} for {{productLabel .FilterProduct}}{{end}}</b><br>Track a build with <b>New release</b> and add its packages.</div></div>
     {{end}}
+    </div>
     <div class="uh-foot"><a href="/releases">All releases →</a><span class="m">{{.ReleaseTotal}} tracked</span></div>
   </div>
 
@@ -181,5 +193,23 @@
 </div>
 </div>
 
+<script>
+// Same switch and same remembered choice as the Releases page.
+function uhDevToggle(on) {
+  var l = document.querySelector('.uh-rel-list');
+  if (l) l.classList.toggle('show-dev', on);
+  try { localStorage.setItem('mdm-show-dev', on ? '1' : '0'); } catch (e) {}
+}
+(function () {
+  setTimeout(function () {
+    var on = false;
+    try { on = localStorage.getItem('mdm-show-dev') === '1'; } catch (e) {}
+    var box = document.getElementById('uh-dev-toggle');
+    if (box) box.checked = on;
+    var l = document.querySelector('.uh-rel-list');
+    if (l) l.classList.toggle('show-dev', on);
+  }, 0);
+})();
+</script>
 {{template "footer" .}}
 {{end}}
