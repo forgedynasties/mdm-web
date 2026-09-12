@@ -97,7 +97,7 @@ function loRelease(id) {
 {{if .Devices}}
 <div style="overflow-x:auto;">
 <table class="lo-tbl">
-  <tr><th>Serial</th><th>Build</th><th>State</th><th>Last poll</th><th>Last check</th><th>IP</th>{{if $.CanEdit}}<th></th>{{end}}</tr>
+  <tr><th>Serial</th><th>Build</th><th>State</th><th>Last poll</th><th>Last check</th><th>IP</th></tr>
   {{range .Devices}}
   <tr{{if not (index $.LegacyOnly .Serial)}} class="lo-mdm"{{end}}>
     <td class="mono">{{if index $.InFleet .Serial}}<a class="sn" href="/devices/{{.Serial}}" title="Also runs the MDM client">{{.Serial}}</a>{{else}}{{.Serial}}{{end}}{{if not (index $.LegacyOnly .Serial)}} <span class="cc-tag" title="This build can also take an MDM OTA">MDM OTA</span>{{end}}</td>
@@ -114,7 +114,6 @@ function loRelease(id) {
     <td><span class="reltime" data-ts="{{.LastSeen.Unix}}">{{timeSince .LastSeen}}</span> <span class="muted small">· {{.Polls}} poll{{if ne .Polls 1}}s{{end}}</span></td>
     <td>{{if .LastCheck}}<span class="reltime" data-ts="{{.LastCheck.Unix}}">{{timeSince .LastCheck}}</span>{{else}}<span class="muted">never</span>{{end}}</td>
     <td class="mono muted">{{.LastIP}}</td>
-    {{if $.CanEdit}}<td><form action="/updates/legacy/devices/{{.Serial}}/forget" method="POST" style="display:inline;"><button type="submit" class="cc-btn sm" title="Drop this row; it returns on the next poll">Forget</button></form></td>{{end}}
   </tr>
   {{end}}
 </table>

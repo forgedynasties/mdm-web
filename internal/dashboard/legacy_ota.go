@@ -222,17 +222,6 @@ func (h *Handler) LegacyOTARetry(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, "/updates/legacy", "Retrying "+serial+" on its next poll", "success")
 }
 
-func (h *Handler) LegacyOTADeviceDelete(w http.ResponseWriter, r *http.Request) {
-	serial := strings.TrimSpace(r.PathValue("serial"))
-	if err := h.db.DeleteLegacyOTADevice(r.Context(), serial); err != nil {
-		h.hxDoneToast(w, r, "/updates/legacy", "Could not forget the device", "error")
-		return
-	}
-	ota.Legacy.Clear(serial)
-	h.audit(r, "legacy_ota.device_forget", serial, "")
-	h.hxDoneToast(w, r, "/updates/legacy", "Forgot "+serial+" · it comes back on its next poll", "success")
-}
-
 // legacyPickerRows are the otautil devices that are NOT in the fleet, annotated for a
 // release push. A fleet device that happens to poll the legacy listener is already in
 // the main list with its own verdict; these are the ones that would otherwise be

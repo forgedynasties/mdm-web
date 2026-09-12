@@ -19809,7 +19809,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/legacy/deployments/{id}/cancel", h.requireOTA(h.LegacyOTACancel))
 	post("POST /updates/legacy/deployments/{id}/devices/{serial}/retry", h.requireOTA(h.LegacyOTARetry))
 	post("POST /updates/legacy/deployments/{id}/devices/{serial}/reboot", h.requireOTA(h.LegacyOTAReboot))
-	post("POST /updates/legacy/devices/{serial}/forget", h.requireOTA(h.LegacyOTADeviceDelete))
 	post("POST /updates", h.requireOTA(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
