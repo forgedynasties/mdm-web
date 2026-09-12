@@ -536,6 +536,23 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button type="submit" class="cc-btn primary sm"{{if not (canAdminOrOperator .Role)}} disabled{{end}}>Mark onboarded</button>
       </form></span></div>
     {{end}}
+    {{if and (canAdmin .Role) (not .IsDPC)}}
+    {{/* Move a device between MDM servers: the firmware client reads
+         persist.sys.mdm.url at startup, so this writes the property and reboots into
+         it. After that the device reports THERE, not here — hence admin-only and a
+         confirm that says so. */}}
+    <div class="ddc-kv"><span class="k">MDM server</span><span class="v">
+      <form method="POST" action="/devices/{{.Device.SerialNumber}}/move-server" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0"
+            onsubmit="return confirm('Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.')">
+        <input type="url" name="server_url" list="mdm-servers" required placeholder="https://mdm.example.com"
+               value="{{if .MDMServers}}{{index .MDMServers 0}}{{end}}"
+               style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);min-width:240px">
+        <datalist id="mdm-servers">{{range .MDMServers}}<option value="{{.}}"></option>{{end}}</datalist>
+        <button type="submit" class="cc-btn sm">Move &amp; reboot</button>
+      </form>
+      <div class="muted small" style="margin-top:4px;">Sets <code>persist.sys.mdm.url</code>, then reboots.</div>
+    </span></div>
+    {{end}}
     {{if canAdmin .Role}}
     <div class="ddc-kv"><span class="k">Lifecycle</span><span class="v" style="display:inline-flex;gap:6px;flex-wrap:wrap">
       {{if .Device.Retired}}

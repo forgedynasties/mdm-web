@@ -5404,6 +5404,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// Which update path this device is on: a build whose client can't apply an
 		// MDM OTA still updates, over the legacy otautil listener.
 		"OTAGate":             h.otaGate.Device(r.Context(), *device),
+		// Servers to offer when moving a device: this one first, then any peer named
+		// in MDM_PEER_URLS (comma separated) — a stage box, usually.
+		"MDMServers":          h.mdmServerChoices(),
 		"Caps":                device.CapSet(),
 		"Classes":             product.Classes(),
 		"DeviceCrashCount":    crashCount,
@@ -18598,6 +18601,73 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
+// mdmServerChoices is this server's own device-facing URL plus any peers configured
+// in MDM_PEER_URLS, for the "move device" control.
+func (h *Handler) mdmServerChoices() []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(u string) {
+		u = strings.TrimRight(strings.TrimSpace(u), "/")
+		if u == "" || seen[u] {
+			return
+		}
+		seen[u] = true
+		out = append(out, u)
+	}
+	for _, o := range h.publicOrigins {
+		add(o)
+	}
+	for _, o := range strings.Split(os.Getenv("MDM_PEER_URLS"), ",") {
+		add(o)
+	}
+	return out
+}
+
+// DeviceMoveServer points a firmware device at a different MDM and reboots it into
+// the change. The client reads persist.sys.mdm.url at startup, so the move is two
+// commands in order — set the prop, then reboot — and the device comes back talking
+// to the other server. It then belongs to THAT server: this one keeps the row it
+// already has and stops hearing from it, which is why this is admin-only and spelled
+// out in the confirm.
+func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || device == nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if device.IsDPC() {
+		h.hxDoneToast(w, r, "/devices/"+serial, "The DPC agent reads its server from its own config, not this property", "error")
+		return
+	}
+	r.ParseForm()
+	target := strings.TrimSpace(r.FormValue("server_url"))
+	u, err := url.Parse(target)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		h.hxDoneToast(w, r, "/devices/"+serial, "That is not a server URL — use https://host", "error")
+		return
+	}
+	target = strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/")
+
+	payload, _ := json.Marshal(map[string]string{"cmd": "setprop persist.sys.mdm.url " + target})
+	setCmd, err := h.db.CreateCommandBy(r.Context(), "shell", "", payload, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
+	if err != nil {
+		h.hxDoneToast(w, r, "/devices/"+serial, "Could not queue the server change", "error")
+		return
+	}
+	h.pushCommand(r.Context(), setCmd, "devices", []uuid.UUID{device.ID})
+	// Queued behind the setprop: the queue delivers in order and stops at a reboot,
+	// so the property is written before the device goes down.
+	rebootCmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
+	if err != nil {
+		h.hxDoneToast(w, r, "/devices/"+serial, "Server set, but the reboot could not be queued — reboot it yourself to apply", "error")
+		return
+	}
+	h.pushCommand(r.Context(), rebootCmd, "devices", []uuid.UUID{device.ID})
+	h.audit(r, "device.move_server", serial, target)
+	h.hxDoneToast(w, r, "/devices/"+serial, serial+" is moving to "+target+" · it reboots now and reports there", "success")
+}
+
 // DeviceNotesUpdate saves freeform operator notes for a device and returns the
 // updated notes card for an htmx swap (falls back to a redirect without JS).
 func (h *Handler) DeviceNotesUpdate(w http.ResponseWriter, r *http.Request) {
@@ -19469,6 +19539,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceInstallCancel)))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.deviceRoute("view", h.DeviceSetPollInterval)))
+	post("POST /devices/{serial}/move-server", h.requireStrictAdmin(h.deviceRoute("shell", h.DeviceMoveServer)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
