@@ -114,7 +114,12 @@
     if (QF.offline) rows = rows.filter(function (d) { return !d.online; });
     if (QF.dpc) rows = rows.filter(function (d) { return d.dpc; });
     if (QF.legacyonly) rows = rows.filter(function (d) { return d.legacyonly; });
-    return rows;
+    // What can be pushed comes first, whichever list it came from — the fleet rows
+    // and the legacy rows arrive as two blocks, so sorting has to happen after they
+    // are merged or an eligible legacy device sits below thirty blocked ones.
+    return rows.slice().sort(function (a, b) {
+      return (a.blocked ? 1 : 0) - (b.blocked ? 1 : 0);
+    });
   }
   function render() {
     var host = el('pk-devs'), rows = visible(), html = '';
@@ -134,7 +139,11 @@
       // A blocked row stays visible and says why — "why can't I pick this device"
       // is the first question on a release push.
       var meta = d.blocked ? d.blocked : (d.artifact ? d.sub + ' · ' + d.artifact + ' OTA' : d.sub);
-      html += '<button type="button" class="co-dev' + (on ? ' on' : '') + (d.blocked ? ' blocked" disabled' : '"') +
+      // A device the push will reach over the legacy path is a different kind of
+      // target — offered on its next poll, full image only — so it reads differently
+      // in the list rather than being discovered at the confirmation step.
+      var legacyCls = (d.artifact === 'legacy' || d.legacyonly) ? ' legacy' : '';
+      html += '<button type="button" class="co-dev' + legacyCls + (on ? ' on' : '') + (d.blocked ? ' blocked" disabled' : '"') +
         ' data-serial="' + esc(d.serial) + '"' + (d.blocked ? ' title="' + esc(d.blocked) + '"' : '') + '>' +
         '<span class="cb">' + (on ? '<svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>' : '') + '</span>' +
         '<span class="bd"><span class="sn">' + esc(d.serial) + '</span><span class="mt">' + esc(meta) + '</span></span>' +

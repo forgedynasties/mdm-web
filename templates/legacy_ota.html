@@ -17,22 +17,8 @@
 .lo-tbl.only-legacy tr.lo-mdm { display:none; }
 .lo-tog { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); cursor:pointer; user-select:none; }
 .lo-tog input { width:16px; height:16px; }
-.lo-dep { border-top:1px solid var(--border-soft); padding:14px 16px; }
-.lo-dep:first-of-type { border-top:0; }
-.lo-dep-h { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
-.lo-dep-h b { font-weight:500; font-size:14.5px; }
-.lo-dep-h .m { color:var(--muted); font-size:12.5px; flex-basis:100%; }
-.lo-dep-h form { margin:0; }
-.lo-dep-rows { display:flex; flex-direction:column; gap:4px; }
-.lo-dep-row { display:flex; align-items:center; gap:10px; font-size:12.5px; padding:6px 0; border-top:1px solid var(--border-soft); }
-.lo-dep-row:first-child { border-top:0; }
-.lo-dep-row form { margin-left:auto; }
-.lo-dep-row form + form { margin-left:0; }
-.lo-dep-row .sn { font:500 12px var(--mono); min-width:170px; }
-.lo-dep-row .st { color:var(--muted); flex:1; }
 .lo-push { display:flex; flex-direction:column; gap:14px; }
 .lo-push-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid var(--border-soft); padding-top:14px; }
-.lo-dep-row .st { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 </style>
 
 <div class="cc-wrap">
@@ -52,7 +38,7 @@
   <div class="cc-kpi"><span class="k">Seen</span><div class="v">{{.KPI.seen}}</div><div class="d">{{.KPI.recent}} polled in the last 30 min</div></div>
   <div class="cc-kpi"><span class="k">Updating</span><div class="v{{if gt .KPI.updating 0}} info{{end}}">{{.KPI.updating}}</div><div class="d">offered, downloading or installing</div></div>
   <div class="cc-kpi"><span class="k">Updated</span><div class="v{{if gt .KPI.updated 0}} ok{{end}}">{{.KPI.updated}}</div><div class="d">polled on the offered build</div></div>
-  <div class="cc-kpi"><span class="k">Rollouts</span><div class="v">{{.KPI.active}}</div><div class="d">active of {{len .Deployments}}</div></div>
+  <div class="cc-kpi"><span class="k">Failed</span><div class="v{{if gt .KPI.failed 0}} bad{{end}}">{{.KPI.failed}}</div><div class="d">need a retry · see the rollout on <a href="/updates">Updates</a></div></div>
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
@@ -78,53 +64,9 @@
 </div>
 {{end}}
 
-{{/* Rollouts first and full width: what is happening now outranks the roster,
-     and a rollout row carries a serial, a state, a progress bar and two buttons —
-     it never fit in a 380px column. */}}
-<div class="cc-card" style="margin-bottom:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><h3>Rollouts</h3><span class="m muted small">legacy-only rollouts · newer pushes live on their deployment page</span></div>
-    {{range .Deployments}}{{if not .UpdateID}}
-    <div class="lo-dep">
-      <div class="lo-dep-h">
-        <b><a href="/updates/legacy/deployments/{{.ID}}" style="color:inherit;">{{.ReleaseVersion}}</a></b>
-        {{if eq .Status "active"}}<span class="cc-tag info">active</span>{{else if eq .Status "complete"}}<span class="cc-tag ok">complete</span>{{else}}<span class="cc-tag">{{.Status}}</span>{{end}}
-        {{if and $.CanEdit (eq .Status "active")}}
-        <form action="/updates/legacy/deployments/{{.ID}}/cancel" method="POST" style="margin-left:auto;" hx-confirm="Cancel rollout #{{.ID}}? Devices that have not started get nothing further."><button type="submit" class="cc-btn sm selbar-danger">Cancel</button></form>
-        {{end}}
-        <span class="m">#{{.ID}} · {{.Installed}}/{{.Total}} installed{{if .Failed}} · {{.Failed}} failed{{end}} · {{timeSince .CreatedAt}}</span>
-      </div>
-      <div class="lo-dep-rows">
-        {{$dep := .}}
-        {{range .Devices}}
-        <div class="lo-dep-row">
-          <span class="sn">{{if index $.InFleet .Serial}}<a class="sn" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}{{.Serial}}{{end}}</span>
-          <span class="st">
-            {{if eq .Status "installed"}}<span class="cc-tag ok">installed</span>
-            {{else if eq .Status "failed"}}<span class="cc-tag bad">failed</span> {{.Error}}
-            {{else if eq .Status "canceled"}}<span class="cc-tag">canceled</span>
-            {{else if eq .Status "pending"}}waiting for its next poll
-            {{else if or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}<span class="cc-tag info">installed · awaiting reboot</span>{{if .RebootSentAt}} <span class="cc-tag{{if eq .RebootState "delivered"}} ok{{else}} info{{end}}">reboot {{if .RebootState}}{{.RebootState}}{{else}}queued{{end}} · {{timeSince .RebootSentAt}}</span>{{end}}
-            {{else if and (eq .Status "installing") (le .Percent 0)}}<span class="cc-tag info">installing</span> <span class="muted small" title="Percentages come from update_engine on the device, read over its MDM client's connection. It isn't connected, so there is no live progress until it reports in.">no live progress</span>
-            {{else}}<span class="lo-bar"><i style="width:{{.Percent}}%"></i></span>{{.Percent}}% {{.Status}}{{end}}
-          </span>
-          {{/* An applied update sits on the inactive slot until something reboots the
-               device; the legacy client never does. Offer it here too, not only on the
-               rollout page — this card is where the state is first seen. */}}
-          {{if and $.CanEdit (index $.InFleet .Serial) (or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100)))}}
-          <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}."><button type="submit" class="cc-btn sm{{if not .RebootSentAt}} primary{{end}}">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button></form>
-          {{end}}
-          {{if and $.CanEdit (eq .Status "failed")}}
-          <form action="/updates/legacy/deployments/{{$dep.ID}}/devices/{{.Serial}}/retry" method="POST"><button type="submit" class="cc-btn sm">Retry</button></form>
-          {{end}}
-        </div>
-        {{end}}
-      </div>
-    </div>
-    {{end}}{{else}}
-    <div class="lo-empty">No legacy-only rollout. Pushes made from the Updates page show on their own deployment page.</div>
-    {{end}}
-  </div>
-
+{{/* No rollouts pane here: every legacy push is half of a deployment, and the
+     Updates page lists them all — mixing in a second, legacy-only list just gave
+     the same rollout two homes. This page is the roster and the listener. */}}
 <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></span><h3>Devices</h3>
       <label class="lo-tog m" title="Some devices poll this listener but can also take an MDM OTA — they belong on the Updates page, not here">

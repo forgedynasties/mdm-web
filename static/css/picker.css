@@ -59,6 +59,18 @@
 .co-dev{width:100%;display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:var(--r-2);background:var(--surface);padding:6px 10px;text-align:left;margin-bottom:0;cursor:pointer;font-family:inherit;transition:border-color var(--dur)}
 .co-dev:hover{border-color:var(--rule-2)}
 .co-dev.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+/* Legacy-path targets: same shape, its own colour. These are reached over the old
+   otautil listener — offered on the device's next poll rather than pushed — and the
+   list is where that should be obvious. */
+.co-dev.legacy{border-color:color-mix(in srgb, var(--warn, #b8860b) 40%, var(--border));background:color-mix(in srgb, var(--warn, #b8860b) 7%, var(--surface))}
+.co-dev.legacy:hover{border-color:color-mix(in srgb, var(--warn, #b8860b) 60%, var(--border))}
+.co-dev.legacy.on{border-color:color-mix(in srgb, var(--warn, #b8860b) 75%, var(--border));background:color-mix(in srgb, var(--warn, #b8860b) 15%, var(--surface))}
+.co-dev.legacy .cb{border-color:color-mix(in srgb, var(--warn, #b8860b) 55%, var(--rule))}
+.co-dev.legacy.on .cb{background:var(--warn, #b8860b);border-color:var(--warn, #b8860b);color:#fff}
+@supports not (background: color-mix(in srgb, red 10%, transparent)){
+  .co-dev.legacy{border-color:rgba(184,134,11,.45);background:rgba(184,134,11,.07)}
+  .co-dev.legacy.on{background:rgba(184,134,11,.15)}
+}
 .co-dev.via{border-style:dashed;cursor:default}
 .co-dev.via .cb{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 .co-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
