@@ -401,6 +401,14 @@ func main() {
 	mux.Handle("GET /api/v1/productions/{id}", adminAuth(http.HandlerFunc(apiHandler.GetProduction)))
 	mux.Handle("DELETE /api/v1/productions/{id}", adminAuth(http.HandlerFunc(apiHandler.DeleteProduction)))
 
+	// Releases and OTA packages — how a build machine publishes without a browser.
+	// Same rules as the dashboard forms (see internal/api/releases.go).
+	mux.Handle("GET /api/v1/releases", adminAuth(http.HandlerFunc(apiHandler.ListReleases)))
+	mux.Handle("POST /api/v1/releases", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.CreateRelease))))
+	mux.Handle("GET /api/v1/releases/{id}", adminAuth(http.HandlerFunc(apiHandler.GetRelease)))
+	mux.Handle("POST /api/v1/releases/{id}/packages", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AddReleasePackage))))
+	mux.Handle("POST /api/v1/releases/{id}/publish", adminAuth(http.HandlerFunc(apiHandler.PublishRelease)))
+
 	// Commands
 	mux.Handle("GET /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
 	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
