@@ -50,39 +50,28 @@
         {{range .PushProducts}}<option value="{{.Key}}"{{if eq .Key $selProduct}} selected{{end}}>{{.Label}}</option>{{end}}
       </select>
     </div>
-    {{if .Releases}}
-    {{/* Search and package-type filter: the release list grows with every build, and
-         the one being pushed is usually known by name or by which artifact it must
-         carry (the legacy path can only take a full image). Both narrow the same
-         select client-side — no reload, so a mis-typed search never costs a round trip. */}}
-    <div>
-      <div class="form-label" style="margin-bottom:6px;">Package</div>
-      <select class="form-input" id="rel-type" style="min-width:150px;" onchange="pushFilterReleases()">
-        <option value="">Any package</option>
-        <option value="full">Full image</option>
-        <option value="incremental">Incremental</option>
-      </select>
-    </div>
-    <div>
-      <div class="form-label" style="margin-bottom:6px;">Search</div>
-      <input class="form-input" id="rel-q" type="search" placeholder="Version or name…" style="min-width:200px;"
-             autocomplete="off" oninput="pushFilterReleases()">
-    </div>
-    {{end}}
+    {{/* The release list grows with every build, so the picker is a type-ahead
+         combobox rather than a plain select: typing narrows it in place (version,
+         name or product) and choosing navigates, the same as the old select did. */}}
     <div>
       <div class="form-label" style="margin-bottom:6px;">Release</div>
       {{if .Releases}}
-      <select class="form-input" id="rel-select" style="min-width:300px;" onchange="pushPickRelease(this.value)">
-        <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
-        {{/* Say what each release can actually deliver: a full image reaches any
-             device (and is all the legacy path can use), an incremental only the
-             devices on its source build. Choosing between two releases without
-             that is choosing blind. */}}
-        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}
-          data-search="{{.Version}} {{.Name}} {{productLabel .Product}}"
-          data-full="{{if .HasFull}}1{{else}}0{{end}}" data-inc="{{if .Incrementals}}1{{else}}0{{end}}">{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</option>{{end}}
-      </select>
-      <div class="muted small" id="rel-none" hidden style="margin-top:6px;">No release matches.</div>
+      <div class="rel-combo" id="rel-combo">
+        <input type="text" id="rel-search" class="form-input" style="min-width:320px;" autocomplete="off" spellcheck="false"
+               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="Release"
+               placeholder="Search or choose a release…" data-current="{{with $rel}}{{.ID}}{{end}}">
+        <div class="rel-list" id="rel-list" role="listbox">
+          {{/* Say what each release can actually deliver: a full image reaches any
+               device (and is all the legacy path can use), an incremental only the
+               devices on its source build. Choosing between two releases without
+               that is choosing blind. */}}
+          {{range .Releases}}
+          <div class="rel-opt" role="option" data-value="{{.ID}}"
+               data-search="{{.Version}} {{.Name}} {{productLabel .Product}}">{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</div>
+          {{end}}
+          <div class="rel-none" id="rel-none" hidden>No release matches.</div>
+        </div>
+      </div>
       {{else if $selProduct}}
       <div class="muted small" style="padding-bottom:8px;">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
       {{else}}
@@ -90,9 +79,20 @@
       {{end}}
     </div>
   </div>
+  <style>
+  .rel-combo{position:relative;}
+  .rel-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;max-height:280px;overflow:auto;
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:none;}
+  .rel-combo.open .rel-list{display:block;}
+  .rel-opt{padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;}
+  .rel-opt.hidden{display:none;}
+  .rel-opt.active,.rel-opt:hover{background:var(--accent-soft);}
+  .rel-none{padding:8px 12px;font-size:12.5px;color:var(--muted);}
+  </style>
   <script>
-  // Both selects navigate, because the release drives what the rest of the page can
-  // even show; the chosen serials ride along so a re-pick doesn't lose the basket.
+  // Both the product select and the release combobox navigate, because the release
+  // drives what the rest of the page can even show; the chosen serials ride along so
+  // a re-pick doesn't lose the basket.
   function pushKeepSerials() {
     var s = new URLSearchParams(location.search).get('serials');
     return s ? '&serials=' + encodeURIComponent(s) : '';
@@ -103,25 +103,58 @@
   function pushPickRelease(id) {
     if (id) location.href = '/updates/new?release=' + id + pushKeepSerials();
   }
-  // Narrow the release list in place. Options are hidden rather than removed so the
-  // currently chosen release survives a filter that would exclude it.
-  function pushFilterReleases() {
-    var sel = document.getElementById('rel-select');
-    if (!sel) return;
-    var q = (document.getElementById('rel-q').value || '').trim().toLowerCase();
-    var type = document.getElementById('rel-type').value;
-    var shown = 0;
-    Array.prototype.forEach.call(sel.options, function (o) {
-      if (!o.value) return; // the "Choose a release…" placeholder
-      var okText = !q || (o.dataset.search || '').toLowerCase().indexOf(q) !== -1;
-      var okType = !type || (type === 'full' ? o.dataset.full === '1' : o.dataset.inc === '1');
-      var match = okText && okType;
-      o.hidden = !match;
-      o.disabled = !match;
-      if (match) shown++;
+  // Type-ahead release combobox: filters as you type, Enter/click picks, and picking
+  // navigates (the release drives everything below it). Options are hidden, not
+  // removed, so the release already chosen is still there when the search clears.
+  (function () {
+    var combo = document.getElementById('rel-combo');
+    if (!combo) return;
+    var input = document.getElementById('rel-search');
+    var none = document.getElementById('rel-none');
+    var opts = [].slice.call(combo.querySelectorAll('.rel-opt'));
+    var active = -1;
+
+    function labelFor(val) {
+      for (var i = 0; i < opts.length; i++) {
+        if (opts[i].getAttribute('data-value') === val) return opts[i].textContent.trim();
+      }
+      return '';
+    }
+    input.value = labelFor(input.getAttribute('data-current') || ''); // prefill the chosen release
+
+    function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
+    function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paint(); }
+    function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
+    function paint() {
+      var vis = visible();
+      opts.forEach(function (o) { o.classList.remove('active'); });
+      if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
+    }
+    function filter(q) {
+      q = q.trim().toLowerCase();
+      opts.forEach(function (o) {
+        var s = (o.getAttribute('data-search') || '').toLowerCase();
+        o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
+      });
+      none.hidden = visible().length > 0;
+      active = -1; paint();
+    }
+    function choose(o) { pushPickRelease(o.getAttribute('data-value')); }
+
+    input.addEventListener('focus', function () { filter(''); open(); input.select(); });
+    input.addEventListener('input', function () { filter(input.value); open(); });
+    input.addEventListener('keydown', function (e) {
+      var vis = visible();
+      if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paint(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
+      else if (e.key === 'Enter') { if (combo.classList.contains('open')) { e.preventDefault(); if (active >= 0) choose(vis[active]); } }
+      else if (e.key === 'Escape') { input.value = labelFor(input.getAttribute('data-current') || ''); close(); }
     });
-    document.getElementById('rel-none').hidden = shown > 0;
-  }
+    opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
+    document.addEventListener('click', function (e) {
+      if (!combo.contains(e.target)) { input.value = labelFor(input.getAttribute('data-current') || ''); close(); }
+    });
+  })();
   </script>
 </div>
 
