@@ -3392,13 +3392,16 @@ func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 // the database. Reachable from the landing page's "Take a sneak peek" button.
 //
 // It reuses overviewViewModel — the exact code the live Overview uses — so the
-// preview is the real page, not a mock. A synthetic admin session is injected for
+// preview is the real page, not a mock. A synthetic viewer session is injected for
 // the duration of this one request so the role-gated chrome renders; no cookie,
-// no DB session, and none of the numbers come from real devices.
+// no DB session, and none of the numbers come from real devices. Viewer (not admin)
+// so the preview only offers what it can actually show — the write-action controls
+// (Send action, Deploy, Actions dock) are role-locked/hidden rather than links that
+// bounce a visitor to /login.
 func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
-	// Inject a synthetic admin session so role/access/name resolve for the chrome.
+	// Inject a synthetic viewer session so role/access/name resolve for the chrome.
 	r = r.WithContext(context.WithValue(r.Context(), ctxSessionKey{}, &db.Session{
-		Username: "guest", Role: "admin",
+		Username: "guest", Role: "viewer",
 		ExpiresAt: time.Now().Add(time.Hour), LastSeen: time.Now(),
 	}))
 
@@ -3418,7 +3421,7 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 
 	// Chrome keys normally added by render()/withRole(). We render directly (not via
 	// h.render) so nothing hits the DB and the preview can't write an audit row.
-	data["Role"] = "admin"
+	data["Role"] = "viewer"
 	data["Boosted"] = false
 	data["CurrentUser"] = "Guest preview"
 	if userBubbleFn != nil {
@@ -3450,97 +3453,121 @@ func f64Ptr(v float64) *float64 { return &v }
 func f32Ptr(v float32) *float32 { return &v }
 func strPtr(v string) *string   { return &v }
 
-// sneakPeekVenues are stable synthetic restaurant IDs, so the crash map and the
-// health list line up across the preview.
-var sneakPeekVenues = []uuid.UUID{
-	uuid.MustParse("00000000-0000-4000-a000-000000000001"), // Harbor Grill
-	uuid.MustParse("00000000-0000-4000-a000-000000000002"), // Sausalito
-	uuid.MustParse("00000000-0000-4000-a000-000000000003"), // Marina Point
-	uuid.MustParse("00000000-0000-4000-a000-000000000004"), // Ferry Plaza
-	uuid.MustParse("00000000-0000-4000-a000-000000000005"), // Embarcadero
-	uuid.MustParse("00000000-0000-4000-a000-000000000006"), // North Beach
-	uuid.MustParse("00000000-0000-4000-a000-000000000007"), // Presidio
-	uuid.MustParse("00000000-0000-4000-a000-000000000008"), // Mission Rock
+// sneakPeekVenueID is a stable synthetic restaurant UUID for venue i, so the crash
+// map and the health list line up across the preview.
+func sneakPeekVenueID(i int) uuid.UUID {
+	return uuid.MustParse(fmt.Sprintf("00000000-0000-4000-a000-%012d", i+1))
 }
 
-// sneakPeekFleet builds the synthetic fleet the preview renders. Numbers are made
-// up but internally consistent (58 devices, 55 online, one hot, two rollouts).
+// sneakPeekFleet builds the synthetic fleet the preview renders: a chain-scale fleet
+// of 2500+ devices across 72 venues. Made up but internally consistent — every KPI,
+// the health score, the sites heatmap and the rollouts are derived from the same
+// per-venue numbers, so nothing contradicts anything else.
 func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, int, db.FleetCrashStats, []db.FleetVersion, []db.Update, map[string]int) {
-	summary := db.Summary{Total: 58, RecentlyActive: 55, LowBattery: 1, UniqueBuilds: 4, KioskCount: 48}
-	hot := 1
-	openCount := 3
+	districts := []string{
+		"Harbor", "Marina", "Ferry Plaza", "Embarcadero", "North Beach", "Mission Rock",
+		"Presidio", "Sunset", "Richmond", "Castro", "Hayes Valley", "Nob Hill",
+		"Russian Hill", "Potrero", "Dogpatch", "SoMa", "Union Square", "Financial",
+		"Chinatown", "Glen Park", "Noe Valley", "Bernal", "Cole Valley", "Bayview",
+	}
+	suffixes := []string{"Grill", "Kitchen", "Café"}
+	const venueCount = 72
 
-	groups := []db.GroupHealth{
-		{GroupID: sneakPeekVenues[0], Name: "Harbor Grill", DeviceCount: 8, OpenCritical: 1,
-			TempMax: f64Ptr(61), TempMaxSerial: strPtr("DEMO-0042"), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 8, Score: 62, ScoreClass: "danger"},
-		{GroupID: sneakPeekVenues[1], Name: "Sausalito", DeviceCount: 12, OfflineCount: 1, OpenWarning: 1,
-			BatteryAvg: f64Ptr(76), ChargingAvg: f64Ptr(0.71), DistinctBuilds: 2,
-			Deployed: true, DeployedCount: 12, Score: 74, ScoreClass: "warn"},
-		{GroupID: sneakPeekVenues[2], Name: "Marina Point", DeviceCount: 9, OpenWarning: 1,
-			BatteryAvg: f64Ptr(88), ChargingAvg: f64Ptr(0.82), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 9, Score: 91, ScoreClass: "ok"},
-		{GroupID: sneakPeekVenues[3], Name: "Ferry Plaza", DeviceCount: 7,
-			BatteryAvg: f64Ptr(90), ChargingAvg: f64Ptr(0.88), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 7, Score: 94, ScoreClass: "ok"},
-		{GroupID: sneakPeekVenues[4], Name: "Embarcadero", DeviceCount: 6,
-			BatteryAvg: f64Ptr(91), ChargingAvg: f64Ptr(0.9), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 6, Score: 96, ScoreClass: "ok"},
-		{GroupID: sneakPeekVenues[5], Name: "North Beach", DeviceCount: 5,
-			BatteryAvg: f64Ptr(85), ChargingAvg: f64Ptr(0.79), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 5, Score: 89, ScoreClass: "ok"},
-		{GroupID: sneakPeekVenues[6], Name: "Presidio", DeviceCount: 6,
-			BatteryAvg: f64Ptr(87), ChargingAvg: f64Ptr(0.84), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 6, Score: 92, ScoreClass: "ok"},
-		{GroupID: sneakPeekVenues[7], Name: "Mission Rock", DeviceCount: 5,
-			BatteryAvg: f64Ptr(93), ChargingAvg: f64Ptr(0.91), DistinctBuilds: 1,
-			Deployed: true, DeployedCount: 5, Score: 97, ScoreClass: "ok"},
+	groups := make([]db.GroupHealth, 0, venueCount)
+	total, online, openCount := 0, 0, 0
+	crashBy := map[uuid.UUID]int{}
+	for i := 0; i < venueCount; i++ {
+		id := sneakPeekVenueID(i)
+		dc := 22 + (i*13)%30 // 22..51 devices per venue
+		g := db.GroupHealth{
+			GroupID: id, Name: districts[i/3] + " " + suffixes[i%3],
+			DeviceCount: dc, DeployedCount: dc, Deployed: true, DistinctBuilds: 1,
+			BatteryAvg: f64Ptr(float64(74 + i%20)), ChargingAvg: f64Ptr(0.72 + float64(i%18)/100),
+		}
+		switch {
+		case i < 3: // three venues at risk (worst first drives the hero + "why")
+			g.ScoreClass, g.Score = "danger", []int{57, 62, 66}[i]
+			g.OfflineCount, g.OpenCritical = []int{3, 2, 2}[i], 1
+			openCount++
+			crashBy[id] = []int{4, 2, 1}[i]
+			if i < 2 { // the two hottest venues
+				g.TempMax = f64Ptr([]float64{61, 51}[i])
+				g.TempMaxSerial = strPtr(fmt.Sprintf("KSK-%04d", 1000+i))
+			}
+		case i < 11: // eight venues to watch
+			g.ScoreClass, g.Score = "warn", 71+(i-3)
+			g.OpenWarning = 1
+			openCount++
+			if i%2 == 0 {
+				g.OfflineCount = 1
+			}
+			if i%3 == 0 {
+				g.DistinctBuilds = 2
+			}
+		default: // healthy
+			g.ScoreClass = "ok"
+			if g.Score = 84 + (i*7)%15; g.Score > 99 {
+				g.Score = 99
+			}
+		}
+		total += dc
+		online += dc - g.OfflineCount
+		groups = append(groups, g)
 	}
 
-	// 14 days of fleet daily stats (oldest first) so sparklines + the week-over-week
-	// trend have something to draw. Deterministic wave, no randomness.
-	actWave := []int{54, 56, 55, 57, 56, 55, 54, 56, 57, 55, 56, 57, 56, 55}
+	hot := 6
+	summary := db.Summary{
+		Total: total, RecentlyActive: online, LowBattery: 38, UniqueBuilds: 4,
+		KioskCount: total * 84 / 100,
+	}
+
+	// 14 days of fleet daily stats (oldest first) for the sparklines + week-over-week
+	// trend. Deterministic gentle wave around the current online count.
+	dip := []int{40, 18, 26, 10, 22, 34, 30, 14, 8, 20, 12, 24, 16, 6}
 	batWave := []float32{77, 78, 78, 79, 78, 77, 78, 79, 80, 78, 79, 79, 78, 78}
 	today := time.Now().Truncate(24 * time.Hour)
 	d14 := make([]db.FleetDailyStat, 0, 14)
 	for i := 0; i < 14; i++ {
-		low, ht := 0, 0
-		if i%5 == 0 {
-			low = 1
-		}
-		if i >= 11 {
-			ht = 1
-		}
+		active := online - dip[i]
 		d14 = append(d14, db.FleetDailyStat{
-			Day: today.AddDate(0, 0, i-13), Active: actWave[i], LowBattery: low, Hot: ht,
-			BatteryAvg: f32Ptr(batWave[i]), Checkins: int64(actWave[i]) * 288,
+			Day: today.AddDate(0, 0, i-13), Active: active, LowBattery: 30 + i%12, Hot: 4 + i%4,
+			BatteryAvg: f32Ptr(batWave[i]), Checkins: int64(active) * 288,
 		})
 	}
 
 	crashStats := db.FleetCrashStats{
-		Total24h: 2, Devices24h: 2, WorstBuild: "2026.05.14-release", WorstBuildN: 2,
-		Daily:        []int{6, 4, 3, 5, 2, 3, 2},
-		ByRestaurant: map[uuid.UUID]int{sneakPeekVenues[0]: 1, sneakPeekVenues[1]: 1},
+		Total24h: 34, Devices24h: 29, WorstBuild: "2026.05.14-release", WorstBuildN: 11,
+		Daily:        []int{88, 72, 64, 79, 58, 66, 54},
+		ByRestaurant: crashBy,
 	}
 
+	// Release adoption + rollouts, distributed across the fleet total.
+	vLatest := total * 63 / 100
+	v2 := total * 22 / 100
+	v3 := total * 10 / 100
+	v4 := total - vLatest - v2 - v3
 	versions := []db.FleetVersion{
-		{Version: "2026.06.01-release", Product: "kiosk22", DeviceCount: 41, ReleaseID: intPtr(90000), ReleaseStatus: "published"},
-		{Version: "2026.05.14-release", Product: "kiosk27", DeviceCount: 12, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
-		{Version: "2026.04.02-release", Product: "t7", DeviceCount: 4, ReleaseID: intPtr(88000), ReleaseStatus: "published"},
-		{Version: "2026.03.10-release", Product: "kiosk18", DeviceCount: 1},
+		{Version: "2026.06.01-release", Product: "kiosk22", DeviceCount: vLatest, ReleaseID: intPtr(90000), ReleaseStatus: "published"},
+		{Version: "2026.05.14-release", Product: "kiosk27", DeviceCount: v2, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
+		{Version: "2026.04.02-release", Product: "t7", DeviceCount: v3, ReleaseID: intPtr(88000), ReleaseStatus: "published"},
+		{Version: "2026.03.10-release", Product: "kiosk18", DeviceCount: v4},
 	}
 
 	now := time.Now()
 	deployments := []db.Update{
-		{ID: 9001, Status: "active", RebootBehavior: "immediate", CreatedAt: now.Add(-24 * time.Minute),
-			Product: "kiosk22", DeviceTotal: 58, DeviceInstalled: 41, DeviceDownloading: 9, DeviceFailed: 1,
+		{ID: 9001, Status: "active", RebootBehavior: "immediate", CreatedAt: now.Add(-38 * time.Minute),
+			Product: "kiosk22", DeviceTotal: total, DeviceInstalled: total * 64 / 100,
+			DeviceDownloading: total * 9 / 100, DeviceFailed: total * 1 / 100,
 			Release: &db.Release{ID: 90000, Version: "2026.06.01-release", Product: "kiosk22", Status: "published"}},
-		{ID: 9002, Status: "active", RebootBehavior: "manual", CreatedAt: now.Add(-2 * time.Hour),
-			Product: "kiosk27", DeviceTotal: 12, DeviceInstalled: 12, DeviceAwaiting: 3,
+		{ID: 9002, Status: "active", RebootBehavior: "manual", CreatedAt: now.Add(-3 * time.Hour),
+			Product: "kiosk27", DeviceTotal: 48, DeviceInstalled: 48, DeviceAwaiting: 6,
 			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk27", Status: "published"}},
 	}
 
-	prodCounts := map[string]int{"kiosk22": 24, "kiosk27": 16, "t7": 10, "kiosk18": 8}
+	k22 := total * 43 / 100
+	k27 := total * 28 / 100
+	t7 := total * 17 / 100
+	prodCounts := map[string]int{"kiosk22": k22, "kiosk27": k27, "t7": t7, "kiosk18": total - k22 - k27 - t7}
 
 	return summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts
 }
