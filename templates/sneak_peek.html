@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Sneak peek — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
+  <meta name="description" content="A guided preview of the AIO MDM dashboard, filled with sample data. No account needed.">
+  <meta name="robots" content="noindex">
+  <script>
+    // Theme before first paint (same key as the dashboard + landing page).
+    (function () {
+      try {
+        var t = localStorage.getItem('mdm-theme');
+        if (t !== 'light' && t !== 'dark') t = 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+  <style>
+  /* ── Sneak-peek banner: fixed strip under the appbar telling the visitor this
+        is a preview with sample data, and how to get the real thing. ───────── */
+  body.peek { padding-top: 40px; }
+  .peek-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 120; height: 40px;
+    display: flex; align-items: center; justify-content: center; gap: 14px; padding: 0 16px;
+    font-size: 12.5px; font-weight: 650; color: #fff;
+    background: linear-gradient(90deg, #F9674E, #7A80F6);
+    box-shadow: 0 1px 0 rgba(0,0,0,.08); }
+  .peek-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,.25); flex: none; }
+  .peek-bar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .peek-bar a { color: #fff; text-decoration: none; font-weight: 750; border: 1px solid rgba(255,255,255,.55);
+    border-radius: 40px; padding: 4px 13px; white-space: nowrap; transition: background .15s ease; }
+  .peek-bar a:hover { background: rgba(255,255,255,.16); }
+  .peek-bar .ghost { border-color: transparent; padding: 4px 8px; }
+  body.peek .appbar { top: 40px; }
+  @media (max-width: 680px) { .peek-bar .hide-sm { display: none; } }
+
+  /* The appbar search + account controls are inert in the preview; keep them for
+     the look but stop the pointer so nobody expects a real dropdown. */
+  .peek .appbar .inert { cursor: default; opacity: .9; }
+  .peek .dock .nav-link { cursor: pointer; }
+
+  /* ── Overview command center (adapted from the live overview) ───────────── */
+  .ov3 { max-width: 1280px; margin: 0 auto; }
+  .ov3 .tnum { font-variant-numeric: tabular-nums; }
+  .ov3-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+  .ov3-top > div:first-child { flex: 1; min-width: 0; }
+  .ov3-eyebrow { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+  .ov3-h1 { font-size: 26px; font-weight: 750; letter-spacing: -.022em; margin-top: 6px; line-height: 1.15; }
+  .ov3-h1 .hl.ok { color: var(--ok); } .ov3-h1 .hl.warn { color: var(--warn); } .ov3-h1 .hl.danger { color: var(--danger); }
+  .ov3-sub { font-size: 13.5px; color: var(--muted); margin-top: 6px; max-width: 78ch; line-height: 1.5; }
+  .ov3-sub b { color: var(--text); font-weight: 650; }
+  .ov3-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; padding-top: 20px; }
+  @media (max-width: 1000px) { .ov3-top { flex-direction: column; gap: 14px; } .ov3-actions { padding-top: 0; } }
+  .ov3-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 650; padding: 8px 13px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); text-decoration: none; box-shadow: var(--shadow-sm); transition: border-color var(--dur), background var(--dur); }
+  .ov3-btn:hover { border-color: var(--rule-2); background: var(--surface2); color: var(--text); }
+  .ov3-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .ov3-btn.primary:hover { background: var(--accent-h); color: #fff; }
+  .ov3-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ov3-btn .n { font-size: 10.5px; font-weight: 750; padding: 1px 6px; border-radius: 99px; background: var(--surface-3); color: var(--text-2); margin-left: 2px; }
+  .ov3-btn .n.warn { background: var(--warn-bg); color: var(--warn); }
+
+  .ov3-hero { display: grid; grid-template-columns: auto 1fr minmax(260px,320px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4); box-shadow: var(--shadow-sm); margin-bottom: 16px; overflow: hidden; position: relative; }
+  .ov3-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, var(--warn-bg), transparent 55%); }
+  .ov3-hero > * { position: relative; }
+  @media (max-width: 980px) { .ov3-hero { grid-template-columns: 1fr; } }
+  .ov3-score { display: flex; align-items: center; gap: 18px; padding: 22px 26px; border-right: 1px solid var(--border-soft); }
+  @media (max-width: 980px) { .ov3-score { border-right: none; border-bottom: 1px solid var(--border-soft); } }
+  .ov3-ring { position: relative; width: 104px; height: 104px; flex: none; }
+  .ov3-ring svg { width: 104px; height: 104px; }
+  .ov3-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 9; }
+  .ov3-ring .val { fill: none; stroke: var(--warn); stroke-width: 9; stroke-linecap: round; }
+  .ov3-ring b { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; font-weight: 750; letter-spacing: -.02em; color: var(--warn); line-height: 1; }
+  .ov3-ring b small { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin-top: 3px; }
+  .ov3-st { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .ov3-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--warn-bg); color: var(--warn); }
+  .ov3-delta { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+  .ov3-delta b.up { color: var(--ok); font-weight: 700; }
+  .ov3-msg { padding: 22px 26px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .ov3-msg p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-2); }
+  .ov3-facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+  .ov3-fact { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 4px 11px; text-decoration: none; }
+  .ov3-fact b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .ov3-fact.bad { color: var(--danger); border-color: var(--danger-edge); } .ov3-fact.bad b { color: var(--danger); }
+  .ov3-fact.warn { color: var(--warn); border-color: var(--warn-edge); } .ov3-fact.warn b { color: var(--warn); }
+  .ov3-comp { padding: 20px 24px; border-left: 1px solid var(--border-soft); background: color-mix(in srgb, var(--surface2) 55%, transparent); }
+  @media (max-width: 980px) { .ov3-comp { border-left: none; border-top: 1px solid var(--border-soft); } }
+  .ov3-comp .t { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); }
+  .ov3-comp .big { font-size: 28px; font-weight: 750; letter-spacing: -.02em; margin-top: 4px; line-height: 1; }
+  .ov3-comp .big small { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+  .ov3-stack { display: flex; height: 9px; border-radius: 99px; overflow: hidden; background: var(--surface-3); margin-top: 12px; gap: 2px; }
+  .ov3-stack i { display: block; height: 100%; min-width: 3px; }
+  .ov3-c1 { background: var(--accent); } .ov3-c2 { background: var(--accent-2); } .ov3-c3 { background: var(--info); } .ov3-c4 { background: var(--ok); } .ov3-c5 { background: var(--warn); }
+  .ov3-legend { display: flex; flex-wrap: wrap; gap: 5px 13px; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+  .ov3-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .ov3-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .ov3-legend b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* KPI strip */
+  .ov3-kpis { display: grid; grid-template-columns: repeat(6,1fr); gap: 10px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .ov3-kpis { grid-template-columns: repeat(3,1fr); } }
+  @media (max-width: 600px) { .ov3-kpis { grid-template-columns: repeat(2,1fr); } }
+  .ov3-kpi { --kc: var(--text-2); position: relative; display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4); padding: 14px 16px; text-decoration: none; color: inherit; overflow: hidden; transition: border-color var(--dur), transform var(--dur-fast); }
+  .ov3-kpi:hover { border-color: var(--rule-2); transform: translateY(-1px); }
+  .ov3-kpi.ok { --kc: var(--ok); } .ov3-kpi.warn { --kc: var(--warn); } .ov3-kpi.bad { --kc: var(--danger); }
+  .ov3-kpi .k { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .ov3-kpi .k svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; color: var(--kc); }
+  .ov3-kpi .v { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-top: 9px; font-variant-numeric: tabular-nums; }
+  .ov3-kpi .v.ok { color: var(--ok); } .ov3-kpi .v.warn { color: var(--warn); } .ov3-kpi .v.bad { color: var(--danger); }
+  .ov3-kpi .d { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+  .ov3-kpi .d b.good { color: var(--ok); font-weight: 700; } .ov3-kpi .d b.bad { color: var(--danger); font-weight: 700; }
+
+  /* grid of feature cards */
+  .ov3-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .ov3-grid { grid-template-columns: 1fr; } }
+  .ov3-w2 { grid-column: 1 / -1; }
+  .ov3-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4); box-shadow: var(--shadow-sm); overflow: hidden; scroll-margin-top: 96px; }
+  .ov3-ch { display: flex; align-items: center; gap: 9px; padding: 13px 17px; border-bottom: 1px solid var(--border-soft); }
+  .ov3-ch h3 { font-size: 14px; font-weight: 700; margin: 0; letter-spacing: -.005em; }
+  .ov3-ch .ic { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent-text); flex: none; }
+  .ov3-ch .ic.v2 { background: var(--accent-2-soft); color: var(--accent-2); }
+  .ov3-ch .ic.ok { background: var(--ok-bg); color: var(--ok); }
+  .ov3-ch .ic.info { background: var(--info-bg); color: var(--info); }
+  .ov3-ch .ic svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ov3-ch .m { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .ov3-foot { display: block; text-align: center; padding: 10px; font-size: 12.5px; font-weight: 600; color: var(--accent-text); border-top: 1px solid var(--border-soft); text-decoration: none; }
+  .ov3-foot:hover { background: var(--surface2); }
+
+  /* sites heatmap */
+  .ov3-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px,1fr)); gap: 9px; padding: 14px 17px; }
+  .ov3-site { position: relative; display: block; padding: 11px 12px 10px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface); text-decoration: none; color: inherit; overflow: hidden; }
+  .ov3-site::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ok); }
+  .ov3-site.warn::before { background: var(--warn); } .ov3-site.danger::before { background: var(--danger); }
+  .ov3-site.ok { background: linear-gradient(180deg, var(--ok-bg), var(--surface) 70%); }
+  .ov3-site.warn { background: linear-gradient(180deg, var(--warn-bg), var(--surface) 70%); border-color: var(--warn-edge); }
+  .ov3-site.danger { background: linear-gradient(180deg, var(--danger-bg), var(--surface) 70%); border-color: var(--danger-edge); }
+  .ov3-site .nm { font-size: 13px; font-weight: 650; display: block; }
+  .ov3-site .mt { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .ov3-site .sc { position: absolute; right: 11px; top: 10px; font-size: 15px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--ok); }
+  .ov3-site.warn .sc { color: var(--warn); } .ov3-site.danger .sc { color: var(--danger); }
+
+  /* generic list rows (alerts, devices, rollout) */
+  .ov3-list { padding: 6px 0; }
+  .ov3-row { display: flex; align-items: center; gap: 12px; padding: 10px 17px; text-decoration: none; color: inherit; }
+  .ov3-row + .ov3-row { border-top: 1px solid var(--border-soft); }
+  .ov3-row:hover { background: var(--hover); }
+  .ov3-row .led { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--ok); }
+  .ov3-row .led.warn { background: var(--warn); } .ov3-row .led.danger { background: var(--danger); } .ov3-row .led.mut { background: var(--rule-2); }
+  .ov3-row .main { flex: 1; min-width: 0; }
+  .ov3-row .main b { display: block; font-size: 13.5px; font-weight: 650; }
+  .ov3-row .main small { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .ov3-row .rt { font-size: 11.5px; color: var(--muted); white-space: nowrap; text-align: right; }
+  .ov3-tag { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--text-2); white-space: nowrap; }
+  .ov3-tag.warn { background: var(--warn-bg); color: var(--warn); } .ov3-tag.danger { background: var(--danger-bg); color: var(--danger); } .ov3-tag.ok { background: var(--ok-bg); color: var(--ok); }
+
+  /* rollout progress */
+  .ov3-roll { padding: 14px 17px; }
+  .ov3-roll + .ov3-roll { border-top: 1px solid var(--border-soft); }
+  .ov3-roll .rh { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .ov3-roll .rh b { font-size: 13.5px; font-weight: 650; }
+  .ov3-roll .rh span { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ov3-bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; margin-top: 9px; }
+  .ov3-bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+  .ov3-bar i.ok { background: var(--ok); }
+  .ov3-roll .sub { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+
+  /* map placeholder */
+  .ov3-map { position: relative; height: 260px; background:
+      radial-gradient(circle at 30% 40%, var(--accent-soft), transparent 45%),
+      radial-gradient(circle at 70% 65%, var(--accent-2-soft), transparent 45%),
+      var(--surface2); overflow: hidden; }
+  .ov3-map .grid { position: absolute; inset: 0; background-image:
+      linear-gradient(var(--border-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+    background-size: 44px 44px; opacity: .6; }
+  .ov3-pin { position: absolute; transform: translate(-50%,-50%); }
+  .ov3-pin i { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--ok); border: 2px solid var(--surface); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+  .ov3-pin.warn i { background: var(--warn); } .ov3-pin.danger i { background: var(--danger); }
+  .ov3-pin.big i { width: 20px; height: 20px; }
+  .ov3-pin .lbl { position: absolute; left: 50%; top: calc(100% + 5px); transform: translateX(-50%); font-size: 10.5px; font-weight: 650; color: var(--text-2); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+
+  .peek-endcap { max-width: 1280px; margin: 32px auto 8px; text-align: center; padding: 34px 24px;
+    border: 1px solid var(--border); border-radius: var(--r-4); background:
+      linear-gradient(118deg, var(--accent-soft), transparent 60%), var(--surface); }
+  .peek-endcap h2 { font-size: 22px; font-weight: 750; letter-spacing: -.02em; margin: 0 0 6px; }
+  .peek-endcap p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  .peek-endcap .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body class="has-dock peek">
+  <div class="peek-bar" role="note">
+    <span class="dot" aria-hidden="true"></span>
+    <span>You're viewing a <b>sneak peek</b> — every number here is <b>sample data</b>.<span class="hide-sm"> Nothing you click changes anything.</span></span>
+    <a href="/login">Open the real dashboard →</a>
+    <a class="ghost" href="/" aria-label="Leave preview">Exit</a>
+  </div>
+
+  {{/* Global chrome — same appbar + dock as the live dashboard, made inert for the preview. */}}
+  <header class="appbar">
+    <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
+    <div class="appbar-right">
+      <button type="button" class="ovx-search topbar-search inert" aria-hidden="true" tabindex="-1">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span>Search devices…</span>
+        <kbd>⌘K</kbd>
+      </button>
+      <button type="button" class="appbar-icon theme-toggle" onclick="peekToggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+        <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+      </button>
+      <div class="nbar-wrap">
+        <button type="button" class="appbar-icon inert" aria-hidden="true" tabindex="-1" title="Alerts">
+          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+          <span class="nav-badge">3</span>
+        </button>
+      </div>
+      <div class="nbar-wrap">
+        <button type="button" class="appbar-acct inert" aria-hidden="true" tabindex="-1">
+          <span class="who"><span class="n">Sample User</span><span class="r">Preview</span></span>
+          <span class="av">S</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="dock" aria-label="Primary navigation">
+    <a href="#peek-overview" class="nav-link active" data-peek-nav><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">Overview</span></a>
+    <a href="#peek-fleet" class="nav-link" data-peek-nav><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>
+    <a href="#peek-map" class="nav-link" data-peek-nav><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/></svg></span><span class="dock-lbl">Map</span></a>
+    <a href="#peek-alerts" class="nav-link" data-peek-nav><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
+    <a href="#peek-updates" class="nav-link" data-peek-nav><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Updates</span></a>
+  </nav>
+
+  <main id="main" class="container" tabindex="-1">
+    <div class="ov3" id="peek-overview">
+      <div class="ov3-top">
+        <div>
+          <div class="ov3-eyebrow">Good morning · Tuesday, 15 September</div>
+          <div class="ov3-h1"><span class="hl warn">2 sites</span> need a look today</div>
+          <div class="ov3-sub">Fleet health is <b>steady</b> at 87. Harbor Grill's kiosk 2 is running hot and Sausalito has a device that dropped offline overnight. Two rollouts are in flight; everything else is quiet.</div>
+        </div>
+        <div class="ov3-actions">
+          <a class="ov3-btn primary" href="/login"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Fleet health</a>
+          <a class="ov3-btn" href="/login"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="n warn">3</span></a>
+          <a class="ov3-btn" href="/login"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>
+          <a class="ov3-btn" href="/login"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Deploy update</a>
+        </div>
+      </div>
+
+      {{/* Hero: fleet health ring + narrative + fleet composition */}}
+      <div class="ov3-hero">
+        <div class="ov3-score">
+          <div class="ov3-ring">
+            <svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="val" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="42.5" transform="rotate(-90 60 60)"/></svg>
+            <b>87<small>/100</small></b>
+          </div>
+          <div>
+            <div class="ov3-st">Fleet health</div>
+            <span class="ov3-pill">Watch</span>
+            <div class="ov3-delta">7-day window<br><b class="up">↗ +3</b> vs prior week</div>
+          </div>
+        </div>
+        <div class="ov3-msg">
+          <p><b>55 of 58 devices online.</b> Three are dark: two on their charging pads at closed venues, one genuinely offline at Sausalito since 04:12. Temperatures are normal fleet-wide except Harbor Grill kiosk 2, peaking at 61°C.</p>
+          <div class="ov3-facts">
+            <a class="ov3-fact" href="/login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg><b>55</b> online</a>
+            <a class="ov3-fact warn" href="/login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg><b>1</b> running hot</a>
+            <a class="ov3-fact bad" href="/login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18.36 6.64A9 9 0 1 1 5.64 6.64"/><path d="M12 2v10"/></svg><b>1</b> offline</a>
+            <a class="ov3-fact" href="/login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20v-6M12 8V4"/></svg><b>2</b> rollouts live</a>
+          </div>
+        </div>
+        <div class="ov3-comp">
+          <div class="t">Fleet by product</div>
+          <div class="big">58<small>devices</small></div>
+          <div class="ov3-stack">
+            <i class="ov3-c1" style="flex:24"></i><i class="ov3-c2" style="flex:16"></i><i class="ov3-c3" style="flex:10"></i><i class="ov3-c4" style="flex:6"></i><i class="ov3-c5" style="flex:2"></i>
+          </div>
+          <div class="ov3-legend">
+            <span><i class="ov3-c1"></i>Kiosk 22" <b>24</b></span>
+            <span><i class="ov3-c2"></i>Kiosk 27" <b>16</b></span>
+            <span><i class="ov3-c3"></i>T7 tablet <b>10</b></span>
+            <span><i class="ov3-c4"></i>mPOS <b>6</b></span>
+            <span><i class="ov3-c5"></i>POS <b>2</b></span>
+          </div>
+        </div>
+      </div>
+
+      {{/* KPI strip */}}
+      <div class="ov3-kpis">
+        <div class="ov3-kpi ok"><div class="k"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg>Online</div><div class="v ok">55<span style="font-size:14px;color:var(--muted)">/58</span></div><div class="d"><b class="good">95%</b> live now</div></div>
+        <div class="ov3-kpi warn"><div class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Open alerts</div><div class="v warn">3</div><div class="d">1 hot · 1 offline · 1 low battery</div></div>
+        <div class="ov3-kpi"><div class="k"><svg viewBox="0 0 24 24"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>Avg battery</div><div class="v">78%</div><div class="d"><b class="good">▲ 2%</b> vs yesterday</div></div>
+        <div class="ov3-kpi bad"><div class="k"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>Peak temp</div><div class="v bad">61°C</div><div class="d">Harbor Grill · kiosk 2</div></div>
+        <div class="ov3-kpi"><div class="k"><svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><path d="M8 14l3-3 3 3 4-5"/></svg>Crashes 24h</div><div class="v">2</div><div class="d"><b class="good">▼ 4</b> vs prior day</div></div>
+        <div class="ov3-kpi"><div class="k"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>On latest</div><div class="v">71%</div><div class="d">41 of 58 on 2026.06.01</div></div>
+      </div>
+
+      <div class="ov3-grid">
+        {{/* Sites heatmap */}}
+        <div class="ov3-card ov3-w2" id="peek-fleet">
+          <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><h3>Sites</h3><span class="m">8 venues · worst first</span></div>
+          <div class="ov3-sites">
+            <a class="ov3-site danger" href="/login"><span class="sc">62</span><span class="nm">Harbor Grill</span><span class="mt">8 devices · kiosk hot</span></a>
+            <a class="ov3-site warn" href="/login"><span class="sc">74</span><span class="nm">Sausalito</span><span class="mt">12 devices · 1 offline</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">91</span><span class="nm">Marina Point</span><span class="mt">9 devices · all good</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">94</span><span class="nm">Ferry Plaza</span><span class="mt">7 devices · all good</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">96</span><span class="nm">Embarcadero</span><span class="mt">6 devices · all good</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">89</span><span class="nm">North Beach</span><span class="mt">5 devices · all good</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">92</span><span class="nm">Presidio</span><span class="mt">6 devices · all good</span></a>
+            <a class="ov3-site ok" href="/login"><span class="sc">97</span><span class="nm">Mission Rock</span><span class="mt">5 devices · all good</span></a>
+          </div>
+          <a class="ov3-foot" href="/login">Open Fleet →</a>
+        </div>
+
+        {{/* Alerts feed */}}
+        <div class="ov3-card" id="peek-alerts">
+          <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h3>Open alerts</h3><span class="m">3 open</span></div>
+          <div class="ov3-list">
+            <a class="ov3-row" href="/login"><span class="led danger"></span><span class="main"><b>Device running hot — 61°C</b><small>Harbor Grill · kiosk 2 · DEMO-0042</small></span><span class="rt"><span class="ov3-tag danger">Critical</span><br>12m ago</span></a>
+            <a class="ov3-row" href="/login"><span class="led warn"></span><span class="main"><b>Device offline</b><small>Sausalito · kiosk 5 · DEMO-0117</small></span><span class="rt"><span class="ov3-tag warn">Warning</span><br>4h ago</span></a>
+            <a class="ov3-row" href="/login"><span class="led warn"></span><span class="main"><b>Battery below 20%</b><small>Marina Point · mPOS 3 · DEMO-0088</small></span><span class="rt"><span class="ov3-tag warn">Warning</span><br>26m ago</span></a>
+          </div>
+          <a class="ov3-foot" href="/login">All alerts →</a>
+        </div>
+
+        {{/* Rollouts */}}
+        <div class="ov3-card" id="peek-updates">
+          <div class="ov3-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><h3>Rollouts in flight</h3><span class="m">2 active</span></div>
+          <div>
+            <div class="ov3-roll">
+              <div class="rh"><b>2026.06.01-release</b><span>41 / 58</span></div>
+              <div class="ov3-bar"><i style="width:71%"></i></div>
+              <div class="sub">Downloading on 9 · installed on 41 · 1 failed (retrying) · 7 not started</div>
+            </div>
+            <div class="ov3-roll">
+              <div class="rh"><b>2026.05.14 · Sausalito group</b><span>12 / 12</span></div>
+              <div class="ov3-bar"><i class="ok" style="width:100%"></i></div>
+              <div class="sub">Complete — awaiting reboot on 3, applies at 03:00 local</div>
+            </div>
+          </div>
+          <a class="ov3-foot" href="/login">Open Updates →</a>
+        </div>
+
+        {{/* Recent devices */}}
+        <div class="ov3-card ov3-w2">
+          <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><h3>Recently active devices</h3><span class="m">live check-ins</span></div>
+          <div class="ov3-list">
+            <a class="ov3-row" href="/login"><span class="led"></span><span class="main"><b>Harbor Grill · kiosk 1</b><small>DEMO-0041 · Kiosk 22" · 2026.06.01</small></span><span class="rt">battery 84% · <b style="color:var(--ok)">online</b></span></a>
+            <a class="ov3-row" href="/login"><span class="led danger"></span><span class="main"><b>Harbor Grill · kiosk 2</b><small>DEMO-0042 · Kiosk 22" · 2026.06.01</small></span><span class="rt">61°C · <b style="color:var(--danger)">hot</b></span></a>
+            <a class="ov3-row" href="/login"><span class="led"></span><span class="main"><b>Marina Point · tablet 3</b><small>DEMO-0071 · T7 tablet · 2026.06.01</small></span><span class="rt">battery 92% · <b style="color:var(--ok)">online</b></span></a>
+            <a class="ov3-row" href="/login"><span class="led mut"></span><span class="main"><b>Sausalito · kiosk 5</b><small>DEMO-0117 · Kiosk 27" · 2026.05.14</small></span><span class="rt">last seen 4h ago · <b style="color:var(--muted)">offline</b></span></a>
+            <a class="ov3-row" href="/login"><span class="led"></span><span class="main"><b>Ferry Plaza · mPOS 2</b><small>DEMO-0093 · mPOS · 2026.06.01</small></span><span class="rt">battery 67% · <b style="color:var(--ok)">online</b></span></a>
+          </div>
+          <a class="ov3-foot" href="/login">Open Fleet →</a>
+        </div>
+
+        {{/* Map */}}
+        <div class="ov3-card ov3-w2" id="peek-map">
+          <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/></svg></span><h3>Fleet map</h3><span class="m">Wi-Fi geolocation · clustered by venue</span></div>
+          <div class="ov3-map">
+            <div class="grid" aria-hidden="true"></div>
+            <div class="ov3-pin big danger" style="left:31%;top:42%"><i></i><span class="lbl">Harbor Grill · 8</span></div>
+            <div class="ov3-pin warn" style="left:69%;top:64%"><i></i><span class="lbl">Sausalito · 12</span></div>
+            <div class="ov3-pin" style="left:52%;top:30%"><i></i><span class="lbl">Marina Point · 9</span></div>
+            <div class="ov3-pin" style="left:20%;top:70%"><i></i></div>
+            <div class="ov3-pin" style="left:80%;top:34%"><i></i></div>
+            <div class="ov3-pin" style="left:44%;top:74%"><i></i></div>
+            <div class="ov3-pin" style="left:62%;top:20%"><i></i></div>
+          </div>
+          <a class="ov3-foot" href="/login">Open full map →</a>
+        </div>
+      </div>
+
+      <div class="peek-endcap">
+        <h2>This is the fleet, filled with sample data</h2>
+        <p>The real dashboard shows your own devices live — remote control, OTA rollouts, alerts and more.</p>
+        <div class="row">
+          <a class="ov3-btn primary" href="/login"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg>Open the dashboard</a>
+          <a class="ov3-btn" href="/">Back to home</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Theme toggle — shares the mdm-theme key with the dashboard and landing page.
+    function peekToggleTheme() {
+      var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', cur);
+      try { localStorage.setItem('mdm-theme', cur); } catch (e) {}
+    }
+    // Dock nav: smooth-scroll to the matching feature card and move the active state.
+    (function () {
+      var links = document.querySelectorAll('.dock .nav-link[data-peek-nav]');
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          var id = a.getAttribute('href');
+          var el = id && document.querySelector(id);
+          if (!el) return;
+          e.preventDefault();
+          links.forEach(function (l) { l.classList.remove('active'); });
+          a.classList.add('active');
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

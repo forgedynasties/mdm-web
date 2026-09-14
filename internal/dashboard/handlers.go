@@ -3379,6 +3379,18 @@ func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// SneakPeek renders a public, no-account preview of the dashboard: the real
+// appbar + dock chrome around a command-center overview filled entirely with
+// synthetic sample data. Nothing here touches the DB or a session — it's a
+// static showcase reachable from the landing page's "Take a sneak peek" button.
+func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	h.tmpl.ExecuteTemplate(w, "sneak_peek.html", map[string]any{
+		"Brand":    h.cfg.CustomBrand(),
+		"AssetVer": h.assetVer,
+	})
+}
+
 // trainingChapter is one entry of training/manifest.json in the S3 bucket (written by
 // tools/reel/publish-training.sh) plus presigned URLs for the page.
 type trainingChapter struct {
@@ -19604,6 +19616,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /forgot-password", h.ForgotPasswordSubmit)
 	mux.HandleFunc("GET /reset-password", h.ResetPasswordPage)
 	post("POST /reset-password", h.ResetPasswordSubmit)
+
+	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
 
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))

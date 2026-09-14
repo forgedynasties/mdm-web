@@ -296,8 +296,11 @@
     <div class="hero-bg" aria-hidden="true"></div>
     <h1><span>Every kiosk and tablet, <em class="hl" style="font-style:normal">all in one</em></span><span>dashboard for the whole fleet</span></h1>
     <p>Built in-house for AIO staff: live health, Wi-Fi geolocation, remote control and OTA updates for every device in every restaurant.</p>
-    <a class="btn lg" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
-    {{if .SignupEnabled}}<div class="hero-note">New here? <a href="/signup">Create an account</a> with your @aioapp.com email. Accounts start as viewer.</div>{{end}}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <a class="btn lg" href="/login">Open dashboard <span class="ic"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></span></a>
+      <a class="btn lg white" href="/sneak-peek">Take a sneak peek <span class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span></a>
+    </div>
+    {{if .SignupEnabled}}<div class="hero-note">Or <a href="/sneak-peek">take a sneak peek</a> with sample data — no account needed.</div>{{end}}
     <div class="hero-side">
     <a class="hero-jump" href="#pulse" aria-label="Scroll to product"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 8v9H8"/></svg></a>
     <aside class="glass" aria-label="Fleet status example">
