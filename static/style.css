@@ -1079,17 +1079,22 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
   white-space: nowrap;
 }
 
+/* A serial (or any identifier that links to its own page): a quiet chip that reads
+   as text until you reach for it. The old boxed coral-on-border version shouted at
+   every row it appeared in — dozens per page — and competed with the status badges
+   that actually carry the news. Colour arrives on hover, not at rest. */
 .link-detail {
   font-size: 12px;
-  font-weight: 500;
-  color: var(--accent-text);
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--surface2);
   white-space: nowrap;
-  transition: border-color 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
-.link-detail:hover { border-color: var(--accent); color: var(--accent-h); }
+.link-detail:hover { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent-text); }
 
 .refresh-badge {
   font-size: 11px;
@@ -3790,7 +3795,7 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 /* Serial links inside report prose: inline mono text, not boxed chips —
    the boxed .link-detail style breaks the sentence flow around commas. */
 #ai-sum-preview .link-detail, #ai-sum-full .link-detail {
-  display: inline; padding: 0; border: none; border-radius: 0;
+  display: inline; padding: 0; border: none; border-radius: 0; background: none;
   font-family: var(--mono); font-size: 12.5px; font-weight: 600;
   color: var(--accent-text); white-space: nowrap;
 }
@@ -4662,8 +4667,8 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
 .dl-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dl-id-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .dl-serial { display: inline; font-family: var(--mono); font-size: 13px; font-weight: 600;
-  color: var(--accent-text); padding: 0; border: 0; border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dl-serial:hover { color: var(--accent-h); text-decoration: underline; }
+  color: var(--text); background: none; padding: 0; border: 0; border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-serial:hover { color: var(--accent-text); background: none; text-decoration: underline; }
 .dl-kiosk { color: var(--muted); display: inline-flex; flex: none; }
 .dl-flap { color: var(--warn); display: inline-flex; flex: none; vertical-align: -1px; }
 .vitals-flap { color: var(--warn); display: inline-flex; align-items: center; vertical-align: -2px; }
@@ -4876,8 +4881,8 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
   padding: 8px 12px; border-bottom: 1px solid var(--border-soft); }
 .dl-lean-row:last-child { border-bottom: 0; }
 .dl-lean-row:hover { background: var(--hover); }
-.dl-lean-serial { font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none; }
-.dl-lean-serial:hover { color: var(--accent-text); }
+.dl-lean-serial { font-size: 13px; font-weight: 600; color: var(--text); background: none; padding: 0; text-decoration: none; }
+.dl-lean-serial:hover { color: var(--accent-text); background: none; }
 
 /* ===== device detail — Cockpit hero ===== */
 .ddc-hero { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; }
