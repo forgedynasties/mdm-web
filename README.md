@@ -1,79 +1,154 @@
 # AIO-MDM
 
-Lightweight MDM (Mobile Device Management) backend for managing a fleet of custom AOSP Android devices. Devices poll the server every 60 seconds, reporting telemetry and picking up queued commands.
+MDM (Mobile Device Management) server for a fleet of custom AOSP Android kiosk devices. Devices hold a WebSocket to the server (falling back to periodic HTTP check-ins), report telemetry, and receive commands, app installs and OTA updates. Operators work from a web dashboard; build machines and scripts use the admin REST API.
 
 ## Features
 
-- **Device telemetry** — battery level, build version, installed apps, extensible JSONB fields
-- **Remote commands** — install APKs, reboot, capture logcat, kiosk mode, custom payloads
-- **Web dashboard** — real-time device list, battery visualization, search/sort, CSV export
-- **Device groups** — tag devices for bulk operations
-- **Logcat capture** — request and view device logs filtered by level/tag
+- **Fleet** — device list and detail pages, telemetry history, battery/charging, network, map and WiFi-based geolocation, fleet health and a Daily Report
+- **Actions** — reboot, shell, logcat (including live), APK install/uninstall, managed configs, custom payloads; live delivery over WebSocket with per-device progress and history
+- **Apps** — APK library backed by S3, versions and deployments
+- **Software updates** — releases with full and incremental OTA packages, staged rollouts with live download progress, update policies, and a legacy OTA listener for pre-agent builds
+- **Organisation** — groups, restaurants, productions, schedules, geofencing, compliance and alerts
+- **Remote access** — remote screen and shell sessions; offline kiosk-exit codes (TOTP)
+- **Accounts** — email accounts with roles, self sign-up and password reset (SES), Sign in with Microsoft, and an activity log of who did what
+- **AI analysis** — optional report summaries via Anthropic, DeepSeek or OpenAI
+- **Dashboard** — HTMX, installable as a PWA, light/dark theme; release notes in [CHANGELOG.md](CHANGELOG.md)
 
 ## Tech Stack
 
-Go 1.23 · PostgreSQL 17 · HTMX · Docker
+Go 1.24 · PostgreSQL 17 · HTMX · Docker · AWS (S3, SES)
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
-# Edit .env — set DEVICE_API_KEY, ADMIN_API_KEY, and DASHBOARD_PASSWORD at minimum
+# Edit .env — at minimum set DEVICE_API_KEY, ADMIN_API_KEY, DASHBOARD_PASSWORD
+# and SESSION_SECRET (>=32 bytes, distinct from both API keys: openssl rand -hex 32)
 
 docker compose up -d --build
 ```
 
-Dashboard: `http://localhost:8080`
+Dashboard: `http://localhost:8082` (compose default; the bare binary defaults to `8080`).
+
+The server refuses to start without `DEVICE_API_KEY`, `ADMIN_API_KEY`, `DASHBOARD_PASSWORD` and a valid `SESSION_SECRET`.
 
 ## Configuration
 
+`.env.example` documents every variable in detail. Summary:
+
 | Variable | Description | Default |
 |---|---|---|
-| `PORT` | Server port | `8080` |
-| `DB_HOST` | PostgreSQL host | `postgres` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_USER` | Database user | `mdm` |
-| `DB_PASSWORD` | Database password | — |
-| `DB_NAME` | Database name | `mdm` |
-| `DEVICE_API_KEY` | API key for device checkins | — |
-| `ADMIN_API_KEY` | API key for admin REST endpoints | — |
-| `DASHBOARD_USER` | Dashboard login username | `admin` |
-| `DASHBOARD_PASSWORD` | Dashboard login password | — |
-| `SESSION_SECRET` | Cookie signing secret | falls back to `DEVICE_API_KEY` |
-| `CONFIG_PATH` | Path to display config | `config/display.json` |
+| `PORT` | HTTP port | `8080` (`8082` in compose) |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | PostgreSQL connection | `localhost` / `5432` / `mdm` / `mdm` / `mdm` |
+| `DEVICE_API_KEY` | `X-API-Key` for device endpoints | **required** |
+| `ADMIN_API_KEY` | `X-API-Key` for admin REST endpoints | **required** |
+| `DASHBOARD_USER` / `DASHBOARD_PASSWORD` | Bootstrap dashboard login | `admin` / **required** |
+| `SESSION_SECRET` | Session cookie signing key | **required** |
+| `PUBLIC_ORIGIN` | Trusted origin(s) for CSRF checks, comma-separated | request `Host` |
+| `PUBLIC_BASE_URL` | Base URL devices use to fetch server-generated assets | derived from request |
+| `COOKIE_SECURE` | Set `false` for local HTTP | `true` |
+| `CONFIG_PATH` | Persisted settings file | `config/display.json` (`/app/data/config.json` in compose) |
+| `AWS_REGION`, `S3_BUCKET`, `S3_PREFIX`, `APK_CACHE_DIR` | APK store on S3 | — |
+| `MAIL_FROM_EMAIL` | SES sender for sign-up / reset mail (logged if `AWS_REGION` unset) | `AIO MDM <mdm@dev.aioapp.com>` |
+| `MS_CLIENT_ID` / `MS_CLIENT_SECRET` / `MS_TENANT_ID` | Sign in with Microsoft (all three enable it) | — |
+| `GOOGLE_GEOLOCATION_API_KEY` | WiFi → lat/lon | — |
+| `GOOGLE_GEOCODING_API_KEY` | lat/lon → street address | — |
+| `GOOGLE_MAPS_EMBED_API_KEY` | Map on the device page (browser-exposed; restrict by referrer) | — |
+| `AI_PROVIDER` / `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` / `AI_DIGEST` | AI analysis; overrides Settings | — |
+| `AGENT_APK_URL` / `AGENT_APK_DIR` / `AGENT_APK_CHECKSUM` | Agent APK served at enrollment | — |
+| `LEGACY_OTA_PORT` | Extra listener for pre-agent OTA clients | off (`8010` in compose) |
+| `LEGACY_OTA_UPSTREAM` | Pass-through target for legacy OTA routes | `http://host.docker.internal:8001` |
+| `SSRF_ALLOW_CIDRS` | CIDRs exempt from outbound-fetch SSRF guard | — |
+| `SPLASH_DIR` | Boot-logo / splash image storage | `data/splash` |
 
 ## API
 
-Device-originated endpoints require the device `X-API-Key` (`DEVICE_API_KEY`).
-Admin REST endpoints require the admin `X-API-Key` (`ADMIN_API_KEY`).
+Full reference: [docs/API_REFERENCE.md](docs/API_REFERENCE.md) · [docs/openapi.yaml](docs/openapi.yaml).
+
+Device endpoints take `X-API-Key: $DEVICE_API_KEY`; admin endpoints take `X-API-Key: $ADMIN_API_KEY`.
+
+### Device
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/checkin` | Device checkin (battery, build, apps, extras) |
-| `POST` | `/api/v1/commands/{id}/ack` | Device acknowledges command result |
-| `POST` | `/api/v1/logcat` | Device submits captured logcat |
-| `POST` | `/api/v1/ota/status` | Device reports OTA progress |
-| `GET` | `/api/v1/devices` | List all devices |
-| `GET` | `/api/v1/devices/{serial}` | Device detail + recent checkins |
-| `POST` | `/api/v1/commands` | Queue a command |
-| `GET` | `/api/v1/commands` | List commands |
-| `GET` | `/api/v1/groups` | List groups |
-| `POST` | `/api/v1/groups` | Create group |
-| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/enroll` | Enroll a device |
+| `GET` | `/api/v1/ws` | Device WebSocket (commands pushed live) |
+| `POST` | `/api/v1/checkin` | HTTP check-in (telemetry, apps, extras) |
+| `POST` | `/api/v1/commands/{id}/ack` | Acknowledge a command result |
+| `POST` | `/api/v1/logcat` | Submit captured logcat |
+| `POST` | `/api/v1/ota/status` | Report OTA state |
+| `POST` | `/api/v1/ota/progress` | Report OTA download progress |
+
+### Admin
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/devices` | List devices |
+| `GET` | `/api/v1/devices/{serial}` | Device detail + recent check-ins |
+| `POST` | `/api/v1/devices/{serial}/ping` | Ping a connected device |
+| `GET` `POST` | `/api/v1/commands` | List / queue commands |
+| `GET` | `/api/v1/commands/{id}` | Command status |
+| `GET` `POST` | `/api/v1/groups` | List / create groups |
+| `GET` `DELETE` | `/api/v1/groups/{id}` | Read / delete a group |
+| `POST` | `/api/v1/groups/{id}/devices` | Add a device to a group |
+| `DELETE` | `/api/v1/groups/{id}/devices/{serial}` | Remove a device from a group |
+| `GET` `POST` | `/api/v1/productions` | List / create productions |
+| `GET` `DELETE` | `/api/v1/productions/{id}` | Read / delete a production |
+| `GET` `POST` | `/api/v1/releases` | List / get-or-create a release |
+| `GET` | `/api/v1/releases/{id}` | Release with its packages |
+| `POST` | `/api/v1/releases/{id}/packages` | Attach a full or incremental OTA package |
+| `POST` | `/api/v1/releases/{id}/publish` | Publish a release |
+| `GET` | `/health` | Health check (no auth) |
+
+### Publishing a build
+
+A build pipeline can put a signed OTA package on the fleet without the dashboard. MDM stores the URL devices download from; it does not host the package.
+
+```bash
+H=(-H "X-API-Key: $ADMIN_API_KEY" -H "Content-Type: application/json")
+
+# 1. Get or create the release (200 if it exists, 201 if created; body has "created")
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases \
+  -d '{"version":"$BUILD_ID","product":"t7","name":"September","changelog":"...","is_dev":true}'
+
+# 2. Attach packages — one active full image, any number of incrementals
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/packages \
+  -d '{"type":"full","update_url":"https://.../full.zip"}'
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/packages \
+  -d '{"type":"incremental","source_build_id":"$PREV_BUILD_ID","update_url":"https://.../inc.zip"}'
+
+# 3. Publish — makes it deployable
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/publish
+```
+
+- Re-running is safe: an existing release's `name`, `changelog` and `is_dev` are left alone unless the request sets `"update_meta": true`.
+- Attaching a package that already exists (even a yanked one) returns `409` naming the artifact.
+- Every call writes an audit row with actor `api`.
 
 ## Project Structure
 
 ```
-cmd/server/          # Entry point
+cmd/server/          Entry point, routing
 internal/
-  api/               # Device REST API handlers
-  dashboard/         # Web UI handlers + HTMX partials
-  db/                # Schema, migrations, queries
-  middleware/         # API key auth
-  config/            # Dynamic display column config
-templates/           # Go HTML templates
-static/              # CSS
-config/              # display.json (extra dashboard columns)
+  api/               Device + admin REST API, WebSocket, legacy OTA routes
+  dashboard/         Web UI handlers + HTMX partials
+  db/                Schema, migrations, queries
+  middleware/        API key auth, sessions, CSRF, limits
+  ws/                Device connection hub
+  ota/ otagate/      OTA rollout logic and gating
+  apkstore/ apkmeta/ S3 APK library, APK parsing
+  remote/ shell/ logstream/   Remote screen, shell, live logcat
+  alerts/ notify/ mailer/     Alerting and email
+  ai/                AI analysis providers
+  geolocate/         WiFi geolocation, reverse geocoding
+  product/           Product catalog
+  config/ version/ totp/ ratelimit/ safehttp/
+templates/           Go HTML templates
+static/              CSS, JS, icons, service worker
+docker/postgres/     DB init script
+docs/                API reference, design and planning docs
+scripts/             Diagnostic scripts
+tools/               Deploy, enrollment and legacy-OTA cutover scripts; reel/ (demo video tooling)
 ```
 
 ## Development
@@ -81,12 +156,9 @@ config/              # display.json (extra dashboard columns)
 ```bash
 # Run locally (requires PostgreSQL)
 go build -o server ./cmd/server
-./server
+COOKIE_SECURE=false ./server
 
-# Simulate devices
-./simulate.sh          # 5 devices with battery drift
-python3 simulate.py    # 50 threaded devices
-
-# Backfill 24h of history
-./backfill.sh
+go test ./...
 ```
+
+Staging deploy: `tools/stage-deploy.sh`. Enroll a device over ADB: `tools/enroll-adb.sh`.
