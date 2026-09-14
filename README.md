@@ -109,16 +109,16 @@ H=(-H "X-API-Key: $ADMIN_API_KEY" -H "Content-Type: application/json")
 
 # 1. Get or create the release (200 if it exists, 201 if created; body has "created")
 curl -s "${H[@]}" -X POST $MDM/api/v1/releases \
-  -d '{"version":"$BUILD_ID","product":"t7","name":"September","changelog":"...","is_dev":true}'
+  -d '{"version":"<build-id>","product":"t7","name":"September","changelog":"...","is_dev":true}'
 
 # 2. Attach packages — one active full image, any number of incrementals
-curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/packages \
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/<id>/packages \
   -d '{"type":"full","update_url":"https://.../full.zip"}'
-curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/packages \
-  -d '{"type":"incremental","source_build_id":"$PREV_BUILD_ID","update_url":"https://.../inc.zip"}'
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/<id>/packages \
+  -d '{"type":"incremental","source_build_id":"<previous-build-id>","update_url":"https://.../inc.zip"}'
 
 # 3. Publish — makes it deployable
-curl -s "${H[@]}" -X POST $MDM/api/v1/releases/$ID/publish
+curl -s "${H[@]}" -X POST $MDM/api/v1/releases/<id>/publish
 ```
 
 - Re-running is safe: an existing release's `name`, `changelog` and `is_dev` are left alone unless the request sets `"update_meta": true`.
