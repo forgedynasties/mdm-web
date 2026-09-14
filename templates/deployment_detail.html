@@ -30,131 +30,134 @@
 {{end}}
 {{end}}
 
-{{/* Design A — dense table. The default; matches every other data table in the app. */}}
+{{/* Design A — compact device rows. The default. One device per row: identity and
+     state on the first line, its progress (and anything that went wrong) on the
+     second, with the times and per-device actions held to the right. A table put
+     six columns of equal weight on screen when only two of them are ever read. */}}
 {{define "deployment-list-a"}}
 {{$dep := .Deployment}}
-<div class="dpl-tbl-wrap">
-<table class="cc-table dpl-tbl">
-  <thead>
-    <tr>
-      <th>Device</th>
-      <th>Status</th>
-      <th>Progress</th>
-      <th>Duration</th>
-      <th>Updated</th>
-      <th title="When the reboot that applies the update was pushed to the device">Reboot pushed</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
+<div class="dpl-list">
   {{if $dep.Targets}}
   {{range $dep.Targets}}
   {{$progress := index $.OTAProgress .DeviceID.String}}
-  <tr>
-    <td class="dpl-dev">
-      <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
-      <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</div>
-    </td>
-    <td>
-      {{if and $progress (eq .Status "downloading") $progress.Phase}}
-        <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
-      {{else}}
-        <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
-      {{end}}
-      {{if and (eq .Status "failed") .ErrorCode}}
-        <div class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
-      {{end}}
-    </td>
-    <td class="dpl-prog-cell">
-      {{if $progress}}
-        <div class="dpl-prog">
-          <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
-          <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
-        </div>
-      {{else}}<span class="muted">—</span>{{end}}
-    </td>
-    <td class="mono muted small" title="time from download start to installed">{{dur .DurationSeconds}}</td>
-    <td class="muted small reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
-    <td class="small dpl-reboot-at">{{if .RebootSentAt}}{{localTime (deref .RebootSentAt)}}{{else}}<span class="muted">—</span>{{end}}</td>
-    <td class="dpl-act-cell">
-      {{if and (eq .Status "failed") (canOperate $.Role)}}
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-          <button type="submit" class="btn-outline btn-sm" title="Re-send the same way it was sent before (incremental if it qualifies, otherwise full)">Retry</button>
-        </form>
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-          <input type="hidden" name="delivery" value="full">
-          <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
-        </form>
-      {{end}}
-      {{if and (eq .Status "awaiting_reboot") (canOperate $.Role)}}
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
-              hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
-          <button type="submit" class="btn-primary btn-sm" title="Update is installed and waiting — reboot to apply it">Reboot to apply</button>
-        </form>
-      {{end}}
-      {{if and (or (eq .Status "pending") (eq .Status "failed") (eq .Status "canceled")) (canOperate $.Role)}}
-        {{/* A failed row is finished work: removing it takes it out of the rollout's
-             numbers, which is how an operator says "not this one". */}}
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
-              hx-confirm="{{if eq .Status "pending"}}Remove {{.SerialNumber}} from this deployment? It will not receive the update.{{else}}Remove {{.SerialNumber}} from this deployment? Its failure stops counting against the rollout; push again later to retry.{{end}}">
-          <button type="submit" class="btn-outline btn-sm">Remove</button>
-        </form>
-      {{end}}
-      {{if and (eq .Status "downloading") (canOperate $.Role)}}
-        {{if stalledFor .UpdatedAt 10}}
-        <span class="muted small" title="No progress reported for over 10 minutes (the device may have rebooted mid-download)">stalled</span>
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-          <button type="submit" class="btn-outline btn-sm" title="Start the download again">Retry</button>
-        </form>
+  <div class="dpl-row" data-serial="{{.SerialNumber}}">
+    <div class="dpl-row-l">
+      <div class="dpl-r1">
+        <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
+        <span class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</span>
+        {{if and $progress (eq .Status "downloading") $progress.Phase}}
+          <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
+        {{else}}
+          <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
         {{end}}
-        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
-              hx-confirm="Cancel the download on {{.SerialNumber}}? Safe while still downloading — never aborts an install already in progress. The row is marked failed so you can retry.">
-          <button type="submit" class="btn-outline btn-sm" title="Aborts the download and marks the row failed (cancelled) so it can be retried">Cancel</button>
-        </form>
-      {{end}}
-    </td>
-  </tr>
+        {{if and (eq .Status "downloading") (stalledFor .UpdatedAt 10)}}
+          <span class="muted small" title="No progress reported for over 10 minutes (the device may have rebooted mid-download)">stalled</span>
+        {{end}}
+      </div>
+      <div class="dpl-r2">
+        {{if $progress}}
+          <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
+          <span class="muted small dpl-pct">{{if $progress.Phase}}{{$progress.Phase}} {{end}}{{$progress.Percent}}%</span>
+        {{end}}
+        {{if and (eq .Status "failed") .ErrorCode}}
+          <span class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></span>
+        {{end}}
+      </div>
+    </div>
+    <div class="dpl-row-r">
+      <div class="dpl-times muted small">
+        <span title="time from download start to installed">{{dur .DurationSeconds}}</span>
+        <span class="dot">·</span>
+        <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+        {{if .RebootSentAt}}<span class="dot">·</span><span title="When the reboot that applies the update was pushed">rebooted {{localTime (deref .RebootSentAt)}}</span>{{end}}
+      </div>
+      <div class="dpl-acts">
+        {{if and (eq .Status "failed") (canOperate $.Role)}}
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+            <button type="submit" class="btn-outline btn-sm" title="Re-send the same way it was sent before (incremental if it qualifies, otherwise full)">Retry</button>
+          </form>
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+            <input type="hidden" name="delivery" value="full">
+            <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
+          </form>
+        {{end}}
+        {{if and (eq .Status "awaiting_reboot") (canOperate $.Role)}}
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
+            <button type="submit" class="btn-primary btn-sm" title="Update is installed and waiting — reboot to apply it">Reboot to apply</button>
+          </form>
+        {{end}}
+        {{if and (or (eq .Status "pending") (eq .Status "failed") (eq .Status "canceled")) (canOperate $.Role)}}
+          {{/* A failed row is finished work: removing it takes it out of the rollout's
+               numbers, which is how an operator says "not this one". */}}
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="{{if eq .Status "pending"}}Remove {{.SerialNumber}} from this deployment? It will not receive the update.{{else}}Remove {{.SerialNumber}} from this deployment? Its failure stops counting against the rollout; push again later to retry.{{end}}">
+            <button type="submit" class="btn-outline btn-sm">Remove</button>
+          </form>
+        {{end}}
+        {{if and (eq .Status "downloading") (canOperate $.Role)}}
+          {{if stalledFor .UpdatedAt 10}}
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+            <button type="submit" class="btn-outline btn-sm" title="Start the download again">Retry</button>
+          </form>
+          {{end}}
+          <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="Cancel the download on {{.SerialNumber}}? Safe while still downloading — never aborts an install already in progress. The row is marked failed so you can retry.">
+            <button type="submit" class="btn-outline btn-sm" title="Aborts the download and marks the row failed (cancelled) so it can be retried">Cancel</button>
+          </form>
+        {{end}}
+      </div>
+    </div>
+  </div>
   {{end}}
   {{else if not $.LegacyRows}}
-  <tr><td colspan="7" class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</td></tr>
+  <div class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</div>
   {{end}}
+
   {{/* The legacy half of the same push: devices whose build has no MDM OTA, served
        the same release over the otautil listener. One rollout, two transports. */}}
   {{range $.LegacyRows}}
   {{$awaiting := or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}
-  <tr>
-    <td class="dpl-dev">
-      {{if .InFleet}}<a href="/devices/{{.Serial}}" class="dpl-sn link-detail">{{.Serial}}</a>{{else}}<span class="dpl-sn">{{.Serial}}</span>{{end}}
-      <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}} · <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span></div>
-    </td>
-    <td>
-      {{if eq .Status "installed"}}<span class="dq-pill ok">installed</span>
-      {{else if eq .Status "failed"}}<span class="dq-pill bad">failed</span>
-      {{else if eq .Status "canceled"}}<span class="dq-pill">canceled</span>
-      {{else if $awaiting}}<span class="dq-pill info">awaiting reboot</span>
-      {{else if eq .Status "pending"}}<span class="dq-pill">waiting for its poll</span>
-      {{else}}<span class="dq-pill info">{{.Status}}</span>{{end}}
-    </td>
-    <td>{{if and (gt .Percent 0) (not $awaiting)}}<div class="cc-meter" style="min-width:90px;"><i style="width:{{.Percent}}%"></i></div><span class="muted small">{{.Percent}}%</span>{{else if $awaiting}}<span class="muted small">applied</span>{{else}}<span class="muted small">—</span>{{end}}</td>
-    <td class="muted small">—</td>
-    <td class="muted small">{{timeSince .UpdatedAt}}</td>
-    <td class="muted small">{{if .RebootSentAt}}{{timeSince .RebootSentAt}}{{if .RebootState}} · {{.RebootState}}{{end}}{{else}}—{{end}}</td>
-    <td class="dpl-acts">
-      {{if and (canOperate $.Role) $awaiting .InFleet}}
-      <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" class="dpl-act" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}.">
-        <button type="submit" class="btn-outline btn-sm">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button>
-      </form>
-      {{end}}
-      {{if and (canOperate $.Role) (eq .Status "failed")}}
-      <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true" class="dpl-act">
-        <button type="submit" class="btn-outline btn-sm">Retry</button>
-      </form>
-      {{end}}
-    </td>
-  </tr>
+  <div class="dpl-row" data-serial="{{.Serial}}">
+    <div class="dpl-row-l">
+      <div class="dpl-r1">
+        {{if .InFleet}}<a href="/devices/{{.Serial}}" class="dpl-sn link-detail">{{.Serial}}</a>{{else}}<span class="dpl-sn">{{.Serial}}</span>{{end}}
+        <span class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</span>
+        <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span>
+        {{if eq .Status "installed"}}<span class="dq-pill ok">installed</span>
+        {{else if eq .Status "failed"}}<span class="dq-pill bad">failed</span>
+        {{else if eq .Status "canceled"}}<span class="dq-pill">canceled</span>
+        {{else if $awaiting}}<span class="dq-pill info">awaiting reboot</span>
+        {{else if eq .Status "pending"}}<span class="dq-pill">waiting for its poll</span>
+        {{else}}<span class="dq-pill info">{{.Status}}</span>{{end}}
+      </div>
+      <div class="dpl-r2">
+        {{if and (gt .Percent 0) (not $awaiting)}}
+          <div class="dpl-pbar"><i style="width:{{.Percent}}%"></i></div>
+          <span class="muted small dpl-pct">{{.Percent}}%</span>
+        {{else if $awaiting}}<span class="muted small dpl-pct">applied</span>{{end}}
+      </div>
+    </div>
+    <div class="dpl-row-r">
+      <div class="dpl-times muted small">
+        <span>{{timeSince .UpdatedAt}}</span>
+        {{if .RebootSentAt}}<span class="dot">·</span><span>rebooted {{timeSince .RebootSentAt}}{{if .RebootState}} · {{.RebootState}}{{end}}</span>{{end}}
+      </div>
+      <div class="dpl-acts">
+        {{if and (canOperate $.Role) $awaiting .InFleet}}
+        <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" class="dpl-act" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}.">
+          <button type="submit" class="btn-outline btn-sm">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button>
+        </form>
+        {{end}}
+        {{if and (canOperate $.Role) (eq .Status "failed")}}
+        <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true" class="dpl-act">
+          <button type="submit" class="btn-outline btn-sm">Retry</button>
+        </form>
+        {{end}}
+      </div>
+    </div>
+  </div>
   {{end}}
-  </tbody>
-</table>
 </div>
 {{end}}
 
@@ -353,19 +356,36 @@
   .dpl-panel > summary .muted{font-weight:400}
   .dpl-panel-body{padding:0 17px 16px}
 
-  /* device table */
-  .dpl-tbl-wrap{overflow-x:auto}
-  .dpl-tbl th, .dpl-tbl td{vertical-align:top}
-  .dpl-dev{min-width:0}
+  /* Design A — device rows. Identity + state on line one, progress on line two,
+     times and actions parked on the right so the eye runs down serials and bars. */
+  .dpl-list{display:flex;flex-direction:column}
+  .dpl-row{display:flex;align-items:center;gap:14px;padding:11px 18px;border-top:1px solid var(--border-soft)}
+  .dpl-row:first-child{border-top:none}
+  .dpl-row:hover{background:var(--surface2)}
+  .dpl-row-l{flex:1;min-width:0}
+  .dpl-r1{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
+  .dpl-r2{display:flex;align-items:center;gap:9px;margin-top:6px;min-width:0}
+  .dpl-r2:empty{display:none}
   .dpl-sn{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap}
-  .dpl-build{font-size:11.5px;color:var(--muted);margin-top:3px;white-space:nowrap}
-  .dpl-prog-cell{min-width:170px}
-  .dpl-prog{width:100%;max-width:220px}
-  .dpl-pbar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));margin-bottom:5px}
-  .dpl-pbar i{display:block;height:100%;background:var(--accent-2)}
-  .dpl-err{margin-top:4px;max-width:220px}
+  .dpl-build{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .dpl-pbar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));width:100%;max-width:260px;flex:1}
+  .dpl-pbar i{display:block;height:100%;background:var(--accent-2);transition:width .4s ease}
+  .dpl-pct{white-space:nowrap;font-variant-numeric:tabular-nums;text-transform:capitalize}
+  .dpl-err{min-width:0}
+  /* Designs B and C wrap the same bar in their own block. */
+  .dpl-prog{width:100%}
+  .dpl-prog .dpl-pbar{margin-bottom:5px;max-width:none}
+  .dpl-row-r{display:flex;align-items:center;gap:12px;flex-shrink:0;justify-content:flex-end}
+  .dpl-times{white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .dpl-times .dot{opacity:.5}
   .dpl-act{display:inline}
-  .dpl-act-cell{white-space:nowrap;text-align:right}
+  .dpl-acts{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .dpl-acts:empty{display:none}
+  @media(max-width:860px){
+    .dpl-row{flex-direction:column;align-items:stretch;gap:8px}
+    .dpl-row-r{justify-content:space-between}
+    .dpl-pbar{max-width:none}
+  }
 
   /* design switcher (demo preview only) */
   .dpl-design-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
