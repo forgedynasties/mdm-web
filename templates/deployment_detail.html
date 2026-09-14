@@ -57,7 +57,7 @@
       <div class="dpl-r2">
         {{if $progress}}
           <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
-          <span class="muted small dpl-pct">{{if $progress.Phase}}{{$progress.Phase}} {{end}}{{$progress.Percent}}%</span>
+          <span class="muted small dpl-rowpct">{{if $progress.Phase}}{{$progress.Phase}} {{end}}{{$progress.Percent}}%</span>
         {{end}}
         {{if and (eq .Status "failed") .ErrorCode}}
           <span class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></span>
@@ -134,8 +134,8 @@
       <div class="dpl-r2">
         {{if and (gt .Percent 0) (not $awaiting)}}
           <div class="dpl-pbar"><i style="width:{{.Percent}}%"></i></div>
-          <span class="muted small dpl-pct">{{.Percent}}%</span>
-        {{else if $awaiting}}<span class="muted small dpl-pct">applied</span>{{end}}
+          <span class="muted small dpl-rowpct">{{.Percent}}%</span>
+        {{else if $awaiting}}<span class="muted small dpl-rowpct">applied</span>{{end}}
       </div>
     </div>
     <div class="dpl-row-r">
@@ -364,13 +364,13 @@
   .dpl-row:hover{background:var(--surface2)}
   .dpl-row-l{flex:1;min-width:0}
   .dpl-r1{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-width:0}
-  .dpl-r2{display:flex;align-items:center;gap:9px;margin-top:6px;min-width:0}
+  .dpl-r2{display:flex;align-items:center;gap:8px;margin-top:5px;min-width:0}
   .dpl-r2:empty{display:none}
   .dpl-sn{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap}
   .dpl-build{font-size:11.5px;color:var(--muted);white-space:nowrap}
-  .dpl-pbar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));width:100%;max-width:260px;flex:1}
+  .dpl-pbar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--surface3,var(--border));flex:0 1 180px;min-width:80px}
   .dpl-pbar i{display:block;height:100%;background:var(--accent-2);transition:width .4s ease}
-  .dpl-pct{white-space:nowrap;font-variant-numeric:tabular-nums;text-transform:capitalize}
+  .dpl-rowpct{white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;text-transform:capitalize}
   .dpl-err{min-width:0}
   /* Designs B and C wrap the same bar in their own block. */
   .dpl-prog{width:100%}
@@ -384,7 +384,7 @@
   @media(max-width:860px){
     .dpl-row{flex-direction:column;align-items:stretch;gap:8px}
     .dpl-row-r{justify-content:space-between}
-    .dpl-pbar{max-width:none}
+    .dpl-pbar{flex:1}
   }
 
   /* design switcher (demo preview only) */
