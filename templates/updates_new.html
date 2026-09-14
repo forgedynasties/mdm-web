@@ -32,7 +32,7 @@
 </div>
 
 {{/* ── Step 1 · release ── */}}
-<div class="cc-card" style="margin-bottom:16px;">
+<div class="cc-card rel-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
     <h3>1 · Product and release</h3>
@@ -80,8 +80,12 @@
     </div>
   </div>
   <style>
+  /* cc-card clips its content (overflow:hidden), which would cut the open list off
+     at the card edge, and the next card would paint over what is left. Let this one
+     card overflow and lift it above the cards below it. */
+  .rel-card{overflow:visible;position:relative;z-index:5;}
   .rel-combo{position:relative;}
-  .rel-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;max-height:280px;overflow:auto;
+  .rel-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:60;max-height:280px;overflow:auto;
     background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:none;}
   .rel-combo.open .rel-list{display:block;}
   .rel-opt{padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;}
