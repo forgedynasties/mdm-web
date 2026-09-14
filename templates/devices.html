@@ -1123,6 +1123,7 @@ function updateBulkBar() {
   } else if (sheet) {
     sheet.hidden = true;
   }
+  sheetCleanupOnce();
   count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
 
   // Inject the current selection into the bulk hide/unhide forms.
@@ -1162,6 +1163,24 @@ function updateBulkBar() {
     matchBtn.style.display = showIt ? '' : 'none';
     if (showIt) matchBtn.textContent = 'Select all ' + filterTotal + ' matching →';
   }
+}
+
+// The sheet is appended to <body>, outside anything a boosted navigation swaps, so
+// leaving the fleet page would otherwise leave it floating over the next page. Drop
+// it as soon as a swap lands on a page that has no device roster. Registered once,
+// because this script runs again on every boosted return to /devices.
+function dropSelSheetIfAway() {
+  if (document.querySelector('.device-cb') || document.getElementById('device-table-container')) return;
+  var s = document.getElementById('sel-sheet');
+  if (s) s.remove();
+}
+function sheetCleanupOnce() {
+  if (window.__selSheetCleanup) return;
+  window.__selSheetCleanup = true;
+  ['htmx:afterSwap', 'htmx:afterSettle', 'htmx:historyRestore'].forEach(function (ev) {
+    document.body.addEventListener(ev, dropSelSheetIfAway);
+  });
+  window.addEventListener('popstate', dropSelSheetIfAway);
 }
 
 function toggleSelectAll(cb) {
