@@ -101,11 +101,26 @@
     var s = new URLSearchParams(location.search).get('serials');
     return s ? '&serials=' + encodeURIComponent(s) : '';
   }
+  // Swap <main> instead of reloading the document: picking a release re-renders
+  // the page around it (step 2 is scoped to the release), but a full reload throws
+  // away the app shell and flashes white for what is really an in-page change.
+  function pushNavigate(url) {
+    if (!window.htmx || !document.querySelector('main')) { location.href = url; return; }
+    try {
+      var p = window.htmx.ajax('GET', url, { source: document.body, target: 'main', swap: 'outerHTML', select: 'main' });
+      if (p && p.then) {
+        p.then(function () { try { history.pushState(null, '', url); } catch (e) {} },
+               function () { location.href = url; });
+      } else {
+        try { history.pushState(null, '', url); } catch (e) {}
+      }
+    } catch (e) { location.href = url; }
+  }
   function pushPickProduct(p) {
-    location.href = '/updates/new?product=' + encodeURIComponent(p) + pushKeepSerials();
+    pushNavigate('/updates/new?product=' + encodeURIComponent(p) + pushKeepSerials());
   }
   function pushPickRelease(id) {
-    if (id) location.href = '/updates/new?release=' + id + pushKeepSerials();
+    if (id) pushNavigate('/updates/new?release=' + id + pushKeepSerials());
   }
   // Type-ahead release combobox: filters as you type, Enter/click picks, and picking
   // navigates (the release drives everything below it). Options are hidden, not
@@ -155,9 +170,20 @@
       else if (e.key === 'Escape') { input.value = labelFor(input.getAttribute('data-current') || ''); close(); }
     });
     opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
-    document.addEventListener('click', function (e) {
-      if (!combo.contains(e.target)) { input.value = labelFor(input.getAttribute('data-current') || ''); close(); }
-    });
+    // A swapped-in page runs this script again, so the document listener is bound
+    // once and looks the combo up live rather than closing over a detached node.
+    if (!window.__relComboBound) {
+      window.__relComboBound = true;
+      document.addEventListener('click', function (e) {
+        var c = document.getElementById('rel-combo'), i = document.getElementById('rel-search');
+        if (!c || !i || c.contains(e.target)) return;
+        var cur = i.getAttribute('data-current') || '', lbl = '';
+        c.querySelectorAll('.rel-opt').forEach(function (o) { if (o.getAttribute('data-value') === cur) lbl = o.textContent.trim(); });
+        i.value = lbl;
+        c.classList.remove('open');
+        i.setAttribute('aria-expanded', 'false');
+      });
+    }
   })();
   </script>
 </div>
