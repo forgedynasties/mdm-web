@@ -13452,11 +13452,19 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	// exactly as before.
 	blocked, artifact := map[string]string{}, map[string]string{}
 	var legacyRows []legacyPickerRow
+	// A scoped request ("every device in this restaurant/group/production") is
+	// answered by the picker with "select all of these", so it must contain only
+	// devices that really are in that scope. Legacy-only devices are not in the
+	// fleet at all and so belong to no restaurant or group — including them here
+	// made a restaurant of 8 devices select 10.
+	scoped := filter.RestaurantID != uuid.Nil || filter.GroupID != uuid.Nil || filter.ProductionID != uuid.Nil
 	if pushRel != nil {
 		blocked, artifact = h.releaseEligibility(r.Context(), pushRel, devices)
 		// Devices that are not in the fleet at all but do poll the legacy listener:
 		// one push covers both kinds now, so they belong in the same list.
-		legacyRows = h.legacyPickerRows(r, pushRel, blocked, artifact, r.URL.Query().Get("q"), r.URL.Query().Get("status"))
+		if !scoped {
+			legacyRows = h.legacyPickerRows(r, pushRel, blocked, artifact, r.URL.Query().Get("q"), r.URL.Query().Get("status"))
+		}
 		// What can be pushed comes first. A blocked row still belongs in the list —
 		// "why can't I pick this one" is the next question — but scrolling past a
 		// screenful of up-to-date devices to reach the three that need the build is

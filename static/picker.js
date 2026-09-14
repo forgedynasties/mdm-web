@@ -26,6 +26,9 @@
   var QF = rail.dataset.source === 'legacy' ? { legacyonly: true } : {};
   var stab = 'all';
   var timer = null, loading = false, scopeBusy = '';
+  // Float the chosen devices to the top of the list (set when a whole scope or a
+  // pasted batch lands, cleared the moment the operator picks rows themselves).
+  var floatSel = false;
 
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -117,7 +120,14 @@
     // What can be pushed comes first, whichever list it came from — the fleet rows
     // and the legacy rows arrive as two blocks, so sorting has to happen after they
     // are merged or an eligible legacy device sits below thirty blocked ones.
+    // After a scope is added its devices float to the top, so what was just chosen
+    // is on screen instead of scattered down a list of two hundred. Toggling a row
+    // by hand turns that off (floatSel), or the row would jump away under the cursor.
     return rows.slice().sort(function (a, b) {
+      if (floatSel) {
+        var sa = picked[a.serial] ? 0 : 1, sb = picked[b.serial] ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+      }
       return (a.blocked ? 1 : 0) - (b.blocked ? 1 : 0);
     });
   }
@@ -183,7 +193,7 @@
     if (m && m.blocked) return;   // a scope must not drag in devices the push would drop
     picked[serial] = m || { serial: serial };
   }
-  function toggle(serial) { if (picked[serial]) delete picked[serial]; else add(serial); render(); }
+  function toggle(serial) { floatSel = false; if (picked[serial]) delete picked[serial]; else add(serial); render(); }
 
   rail.addEventListener('click', function (e) {
     var dev = e.target.closest('.co-dev');
@@ -197,7 +207,7 @@
       return;
     }
     var paste = e.target.closest('#pk-paste');
-    if (paste) { (pasteTokens() || []).forEach(add); el('pk-q').value = ''; load(true); return; }
+    if (paste) { (pasteTokens() || []).forEach(add); floatSel = true; el('pk-q').value = ''; load(true); return; }
     var qf = e.target.closest('.co-qf');
     if (qf) {
       var k = qf.dataset.qf;
@@ -225,7 +235,7 @@
   function addScope(kind, id, name) {
     var k = kind + ':' + id;
     if (scopeBusy) return;
-    scopeBusy = k; renderScopes();
+    scopeBusy = k; floatSel = true; renderScopes();
     var p = baseParams();
     p.set(kind === 'restaurant' ? 'restaurant' : 'group', id);
     fetch(ENDPOINT + '?' + p.toString(), { credentials: 'same-origin' })
@@ -238,7 +248,7 @@
   }
 
   // Pages can preselect (e.g. arriving with ?serials=).
-  window.pkPreselect = function (serials) { (serials || []).forEach(add); render(); };
+  window.pkPreselect = function (serials) { (serials || []).forEach(add); floatSel = true; render(); };
   window.pkSerials = function () { return Object.keys(picked); };
   window.pkClear = function () { picked = {}; render(); };
   window.pkReload = function () { cache = {}; counts = null; load(true); };
