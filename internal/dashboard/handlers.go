@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1557,7 +1558,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		msClientID:     os.Getenv("MS_CLIENT_ID"),
 		msClientSecret: os.Getenv("MS_CLIENT_SECRET"),
 		msTenantID:     os.Getenv("MS_TENANT_ID"),
-		assetVer:       assetVersion("static/style.css"),
+		assetVer:       assetVersion("static"),
 	}
 }
 
@@ -1589,11 +1590,33 @@ func mailFrom() string {
 // assetVersion returns a short cache-busting token for a static asset, derived
 // from its modification time and size. Falls back to the build version if the
 // file can't be stat'd, so the URL is always well-formed.
+// assetVersion is the ?v= stamp on every /static/ URL. Static files are served
+// "immutable" for a week, so the stamp is the only thing that can pull a changed
+// file through a browser cache. It therefore covers the WHOLE tree, not one file:
+// stamping it from style.css alone meant a deploy that changed picker.js but not
+// the stylesheet shipped new behaviour nobody's browser would fetch.
 func assetVersion(path string) string {
-	if fi, err := os.Stat(path); err == nil {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return version.Current()
+	}
+	if !fi.IsDir() {
 		return fmt.Sprintf("%x-%x", fi.ModTime().UnixNano(), fi.Size())
 	}
-	return version.Current()
+	var newest int64
+	var total, count int64
+	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil //nolint:nilerr // an unreadable entry just doesn't count
+		}
+		if m := info.ModTime().UnixNano(); m > newest {
+			newest = m
+		}
+		total += info.Size()
+		count++
+		return nil
+	})
+	return fmt.Sprintf("%x-%x-%x", newest, total, count)
 }
 
 // parseOrigins splits the comma-separated PUBLIC_ORIGIN env into a normalized
