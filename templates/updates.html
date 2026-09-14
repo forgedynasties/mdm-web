@@ -38,7 +38,17 @@
     transparent var(--end,0%))}
 }
 .uh-row.uh-roll-row>*{position:relative;z-index:1}
-@media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}}
+/* A rollout that is still moving shimmers across the part it has covered, so a
+   live push reads as live in a list of finished ones without another badge. */
+.uh-shim{position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);overflow:hidden;pointer-events:none}
+.uh-shim::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--ok) 24%, transparent) 50%, transparent 80%);
+  background-size:220% 100%;animation:uh-shim 1.9s linear infinite}
+@supports not (background: color-mix(in srgb, red 10%, transparent)){
+  .uh-shim::after{background:linear-gradient(100deg, transparent 20%, rgba(52,168,83,.24) 50%, transparent 80%);background-size:220% 100%}
+}
+@keyframes uh-shim{from{background-position:220% 0}to{background-position:-220% 0}}
+@media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}.uh-shim::after{animation:none}}
 .uh-id{flex:1;min-width:0}
 .uh-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .uh-ver{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -192,6 +202,7 @@
     {{$pending := sub .Total (add (add .Installed .Installing) .Failed)}}{{if lt $pending 0}}{{$pending = 0}}{{end}}
     {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
     <a class="uh-row uh-roll-row {{if eq .Status "active"}}is-live{{else}}is-done{{end}}" href="{{.URL}}" style="--fill:{{.Progress}}%;--end:{{.EndPct}}%">
+      {{if eq .Status "active"}}<span class="uh-shim" aria-hidden="true"></span>{{end}}
       <div class="uh-id">
         <div class="uh-top">
           <span class="uh-ver">{{.Version}}</span>
