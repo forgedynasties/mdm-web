@@ -11136,8 +11136,6 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Installing int
 		Failed     int
 		Progress   int // 0-100, the download half and the install half weighted equally
-		FailPct    int // 0-100, the share of targets that failed
-		EndPct     int // Progress + FailPct, clamped — where the row's fill stops
 	}
 
 	// A device's journey scores out of 100: the download is half the work and
@@ -11298,15 +11296,6 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	for i := range rollouts {
 		if rollouts[i].Total > 0 {
 			rollouts[i].Progress /= rollouts[i].Total
-			// The fill is one bar in two colours: progress in green, then the failed
-			// share in red right after it. A failed device scores 0 above, so the two
-			// add up to the whole bar once a rollout has finished — all green when
-			// every device made it, part red when some did not.
-			rollouts[i].FailPct = rollouts[i].Failed * 100 / rollouts[i].Total
-		}
-		rollouts[i].EndPct = rollouts[i].Progress + rollouts[i].FailPct
-		if rollouts[i].EndPct > 100 {
-			rollouts[i].EndPct = 100
 		}
 	}
 	sort.SliceStable(rollouts, func(i, j int) bool { return rollouts[i].CreatedAt.After(rollouts[j].CreatedAt) })

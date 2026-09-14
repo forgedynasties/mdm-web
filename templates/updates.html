@@ -14,41 +14,20 @@
 .uh-row:first-of-type{border-top:none}
 .uh-row:hover{background:var(--surface2);color:inherit}
 /* Progress reads two ways on a rollout row: a hairline bar pinned to its bottom
-   edge, exact to the percent, and a soft tint of the same shape behind the text.
-   Both are one bar in two colours — green as far as the rollout got, then the
-   failed share in red — so a clean finish is solid green end to end and a mixed
-   one shows exactly how much of it went wrong, without reading a single number. */
+   edge, exact to the percent, and — only while it is still moving — a soft tint
+   that fades out to the right. A finished rollout gets neither: a list where every
+   line is filled green says nothing about which one needs attention. */
 .uh-row.uh-roll-row{position:relative;overflow:hidden}
-.uh-row.uh-roll-row::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;
-  background:linear-gradient(90deg,
-    var(--ok) 0, var(--ok) var(--fill,0%),
-    var(--danger) var(--fill,0%), var(--danger) var(--end,0%),
-    transparent var(--end,0%));
-  opacity:.9;transition:background .5s ease}
-.uh-row.uh-roll-row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:100%;
-  background:linear-gradient(90deg,
-    color-mix(in srgb, var(--ok) 13%, transparent) 0, color-mix(in srgb, var(--ok) 13%, transparent) var(--fill,0%),
-    color-mix(in srgb, var(--danger) 13%, transparent) var(--fill,0%), color-mix(in srgb, var(--danger) 13%, transparent) var(--end,0%),
-    transparent var(--end,0%));
-  transition:background .5s ease;pointer-events:none}
+.uh-row.uh-roll-row.is-live::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--fill,0%);
+  background:var(--ok);opacity:.9;transition:width .5s ease}
+.uh-row.uh-roll-row.is-live::before{content:"";position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);
+  background:linear-gradient(90deg, color-mix(in srgb, var(--ok) 13%, transparent), color-mix(in srgb, var(--ok) 2%, transparent));
+  transition:width .5s ease;pointer-events:none}
 @supports not (background: color-mix(in srgb, red 10%, transparent)){
-  .uh-row.uh-roll-row::before{background:linear-gradient(90deg,
-    rgba(52,168,83,.13) 0, rgba(52,168,83,.13) var(--fill,0%),
-    rgba(217,48,37,.13) var(--fill,0%), rgba(217,48,37,.13) var(--end,0%),
-    transparent var(--end,0%))}
+  .uh-row.uh-roll-row.is-live::before{background:linear-gradient(90deg, rgba(52,168,83,.13), rgba(52,168,83,.02))}
 }
 .uh-row.uh-roll-row>*{position:relative;z-index:1}
-/* A rollout that is still moving shimmers across the part it has covered, so a
-   live push reads as live in a list of finished ones without another badge. */
-.uh-shim{position:absolute;left:0;top:0;bottom:0;width:var(--fill,0%);overflow:hidden;pointer-events:none}
-.uh-shim::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--ok) 24%, transparent) 50%, transparent 80%);
-  background-size:220% 100%;animation:uh-shim 1.9s linear infinite}
-@supports not (background: color-mix(in srgb, red 10%, transparent)){
-  .uh-shim::after{background:linear-gradient(100deg, transparent 20%, rgba(52,168,83,.24) 50%, transparent 80%);background-size:220% 100%}
-}
-@keyframes uh-shim{from{background-position:220% 0}to{background-position:-220% 0}}
-@media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}.uh-shim::after{animation:none}}
+@media(prefers-reduced-motion:reduce){.uh-row.uh-roll-row::before{transition:none}}
 .uh-id{flex:1;min-width:0}
 .uh-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .uh-ver{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -201,8 +180,7 @@
     {{range .Rollouts}}
     {{$pending := sub .Total (add (add .Installed .Installing) .Failed)}}{{if lt $pending 0}}{{$pending = 0}}{{end}}
     {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
-    <a class="uh-row uh-roll-row {{if eq .Status "active"}}is-live{{else}}is-done{{end}}" href="{{.URL}}" style="--fill:{{.Progress}}%;--end:{{.EndPct}}%">
-      {{if eq .Status "active"}}<span class="uh-shim" aria-hidden="true"></span>{{end}}
+    <a class="uh-row uh-roll-row {{if eq .Status "active"}}is-live{{else}}is-done{{end}}" href="{{.URL}}" style="--fill:{{.Progress}}%">
       <div class="uh-id">
         <div class="uh-top">
           <span class="uh-ver">{{.Version}}</span>
