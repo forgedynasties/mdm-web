@@ -9680,6 +9680,7 @@ CREATE TABLE IF NOT EXISTS commands (
 	type        TEXT NOT NULL DEFAULT 'install_apk',
 	apk_url     TEXT NOT NULL,
 	target_type TEXT NOT NULL,
+	created_by  TEXT NOT NULL DEFAULT '',
 	created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -9916,6 +9917,8 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('viewer','operator','tester','user_manager','super_op','dev','admin','owner')),
+    first_name    TEXT NOT NULL DEFAULT '',
+    last_name     TEXT NOT NULL DEFAULT '',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
