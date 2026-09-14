@@ -11138,14 +11138,57 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		Progress   int // 0-100, the download half and the install half weighted equally
 	}
 
-	// deviceProgress scores one device's journey: the download is half the work and
-	// applying it is the other half, so a fleet mid-download reads ~25% rather than
-	// 0% for hours and then jumping to done.
+	// A device's journey scores out of 100: the download is half the work and
+	// applying it is the other half. phaseScore folds in the live percent so a
+	// fleet 70% downloaded reads 35 and climbs, instead of sitting on a flat 25
+	// for the whole download and then jumping to done.
 	const (
-		pctDownloading = 25  // partway through the first half
-		pctInstalling  = 75  // downloaded, partway through the second
+		pctDownloading = 25  // no live frame: assume partway through the first half
+		pctInstalling  = 75  // no live frame: downloaded, partway through the second
 		pctDone        = 100 // applied, with or without its reboot
 	)
+	phaseScore := func(phase string, pct int) int {
+		installing := phase == "installing" || phase == "verifying" || phase == "finalizing"
+		if pct < 0 || pct > 100 { // no live progress frame for this device
+			if installing {
+				return pctInstalling
+			}
+			return pctDownloading
+		}
+		if installing {
+			return 50 + pct/2
+		}
+		return pct / 2
+	}
+	// Live percents live in memory, not in update_devices, so pull every mid-flight
+	// target once and score them per rollout rather than per-rollout queries.
+	liveScore := map[int]int{}
+	if inflight, err := h.db.ListInProgressTargets(ctx); err == nil {
+		for _, t := range inflight {
+			phase, pct := t.Status, -1
+			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
+				pct = p.Percent
+				if p.Phase != "" {
+					phase = p.Phase
+				}
+			}
+			liveScore[t.UpdateID] += phaseScore(phase, pct)
+		}
+	}
+	// legacyScore is the same read for an otautil device, whose live state is keyed
+	// by serial and whose last reported percent is also persisted on the row.
+	legacyScore := func(dv db.LegacyDeploymentDevice) int {
+		phase, pct := dv.Status, -1
+		if st, ok := ota.Legacy.Get(dv.Serial); ok {
+			if st.Phase != "" {
+				phase = st.Phase
+			}
+			pct = st.Percent
+		} else if dv.Percent > 0 {
+			pct = dv.Percent
+		}
+		return phaseScore(phase, pct)
+	}
 	var rollouts []rolloutRow
 	rolloutsByID := map[int]int{}
 	active, installing, failed, installed := 0, 0, 0, 0
@@ -11172,8 +11215,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		}
 		// Weighted score, in points out of 100 per device; divided by the target count
 		// below once the legacy half has been folded in.
-		row.Progress = (d.DeviceInstalled+d.DeviceAwaiting)*pctDone +
-			d.DeviceInstalling*pctInstalling + d.DeviceDownloading*pctDownloading
+		row.Progress = (d.DeviceInstalled+d.DeviceAwaiting)*pctDone + liveScore[d.ID]
 		rolloutsByID[d.ID] = len(rollouts)
 		rollouts = append(rollouts, row)
 		if d.Status == "active" {
@@ -11203,10 +11245,10 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 				case "installed", "awaiting_reboot":
 					ld.Progress += pctDone
 				case "installing", "verifying", "finalizing":
-					ld.Progress += pctInstalling
+					ld.Progress += legacyScore(dev)
 					ld.Installing++
 				case "offered", "downloading":
-					ld.Progress += pctDownloading
+					ld.Progress += legacyScore(dev)
 					ld.Installing++
 				}
 			}
@@ -11241,11 +11283,11 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			case "awaiting_reboot":
 				rollouts[i].Progress += pctDone
 			case "installing", "verifying", "finalizing":
-				rollouts[i].Progress += pctInstalling
+				rollouts[i].Progress += legacyScore(dev)
 				rollouts[i].Installing++
 				installing++
 			case "offered", "downloading":
-				rollouts[i].Progress += pctDownloading
+				rollouts[i].Progress += legacyScore(dev)
 				rollouts[i].Installing++
 				installing++
 			}

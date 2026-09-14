@@ -12240,6 +12240,38 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 	return out, rows.Err()
 }
 
+// InProgressTarget is one deployment target that is mid-flight (downloading or
+// installing) — the rows whose live percent the Updates hub needs to weight a
+// rollout's progress bar, since that percent lives in memory, not in the table.
+type InProgressTarget struct {
+	UpdateID int
+	DeviceID uuid.UUID
+	Status   string
+}
+
+// ListInProgressTargets returns every mid-flight target across all deployments, so
+// the hub can fold each device's live download/install percent into its rollout's
+// score in one query instead of one per rollout.
+func (d *DB) ListInProgressTargets(ctx context.Context) ([]InProgressTarget, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT update_id, device_id, status FROM update_devices
+		WHERE status IN ('downloading', 'installing', 'verifying', 'finalizing')
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []InProgressTarget
+	for rows.Next() {
+		var t InProgressTarget
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // ListAwaitingRebootForUpdate returns the device IDs of an update's targets that have
 // installed to the inactive slot and are waiting for a reboot (status 'awaiting_reboot').
 // Used by the deployment page's "reboot all installed" bulk action.
