@@ -2,10 +2,13 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"mdm/internal/db"
 	prod "mdm/internal/product"
@@ -26,6 +29,11 @@ type releaseBody struct {
 	Name      string `json:"name"`
 	Changelog string `json:"changelog"`
 	IsDev     *bool  `json:"is_dev"`
+	// UpdateMeta lets a caller deliberately rewrite an EXISTING release's name,
+	// changelog and dev flag. Off by default: a publisher that sends is_dev=true
+	// on every run would otherwise pull a release someone already published back
+	// into dev — invisible to operators — just by adding a second package to it.
+	UpdateMeta bool `json:"update_meta"`
 }
 
 // CreateRelease is get-or-create on (version, product): a publisher that re-runs
@@ -42,20 +50,34 @@ func (h *Handler) CreateRelease(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "version is required"})
 		return
 	}
-	rel, err := h.db.GetOrCreateRelease(r.Context(), version, strings.TrimSpace(body.Product))
+	product := strings.TrimSpace(body.Product)
+	existing, _ := h.db.GetReleaseByVersion(r.Context(), version, product)
+	rel, err := h.db.GetOrCreateRelease(r.Context(), version, product)
 	if err != nil || rel == nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
-	if name, cl := strings.TrimSpace(body.Name), strings.TrimSpace(body.Changelog); name != "" || cl != "" {
-		_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, cl)
+	created := existing == nil
+	if created || body.UpdateMeta {
+		if name, cl := strings.TrimSpace(body.Name), strings.TrimSpace(body.Changelog); name != "" || cl != "" {
+			_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, cl)
+		}
+		if body.IsDev != nil {
+			_ = h.db.SetReleaseDev(r.Context(), rel.ID, *body.IsDev)
+		}
 	}
-	if body.IsDev != nil {
-		_ = h.db.SetReleaseDev(r.Context(), rel.ID, *body.IsDev)
+	if created {
+		_ = h.db.InsertAudit(r.Context(), "api", "release.create", version, "product="+rel.Product)
 	}
-	_ = h.db.InsertAudit(r.Context(), "api", "release.create", version, "product="+rel.Product)
 	rel, _ = h.db.GetRelease(r.Context(), rel.ID)
-	writeJSON(w, http.StatusCreated, rel)
+	code := http.StatusOK
+	if created {
+		code = http.StatusCreated
+	}
+	// "created" tells the caller whether this run made the release or found one,
+	// which is the difference between "my package is the baseline" and "I am
+	// adding to someone else's release".
+	writeJSON(w, code, map[string]any{"release": rel, "created": created})
 }
 
 // ListReleases is the roster a publisher picks from (and how it finds the id of a
@@ -143,6 +165,20 @@ func (h *Handler) AddReleasePackage(w http.ResponseWriter, r *http.Request) {
 	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, rel.Version, source, url,
 		strings.TrimSpace(body.Changelog), rel.Product, time.Now().UTC())
 	if err != nil {
+		// A package's build_id is unique fleet-wide (an incremental's is
+		// "<target>~from~<source>"), so the duplicate cases are exactly: this
+		// same artifact is already attached — including when the previous one was
+		// yanked rather than deleted, which the active-full check above cannot
+		// see. That is a conflict the caller can act on, not a server fault.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			msg := "a full package for build " + rel.Version + " already exists (it may be yanked — delete it first)"
+			if typ == "incremental" {
+				msg = "an incremental from " + source + " to " + rel.Version + " already exists (it may be yanked — delete it first)"
+			}
+			writeJSON(w, http.StatusConflict, map[string]string{"error": msg})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error: " + err.Error()})
 		return
 	}
