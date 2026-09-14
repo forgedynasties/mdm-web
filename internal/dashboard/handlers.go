@@ -1661,7 +1661,15 @@ const sessionIdleTimeout = 24 * time.Hour
 // expired, or idle-timed-out session is deleted and reported as absent. This
 // does a primary-key lookup per call; the dashboard is low-traffic, so the few
 // calls per request are acceptable.
+// ctxSessionKey lets a handler inject a synthetic session for the duration of one
+// request (see SneakPeek), so the session-derived chrome (role, name, access)
+// renders without a real cookie/DB session. Only ever set server-side.
+type ctxSessionKey struct{}
+
 func (h *Handler) currentSession(r *http.Request) (*db.Session, bool) {
+	if s, ok := r.Context().Value(ctxSessionKey{}).(*db.Session); ok {
+		return s, true
+	}
 	cookie, err := h.store.Get(r, "mdm-session")
 	if err != nil {
 		return nil, false
@@ -3379,16 +3387,184 @@ func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// SneakPeek renders a public, no-account preview of the dashboard: the real
-// appbar + dock chrome around a command-center overview filled entirely with
-// synthetic sample data. Nothing here touches the DB or a session — it's a
-// static showcase reachable from the landing page's "Take a sneak peek" button.
+// SneakPeek renders a public, no-account preview of the dashboard: the REAL
+// Overview template and chrome, rendered against synthetic fleet data instead of
+// the database. Reachable from the landing page's "Take a sneak peek" button.
+//
+// It reuses overviewViewModel — the exact code the live Overview uses — so the
+// preview is the real page, not a mock. A synthetic admin session is injected for
+// the duration of this one request so the role-gated chrome renders; no cookie,
+// no DB session, and none of the numbers come from real devices.
 func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
+	// Inject a synthetic admin session so role/access/name resolve for the chrome.
+	r = r.WithContext(context.WithValue(r.Context(), ctxSessionKey{}, &db.Session{
+		Username: "guest", Role: "admin",
+		ExpiresAt: time.Now().Add(time.Hour), LastSeen: time.Now(),
+	}))
+
+	summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts := sneakPeekFleet()
+	activeSecs := h.cfg.CheckinInterval() * 3
+	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, nil, 0)
+
+	// Per-user widget layout (default arrangement for the unknown preview user).
+	for k, v := range h.overviewLayoutData(r) {
+		data[k] = v
+	}
+	// Synthetic map: a handful of located devices clustered around a few venues.
+	// Empty embed key falls back to the widget's no-map state (no external embed).
+	data["DeviceLocations"] = sneakPeekMapJSON()
+	data["DeviceMapCount"] = 10
+	data["MapsEmbedKey"] = ""
+
+	// Chrome keys normally added by render()/withRole(). We render directly (not via
+	// h.render) so nothing hits the DB and the preview can't write an audit row.
+	data["Role"] = "admin"
+	data["Boosted"] = false
+	data["CurrentUser"] = "Guest preview"
+	if userBubbleFn != nil {
+		data["CurrentBubble"] = userBubbleFn("Guest")
+	}
+	data["Brand"] = h.cfg.CustomBrand()
+	data["Use24Hour"] = h.cfg.Use24Hour()
+	data["Version"] = version.Current()
+	data["AssetVer"] = h.assetVer
+	data["ActivePage"] = "overview"
+	data["ShowTour"] = false
+	data["AlertsOpenCount"] = openCount
+	data["Preview"] = true
+
 	w.Header().Set("Cache-Control", "no-store")
-	h.tmpl.ExecuteTemplate(w, "sneak_peek.html", map[string]any{
-		"Brand":    h.cfg.CustomBrand(),
-		"AssetVer": h.assetVer,
-	})
+	var buf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&buf, "overview.html", data); err != nil {
+		log.Printf("sneak-peek render: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	_, _ = buf.WriteTo(w)
+}
+
+// intPtr / f64Ptr / f32Ptr / strPtr are small helpers for the synthetic-data
+// builder below (the db structs use pointer fields for "may be absent" metrics).
+func intPtr(v int) *int         { return &v }
+func f64Ptr(v float64) *float64 { return &v }
+func f32Ptr(v float32) *float32 { return &v }
+func strPtr(v string) *string   { return &v }
+
+// sneakPeekVenues are stable synthetic restaurant IDs, so the crash map and the
+// health list line up across the preview.
+var sneakPeekVenues = []uuid.UUID{
+	uuid.MustParse("00000000-0000-4000-a000-000000000001"), // Harbor Grill
+	uuid.MustParse("00000000-0000-4000-a000-000000000002"), // Sausalito
+	uuid.MustParse("00000000-0000-4000-a000-000000000003"), // Marina Point
+	uuid.MustParse("00000000-0000-4000-a000-000000000004"), // Ferry Plaza
+	uuid.MustParse("00000000-0000-4000-a000-000000000005"), // Embarcadero
+	uuid.MustParse("00000000-0000-4000-a000-000000000006"), // North Beach
+	uuid.MustParse("00000000-0000-4000-a000-000000000007"), // Presidio
+	uuid.MustParse("00000000-0000-4000-a000-000000000008"), // Mission Rock
+}
+
+// sneakPeekFleet builds the synthetic fleet the preview renders. Numbers are made
+// up but internally consistent (58 devices, 55 online, one hot, two rollouts).
+func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, int, db.FleetCrashStats, []db.FleetVersion, []db.Update, map[string]int) {
+	summary := db.Summary{Total: 58, RecentlyActive: 55, LowBattery: 1, UniqueBuilds: 4, KioskCount: 48}
+	hot := 1
+	openCount := 3
+
+	groups := []db.GroupHealth{
+		{GroupID: sneakPeekVenues[0], Name: "Harbor Grill", DeviceCount: 8, OpenCritical: 1,
+			TempMax: f64Ptr(61), TempMaxSerial: strPtr("DEMO-0042"), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 8, Score: 62, ScoreClass: "danger"},
+		{GroupID: sneakPeekVenues[1], Name: "Sausalito", DeviceCount: 12, OfflineCount: 1, OpenWarning: 1,
+			BatteryAvg: f64Ptr(76), ChargingAvg: f64Ptr(0.71), DistinctBuilds: 2,
+			Deployed: true, DeployedCount: 12, Score: 74, ScoreClass: "warn"},
+		{GroupID: sneakPeekVenues[2], Name: "Marina Point", DeviceCount: 9, OpenWarning: 1,
+			BatteryAvg: f64Ptr(88), ChargingAvg: f64Ptr(0.82), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 9, Score: 91, ScoreClass: "ok"},
+		{GroupID: sneakPeekVenues[3], Name: "Ferry Plaza", DeviceCount: 7,
+			BatteryAvg: f64Ptr(90), ChargingAvg: f64Ptr(0.88), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 7, Score: 94, ScoreClass: "ok"},
+		{GroupID: sneakPeekVenues[4], Name: "Embarcadero", DeviceCount: 6,
+			BatteryAvg: f64Ptr(91), ChargingAvg: f64Ptr(0.9), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 6, Score: 96, ScoreClass: "ok"},
+		{GroupID: sneakPeekVenues[5], Name: "North Beach", DeviceCount: 5,
+			BatteryAvg: f64Ptr(85), ChargingAvg: f64Ptr(0.79), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 5, Score: 89, ScoreClass: "ok"},
+		{GroupID: sneakPeekVenues[6], Name: "Presidio", DeviceCount: 6,
+			BatteryAvg: f64Ptr(87), ChargingAvg: f64Ptr(0.84), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 6, Score: 92, ScoreClass: "ok"},
+		{GroupID: sneakPeekVenues[7], Name: "Mission Rock", DeviceCount: 5,
+			BatteryAvg: f64Ptr(93), ChargingAvg: f64Ptr(0.91), DistinctBuilds: 1,
+			Deployed: true, DeployedCount: 5, Score: 97, ScoreClass: "ok"},
+	}
+
+	// 14 days of fleet daily stats (oldest first) so sparklines + the week-over-week
+	// trend have something to draw. Deterministic wave, no randomness.
+	actWave := []int{54, 56, 55, 57, 56, 55, 54, 56, 57, 55, 56, 57, 56, 55}
+	batWave := []float32{77, 78, 78, 79, 78, 77, 78, 79, 80, 78, 79, 79, 78, 78}
+	today := time.Now().Truncate(24 * time.Hour)
+	d14 := make([]db.FleetDailyStat, 0, 14)
+	for i := 0; i < 14; i++ {
+		low, ht := 0, 0
+		if i%5 == 0 {
+			low = 1
+		}
+		if i >= 11 {
+			ht = 1
+		}
+		d14 = append(d14, db.FleetDailyStat{
+			Day: today.AddDate(0, 0, i-13), Active: actWave[i], LowBattery: low, Hot: ht,
+			BatteryAvg: f32Ptr(batWave[i]), Checkins: int64(actWave[i]) * 288,
+		})
+	}
+
+	crashStats := db.FleetCrashStats{
+		Total24h: 2, Devices24h: 2, WorstBuild: "2026.05.14-release", WorstBuildN: 2,
+		Daily:        []int{6, 4, 3, 5, 2, 3, 2},
+		ByRestaurant: map[uuid.UUID]int{sneakPeekVenues[0]: 1, sneakPeekVenues[1]: 1},
+	}
+
+	versions := []db.FleetVersion{
+		{Version: "2026.06.01-release", Product: "kiosk22", DeviceCount: 41, ReleaseID: intPtr(90000), ReleaseStatus: "published"},
+		{Version: "2026.05.14-release", Product: "kiosk27", DeviceCount: 12, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
+		{Version: "2026.04.02-release", Product: "t7", DeviceCount: 4, ReleaseID: intPtr(88000), ReleaseStatus: "published"},
+		{Version: "2026.03.10-release", Product: "kiosk18", DeviceCount: 1},
+	}
+
+	now := time.Now()
+	deployments := []db.Update{
+		{ID: 9001, Status: "active", RebootBehavior: "immediate", CreatedAt: now.Add(-24 * time.Minute),
+			Product: "kiosk22", DeviceTotal: 58, DeviceInstalled: 41, DeviceDownloading: 9, DeviceFailed: 1,
+			Release: &db.Release{ID: 90000, Version: "2026.06.01-release", Product: "kiosk22", Status: "published"}},
+		{ID: 9002, Status: "active", RebootBehavior: "manual", CreatedAt: now.Add(-2 * time.Hour),
+			Product: "kiosk27", DeviceTotal: 12, DeviceInstalled: 12, DeviceAwaiting: 3,
+			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk27", Status: "published"}},
+	}
+
+	prodCounts := map[string]int{"kiosk22": 24, "kiosk27": 16, "t7": 10, "kiosk18": 8}
+
+	return summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts
+}
+
+// sneakPeekMapJSON is a synthetic set of located devices around a few Bay Area
+// venues, in the same shape deviceLocationsJSON produces for the overview map.
+func sneakPeekMapJSON() template.JS {
+	pts := []deviceMapPoint{
+		{Serial: "DEMO-0041", Name: "Harbor Grill", Lat: 37.8087, Lon: -122.4098, Online: true, Product: "kiosk22", Battery: 84, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
+		{Serial: "DEMO-0042", Name: "Harbor Grill", Lat: 37.8090, Lon: -122.4102, Online: true, Product: "kiosk22", Battery: 79, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
+		{Serial: "DEMO-0117", Name: "Sausalito", Lat: 37.8591, Lon: -122.4853, Online: false, Product: "kiosk27", Battery: 61, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0119", Name: "Sausalito", Lat: 37.8570, Lon: -122.4840, Online: true, Product: "kiosk27", Battery: 88, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0071", Name: "Marina Point", Lat: 37.8060, Lon: -122.4330, Online: true, Product: "t7", Battery: 92, Build: "2026.06.01-release", Restaurant: "Marina Point"},
+		{Serial: "DEMO-0093", Name: "Ferry Plaza", Lat: 37.7955, Lon: -122.3937, Online: true, Product: "t7", Battery: 67, Build: "2026.06.01-release", Restaurant: "Ferry Plaza"},
+		{Serial: "DEMO-0060", Name: "Embarcadero", Lat: 37.7929, Lon: -122.3968, Online: true, Product: "kiosk22", Battery: 90, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Embarcadero"},
+		{Serial: "DEMO-0055", Name: "North Beach", Lat: 37.8003, Lon: -122.4104, Online: true, Product: "kiosk22", Battery: 85, Kiosk: true, Build: "2026.06.01-release", Restaurant: "North Beach"},
+		{Serial: "DEMO-0080", Name: "Presidio", Lat: 37.7989, Lon: -122.4662, Online: true, Product: "kiosk27", Battery: 87, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Presidio"},
+		{Serial: "DEMO-0102", Name: "Mission Rock", Lat: 37.7716, Lon: -122.3893, Online: true, Product: "kiosk22", Battery: 93, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Mission Rock"},
+	}
+	b, err := json.Marshal(pts)
+	if err != nil {
+		return template.JS("[]")
+	}
+	return template.JS(b)
 }
 
 // trainingChapter is one entry of training/manifest.json in the S3 bucket (written by
@@ -4402,6 +4578,45 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { prodCounts, _ = h.db.CountDevicesByProduct(ctx) })
 	wg.Wait()
 
+	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
+	inboxN := 0
+	if fc, err := h.db.FleetCounts(r.Context(), h.access(r).hidesDPC()); err == nil {
+		inboxN = fc.Inbox
+	}
+	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
+
+	// Same cached hourly AI fleet report the devices page used to host.
+	if s, err := h.db.GetAISummary(ctx, "fleet"); err == nil && s.Summary != "" {
+		data["AISummary"] = s.Summary
+		data["AISummaryModel"] = s.Model
+		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
+		data["AISummaryPreview"] = summarizePreview(s.Summary)
+		if serials, err := h.db.ListAllSerials(ctx); err == nil {
+			data["DeviceSerials"] = serialsJSON(serials)
+		}
+		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
+		data["ReportRestaurants"] = restaurantLinksJSON(groups)
+		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
+	}
+
+	// Fleet map: every device with a resolved location from the geolocation pipeline.
+	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
+	data["DeviceLocations"] = locs
+	data["DeviceMapCount"] = locCount
+	data["MapsEmbedKey"] = h.mapsEmbedKey
+
+	// Per-user widget arrangement (hidden / order / preset).
+	for k, v := range h.overviewLayoutData(r) {
+		data[k] = v
+	}
+
+	h.render(w, r, "overview.html", data)
+}
+
+// overviewViewModel builds the Overview page's data map from already-fetched
+// fleet data. Split out of Overview so the public /sneak-peek preview can render
+// the exact same template against synthetic data (no DB reads, no real fleet).
+func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups []db.GroupHealth, hot int, d14 []db.FleetDailyStat, openCount int, crashStats db.FleetCrashStats, versions []db.FleetVersion, deployments []db.Update, prodCounts map[string]int, activeSecs int, inbox []db.Device, inboxN int) map[string]any {
 	daily := d14
 	if n := len(d14); n > 7 {
 		daily = d14[n-7:]
@@ -4786,15 +5001,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		}
 		return n * 100 / summary.Total
 	}
-
-	// Onboarding inbox: devices nobody has placed yet (site/class). Shown as a
-	// widget so a freshly scanned device is noticed without opening Enroll.
-	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
-	inboxN := 0
-	if fc, err := h.db.FleetCounts(r.Context(), h.access(r).hidesDPC()); err == nil {
-		inboxN = fc.Inbox
-	}
-
 	data := map[string]any{
 		"Title": "Overview",
 		"NowUTC": time.Now().UTC().Format(time.RFC3339),
@@ -4862,33 +5068,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"LowDelta":        tileDelta(lowToday, lowYest, true),
 		"CrashDelta":      tileDelta(crToday, crYest, true),
 	}
-
-	// Same cached hourly AI fleet report the devices page used to host.
-	if s, err := h.db.GetAISummary(ctx, "fleet"); err == nil && s.Summary != "" {
-		data["AISummary"] = s.Summary
-		data["AISummaryModel"] = s.Model
-		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
-		data["AISummaryPreview"] = summarizePreview(s.Summary)
-		if serials, err := h.db.ListAllSerials(ctx); err == nil {
-			data["DeviceSerials"] = serialsJSON(serials)
-		}
-		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
-		data["ReportRestaurants"] = restaurantLinksJSON(groups)
-		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
-	}
-
-	// Fleet map: every device with a resolved location from the geolocation pipeline.
-	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
-	data["DeviceLocations"] = locs
-	data["DeviceMapCount"] = locCount
-	data["MapsEmbedKey"] = h.mapsEmbedKey
-
-	// Per-user widget arrangement (hidden / order / preset).
-	for k, v := range h.overviewLayoutData(r) {
-		data[k] = v
-	}
-
-	h.render(w, r, "overview.html", data)
+	return data
 }
 
 // launchableOnly filters a device's package list down to app-drawer apps

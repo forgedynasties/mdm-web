@@ -307,6 +307,13 @@
 .ov3-brief-more a:hover{color:var(--text)}
 </style>
 
+{{if .Preview}}
+<div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:0 0 16px;padding:10px 16px;border-radius:12px;color:#fff;font-size:13px;font-weight:650;background:linear-gradient(90deg,#F9674E,#7A80F6)">
+  <span>Sneak peek — every number here is <b>sample data</b>, not a real fleet.</span>
+  <a href="/login" style="color:#fff;text-decoration:none;font-weight:750;border:1px solid rgba(255,255,255,.55);border-radius:40px;padding:4px 13px">Open the real dashboard →</a>
+  <a href="/" style="color:#fff;text-decoration:none;opacity:.9">Exit</a>
+</div>
+{{end}}
 <div class="ov3" id="ov3">
 
   {{/* ── Top bar ── */}}
