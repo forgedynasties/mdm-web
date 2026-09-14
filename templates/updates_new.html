@@ -50,17 +50,39 @@
         {{range .PushProducts}}<option value="{{.Key}}"{{if eq .Key $selProduct}} selected{{end}}>{{.Label}}</option>{{end}}
       </select>
     </div>
+    {{if .Releases}}
+    {{/* Search and package-type filter: the release list grows with every build, and
+         the one being pushed is usually known by name or by which artifact it must
+         carry (the legacy path can only take a full image). Both narrow the same
+         select client-side — no reload, so a mis-typed search never costs a round trip. */}}
+    <div>
+      <div class="form-label" style="margin-bottom:6px;">Package</div>
+      <select class="form-input" id="rel-type" style="min-width:150px;" onchange="pushFilterReleases()">
+        <option value="">Any package</option>
+        <option value="full">Full image</option>
+        <option value="incremental">Incremental</option>
+      </select>
+    </div>
+    <div>
+      <div class="form-label" style="margin-bottom:6px;">Search</div>
+      <input class="form-input" id="rel-q" type="search" placeholder="Version or name…" style="min-width:200px;"
+             autocomplete="off" oninput="pushFilterReleases()">
+    </div>
+    {{end}}
     <div>
       <div class="form-label" style="margin-bottom:6px;">Release</div>
       {{if .Releases}}
-      <select class="form-input" style="min-width:300px;" onchange="pushPickRelease(this.value)">
+      <select class="form-input" id="rel-select" style="min-width:300px;" onchange="pushPickRelease(this.value)">
         <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
         {{/* Say what each release can actually deliver: a full image reaches any
              device (and is all the legacy path can use), an incremental only the
              devices on its source build. Choosing between two releases without
              that is choosing blind. */}}
-        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</option>{{end}}
+        {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}
+          data-search="{{.Version}} {{.Name}} {{productLabel .Product}}"
+          data-full="{{if .HasFull}}1{{else}}0{{end}}" data-inc="{{if .Incrementals}}1{{else}}0{{end}}">{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</option>{{end}}
       </select>
+      <div class="muted small" id="rel-none" hidden style="margin-top:6px;">No release matches.</div>
       {{else if $selProduct}}
       <div class="muted small" style="padding-bottom:8px;">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
       {{else}}
@@ -80,6 +102,25 @@
   }
   function pushPickRelease(id) {
     if (id) location.href = '/updates/new?release=' + id + pushKeepSerials();
+  }
+  // Narrow the release list in place. Options are hidden rather than removed so the
+  // currently chosen release survives a filter that would exclude it.
+  function pushFilterReleases() {
+    var sel = document.getElementById('rel-select');
+    if (!sel) return;
+    var q = (document.getElementById('rel-q').value || '').trim().toLowerCase();
+    var type = document.getElementById('rel-type').value;
+    var shown = 0;
+    Array.prototype.forEach.call(sel.options, function (o) {
+      if (!o.value) return; // the "Choose a release…" placeholder
+      var okText = !q || (o.dataset.search || '').toLowerCase().indexOf(q) !== -1;
+      var okType = !type || (type === 'full' ? o.dataset.full === '1' : o.dataset.inc === '1');
+      var match = okText && okType;
+      o.hidden = !match;
+      o.disabled = !match;
+      if (match) shown++;
+    });
+    document.getElementById('rel-none').hidden = shown > 0;
   }
   </script>
 </div>
