@@ -149,22 +149,23 @@
 .ov3-sfilter button i{width:7px;height:7px;border-radius:50%}
 .ov3-sfilter button[data-f=ok] i{background:var(--ok)}.ov3-sfilter button[data-f=warn] i{background:var(--warn)}.ov3-sfilter button[data-f=danger] i{background:var(--danger)}
 .ov3-sfilter button.on{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
-.ov3-sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:9px;padding:14px 17px}
-.ov3-site{position:relative;display:block;padding:11px 12px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);text-decoration:none;color:inherit;overflow:hidden;transition:transform var(--dur-fast),border-color var(--dur)}
-.ov3-site::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok)}
-.ov3-site.warn::before{background:var(--warn)}.ov3-site.danger::before{background:var(--danger)}
-.ov3-site.ok{background:linear-gradient(180deg,var(--ok-bg),var(--surface) 70%)}
-.ov3-site.warn{background:linear-gradient(180deg,var(--warn-bg),var(--surface) 70%);border-color:var(--warn-edge)}
-.ov3-site.danger{background:linear-gradient(180deg,var(--danger-bg),var(--surface) 70%);border-color:var(--danger-edge)}
-.ov3-site:hover{transform:translateY(-1px);border-color:var(--rule-2);color:inherit}
+.ov3-sites{display:flex;flex-direction:column;padding:2px 0}
+.ov3-site{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;padding:10px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border-soft);transition:background var(--dur)}
+.ov3-sites .ov3-site:first-of-type{border-top:0}
+.ov3-site:hover{background:var(--hover);color:inherit}
 .ov3-site.hide{display:none}
-.ov3-site .n{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
-.ov3-site .row{display:flex;align-items:baseline;justify-content:space-between;margin-top:6px;padding-left:4px}
-.ov3-site .s{font-size:22px;font-weight:750;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ok)}
-.ov3-site.warn .s{color:var(--warn)}.ov3-site.danger .s{color:var(--danger)}
-.ov3-site .s small{font-size:10px;font-weight:700;color:var(--text-faint);margin-left:2px;letter-spacing:.03em}
-.ov3-site .dv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.ov3-site .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;padding-left:4px;min-height:16px}
+.ov3-site .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--ok)}
+.ov3-site.warn .dot{background:var(--warn)}.ov3-site.danger .dot{background:var(--danger)}
+.ov3-site .mid{min-width:0}
+.ov3-site .n{font-size:13px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov3-site .meta{font-size:11.5px;line-height:1.45;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov3-site .meta b{color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums}
+.ov3-site .meta .mw{color:var(--warn);font-weight:600}
+.ov3-site .meta .md{color:var(--danger);font-weight:600}
+.ov3-site .meta .mok{color:var(--ok);font-weight:600}
+.ov3-site .sc{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;padding:3px 10px;border-radius:8px;background:var(--surface2);color:var(--muted)}
+.ov3-site.ok .sc{background:var(--ok-bg);color:var(--ok)}.ov3-site.warn .sc{background:var(--warn-bg);color:var(--warn)}.ov3-site.danger .sc{background:var(--danger-bg);color:var(--danger)}
+.ov3-site .sc .sc-why{margin-left:1px}
 .ov3-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--surface2);color:var(--muted);white-space:nowrap}
 .ov3-tag.bad{background:var(--danger-bg);color:var(--danger)}.ov3-tag.warn{background:var(--warn-bg);color:var(--warn)}.ov3-tag.ok{background:var(--ok-bg);color:var(--ok)}
 .ov3-sites-more{grid-column:1/-1;text-align:center;font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none;padding:6px}
@@ -781,16 +782,12 @@
         <div class="ov3-sites">
           {{range $i, $s := .Sites}}
           <a class="ov3-site {{$s.Class}}{{if ge $i 24}} hide xtra{{end}}" data-c="{{$s.Class}}" href="/restaurants/{{$s.ID}}" title="{{$s.Name}} · score {{$s.Score}}">
-            <div class="n">{{$s.Name}}</div>
-            <div class="row"><span class="s">{{$s.Score}}<small>/100</small>{{template "score-why" $s.Why}}</span><span class="dv">{{$s.Devices}} dev{{if ne $s.Devices 1}}s{{end}}</span></div>
-            <div class="tags">
-              {{if gt $s.Offline 0}}<span class="ov3-tag warn">{{$s.Offline}} offline</span>{{end}}
-              {{if gt $s.Critical 0}}<span class="ov3-tag bad">{{$s.Critical}} critical</span>{{end}}
-              {{if gt $s.Crashes 0}}<span class="ov3-tag bad">{{$s.Crashes}} crash{{if ne $s.Crashes 1}}es{{end}}</span>{{end}}
-              {{if $s.Hot}}<span class="ov3-tag bad">hot</span>{{end}}
-              {{if and (eq $s.Offline 0) (eq $s.Critical 0) (eq $s.Crashes 0) (not $s.Hot)}}{{if gt $s.Warning 0}}<span class="ov3-tag warn">{{$s.Warning}} warning{{if ne $s.Warning 1}}s{{end}}</span>{{else}}<span class="ov3-tag ok">all clear</span>{{end}}{{end}}
-              {{if $s.HasBattery}}<span class="ov3-tag">🔋 {{$s.BatteryAvg}}%</span>{{end}}
-            </div>
+            <span class="dot"></span>
+            <span class="mid">
+              <span class="n">{{$s.Name}}</span>
+              <span class="meta"><b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if gt $s.Offline 0}} · <span class="md">{{$s.Offline}} offline</span>{{end}}{{if gt $s.Critical 0}} · <span class="md">{{$s.Critical}} critical</span>{{end}}{{if gt $s.Crashes 0}} · <span class="md">{{$s.Crashes}} crash{{if ne $s.Crashes 1}}es{{end}}</span>{{end}}{{if $s.Hot}} · <span class="md">running hot</span>{{end}}{{if and (eq $s.Offline 0) (eq $s.Critical 0) (eq $s.Crashes 0) (not $s.Hot)}}{{if gt $s.Warning 0}} · <span class="mw">{{$s.Warning}} warning{{if ne $s.Warning 1}}s{{end}}</span>{{else}} · <span class="mok">all clear</span>{{end}}{{end}}{{if $s.HasBattery}} · {{$s.BatteryAvg}}% battery{{end}}</span>
+            </span>
+            <span class="sc">{{$s.Score}}{{template "score-why" $s.Why}}</span>
           </a>
           {{end}}
           {{if gt (len .Sites) 24}}<a class="ov3-sites-more" href="#" id="ov3-sites-more">Show {{sub (len .Sites) 24}} more</a>{{end}}
