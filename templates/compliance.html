@@ -185,8 +185,8 @@
     {{end}}
   </div>
 
-  <div class="cp-card">
-    <h3>Devices</h3>
+  <div class="cp-card" id="cp-devices">
+    <h3>Devices<span style="float:right;font-weight:400;"><button type="button" class="cc-btn sm" data-copy-serials="#cp-devices" title="Copy every serial in this table, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button></span></h3>
     <div class="cp-scroll">
       <table class="cp-table">
         <thead><tr><th>Device</th><th>Status</th><th>OS build</th><th>Battery</th><th>Compliance</th><th>Issues</th>{{if eq .Role "admin"}}<th></th>{{end}}</tr></thead>

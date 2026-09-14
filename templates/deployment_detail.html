@@ -553,6 +553,7 @@
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
     <h3>Device status</h3>
     <span class="m">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span style="color:var(--ok);">live</span>{{end}}</span>
+    <button type="button" class="cc-btn sm" style="margin-left:auto;" data-copy-serials="#deployment-targets" title="Copy every serial in this rollout, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
   </div>
   {{if .DemoScenario}}
   <div class="dpl-design-tabs">

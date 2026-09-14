@@ -242,6 +242,7 @@
 </div>
 
 <div class="ad-toolbar">
+  <button type="button" class="ad-btn" data-copy-serials="#deliveries-card" title="Copy every targeted serial, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
   {{if and .CanResend (gt .Stats.Failed 0)}}<form action="/commands/{{$cmd.ID}}/resend" method="POST"><button type="submit" class="ad-btn primary">Retry failed · {{.Stats.Failed}}</button></form>{{end}}
   {{if .CanResend}}<form action="/commands/{{$cmd.ID}}/resend" method="POST" hx-confirm="Resend this action to all its original targets?"><button type="submit" class="ad-btn">Resend to all</button></form>{{end}}
   {{if canOperate .Role}}<a href="/commands?clone={{$cmd.ID}}" class="ad-btn" title="Open the builder prefilled with this action">Duplicate &amp; edit</a>{{end}}

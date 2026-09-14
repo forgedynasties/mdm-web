@@ -48,6 +48,7 @@
       <label class="lo-tog m" title="Some devices poll this listener but can also take an MDM OTA — they belong on the Updates page, not here">
         <input type="checkbox" id="lo-only-legacy" checked onchange="loOnlyLegacy(this.checked)"> Legacy-only devices
       </label>
+      <span style="margin-left:auto;"><button type="button" class="cc-btn sm" data-copy-serials="#lo-devices" title="Copy every serial in this list, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button></span>
     </div>
     <div id="lo-devices" hx-get="/updates/legacy?partial=devices" hx-trigger="every 5s, legacy-refresh from:body" hx-target="this" hx-swap="innerHTML">
       {{template "legacy-devices" .}}

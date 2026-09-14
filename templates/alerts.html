@@ -85,6 +85,7 @@
   <div class="al-controls">
     {{if .View}}<a class="cc-btn sm" href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}">All alerts{{if .ActiveCount}} · {{.ActiveCount}}{{end}}</a>{{end}}
     <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
+    <button type="button" class="cc-btn sm" data-copy-serials="#alerts-live" title="Copy the serials of every device in this list, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
   </div>
 
   {{if .DeviceFilter}}

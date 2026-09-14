@@ -100,13 +100,13 @@
       </form>
       {{end}}
     </div>
-    <div class="gf-split">Inside <span class="n">{{len .Inside}}</span></div>
+    <div class="gf-split">Inside <span class="n">{{len .Inside}}</span>{{if .Inside}}<button type="button" class="cc-btn sm" data-copy-serials="#gf-in-{{.ID}}" title="Copy the serials inside this fence, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy</span></button>{{end}}</div>
     {{if .Inside}}
-    <div class="gf-chips">{{range .Inside}}<a class="gf-chip in" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
+    <div class="gf-chips" id="gf-in-{{.ID}}">{{range .Inside}}<a class="gf-chip in" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
     {{else}}<div class="gf-none">No located device is inside this fence.</div>{{end}}
-    <div class="gf-split">Outside <span class="n">{{len .Outside}}</span></div>
+    <div class="gf-split">Outside <span class="n">{{len .Outside}}</span>{{if .Outside}}<button type="button" class="cc-btn sm" data-copy-serials="#gf-out-{{.ID}}" title="Copy the serials outside this fence, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy</span></button>{{end}}</div>
     {{if .Outside}}
-    <div class="gf-chips">{{range .Outside}}<a class="gf-chip" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
+    <div class="gf-chips" id="gf-out-{{.ID}}">{{range .Outside}}<a class="gf-chip" href="/devices/{{.}}">{{.}}</a>{{end}}</div>
     {{else}}<div class="gf-none">No located device is outside this fence.</div>{{end}}
   </div>
   {{else}}

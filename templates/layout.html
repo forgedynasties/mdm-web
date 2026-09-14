@@ -1533,6 +1533,64 @@
     }
     window.copyText = copyText;
 
+    // Copy every device serial in a region, for any list that shows more than one
+    // device. Mark the button with data-copy-serials="<css selector for the region>"
+    // (empty = the button's nearest card/section). Serials are read from [data-serial]
+    // when a list carries them, otherwise from the /devices/<serial> links the row
+    // already has, deduped in document order — so a list needs no extra markup.
+    function collectSerials(scope) {
+      var out = [], seen = {};
+      function push(s) {
+        s = (s || '').trim();
+        if (!s || seen[s]) return;
+        seen[s] = true; out.push(s);
+      }
+      scope.querySelectorAll('[data-serial]').forEach(function (el) { push(el.getAttribute('data-serial')); });
+      if (out.length === 0) {
+        scope.querySelectorAll('a[href*="/devices/"]').forEach(function (a) {
+          var m = (a.getAttribute('href') || '').match(/\/devices\/([^\/?#]+)/);
+          if (m) push(decodeURIComponent(m[1]));
+        });
+      }
+      return out;
+    }
+    function copySerials(scope, btn) {
+      var list = collectSerials(scope);
+      if (list.length === 0) { showToast('No device serials in this list', 'info'); return; }
+      var label = btn && (btn.querySelector('.cs-lbl') || btn);
+      function done(ok) {
+        showToast(ok ? 'Copied ' + list.length + ' serial' + (list.length === 1 ? '' : 's') : 'Copy failed', ok ? 'success' : 'error');
+        if (ok && label) {
+          var prev = label.textContent;
+          label.textContent = 'Copied';
+          setTimeout(function () { label.textContent = prev; }, 1500);
+        }
+      }
+      var text = list.join('\n');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        return;
+      }
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+      } catch (e) { done(false); }
+    }
+    window.copySerials = copySerials;
+    // Delegated, so buttons inside live-refreshed regions keep working after a swap.
+    document.body.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('[data-copy-serials]');
+      if (!btn) return;
+      e.preventDefault();
+      var sel = btn.getAttribute('data-copy-serials');
+      var scope = (sel && document.querySelector(sel)) || btn.closest('.cc-card, section, main') || document.body;
+      copySerials(scope, btn);
+    });
+
     // Flash-via-URL: a redirect (which swallows HX-Trigger toasts) can carry
     // ?flash=<msg>&flash_type=<t>; show it once, then strip it from the address bar.
     // Runs on load and after each boosted navigation.

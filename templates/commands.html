@@ -953,7 +953,7 @@ window.CMD_PREFILL = {{.Prefill}};
           + '<span class="add">Remove</span></button>';
       }
     });
-    if (html) html = '<div class="co-sel-top"><span>' + S.targets.length + ' selected</span><button type="button" class="co-bk-clear" id="co-sel-clear">Clear</button></div>' + html;
+    if (html) html = '<div class="co-sel-top"><span>' + S.targets.length + ' selected</span><span><button type="button" class="co-bk-clear" data-copy-serials="#co-sel" title="Copy the selected serials, one per line"><span class="cs-lbl">Copy</span></button> <button type="button" class="co-bk-clear" id="co-sel-clear">Clear</button></span></div>' + html;
     el('co-sel').innerHTML = html || '<div class="co-what-empty" id="co-what-empty">Nothing selected yet. Pick restaurants, groups or devices on the left and they collect here.</div>';
   }
   // ── Basket ──
