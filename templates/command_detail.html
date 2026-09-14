@@ -113,10 +113,14 @@
     </div>
   </div>
   {{end}}
+  {{/* Fresh header stats ride along hidden INSIDE the card, so the page can copy them
+       into #ad-stats after each swap. Inside, and a plain div, for two reasons: a
+       second root element makes the in-place morph treat the response as a child
+       list (nesting the card inside itself), and a <template>'s content lives in
+       .content — which the morph never walks, so the stats it carried would freeze
+       at whatever the first render said. */}}
+  <div id="ad-stats-src" hidden style="display:none">{{template "command-stats" .}}</div>
 </div>
-{{/* Fresh header stats ride along inert; the page copies them into #ad-stats after
-     each swap (an hx-swap-oob div would be morphed into the card and duplicated). */}}
-<template id="ad-stats-src">{{template "command-stats" .}}</template>
 {{end}}
 
 {{define "command_detail.html"}}
@@ -256,7 +260,8 @@
   // Keep the headline percent / segment bar in step with the deliveries card.
   document.body.addEventListener('htmx:afterSwap', function (e) {
     var t = e.target; if (!t || t.id !== 'deliveries-card') return;
-    var src = t.querySelector('#ad-stats-src'), dst = document.getElementById('ad-stats');
+    var src = t.querySelector('#ad-stats-src') || document.getElementById('ad-stats-src');
+    var dst = document.getElementById('ad-stats');
     if (src && dst) dst.innerHTML = src.innerHTML;
   });
   window.addEventListener('beforeunload', function () { es.close(); });
