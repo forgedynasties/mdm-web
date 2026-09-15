@@ -4726,7 +4726,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	var summary db.Summary
 	var err error
 	if h.access(r).hidesDPC() {
-		// DPC devices are admin-only for now: totals exclude them for everyone else.
+		// DPC devices are admin/super_op-only: totals exclude them for everyone else.
 		summary, err = h.db.GetSummaryFiltered(ctx, db.DeviceFilter{AgentKind: "firmware", Connected: h.connectedSlice(), ActiveThresholdSecs: activeSecs})
 	} else {
 		summary, err = h.db.GetSummary(ctx, h.connectedSlice())

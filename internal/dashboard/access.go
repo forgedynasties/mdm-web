@@ -162,9 +162,11 @@ func (h *Handler) accessFor(ctx context.Context, role, username string) *access 
 // unrestricted: nothing is ever filtered for this user. Only super admin.
 func (a *access) unrestricted() bool { return a.role == "admin" }
 
-// hidesDPC: DPC-managed (outsourced) devices are admin-only for now. Every other
-// role neither sees nor acts on them, on any page.
-func (a *access) hidesDPC() bool { return a.role != "admin" }
+// hidesDPC: DPC-managed (outsourced) devices are visible to admin and super_op
+// only. Every other role neither sees nor acts on them, on any page. Without this a
+// super op couldn't delegate over a scope holding DPC devices: their own filtered
+// scope drops them, so the grant's coverage check refuses.
+func (a *access) hidesDPC() bool { return a.role != "admin" && a.role != "super_op" }
 
 // isDPC reports whether the device runs the DPC agent (from the per-request scope map).
 func (a *access) isDPC(dev uuid.UUID) bool {
@@ -236,7 +238,7 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 		return decision{false, "Unknown action", nil}
 	}
 	if dev != nil && a.hidesDPC() && a.isDPC(*dev) {
-		return decision{false, "DPC-managed devices are admin-only for now", nil}
+		return decision{false, "DPC-managed devices are limited to super admins and super ops", nil}
 	}
 	if c := roleCeiling(a.role); !c[action] {
 		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}

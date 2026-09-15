@@ -862,7 +862,7 @@ func (d *DB) SetUserAccess(ctx context.Context, id uuid.UUID, pol AccessPolicy) 
 type DeviceScope struct {
 	RestaurantID *uuid.UUID
 	Groups       []uuid.UUID
-	DPC          bool // runs the Device-Owner agent (admin-only visibility for now)
+	DPC          bool // runs the Device-Owner agent (admin/super_op-only visibility)
 }
 
 // DeviceScopes loads every device's restaurant and group memberships (two small
