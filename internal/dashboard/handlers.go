@@ -3399,12 +3399,7 @@ func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 // (Send action, Deploy, Actions dock) are role-locked/hidden rather than links that
 // bounce a visitor to /login.
 func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
-	// Inject a synthetic viewer session so role/access/name resolve for the chrome.
-	r = r.WithContext(context.WithValue(r.Context(), ctxSessionKey{}, &db.Session{
-		Username: "guest", Role: "viewer",
-		ExpiresAt: time.Now().Add(time.Hour), LastSeen: time.Now(),
-	}))
-
+	r = sneakPeekAuth(r)
 	summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts := sneakPeekFleet()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, nil, 0)
@@ -3414,13 +3409,28 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 		data[k] = v
 	}
 	// Synthetic map: a handful of located devices clustered around a few venues.
-	// Empty embed key falls back to the widget's no-map state (no external embed).
+	// Empty embed key makes the map widget render its preview branch (a stylised map).
 	data["DeviceLocations"] = sneakPeekMapJSON()
 	data["DeviceMapCount"] = 10
 	data["MapsEmbedKey"] = ""
 
-	// Chrome keys normally added by render()/withRole(). We render directly (not via
-	// h.render) so nothing hits the DB and the preview can't write an audit row.
+	h.sneakPeekChrome(data, "overview", openCount)
+	h.sneakPeekRender(w, "overview.html", data)
+}
+
+// sneakPeekAuth injects a synthetic viewer session for the life of one preview
+// request, so the role-gated chrome (dock, name, access) renders without a real
+// cookie/DB session. Viewer, so write actions are hidden/role-locked.
+func sneakPeekAuth(r *http.Request) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), ctxSessionKey{}, &db.Session{
+		Username: "guest", Role: "viewer",
+		ExpiresAt: time.Now().Add(time.Hour), LastSeen: time.Now(),
+	}))
+}
+
+// sneakPeekChrome fills the layout chrome keys a preview page needs when rendered
+// directly (not via h.render, so nothing touches the DB or writes an audit row).
+func (h *Handler) sneakPeekChrome(data map[string]any, active string, openAlerts int) {
 	data["Role"] = "viewer"
 	data["Boosted"] = false
 	data["CurrentUser"] = "Guest preview"
@@ -3431,19 +3441,169 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 	data["Use24Hour"] = h.cfg.Use24Hour()
 	data["Version"] = version.Current()
 	data["AssetVer"] = h.assetVer
-	data["ActivePage"] = "overview"
+	data["ActivePage"] = active
 	data["ShowTour"] = false
-	data["AlertsOpenCount"] = openCount
+	data["AlertsOpenCount"] = openAlerts
 	data["Preview"] = true
+}
 
+// sneakPeekRender writes a preview page from the real template + synthetic data.
+func (h *Handler) sneakPeekRender(w http.ResponseWriter, name string, data map[string]any) {
 	w.Header().Set("Cache-Control", "no-store")
 	var buf bytes.Buffer
-	if err := h.tmpl.ExecuteTemplate(&buf, "overview.html", data); err != nil {
-		log.Printf("sneak-peek render: %v", err)
+	if err := h.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+		log.Printf("sneak-peek render %s: %v", name, err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	_, _ = buf.WriteTo(w)
+}
+
+// SneakPeekAlerts is the preview's dummy Alerts inbox: the real alerts.html rendered
+// against synthetic alerts, so the dock's Alerts item is navigable in the preview.
+func (h *Handler) SneakPeekAlerts(w http.ResponseWriter, r *http.Request) {
+	r = sneakPeekAuth(r)
+	summary, crit, watch, crashes := sneakPeekAlertData()
+	data := map[string]any{
+		"Title":         "Alerts",
+		"Summary":       summary,
+		"View":          "",
+		"Critical":      crit,
+		"Watching":      watch,
+		"NeedsCount":    len(crit),
+		"WatchCount":    len(watch),
+		"ActiveCount":   len(crit) + len(watch),
+		"Crashes":       crashes,
+		"CrashCount":    len(crashes),
+		"DeviceFilter":  "",
+		"CrashPage":     1,
+		"CrashPages":    1,
+		"CrashPageBase": "/sneak-peek/alerts?view=crashes",
+	}
+	h.sneakPeekChrome(data, "alerts", len(crit)+len(watch))
+	h.sneakPeekRender(w, "alerts.html", data)
+}
+
+// SneakPeekFleet is the preview's dummy Fleet roster: the real devices.html rendered
+// against a synthetic device list, so the dock's Fleet item is navigable in the preview.
+func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
+	r = sneakPeekAuth(r)
+	devices, online := sneakPeekDevices()
+	summary := db.Summary{Total: 2622, RecentlyActive: 2611, LowBattery: 38, UniqueBuilds: 4, KioskCount: 2202}
+	data := map[string]any{
+		"Title": "Devices", "Devices": devices, "Online": online,
+		"Nicknames": map[uuid.UUID]string{}, "Flapping": map[uuid.UUID]bool{},
+		"Total": 2622, "FleetTotal": 2622, "FilterCount": 0, "InactiveCount": 0,
+		"RailGroups": []any{}, "RailRestaurants": []any{}, "RailReleases": []any{}, "RailProducts": []any{},
+		"Groups": []any{}, "Restaurants": []any{}, "Productions": []any{}, "Builds": []any{}, "Timezones": []any{},
+		"Products": h.fleetProductFilters(r.Context(), "viewer"), "Classes": product.Classes(),
+		"Composition": []any{}, "CompFirmware": 0, "CompDPC": 0,
+		"SelectedCollection": "All devices", "SelectedCount": 2622,
+		"ActiveRestaurant": nil, "ActiveGroup": nil, "ActiveReleaseID": 0,
+		"View": "", "ViewID": "", "ViewColl": "",
+		"Page": 1, "TotalPages": 1, "Query": "", "PageSize": 60,
+		"Summary": summary, "Sort": "", "SortDir": "",
+		"FilterRestaurant": "", "FilterGroup": "", "FilterProduction": "", "FilterProduct": "",
+		"FilterStatus": "", "FilterBuild": "", "FilterBattery": "", "FilterKiosk": "",
+		"FilterCharging": "", "FilterTimezone": "", "FilterKind": "", "FilterClass": "",
+		"FilterOnboarding": "", "FilterLifecycle": "", "FilterHidden": false,
+		"ActiveThresholdSecs": 180, "ActiveThresholdLabel": "3 min",
+		"Density": h.cfg.Density(), "MapsEmbedKey": "",
+	}
+	h.sneakPeekChrome(data, "devices", 11)
+	h.sneakPeekRender(w, "devices.html", data)
+}
+
+// sneakPeekDevices builds ~30 synthetic devices spread across the preview's venues,
+// plus the online map devices.html reads for the live status dot.
+func sneakPeekDevices() ([]db.Device, map[uuid.UUID]bool) {
+	type spec struct {
+		rest, prod, build string
+		bat, temp         int
+		kiosk, online     bool
+	}
+	names := []string{"Harbor Grill", "Harbor Grill", "Harbor Kitchen", "Sausalito", "Sausalito",
+		"Marina Point", "Marina Point", "Ferry Plaza", "Embarcadero", "North Beach",
+		"Presidio", "Richmond", "SoMa", "Castro", "Dogpatch", "Glen Park",
+		"Mission Rock", "Noe Valley", "Hayes Valley", "Bayview", "Potrero", "Chinatown",
+		"Union Square", "Financial", "Bernal", "Cole Valley", "Nob Hill", "Russian Hill",
+		"Sunset", "Harbor Café"}
+	prods := []string{"kiosk22", "kiosk27", "t7", "kiosk18"}
+	devices := make([]db.Device, 0, len(names))
+	online := map[uuid.UUID]bool{}
+	now := time.Now()
+	for i, name := range names {
+		id := uuid.New()
+		prod := prods[i%len(prods)]
+		build := "2026.06.01-release"
+		if i%7 == 3 {
+			build = "2026.05.14-release"
+		}
+		bat := 60 + (i*11)%40 // 60..99
+		temp := 30 + (i*3)%14 // 30..43
+		isOn := i%9 != 4       // most online
+		if i == 0 {
+			temp = 61 // the hot one
+		}
+		seen := now.Add(-time.Duration(2+i%9) * time.Minute)
+		if !isOn {
+			seen = now.Add(-time.Duration(3+i%6) * time.Hour)
+		}
+		hasBat := prod == "t7"
+		extra := fmt.Sprintf(`{"model":"AIO-%s","manufacturer":"AIO","temp_c":%d,"charging":%t}`,
+			strings.ToUpper(prod), temp, hasBat && bat < 90)
+		devices = append(devices, db.Device{
+			ID: id, SerialNumber: fmt.Sprintf("%s-%04d", map[bool]string{true: "TAB", false: "KSK"}[prod == "t7"], 1000+i),
+			BuildID: build, BatteryPct: bat, LastSeenAt: seen, KioskEnabled: true,
+			Product: prod, RestaurantName: name, DeployedEffective: true,
+			AgentKind: "firmware", EnrollmentStatus: "auto", EnrolledAt: now.Add(-720 * time.Hour),
+			LatestExtra: json.RawMessage(extra),
+		})
+		online[id] = isOn
+	}
+	return devices, online
+}
+
+// sneakPeekAlertData builds the synthetic alerts inbox for the preview, consistent
+// with the fleet sneakPeekFleet paints (Harbor Grill hot, Sausalito offline, …).
+func sneakPeekAlertData() (db.AlertSummary, []humanAlert, []humanAlert, []crashCardView) {
+	ago := func(m int) time.Time { return time.Now().Add(-time.Duration(m) * time.Minute) }
+	ha := func(icon, sev, headline, sentence, serial, rest string, mins, occ int) humanAlert {
+		return humanAlert{
+			ID: uuid.New(), Severity: sev, Status: "open", IconKey: icon,
+			Headline: headline, Sentence: template.HTML(sentence), Serial: serial,
+			Restaurant: rest, FiredAt: ago(mins), Occurrences: occ,
+		}
+	}
+	crit := []humanAlert{
+		ha("heat", "critical", "Device running hot", "Reached <b>61°C</b>, above the 60°C ceiling — throttling likely.", "KSK-1000", "Harbor Grill", 12, 4),
+		ha("crash", "critical", "App crashing repeatedly", "<b>aio.app.pos</b> crashed 6 times in the last hour.", "KSK-1042", "Harbor Kitchen", 35, 6),
+		ha("storage", "critical", "Storage almost full", "Only <b>2%</b> free on the data partition.", "KSK-1103", "Harbor Café", 64, 1),
+	}
+	watch := []humanAlert{
+		ha("offline", "warning", "Device offline", "Stopped checking in <b>4h</b> ago — last seen 04:12.", "KSK-2117", "Sausalito", 240, 1),
+		ha("battery", "warning", "Battery below 20%", "Discharged to <b>17%</b> and not on a charging pad.", "TAB-3088", "Marina Point", 26, 1),
+		ha("charge", "warning", "Left off the charging pad", "Off power overnight; started the day at 41%.", "TAB-3091", "Ferry Plaza", 190, 1),
+		ha("wifi", "warning", "Weak Wi-Fi signal", "Averaging <b>-78 dBm</b>; check the access point placement.", "KSK-2210", "Embarcadero", 88, 3),
+		ha("memory", "warning", "High memory pressure", "Available memory under <b>8%</b> for 20 minutes.", "KSK-2255", "North Beach", 52, 2),
+		ha("offline", "warning", "Device offline", "Stopped checking in <b>1h</b> ago.", "KSK-2260", "Presidio", 61, 1),
+		ha("battery", "warning", "Battery draining fast", "Down 30% in an hour under load.", "TAB-3120", "Richmond", 44, 1),
+		ha("generic", "warning", "Clock drift detected", "Device clock is <b>90s</b> behind the server.", "KSK-2301", "SoMa", 120, 1),
+	}
+	crash := func(kind, cls, serial, rest, pkg, summary string, mins int) crashCardView {
+		return crashCardView{
+			Serial: serial, Restaurant: rest, KindLabel: kind, KindClass: cls,
+			BuildID: "2026.05.14-release", OccurredAt: ago(mins), Summary: summary, PackageName: pkg,
+			Trace: "java.lang.RuntimeException: " + summary + "\n\tat " + pkg + ".MainActivity.onCreate(MainActivity.java:142)\n\tat android.app.Activity.performCreate(Activity.java:8000)",
+		}
+	}
+	crashes := []crashCardView{
+		crash("Crash", "crash", "KSK-1042", "Harbor Kitchen", "aio.app.pos", "aio.app.pos — NullPointerException in checkout flow", 35),
+		crash("ANR", "anr", "KSK-1000", "Harbor Grill", "aio.app.kiosk", "aio.app.kiosk — Input dispatching timed out (main thread blocked)", 70),
+		crash("Crash", "crash", "TAB-3088", "Marina Point", "aio.app.pay", "aio.app.pay — IllegalStateException reading card reader", 150),
+	}
+	summary := db.AlertSummary{Total: 361, Open: 11, Acknowledged: 2, Resolved: 348, Critical: 3, Warning: 8, Info: 0}
+	return summary, crit, watch, crashes
 }
 
 // intPtr / f64Ptr / f32Ptr / strPtr are small helpers for the synthetic-data
@@ -19825,6 +19985,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /reset-password", h.ResetPasswordSubmit)
 
 	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
+	mux.HandleFunc("GET /sneak-peek/alerts", h.SneakPeekAlerts)
+	mux.HandleFunc("GET /sneak-peek/fleet", h.SneakPeekFleet)
 
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
