@@ -117,39 +117,48 @@
   {{/* The legacy half of the same push: devices whose build has no MDM OTA, served
        the same release over the otautil listener. One rollout, two transports. */}}
   {{range $.LegacyRows}}
-  {{$awaiting := or (eq .Status "awaiting_reboot") (and (eq .Status "installing") (ge .Percent 100))}}
+  {{/* Same row as an MDM target above; only the legacy pill tells them apart. The
+       otautil statuses fold onto the MDM ones: offered = downloading, and
+       installing/verifying/finalizing are the live phase of an install. */}}
+  {{$st := .Status}}{{if eq $st "offered"}}{{$st = "downloading"}}{{end}}
+  {{$phase := ""}}{{if or (eq .Status "installing") (eq .Status "verifying") (eq .Status "finalizing")}}{{$phase = .Status}}{{$st = "downloading"}}{{end}}
+  {{if and (eq .Status "installing") (ge .Percent 100)}}{{$phase = ""}}{{$st = "awaiting_reboot"}}{{end}}
+  {{$live := and (eq $st "downloading") (or $phase (gt .Percent 0))}}
   <div class="dpl-row" data-serial="{{.Serial}}">
     <div class="dpl-row-l">
       <div class="dpl-r1">
         {{if .InFleet}}<a href="/devices/{{.Serial}}" class="dpl-sn link-detail">{{.Serial}}</a>{{else}}<span class="dpl-sn">{{.Serial}}</span>{{end}}
         <span class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</span>
         <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span>
-        {{if eq .Status "installed"}}<span class="dq-pill ok">installed</span>
-        {{else if eq .Status "failed"}}<span class="dq-pill bad">failed</span>
-        {{else if eq .Status "canceled"}}<span class="dq-pill">canceled</span>
-        {{else if $awaiting}}<span class="dq-pill info">awaiting reboot</span>
-        {{else if eq .Status "pending"}}<span class="dq-pill">waiting for its poll</span>
-        {{else}}<span class="dq-pill info">{{.Status}}</span>{{end}}
+        {{if $phase}}
+          <span class="status-badge {{deployStatusClass $st}} phase-badge">{{$phase}}</span>
+        {{else}}
+          <span class="status-badge {{deployStatusClass $st}}">{{if eq $st "awaiting_reboot"}}awaiting reboot{{else}}{{$st}}{{end}}</span>
+        {{end}}
       </div>
       <div class="dpl-r2">
-        {{if and (gt .Percent 0) (not $awaiting)}}
+        {{if $live}}
           <div class="dpl-pbar"><i style="width:{{.Percent}}%"></i></div>
-          <span class="muted small dpl-rowpct">{{.Percent}}%</span>
-        {{else if $awaiting}}<span class="muted small dpl-rowpct">applied</span>{{end}}
+          <span class="muted small dpl-rowpct">{{if $phase}}{{$phase}} {{end}}{{.Percent}}%</span>
+        {{end}}
+        {{if and (eq $st "failed") .Error}}
+          <span class="muted small dpl-err">{{.Error}}</span>
+        {{end}}
       </div>
     </div>
     <div class="dpl-row-r">
       <div class="dpl-times muted small">
-        <span>{{timeSince .UpdatedAt}}</span>
-        {{if .RebootSentAt}}<span class="dot">·</span><span>rebooted {{timeSince .RebootSentAt}}{{if .RebootState}} · {{.RebootState}}{{end}}</span>{{end}}
+        <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+        {{if .RebootSentAt}}<span class="dot">·</span><span title="When the reboot that applies the update was pushed">rebooted {{localTime (deref .RebootSentAt)}}</span>{{end}}
       </div>
       <div class="dpl-acts">
-        {{if and (canOperate $.Role) $awaiting .InFleet}}
-        <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" class="dpl-act" hx-confirm="Reboot {{.Serial}} now? It boots into {{if .OfferedBuild}}{{.OfferedBuild}}{{else}}the new build{{end}}.">
-          <button type="submit" class="btn-outline btn-sm">{{if .RebootSentAt}}Send again{{else}}Reboot{{end}}</button>
+        {{if and (canOperate $.Role) (eq $st "awaiting_reboot") .InFleet}}
+        <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" class="dpl-act"
+              hx-confirm="Reboot {{.Serial}} now to apply the installed update?">
+          <button type="submit" class="btn-primary btn-sm" title="Update is installed and waiting — reboot to apply it">Reboot to apply</button>
         </form>
         {{end}}
-        {{if and (canOperate $.Role) (eq .Status "failed")}}
+        {{if and (canOperate $.Role) (eq $st "failed")}}
         <form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true" class="dpl-act">
           <button type="submit" class="btn-outline btn-sm">Retry</button>
         </form>
