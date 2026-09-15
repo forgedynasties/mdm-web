@@ -168,7 +168,8 @@
 .ov3-site .sc .sc-why{margin-left:1px}
 .ov3-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--surface2);color:var(--muted);white-space:nowrap}
 .ov3-tag.bad{background:var(--danger-bg);color:var(--danger)}.ov3-tag.warn{background:var(--warn-bg);color:var(--warn)}.ov3-tag.ok{background:var(--ok-bg);color:var(--ok)}
-.ov3-sites-more{grid-column:1/-1;text-align:center;font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none;padding:6px}
+.ov3-sites-more{display:block;text-align:center;font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none;padding:11px 6px;margin-top:2px;border-top:1px solid var(--border-soft)}
+.ov3-sites-more:hover{background:var(--surface2)}
 
 /* release adoption */
 .ov3-adopt{padding:14px 17px}
@@ -781,7 +782,7 @@
         {{if .Sites}}
         <div class="ov3-sites">
           {{range $i, $s := .Sites}}
-          <a class="ov3-site {{$s.Class}}{{if ge $i 24}} hide xtra{{end}}" data-c="{{$s.Class}}" href="/restaurants/{{$s.ID}}" title="{{$s.Name}} · score {{$s.Score}}">
+          <a class="ov3-site {{$s.Class}}{{if ge $i 8}} hide xtra{{end}}" data-c="{{$s.Class}}" href="/restaurants/{{$s.ID}}" title="{{$s.Name}} · score {{$s.Score}}">
             <span class="dot"></span>
             <span class="mid">
               <span class="n">{{$s.Name}}</span>
@@ -790,7 +791,7 @@
             <span class="sc">{{$s.Score}}{{template "score-why" $s.Why}}</span>
           </a>
           {{end}}
-          {{if gt (len .Sites) 24}}<a class="ov3-sites-more" href="#" id="ov3-sites-more">Show {{sub (len .Sites) 24}} more</a>{{end}}
+          {{if gt (len .Sites) 8}}<a class="ov3-sites-more" href="#" id="ov3-sites-more">Show {{sub (len .Sites) 8}} more</a>{{end}}
         </div>
         {{else}}
         <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg></span><div><b>No sites yet</b>Assign devices to a restaurant and it appears here with a live health score.</div></div>
@@ -800,7 +801,38 @@
       {{end}}
 {{define "ov3-w-map"}}
 {{/* Fleet map */}}
-      {{if and .DeviceMapCount .MapsEmbedKey}}
+      {{if .Preview}}
+      {{/* Preview: a stylised static map (no Google key needed) so the geolocation
+           feature is shown off instead of a "configure a key" message. */}}
+      <div class="ov3-card">
+        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Fleet map</h3><span class="m">Wi-Fi geolocation · clustered by venue</span><a class="r" href="/login" style="margin-left:12px">Full map →</a></div>
+        <div class="pk-map">
+          <div class="pk-grid" aria-hidden="true"></div>
+          <span class="pk-pin danger" style="left:22%;top:38%"><i></i><b>Harbor Grill</b></span>
+          <span class="pk-pin danger" style="left:29%;top:46%"><i></i></span>
+          <span class="pk-pin warn" style="left:63%;top:60%"><i></i><b>Sausalito</b></span>
+          <span class="pk-pin warn" style="left:48%;top:29%"><i></i></span>
+          <span class="pk-pin warn" style="left:71%;top:41%"><i></i></span>
+          <span class="pk-pin" style="left:39%;top:66%"><i></i></span>
+          <span class="pk-pin" style="left:55%;top:52%"><i></i><b>Marina Point</b></span>
+          <span class="pk-pin" style="left:17%;top:64%"><i></i></span>
+          <span class="pk-pin" style="left:82%;top:33%"><i></i></span>
+          <span class="pk-pin" style="left:34%;top:22%"><i></i></span>
+          <span class="pk-pin" style="left:76%;top:70%"><i></i></span>
+          <span class="pk-pin" style="left:60%;top:20%"><i></i></span>
+          <span class="pk-pin" style="left:44%;top:76%"><i></i></span>
+          <span class="pk-pin" style="left:88%;top:55%"><i></i></span>
+        </div>
+      </div>
+      <style>
+        .pk-map{position:relative;height:300px;overflow:hidden;background:radial-gradient(circle at 28% 40%,var(--accent-soft),transparent 42%),radial-gradient(circle at 72% 62%,var(--accent-2-soft),transparent 42%),var(--surface2)}
+        .pk-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border-soft) 1px,transparent 1px),linear-gradient(90deg,var(--border-soft) 1px,transparent 1px);background-size:46px 46px;opacity:.7}
+        .pk-pin{position:absolute;transform:translate(-50%,-50%)}
+        .pk-pin i{display:block;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.28)}
+        .pk-pin.warn i{background:var(--warn)}.pk-pin.danger i{background:var(--danger);width:17px;height:17px}
+        .pk-pin b{position:absolute;left:50%;top:calc(100% + 5px);transform:translateX(-50%);font-size:10.5px;font-weight:650;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap}
+      </style>
+      {{else if and .DeviceMapCount .MapsEmbedKey}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Fleet map</h3><span class="m">{{.DeviceMapCount}} located</span><a class="r" href="/map">Full map →</a></div>
         <div id="ov-map" style="height:340px"></div>
