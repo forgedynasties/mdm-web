@@ -1,0 +1,163 @@
+09-15 03:19:37.998 I/update_engine( 1434): [INFO:writer.cpp(397)] [liblp] Updated logical partition table at slot 0 on device super
+09-15 03:19:38.011 I/update_engine( 1434): [INFO:snapuserd_client.cpp(82)] Daemon socket snapuserd does not exist, return without waiting.
+09-15 03:19:38.037 I/update_engine( 1434): [INFO:delta_performer.cc(927)] PreparePartitionsForUpdate done. took 5179 ms
+09-15 03:19:38.171 I/update_engine( 1434): [INFO:delta_performer.cc(852)] ParsePartitions done. took 130 ms
+09-15 03:19:38.238 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `boot`
+09-15 03:19:38.249 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 48 operations to partition "boot"
+09-15 03:19:38.461 I/update_engine( 1434): [INFO:delta_performer.cc(708)] Starting to apply update payload operations
+09-15 03:19:43.074 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `dtbo`
+09-15 03:19:43.080 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 4 operations to partition "dtbo"
+09-15 03:19:43.579 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `init_boot`
+09-15 03:19:43.586 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 4 operations to partition "init_boot"
+09-15 03:19:44.089 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `odm`
+09-15 03:19:44.954 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing odm COW image
+09-15 03:19:44.967 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `product`
+09-15 03:20:02.867 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 84/2603 operations (3%), 45694976/1893979167 bytes downloaded (2%), overall progress 2%
+09-15 03:20:32.952 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 129/2603 operations (4%), 83001344/1893979167 bytes downloaded (4%), overall progress 4%
+09-15 03:21:03.376 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 175/2603 operations (6%), 122552320/1893979167 bytes downloaded (6%), overall progress 6%
+09-15 03:21:33.736 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 219/2603 operations (8%), 165036032/1893979167 bytes downloaded (8%), overall progress 8%
+09-15 03:22:04.021 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 262/2603 operations (10%), 185319424/1893979167 bytes downloaded (9%), overall progress 9%
+09-15 03:22:08.055 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 268/2603 operations (10%), 189399040/1893979167 bytes downloaded (10%), overall progress 10%
+09-15 03:22:38.257 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 314/2603 operations (12%), 233226240/1893979167 bytes downloaded (12%), overall progress 12%
+09-15 03:23:08.330 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 359/2603 operations (13%), 273825792/1893979167 bytes downloaded (14%), overall progress 13%
+09-15 03:23:38.762 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 400/2603 operations (15%), 313163776/1893979167 bytes downloaded (16%), overall progress 15%
+09-15 03:24:09.344 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 438/2603 operations (16%), 334036992/1893979167 bytes downloaded (17%), overall progress 16%
+09-15 03:24:40.988 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 483/2603 operations (18%), 369049600/1893979167 bytes downloaded (19%), overall progress 18%
+09-15 03:25:06.073 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 521/2603 operations (20%), 405635072/1893979167 bytes downloaded (21%), overall progress 20%
+09-15 03:25:36.589 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 563/2603 operations (21%), 432881664/1893979167 bytes downloaded (22%), overall progress 21%
+09-15 03:26:06.715 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 604/2603 operations (23%), 455655424/1893979167 bytes downloaded (24%), overall progress 23%
+09-15 03:26:37.218 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 650/2603 operations (24%), 493649920/1893979167 bytes downloaded (26%), overall progress 25%
+09-15 03:27:07.791 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 691/2603 operations (26%), 536887296/1893979167 bytes downloaded (28%), overall progress 27%
+09-15 03:27:37.857 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 738/2603 operations (28%), 572768256/1893979167 bytes downloaded (30%), overall progress 29%
+09-15 03:28:06.969 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 781/2603 operations (30%), 603045888/1893979167 bytes downloaded (31%), overall progress 30%
+09-15 03:28:36.969 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 825/2603 operations (31%), 642465792/1893979167 bytes downloaded (33%), overall progress 31%
+09-15 03:29:06.991 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 869/2603 operations (33%), 685342720/1893979167 bytes downloaded (36%), overall progress 34%
+09-15 03:29:37.264 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 915/2603 operations (35%), 719208448/1893979167 bytes downloaded (37%), overall progress 35%
+09-15 03:30:07.439 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 960/2603 operations (36%), 759791616/1893979167 bytes downloaded (40%), overall progress 38%
+09-15 03:30:30.709 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 995/2603 operations (38%), 795475968/1893979167 bytes downloaded (42%), overall progress 40%
+09-15 03:31:01.107 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1043/2603 operations (40%), 837287936/1893979167 bytes downloaded (44%), overall progress 42%
+09-15 03:31:31.545 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1088/2603 operations (41%), 871268352/1893979167 bytes downloaded (46%), overall progress 43%
+09-15 03:32:02.140 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1132/2603 operations (43%), 899170304/1893979167 bytes downloaded (47%), overall progress 44%
+09-15 03:32:32.155 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1177/2603 operations (45%), 928497664/1893979167 bytes downloaded (49%), overall progress 46%
+09-15 03:33:02.173 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1220/2603 operations (46%), 953679872/1893979167 bytes downloaded (50%), overall progress 48%
+09-15 03:33:32.435 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1265/2603 operations (48%), 979451904/1893979167 bytes downloaded (51%), overall progress 49%
+09-15 03:33:39.316 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1275/2603 operations (48%), 984875008/1893979167 bytes downloaded (52%), overall progress 50%
+09-15 03:34:09.532 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1321/2603 operations (50%), 1017872384/1893979167 bytes downloaded (53%), overall progress 51%
+09-15 03:34:39.924 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1364/2603 operations (52%), 1048231936/1893979167 bytes downloaded (55%), overall progress 53%
+09-15 03:35:09.962 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1408/2603 operations (54%), 1066418176/1893979167 bytes downloaded (56%), overall progress 55%
+09-15 03:35:40.007 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1450/2603 operations (55%), 1121992704/1893979167 bytes downloaded (59%), overall progress 56%
+09-15 03:35:42.768 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing product COW image
+09-15 03:35:43.264 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `recovery`
+09-15 03:35:43.282 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 50 operations to partition "recovery"
+09-15 03:35:57.359 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `system`
+09-15 03:36:10.551 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1521/2603 operations (58%), 1150763008/1893979167 bytes downloaded (60%), overall progress 59%
+09-15 03:36:28.464 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1548/2603 operations (59%), 1174274048/1893979167 bytes downloaded (62%), overall progress 60%
+09-15 03:36:58.888 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1598/2603 operations (61%), 1277018112/1893979167 bytes downloaded (67%), overall progress 63%
+09-15 03:37:29.057 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1644/2603 operations (63%), 1323417600/1893979167 bytes downloaded (69%), overall progress 65%
+09-15 03:37:59.399 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1686/2603 operations (64%), 1364459520/1893979167 bytes downloaded (72%), overall progress 68%
+09-15 03:38:26.915 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1725/2603 operations (66%), 1401552896/1893979167 bytes downloaded (74%), overall progress 70%
+09-15 03:38:57.111 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1774/2603 operations (68%), 1431977984/1893979167 bytes downloaded (75%), overall progress 71%
+09-15 03:39:27.607 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1823/2603 operations (70%), 1465581568/1893979167 bytes downloaded (77%), overall progress 73%
+09-15 03:39:58.167 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1869/2603 operations (71%), 1490550784/1893979167 bytes downloaded (78%), overall progress 74%
+09-15 03:40:28.702 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1915/2603 operations (73%), 1516896256/1893979167 bytes downloaded (80%), overall progress 76%
+09-15 03:40:58.784 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 1960/2603 operations (75%), 1545519104/1893979167 bytes downloaded (81%), overall progress 77%
+09-15 03:41:08.057 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing system COW image
+09-15 03:41:08.442 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `system_dlkm`
+09-15 03:41:10.846 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing system_dlkm COW image
+09-15 03:41:10.854 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `system_ext`
+09-15 03:41:29.236 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2009/2603 operations (77%), 1580531712/1893979167 bytes downloaded (83%), overall progress 79%
+09-15 03:41:43.143 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2031/2603 operations (78%), 1589493760/1893979167 bytes downloaded (83%), overall progress 80%
+09-15 03:42:13.586 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2076/2603 operations (79%), 1618411520/1893979167 bytes downloaded (85%), overall progress 81%
+09-15 03:42:43.774 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2126/2603 operations (81%), 1649999872/1893979167 bytes downloaded (87%), overall progress 83%
+09-15 03:43:14.034 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2174/2603 operations (83%), 1675329536/1893979167 bytes downloaded (88%), overall progress 85%
+09-15 03:43:44.414 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2215/2603 operations (85%), 1698103296/1893979167 bytes downloaded (89%), overall progress 86%
+09-15 03:44:04.649 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing system_ext COW image
+09-15 03:44:04.818 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `vbmeta`
+09-15 03:44:04.825 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 1 operations to partition "vbmeta"
+09-15 03:44:05.225 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `vbmeta_system`
+09-15 03:44:05.257 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 1 operations to partition "vbmeta_system"
+09-15 03:44:05.497 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `vendor`
+09-15 03:44:14.470 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2264/2603 operations (86%), 1733361664/1893979167 bytes downloaded (91%), overall progress 88%
+09-15 03:44:33.330 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2291/2603 operations (88%), 1746370560/1893979167 bytes downloaded (92%), overall progress 90%
+09-15 03:45:03.330 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2341/2603 operations (89%), 1771929600/1893979167 bytes downloaded (93%), overall progress 90%
+09-15 03:45:33.579 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2389/2603 operations (91%), 1804189696/1893979167 bytes downloaded (95%), overall progress 92%
+09-15 03:46:04.024 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2439/2603 operations (93%), 1825865728/1893979167 bytes downloaded (96%), overall progress 94%
+09-15 03:46:34.513 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2486/2603 operations (95%), 1853358080/1893979167 bytes downloaded (97%), overall progress 95%
+09-15 03:46:55.191 I/update_engine( 1434): [INFO:vabc_partition_writer.cc(416)] Finalizing vendor COW image
+09-15 03:46:55.359 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(42)] Virtual AB Compression disabled, using Partition Writer for `vendor_boot`
+09-15 03:46:55.366 I/update_engine( 1434): [INFO:partition_writer.cc(177)] Applying 48 operations to partition "vendor_boot"
+09-15 03:47:01.890 I/update_engine( 1434): [INFO:partition_writer_factory_android.cc(36)] Virtual AB Compression Enabled, using VABC Partition Writer for `vendor_dlkm`
+09-15 03:47:05.054 I/update_engine( 1434): [INFO:delta_performer.cc(108)] Completed 2572/2603 operations (98%), 1883766784/1893979167 bytes downloaded (99%), overall progress 98%
+09-15 03:47:32.817 I/update_engine( 1434):   filesystem_type: 
+09-15 03:47:32.817 I/update_engine( 1434): Partition: odm
+09-15 03:47:32.817 I/update_engine( 1434): Partition: product
+09-15 03:47:32.817 I/update_engine( 1434): Partition: recovery
+09-15 03:47:32.817 I/update_engine( 1434): Partition: system
+09-15 03:47:32.817 I/update_engine( 1434): Partition: system_dlkm
+09-15 03:47:32.817 I/update_engine( 1434): Partition: system_ext
+09-15 03:47:32.817 I/update_engine( 1434): Partition: vbmeta
+09-15 03:47:32.817 I/update_engine( 1434): Partition: vbmeta_system
+09-15 03:47:32.817 I/update_engine( 1434): Partition: vendor
+09-15 03:47:32.817 I/update_engine( 1434):   postinstall_path: 
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/bootdevice/by-name/init_boot_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/bootdevice/by-name/recovery_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/bootdevice/by-name/vbmeta_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/bootdevice/by-name/vbmeta_system_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/mapper/odm_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/mapper/product_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/mapper/system_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/mapper/system_dlkm_a
+09-15 03:47:32.817 I/update_engine( 1434):   readonly_target_path: /dev/block/mapper/system_ext_a
+09-15 03:47:32.817 I/update_engine( 1434):   run_postinstall: false
+09-15 03:47:32.817 I/update_engine( 1434):   source_hash: 
+09-15 03:47:32.817 I/update_engine( 1434):   source_path: 
+09-15 03:47:32.817 I/update_engine( 1434):   source_size: 0
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 1A75653AEE30D795529ECBBC860F2B9A21F66636137580DAFF7A6F4C64BA0C25
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 4C86EE19E9D1BB5920B2DF38244BBDDE4202AA441B1A6A31A32C6DBAAFE39F73
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 4CFF271C43418FCEDA1D3F20D8C7C91F474EF8893B2342A670FA7E6B334471EF
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 5CA1F1685A6A4ACA93B5E1DF8225767D64EA3C9112887D4AE8BD0A3314BAFB7C
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 7D253280EABDF5FE7D50245502490F296291DCA55B1C498294B278F58EB984B6
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: 91B70F246385DB72955296EB9829D1758EC094DC37AF3C6C7B40E1DEAF6F38BA
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: A64BBBF85C2B6B863D2F8D8A5A995B637721250DE01229CCFCEA8404B2249510
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: D697BC89C97E7D7382F7BBB0F7305C414B11B379DB652F5AE73ECFC4C5F0FE24
+09-15 03:47:32.817 I/update_engine( 1434):   target_hash: EA765F3656454AD94BA6331AF85943E813D818FF2C565005FBEDA90C0535DEA4
+09-15 03:47:32.817 I/update_engine( 1434):   target_path: 
+09-15 03:47:32.817 I/update_engine( 1434):   target_path: /dev/block/bootdevice/by-name/init_boot_a
+09-15 03:47:32.817 I/update_engine( 1434):   target_path: /dev/block/bootdevice/by-name/recovery_a
+09-15 03:47:32.817 I/update_engine( 1434):   target_path: /dev/block/bootdevice/by-name/vbmeta_a
+09-15 03:47:32.817 I/update_engine( 1434):   target_path: /dev/block/bootdevice/by-name/vbmeta_system_a
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 104857600
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 1421312
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 2927357952
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 4096
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 438272
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 567087104
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 8192
+09-15 03:47:32.817 I/update_engine( 1434):   target_size: 992342016
+09-15 03:47:36.940 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 0 (boot) on device /dev/block/bootdevice/by-name/boot_a
+09-15 03:47:37.445 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 1 (dtbo) on device /dev/block/bootdevice/by-name/dtbo_a
+09-15 03:47:37.499 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 2 (init_boot) on device /dev/block/bootdevice/by-name/init_boot_a
+09-15 03:47:37.551 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 3 (odm) on device /dev/block/mapper/odm_a
+09-15 03:47:37.588 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 4 (product) on device /dev/block/mapper/product_a
+09-15 03:48:42.191 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 5 (recovery) on device /dev/block/bootdevice/by-name/recovery_a
+09-15 03:48:42.719 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 6 (system) on device /dev/block/mapper/system_a
+09-15 03:49:03.212 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 7 (system_dlkm) on device /dev/block/mapper/system_dlkm_a
+09-15 03:49:03.239 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 8 (system_ext) on device /dev/block/mapper/system_ext_a
+09-15 03:49:14.872 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 9 (vbmeta) on device /dev/block/bootdevice/by-name/vbmeta_a
+09-15 03:49:14.885 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 10 (vbmeta_system) on device /dev/block/bootdevice/by-name/vbmeta_system_a
+09-15 03:49:14.894 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 11 (vendor) on device /dev/block/mapper/vendor_a
+09-15 03:49:28.030 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 12 (vendor_boot) on device /dev/block/bootdevice/by-name/vendor_boot_a
+09-15 03:49:28.535 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(380)] Hashing partition 13 (vendor_dlkm) on device /dev/block/mapper/vendor_dlkm_a
+09-15 03:49:31.829 I/update_engine( 1434): [INFO:filesystem_verifier_action.cc(143)] Not writing verity and VABC is enabled, unmapping all partitions
+09-15 03:49:32.529 I/update_engine( 1434): [INFO:action_processor.cc(116)] ActionProcessor: finished FilesystemVerifierAction with code ErrorCode::kSuccess
+09-15 03:49:32.533 I/update_engine( 1434): [INFO:action_processor.cc(143)] ActionProcessor: starting PostinstallRunnerAction
+09-15 03:49:40.634 I/update_engine( 1434): [INFO:dynamic_partition_control_android.cc(1083)] Snapshot writes are done.
+09-15 03:49:40.708 I/update_engine( 1434): [INFO:hardware_android.cc(110)] vbmeta digest for target slot: E6EA168A8C2BE5CA6DA313B23B937F97E38B7675FD849972711FB3CBAA3A6740
+09-15 03:49:40.711 I/update_engine( 1434): [INFO:postinstall_runner_action.cc(482)] All post-install commands succeeded
+09-15 03:49:41.434 I/update_engine( 1434): [INFO:postinstall_runner_action.cc(438)] Unmapped all partitions.
+09-15 03:49:41.440 I/update_engine( 1434): [INFO:action_processor.cc(116)] ActionProcessor: finished last action PostinstallRunnerAction with code ErrorCode::kSuccess
+09-15 03:49:41.445 I/update_engine( 1434): [INFO:update_attempter_android.cc(694)] Processing Done.
+09-15 03:49:41.745 I/update_engine( 1434): [INFO:update_attempter_android.cc(937)] Writing update complete marker, slot 1, boot id: b5e03523-1df0-4df5-8632-cfd78d455dbd
+09-15 03:49:41.786 I/update_engine( 1434): [INFO:update_attempter_android.cc(711)] Update successfully applied, waiting to reboot.
+09-15 03:49:41.827 I/update_engine( 1434): [INFO:metrics_reporter_android.cc(159)] Current update attempt downloads 1806 bytes data
+09-15 03:49:41.860 I/update_engine( 1434): [INFO:metrics_utils.cc(341)] Updated Marker = 1/2/1970 8:44:55 GMT

@@ -35,22 +35,29 @@ import (
 // and a device with no socket had no stream at all. Polling is slower and duller
 // and it works everywhere.
 //
-// Lines this reads, from a real T7 install:
+// Lines this reads, in order, from a real T7 install (v2.0.3 -> v2.0.96l):
 //
-//	update_engine: [INFO:delta_performer.cc(108)] Completed 1521/2618 operations
+//	[INFO:partition_writer.cc(177)] Applying 48 operations to partition "boot"
+//	[INFO:delta_performer.cc(108)] Completed 1521/2618 operations
 //	  (58%), 1172389888/1911124571 bytes downloaded (61%), overall progress 59%
-//	update_engine: [INFO:partition_writer.cc(177)] Applying 48 operations to partition "boot"
-//	update_engine: [INFO:vabc_partition_writer.cc(416)] Finalizing product COW image
-//	update_engine: [INFO:update_attempter_android.cc(…)] Update successfully applied…
+//	[INFO:vabc_partition_writer.cc(416)] Finalizing product COW image
+//	[INFO:filesystem_verifier_action.cc(380)] Hashing partition 0 (boot) on device …
+//	[INFO:action_processor.cc(143)] ActionProcessor: starting PostinstallRunnerAction
+//	[INFO:update_attempter_android.cc(711)] Update successfully applied, waiting to reboot.
+//
+// The write phase dwarfs the rest: ~30 min writing at 1% per 30s, then ~2 min
+// hashing every partition (verifying), then ~10s of postinstall (finalizing).
+// "Finalizing <partition> COW image" is NOT the finalizing phase: it closes one
+// partition mid-write, and the VABC partitions (product, system, vendor…) log no
+// "Applying" line when they start, so it is often the newest marker in the dump
+// for the whole of the next partition's write.
 //
 // A device that is not in the fleet has no client to ask: its row stays
 // "installing" until it polls on the new build, which closes the rollout anyway.
 
 var (
-	reOverall   = regexp.MustCompile(`overall progress (\d+)%`)
-	rePartition = regexp.MustCompile(`Applying \d+ operations to partition "([a-z_]+)"`)
-	reFinalize  = regexp.MustCompile(`Finalizing ([a-z_]+) COW image`)
-	reErrCode   = regexp.MustCompile(`ErrorCode(?:::k|: )([A-Za-z0-9]+)`)
+	reOverall = regexp.MustCompile(`overall progress (\d+)%`)
+	reErrCode = regexp.MustCompile(`ErrorCode(?:::k|: )([A-Za-z0-9]+)`)
 )
 
 const (
@@ -237,19 +244,7 @@ func (h *Handler) legacyProgressFromLogcat(ctx context.Context, serial, content 
 		return
 	}
 	depID := h.legacyDeploymentFor(ctx, serial)
-	phase, pct, done, reason := "", -1, "", ""
-	for _, line := range strings.Split(content, "\n") {
-		d, ph, p := parseUpdateEngineLine(line)
-		if ph != "" {
-			phase = ph
-		}
-		if p >= 0 {
-			pct = p
-		}
-		if d != "" {
-			done, reason = d, ph
-		}
-	}
+	done, phase, pct := parseUpdateEngineDump(content)
 	switch done {
 	case "ok":
 		ota.Legacy.Set(serial, "awaiting_reboot", 100)
@@ -260,6 +255,7 @@ func (h *Handler) legacyProgressFromLogcat(ctx context.Context, serial, content 
 		log.Printf("[legacy-ota] %s: update applied (from a logcat dump), waiting for its reboot", serial)
 		return
 	case "fail":
+		reason := phase
 		if reason == "" {
 			reason = "update_engine failed"
 		}
@@ -274,13 +270,44 @@ func (h *Handler) legacyProgressFromLogcat(ctx context.Context, serial, content 
 	if pct < 0 {
 		return
 	}
-	if phase == "" {
-		phase = "installing"
-	}
 	ota.Legacy.Set(serial, phase, pct)
 	if depID > 0 {
 		_ = h.db.SetLegacyDeploymentDevice(ctx, depID, serial, phase, pct, "", "")
 	}
+}
+
+// parseUpdateEngineDump folds a logcat dump into where the install stands: done is
+// "" / "ok" / "fail" (phase then carries the failure reason, if any), otherwise phase
+// is installing, verifying or finalizing and pct is -1 when the dump says nothing.
+func parseUpdateEngineDump(content string) (done, phase string, pct int) {
+	pct = -1
+	for _, line := range strings.Split(content, "\n") {
+		d, ph, p := parseUpdateEngineLine(line)
+		if d != "" {
+			done, phase, pct = d, ph, p
+			continue
+		}
+		if ph != "" {
+			phase = ph
+		}
+		if p >= 0 {
+			pct = p
+		}
+	}
+	if done != "" {
+		return done, phase, pct
+	}
+	switch phase {
+	case "verifying", "finalizing":
+		// The write is finished: its last progress line reads 97-98% (overall progress
+		// weights the steps) and on a small logcat buffer has rotated out entirely.
+		pct = 100
+	case "":
+		if pct >= 0 {
+			phase = "installing"
+		}
+	}
+	return done, phase, pct
 }
 
 // parseUpdateEngineLine reads one logcat line. done is "" (keep going), "ok" or
@@ -309,10 +336,24 @@ func parseUpdateEngineLine(line string) (done, phase string, pct int) {
 			pct = n
 		}
 	}
-	if m := rePartition.FindStringSubmatch(line); len(m) == 2 {
-		phase = "installing " + m[1]
-	} else if m := reFinalize.FindStringSubmatch(line); len(m) == 2 {
+	// Phases are only the three the rollout pages score (installing / verifying /
+	// finalizing): a partition name in the status left it unrecognised, counting the
+	// device at half its progress. The steps run in this order, so the newest marker
+	// in a dump is the current phase.
+	switch {
+	case strings.Contains(line, "PostinstallRunnerAction"),
+		strings.Contains(line, "postinstall_runner_action.cc"):
 		phase = "finalizing"
+	case strings.Contains(line, "FilesystemVerifierAction"),
+		strings.Contains(line, "filesystem_verifier_action.cc"):
+		phase = "verifying"
+	case pct >= 0,
+		strings.Contains(line, "Partition Writer for `"),
+		strings.Contains(line, "operations to partition"),
+		strings.Contains(line, "] Finalizing ") && strings.Contains(line, " COW image"):
+		// Not the bare "COW image": snapshot.cpp logs "Mapped COW image for …" again
+		// while verifying and in postinstall.
+		phase = "installing"
 	}
 	return "", phase, pct
 }
