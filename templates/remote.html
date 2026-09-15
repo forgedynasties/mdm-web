@@ -548,16 +548,30 @@ body:has(#rc-console) .dock { display: none; }
     var v = qp.get(name);
     return (v && /^[0-9]+(\.[0-9]+)?$/.test(v)) ? ('&' + name + '=' + encodeURIComponent(v)) : '';
   }
-  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial)
-              + '?token=' + encodeURIComponent('{{.Token}}')
-              + '&codec=' + codec
-              + passNum('max_fps') + passNum('bitrate') + passNum('quality') + passNum('scale');
+  // The page carries one single-use token for the first connect; every later
+  // connect (auto-reconnect, codec fallback) mints a fresh one — a redeemed token
+  // is refused, so reusing it made every reconnect fail.
+  var pageToken = '{{.Token}}';
+  function wsUrlFor(tok) {
+    return protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial)
+      + '?token=' + encodeURIComponent(tok)
+      + '&codec=' + codec
+      + passNum('max_fps') + passNum('bitrate') + passNum('quality') + passNum('scale');
+  }
+  function withToken(cb) {
+    if (pageToken) { var t = pageToken; pageToken = ''; cb(t); return; }
+    fetch('/devices/' + encodeURIComponent(serial) + '/remote/token', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { cb(j && j.token || ''); })
+      .catch(function () { cb(''); });
+  }
   document.getElementById('rc-codec').textContent = codec === 'h264' ? 'H.264' : 'JPEG';
 
   var ws = null, view = null, ctx = null, vdec = null, vdecReady = false;
   var captureKbd = false, decodeErrors = 0, frameCount = 0, paintedCount = 0;
   var totalFrames = 0, totalBytes = 0, fpsStart = 0, bwStart = 0, bwBytes = 0;
   var sessionStart = 0, timerH = null, ended = false;
+  var everPainted = false, switchingCodec = false;
 
   function $(id) { return document.getElementById(id); }
   function step(n, done) {
@@ -611,12 +625,25 @@ body:has(#rc-console) .dock { display: none; }
     $('rc-err-chip').style.display = ''; $('rc-err').textContent = decodeErrors;
     if (decodeErrors <= 3) console.error('[remote] frame decode failed (' + bytes + ' bytes):', err);
   }
+  // This browser has WebCodecs but can't decode the stream (no H.264 decoder —
+  // e.g. a Chromium build without proprietary codecs, or hardware decode off). The
+  // closed decoder used to swallow every later frame: a blank screen while frames
+  // kept arriving. Reconnect once asking the device for JPEG stills instead.
+  function h264Failed(err, bytes) {
+    frameDecodeFailed(err, bytes);
+    vdecReady = false;
+    if (codec !== 'h264' || everPainted || switchingCodec || !ws) return;
+    console.warn('[remote] H.264 decode unavailable in this browser, switching to JPEG stills');
+    codec = 'jpeg'; $('rc-codec').textContent = 'JPEG';
+    switchingCodec = true;
+    try { ws.close(); } catch (e) {}
+  }
   function resizeTo(w, h) {
     if (view.width !== w || view.height !== h) { view.width = w; view.height = h; $('rc-res').textContent = w + '×' + h; }
   }
   function paintStill(data) {
     createImageBitmap(new Blob([data], { type: 'image/jpeg' })).then(function (bmp) {
-      resizeTo(bmp.width, bmp.height); ctx.drawImage(bmp, 0, 0); bmp.close(); paintedCount++;
+      resizeTo(bmp.width, bmp.height); ctx.drawImage(bmp, 0, 0); bmp.close(); paintedCount++; everPainted = true;
     }).catch(function (err) { frameDecodeFailed(err, data.byteLength); });
   }
 
@@ -626,23 +653,23 @@ body:has(#rc-console) .dock { display: none; }
     rafScheduled = false;
     var frame = pendingFrame; pendingFrame = null;
     if (!frame) return;
-    if (ctx) { resizeTo(frame.displayWidth, frame.displayHeight); ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight); paintedCount++; }
+    if (ctx) { resizeTo(frame.displayWidth, frame.displayHeight); ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight); paintedCount++; everPainted = true; }
     frame.close();
   }
   function initDecoder() {
     vdec = new VideoDecoder({
       output: function (frame) {
         if (paintMode === 'perf') {
-          if (ctx) { resizeTo(frame.displayWidth, frame.displayHeight); ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight); paintedCount++; }
+          if (ctx) { resizeTo(frame.displayWidth, frame.displayHeight); ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight); paintedCount++; everPainted = true; }
           frame.close(); return;
         }
         if (pendingFrame) pendingFrame.close();
         pendingFrame = frame;
         if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(drawLatest); }
       },
-      error: function (err) { frameDecodeFailed(err, 0); vdecReady = false; }
+      error: function (err) { h264Failed(err, 0); }
     });
-    try { vdec.configure({ codec: 'avc1.42E01E', optimizeForLatency: true }); vdecReady = true; } catch (err) { frameDecodeFailed(err, 0); }
+    try { vdec.configure({ codec: 'avc1.42E01E', optimizeForLatency: true }); vdecReady = true; } catch (err) { h264Failed(err, 0); }
   }
   function paintH264(data) {
     if (!vdec) initDecoder();
@@ -654,7 +681,7 @@ body:has(#rc-console) .dock { display: none; }
     if (!isKey && vdec.decodeQueueSize > 4) { sawKey = false; return; } // resync at next key frame
     try {
       vdec.decode(new EncodedVideoChunk({ type: isKey ? 'key' : 'delta', timestamp: (vts += Math.round(1e6 / 15)), data: bytes.subarray(1) }));
-    } catch (err) { frameDecodeFailed(err, bytes.length); sawKey = false; }
+    } catch (err) { h264Failed(err, bytes.length); sawKey = false; }
   }
 
   function noteFrameStats(bytes) {
@@ -674,43 +701,51 @@ body:has(#rc-console) .dock { display: none; }
   // ── Connection with auto-reconnect (3 tries, countdown) ──
   var attempts = 0, retryH = null;
   function connect() {
-    ws = window.mdmTrackStream(new WebSocket(wsUrl));
-    ws.binaryType = 'arraybuffer';
-    setStatus('connecting', attempts ? 'reconnecting' : 'connecting');
-    ws.onopen = function () {
-      attempts = 0; step(2, false);
-      setStatus('live', 'live'); enableControls(true);
-      fpsStart = bwStart = performance.now();
-      if (!sessionStart) { sessionStart = Date.now(); timerH = window.mdmTrackTimer ? window.mdmTrackTimer(setInterval(tickTimer, 1000)) : setInterval(tickTimer, 1000); }
-    };
-    ws.onmessage = function (e) {
-      if (typeof e.data === 'string') return;
-      ensureCanvas(); if (!ctx) return;
-      if (e.data.byteLength < 1) return;
-      var b0 = new Uint8Array(e.data, 0, 1)[0];
-      if (b0 <= 1) paintH264(e.data); else paintStill(e.data);
-      noteFrameStats(e.data.byteLength);
-    };
-    ws.onclose = function () {
-      enableControls(false); captureKbd = false;
-      var kbd = $('rc-kbd'); if (kbd) kbd.checked = false;
-      if (view) { view = null; ctx = null; }
-      if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
-      if (pendingFrame) { try { pendingFrame.close(); } catch (e3) {} pendingFrame = null; }
-      if (ended) { showEnded('Session ended', 'You closed the remote session.'); return; }
-      if (attempts < 3) {
-        attempts++;
-        var wait = 2 * attempts;
-        setStatus('connecting', 'reconnecting');
-        showEnded('Connection dropped', 'Reconnecting in <b id="rc-cd">' + wait + '</b>s… (try ' + attempts + ' of 3)', true);
-        var left = wait;
-        retryH = setInterval(function () { left--; var c = $('rc-cd'); if (c) c.textContent = left; if (left <= 0) { clearInterval(retryH); connect(); } }, 1000);
-      } else {
-        setStatus('error', 'disconnected');
-        showEnded('Could not reconnect', 'The device stopped answering. Check that it is online, then start a new session.');
-      }
-    };
-    ws.onerror = function () { setStatus('error', 'error'); };
+    withToken(function (tok) {
+      if (ended) return;
+      ws = window.mdmTrackStream(new WebSocket(wsUrlFor(tok)));
+      ws.binaryType = 'arraybuffer';
+      setStatus('connecting', attempts ? 'reconnecting' : 'connecting');
+      ws.onopen = function () {
+        attempts = 0; step(2, false);
+        setStatus('live', 'live'); enableControls(true);
+        fpsStart = bwStart = performance.now();
+        if (!sessionStart) { sessionStart = Date.now(); timerH = window.mdmTrackTimer ? window.mdmTrackTimer(setInterval(tickTimer, 1000)) : setInterval(tickTimer, 1000); }
+      };
+      ws.onmessage = function (e) {
+        if (typeof e.data === 'string') return;
+        ensureCanvas(); if (!ctx) return;
+        if (e.data.byteLength < 1) return;
+        var b0 = new Uint8Array(e.data, 0, 1)[0];
+        if (b0 <= 1) paintH264(e.data); else paintStill(e.data);
+        noteFrameStats(e.data.byteLength);
+      };
+      ws.onclose = function () {
+        enableControls(false); captureKbd = false;
+        var kbd = $('rc-kbd'); if (kbd) kbd.checked = false;
+        if (view) { view = null; ctx = null; }
+        if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
+        if (pendingFrame) { try { pendingFrame.close(); } catch (e3) {} pendingFrame = null; }
+        if (ended) { showEnded('Session ended', 'You closed the remote session.'); return; }
+        if (switchingCodec) {
+          switchingCodec = false;
+          showEnded('Switching to compatible video', 'This browser can\'t decode H.264, reconnecting with still frames…', true);
+          connect(); return;
+        }
+        if (attempts < 3) {
+          attempts++;
+          var wait = 2 * attempts;
+          setStatus('connecting', 'reconnecting');
+          showEnded('Connection dropped', 'Reconnecting in <b id="rc-cd">' + wait + '</b>s… (try ' + attempts + ' of 3)', true);
+          var left = wait;
+          retryH = setInterval(function () { left--; var c = $('rc-cd'); if (c) c.textContent = left; if (left <= 0) { clearInterval(retryH); connect(); } }, 1000);
+        } else {
+          setStatus('error', 'disconnected');
+          showEnded('Could not reconnect', 'The device stopped answering. Check that it is online, then start a new session.');
+        }
+      };
+      ws.onerror = function () { setStatus('error', 'error'); };
+    });
   }
   function showEnded(title, body, spinning) {
     var screen = $('rc-screen');

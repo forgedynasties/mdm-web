@@ -5927,6 +5927,25 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceRemoteToken mints a fresh single-use control-socket token for a remote page
+// that is already open. The page's embedded token is consumed by its first connect,
+// so every reconnect (and the H.264 -> JPEG fallback) asks here for a new one. Same
+// guards as the page itself.
+func (h *Handler) DeviceRemoteToken(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.RemoteEnabled() {
+		http.Error(w, "Remote control is disabled by an administrator.", http.StatusForbidden)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": h.remote.IssueToken(device.ID, 2*time.Minute)})
+}
+
 // DeviceChartData returns a device's battery / temperature / RAM series for an
 // on-demand window [from,until] (epoch-ms), so the chart's custom-range and 7d/30d
 // controls can pull OLDER history instead of only filtering the ~48h baked into the
@@ -20047,6 +20066,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemote)))
+	mux.HandleFunc("GET /devices/{serial}/remote/token", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemoteToken)))
 	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
