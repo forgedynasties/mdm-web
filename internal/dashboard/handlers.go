@@ -5540,6 +5540,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// keep doing so.
 	var (
 		chartCheckins   []db.Checkin
+		chartCharge     []chargeRun
 		commands        []db.DeviceCommand
 		queue           []db.DeviceCommand
 		apps            []db.App
@@ -5630,6 +5631,13 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		// Safety net in case a device's poll interval is far below normal — thin to
 		// the same maxPoints the on-demand /chart-data endpoint already uses.
+		if device.HasBattery() && device.HasCharging() {
+			asc := make([]db.Checkin, len(cc))
+			for i := range cc {
+				asc[i] = cc[len(cc)-1-i]
+			}
+			chartCharge = chargeRuns(asc, chartGapMs(device.PollIntervalMs))
+		}
 		chartCheckins = downsampleCheckins(cc, 600) // the default 6h window; wider ranges come from /chart-data
 	})
 	run(func() {
@@ -5827,6 +5835,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"OtaPercent":          otaPercent,
 		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":       chartCheckins,
+		"ChartCharge":         chartCharge,
 		"ChartFocus":          focusParam,
 		"IsOwner":             h.role(r) == "owner",
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
@@ -6071,6 +6080,10 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 			ram = append(ram, pt{X: x, Y: rp})
 		}
 	}
+	var charge []chargeRun
+	if hasBattery && device.HasCharging() {
+		charge = chargeRuns(asc, chartGapMs(device.PollIntervalMs))
+	}
 	if len(temp) > maxPoints {
 		temp = decimateExtremes(temp, maxPoints, func(p pt) float64 { return p.Y })
 	}
@@ -6080,7 +6093,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	if len(battery) > maxPoints {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
-	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram})
+	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -6154,6 +6167,70 @@ func wlcIntFromExtra(raw json.RawMessage) *int {
 		return nil
 	}
 	return &n
+}
+
+// chargeRun is one span of a device's charging state for the battery chart's charging
+// strip: C is nil where the check-ins carried no "charging" key. From/To are the first
+// and last check-in in the span.
+type chargeRun struct {
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
+	C    *bool `json:"c"`
+}
+
+// chargingFromExtra returns a check-in's "charging" flag, or nil when absent.
+func chargingFromExtra(raw json.RawMessage) *bool {
+	if len(raw) == 0 {
+		return nil
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	v, ok := m["charging"]
+	if !ok {
+		return nil
+	}
+	var b bool
+	if json.Unmarshal(v, &b) != nil {
+		return nil
+	}
+	return &b
+}
+
+// chargeRuns folds oldest-first check-ins into charging-state spans. It runs over
+// every check-in, before the battery series is thinned, so a charger flip between two
+// kept samples still lands where it happened. A silence longer than gapMs ends a span,
+// matching where the battery line breaks (the chart's gapThresholdMs).
+func chargeRuns(asc []db.Checkin, gapMs int64) []chargeRun {
+	runs := []chargeRun{}
+	for _, c := range asc {
+		x := c.CreatedAt.UnixMilli()
+		st := chargingFromExtra(c.Extra)
+		if n := len(runs); n > 0 {
+			last := &runs[n-1]
+			same := (last.C == nil && st == nil) || (last.C != nil && st != nil && *last.C == *st)
+			if same && x-last.To <= gapMs {
+				last.To = x
+				continue
+			}
+		}
+		runs = append(runs, chargeRun{From: x, To: x, C: st})
+	}
+	return runs
+}
+
+// chartGapMs mirrors device.html's gapThresholdMs: silence past max(poll×10, 15 min)
+// is the device being dark, not batching.
+func chartGapMs(pollIntervalMs int) int64 {
+	poll := int64(pollIntervalMs)
+	if poll <= 0 {
+		poll = 30000
+	}
+	if g := poll * 10; g > 900000 {
+		return g
+	}
+	return 900000
 }
 
 // ramPctFromExtra computes RAM used% from a check-in's extra, matching extraRamPct.

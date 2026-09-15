@@ -701,13 +701,20 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div id="chart-panel-battery">
     {{/* The pad legend only makes sense on hardware with a wireless charging pad;
          DPC-agent devices and products without a pad get the plain battery chart. */}}
-    {{if .Device.HasWLC}}
+    {{if or .Device.HasWLC .Device.HasCharging}}
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
+        {{if .Device.HasWLC}}
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging active</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e8a13a;"></span> Charging pad misplaced</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
+        {{end}}
+        {{if .Device.HasCharging}}
+        {{/* The strip under the chart (chargeStripPlugin), not the line colour. */}}
+        <span class="chart-legend-item" title="Strip under the chart: filled where the device reported it was charging"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Charging</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Not charging</span>
+        {{end}}
       </div>
     </div>
     {{end}}
@@ -840,6 +847,10 @@ function mdmBootCharts() {
   // Mutable so the range picker can grow the loaded window backward on demand
   // (chartLoadOlder) — older builds' history is fetched from /chart-data instead of
   // only filtering the ~48h baked in here.
+  // Charging-state spans ({from, to, c}) for the strip under the battery chart. Built
+  // server-side from every check-in before the battery series is thinned, so a charger
+  // flip is placed where it happened. c is null where the device sent no "charging".
+  let allCharge = {{if and .Device.HasBattery .Device.HasCharging}}{{.ChartCharge}} || []{{else}}[]{{end}};
   let allBattery = [{{if .Device.HasBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
   {{/* Temp/RAM stay out of the initial page HTML unless the visit is a deep link
        to that metric (?focus=temp/ram, which needs the data immediately to find
@@ -930,6 +941,10 @@ function mdmBootCharts() {
             allBattery = d.battery.concat(allBattery);
             if (window.mdmChart) window.mdmChart.allBattery = allBattery;
           }
+          if (d.charge && d.charge.length) {
+            allCharge = d.charge.concat(allCharge);
+            if (window.mdmChart) window.mdmChart.allCharge = allCharge;
+          }
           if (d.temp && d.temp.length) {
             allTemp = d.temp.concat(allTemp);
             if (window.mdmChart) window.mdmChart.allTemp = allTemp;
@@ -999,6 +1014,8 @@ function mdmBootCharts() {
         if (HAS_BATTERY) {
           var b = fresher(d.battery);
           if (b.length) { allBattery = allBattery.concat(b); if (window.mdmChart) window.mdmChart.allBattery = allBattery; added += b.length; }
+          var ch = (d.charge || []).filter(function (r) { return r.from > newest; });
+          if (ch.length) { allCharge = allCharge.concat(ch); if (window.mdmChart) window.mdmChart.allCharge = allCharge; }
         }
         if (tempLoaded) {
           var t = fresher(d.temp);
@@ -1279,6 +1296,58 @@ function mdmBootCharts() {
     return out;
   }
 
+  // ── Charging strip ──────────────────────────────────────────────────────────
+  // A thin band under the battery chart, filled where the device reported
+  // charging=true. It is separate from the line colour on purpose: that colour is the
+  // charging PAD (placed / vacant / misplaced), and a device on a pad is often not
+  // charging (full, disabled) while one off the pad often is (USB). Neighbouring spans
+  // meet at the midpoint between their check-ins; a silence past gapThresholdMs is
+  // left blank, the same place the battery line breaks.
+  const CHARGE_STRIP_H = 6, CHARGE_STRIP_GAP = 5;
+  const CHARGE_ON = '#00b894', CHARGE_OFF = 'rgba(122,127,154,0.22)';
+  function chargeSpans(runs) {
+    const out = [];
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i], prev = runs[i - 1], next = runs[i + 1];
+      const from = prev && r.from - prev.to <= gapThresholdMs ? (prev.to + r.from) / 2 : r.from;
+      const to = next && next.from - r.to <= gapThresholdMs ? (r.to + next.from) / 2 : r.to;
+      out.push({ from: from, to: to, c: r.c });
+    }
+    return out;
+  }
+  function chargeAt(ms) {
+    const spans = chargeSpans(allCharge);
+    for (let i = 0; i < spans.length; i++) {
+      if (ms >= spans[i].from && ms <= spans[i].to) return spans[i].c;
+    }
+    return null;
+  }
+  // Live check-ins: extend the newest span, or open a new one on a flip or a gap.
+  function pushCharge(x, c) {
+    const last = allCharge[allCharge.length - 1];
+    if (last && x <= last.to) return;
+    if (last && last.c === c && x - last.to <= gapThresholdMs) { last.to = x; return; }
+    allCharge.push({ from: x, to: x, c: c });
+  }
+  const chargeStripPlugin = {
+    id: 'chargeStrip',
+    afterDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales && chart.scales.x;
+      if (!ca || !xs || !allCharge.length) return;
+      const ctx = chart.ctx, y = ca.bottom + CHARGE_STRIP_GAP;
+      ctx.save();
+      chargeSpans(allCharge).forEach(function (sp) {
+        if (sp.c === null || sp.c === undefined) return;
+        const x0 = Math.max(ca.left, xs.getPixelForValue(sp.from));
+        const x1 = Math.min(ca.right, xs.getPixelForValue(sp.to));
+        if (x1 < ca.left || x0 > ca.right) return;
+        ctx.fillStyle = sp.c ? CHARGE_ON : CHARGE_OFF;
+        ctx.fillRect(x0, y, Math.max(1, x1 - x0), CHARGE_STRIP_H);
+      });
+      ctx.restore();
+    },
+  };
+
   function buildBatteryGradient(chart) {
     const area = chart.chartArea, xs = chart.scales && chart.scales.x;
     const pts = chart.$wlcPts;
@@ -1437,6 +1506,11 @@ function mdmBootCharts() {
       else if (bPt.wlc === 0) s += ' · Charging pad vacant';
       else if (bPt.wlc === 2) s += ' · ⚠ Charging pad misplaced — please place it again';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
+      if (allCharge.length) {
+        const c = chargeAt(ms);
+        if (c === true) s += ' · Charging';
+        else if (c === false) s += ' · Not charging';
+      }
       parts.push(s);
     }
     if (tPt != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
@@ -1514,6 +1588,13 @@ function mdmBootCharts() {
     if (ticks.length) axis.ticks = ticks;
   }
 
+  // The battery chart's x axis with its tick labels pushed down to make room for the
+  // charging strip drawn between the plot and the labels.
+  function chargeStripXScale() {
+    const sc = sharedXScale();
+    sc.ticks.padding += CHARGE_STRIP_GAP + CHARGE_STRIP_H;
+    return sc;
+  }
   function sharedXScale() {
     return {
       type: "linear",
@@ -1847,11 +1928,11 @@ function mdmBootCharts() {
         tooltip: { enabled: false },
       },
       scales: {
-        x: sharedXScale(),
+        x: {{if .Device.HasCharging}}chargeStripXScale(){{else}}sharedXScale(){{end}},
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -2452,7 +2533,7 @@ function mdmBootCharts() {
   // against it directly instead of inferring it from a single series (which fails
   // for battery-less kiosk devices). Seeded lazily on the first push from whatever
   // history rendered; reset here because hx-boost re-runs this boot on every visit.
-  window.mdmChart = { allBattery, allTemp, allRam, updateCharts, setOnline, lastPlottedMs: null };
+  window.mdmChart = { allBattery, allTemp, allRam, allCharge, pushCharge, updateCharts, setOnline, lastPlottedMs: null };
 
   // The trailing break turns true purely by the passage of time — the device is gone,
   // so no check-in, SSE frame or presence event will arrive to trigger a redraw. The
@@ -3565,6 +3646,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
           window.mdmChart.lastPlottedMs = d.ts_ms;
           var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
           {{if .Device.HasBattery}}window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
+          {{if and .Device.HasBattery .Device.HasCharging}}window.mdmChart.pushCharge(d.ts_ms, typeof d.charging === 'boolean' ? d.charging : null);{{end}}
           if (d.temp_c !== null && d.temp_c !== undefined)
             window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
           if (d.ram_pct !== null && d.ram_pct !== undefined)
