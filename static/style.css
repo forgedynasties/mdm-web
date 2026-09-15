@@ -6573,6 +6573,10 @@ main.container { scroll-margin-top: 72px; }
 body .cc-top > div:first-child, body .ov3-top > div:first-child { flex: 1 1 420px; min-width: min(420px, 100%); }
 body .cc-actions, body .ov3-actions { flex: 0 1 auto; max-width: 60%; }
 @media (max-width: 1000px) { body .cc-actions, body .ov3-actions { max-width: 100%; } }
+/* Once the top row stacks into a column, that 420px basis becomes a HEIGHT: a
+   420px-tall headline block with empty space under the subtitle. Size to content. */
+@media (max-width: 1000px) { body .cc-top > div:first-child { flex: none; min-width: 0; } }
+@media (max-width: 640px) { body .container .ov3-top > div:first-child { flex: none; min-width: 0; } }
 /* Every input popup blurs the page behind it (New release, What's new, the
    command palette, the tour). */
 .modal-backdrop, .cmdk-backdrop, .tour-ov { -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2); }
