@@ -10575,7 +10575,7 @@ func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
 	// A release that devices are still running can't be deleted — hide it instead
 	// (keeps the changelog), or move those devices to another build first.
 	if rel, err := h.db.GetRelease(r.Context(), id); err == nil {
-		if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version); err == nil && n > 0 {
+		if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version, rel.Product); err == nil && n > 0 {
 			http.Error(w, fmt.Sprintf("Cannot delete: %d device(s) are still running %s. Hide it instead (keeps the changelog), or move those devices to another build first.", n, rel.Version), http.StatusConflict)
 			return
 		}
@@ -10990,7 +10990,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	deployments, _ := h.db.ListDeploymentsByRelease(ctx, rel.ID)
 	// Adoption count only — links out to the Fleet page (filtered by this build) rather
 	// than embedding the device roster.
-	devicesCount, _ := h.db.CountDevicesByVersion(ctx, rel.Version)
+	devicesCount, _ := h.db.CountDevicesByVersion(ctx, rel.Version, rel.Product)
 	// Tracked releases back the incremental package's "From build" picker (its source).
 	sourceReleases, _ := h.db.ListReleases(ctx)
 	// Top crash groups for the workspace; crashTotal drives the "Show all …" link to the
@@ -11713,7 +11713,9 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	adoption := map[string]int{}
 	if fleet, err := h.db.GetFleetVersions(ctx); err == nil {
 		for _, fv := range fleet {
-			adoption[fv.Version] = fv.DeviceCount
+			// Keyed by product too: a same-version release for another product must
+			// not show these devices as on it.
+			adoption[fv.Version+"|"+fv.Product] += fv.DeviceCount
 		}
 	}
 	fleetTotal, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
@@ -11738,7 +11740,7 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		tracked++
-		n := adoption[rel.Version]
+		n := adoption[rel.Version+"|"+rel.Product]
 		pct := 0
 		if fleetTotal > 0 {
 			pct = n * 100 / fleetTotal

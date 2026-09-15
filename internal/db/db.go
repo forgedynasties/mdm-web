@@ -10110,9 +10110,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_releases_version_product ON releases(versio
 -- Backfill one release per existing target build (falling back to the legacy
 -- build_id when target_build_id is blank). Existing packages are marked published
 -- so deployments already in flight keep resolving; then link packages and updates.
+-- Only packages not yet linked: this runs on every start, and a linked package for a
+-- non-t7 product would otherwise seed a phantom t7 twin of its release (product
+-- defaults to t7 here, so the (version, product) conflict never fires).
 INSERT INTO releases (version, status, changelog, created_at, published_at)
   SELECT COALESCE(NULLIF(target_build_id,''), build_id), 'published', MAX(changelog), MIN(created_at), MIN(created_at)
   FROM ota_packages
+  WHERE release_id IS NULL
   GROUP BY COALESCE(NULLIF(target_build_id,''), build_id)
   ON CONFLICT (version, product) DO NOTHING;
 UPDATE ota_packages p SET release_id = r.id
@@ -11612,11 +11616,15 @@ func (d *DB) GetReleaseAdoption(ctx context.Context, version string, days int) (
 	return out, rows.Err()
 }
 
-// CountDevicesByVersion returns how many non-hidden devices currently report a version.
-func (d *DB) CountDevicesByVersion(ctx context.Context, version string) (int, error) {
+// CountDevicesByVersion returns how many non-hidden devices of a product (empty/legacy
+// device product counts as t7) currently report a version. The same version string
+// for another product is a different release and its devices don't count here.
+func (d *DB) CountDevicesByVersion(ctx context.Context, version, product string) (int, error) {
+	p, _ := prod.Resolve(product)
 	var n int
 	err := d.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM devices WHERE NOT hidden AND build_id = $1`, version).Scan(&n)
+		`SELECT COUNT(*) FROM devices WHERE NOT hidden AND build_id = $1
+		   AND (CASE WHEN product = '' THEN 't7' ELSE product END) = $2`, version, p.Key).Scan(&n)
 	return n, err
 }
 
