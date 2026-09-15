@@ -129,12 +129,12 @@
       <div class="dpl-r1">
         {{if .InFleet}}<a href="/devices/{{.Serial}}" class="dpl-sn link-detail">{{.Serial}}</a>{{else}}<span class="dpl-sn">{{.Serial}}</span>{{end}}
         <span class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</span>
-        <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span>
         {{if $phase}}
           <span class="status-badge {{deployStatusClass $st}} phase-badge">{{$phase}}</span>
         {{else}}
           <span class="status-badge {{deployStatusClass $st}}">{{if eq $st "awaiting_reboot"}}awaiting reboot{{else}}{{$st}}{{end}}</span>
         {{end}}
+        <span class="cc-tag" title="Updated over the legacy otautil path — this build has no MDM OTA">legacy</span>
       </div>
       <div class="dpl-r2">
         {{if $live}}
