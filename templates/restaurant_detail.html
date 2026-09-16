@@ -84,6 +84,16 @@
       {{end}}
     </div>
     <div class="cc-kpi">
+      <span class="k">Standby</span>
+      {{if $m.HasStandby}}
+      <div class="v">{{hrs $m.StandbyMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.StandbyMinutes 60.0}} hrs{{end}}</span></div>
+      <div class="muted small">{{$m.StandbyPct}}% of powered time with the screen off</div>
+      {{else}}
+      <div class="v muted">—</div>
+      <div class="muted small">needs the firmware that reports screen state</div>
+      {{end}}
+    </div>
+    <div class="cc-kpi">
       <span class="k">Plugged in at</span>
       {{if $m.ConnectCount}}
       <div class="v">{{printf "%.0f" $m.ConnectAvgPct}}<span class="muted" style="font-size:.6em;">%</span></div>

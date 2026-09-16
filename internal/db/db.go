@@ -3280,10 +3280,43 @@ type SiteMetrics struct {
 	PadDrainPct     float64 // battery points that cost us, off mains only
 	PadDrainMinutes float64 // measured over
 
+	// Standby: powered, nobody using it. Both figures cover only the device-days that
+	// actually reported screen state, so a fleet mid-firmware-rollout is not reported as
+	// overwhelmingly idle just because most devices cannot answer yet.
+	ScreenOnMinutes      float64
+	ScreenPoweredMinutes float64 // powered minutes on those same device-days
+	ScreenDeviceDays     int
+
 	ConnectAvgPct    float64 // battery % when someone plugs the tablet in
 	ConnectCount     int
 	DisconnectAvgPct float64 // ...and when they unplug it
 	DisconnectCount  int
+}
+
+
+// StandbyMinutes is powered time with the screen off, over the days that measured it.
+func (m SiteMetrics) StandbyMinutes() float64 {
+	v := m.ScreenPoweredMinutes - m.ScreenOnMinutes
+	if v < 0 {
+		return 0 // clock skew or a partial day; never report negative idle time
+	}
+	return v
+}
+
+// HasStandby reports whether any device-day in the window carried screen state. Until the
+// firmware that reports it reaches the fleet this is false, and the tile says so.
+func (m SiteMetrics) HasStandby() bool { return m.ScreenDeviceDays > 0 && m.ScreenPoweredMinutes > 0 }
+
+// StandbyPct is the share of powered time nobody was using the device.
+func (m SiteMetrics) StandbyPct() int {
+	if !m.HasStandby() {
+		return 0
+	}
+	p := int(m.StandbyMinutes() * 100 / m.ScreenPoweredMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
 }
 
 // PadDrainPctPerMin is the headline "1% per minute" figure, or 0 when the window holds
@@ -3403,13 +3436,17 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 			COALESCE(SUM(s.charge_connect_sum), 0)::float8,
 			COALESCE(SUM(s.charge_connect_n), 0)::int,
 			COALESCE(SUM(s.charge_disconnect_sum), 0)::float8,
-			COALESCE(SUM(s.charge_disconnect_n), 0)::int
+			COALESCE(SUM(s.charge_disconnect_n), 0)::int,
+			COALESCE(SUM(s.screen_on_minutes), 0)::float8,
+			COALESCE(SUM(s.online_minutes) FILTER (WHERE s.screen_on_minutes IS NOT NULL), 0)::float8,
+			COUNT(s.screen_on_minutes)
 		FROM device_daily_stats s
 		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
 		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)`, args...).
 		Scan(&m.DeviceCount, &m.DeviceDays, &m.OpenDeviceDays, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
 			&m.PadMinutes, &m.PadDrainPct, &m.PadDrainMinutes,
-			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount)
+			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount,
+			&m.ScreenOnMinutes, &m.ScreenPoweredMinutes, &m.ScreenDeviceDays)
 	if err != nil {
 		return m, err
 	}
@@ -7081,7 +7118,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			wlc_guest_frac, pad_readable, storage_free_last_gb, discharge_pct,
 			wlc_minutes, wlc_drain_pct, wlc_drain_minutes,
 			charge_connect_sum, charge_connect_n, charge_disconnect_sum, charge_disconnect_n,
-			online_minutes_open, computed_at)
+			online_minutes_open, screen_on_minutes, computed_at)
 		SELECT
 			s.device_id,
 			$1::date,
@@ -7134,6 +7171,11 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			-- window configured, so the UI can say so instead of showing a misleading 0.
 			CASE WHEN bool_or(in_open_hours IS NOT NULL)
 				THEN (SUM(CASE WHEN in_open_hours THEN w ELSE 0 END) / 60.0)::real END,
+			-- Minutes with the screen on. NULL unless at least one sample carried the
+			-- field, so a device that has not taken the firmware yet is excluded from the
+			-- standby figure instead of counting as 100% idle.
+			CASE WHEN bool_or(extra ? 'screen_on')
+				THEN (SUM(CASE WHEN (extra->>'screen_on')::boolean THEN w ELSE 0 END) / 60.0)::real END,
 			NOW()
 		FROM samples s
 		LEFT JOIN charge_events ce ON ce.device_id = s.device_id
@@ -7162,6 +7204,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			charge_disconnect_sum = EXCLUDED.charge_disconnect_sum,
 			charge_disconnect_n   = EXCLUDED.charge_disconnect_n,
 			online_minutes_open   = EXCLUDED.online_minutes_open,
+			screen_on_minutes     = EXCLUDED.screen_on_minutes,
 			computed_at    = EXCLUDED.computed_at
 	`, dayStr)
 	if err != nil {
@@ -10723,6 +10766,11 @@ ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_connect_n    INTE
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_disconnect_sum REAL;   -- sum of battery % at each charger disconnect
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_disconnect_n INTEGER;
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS online_minutes_open REAL;     -- online_minutes restricted to the site's opening hours
+
+-- Standby: powered but nobody using it. NULL (not 0) on a day where no sample reported
+-- screen_on, so a device on firmware that predates the field reads as "not measured"
+-- rather than "never used" — the difference matters when the fleet is mid-rollout.
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS screen_on_minutes REAL;
 
 -- Alert channels: where fired alerts are routed. Each channel takes alerts at or
 -- above min_severity; realtime channels POST immediately, digest channels batch into
