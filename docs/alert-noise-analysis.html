@@ -182,6 +182,24 @@
     <p class="small" style="margin:14px 0 0"><b>"Clear all" still hard-deletes.</b> It is <code>DELETE FROM alerts</code>, taking resolved history with it, and anything still true re-fires within the minute. "Resolve all" and "Ack all" do the right thing — they are status updates that keep history — but no button in the UI points at them.</p>
   </div>
 
+  <h2>Bench units were 45% of the noise</h2>
+  <p>Only 28 of the 96 visible devices are at a restaurant. The other 68 are bench and lab units, and they produced <b>4,186 of 9,370 alerts</b> this week. A shelf unit switched off, parked on a charging pad or filling its disk is expected, and nobody is on call for it.</p>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Type</th><th class="n">Placed</th><th class="n">Unplaced</th><th class="n">Bench devices</th></tr></thead>
+      <tbody>
+        <tr><td><code>wlc_continuous</code></td><td class="n">3</td><td class="n">932</td><td class="n">23</td></tr>
+        <tr><td><code>temp_elevated</code></td><td class="n">1,654</td><td class="n">1,727</td><td class="n">47</td></tr>
+        <tr><td><code>overheating</code></td><td class="n">2,851</td><td class="n">1,246</td><td class="n">53</td></tr>
+        <tr><td><code>offline</code></td><td class="n">25</td><td class="n">118</td><td class="n">41</td></tr>
+        <tr><td><code>device_crash</code></td><td class="n">21</td><td class="n">77</td><td class="n">28</td></tr>
+        <tr><td><code>storage_filling</code>, <code>memory_pressure</code></td><td class="n">1</td><td class="n">46</td><td class="n">34</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">The gate was never a rule setting: it was implied by the active window. The four windowed rules (<code>battery_low</code>, <code>offline_peak</code>, <code>battery_high_night</code>, <code>slow_charge_night</code>) were deployed-only and fired zero bench alerts. The fifteen "always" rules had no gate at all.</p>
+  </div>
+  <div class="callout"><b>Changed, 16 September.</b> <code>alert_rules</code> now carries a <code>deployed_only</code> flag that defaults to on for every rule, and Settings › Alerts has a per-rule <b>restaurant only</b> checkbox for genuinely fleet-wide hardware checks. Windowed rules stay restaurant-only by nature. <code>new_device</code> is unaffected — it fires before a device has a site, which is the point of it.</div>
+
   <h2>What an alert should be</h2>
   <p>Unchanged from the last review, and worth repeating because the current set fails it: an alert is a condition a named person can do something about, that lasts long enough to be looked at, and that is stated once.</p>
   <div class="card">
