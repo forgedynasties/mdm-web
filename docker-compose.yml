@@ -21,6 +21,11 @@ services:
           memory: 2g
 
   server:
+    # MDM_IMAGE is set by the deploy pipeline to an ECR tag, so the box runs an image
+    # built on a runner instead of compiling here — a `go build` needs ~2GB and both
+    # vCPUs, which is what repeatedly wedged this instance. Unset locally, so a plain
+    # `docker compose up --build` still builds from source for development.
+    image: ${MDM_IMAGE:-mdm-server-server}
     build: .
     restart: unless-stopped
     ports:

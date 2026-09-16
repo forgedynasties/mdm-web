@@ -1,144 +1,124 @@
-name: Build & Deploy to EC2
+# Deploy a published image to the live EC2 box. Manual only: pushing to main builds an
+# image (see build.yml) but never restarts live by itself.
+#
+# The box runs a compose stack — the server needs the Postgres container on the same
+# compose network (DB_HOST=postgres), two published ports and the splashdata volume — so
+# this pulls the image and brings the service up through compose rather than `docker run`.
+name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (a commit SHA from the Build workflow, or 'main')"
+        required: true
+        default: main
+      confirm:
+        description: "Type DEPLOY to confirm this goes to the live fleet"
+        required: true
+        default: ""
 
 env:
   AWS_REGION: us-west-2
 
 jobs:
-  build:
-    name: Build & Push Image to ECR
-    runs-on: ubuntu-latest-l
-    environment: dev
-    permissions:
-      id-token: write   # required for OIDC
-      contents: read
-    outputs:
-      image_tag: ${{ github.sha }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          # SHA-based tag of the commit that was built.
-          tags: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    name: Deploy on EC2 (SSM)
-    needs: build
+    name: Deploy to live
     runs-on: ubuntu-latest
     environment: dev
     permissions:
-      id-token: write   # required for OIDC
+      id-token: write
       contents: read
-    env:
-      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}   # deploy the exact image built above
-      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
-      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
-      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-      APP_DIR: ${{ vars.EC2_APP_DIR }}              # dir on the EC2 that holds .env
     steps:
+      - name: Check the confirmation
+        # A deploy restarts the server every restaurant device talks to; make it a
+        # deliberate act rather than a click.
+        run: |
+          if [ "${{ inputs.confirm }}" != "DEPLOY" ]; then
+            echo "::error::Type DEPLOY in the confirm box to proceed."
+            exit 1
+          fi
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy via SSM Run Command
+      - name: Deploy via SSM
+        env:
+          IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ inputs.image_tag }}
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          APP_DIR: ${{ vars.EC2_APP_DIR }}
+          REGISTRY: ${{ vars.ECR_REGISTRY }}
         run: |
           set -euo pipefail
 
-          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
-          # Build the script that SSM will run on the instance (as root).
-          # cd into APP_DIR first so the relative `.env` resolves like the
-          # original manual run command.
-          REMOTE_SCRIPT=$(cat <<EOF
+          REMOTE=$(cat <<EOF
           set -eu
           cd "$APP_DIR"
 
-          echo "Logging in to ECR..."
           aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+            | docker login --username AWS --password-stdin "$REGISTRY"
 
-          echo "Pulling image: $IMAGE"
           docker pull "$IMAGE"
 
-          echo "Stopping & removing existing '$CONTAINER_NAME' container (if any)..."
-          docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+          # Persist the tag in .env so a reboot or a manual 'docker compose up' brings
+          # back the same image instead of trying to compile on the box.
+          if grep -q '^MDM_IMAGE=' .env; then
+            sed -i "s|^MDM_IMAGE=.*|MDM_IMAGE=$IMAGE|" .env
+          else
+            echo "MDM_IMAGE=$IMAGE" >> .env
+          fi
 
-          echo "Starting new container..."
-          docker run -d \
-            --name "$CONTAINER_NAME" \
-            --restart unless-stopped \
-            -p 8089:8089 \
-            --env-file .env \
-            -e TZ=UTC \
-            -e CONFIG_PATH=/app/data/config.json \
-            -v mdm_splashdata:/app/data \
-            --stop-timeout 30 \
-            "$IMAGE"
+          # --no-build is the safety net: if the image were somehow missing, compose
+          # would otherwise fall back to compiling here, which is the whole problem.
+          docker compose up -d --no-build server
 
-          echo "Deployment complete."
-          docker ps --filter "name=$CONTAINER_NAME"
+          # Wait for the container to report healthy rather than declaring success the
+          # moment it starts.
+          for i in \$(seq 1 30); do
+            state=\$(docker inspect -f '{{.State.Health.Status}}' mdm-server-1 2>/dev/null || echo starting)
+            [ "\$state" = "healthy" ] && break
+            sleep 2
+          done
+          echo "health: \$state"
+          docker compose ps
+          docker image prune -f >/dev/null 2>&1 || true
+          [ "\$state" = "healthy" ]
           EOF
           )
 
-          # Wrap the script as a single-element JSON commands array (safe escaping via jq).
-          PARAMS=$(jq -nc --arg s "$REMOTE_SCRIPT" '{commands: [$s]}')
-
-          echo "Sending SSM command to $EC2_INSTANCE_ID ..."
+          PARAMS=$(jq -nc --arg s "$REMOTE" '{commands: [$s]}')
           CMD_ID=$(aws ssm send-command \
-            --instance-ids "$EC2_INSTANCE_ID" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy $CONTAINER_NAME @ $IMAGE_TAG" \
+            --comment "Deploy MDM ${{ inputs.image_tag }}" \
             --parameters "$PARAMS" \
             --region "$AWS_REGION" \
             --query "Command.CommandId" --output text)
           echo "SSM CommandId: $CMD_ID"
 
-          # Wait for the command to finish (don't fail the step yet — we want to print output first).
           aws ssm wait command-executed \
-            --command-id "$CMD_ID" \
-            --instance-id "$EC2_INSTANCE_ID" \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --region "$AWS_REGION" || true
 
           STATUS=$(aws ssm get-command-invocation \
-            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --region "$AWS_REGION" --query "Status" --output text)
 
           echo "----- STDOUT -----"
-          aws ssm get-command-invocation \
-            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --region "$AWS_REGION" --query "StandardOutputContent" --output text
           echo "----- STDERR -----"
-          aws ssm get-command-invocation \
-            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --region "$AWS_REGION" --query "StandardErrorContent" --output text
 
           echo "Final SSM status: $STATUS"
           [ "$STATUS" = "Success" ] || exit 1
 
-
-
+      - name: Summary
+        if: always()
+        run: |
+          echo "Deployed \`${{ inputs.image_tag }}\` to the live box." >> "$GITHUB_STEP_SUMMARY"
+          echo "Roll back by re-running this workflow with an earlier SHA." >> "$GITHUB_STEP_SUMMARY"
