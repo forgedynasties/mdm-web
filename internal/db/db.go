@@ -13619,6 +13619,11 @@ type CrashEvent struct {
 	Detail     string
 	BuildID    string
 	OccurredAt time.Time
+	// Set only by ListRecentCrashGroupsPage, where a row is a signature rather than a
+	// single event: how many devices hit it and how many times in total. Zero means the
+	// row is one raw event (Serial/OccurredAt are that event's).
+	DeviceCount int
+	EventCount  int
 }
 
 // ListRecentCrashEvents returns crash/ANR/tombstone events (not reboots) across the
@@ -13703,6 +13708,88 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 // ListRecentCrashEventsPage returns one page of fleet crash/ANR/tombstone events
 // (not reboots) within the last sinceDays, newest first, plus the total number of
 // matches (via COUNT(*) OVER()) for pagination. Events on hidden devices are excluded.
+// CountRecentCrashEvents totals raw crash events (not signatures) so the KPI keeps
+// reporting how much crashing is going on, even though the list below it merges
+// identical crashes into one row.
+func (d *DB) CountRecentCrashEvents(ctx context.Context, deviceID *uuid.UUID, sinceDays int) (int, error) {
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	scope := ""
+	args := []any{sinceDays}
+	if deviceID != nil {
+		scope = " AND e.device_id = $2"
+		args = append(args, *deviceID)
+	}
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		  AND e.occurred_at > now() - make_interval(days => $1)`+scope, args...).Scan(&n)
+	return n, err
+}
+
+// ListRecentCrashGroupsPage returns crashes merged by signature (kind + summary)
+// instead of one row per event. One app crashing on forty devices is one problem, and
+// listing it forty times buried everything else; the group carries how many devices hit
+// it and how many times in total. deviceID scopes it to a single device (the group then
+// answers "how often", not "how many devices").
+//
+// The sample columns come from the most recent event in the group, so the card shows a
+// current serial, build and trace to open.
+func (d *DB) ListRecentCrashGroupsPage(ctx context.Context, deviceID *uuid.UUID, sinceDays, limit, offset int) ([]CrashEvent, int, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	scope := ""
+	args := []any{sinceDays, limit, offset}
+	if deviceID != nil {
+		scope = " AND e.device_id = $4"
+		args = append(args, *deviceID)
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.kind, e.summary,
+		       COUNT(*) AS events,
+		       COUNT(DISTINCT e.device_id) AS devices,
+		       MAX(e.occurred_at) AS last_at,
+		       (ARRAY_AGG(dv.serial_number ORDER BY e.occurred_at DESC))[1] AS serial,
+		       (ARRAY_AGG(COALESCE(r.name, '') ORDER BY e.occurred_at DESC))[1] AS restaurant,
+		       (ARRAY_AGG(e.build_id ORDER BY e.occurred_at DESC))[1] AS build_id,
+		       (ARRAY_AGG(e.detail ORDER BY e.occurred_at DESC))[1] AS detail,
+		       COUNT(*) OVER() AS total
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		  AND e.occurred_at > now() - make_interval(days => $1)`+scope+`
+		GROUP BY e.kind, e.summary
+		ORDER BY MAX(e.occurred_at) DESC
+		LIMIT $2 OFFSET $3`, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []CrashEvent
+	total := 0
+	for rows.Next() {
+		var c CrashEvent
+		if err := rows.Scan(&c.Kind, &c.Summary, &c.EventCount, &c.DeviceCount, &c.OccurredAt,
+			&c.Serial, &c.Restaurant, &c.BuildID, &c.Detail, &total); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, c)
+	}
+	return out, total, rows.Err()
+}
+
 func (d *DB) ListRecentCrashEventsPage(ctx context.Context, sinceDays, limit, offset int) ([]CrashEvent, int, error) {
 	if limit <= 0 {
 		limit = 25

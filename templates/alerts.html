@@ -105,7 +105,7 @@
   {{if eq .View "crashes"}}
 
   {{if .Crashes}}
-  <div class="cc-sec alx-sec">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}<span class="n">{{.CrashCount}}</span></div>
+  <div class="cc-sec alx-sec">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}{{if and .CrashGroups (ne .CrashGroups .CrashCount)}} · {{.CrashGroups}} distinct{{end}}<span class="n">{{.CrashCount}}</span></div>
   {{range .Crashes}}{{template "alx-crash" .}}{{end}}
   {{if gt .CrashPages 1}}
   <div class="alx-pager">
@@ -217,9 +217,13 @@ function alxFilter(){
     <div class="alx-top">
       <span class="alx-kind {{.KindClass}}">{{.KindLabel}}</span>
       <span class="alx-t">{{if .Summary}}{{.Summary}}{{else}}{{.KindLabel}} event{{end}}</span>
+      {{/* Rows are merged by signature: one app crashing on forty devices is one problem,
+           so say how wide it is and how often rather than listing it forty times. */}}
+      {{if gt .DeviceCount 1}}<span class="alx-kind">{{.DeviceCount}} devices</span>{{end}}
+      {{if gt .EventCount 1}}<span class="alx-kind">×{{.EventCount}}</span>{{end}}
       <span class="alx-when">{{timeSince .OccurredAt}}</span>
     </div>
-    <div class="alx-s">{{if .Restaurant}}{{.Restaurant}}{{end}}{{if and .Restaurant .BuildID}} · {{end}}{{if .BuildID}}build {{.BuildID}}{{end}}</div>
+    <div class="alx-s">{{if gt .DeviceCount 1}}latest {{.Serial}}{{if .Restaurant}} · {{.Restaurant}}{{end}}{{else}}{{if .Restaurant}}{{.Restaurant}}{{end}}{{end}}{{if .BuildID}} · build {{.BuildID}}{{end}}</div>
     {{if .Trace}}
     <details class="alx-trace">
       <summary class="muted small">View crash / ANR trace</summary>

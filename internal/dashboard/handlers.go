@@ -7125,23 +7125,14 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 1 {
 		page = p
 	}
-	var crashEvents []db.CrashEvent
-	crashTotal := 0
-	if deviceID != nil {
-		crashEvents, crashTotal, _ = h.db.ListDeviceCrashesPage(r.Context(), *deviceID, crashPageSize, (page-1)*crashPageSize)
-	} else {
-		crashEvents, crashTotal, _ = h.db.ListRecentCrashEventsPage(r.Context(), 7, crashPageSize, (page-1)*crashPageSize)
-	}
+	crashEvents, crashTotal, _ := h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
+	crashEventTotal, _ := h.db.CountRecentCrashEvents(r.Context(), deviceID, 7)
 	// Clamp a past-the-end page back to the last real page so a stale ?page= link
 	// lands on content, not an empty list.
 	crashPages := (crashTotal + crashPageSize - 1) / crashPageSize
 	if crashPages > 0 && page > crashPages {
 		page = crashPages
-		if deviceID != nil {
-			crashEvents, crashTotal, _ = h.db.ListDeviceCrashesPage(r.Context(), *deviceID, crashPageSize, (page-1)*crashPageSize)
-		} else {
-			crashEvents, crashTotal, _ = h.db.ListRecentCrashEventsPage(r.Context(), 7, crashPageSize, (page-1)*crashPageSize)
-		}
+		crashEvents, crashTotal, _ = h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
 	}
 	crashes := toCrashCards(crashEvents)
 	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch}, crashes)
@@ -7160,7 +7151,10 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"WatchCount":    len(watch),
 		"ActiveCount":   len(crit) + len(watch),
 		"Crashes":       crashes,
-		"CrashCount":    crashTotal,
+		// The KPI counts crashes; the list below counts distinct crashes. Both are shown
+		// because "3 signatures" and "212 crashes" answer different questions.
+		"CrashCount":    crashEventTotal,
+		"CrashGroups":   crashTotal,
 		"DeviceFilter":  deviceSerial,
 		"CrashPage":     page,
 		"CrashPages":    crashPages,
@@ -7182,6 +7176,10 @@ type crashCardView struct {
 	Trace      string
 	PackageName string // app package parsed from Summary, if any
 	AppIcon    string // base64 PNG from the App library, resolved below
+	// Merged-signature counts: how many devices hit this crash and how many times in
+	// total. Zero when the row is a single raw event.
+	DeviceCount int
+	EventCount  int
 }
 
 // mustCrashes drops the error from a crash-event query — a failed crash lookup on a
@@ -7203,6 +7201,8 @@ func toCrashCards(events []db.CrashEvent) []crashCardView {
 			Summary:    e.Summary,
 			Trace:      e.Detail,
 			PackageName: extractPackageName(e.Summary),
+			DeviceCount: e.DeviceCount,
+			EventCount:  e.EventCount,
 		})
 	}
 	return cards
