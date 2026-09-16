@@ -6,6 +6,12 @@
      what the product can do) but dimmed and inert; the guard in the header script
      blocks clicks and explains which role is needed (data-role-need). */}}
 {{define "ubub"}}<span class="ubub" title="{{.Name}}">{{if .URL}}<img src="{{.URL}}" alt="" loading="lazy">{{else}}{{.Initial}}{{end}}</span>{{end}}
+{{/* crash-trace: the collapsible stack trace shown on every crash/ANR card, with a
+     Copy button so the full log can go straight into a bug report or a search. Pass
+     the raw trace string. The button sits in the summary so it is reachable without
+     expanding; preventDefault keeps the click from toggling the <details>. copyText
+     rewrites the button's text on success, so the label stays plain text (no icon). */}}
+{{define "crash-trace"}}<details class="crash-trace"><summary>View crash / ANR trace<button type="button" class="ct-copy" title="Copy the full crash log to the clipboard" onclick="event.preventDefault();event.stopPropagation();copyText(this.closest('details').querySelector('pre').textContent, this)">Copy log</button></summary><pre class="logcat-terminal">{{colorizeLogcat .}}</pre></details>{{end}}
 {{define "header"}}
 {{if .Boosted}}{{/* boosted nav: return only <main>, plus a <title> so htmx updates the
      browser tab. The <head> (and its <title>) is not re-sent on a boosted swap, so

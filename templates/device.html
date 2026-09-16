@@ -4064,7 +4064,7 @@ async function saveNewApp() {
     <div class="da-body">
       <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
       <div class="da-s">{{$a.Sentence}}</div>
-      {{if $a.Trace}}<details class="da-trace"><summary>View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat $a.Trace}}</pre></details>{{end}}
+      {{if $a.Trace}}{{template "crash-trace" $a.Trace}}{{end}}
     </div>
   </div>
   {{end}}
@@ -4080,7 +4080,7 @@ async function saveNewApp() {
     <div class="da-body">
       <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
       {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
-      {{if $c.Trace}}<details class="da-trace"><summary>View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat $c.Trace}}</pre></details>{{end}}
+      {{if $c.Trace}}{{template "crash-trace" $c.Trace}}{{end}}
     </div>
   </div>
   {{end}}

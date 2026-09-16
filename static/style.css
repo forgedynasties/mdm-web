@@ -2162,6 +2162,37 @@ input[type="checkbox"]:hover {
   white-space: pre-wrap;
   word-break: break-all;
 }
+/* crash-trace: shared collapsible trace + Copy log button (see the "crash-trace"
+   template in layout.html). Used by the device page's Alerts tab and the alerts
+   page, so the markup and spacing stay identical wherever a crash is shown. */
+.crash-trace { margin: 9px 0 2px; }
+.crash-trace > summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.crash-trace > summary::-webkit-details-marker { display: none; }
+.crash-trace > summary::before { content: "▸"; font-size: 10px; }
+.crash-trace[open] > summary::before { content: "▾"; }
+.ct-copy {
+  margin-left: auto;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ct-copy:hover { color: var(--text); border-color: var(--muted); }
+.crash-trace > .logcat-terminal { margin-top: 6px; max-height: 320px; overflow: auto; }
 .logcat-waiting {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
