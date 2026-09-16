@@ -6553,6 +6553,7 @@ type deviceEventPayload struct {
 	TempC      *float64 `json:"temp_c"`   // nil = no data
 	RamPct     *float64 `json:"ram_pct"`  // nil = no data
 	Charging   *bool    `json:"charging"` // nil = no data
+	ScreenOn   *bool    `json:"screen_on"` // nil = firmware does not report it
 	Latitude   *float64 `json:"latitude,omitempty"`
 	Longitude  *float64 `json:"longitude,omitempty"`
 	// KioskEnabled is the device's current kiosk state (from device_config, not the
@@ -6580,6 +6581,12 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				var b bool
 				if json.Unmarshal(v, &b) == nil {
 					p.Charging = &b
+				}
+			}
+			if v, ok := extra["screen_on"]; ok {
+				var b bool
+				if json.Unmarshal(v, &b) == nil {
+					p.ScreenOn = &b
 				}
 			}
 			if v, ok := extra["ram_usage_mb"]; ok {
