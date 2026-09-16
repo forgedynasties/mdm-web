@@ -5803,6 +5803,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"OtaPercent":          otaPercent,
 		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":       chartCheckins,
+		// Whether to render any battery UI at all. The product catalog is the first
+		// word, but a device can claim a battery its hardware never reports (a kiosk on
+		// a legacy or unknown product key), and then every battery surface draws an
+		// empty chart and a 0%. So a claimed battery must also show up in telemetry.
+		"ShowBattery":         device.HasBattery() && deviceReportsBattery(device, chartCheckins),
 		"ChartCharge":         chartCharge,
 		"ChartFocus":          focusParam,
 		"IsOwner":             h.role(r) == "owner",
@@ -20728,4 +20733,22 @@ func otaConfigNextView(cfg *config.Config) map[string]any {
 	o := cfg.OTAConfigOptions()
 	start, end := otaconfig.Window(o, time.Now())
 	return map[string]any{"Start": start, "End": end, "TZ": o.Timezone}
+}
+
+// deviceReportsBattery reports whether the hardware actually sends battery readings.
+// True when there is no evidence either way (a device that has only just enrolled), so
+// a new T7 keeps its battery UI until its checkins say otherwise.
+func deviceReportsBattery(d *db.Device, recent []db.Checkin) bool {
+	if d.BatteryPct > 0 {
+		return true
+	}
+	if len(recent) == 0 {
+		return true // nothing to judge by yet: trust the product catalog
+	}
+	for _, c := range recent {
+		if c.BatteryPct > 0 {
+			return true
+		}
+	}
+	return false
 }
