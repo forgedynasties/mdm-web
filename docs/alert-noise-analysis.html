@@ -74,6 +74,7 @@
   .rules li { margin: 3px 0; }
   .rules li b { color: var(--text); font-weight: 500; }
   .small { font-size: 12.5px; color: var(--muted); }
+  th.vd, td.vd { padding-left: 16px; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
   @media (max-width: 720px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .bar { grid-template-columns: 120px 1fr 48px; } .rules { grid-template-columns: 1fr; } ol.plan li { grid-template-columns: 34px 1fr; } ol.plan .who { grid-column: 2; } }
 </style>
@@ -81,193 +82,145 @@
 <body>
 <div class="wrap">
   <div class="eyebrow">AIO MDM · live fleet · alerts</div>
-  <h1>Alerts fire <span class="hl">147 times</span> in two days. About 12 deserve a look.</h1>
-  <p class="lede">A review of every alert in the live database, why most of them are noise, and the rule changes that turn the list back into something an operator reads.</p>
-  <div class="meta"><span>Source <b>mdm.dev.aioapp.com, alerts table, 8 to 9 September 2026</b></span><span>Fleet <b>59 devices, 41 online</b></span><span>Author <b>Ali, with Claude</b></span></div>
+  <h1>Every rule is on. Alerts fire <span class="hl">1,296 times a day</span>. About 20 deserve a look.</h1>
+  <p class="lede">A second review of the live alerts table, one week after all 19 rules were switched on. The volume is 60× the last review, four fifths of it resolves before a person could open it, and every single alert reaches the Teams channel. This is what is firing, why, and the ordered changes that fix it.</p>
+  <div class="meta"><span>Source <b>mdm.dev.aioapp.com, alerts table, 9 to 16 September 2026</b></span><span>Fleet <b>96 devices, 78 reporting, 28 placed at a site</b></span><span>Author <b>Ali, with Claude</b></span></div>
 
   <div class="kpis">
-    <div class="kpi"><div class="v bad">147</div><div class="k">alerts in 2 days</div></div>
-    <div class="kpi"><div class="v">2</div><div class="k">devices made 74% of them</div></div>
-    <div class="kpi"><div class="v">99%</div><div class="k">overheating gone within 10 min</div></div>
-    <div class="kpi"><div class="v ok">~12</div><div class="k">after the changes below</div></div>
+    <div class="kpi"><div class="v bad">9,074</div><div class="k">alerts in 7 days</div></div>
+    <div class="kpi"><div class="v bad">13.5</div><div class="k">per device per day</div></div>
+    <div class="kpi"><div class="v">79%</div><div class="k">resolved under 10 min</div></div>
+    <div class="kpi"><div class="v bad">9,062</div><div class="k">reached Teams</div></div>
   </div>
 
-  <div class="callout"><b>History is only two days long.</b> "Clear all" and "Resolve all" were used 27 times, which deletes the evidence. Everything below is from the last 48 hours, which is plenty: the pattern is the same every day.</div>
+  <div class="callout"><b>Two temperature rules are 81% of everything.</b> <code>overheating</code> and <code>temp_elevated</code> fired 7,358 times between them, on 79 and 71 devices, with median lifetimes of 2 and 5 minutes. Neither is reporting a fault: they are reporting that T7s get warm during service.</div>
 
   <h2>What fired</h2>
   <div class="card">
     <div class="tw"><table>
-      <thead><tr><th>Type</th><th class="n">Alerts</th><th class="n">Devices</th><th class="n">Median open</th><th class="n">Resolved under 10 min</th><th>Verdict</th></tr></thead>
+      <thead><tr><th>Type</th><th>Severity</th><th class="n">Alerts</th><th class="n">Devices</th><th class="n">Median open</th><th class="n">Under 10 min</th><th class="vd">Verdict</th></tr></thead>
       <tbody>
-        <tr><td>overheating</td><td class="n">126</td><td class="n">13</td><td class="n">1 min</td><td class="n">99%</td><td><span class="pill bad">noise</span></td></tr>
-        <tr><td>device_crash</td><td class="n">17</td><td class="n">4</td><td class="n">15 min</td><td class="n">0%</td><td><span class="pill warn">repeats</span></td></tr>
-        <tr><td>battery_low (peak)</td><td class="n">4</td><td class="n">4</td><td class="n">88 min</td><td class="n">0%</td><td><span class="pill ok">real</span></td></tr>
+        <tr><td><code>overheating</code></td><td><span class="pill bad">critical</span></td><td class="n">4,033</td><td class="n">79</td><td class="n">2 min</td><td class="n">92%</td><td class="vd"><span class="pill bad">noise</span></td></tr>
+        <tr><td><code>temp_elevated</code></td><td><span class="pill warn">warning</span></td><td class="n">3,325</td><td class="n">71</td><td class="n">5 min</td><td class="n">77%</td><td class="vd"><span class="pill bad">noise</span></td></tr>
+        <tr><td><code>wlc_continuous</code></td><td><span class="pill bad">critical</span></td><td class="n">804</td><td class="n">25</td><td class="n">6 min</td><td class="n">73%</td><td class="vd"><span class="pill bad">noise</span></td></tr>
+        <tr><td><code>wifi_weak</code></td><td><span class="pill warn">warning</span></td><td class="n">206</td><td class="n">11</td><td class="n">5 min</td><td class="n">82%</td><td class="vd"><span class="pill bad">noise</span></td></tr>
+        <tr><td><code>slow_charge_night</code></td><td><span class="pill bad">critical</span></td><td class="n">198</td><td class="n">27</td><td class="n">12 min</td><td class="n">49%</td><td class="vd"><span class="pill warn">repeats</span></td></tr>
+        <tr><td><code>offline</code></td><td><span class="pill warn">warning</span></td><td class="n">138</td><td class="n">61</td><td class="n">367 min</td><td class="n">12%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>battery_high_night</code></td><td><span class="pill warn">warning</span></td><td class="n">133</td><td class="n">27</td><td class="n">390 min</td><td class="n">1%</td><td class="vd"><span class="pill warn">by design?</span></td></tr>
+        <tr><td><code>device_crash</code></td><td><span class="pill bad">critical</span></td><td class="n">92</td><td class="n">36</td><td class="n">14 min</td><td class="n">2%</td><td class="vd"><span class="pill warn">repeats</span></td></tr>
+        <tr><td><code>battery_low</code></td><td><span class="pill bad">critical</span></td><td class="n">29</td><td class="n">18</td><td class="n">120 min</td><td class="n">7%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>offline_peak</code></td><td><span class="pill bad">critical</span></td><td class="n">28</td><td class="n">22</td><td class="n">120 min</td><td class="n">18%</td><td class="vd"><span class="pill warn">duplicate</span></td></tr>
+        <tr><td><code>memory_pressure</code></td><td><span class="pill warn">warning</span></td><td class="n">22</td><td class="n">13</td><td class="n">768 min</td><td class="n">0%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>storage_filling</code></td><td><span class="pill warn">warning</span></td><td class="n">19</td><td class="n">17</td><td class="n">297 min</td><td class="n">0%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>wifi_unstable</code></td><td><span class="pill warn">warning</span></td><td class="n">17</td><td class="n">13</td><td class="n">55 min</td><td class="n">29%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>charger_flapping</code></td><td><span class="pill warn">warning</span></td><td class="n">15</td><td class="n">6</td><td class="n">34 min</td><td class="n">7%</td><td class="vd"><span class="pill ok">real</span></td></tr>
+        <tr><td><code>new_device</code></td><td><span class="pill off">info</span></td><td class="n">12</td><td class="n">12</td><td class="n">10 min</td><td class="n">42%</td><td class="vd"><span class="pill off">log</span></td></tr>
+        <tr><td><code>wlc_dead</code></td><td><span class="pill warn">warning</span></td><td class="n">3</td><td class="n">3</td><td class="n">1440 min</td><td class="n">0%</td><td class="vd"><span class="pill warn">false</span></td></tr>
       </tbody>
     </table></div>
-    <p class="small" style="margin:14px 0 0">Median open is the time from firing to auto-resolve. An alert that resolves itself in one minute was never something a person could act on.</p>
+    <p class="small" style="margin:14px 0 0">Median open is the time from firing to auto-resolve. An alert that resolves itself in two minutes was never something a person could act on. Six types account for 99% of the volume; the bottom ten are the ones an operator would actually want.</p>
   </div>
 
   <h3>Where it came from</h3>
   <div class="card">
     <div class="bars">
-      <div class="bar"><span class="lbl"><b>AT070AABU00746</b> · Flights Vegas · overheating</span><i style="--p:100%"></i><span class="n">95</span></div>
-      <div class="bar warn"><span class="lbl"><b>AT070AABU00064</b> · unplaced · crash</span><i style="--p:15%"></i><span class="n">14</span></div>
-      <div class="bar"><span class="lbl"><b>AT070AABU00583</b> · Flights Vegas · overheating</span><i style="--p:9%"></i><span class="n">9</span></div>
-      <div class="bar"><span class="lbl"><b>AT070AABU00802</b> · Flights Vegas · overheating</span><i style="--p:7%"></i><span class="n">7</span></div>
-      <div class="bar"><span class="lbl"><b>AT070AABU00673</b> · Flights Vegas · overheating</span><i style="--p:4%"></i><span class="n">4</span></div>
-      <div class="bar peri"><span class="lbl"><b>everything else</b> · 13 devices</span><i style="--p:19%"></i><span class="n">18</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00848</b> · unplaced · 5 types</span><i style="--p:100%"></i><span class="n">548</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00530</b> · Huanchaco · 7 types</span><i style="--p:73%"></i><span class="n">402</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00690</b> · Huanchaco · 4 types</span><i style="--p:73%"></i><span class="n">398</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00746</b> · Flights Vegas · 4 types</span><i style="--p:70%"></i><span class="n">382</span></div>
+      <div class="bar"><span class="lbl"><b>AT070AABU00641</b> · Huanchaco · 9 types</span><i style="--p:67%"></i><span class="n">368</span></div>
+      <div class="bar peri"><span class="lbl"><b>everything else</b> · 89 devices</span><i style="--p:100%"></i><span class="n">6,976</span></div>
     </div>
-    <p class="small" style="margin:14px 0 0">Flights Vegas: 121 of 147. Two devices: 109 of 147.</p>
+    <p class="small" style="margin:14px 0 0">The concentration is gone: last time two devices made 74% of the alerts, now the top five make 23% and 94 of 96 devices alert. The noise is fleet-wide, so it is the rules, not the hardware. By site: unplaced bench units 3,984 · Huanchaco Peruvian 2,564 (8 devices) · Flights Vegas 2,523 (20 devices).</p>
   </div>
 
-  <h3>When it fired (UTC, last 14 days)</h3>
+  <h3>When it fired (UTC, last 7 days)</h3>
   <div class="card">
     <div class="hours">
-      <i style="--p:0%"></i><i style="--p:5%"></i><i style="--p:0%"></i><i style="--p:5%"></i><i style="--p:18%"></i><i class="svc" style="--p:91%"></i><i class="svc" style="--p:95%"></i><i class="svc" style="--p:100%"></i><i class="svc" style="--p:82%"></i><i class="svc" style="--p:73%"></i><i class="svc" style="--p:77%"></i><i class="svc" style="--p:41%"></i><i class="svc" style="--p:36%"></i><i style="--p:5%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:0%"></i><i style="--p:23%"></i><i style="--p:9%"></i><i style="--p:9%"></i><i style="--p:0%"></i><i style="--p:0%"></i>
+      <i style="--p:32%"></i><i style="--p:33%"></i><i style="--p:33%"></i><i style="--p:26%"></i><i style="--p:41%"></i><i class="svc" style="--p:43%"></i><i class="svc" style="--p:100%"></i><i class="svc" style="--p:80%"></i><i class="svc" style="--p:78%"></i><i class="svc" style="--p:54%"></i><i class="svc" style="--p:57%"></i><i class="svc" style="--p:50%"></i><i class="svc" style="--p:50%"></i><i style="--p:44%"></i><i style="--p:37%"></i><i style="--p:34%"></i><i style="--p:25%"></i><i style="--p:26%"></i><i style="--p:26%"></i><i style="--p:32%"></i><i style="--p:29%"></i><i style="--p:24%"></i><i style="--p:29%"></i><i style="--p:28%"></i>
     </div>
     <div class="axis"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span></div>
-    <p class="small" style="margin:12px 0 0">05:00 to 12:00 UTC is the Vegas dinner service. Devices get warm when they are busy; that is expected, not an incident.</p>
+    <p class="small" style="margin:12px 0 0">Service (05:00–12:00 UTC) still peaks, at 898 alerts in the 06:00 hour alone. But the quiet hours never drop below 216 an hour now: the overnight battery and charging rules fire all night. There is no hour of the day when the channel is silent.</p>
   </div>
 
-  <h2>Why overheating is noise</h2>
-  <p>The rule fires the moment battery temperature reads at or above 45°C and auto-resolves the minute it reads below. The readings that fired were 45.0, 45.5 and 45.7 against a limit of 45. A device hovering at the line fires, resolves, fires again, every few minutes for the whole service.</p>
-  <div class="rules">
-    <div class="card">
-      <h3>The rule today</h3>
-      <ul>
-        <li><b>Fire</b> when the latest reading is ≥ 45°C off the pad, ≥ 65°C on the pad</li>
-        <li><b>Resolve</b> the next minute the reading is below</li>
-        <li>No minimum duration, no hysteresis, no cooldown</li>
-        <li>Each episode is a new row, so one device made 95 rows</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>Evidence</h3>
-      <ul>
-        <li>Median time open: <b>1 minute</b></li>
-        <li><b>99%</b> resolved before anyone could open them</li>
-        <li>Summaries read "46°C off pad (limit 45°C)"</li>
-        <li>Healthy T7s sit at 44 to 46°C during service</li>
-      </ul>
-    </div>
-  </div>
-  <p>The crash rule is better built: a 15 minute window and one row per episode. But a device that crashes every window still produces a fresh alert each time instead of "this device has crashed 14 times today".</p>
-
-  <h2>What is on and what is off</h2>
+  <h2>Why the top four are noise</h2>
+  <p>Each of them fires on a normal operating condition, at a line healthy devices sit on, with no minimum duration and no gap between resolving and firing again.</p>
   <div class="card">
-    <div class="rules">
-      <div>
-        <h3>On</h3>
-        <ul>
-          <li><b>overheating</b> 45 / 65°C <span class="pill bad">the noisy one</span></li>
-          <li><b>storage_low</b> 5 GB</li>
-          <li><b>storage_filling</b> 2 GB drop</li>
-          <li><b>storage_warning</b> 14 GB</li>
-          <li><b>memory_low</b> 400 MB</li>
-          <li><b>new_device</b></li>
-          <li><b>battery_low</b> 20% at peak</li>
-          <li><b>device_crash</b> 15 min window</li>
-        </ul>
-      </div>
-      <div>
-        <h3>Off</h3>
-        <ul>
-          <li><b>offline</b> 30 min <span class="pill warn">should be on</span></li>
-          <li><b>offline_peak</b> 5 min <span class="pill warn">should be on</span></li>
-          <li><b>wifi_weak</b>, <b>wifi_unstable</b></li>
-          <li><b>charger_flapping</b>, <b>wlc_dead</b>, <b>wlc_continuous</b></li>
-          <li><b>slow_charge_night</b>, <b>battery_high_night</b></li>
-          <li><b>temp_elevated</b>, <b>memory_pressure</b></li>
-        </ul>
-      </div>
-    </div>
-    <p class="small" style="margin:14px 0 0">Turning off "offline" removed the one alert an operator can always act on, while the rule producing 86% of the volume stayed on. The Teams channel receives warning and above in realtime, so every overheating blip reached the channel too.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Rule</th><th>What it says</th><th>What that means</th></tr></thead>
+      <tbody>
+        <tr><td><code>overheating</code><br><span class="small">45°C off pad</span></td><td>"Device temperature is 45°C off pad (limit 45°C)" — 1,538 times. 46°C — 1,365 times.</td><td>38% of these fired at exactly the limit. Only 698 of 4,033 ever reached 48°C. A device sitting at the line fires and resolves all service.</td></tr>
+        <tr><td><code>temp_elevated</code><br><span class="small">38–45°C band</span></td><td>"Device held 38–45°C for &gt;15 min (peak 42°C)" — the four commonest peaks are 41, 42, 43, 44°C.</td><td>The band is normal T7 service temperature. It has a 15-minute sustain and still fired 3,325 times, so sustain alone does not save a rule whose threshold is wrong.</td></tr>
+        <tr><td><code>wlc_continuous</code><br><span class="small">60 min on pad</span></td><td>"On wireless charger continuously for 63 min (≥ 60)" — 219 times at 63 min, 190 at 62, 179 at 64.</td><td>It fires because a device was left on its pad, which is where it belongs. As written, every quiet hour on the charger is a critical.</td></tr>
+        <tr><td><code>wifi_weak</code><br><span class="small">−75 dBm</span></td><td>"Held below −75 dBm for &gt;10 min (best −76 dBm)" — 85 times.</td><td>The best reading in the window is 1 dBm past the limit. Same story as the last review, unchanged.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="callout"><b>One cause, three alerts, still.</b> Seven devices are holding three open alerts each right now, and every one is the same overnight story: <code>battery_high_night</code> + <code>overheating</code> + <code>slow_charge_night</code>, or the same with <code>temp_elevated</code>. A device charging on its pad overnight trips three rules that each describe one part of it.</div>
+
+  <h2>What the engine can and cannot do today</h2>
+  <p>The plan in the last review assumed the engine would grow hysteresis, cooldown and muting. That work has not happened, so it is worth stating exactly where the code stands before planning on top of it again.</p>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Capability</th><th>State</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>Minimum duration</td><td><span class="pill warn">partial</span></td><td>Hand-written per rule for five of nineteen (<code>temp_elevated</code>, <code>memory_low</code>, <code>wifi_weak</code>, <code>wlc_continuous</code>, <code>slow_charge_night</code>). The rest fire on a single reading.</td></tr>
+        <tr><td>Resolve hysteresis</td><td><span class="pill bad">none</span></td><td>Resolve uses the same threshold as fire, so a device on the line oscillates. No "clear for N minutes" anywhere.</td></tr>
+        <tr><td>Cooldown / occurrence count</td><td><span class="pill bad">none</span></td><td>The <code>occurrences</code> column exists but is deliberately never incremented and never rendered. Once a row resolves, the next episode is a brand-new row — that is where 51 rows per device for one rule come from.</td></tr>
+        <tr><td>Flapper detection, snooze, mute</td><td><span class="pill bad">none</span></td><td>The only way to silence a rule is for an admin to disable it fleet-wide in Settings.</td></tr>
+        <tr><td>Offline suppression</td><td><span class="pill warn">partial</span></td><td>Most point-in-time rules require a check-in in the last 15 min, which suppresses them by accident. <code>device_crash</code>, <code>charger_flapping</code> and the daily-tier rules (<code>memory_pressure</code>, <code>storage_filling</code>, <code>wlc_dead</code>) have no such guard — which is why <code>wlc_dead</code> reads "pad never engaged" for devices that were simply off.</td></tr>
+        <tr><td>offline vs offline_peak</td><td><span class="pill warn">two rows</span></td><td>Separate rules on a <code>(type, device)</code> unique index, so a placed device offline at peak gets a warning row and a critical row. No escalation in place.</td></tr>
+        <tr><td>Crash loop</td><td><span class="pill bad">none</span></td><td>Any crash in 15 minutes is a critical. One device crashed 32 times this week and never produced anything stronger than 32 separate criticals.</td></tr>
+        <tr><td>Severity routing</td><td><span class="pill warn">partial</span></td><td>Per-channel <code>min_severity</code> works, but the Teams channel is set to <b>warning</b>, so 9,062 of 9,074 alerts were posted. A channel set to digest mode is never delivered at all: the only digest job is the daily AI fleet summary on the legacy webhook.</td></tr>
+        <tr><td>Per-site rules</td><td><span class="pill bad">none</span></td><td><code>scope_type</code> / <code>scope_id</code> exist on the table, but both evaluators skip any rule that is not fleet-wide.</td></tr>
+        <tr><td>Alert quality metrics</td><td><span class="pill bad">none</span></td><td>The page shows open counts only. Every number in this document came from SQL.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0"><b>"Clear all" still hard-deletes.</b> It is <code>DELETE FROM alerts</code>, taking resolved history with it, and anything still true re-fires within the minute. "Resolve all" and "Ack all" do the right thing — they are status updates that keep history — but no button in the UI points at them.</p>
   </div>
 
   <h2>What an alert should be</h2>
-  <p>An alert is a condition that a named person can do something about, that lasts long enough to be looked at, and that is stated once. Everything else is telemetry and belongs on the device page, not in the inbox.</p>
+  <p>Unchanged from the last review, and worth repeating because the current set fails it: an alert is a condition a named person can do something about, that lasts long enough to be looked at, and that is stated once.</p>
   <div class="card">
     <div class="tw"><table>
       <thead><tr><th>Severity</th><th>Qualifies</th><th>Goes to</th></tr></thead>
       <tbody>
-        <tr><td><span class="pill bad">critical</span></td><td>Offline in service. Crash loop: 3 crashes in an hour. Storage under 1 GB. Battery under 10% and not charging at peak.</td><td>Teams channel, realtime, and the page</td></tr>
-        <tr><td><span class="pill warn">warning</span></td><td>Sustained heat, low storage, low memory, misplaced pad, slow overnight charge.</td><td>The page, and one 8 am digest</td></tr>
+        <tr><td><span class="pill bad">critical</span></td><td>A placed device offline during service. Crash loop: 3 in an hour. Storage under 1 GB. Battery under 10% and not charging at peak.</td><td>Teams, realtime, and the page</td></tr>
+        <tr><td><span class="pill warn">warning</span></td><td>Sustained real heat, low storage, low memory, misplaced pad, slow overnight charge.</td><td>The page, and one 08:00 digest</td></tr>
         <tr><td><span class="pill off">info</span></td><td>New device onboarded, update landed, kiosk mode changed.</td><td>Activity log only</td></tr>
       </tbody>
     </table></div>
   </div>
 
-  <h2>The plan</h2>
+  <h2>Next steps in order</h2>
   <ol class="plan">
-    <li><div><b>Hysteresis and duration on every threshold rule</b><span>Fire when the condition has held for N minutes (overheating: 5). Resolve only after it has been clear for M minutes (10) and below a lower bound (42°C). One episode, one alert.</span></div><span class="who">build</span></li>
-    <li><div><b>Cooldown per device per type</b><span>The same alert on the same device within 30 minutes of resolving reopens the old row and bumps its count. The list reads "746 overheated 6 times today", one line.</span></div><span class="who">build</span></li>
-    <li><div><b>Overheating limit 48°C off pad</b><span>45°C is where healthy T7s sit during service. Keep 65°C on the wireless pad.</span></div><span class="who">setting</span></li>
-    <li><div><b>Offline back on, with a real threshold</b><span>15 minutes during service hours, 60 minutes outside. Offline is the alert restaurants feel.</span></div><span class="who">setting</span></li>
-    <li><div><b>Severity that routes</b><span>Only critical goes to Teams in realtime. Warnings stay on the page. Info goes to the activity log.</span></div><span class="who">build</span></li>
-    <li><div><b>Flapper detection</b><span>A device that fires the same alert more than 5 times in a day gets one "flapping" alert and is muted for that type until an operator resolves it. Would have turned 95 alerts into 1.</span></div><span class="who">build</span></li>
-    <li><div><b>Daily digest for warnings</b><span>One Teams post at 8 am: "3 devices worth a look", linking to the alerts page.</span></div><span class="who">build</span></li>
-    <li><div><b>Stop clearing the inbox</b><span>With 1 to 6 in place the list stays short by itself, and history survives for trend analysis.</span></div><span class="who">habit</span></li>
+    <li><div><b>Settings only, today</b><span>Teams channel to <b>critical</b> — this alone stops 3,878 warning posts a week. Overheating off-pad to <b>48°C</b> (698 of 4,033 episodes survive). Temp elevated band to <b>42–48°C</b>. Wi-Fi weak to <b>−80 dBm sustained 20 min</b>. Wireless-charging continuous to <b>4 hours</b>, or off until it has a purpose. Nothing to build; all of it is Settings › Alerts.</span></div><span class="who">settings</span></li>
+    <li><div><b>Fold repeats into one row</b><span>Bump <code>occurrences</code> and reopen the existing row when the same alert returns within 30 minutes of resolving, instead of inserting a new one. Render the count. This is the single highest-leverage change: it turns 9,074 rows into about 1,088 without changing a single threshold.</span></div><span class="who">build</span></li>
+    <li><div><b>Hysteresis and duration as engine features</b><span>Fire only after the condition holds N minutes; resolve only after it has been clear M minutes and past a lower bound. Today five rules hand-roll half of this and fourteen have none. Same two params for every threshold rule.</span></div><span class="who">build</span></li>
+    <li><div><b>Fix the duplicates and the dependents</b><span>Fold <code>offline_peak</code> into <code>offline</code> as an escalation of one row. Suppress dependent alerts while a device is not reporting, explicitly rather than by accident — that removes the false <code>wlc_dead</code>. Group the overnight trio behind one "charging overnight" condition.</span></div><span class="who">build</span></li>
+    <li><div><b>Flapping and snooze</b><span>More than five episodes a day becomes one flapping alert, muted for that type until an operator resolves it. Snooze per alert, device or type. Make "Clear all" resolve-and-snooze for 24 h instead of deleting history.</span></div><span class="who">build</span></li>
+    <li><div><b>Crash loop</b><span>Three crashes in an hour is a critical, once, with the count on the row. Anything less stays a warning on the device page. The device that crashed 32 times should have produced one alert, not 32.</span></div><span class="who">build</span></li>
+    <li><div><b>Routing that means something</b><span>Critical to Teams in realtime, warnings in one 08:00 digest — and make digest-mode channels actually deliver, since today they silently drop. Info to the activity log. Per-site recipients and quiet hours after that.</span></div><span class="who">build</span></li>
+    <li><div><b>Measure it on the page</b><span>An alert-quality panel: alerts per day, share resolved under 10 minutes, top flappers, acknowledged versus ignored. Every table in this document, on screen, so the next review does not need a database.</span></div><span class="who">build</span></li>
   </ol>
-
-  <h2>Follow-up: every rule on <small style="font-size:13px;color:var(--muted);font-weight:400">9 September, 14:40 to 19:20 UTC</small></h2>
-  <p>All 19 rules were switched on at 14:40 UTC. In the next five hours 69 alerts fired on 39 online devices. Same shape as before: a few real ones, a lot of repeats, and one new pattern, the same dead device alerting three times under three names.</p>
-  <div class="card">
-    <div class="tw"><table>
-      <thead><tr><th>Type</th><th class="n">Alerts</th><th class="n">Devices</th><th class="n">Median open</th><th class="n">Under 10 min</th><th class="n">Still open</th><th>Verdict</th></tr></thead>
-      <tbody>
-        <tr><td>temp_elevated</td><td class="n">25</td><td class="n">5</td><td class="n">9 min</td><td class="n">72%</td><td class="n">1</td><td><span class="pill bad">flapping</span> 20 of 25 from one device</td></tr>
-        <tr><td>offline</td><td class="n">21</td><td class="n">21</td><td class="n">318 min</td><td class="n">5%</td><td class="n">20</td><td><span class="pill ok">real</span> but 13 are lab units nobody placed</td></tr>
-        <tr><td>wifi_weak</td><td class="n">6</td><td class="n">2</td><td class="n">4 min</td><td class="n">100%</td><td class="n">0</td><td><span class="pill bad">flapping</span> at −75 dBm, best reading −76</td></tr>
-        <tr><td>offline_peak</td><td class="n">6</td><td class="n">6</td><td class="n">59 min</td><td class="n">0%</td><td class="n">6</td><td><span class="pill warn">duplicate</span> of offline, escalated to critical</td></tr>
-        <tr><td>battery_low</td><td class="n">4</td><td class="n">4</td><td class="n">59 min</td><td class="n">0%</td><td class="n">4</td><td><span class="pill ok">real</span></td></tr>
-        <tr><td>overheating</td><td class="n">2</td><td class="n">2</td><td class="n">3 min</td><td class="n">100%</td><td class="n">0</td><td><span class="pill bad">noise</span></td></tr>
-        <tr><td>device_crash</td><td class="n">2</td><td class="n">1</td><td class="n">14 min</td><td class="n">0%</td><td class="n">0</td><td><span class="pill warn">repeats</span> same device as before</td></tr>
-        <tr><td>storage_filling, memory_pressure, wlc_dead</td><td class="n">1 each</td><td class="n">1</td><td class="n">259 min</td><td class="n">0%</td><td class="n">3</td><td><span class="pill warn">wlc_dead is false</span>: the device is offline, so the pad "never reads"</td></tr>
-      </tbody>
-    </table></div>
-  </div>
-  <div class="callout"><b>New pattern: one cause, three alerts.</b> AT070AABU00034 has been off for a day. It holds an <i>offline</i> warning, an <i>offline_peak</i> critical and a <i>wlc_dead</i> warning at the same time. Every rule that reads telemetry from a device that is not reporting will do this.</div>
-  <h3>What this adds to the plan</h3>
-  <div class="rules">
-    <div class="card">
-      <ul>
-        <li><b>Suppress dependent alerts while a device is offline.</b> No temperature, Wi-Fi, charging, storage or memory alert for a device that is not reporting; the offline alert owns it.</li>
-        <li><b>Fold offline_peak into offline.</b> One alert per device that steps up to critical when the outage overlaps service hours, instead of a second row.</li>
-        <li><b>Offline only for placed devices.</b> 13 of the 21 offline alerts are bench units with no restaurant. Lab devices get no offline alert, or a separate "lab" severity that never reaches Teams.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <ul>
-        <li><b>Hysteresis on temp_elevated and wifi_weak</b> as planned for overheating: 20 of 25 temperature alerts were one device crossing 38°C back and forth.</li>
-        <li><b>Crash loop, not crash.</b> AT070AABU00064 has now crashed 16 times in two days and never produced a critical. Three in an hour should.</li>
-        <li>With the four suppressions above the five hours become <b>about 9 alerts</b>: 8 placed devices offline (one row each), 4 low batteries, 1 storage, 1 memory. The Teams channel would have received 4.</li>
-      </ul>
-    </div>
-  </div>
-
-  <h2>Next steps <small style="font-size:13px;color:var(--muted);font-weight:400">in order, each small enough to ship and judge alone</small></h2>
-  <ol class="plan">
-    <li><div><b>Stop the bleeding with settings only</b><span>Overheating off-pad to 48°C; temp elevated band 40 to 48. Wi-Fi weak at −80 dBm sustained 20 min. Offline at 15 min in service, 60 outside; offline_peak and wlc_dead off until step 2. Teams channel gets critical only. Expected: 69 in five hours becomes about 20, and Teams stops buzzing.</span></div><span class="who">this week · settings</span></li>
-    <li><div><b>The engine changes</b><span>Hysteresis and duration on every threshold rule. Cooldown: same alert, same device within 30 min reopens the old row. Flapper detection: more than 5 episodes a day becomes one alert, muted until resolved. Snooze on alert, device or type; Clear all becomes resolve and snooze 24 h. Suppress dependent alerts while a device is offline; fold offline_peak into offline as an escalation; offline only for placed devices. Crash loop: 3 in an hour is critical.</span></div><span class="who">build · a week</span></li>
-    <li><div><b>Routing</b><span>Severity that routes: critical to Teams in realtime, warnings in one 8 am digest, info to the activity log. Per-restaurant recipients, quiet hours, maintenance mode per site.</span></div><span class="who">build · days</span></li>
-    <li><div><b>Measure</b><span>An "alert quality" panel on the alerts page: alerts per day, share resolved under 10 minutes, top flappers, acknowledged versus ignored. The table in this review, on screen, so the effect of steps 1 to 3 is visible without a database query. Stop using Clear all as the inbox so history survives.</span></div><span class="who">build · days</span></li>
-    <li><div><b>Alerts that mean something new</b><span>Anomaly alerts from trends (temperature creeping, reboots clustering at a site) instead of fixed lines. Predictive replacement for batteries and pads.</span></div><span class="who">later</span></li>
-  </ol>
-  <div class="callout" style="margin-top:18px"><b>Why Clear all does not stick.</b> Clear all deletes rows; the evaluator runs every minute and re-creates any condition that still holds. Acknowledge is the action that sticks: one row, refreshed in place until the condition ends. Step 2 turns Clear all into resolve-and-snooze so the inbox behaves the way people expect.</div>
 
   <h2>Expected result</h2>
   <div class="card">
     <div class="tw"><table>
-      <thead><tr><th></th><th class="n">Today</th><th class="n">After</th></tr></thead>
+      <thead><tr><th>Measured over these 7 days</th><th class="n">Today</th><th class="n">After step 1</th><th class="n">After steps 1–4</th></tr></thead>
       <tbody>
-        <tr><td>Alerts in those two days</td><td class="n">147</td><td class="n">≈ 12</td></tr>
-        <tr><td>Critical, sent to Teams</td><td class="n">147</td><td class="n">3 to 4</td></tr>
-        <tr><td>Rows for device 746</td><td class="n">95</td><td class="n">1</td></tr>
-        <tr><td>Offline devices alerted</td><td class="n">0</td><td class="n">all of them</td></tr>
+        <tr><td>Alert rows</td><td class="n">9,074</td><td class="n">≈ 4,300</td><td class="n">≈ 140</td></tr>
+        <tr><td>Rows per day</td><td class="n">1,296</td><td class="n">≈ 610</td><td class="n">≈ 20</td></tr>
+        <tr><td>Posts to Teams</td><td class="n">9,062</td><td class="n">≈ 1,500</td><td class="n">≈ 25</td></tr>
+        <tr><td>Rows for the worst device</td><td class="n">548</td><td class="n">≈ 260</td><td class="n">≈ 8</td></tr>
+        <tr><td>Rows per device per day</td><td class="n">13.5</td><td class="n">≈ 6.4</td><td class="n">≈ 0.2</td></tr>
       </tbody>
     </table></div>
+    <p class="small" style="margin:14px 0 0">The 1–4 column is the measured fold: one row per device, per type, per day is 1,088 rows for this week, and the step-1 thresholds remove roughly seven eighths of the two temperature rules and nearly all of <code>wlc_continuous</code> before folding. The remainder is dominated by what should be there: 100 device-days of offline, 28 low batteries, 46 crash days, 22 memory, 18 storage.</p>
   </div>
-  <p class="small">Items 3 and 4 are settings under Alerts › Alert rules and can be changed today. Items 1, 2, 5 and 6 are the first build batch; 7 follows.</p>
+
+  <div class="callout"><b>One number to judge this by.</b> 79% of alerts resolve themselves within ten minutes. A healthy inbox has that number near zero, because a condition worth telling someone about does not fix itself while they walk to the device.</div>
 </div>
 </body>
 </html>
