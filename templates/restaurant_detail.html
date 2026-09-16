@@ -2,7 +2,10 @@
 {{template "header" .}}
 <style>
 /* per-day evidence strip under the Power & usage tiles */
-.sm-days{display:flex;gap:6px;align-items:flex-end;padding:4px 16px 8px}
+/* The tile grid sits inside a .card, which has no padding of its own — without this the
+   tiles run flush into the card's edges. */
+.sm-kpis{border:0;box-shadow:none;padding:14px 16px 4px;margin-bottom:0}
+.sm-days{display:flex;gap:6px;align-items:flex-end;padding:8px 16px 8px}
 .sm-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
 .sm-bar{position:relative;width:100%;height:56px;background:var(--surface2);border-radius:6px;overflow:hidden}
 .sm-bar i{position:absolute;left:0;right:0;bottom:0;display:block;border-radius:6px}
@@ -54,7 +57,7 @@
 {{$m := .Metrics}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Power &amp; usage</h3><span class="muted small">last {{$m.Days}} days · {{$m.DeviceCount}} device{{if ne $m.DeviceCount 1}}s{{end}}</span></div>
-  <div class="cc-kpis" style="border:0;box-shadow:none;">
+  <div class="cc-kpis sm-kpis">
     <div class="cc-kpi">
       <span class="k">Uptime · open hours</span>
       {{if $m.HasOpenHours}}
