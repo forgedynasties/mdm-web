@@ -7209,18 +7209,19 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 
 // siteMetricsBackfillFlag marks the one-time recompute that fills the power/usage columns
 // on days that were rolled up before those columns existed.
-// v2: v1 counted every charging-flag edge as a plug-in, so a full battery alternating
-// CHARGING/FULL reported thousands of "charges" at 98%. The recompute has to run again to
-// replace those numbers with real sessions.
-const siteMetricsBackfillFlag = "site_metrics_backfilled_v2"
+// v3: a versioned recompute has to run even when the columns are already populated.
+// v2 only looked for days where they were NULL, so after v1 had filled them with the bad
+// charge counts every day was skipped and the flag was written as though the work was
+// done — leaving 32,000 "charges" on days 13 and 14 while fresh days read correctly.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v3"
 
 // BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
-// week immediately rather than filling in a day at a time. Without it the first week
-// after deploy compares (say) two days of opening-hours data against a seven-day window,
-// which reads as a catastrophically low uptime for no reason.
+// week immediately rather than filling in a day at a time, and so a corrected formula
+// reaches the days already stored under the old one.
 //
-// Bounded and flagged: checkins are kept forever, so an unbounded recompute would be a
-// very long scan on a small box.
+// It recomputes unconditionally within the window: whether a day looks populated says
+// nothing about WHICH version of the maths populated it. Bounded and flagged, because
+// checkins are kept forever and this runs on a small box.
 func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) {
 	var done bool
 	if err := d.pool.QueryRow(ctx,
@@ -7237,17 +7238,15 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 	n := 0
 	for i := 1; i <= maxDays; i++ { // today and yesterday are owned by housekeeping
 		day := today.AddDate(0, 0, -i)
-		var needs bool
-		// Only days that have rows but no power/usage data — a day already carrying the
-		// columns is left alone, so a re-run is cheap.
-		if err := d.pool.QueryRow(ctx, `
-			SELECT EXISTS(
-				SELECT 1 FROM device_daily_stats
-				WHERE day = $1::date AND online_minutes_open IS NULL AND wlc_minutes IS NULL
-			)`, day.Format("2006-01-02")).Scan(&needs); err != nil {
+		// Only days that actually have rows: rolling up a day with no checkins is a
+		// wasted scan on a box that cannot spare one.
+		var hasRows bool
+		if err := d.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM device_daily_stats WHERE day = $1::date)`,
+			day.Format("2006-01-02")).Scan(&hasRows); err != nil {
 			return n, err
 		}
-		if !needs {
+		if !hasRows {
 			continue
 		}
 		if _, err := d.RollupDailyStats(ctx, day); err != nil {
