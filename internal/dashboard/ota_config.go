@@ -19,7 +19,14 @@ func (h *Handler) PublishOTAConfig(ctx context.Context) {
 		return
 	}
 	prev, _ := h.cfg.OTAConfigLast()
-	body, wrote, err := otaconfig.Publish(ctx, h.apk, h.cfg.OTAConfigOptions(), time.Now(), []byte(prev))
+	opts := h.cfg.OTAConfigOptions()
+	// The window is read in each device's OWN local time, so compute it for the devices
+	// that are actually taking an update right now. All in one zone: use it. Mixed, or
+	// nothing updating: fall back to LA, which is where most of the fleet is.
+	if zones, err := h.db.LegacyUpdateTimezones(ctx); err == nil {
+		opts.Timezone = otaconfig.ZoneFor(zones)
+	}
+	body, wrote, err := otaconfig.Publish(ctx, h.apk, opts, time.Now(), []byte(prev))
 	if err != nil {
 		log.Printf("[ota-config] publish: %v", err)
 		return
@@ -30,7 +37,7 @@ func (h *Handler) PublishOTAConfig(ctx context.Context) {
 	if err := h.cfg.SetOTAConfigPublished(string(body), time.Now()); err != nil {
 		log.Printf("[ota-config] record publish: %v", err)
 	}
-	start, end := otaconfig.Window(h.cfg.OTAConfigOptions(), time.Now())
+	start, end := otaconfig.Window(opts, time.Now())
 	log.Printf("[ota-config] published %s — reboot window %02d:00-%02d:00 %s",
-		otaconfig.Key, start, end, h.cfg.OTAConfigOptions().Timezone)
+		otaconfig.Key, start, end, opts.Timezone)
 }

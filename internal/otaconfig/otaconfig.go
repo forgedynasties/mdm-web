@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -50,6 +51,37 @@ func Defaults() Options {
 		Timezone:  "America/Los_Angeles",
 		LeadHours: 3,
 	}
+}
+
+// FallbackZone is what we publish for when the devices under update do not agree on a
+// timezone, or when nothing is updating: the fleet's centre of gravity is Los Angeles, and
+// a window computed for LA night is at worst inconvenient elsewhere, never mid-service
+// here.
+const FallbackZone = "America/Los_Angeles"
+
+// ZoneFor picks the timezone the published window should be computed for, given the zones
+// of the devices currently taking an update. One shared zone wins; a mix falls back to LA,
+// because a window can only be right for one zone at a time and this is the one that
+// matters most.
+func ZoneFor(deviceZones []string) string {
+	seen := ""
+	for _, z := range deviceZones {
+		z = strings.TrimSpace(z)
+		if z == "" {
+			continue
+		}
+		if seen == "" {
+			seen = z
+			continue
+		}
+		if seen != z {
+			return FallbackZone // mixed
+		}
+	}
+	if seen == "" {
+		return FallbackZone // nothing updating
+	}
+	return seen
 }
 
 // Window returns the reboot window to publish for a given moment.

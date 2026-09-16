@@ -308,10 +308,10 @@
       <label class="form-row"><span class="form-label">Device server URL</span><input class="form-input" type="text" name="api_base_url" value="{{.OTAConfigOpts.BaseURL}}" placeholder="http://18.237.229.116:8000"></label>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
         <label class="form-row"><span class="form-label">Poll interval (ms)</span><input class="form-input" type="number" name="poll_interval_ms" value="{{.OTAConfigOpts.PollMS}}" min="5000" step="1000"></label>
-        <label class="form-row"><span class="form-label">Reference timezone</span><input class="form-input" type="text" name="timezone" value="{{.OTAConfigOpts.Timezone}}" placeholder="America/Los_Angeles"></label>
+        <label class="form-row"><span class="form-label">Fallback timezone</span><input class="form-input" type="text" name="timezone" value="{{.OTAConfigOpts.Timezone}}" placeholder="America/Los_Angeles"></label>
         <label class="form-row"><span class="form-label">Lead (hours)</span><input class="form-input" type="number" name="lead_hours" value="{{.OTAConfigOpts.LeadHours}}" min="1" max="12"></label>
       </div>
-      <div class="muted small">Next publish carries <b>{{printf "%02d:00" .OTAConfigNext.Start}}–{{printf "%02d:00" .OTAConfigNext.End}}</b> ({{.OTAConfigNext.TZ}} local on each device).{{if .OTAConfigLast.At}} Last published {{.OTAConfigLast.At}}.{{end}}</div>
+      <div class="muted small">The window is computed for the devices currently taking an update, in their own timezone; when they span several zones, or nothing is updating, the fallback above is used. Next publish carries <b>{{printf "%02d:00" .OTAConfigNext.Start}}–{{printf "%02d:00" .OTAConfigNext.End}}</b> ({{.OTAConfigNext.TZ}}).{{if .OTAConfigLast.At}} Last published {{.OTAConfigLast.At}}.{{end}}</div>
       <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save and publish now</button></div>
     </form>
     {{if .OTAConfigLast.Body}}<details style="margin-top:10px;"><summary class="muted small" style="cursor:pointer;">What the fleet is reading</summary><pre class="muted small" style="overflow-x:auto;">{{.OTAConfigLast.Body}}</pre></details>{{end}}

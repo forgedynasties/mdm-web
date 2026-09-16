@@ -139,3 +139,25 @@ func TestPublishReportsPutFailure(t *testing.T) {
 		t.Fatalf("expected the put error to surface, got wrote=%v err=%v", wrote, err)
 	}
 }
+
+// The window is read in each device's own local time, so it is computed for the devices
+// actually taking an update — and a mixed rollout cannot be right for everyone, so it
+// falls back to where most of the fleet is.
+func TestZoneFor(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		zones []string
+		want  string
+	}{
+		{"all in one zone", []string{"America/Los_Angeles", "America/Los_Angeles"}, "America/Los_Angeles"},
+		{"all in another zone", []string{"Asia/Karachi", "Asia/Karachi"}, "Asia/Karachi"},
+		{"mixed falls back to LA", []string{"Asia/Karachi", "America/New_York"}, FallbackZone},
+		{"nothing updating", nil, FallbackZone},
+		{"blanks ignored", []string{"", "Asia/Karachi", ""}, "Asia/Karachi"},
+		{"blanks only", []string{"", ""}, FallbackZone},
+	} {
+		if got := ZoneFor(tc.zones); got != tc.want {
+			t.Errorf("%s: ZoneFor(%v) = %q, want %q", tc.name, tc.zones, got, tc.want)
+		}
+	}
+}

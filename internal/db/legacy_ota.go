@@ -389,6 +389,36 @@ func (d *DB) CreateLegacyDeployment(ctx context.Context, releaseID int, serials 
 	return id, tx.Commit(ctx)
 }
 
+// LegacyUpdateTimezones returns the distinct timezones of the devices currently taking a
+// legacy OTA — the ones whose reboot window actually matters right now. otautil reads the
+// window in each device's OWN local time, so publishing a window computed for the wrong
+// zone puts the fallback reboot in the wrong part of somebody's day.
+//
+// Only devices still working through an update count: once a deployment is done, its
+// devices no longer care what the window says.
+func (d *DB) LegacyUpdateTimezones(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT NULLIF(dv.latest_extra->>'timezone', '')
+		FROM legacy_ota_deployment_devices t
+		JOIN legacy_ota_deployments p ON p.id = t.deployment_id AND p.status = 'active'
+		JOIN devices dv ON dv.serial_number = t.serial AND NOT dv.hidden
+		WHERE t.status NOT IN ('installed', 'failed', 'canceled')
+		  AND NULLIF(dv.latest_extra->>'timezone', '') IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var tz string
+		if err := rows.Scan(&tz); err != nil {
+			return nil, err
+		}
+		out = append(out, tz)
+	}
+	return out, rows.Err()
+}
+
 // ResolveLegacyDeployment returns the newest active deployment row still owed to
 // this serial, or nil. Terminal rows (installed, failed, canceled) are skipped,
 // so a failure waits for an operator's retry exactly like a fleet rollout.
