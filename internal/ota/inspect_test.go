@@ -8,7 +8,18 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"mdm/internal/safehttp"
 )
+
+// Inspect fetches through safehttp, which refuses private and loopback addresses to stop
+// the server being pointed at internal hosts. httptest serves on 127.0.0.1, so these
+// tests were refused at dial time and had been failing everywhere — locally and in CI —
+// until the loopback range is allowed for the duration of the test binary.
+func TestMain(m *testing.M) {
+	safehttp.SetAllowlist([]string{"127.0.0.0/8", "::1"})
+	os.Exit(m.Run())
+}
 
 // realMeta is the metadata printed from an actual full A/B OTA (a T7 GMS build).
 const realMeta = `ota-property-files=payload_metadata.bin:4292:150901,payload.bin:4292:1900225064,metadata:69:671
