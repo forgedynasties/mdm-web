@@ -761,7 +761,8 @@ window.CMD_PREFILL = {{.Prefill}};
       devLoading = true; renderDevs();
       var p = new URLSearchParams();
       var q = (qEl.value || '').trim();
-      if (q) p.set('q', q);
+      // A single pasted serial keeps its bullet ("-AT070…"); search the clean one.
+      if (q) p.set('q', cleanToken(q) || q);
       if (QF.kiosk) p.set('kiosk', 'enabled');
       fetch('/commands/browse-devices?' + p.toString()).then(function (r) { return r.text(); }).then(function (html) {
         var rows = parseRows(html);
@@ -786,9 +787,20 @@ window.CMD_PREFILL = {{.Prefill}};
       if (k === 'dpc' && qfCounts) b.hidden = !qfCounts.dpc && !QF.dpc;
     });
   }
+  // Pasted serials often carry list decoration ("-AT070…", "• AT070…", "1. AT070…",
+  // a trailing comma, quotes). Strip it off the ends only, never inside the token.
+  function cleanToken(t) {
+    return String(t || '')
+      .replace(/^[\s\-–—*•·>#"'`([{]+/, '')
+      .replace(/^\d+[.)]\s*/, '')
+      .replace(/[\s,;:."'`)\]}]+$/, '')
+      .trim();
+  }
   function pasteTokens() {
     var q = (qEl.value || '').trim();
-    return q && /[\s,;]/.test(q) ? q.split(/[\s,;]+/).filter(Boolean) : null;
+    if (!q || !/[\s,;]/.test(q)) return null;
+    var toks = q.split(/[\s,;]+/).map(cleanToken).filter(Boolean);
+    return toks.length ? toks : null;
   }
   function renderDevs() {
     var rows = devCache[devKey()] || [];
@@ -891,7 +903,7 @@ window.CMD_PREFILL = {{.Prefill}};
   function addSerials(raw) {
     S.targets = S.targets.filter(function (t) { return t.kind !== 'all'; });
     raw.split(/[\s,;]+/).forEach(function (s) {
-      s = s.trim();
+      s = cleanToken(s);
       if (s && !S.targets.some(function (t) { return t.serial === s; })) S.targets.push({ kind: 'device', serial: s });
     });
   }
@@ -901,7 +913,7 @@ window.CMD_PREFILL = {{.Prefill}};
   var resolving = false;
   function addSerialsValidated(raw) {
     if (resolving) return;
-    var toks = raw.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var toks = raw.split(/[\s,;]+/).map(cleanToken).filter(Boolean);
     if (!toks.length) return;
     resolving = true;
     fetch('/commands/resolve-serials?serials=' + encodeURIComponent(toks.join(',')))

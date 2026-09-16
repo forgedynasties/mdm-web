@@ -297,6 +297,12 @@
 {{define "devices.html"}}
 {{template "header" .}}
 
+{{/* The add/remove-devices modal swaps in the shared picker partial, whose styles
+     live outside this page — without this the modal renders raw. (picker.js rides
+     along in the partial itself: it binds #pk-rail, which only exists once the
+     modal body has been swapped in.) */}}
+<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
+
 <style>
 /* ── Fleet · Devices — command-center header + KPI strip + rail polish ── */
 .fl-wrap{max-width:1280px;margin:0 auto}

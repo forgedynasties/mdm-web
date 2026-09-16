@@ -71,7 +71,9 @@
     timer = setTimeout(function () {
       loading = true; render();
       var p = baseParams();
-      if (query() && !pasteTokens()) p.set('q', query());
+      // A single pasted serial keeps its bullet ("-AT070…") and would otherwise
+      // be searched verbatim and match nothing.
+      if (query() && !pasteTokens()) p.set('q', cleanToken(query()) || query());
       if (QF.kiosk) p.set('kiosk', 'enabled');
       fetch(ENDPOINT + '?' + p.toString(), { credentials: 'same-origin' })
         .then(function (r) { return r.text(); })
@@ -85,11 +87,24 @@
         .catch(function () { loading = false; render(); });
     }, now ? 0 : 220);
   }
+  // People paste serials straight out of a chat or a ticket, so a token often
+  // carries list decoration: "-AT070AABU00333", "• AT070…", "1. AT070…",
+  // "AT070…," or a quoted/bracketed one. Strip that off the ends only — never
+  // inside the token, since the same picker is used for package names (com.a.b).
+  function cleanToken(t) {
+    return String(t || '')
+      .replace(/^[\s\-–—*•·>#"'`([{]+/, '')
+      .replace(/^\d+[.)]\s*/, '')
+      .replace(/[\s,;:."'`)\]}]+$/, '')
+      .trim();
+  }
   // A pasted list (spaces/commas/newlines) adds every serial at once instead of
   // searching for the blob.
   function pasteTokens() {
     var q = query();
-    return q && /[\s,;]/.test(q) ? q.split(/[\s,;]+/).filter(Boolean) : null;
+    if (!q || !/[\s,;]/.test(q)) return null;
+    var toks = q.split(/[\s,;]+/).map(cleanToken).filter(Boolean);
+    return toks.length ? toks : null;
   }
 
   // ── rendering ───────────────────────────────────────────────────────────────

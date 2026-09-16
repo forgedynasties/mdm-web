@@ -31,6 +31,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
@@ -8566,12 +8567,28 @@ func parseSerialsField(values []string) []string {
 		for _, part := range strings.FieldsFunc(v, func(r rune) bool {
 			return r == '\n' || r == '\r' || r == ','
 		}) {
-			if part = strings.TrimSpace(part); part != "" {
+			if part = cleanSerialToken(part); part != "" {
 				out = append(out, part)
 			}
 		}
 	}
 	return out
+}
+
+// cleanSerialToken strips list decoration people paste along with a serial —
+// "-AT070AABU00333", "• AT070…", "1. AT070…", a trailing comma, quotes — from the
+// ends only. Never from inside the token: this also parses package names (com.a.b).
+func cleanSerialToken(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimLeft(s, " \t-–—*•·>#\"'`([{")
+	// Numbered lists ("1. AT070…", "2) AT070…"). Only when a letter follows, so a
+	// dotted value like "1.2.3" is left alone.
+	if i := strings.IndexFunc(s, func(r rune) bool { return r < '0' || r > '9' }); i > 0 && i < len(s) {
+		if rest := strings.TrimSpace(s[i+1:]); (s[i] == '.' || s[i] == ')') && rest != "" && unicode.IsLetter(rune(rest[0])) {
+			s = rest
+		}
+	}
+	return strings.TrimRight(strings.TrimSpace(s), " \t,;:.\"'`)]}")
 }
 
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
@@ -13798,7 +13815,7 @@ func (h *Handler) CommandResolveSerials(w http.ResponseWriter, r *http.Request) 
 	raw := r.URL.Query().Get("serials")
 	var serials []string
 	for _, t := range strings.FieldsFunc(raw, func(c rune) bool { return c == ',' || c == ';' || c == ' ' || c == '\n' || c == '\r' || c == '\t' }) {
-		if t = strings.TrimSpace(t); t != "" {
+		if t = cleanSerialToken(t); t != "" {
 			serials = append(serials, t)
 		}
 		if len(serials) >= 500 {
