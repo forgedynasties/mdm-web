@@ -18609,6 +18609,7 @@ type alertRuleView struct {
 	Fields               []alertFieldView
 	Windowed, Recent     bool
 	ActiveWindow         string
+	DeployedOnly         bool
 }
 
 // alertRuleGroup buckets rules by category for the Settings UI, with an enabled count.
@@ -18654,6 +18655,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 			ID: r.ID.String(), Type: def.Type, Name: def.Label, Desc: def.Desc,
 			Enabled: r.Enabled, Fields: fields,
 			Windowed: def.Windowed, Recent: def.Recent, ActiveWindow: aw,
+			DeployedOnly: r.DeployedOnly,
 		}
 		gi, ok := idx[def.Category]
 		if !ok {
@@ -18773,7 +18775,10 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 			aw = "always"
 		}
 	}
-	if err := h.db.UpdateAlertRule(r.Context(), id, r.FormValue("enabled") == "on", pj, aw); err != nil {
+	// A windowed rule is deployed-only by nature and has no toggle in the form, so it
+	// keeps the flag set; everything else takes the checkbox.
+	deployedOnly := def.Windowed || r.FormValue("deployed_only") == "on"
+	if err := h.db.UpdateAlertRule(r.Context(), id, r.FormValue("enabled") == "on", pj, aw, deployedOnly); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

@@ -7386,6 +7386,7 @@ type AlertRule struct {
 	ScopeType    string          `json:"scope_type"`
 	ScopeID      *uuid.UUID      `json:"scope_id"`
 	ActiveWindow string          `json:"active_window"` // "" / always | service | overnight
+	DeployedOnly bool            `json:"deployed_only"` // fire only for devices assigned to a restaurant
 	CreatedAt    time.Time       `json:"created_at"`
 }
 
@@ -7485,7 +7486,7 @@ func (d *DB) EnabledRuleIDByType(ctx context.Context, typ string) (id uuid.UUID,
 
 // ListAlertRules returns alert rules, optionally only the enabled ones.
 func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule, error) {
-	q := `SELECT id, type, name, enabled, params, scope_type, scope_id, active_window, created_at FROM alert_rules`
+	q := `SELECT id, type, name, enabled, params, scope_type, scope_id, active_window, deployed_only, created_at FROM alert_rules`
 	if onlyEnabled {
 		q += ` WHERE enabled`
 	}
@@ -7498,7 +7499,7 @@ func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule,
 	var out []AlertRule
 	for rows.Next() {
 		var r AlertRule
-		if err := rows.Scan(&r.ID, &r.Type, &r.Name, &r.Enabled, &r.Params, &r.ScopeType, &r.ScopeID, &r.ActiveWindow, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Type, &r.Name, &r.Enabled, &r.Params, &r.ScopeType, &r.ScopeID, &r.ActiveWindow, &r.DeployedOnly, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -7509,16 +7510,17 @@ func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule,
 // UpdateAlertRule sets a rule's enabled flag and threshold params. activeWindow is
 // applied only when non-empty (so updating a non-windowed rule leaves it unchanged);
 // pass "always"/"service"/"overnight" to set it.
-func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, params json.RawMessage, activeWindow string) error {
+func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, params json.RawMessage, activeWindow string, deployedOnly bool) error {
 	if len(params) == 0 {
 		params = json.RawMessage("{}")
 	}
 	_, err := d.pool.Exec(ctx, `
 		UPDATE alert_rules
 		SET enabled = $2, params = $3::jsonb,
-		    active_window = COALESCE(NULLIF($4, ''), active_window)
+		    active_window = COALESCE(NULLIF($4, ''), active_window),
+		    deployed_only = $5
 		WHERE id = $1
-	`, id, enabled, params, activeWindow)
+	`, id, enabled, params, activeWindow, deployedOnly)
 	return err
 }
 
@@ -8672,6 +8674,10 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 	if err != nil {
 		return nil, 0, err
 	}
+	deployed, err := d.deployedDeviceSet(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
@@ -8691,6 +8697,10 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
+			// Same deployed-only gate as the recent tier (see EvaluateRecentAlerts).
+			if r.DeployedOnly && !deployed[h.DeviceID] {
+				continue
+			}
 			ids = append(ids, h.DeviceID)
 			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
 			if e != nil {
@@ -8941,14 +8951,16 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 			aw = defaultActiveWindow(r.Type)
 		}
 		windowed := aw == "service" || aw == "overnight" || aw == "peak"
+		// A window-gated rule is operational by nature (it assumes a unit live in a
+		// restaurant on a service/charge schedule), so it stays deployed-only whatever
+		// the flag says. Everything else follows the rule's own deployed_only setting,
+		// which defaults to on: a bench unit left on a pad, switched off or filling its
+		// disk is expected, and nobody is on call for it.
+		deployedOnly := windowed || r.DeployedOnly
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
-			// Window-gated rules are operational (assume the unit is live in a restaurant
-			// on a service/charge schedule), so they apply to deployed units only — a
-			// bench/lab unit idle or unplugged during the day window is expected, not an
-			// alert. Hardware rules (always-on) still fire fleet-wide.
-			if windowed && !deployed[h.DeviceID] {
+			if deployedOnly && !deployed[h.DeviceID] {
 				continue
 			}
 			// Skip devices outside the rule's active window; they auto-resolve below.
@@ -9072,7 +9084,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
 			       d.last_seen_at, d.latest_extra->>'timezone',
-			       (d.latest_extra->>'wlc_status' = '1') AS on_wlc
+			       -- COALESCE, not a bare comparison: a device that reports no wlc_status at
+		       -- all (a DPC-managed device, or a T7 before the pad is read) yields NULL
+		       -- here, and scanning NULL into a bool killed the whole evaluation pass —
+		       -- every rule, not just this one.
+		       (COALESCE(d.latest_extra->>'wlc_status', '') = '1') AS on_wlc
 			FROM devices d
 			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
 			  AND (
@@ -10205,6 +10221,14 @@ INSERT INTO service_windows (group_id) SELECT NULL
 
 -- active_window on a rule: service | overnight | always. NULL/'' = always (back-compat).
 ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS active_window TEXT NOT NULL DEFAULT '';
+
+-- deployed_only on a rule: fire only for devices assigned to a restaurant. Defaults to
+-- TRUE for every rule, new and existing: a bench/lab unit is expected to be switched
+-- off, left on a charging pad or filling its disk, and nobody is on call for it. Before
+-- this flag the deployed-only gate was implied by active_window, so the 15 "always"
+-- rules fired fleet-wide and bench units produced 45% of all alerts. An operator can
+-- turn it off per rule in Settings › Alerts for a genuinely fleet-wide hardware check.
+ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS deployed_only BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- Daily-stats columns for the pad-utilisation and storage-trend rules (§8.1 #11,#12,#23).
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_guest_frac      REAL;     -- fraction of checkins with a guest device on the pad (wlc_status=1)

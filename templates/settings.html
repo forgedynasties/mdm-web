@@ -106,6 +106,8 @@
 .rule-in{display:inline-flex;align-items:center;gap:5px;}
 .rule-in input{width:78px;padding:4px 8px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
 .rule-in i{font-style:normal;font-size:11.5px;color:var(--text-faint);}
+.rule-scope .rule-in input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent);}
+.rule-scope .rule-in{height:26px;}
 .rule-f select{padding:4px 8px;font-size:12.5px;width:132px;}
 .rule-save{align-self:flex-end;}
 .rule-status{color:var(--ok,#22a06b);min-width:0;transition:opacity .4s;}
@@ -591,7 +593,14 @@ function kioskAddPkg(pkg, el){
             </select>
           </label>
           {{end}}
-          {{if or .Fields .Windowed}}<button type="submit" class="cc-btn primary sm rule-save" hidden>Save</button>{{end}}
+          {{/* A windowed rule is deployed-only by nature (it assumes a service or charge
+               schedule), so it has no toggle and the handler keeps the flag set. */}}
+          {{if not .Windowed}}
+          <label class="rule-f rule-scope" title="Only alert for devices assigned to a restaurant. Off = the whole fleet, bench and lab units included."><span>Scope</span>
+            <span class="rule-in"><input type="checkbox" name="deployed_only"{{if .DeployedOnly}} checked{{end}} onchange="ruleDirty(this)"><i>restaurant only</i></span>
+          </label>
+          {{end}}
+          <button type="submit" class="cc-btn primary sm rule-save" hidden>Save</button>
           <span class="rule-status small" aria-live="polite"></span>
         </div>
       </div>
@@ -599,7 +608,7 @@ function kioskAddPkg(pkg, el){
     {{end}}
     </div>
     {{end}}
-    <div class="muted small" style="margin-top:12px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
+    <div class="muted small" style="margin-top:12px;">Every rule is <b>restaurant only</b> by default: a bench or lab unit is expected to be switched off, parked on a pad or filling its disk, and nobody is on call for it. Clear the box to let a rule cover the whole fleet. Operational (windowed) rules are always restaurant only. Alerts are evaluated hourly during housekeeping.</div>
   </div>
 </div>
 
