@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to deploy (a commit SHA from the Build workflow, or 'main')"
+        description: "Commit SHA from the Build workflow. 'main' works but is a floating tag — a SHA is what makes a rollback exact."
         required: true
         default: main
       app_dir:
@@ -75,9 +75,15 @@ jobs:
             echo "MDM_IMAGE=$IMAGE" >> .env
           fi
 
-          # --no-build is the safety net: if the image were somehow missing, compose
+          # --force-recreate matters with a floating tag like :main. compose decides
+          # whether to restart by comparing the image NAME in its config, not the digest
+          # it resolves to — so a second deploy of ':main' pulled the new image and then
+          # left the old container running, reporting success. Deploying a SHA avoids
+          # this by changing the name, but the flag makes either form correct.
+          #
+          # --no-build is the other safety net: if the image were somehow missing, compose
           # would otherwise fall back to compiling here, which is the whole problem.
-          docker compose up -d --no-build server
+          docker compose up -d --no-build --force-recreate server
 
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
@@ -90,6 +96,9 @@ jobs:
             sleep 2
           done
           echo "health: \$state"
+          echo "running image: \$(docker inspect -f '{{.Config.Image}}' "\$cid")"
+          echo "image digest:  \$(docker inspect -f '{{index .RepoDigests 0}}' "\$(docker inspect -f '{{.Image}}' "\$cid")" 2>/dev/null || echo n/a)"
+          echo "started at:    \$(docker inspect -f '{{.State.StartedAt}}' "\$cid")"
           docker compose ps
           docker image prune -f >/dev/null 2>&1 || true
           [ "\$state" = "healthy" ]
