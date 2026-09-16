@@ -69,18 +69,18 @@
       {{end}}
     </div>
     <div class="cc-kpi">
-      <span class="k">Guest pad in use</span>
+      <span class="k">Wireless charging in use</span>
       <div class="v">{{hrs $m.PadMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.PadMinutes 60.0}} hrs{{end}}</span></div>
       <div class="muted small">a customer's phone charging on a tablet</div>
     </div>
     <div class="cc-kpi">
-      <span class="k">Pad cost to battery</span>
+      <span class="k">Wireless charging cost</span>
       {{if $m.HasPadDrain}}
       <div class="v">{{printf "%.1f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
-      <div class="muted small">off mains, over {{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} on the pad</div>
+      <div class="muted small">off mains, over {{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} of wireless charging</div>
       {{else}}
       <div class="v muted">—</div>
-      <div class="muted small">not enough pad time yet</div>
+      <div class="muted small">not enough charging time yet</div>
       {{end}}
     </div>
     <div class="cc-kpi">

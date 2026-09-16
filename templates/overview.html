@@ -1061,9 +1061,9 @@
   {{end}}
 
 {{define "ov3-w-power"}}
-{{/* Power & usage across every venue: how long the hardware ran, how much the guest pad
-     was used and what it cost, and the battery levels staff plug and unplug at. The same
-     figures appear per site on the restaurant page. */}}
+{{/* Power & usage across every venue: how long the hardware ran, how much wireless
+     charging was delivered to customers' phones and what it cost, and the battery levels
+     staff plug and unplug at. The same figures appear per site on the restaurant page. */}}
 {{$m := .PowerMetrics}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Power &amp; usage</h3><span class="m">{{if $m}}last {{$m.Days}} days · {{$m.DeviceCount}} placed device{{if ne $m.DeviceCount 1}}s{{end}}{{else}}no data{{end}}</span></div>
@@ -1075,8 +1075,8 @@
             <div class="ov3-meter"><i class="{{if lt $m.UptimeOpenPct 80}}warn{{else}}ok{{end}}" style="width:{{$m.UptimeOpenPct}}%"></i></div>
           </div>
           <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Guest pad in use</span>
-            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min off mains{{else}}not enough pad time to rate{{end}}</small></span>
+            <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Wireless charging in use</span>
+            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min off mains{{else}}not enough charging time to rate{{end}}</small></span>
           </div>
           <div class="ov3-vr">
             <span class="l"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Plugged in / unplugged at</span>
