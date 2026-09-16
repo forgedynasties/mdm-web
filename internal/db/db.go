@@ -3259,8 +3259,13 @@ type SiteMetrics struct {
 	PoweredMinutes     float64 // total, across devices
 	PoweredOpenMinutes float64 // ...restricted to opening hours
 	HasOpenHours       bool    // false when the site has no service window configured
-	OpenWindowMinutes  float64 // the site's opening hours over the window, × devices
-	FullWindowMinutes  float64 // days × 24h × devices
+	OpenWindowMinutes  float64 // opening hours over the device-days that have the data
+	FullWindowMinutes  float64 // 24h × device-days present
+	// Device-days actually rolled up. Both denominators are built from these rather than
+	// from days × devices: a device enrolled two days ago, or a day whose rollup predates
+	// a column, must not drag the percentage down as though it were silent all week.
+	DeviceDays     int
+	OpenDeviceDays int // ...of which have opening-hours data
 
 	PadMinutes      float64 // a guest phone was on the tablet's pad this long
 	PadDrainPct     float64 // battery points that cost us, off mains only
@@ -3309,6 +3314,58 @@ func (m SiteMetrics) UptimeFullPct() int {
 	return p
 }
 
+// SiteMetricsDay is one day of a venue's power picture, for the evidence strip under the
+// headline figures: a percentage nobody can check is a percentage nobody trusts.
+type SiteMetricsDay struct {
+	Day            time.Time
+	Devices        int
+	PoweredMinutes float64
+	OpenMinutes    float64 // powered inside opening hours; -1 when that day predates the data
+	PadMinutes     float64
+}
+
+// HasOpen reports whether this day carries opening-hours data.
+func (d SiteMetricsDay) HasOpen() bool { return d.OpenMinutes >= 0 }
+
+// SiteMetricsDaily returns the window day by day, oldest first, so the card can show what
+// the headline is made of and which days are missing.
+func (d *DB) SiteMetricsDaily(ctx context.Context, restaurantID uuid.UUID, days int) ([]SiteMetricsDay, error) {
+	if days <= 0 {
+		days = 7
+	}
+	scope := "d.restaurant_id IS NOT NULL"
+	args := []any{days}
+	if restaurantID != uuid.Nil {
+		scope = "d.restaurant_id = $2"
+		args = append(args, restaurantID)
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT s.day,
+		       COUNT(DISTINCT s.device_id),
+		       COALESCE(SUM(s.online_minutes), 0)::float8,
+		       CASE WHEN COUNT(s.online_minutes_open) = 0 THEN -1
+		            ELSE COALESCE(SUM(s.online_minutes_open), 0)::float8 END,
+		       COALESCE(SUM(s.wlc_minutes), 0)::float8
+		FROM device_daily_stats s
+		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
+		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)
+		GROUP BY s.day
+		ORDER BY s.day`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SiteMetricsDay
+	for rows.Next() {
+		var x SiteMetricsDay
+		if err := rows.Scan(&x.Day, &x.Devices, &x.PoweredMinutes, &x.OpenMinutes, &x.PadMinutes); err != nil {
+			return nil, err
+		}
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
 // SiteMetricsFor aggregates the window for one restaurant, or for the whole fleet when
 // restaurantID is uuid.Nil (which backs the Overview widget).
 func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days int) (SiteMetrics, error) {
@@ -3326,6 +3383,8 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(DISTINCT s.device_id),
+			COUNT(*),
+			COUNT(s.online_minutes_open),
 			COALESCE(SUM(s.online_minutes), 0)::float8,
 			COALESCE(SUM(s.online_minutes_open), 0)::float8,
 			bool_or(s.online_minutes_open IS NOT NULL),
@@ -3339,7 +3398,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 		FROM device_daily_stats s
 		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
 		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)`, args...).
-		Scan(&m.DeviceCount, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
+		Scan(&m.DeviceCount, &m.DeviceDays, &m.OpenDeviceDays, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
 			&m.PadMinutes, &m.PadDrainPct, &m.PadDrainMinutes,
 			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount)
 	if err != nil {
@@ -3354,7 +3413,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 	if m.DisconnectCount > 0 {
 		m.DisconnectAvgPct /= float64(m.DisconnectCount)
 	}
-	m.FullWindowMinutes = float64(days) * 24 * 60 * float64(m.DeviceCount)
+	m.FullWindowMinutes = 24 * 60 * float64(m.DeviceDays)
 
 	// Opening hours for the denominator: the venue's window, else the fleet default.
 	if restaurantID != uuid.Nil {
@@ -3372,7 +3431,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 		if per < 0 {
 			per += 24 * 60 // a window that wraps past midnight
 		}
-		m.OpenWindowMinutes = per * float64(days) * float64(m.DeviceCount)
+		m.OpenWindowMinutes = per * float64(m.OpenDeviceDays)
 	}
 	return m, nil
 }
@@ -7116,6 +7175,58 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
+// siteMetricsBackfillFlag marks the one-time recompute that fills the power/usage columns
+// on days that were rolled up before those columns existed.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v1"
+
+// BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
+// week immediately rather than filling in a day at a time. Without it the first week
+// after deploy compares (say) two days of opening-hours data against a seven-day window,
+// which reads as a catastrophically low uptime for no reason.
+//
+// Bounded and flagged: checkins are kept forever, so an unbounded recompute would be a
+// very long scan on a small box.
+func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) {
+	var done bool
+	if err := d.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM app_flags WHERE flag = $1)`, siteMetricsBackfillFlag).Scan(&done); err != nil {
+		return 0, err
+	}
+	if done {
+		return 0, nil
+	}
+	if maxDays <= 0 || maxDays > 30 {
+		maxDays = 14
+	}
+	today := time.Now().UTC()
+	n := 0
+	for i := 1; i <= maxDays; i++ { // today and yesterday are owned by housekeeping
+		day := today.AddDate(0, 0, -i)
+		var needs bool
+		// Only days that have rows but no power/usage data — a day already carrying the
+		// columns is left alone, so a re-run is cheap.
+		if err := d.pool.QueryRow(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM device_daily_stats
+				WHERE day = $1::date AND online_minutes_open IS NULL AND wlc_minutes IS NULL
+			)`, day.Format("2006-01-02")).Scan(&needs); err != nil {
+			return n, err
+		}
+		if !needs {
+			continue
+		}
+		if _, err := d.RollupDailyStats(ctx, day); err != nil {
+			return n, err
+		}
+		n++
+	}
+	if _, err := d.pool.Exec(ctx,
+		`INSERT INTO app_flags (flag) VALUES ($1) ON CONFLICT DO NOTHING`, siteMetricsBackfillFlag); err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
 func (d *DB) BackfillDailyStats(ctx context.Context, maxDays int) (int, error) {
 	var done bool
 	if err := d.pool.QueryRow(ctx,
@@ -7612,6 +7723,7 @@ type Alert struct {
 	Summary        string          `json:"summary"`
 	Detail         json.RawMessage `json:"detail"`
 	Occurrences    int             `json:"occurrences"`
+	MutedUntil     *time.Time      `json:"muted_until,omitempty"`
 	FiredAt        time.Time       `json:"fired_at"`
 	LastSeenAt     time.Time       `json:"last_seen_at"`
 	ResolvedAt     *time.Time      `json:"resolved_at"`
@@ -7745,28 +7857,117 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 		}
 		detailJSON = b
 	}
-	// While a condition holds continuously we refresh the row's summary/detail/last-seen
-	// but do NOT bump occurrences — the evaluator runs every minute, so counting each pass
-	// produced meaningless "×4000" badges for a single ongoing outage. The alert's age
-	// (fired_at → now) already conveys "how long", which is the useful signal. The
-	// (xmax = 0) flag is true only for a genuine INSERT, so callers still notify exactly
-	// once per episode, not on every re-fire.
+	// Episode folding, in three cases:
+	//
+	//  1. The condition is still open — refresh summary/detail/last-seen, clear any
+	//     pending cleared_at (a dip that came back is the same episode), and do NOT bump
+	//     occurrences: the evaluator runs every minute, so counting passes produced
+	//     meaningless "×4000" badges for one ongoing outage.
+	//  2. It resolved recently (within alertCooldown) and is back — REOPEN that row and
+	//     bump occurrences, instead of inserting a new one. This is what turns "95 rows
+	//     for device 746" into "746 overheated ×95", and it is why resolving everything
+	//     no longer refills the list a minute later.
+	//  3. Nothing recent — a genuinely new episode, so insert and let the caller notify.
+	//
+	// A muted (type, device) is skipped entirely: flap detection and "Clear all" both
+	// snooze rather than delete, and a snoozed condition must stay quiet.
 	var inserted bool
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO alerts (rule_id, type, device_id, severity, summary, detail)
-		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-		ON CONFLICT (type, device_id) WHERE status <> 'resolved'
-		DO UPDATE SET last_seen_at  = NOW(),
-		              severity      = EXCLUDED.severity,
-		              summary       = EXCLUDED.summary,
-		              detail        = EXCLUDED.detail,
-		              updated_at    = NOW()
-		RETURNING (xmax = 0)
-	`, ruleID, typ, deviceID, severity, summary, detailJSON).Scan(&inserted)
+		WITH recent AS (
+			SELECT id, status, occurrences, muted_until
+			FROM alerts
+			WHERE type = $2 AND device_id = $3
+			ORDER BY fired_at DESC
+			LIMIT 1
+		), muted AS (
+			SELECT 1 FROM recent WHERE muted_until IS NOT NULL AND muted_until > NOW()
+		), reopened AS (
+			UPDATE alerts a SET
+				status       = 'open',
+				resolved_at  = NULL,
+				cleared_at   = NULL,
+				occurrences  = a.occurrences + 1,
+				severity     = $4,
+				summary      = $5,
+				detail       = $6::jsonb,
+				last_seen_at = NOW(),
+				updated_at   = NOW()
+			FROM recent r
+			WHERE a.id = r.id
+			  AND r.status = 'resolved'
+			  AND NOT EXISTS (SELECT 1 FROM muted)
+			  AND a.resolved_at > NOW() - make_interval(mins => $7)
+			RETURNING a.id
+		), fresh AS (
+			INSERT INTO alerts (rule_id, type, device_id, severity, summary, detail)
+			SELECT $1, $2, $3, $4, $5, $6::jsonb
+			WHERE NOT EXISTS (SELECT 1 FROM reopened)
+			  AND NOT EXISTS (SELECT 1 FROM muted)
+			ON CONFLICT (type, device_id) WHERE status <> 'resolved'
+			DO UPDATE SET last_seen_at = NOW(),
+			              cleared_at   = NULL,
+			              severity     = EXCLUDED.severity,
+			              summary      = EXCLUDED.summary,
+			              detail       = EXCLUDED.detail,
+			              updated_at    = NOW()
+			RETURNING (xmax = 0) AS ins
+		)
+		SELECT COALESCE((SELECT ins FROM fresh), false)
+	`, ruleID, typ, deviceID, severity, summary, detailJSON, alertCooldownMin).Scan(&inserted)
 	if err != nil {
 		return false, err
 	}
+	if err := d.muteFlappingAlert(ctx, typ, deviceID); err != nil {
+		return inserted, err
+	}
 	return inserted, nil
+}
+
+// alertCooldownMin is how long after resolving the same condition counts as the same
+// episode rather than a new one.
+const alertCooldownMin = 30
+
+// alertFlapEpisodes is how many episodes in a day make a condition a flapper: the device
+// is telling us it sits on the threshold, not that something new keeps happening.
+const alertFlapEpisodes = 5
+
+// muteFlappingAlert snoozes a condition that has come back too many times in a day. The
+// row stays open and carries its count, so the list reads "746 overheated ×12" on one line
+// instead of twelve, and nothing more is raised for it until an operator resolves it.
+func (d *DB) muteFlappingAlert(ctx context.Context, typ string, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET
+			muted_until = NOW() + INTERVAL '24 hours',
+			detail      = detail || jsonb_build_object('flapping', true, 'episodes', occurrences),
+			updated_at  = NOW()
+		WHERE type = $1 AND device_id = $2 AND status <> 'resolved'
+		  AND occurrences >= $3
+		  AND muted_until IS NULL
+		  AND fired_at > NOW() - INTERVAL '24 hours'
+	`, typ, deviceID, alertFlapEpisodes)
+	return err
+}
+
+// alertClearMin is how long a condition must stay clear before its alert resolves. The
+// readings that flooded the list sat on a threshold and crossed it repeatedly; without a
+// clear window each crossing closed one alert and opened another.
+const alertClearMin = 10
+
+// resolveClearedAlerts closes alerts whose condition has stayed clear for the whole window.
+// Muted rows are left open deliberately: a flapping condition waits for an operator rather
+// than quietly resolving itself and starting over.
+func (d *DB) resolveClearedAlerts(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE status <> 'resolved'
+		  AND cleared_at IS NOT NULL
+		  AND cleared_at < make_interval(mins => -$1) + NOW()
+		  AND (muted_until IS NULL OR muted_until < NOW())
+	`, alertClearMin)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // ResolveOpenAlert resolves any non-resolved alert for (type, device); used when a
@@ -7791,7 +7992,7 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -7808,7 +8009,7 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -7826,7 +8027,7 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -7843,7 +8044,7 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -7866,7 +8067,7 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
 		       COUNT(*) OVER() AS total
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
@@ -7887,7 +8088,7 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt, &total); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt, &total); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, a)
@@ -8006,8 +8207,19 @@ func (d *DB) BulkSetAlertStatusByIDs(ctx context.Context, ids []uuid.UUID, statu
 // DeleteAllAlerts removes every alert row (fired instances), returning the number
 // deleted. Rule definitions in alert_rules are untouched, so alerts re-fire on the
 // next evaluation if their conditions still hold.
+// DeleteAllAlerts is now resolve-and-snooze, not a delete. It used to be
+// `DELETE FROM alerts`, which destroyed the history AND achieved nothing: the evaluator
+// re-created every condition that still held within the minute, so the list refilled
+// while the operator watched. Resolving and muting for a day empties the list and keeps
+// it empty for anything unchanged, while the rows survive for trend analysis.
 func (d *DB) DeleteAllAlerts(ctx context.Context) (int64, error) {
-	tag, err := d.pool.Exec(ctx, `DELETE FROM alerts`)
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET
+			status      = 'resolved',
+			resolved_at = NOW(),
+			muted_until = NOW() + INTERVAL '24 hours',
+			updated_at  = NOW()
+		WHERE status <> 'resolved'`)
 	if err != nil {
 		return 0, err
 	}
@@ -8920,10 +9132,13 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
 			}
 		}
-		// Resolve any open alert of this type whose device is no longer violating.
+		// The device stopped violating — start the clear window rather than resolving at
+		// once, so a reading that dips below the line for one pass does not end the
+		// episode and start a new one a minute later. See resolveClearedAlerts.
 		tag, e := d.pool.Exec(ctx, `
-			UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+			UPDATE alerts SET cleared_at = COALESCE(cleared_at, NOW()), updated_at = NOW()
 			WHERE type = $1 AND status <> 'resolved' AND device_id <> ALL($2::uuid[])
+			  AND cleared_at IS NULL
 		`, r.Type, ids)
 		if e != nil {
 			return created, resolved, e
@@ -9193,14 +9408,20 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
 			}
 		}
+		// Same clear-window treatment as the daily tier above.
 		tag, e := d.pool.Exec(ctx, `
-			UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+			UPDATE alerts SET cleared_at = COALESCE(cleared_at, NOW()), updated_at = NOW()
 			WHERE type = $1 AND status <> 'resolved' AND device_id <> ALL($2::uuid[])
+			  AND cleared_at IS NULL
 		`, r.Type, ids)
 		if e != nil {
 			return created, resolved, e
 		}
 		resolved += int(tag.RowsAffected())
+	}
+	// Close out anything whose clear window has now passed.
+	if n, e := d.resolveClearedAlerts(ctx); e == nil {
+		resolved += int(n)
 	}
 	return created, resolved, nil
 }
@@ -10793,6 +11014,18 @@ UPDATE alert_rules SET active_window = 'always' WHERE type = 'offline' AND activ
 -- instead of suppressing them silently, and record when the condition was last seen.
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS occurrences INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Episode folding. An alert used to be one row per episode: a condition that cleared and
+-- returned produced a fresh row, so a device hovering on a threshold made dozens a day and
+-- "Clear all" simply deleted rows the evaluator re-created within the minute.
+--   cleared_at  the condition stopped holding at this time, but the row is not resolved
+--               yet — it waits out the clear window, so a brief dip does not end an episode
+--               (and a return simply clears the stamp again).
+--   muted_until suppress this (type, device) until then. Set by flap detection, and by
+--               "Clear all", which now means resolve-and-snooze rather than delete.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS cleared_at  TIMESTAMPTZ;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS muted_until TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_alerts_recent_by_device ON alerts (type, device_id, fired_at DESC);
 
 -- QFIL flashing packages. Each release can carry one or more QFIL bundles
 -- (Qualcomm Flash Image Loader packages used to flash a device from scratch over
@@ -14096,7 +14329,7 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -14113,7 +14346,7 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

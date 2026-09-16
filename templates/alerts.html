@@ -78,7 +78,7 @@
       <form action="/alerts/resolve-all" method="POST" hx-confirm="Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.">
         <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
       </form>
-      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear ALL alerts? This deletes them, including resolved history, and any whose condition still holds will re-fire within a minute. Acknowledge all is usually what you want.">
+      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear the list? Every open alert is resolved and snoozed for 24 hours. Nothing is deleted, and a condition that is still true stays quiet until the snooze ends.">
         <button type="submit" class="cc-btn danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>Clear all</button>
       </form>
       {{end}}
@@ -189,6 +189,10 @@ function alxFilter(){
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-t">{{.Headline}}</span>
+      {{/* Episodes are folded into one row now, so say how many times rather than
+           repeating the row — and say when a flapper has been snoozed. */}}
+      {{if gt .Occurrences 1}}<span class="alx-occ" title="Times this condition has come back">×{{.Occurrences}}</span>{{end}}
+      {{if .Muted}}<span class="cc-tag" title="Snoozed: it keeps coming back, or the list was cleared. It stays quiet until someone resolves it.">snoozed</span>{{end}}
       <span class="alx-when">{{timeSince .FiredAt}}</span>
     </div>
     <div class="alx-s">{{.Sentence}}</div>

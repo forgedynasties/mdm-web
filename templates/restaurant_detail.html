@@ -1,5 +1,16 @@
 {{define "restaurant_detail.html"}}
 {{template "header" .}}
+<style>
+/* per-day evidence strip under the Power & usage tiles */
+.sm-days{display:flex;gap:6px;align-items:flex-end;padding:4px 16px 8px}
+.sm-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.sm-bar{position:relative;width:100%;height:56px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.sm-bar i{position:absolute;left:0;right:0;bottom:0;display:block;border-radius:6px}
+.sm-bar i.tot{background:var(--accent-soft)}
+.sm-bar i.open{background:var(--accent)}
+.sm-lbl{font-size:10.5px;color:var(--text-faint)}
+.sm-val{font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+</style>
 <link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
@@ -80,6 +91,27 @@
       {{end}}
     </div>
   </div>
+  {{/* The evidence behind the headline: the same week day by day, so a percentage can be
+       checked rather than believed. Days before the metric existed say so instead of
+       drawing a zero bar. */}}
+  {{if .MetricsDaily}}
+  <div class="sm-days">
+    {{range .MetricsDaily}}
+    <div class="sm-day" title="{{.Day.Format "Mon 2 Jan"}} · {{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{hrs .PoweredMinutes}} powered{{if .HasOpen}} · {{hrs .OpenMinutes}} in opening hours{{end}}">
+      <div class="sm-bar">
+        <i class="tot" style="height:{{pctOfF .PoweredMinutes $.MetricsDailyMax}}%"></i>
+        {{if .HasOpen}}<i class="open" style="height:{{pctOfF .OpenMinutes $.MetricsDailyMax}}%"></i>{{end}}
+      </div>
+      <span class="sm-lbl">{{.Day.Format "Mon"}}</span>
+      <span class="sm-val">{{if .HasOpen}}{{hrs .OpenMinutes}}{{else}}—{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  <div class="muted small" style="padding:0 16px 14px;">
+    Bars are hours powered per day; the darker part is inside opening hours.
+    {{if lt $m.OpenDeviceDays $m.DeviceDays}}<b>{{sub $m.DeviceDays $m.OpenDeviceDays}} of {{$m.DeviceDays}} device-days</b> predate the opening-hours measurement and are excluded from that percentage — it fills in as the week rolls on.{{end}}
+  </div>
+  {{end}}
 </div>
 {{end}}
 

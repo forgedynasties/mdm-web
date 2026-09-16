@@ -36,6 +36,7 @@ type humanAlert struct {
 	FiredAt     time.Time
 	ResolvedAt  *time.Time
 	Occurrences int
+	Muted       bool // snoozed: a flapper, or cleared by "Clear all"
 	Primary     *alertAction
 	Trace       string // crash/ANR/tombstone stack trace, shown inline (set by the handler)
 	CanAct      bool   // whether the viewer may acknowledge/resolve (set by the handler)
@@ -123,6 +124,7 @@ func humanizeAlert(a db.Alert) humanAlert {
 		Serial: a.Serial, Restaurant: a.RestaurantName,
 		FiredAt: a.FiredAt, ResolvedAt: a.ResolvedAt,
 		Occurrences: a.Occurrences, IconKey: "generic",
+		Muted:       a.MutedUntil != nil && a.MutedUntil.After(time.Now()),
 	}
 	var s string
 	switch a.Type {

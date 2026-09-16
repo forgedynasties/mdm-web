@@ -1479,6 +1479,20 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
+		// pctOfF is pctOf for the float durations the power/usage bars are drawn from.
+		"pctOfF": func(n, total float64) int {
+			if total <= 0 {
+				return 0
+			}
+			p := int(n * 100 / total)
+			if p > 100 {
+				return 100
+			}
+			if p < 0 {
+				return 0
+			}
+			return p
+		},
 		// dash: SVG ring stroke-dashoffset for a 0–100 value over a circumference.
 		"dash": func(circ float64, pct int) string {
 			if pct < 0 {
@@ -7396,8 +7410,8 @@ func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) {
 	h.bulkAlertStatus(w, r, "resolved")
 }
 
-// AlertClearAll deletes every alert row (admin only). Rules are untouched, so any
-// alert whose condition still holds re-fires on the next evaluation.
+// AlertClearAll empties the list: every open alert is resolved and muted for 24 hours.
+// It is no longer a delete — see db.DeleteAllAlerts for why deleting achieved nothing.
 func (h *Handler) AlertClearAll(w http.ResponseWriter, r *http.Request) {
 	n, err := h.db.DeleteAllAlerts(r.Context())
 	if err != nil {
@@ -8908,6 +8922,17 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	// tablet's own battery, and the battery levels staff plug and unplug at.
 	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7); err == nil {
 		data["Metrics"] = m
+		// The evidence behind the headline: the same week, day by day.
+		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7); err == nil {
+			data["MetricsDaily"] = daily
+			max := 1.0
+			for _, x := range daily {
+				if x.PoweredMinutes > max {
+					max = x.PoweredMinutes
+				}
+			}
+			data["MetricsDailyMax"] = max
+		}
 	}
 	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated

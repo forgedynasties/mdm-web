@@ -430,6 +430,16 @@ func main() {
 		}
 	})
 
+	// One-time: fill the power/usage columns on days rolled up before they existed, so
+	// the restaurant metrics cover a full week from the first deploy.
+	safego("backfill-site-metrics", func() {
+		if n, err := database.BackfillSiteMetrics(bgCtx, 14); err != nil {
+			log.Printf("[startup] backfill site metrics: %v", err)
+		} else if n > 0 {
+			log.Printf("[startup] backfilled power/usage metrics for %d day(s)", n)
+		}
+	})
+
 	// Move legacy JSONB access rules into access_grants (one-time; see MigrateAccessRules).
 	safego("migrate-access-rules", func() {
 		if moved, dropped, err := database.MigrateAccessRules(bgCtx); err != nil {

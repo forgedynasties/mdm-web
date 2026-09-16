@@ -866,7 +866,11 @@ function mdmBootCharts() {
     if (allBattery.length) xs.push(allBattery[0].x);
     if (allTemp.length) xs.push(allTemp[0].x);
     if (allRam.length) xs.push(allRam[0].x);
-    return xs.length ? Math.min.apply(null, xs) : Date.now();
+    // Nothing is loaded at all — a device with no battery, whose page ships no series
+    // because temp/RAM are fetched lazily. Falling back to "now" made the lazy fetch
+    // compute from >= until, mark itself loaded and never fetch, so the first tab a
+    // kiosk opens stayed empty. The default view is the last 6 hours, so start there.
+    return xs.length ? Math.min.apply(null, xs) : Date.now() - 6 * 3600 * 1000;
   })();
   let chartFetching = false;
   // Fetch check-ins older than what's loaded, for [fromMs, loadedMinX), and prepend
