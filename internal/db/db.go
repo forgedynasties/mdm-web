@@ -7033,6 +7033,37 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			-- The fleet default, used by every venue that has not set its own hours.
 			LEFT JOIN service_windows fsw ON fsw.restaurant_id IS NULL AND fsw.group_id IS NULL
 			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
+		),
+		-- Charge SESSIONS, not flag flips. The charging flag chatters: a full battery
+		-- alternates CHARGING/FULL, and a failing charger can toggle ten times a minute
+		-- (which is what the charger_flapping rule exists to catch). Counting every
+		-- false->true edge therefore reported thousands of "charges" a week, all at 98%.
+		-- Consecutive samples in the same state are folded into one run, and only runs
+		-- that lasted a few minutes count as somebody actually plugging the device in.
+		runs AS (
+			SELECT device_id, battery_pct, created_at,
+				COALESCE((extra->>'charging')::boolean, false) AS charging,
+				SUM(CASE WHEN COALESCE((extra->>'charging')::boolean, false)
+				         IS DISTINCT FROM prev_charging THEN 1 ELSE 0 END)
+					OVER (PARTITION BY device_id ORDER BY created_at) AS run_id
+			FROM samples
+		),
+		sessions AS (
+			SELECT device_id, run_id, bool_or(charging) AS charging,
+				EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) AS secs,
+				(ARRAY_AGG(battery_pct ORDER BY created_at))[1] AS first_batt,
+				(ARRAY_AGG(battery_pct ORDER BY created_at DESC))[1] AS last_batt
+			FROM runs
+			GROUP BY device_id, run_id
+		),
+		charge_events AS (
+			SELECT device_id,
+				COUNT(*)::int AS n,
+				COALESCE(SUM(first_batt), 0)::real AS connect_sum,
+				COALESCE(SUM(last_batt), 0)::real AS disconnect_sum
+			FROM sessions
+			WHERE charging AND secs >= 300   -- five minutes on charge = a real plug-in
+			GROUP BY device_id
 		)
 		INSERT INTO device_daily_stats AS s (
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
@@ -7043,7 +7074,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			charge_connect_sum, charge_connect_n, charge_disconnect_sum, charge_disconnect_n,
 			online_minutes_open, computed_at)
 		SELECT
-			device_id,
+			s.device_id,
 			$1::date,
 			COUNT(*),
 			MIN(battery_pct),
@@ -7084,19 +7115,20 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 				THEN GREATEST(0, prev_batt - battery_pct) ELSE 0 END), 0)::real,
 			(SUM(CASE WHEN extra->>'wlc_status' = '1' AND COALESCE((extra->>'charging')::boolean, false) = false
 				THEN w ELSE 0 END) / 60.0)::real,
-			-- Battery level at each charger connect / disconnect. Sums and counts rather
-			-- than averages, so a week aggregates as SUM/SUM.
-			COALESCE(SUM(CASE WHEN (extra->>'charging')::boolean AND prev_charging = false THEN battery_pct ELSE 0 END), 0)::real,
-			COUNT(*) FILTER (WHERE (extra->>'charging')::boolean AND prev_charging = false)::int,
-			COALESCE(SUM(CASE WHEN (extra->>'charging')::boolean = false AND prev_charging THEN battery_pct ELSE 0 END), 0)::real,
-			COUNT(*) FILTER (WHERE (extra->>'charging')::boolean = false AND prev_charging)::int,
+			-- Battery at the start and end of each charge session (see charge_events).
+			-- Sums and counts rather than averages, so a week aggregates as SUM/SUM.
+			COALESCE(MAX(ce.connect_sum), 0)::real,
+			COALESCE(MAX(ce.n), 0)::int,
+			COALESCE(MAX(ce.disconnect_sum), 0)::real,
+			COALESCE(MAX(ce.n), 0)::int,
 			-- Powered minutes inside the site's opening hours. NULL when the site has no
 			-- window configured, so the UI can say so instead of showing a misleading 0.
 			CASE WHEN bool_or(in_open_hours IS NOT NULL)
 				THEN (SUM(CASE WHEN in_open_hours THEN w ELSE 0 END) / 60.0)::real END,
 			NOW()
-		FROM samples
-		GROUP BY device_id
+		FROM samples s
+		LEFT JOIN charge_events ce ON ce.device_id = s.device_id
+		GROUP BY s.device_id
 		ON CONFLICT (device_id, day) DO UPDATE SET
 			checkin_count  = EXCLUDED.checkin_count,
 			battery_min    = EXCLUDED.battery_min,
@@ -7177,7 +7209,10 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 
 // siteMetricsBackfillFlag marks the one-time recompute that fills the power/usage columns
 // on days that were rolled up before those columns existed.
-const siteMetricsBackfillFlag = "site_metrics_backfilled_v1"
+// v2: v1 counted every charging-flag edge as a plug-in, so a full battery alternating
+// CHARGING/FULL reported thousands of "charges" at 98%. The recompute has to run again to
+// replace those numbers with real sessions.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v2"
 
 // BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
 // week immediately rather than filling in a day at a time. Without it the first week
