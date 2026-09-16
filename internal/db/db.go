@@ -1463,6 +1463,16 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		`, serial, buildID); err != nil {
 			return uuid.Nil, 0, false, err
 		}
+		// A new build can carry a different app set — a re-flash wipes the lot. The
+		// client only re-sends its app list when ITS OWN hash changes, so a wiped device
+		// would keep showing the old apps forever. Clearing our hash marks the inventory
+		// unknown; the check-in response then asks for a full list (see NeedsAppInventory).
+		if _, err = tx.Exec(ctx, `
+			UPDATE devices SET packages_hash = ''
+			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
+		`, serial, buildID); err != nil {
+			return uuid.Nil, 0, false, err
+		}
 	}
 
 	extraExpr := "EXCLUDED.latest_extra"
@@ -5866,6 +5876,20 @@ type FleetPackage struct {
 // UpsertDevicePackages replaces all packages for a device atomically.
 // devicePackagesHash fingerprints the (order-independent) installed-app set so an
 // unchanged list can be detected cheaply.
+// NeedsAppInventory reports whether the stored app list for a device is unknown or
+// stale, so the check-in response should ask the client for a full one. True when the
+// inventory hash was cleared (a build change) or nothing was ever stored.
+func (d *DB) NeedsAppInventory(ctx context.Context, deviceID uuid.UUID) bool {
+	var stale bool
+	if err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE(packages_hash, '') = ''
+		       OR NOT EXISTS (SELECT 1 FROM device_packages dp WHERE dp.device_id = devices.id)
+		FROM devices WHERE id = $1`, deviceID).Scan(&stale); err != nil {
+		return false
+	}
+	return stale
+}
+
 func devicePackagesHash(packages []DevicePackage) string {
 	sorted := make([]DevicePackage, len(packages))
 	copy(sorted, packages)

@@ -889,11 +889,18 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	// battery/charging do, instead of waiting for a second trailing-throttle broadcast.
 	h.hub.PublishDeviceUpdate(deviceID)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"status":   "ok",
 		"commands": cmdList,
 		"config":   cfgMap,
-	})
+	}
+	// Ask for a full app list when ours is unknown or stale (a build change clears it).
+	// The client has always honoured this flag; nothing ever set it, so a device that was
+	// re-flashed kept showing its old apps until its own app set happened to change.
+	if h.db.NeedsAppInventory(r.Context(), deviceID) {
+		resp["send_apps"] = true
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // addOfflineExit hands the device its unlock seed. Offline exit isn't a separate feature —
