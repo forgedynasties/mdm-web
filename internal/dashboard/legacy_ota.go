@@ -183,6 +183,11 @@ func (h *Handler) LegacyOTAReboot(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, back, serial+" isn't in the fleet — reboot it on site", "error")
 		return
 	}
+	// Same guard as the device page: never reboot a device that is still taking an OTA.
+	if blocked, why, err := h.db.RebootBlockedFor(r.Context(), device.ID); err == nil && blocked {
+		h.hxDoneToast(w, r, "/updates/legacy", "Reboot refused: "+why, "error")
+		return
+	}
 	cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
 	if err != nil {
 		h.hxDoneToast(w, r, back, "Could not send the reboot", "error")

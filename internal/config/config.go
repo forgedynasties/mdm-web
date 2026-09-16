@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"mdm/internal/otaconfig"
 )
 
 // writeFileAtomic writes data to a temp file in the same directory and renames it
@@ -123,6 +125,19 @@ type Config struct {
 	// OTA port: "mdm" (this server, from its own deployments) or "passthrough"
 	// (forwarded verbatim to the old ota-server container). "" = mdm.
 	LegacyOTAModeVal string `json:"legacy_ota_mode,omitempty"`
+
+	// Legacy OTA discovery config (ota_config.json on S3). The otautil app reads it
+	// every poll and decides its own reboots from it; the MDM publishes the file so
+	// the reboot window always sits hours ahead of the reference timezone's clock and
+	// in the small hours, which keeps the reboot decision with the MDM. See
+	// internal/otaconfig.
+	OTAConfigManagedVal  bool   `json:"ota_config_managed,omitempty"`
+	OTAConfigBaseURLVal  string `json:"ota_config_base_url,omitempty"`
+	OTAConfigPollMSVal   int    `json:"ota_config_poll_ms,omitempty"`
+	OTAConfigTZVal       string `json:"ota_config_tz,omitempty"`
+	OTAConfigLeadHrsVal  int    `json:"ota_config_lead_hours,omitempty"`
+	OTAConfigLastJSONVal string `json:"ota_config_last_json,omitempty"`
+	OTAConfigLastAtVal   string `json:"ota_config_last_at,omitempty"`
 
 	// Products whose hardware carries a wireless-charging guest pad (WLC). Pad
 	// UI/telemetry surfaces render only for these products. Absent = default {"t7"}.
@@ -1069,6 +1084,68 @@ func (c *Config) Remove(key string) error {
 		}
 	}
 	c.ExtraColumns = filtered
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// ── Legacy OTA discovery config (ota_config.json) ──────────────────────────────
+
+// OTAConfigManaged reports whether this server publishes ota_config.json to S3. Off by
+// default: only one MDM may own the file, and it is read by every legacy device.
+func (c *Config) OTAConfigManaged() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.OTAConfigManagedVal
+}
+
+// OTAConfigOptions returns the publish settings, filling anything unset from the
+// package defaults so a half-configured file still renders something the app accepts.
+func (c *Config) OTAConfigOptions() otaconfig.Options {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	o := otaconfig.Defaults()
+	if c.OTAConfigBaseURLVal != "" {
+		o.BaseURL = c.OTAConfigBaseURLVal
+	}
+	if c.OTAConfigPollMSVal > 0 {
+		o.PollMS = c.OTAConfigPollMSVal
+	}
+	if c.OTAConfigTZVal != "" {
+		o.Timezone = c.OTAConfigTZVal
+	}
+	if c.OTAConfigLeadHrsVal > 0 {
+		o.LeadHours = c.OTAConfigLeadHrsVal
+	}
+	return o
+}
+
+// OTAConfigLast returns the last published document and when it went out, for the
+// settings page and to skip a no-op PUT.
+func (c *Config) OTAConfigLast() (string, string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.OTAConfigLastJSONVal, c.OTAConfigLastAtVal
+}
+
+// SetOTAConfig saves the publish settings. Empty/zero values fall back to defaults.
+func (c *Config) SetOTAConfig(managed bool, baseURL string, pollMS int, tz string, leadHours int) error {
+	c.mu.Lock()
+	c.OTAConfigManagedVal = managed
+	c.OTAConfigBaseURLVal = strings.TrimSpace(baseURL)
+	c.OTAConfigPollMSVal = pollMS
+	c.OTAConfigTZVal = strings.TrimSpace(tz)
+	c.OTAConfigLeadHrsVal = leadHours
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// SetOTAConfigPublished records what was last written to S3.
+func (c *Config) SetOTAConfigPublished(body string, at time.Time) error {
+	c.mu.Lock()
+	c.OTAConfigLastJSONVal = body
+	c.OTAConfigLastAtVal = at.UTC().Format(time.RFC3339)
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

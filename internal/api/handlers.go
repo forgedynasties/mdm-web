@@ -1755,6 +1755,34 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A reboot during an OTA throws away the download or interrupts the install, so drop
+	// those devices the same way installs drop duplicates. The MDM's own post-OTA reboot
+	// is created directly (see ProcessDueScheduledReboots) and never passes through here.
+	var rebootBusy []string
+	if body.Type == "reboot" && body.TargetType == "devices" && len(targetIDs) > 0 {
+		fresh := make([]uuid.UUID, 0, len(targetIDs))
+		for _, id := range targetIDs {
+			blocked, _, err := h.db.RebootBlockedFor(r.Context(), id)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+				return
+			}
+			if blocked {
+				if d, e := h.db.GetDeviceByID(r.Context(), id); e == nil {
+					rebootBusy = append(rebootBusy, d.SerialNumber)
+				}
+				continue
+			}
+			fresh = append(fresh, id)
+		}
+		targetIDs = fresh
+		if len(targetIDs) == 0 {
+			writeJSON(w, http.StatusConflict, map[string]any{"created": false, "skipped": rebootBusy,
+				"message": "every target device is taking an OTA; they reboot themselves when it is ready"})
+			return
+		}
+	}
+
 	// Don't pile up installs: drop devices that already have this exact APK in flight.
 	var skipped []string
 	if body.Type == "install_apk" && body.TargetType == "devices" && len(targetIDs) > 0 {
@@ -1801,6 +1829,9 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 
 	h.pushCommand(r.Context(), cmd, body.TargetType, targetIDs)
 
+	if len(rebootBusy) > 0 {
+		skipped = append(skipped, rebootBusy...)
+	}
 	if len(skipped) > 0 {
 		writeJSON(w, http.StatusCreated, map[string]any{"command": cmd, "skipped": skipped})
 		return

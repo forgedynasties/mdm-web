@@ -41,6 +41,7 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/apkstore"
 	"mdm/internal/config"
+	"mdm/internal/otaconfig"
 	"mdm/internal/db"
 	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
@@ -17078,6 +17079,11 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"LegacyOTAMode":        h.cfg.LegacyOTAMode(),
 		"LegacyOTAPort":        os.Getenv("LEGACY_OTA_PORT"),
 		"LegacyOTAUpstream":    os.Getenv("LEGACY_OTA_UPSTREAM"),
+		"OTAConfigManaged":     h.cfg.OTAConfigManaged(),
+		"OTAConfigOpts":        h.cfg.OTAConfigOptions(),
+		"OTAConfigLast":        otaConfigLastView(h.cfg),
+		"OTAConfigNext":        otaConfigNextView(h.cfg),
+		"OTAConfigS3":          h.apk != nil,
 		"KioskFleetApps":       kioskFleetApps,
 		"GoogleUsage":          googleUsage,
 		"GoogleUsageJSON":      template.JS(googleUsageJSON),
@@ -18073,6 +18079,28 @@ func (h *Handler) SettingsSetLegacyOTA(w http.ResponseWriter, r *http.Request) {
 	h.settingsRedirect(w, r)
 }
 
+// SettingsSetOTAConfig saves the legacy OTA discovery-config settings and publishes the
+// file immediately, so an admin sees the result rather than waiting for the hourly job.
+func (h *Handler) SettingsSetOTAConfig(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	pollMS, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("poll_interval_ms")))
+	leadHours, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("lead_hours")))
+	if err := h.cfg.SetOTAConfig(
+		r.FormValue("managed") == "on",
+		r.FormValue("api_base_url"),
+		pollMS,
+		r.FormValue("timezone"),
+		leadHours,
+	); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "settings.ota_config", "", "")
+	// Publishing on save keeps "what the fleet reads" and "what this page shows" in step.
+	h.PublishOTAConfig(r.Context())
+	h.hxDoneToast(w, r, h.settingsDest(r), "OTA discovery config saved", "success")
+}
+
 func (h *Handler) SettingsSetOTAMinRelease(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	m := map[string]int{}
@@ -19055,6 +19083,23 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Don't stack a duplicate: if an identical command (same type + key params) is already
+	// A reboot during an OTA download throws the bytes away, and during an install can
+	// leave a half-written slot — refuse it while either fleet's update is in flight.
+	// The MDM's own post-OTA reboot does not come through here, so it still works.
+	if cmdType == "reboot" {
+		if blocked, why, err := h.db.RebootBlockedFor(r.Context(), device.ID); err == nil && blocked {
+			msg := "Reboot refused: " + why + " on this device. It reboots on its own when the update is ready."
+			if r.Header.Get("Accept") == "application/json" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": msg})
+				return
+			}
+			http.Error(w, msg, http.StatusConflict)
+			return
+		}
+	}
+
 	// in flight for this device, bounce back to the (already-showing) pending row instead
 	// of queuing a second the device must process. Install keys on APK URL; other types on
 	// payload; reboot/screenshot collapse to one in-flight per type.
@@ -20338,6 +20383,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/mdm-servers", h.requireStrictAdmin(h.SettingsSetMDMServers))
 	post("POST /settings/ota-min-release", h.requireStrictAdmin(h.SettingsSetOTAMinRelease))
 	post("POST /settings/legacy-ota", h.requireStrictAdmin(h.SettingsSetLegacyOTA))
+	post("POST /settings/ota-config", h.requireStrictAdmin(h.SettingsSetOTAConfig))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireStrictAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireStrictAdmin(h.SettingsSetServiceWindow))
@@ -20669,4 +20715,17 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	// Surface the new delivery/ack state on the command detail page in real time
 	// instead of waiting for its 30s polling fallback.
 	h.hub.PublishCommandUpdate(cmd.ID)
+}
+
+// otaConfigLastView / otaConfigNextView back the discovery-config card: what the fleet is
+// reading right now, and the window the next publish would carry.
+func otaConfigLastView(cfg *config.Config) map[string]string {
+	body, at := cfg.OTAConfigLast()
+	return map[string]string{"Body": body, "At": at}
+}
+
+func otaConfigNextView(cfg *config.Config) map[string]any {
+	o := cfg.OTAConfigOptions()
+	start, end := otaconfig.Window(o, time.Now())
+	return map[string]any{"Start": start, "End": end, "TZ": o.Timezone}
 }

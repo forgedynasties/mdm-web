@@ -173,6 +173,22 @@ func (s *Store) PresignPut(ctx context.Context, key, contentType string, ttl tim
 	return out.URL, nil
 }
 
+// Put writes an object straight from the server. Used for small control files the MDM
+// owns (the legacy OTA discovery config), not for APKs — those are uploaded by the
+// browser through PresignPut so the bytes never pass through here.
+func (s *Store) Put(ctx context.Context, key, contentType string, body []byte) error {
+	in := &s3.PutObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(body),
+	}
+	if contentType != "" {
+		in.ContentType = aws.String(contentType)
+	}
+	_, err := s.client.PutObject(ctx, in)
+	return err
+}
+
 // PresignGet returns a presigned URL for downloading an object (used by the device
 // install proxy so the bucket can stay private).
 func (s *Store) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {

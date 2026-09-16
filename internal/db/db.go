@@ -11450,6 +11450,46 @@ func (d *DB) ActiveOTADevices(ctx context.Context) ([]OTAInProgress, error) {
 	return out, rows.Err()
 }
 
+// RebootBlockedFor reports whether a device is mid-OTA, so an operator's reboot must be
+// refused: rebooting during a download throws the bytes away, and rebooting mid-install
+// can leave a half-written slot. Covers both fleets — agent OTA (update_devices) and
+// legacy otautil (legacy_ota_deployment_devices).
+//
+// "awaiting_reboot" deliberately does NOT block: that state is waiting for exactly this
+// reboot. Nor does this gate the MDM's own post-OTA reboot, which does not call it.
+func (d *DB) RebootBlockedFor(ctx context.Context, deviceID uuid.UUID) (bool, string, error) {
+	var phase string
+	// Agent fleet: same predicate ActiveOTADevices/SerialsUpdating use for "in flight".
+	err := d.pool.QueryRow(ctx, `
+		SELECT ud.status
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id AND u.status = 'active'
+		WHERE ud.device_id = $1 AND ud.status IN ('pending', 'downloading')
+		LIMIT 1`, deviceID).Scan(&phase)
+	if err == nil {
+		return true, "a system update is " + phase, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return false, "", err
+	}
+	// Legacy fleet: keyed by serial, and only for a device that also has a device row.
+	err = d.pool.QueryRow(ctx, `
+		SELECT t.status
+		FROM legacy_ota_deployment_devices t
+		JOIN legacy_ota_deployments p ON p.id = t.deployment_id AND p.status = 'active'
+		JOIN devices dv ON dv.serial_number = t.serial
+		WHERE dv.id = $1
+		  AND t.status IN ('offered', 'downloading', 'installing', 'verifying', 'finalizing')
+		LIMIT 1`, deviceID).Scan(&phase)
+	if err == nil {
+		return true, "a legacy OTA is " + phase, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return false, "", err
+	}
+	return false, "", nil
+}
+
 // SerialsUpdating returns serial_number -> target version for every device currently in an
 // in-flight OTA (pending/downloading on an active deployment). A push picker uses this to
 // mark such devices "updating" instead of offering them again — the device's build_id

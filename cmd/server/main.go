@@ -492,6 +492,22 @@ func main() {
 		}
 	})
 
+	// Legacy OTA discovery config: republish ota_config.json when the rolling reboot
+	// window moves, so otautil never reboots a device the MDM is about to reboot itself.
+	safego("ota-config-loop", func() {
+		runJob(bgCtx, "ota-config-publish", time.Minute, dash.PublishOTAConfig)
+		t := time.NewTicker(1 * time.Hour)
+		defer t.Stop()
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				runJob(bgCtx, "ota-config-publish", time.Minute, dash.PublishOTAConfig)
+			}
+		}
+	})
+
 	// Minute dispatcher: scheduled reboots + recent-tier alerts + scheduled recipes.
 	safego("minute-loop", func() {
 		t := time.NewTicker(1 * time.Minute)

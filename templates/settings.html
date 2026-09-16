@@ -294,6 +294,30 @@
     {{else}}<div class="muted small">Set <code>LEGACY_OTA_PORT</code> in the server environment to turn the listener on.</div>{{end}}
   </div>
 </div>
+
+<div class="cc-card" style="margin-top:14px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M8 7l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg></span><h3>OTA discovery config</h3><span class="muted small m">{{if .OTAConfigManaged}}managed by this server{{else}}not managed{{end}}</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      <code>otautil</code> reads <code>ota_config.json</code> from S3 on every poll and decides its own reboots from it: when an update finishes installing it reboots at once if the device's local hour is inside the window, otherwise it sets an alarm for the window's start hour. It has no "never reboot" setting. So the MDM publishes the file with the window always a few hours ahead of the reference clock and inside the small hours — a device that finishes an install defers, the MDM reboots it first, and the pending alarm dies with that reboot.
+      <b>Only one MDM should publish this file</b>; every legacy device in the field reads it.
+    </div>
+    {{if .OTAConfigS3}}
+    <form action="/settings/ota-config" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:620px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" name="managed"{{if .OTAConfigManaged}} checked{{end}}><b>This server publishes ota_config.json</b></label>
+      <label class="form-row"><span class="form-label">Device server URL</span><input class="form-input" type="text" name="api_base_url" value="{{.OTAConfigOpts.BaseURL}}" placeholder="http://18.237.229.116:8000"></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <label class="form-row"><span class="form-label">Poll interval (ms)</span><input class="form-input" type="number" name="poll_interval_ms" value="{{.OTAConfigOpts.PollMS}}" min="5000" step="1000"></label>
+        <label class="form-row"><span class="form-label">Reference timezone</span><input class="form-input" type="text" name="timezone" value="{{.OTAConfigOpts.Timezone}}" placeholder="America/Los_Angeles"></label>
+        <label class="form-row"><span class="form-label">Lead (hours)</span><input class="form-input" type="number" name="lead_hours" value="{{.OTAConfigOpts.LeadHours}}" min="1" max="12"></label>
+      </div>
+      <div class="muted small">Next publish carries <b>{{printf "%02d:00" .OTAConfigNext.Start}}–{{printf "%02d:00" .OTAConfigNext.End}}</b> ({{.OTAConfigNext.TZ}} local on each device).{{if .OTAConfigLast.At}} Last published {{.OTAConfigLast.At}}.{{end}}</div>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save and publish now</button></div>
+    </form>
+    {{if .OTAConfigLast.Body}}<details style="margin-top:10px;"><summary class="muted small" style="cursor:pointer;">What the fleet is reading</summary><pre class="muted small" style="overflow-x:auto;">{{.OTAConfigLast.Body}}</pre></details>{{end}}
+    {{else}}<div class="muted small">Set <code>S3_BUCKET</code> (and AWS credentials) in the server environment to publish the discovery config.</div>{{end}}
+  </div>
+</div>
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>MDM OTA support cutoff</h3><span class="muted small m">per product</span></div>
   <div style="padding:16px;">

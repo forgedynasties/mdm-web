@@ -1116,6 +1116,11 @@ func (h *Handler) ComplianceRemediate(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmdType), device.ID) {
 		return
 	}
+	// Never remediate by rebooting a device that is still taking an OTA.
+	if blocked, why, err := h.db.RebootBlockedFor(r.Context(), device.ID); err == nil && blocked {
+		h.hxDoneToast(w, r, "/compliance", "Reboot refused for "+serial+": "+why, "error")
+		return
+	}
 	payload := json.RawMessage("{}") // matches buildPayload's default, so dedup keys line up
 	if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil {
 		if _, ok := findPendingLikeCommand(existing, cmdType, "", payload); ok {
