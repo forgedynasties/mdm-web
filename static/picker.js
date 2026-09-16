@@ -180,7 +180,17 @@
   }
   function renderScopes() {
     var host = el('pk-scopes'); if (!host) return;
-    var list = scopes().filter(function (s) { return stab === 'all' || s.kind === stab; });
+    // Never offer the thing you are already filling. On a venue's own page, adding
+    // "Flights Vegas" to Flights Vegas moves nothing; the same for a group's page. The
+    // device list already excludes its members server-side — this is the scope row that
+    // sat above it saying "20 devices".
+    var skipRest = rail.dataset.excludeRestaurant || '';
+    var skipGroup = rail.dataset.excludeGroup || '';
+    var list = scopes().filter(function (s) {
+      if (s.kind === 'restaurant' && skipRest && String(s.id) === skipRest) return false;
+      if (s.kind === 'group' && skipGroup && String(s.id) === skipGroup) return false;
+      return stab === 'all' || s.kind === stab;
+    });
     host.innerHTML = list.map(function (s) {
       var busy = scopeBusy === s.kind + ':' + s.id;
       return '<button type="button" class="co-scope" data-kind="' + s.kind + '" data-id="' + esc(s.id) + '" data-name="' + esc(s.name) + '">' +

@@ -13993,6 +13993,13 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ExcludeGroupID = id
 		}
 	}
+	// The picker sends this when it is assigning devices to a venue; without it the
+	// venue's own devices were offered back to it.
+	if rid := r.URL.Query().Get("exclude_restaurant"); rid != "" {
+		if id, err := uuid.Parse(rid); err == nil {
+			filter.ExcludeRestaurantID = id
+		}
+	}
 	if rid := r.URL.Query().Get("restaurant"); rid != "" {
 		if id, err := uuid.Parse(rid); err == nil {
 			filter.RestaurantID = id

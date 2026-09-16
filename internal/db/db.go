@@ -453,6 +453,7 @@ type DeviceFilter struct {
 	Search              string    // search by serial substring
 	GroupID             uuid.UUID // filter by group membership (uuid.Nil = no filter)
 	ExcludeGroupID      uuid.UUID // exclude devices already in this group (uuid.Nil = no filter)
+	ExcludeRestaurantID uuid.UUID // exclude devices already at this venue (uuid.Nil = no filter)
 	RestaurantID        uuid.UUID // filter by restaurant/venue (uuid.Nil = no filter)
 	ProductionID        uuid.UUID // filter by production (uuid.Nil = no filter)
 	Product             string    // filter by hardware product key ("t7", "kiosk27", ...), or "" (no filter)
@@ -1907,6 +1908,14 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		argN++
 	}
 
+	if f.ExcludeRestaurantID != uuid.Nil {
+		// A picker that assigns devices TO a venue should not offer the ones already
+		// there — they would be a no-op move, and they crowd out the devices you came
+		// to find.
+		wheres = append(wheres, fmt.Sprintf("d.restaurant_id IS DISTINCT FROM $%d", argN))
+		args = append(args, f.ExcludeRestaurantID)
+		argN++
+	}
 	if f.ExcludeGroupID != uuid.Nil {
 		wheres = append(wheres, fmt.Sprintf("NOT EXISTS (SELECT 1 FROM device_groups dgx WHERE dgx.device_id = d.id AND dgx.group_id = $%d)", argN))
 		args = append(args, f.ExcludeGroupID)
