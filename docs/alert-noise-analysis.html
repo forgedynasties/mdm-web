@@ -75,6 +75,8 @@
   .rules li b { color: var(--text); font-weight: 500; }
   .small { font-size: 12.5px; color: var(--muted); }
   th.vd, td.vd { padding-left: 16px; }
+  ol.plan li.done::before { background: var(--ok); }
+  ol.plan li.done b .pill { margin-left: 8px; vertical-align: 2px; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
   @media (max-width: 720px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .bar { grid-template-columns: 120px 1fr 48px; } .rules { grid-template-columns: 1fr; } ol.plan li { grid-template-columns: 34px 1fr; } ol.plan .who { grid-column: 2; } }
 </style>
@@ -195,7 +197,7 @@
 
   <h2>Next steps in order</h2>
   <ol class="plan">
-    <li><div><b>Settings only, today</b><span>Teams channel to <b>critical</b> — this alone stops 3,878 warning posts a week. Overheating off-pad to <b>48°C</b> (698 of 4,033 episodes survive). Temp elevated band to <b>42–48°C</b>. Wi-Fi weak to <b>−80 dBm sustained 20 min</b>. Wireless-charging continuous to <b>4 hours</b>, or off until it has a purpose. Nothing to build; all of it is Settings › Alerts.</span></div><span class="who">settings</span></li>
+    <li class="done"><div><b>Settings only, today <span class="pill ok">applied 16 Sep 09:19 UTC</span></b><span>Teams channel to <b>critical</b> — this alone stops 3,878 warning posts a week. Overheating off-pad to <b>48°C</b> (698 of 4,033 episodes survive). Temp elevated band to <b>42–48°C</b>. Wi-Fi weak to <b>−80 dBm sustained 20 min</b>. Wireless-charging continuous to <b>4 hours</b>, or off until it has a purpose. Nothing to build; all of it is Settings › Alerts.</span></div><span class="who">settings</span></li>
     <li><div><b>Fold repeats into one row</b><span>Bump <code>occurrences</code> and reopen the existing row when the same alert returns within 30 minutes of resolving, instead of inserting a new one. Render the count. This is the single highest-leverage change: it turns 9,074 rows into about 1,088 without changing a single threshold.</span></div><span class="who">build</span></li>
     <li><div><b>Hysteresis and duration as engine features</b><span>Fire only after the condition holds N minutes; resolve only after it has been clear M minutes and past a lower bound. Today five rules hand-roll half of this and fourteen have none. Same two params for every threshold rule.</span></div><span class="who">build</span></li>
     <li><div><b>Fix the duplicates and the dependents</b><span>Fold <code>offline_peak</code> into <code>offline</code> as an escalation of one row. Suppress dependent alerts while a device is not reporting, explicitly rather than by accident — that removes the false <code>wlc_dead</code>. Group the overnight trio behind one "charging overnight" condition.</span></div><span class="who">build</span></li>
@@ -205,10 +207,26 @@
     <li><div><b>Measure it on the page</b><span>An alert-quality panel: alerts per day, share resolved under 10 minutes, top flappers, acknowledged versus ignored. Every table in this document, on screen, so the next review does not need a database.</span></div><span class="who">build</span></li>
   </ol>
 
+  <h3>What was applied, 16 September 09:19 UTC</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Setting</th><th>Was</th><th>Now</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Teams channel <code>min_severity</code></td><td>warning</td><td><b>critical</b></td><td>Stops 3,878 warning posts a week. Warnings stay on the alerts page.</td></tr>
+        <tr><td><code>overheating</code> <code>temp_c</code></td><td>45°C</td><td><b>48°C</b></td><td>2,903 of 4,033 episodes fired at 45 or 46°C, which is where a healthy T7 sits in service. The on-pad limit stays 65°C.</td></tr>
+        <tr><td><code>temp_elevated</code> band</td><td>38–45°C</td><td><b>42–48°C</b></td><td>The old floor was below normal service temperature, so the band described every busy device.</td></tr>
+        <tr><td><code>wifi_weak</code></td><td>−75 dBm / 10 min</td><td><b>−80 dBm / 20 min</b></td><td>The best reading in a firing window was −76 dBm: one past the line.</td></tr>
+        <tr><td><code>wlc_continuous</code> <code>sustain_min</code></td><td>60 min</td><td><b>240 min</b></td><td>It was firing at 62–64 minutes for devices parked on their pad, which is where they belong.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Applied directly to <code>alert_rules</code> and <code>alert_channels</code> on the live server; the same fields are editable in Settings › Alerts. No rule was disabled and no code changed.</p>
+    <p class="small" style="margin:8px 0 0"><b>First minutes.</b> The evaluator picked the new values up on its next pass: alerts now read "limit 48°C" and "held 42–48°C", and the open list fell from 89 to 70 within five minutes as everything under the new lines auto-resolved — <code>wlc_continuous</code> went from 18 open to none, <code>temp_elevated</code> 8 to 3, <code>overheating</code> 5 to 2. That is the standing list, not the firing rate; the rate needs a full day at the same clock hours to judge, since volume swings 4× between the quiet hours and the 06:00 UTC peak.</p>
+  </div>
+
   <h2>Expected result</h2>
   <div class="card">
     <div class="tw"><table>
-      <thead><tr><th>Measured over these 7 days</th><th class="n">Today</th><th class="n">After step 1</th><th class="n">After steps 1–4</th></tr></thead>
+      <thead><tr><th>Measured over these 7 days</th><th class="n">Today</th><th class="n">After step 1 (projected)</th><th class="n">After steps 1–4</th></tr></thead>
       <tbody>
         <tr><td>Alert rows</td><td class="n">9,074</td><td class="n">≈ 4,300</td><td class="n">≈ 140</td></tr>
         <tr><td>Rows per day</td><td class="n">1,296</td><td class="n">≈ 610</td><td class="n">≈ 20</td></tr>
