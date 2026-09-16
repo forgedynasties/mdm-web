@@ -721,7 +721,7 @@
   {{end}}
 
 {{define "ov3-widget"}}{{$d := .D}}{{$sz := $d.Layout.Size .ID}}<div class="ov3-w" data-w="{{.ID}}" data-cw="{{$sz.W}}" data-ch="{{$sz.H}}">
-{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
+{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{else if eq .ID "power"}}{{template "ov3-w-power" $d}}{{end}}
 </div>{{end}}
 
 {{define "ov3-w-inbox"}}
@@ -1059,3 +1059,32 @@
         </div>
       </div>
   {{end}}
+
+{{define "ov3-w-power"}}
+{{/* Power & usage across every venue: how long the hardware ran, how much the guest pad
+     was used and what it cost, and the battery levels staff plug and unplug at. The same
+     figures appear per site on the restaurant page. */}}
+{{$m := .PowerMetrics}}
+      <div class="ov3-card">
+        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Power &amp; usage</h3><span class="m">{{if $m}}last {{$m.Days}} days · {{$m.DeviceCount}} placed device{{if ne $m.DeviceCount 1}}s{{end}}{{else}}no data{{end}}</span></div>
+        {{if and $m $m.DeviceCount}}
+        <div class="ov3-vit">
+          <div class="ov3-vr">
+            <span class="l"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Uptime in opening hours</span>
+            <span class="v {{if lt $m.UptimeOpenPct 80}}warn{{else}}ok{{end}}">{{$m.UptimeOpenPct}}%<small>{{hrs $m.PoweredOpenMinutes}} of {{hrs $m.OpenWindowMinutes}} hrs</small></span>
+            <div class="ov3-meter"><i class="{{if lt $m.UptimeOpenPct 80}}warn{{else}}ok{{end}}" style="width:{{$m.UptimeOpenPct}}%"></i></div>
+          </div>
+          <div class="ov3-vr">
+            <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Guest pad in use</span>
+            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min off mains{{else}}not enough pad time to rate{{end}}</small></span>
+          </div>
+          <div class="ov3-vr">
+            <span class="l"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Plugged in / unplugged at</span>
+            <span class="v">{{if $m.ConnectCount}}{{printf "%.0f" $m.ConnectAvgPct}}% → {{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}}<small>{{$m.ConnectCount}} charge{{if ne $m.ConnectCount 1}}s{{end}} this week</small></span>
+          </div>
+        </div>
+        {{else}}
+        <div class="ov3-empty">No rolled-up telemetry for placed devices yet.</div>
+        {{end}}
+      </div>
+{{end}}

@@ -73,6 +73,11 @@
       <form action="/alerts/ack-all" method="POST" hx-confirm="Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.">
         <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
       </form>
+      {{/* Resolve closes the alerts out and keeps the rows as history; anything whose
+           condition still holds simply fires again, which is the honest outcome. */}}
+      <form action="/alerts/resolve-all" method="POST" hx-confirm="Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.">
+        <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
+      </form>
       <form action="/alerts/clear-all" method="POST" hx-confirm="Clear ALL alerts? This deletes them, including resolved history, and any whose condition still holds will re-fire within a minute. Acknowledge all is usually what you want.">
         <button type="submit" class="cc-btn danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>Clear all</button>
       </form>

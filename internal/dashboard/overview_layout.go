@@ -36,6 +36,7 @@ var overviewWidgets = []overviewWidget{
 	{"rollouts", "Rollouts", "right"},
 	{"adoption", "Release adoption", "right"},
 	{"vitals", "Fleet vitals", "right"},
+	{"power", "Power & usage", "right"},
 }
 
 // widgetSize is a widget's footprint on the home-screen grid: W columns (1 = half,

@@ -36,6 +36,53 @@
 
 <div id="kpi-live" hx-get="/restaurants/{{.Restaurant.ID}}?partial=kpis" hx-select="unset" hx-trigger="restaurant-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "restaurant-kpis" .}}</div>
 
+{{/* Power and usage — what the venue's hardware actually did this week. Every tile says
+     what it was measured over, and shows "not enough data" rather than a confident zero:
+     a site whose devices checked in for an hour has not got 0% uptime. */}}
+{{if and .Metrics .Metrics.DeviceCount}}
+{{$m := .Metrics}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Power &amp; usage</h3><span class="muted small">last {{$m.Days}} days · {{$m.DeviceCount}} device{{if ne $m.DeviceCount 1}}s{{end}}</span></div>
+  <div class="cc-kpis" style="border:0;box-shadow:none;">
+    <div class="cc-kpi">
+      <span class="k">Uptime · open hours</span>
+      {{if $m.HasOpenHours}}
+      <div class="v">{{hrs $m.PoweredOpenMinutes}}<span class="muted" style="font-size:.6em;"> / {{hrs $m.OpenWindowMinutes}} hrs</span></div>
+      <div class="muted small">{{$m.UptimeOpenPct}}% of opening hours · {{$m.UptimeFullPct}}% of the full week</div>
+      {{else}}
+      <div class="v">{{hrs $m.PoweredMinutes}}<span class="muted" style="font-size:.6em;"> / {{hrs $m.FullWindowMinutes}} hrs</span></div>
+      <div class="muted small">{{$m.UptimeFullPct}}% of the full week · no service hours set</div>
+      {{end}}
+    </div>
+    <div class="cc-kpi">
+      <span class="k">Guest pad in use</span>
+      <div class="v">{{hrs $m.PadMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.PadMinutes 60.0}} hrs{{end}}</span></div>
+      <div class="muted small">a customer's phone charging on a tablet</div>
+    </div>
+    <div class="cc-kpi">
+      <span class="k">Pad cost to battery</span>
+      {{if $m.HasPadDrain}}
+      <div class="v">{{printf "%.1f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
+      <div class="muted small">off mains, over {{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} on the pad</div>
+      {{else}}
+      <div class="v muted">—</div>
+      <div class="muted small">not enough pad time yet</div>
+      {{end}}
+    </div>
+    <div class="cc-kpi">
+      <span class="k">Plugged in at</span>
+      {{if $m.ConnectCount}}
+      <div class="v">{{printf "%.0f" $m.ConnectAvgPct}}<span class="muted" style="font-size:.6em;">%</span></div>
+      <div class="muted small">unplugged at {{if $m.DisconnectCount}}{{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}} · {{$m.ConnectCount}} charge{{if ne $m.ConnectCount 1}}s{{end}}</div>
+      {{else}}
+      <div class="v muted">—</div>
+      <div class="muted small">no charger events recorded</div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
 {{if .Restaurant.Notes}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Notes</h3></div>

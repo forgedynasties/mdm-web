@@ -1443,6 +1443,21 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return code
 		},
+		// hrs renders a minute count for a power/usage tile. Whole hours once there is an
+		// hour to show, otherwise minutes — twenty minutes on the charging pad is a real
+		// reading and must not round to "0 hrs".
+		"hrs": func(mins float64) string {
+			switch {
+			case mins <= 0:
+				return "0"
+			case mins < 60:
+				return strconv.FormatFloat(mins, 'f', 0, 64) + " min"
+			case mins < 600:
+				return strconv.FormatFloat(mins/60, 'f', 1, 64)
+			default:
+				return strconv.FormatFloat(mins/60, 'f', 0, 64)
+			}
+		},
 		// basename shows the artifact's file name instead of a long S3 URL whose first
 		// 50 characters are identical on every package of every release.
 		"basename": func(u string) string {
@@ -4751,6 +4766,12 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		inboxN = fc.Inbox
 	}
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
+
+	// Power & usage widget: the same figures the restaurant page shows per site, summed
+	// across every placed device (uuid.Nil = the whole deployed fleet).
+	if m, err := h.db.SiteMetricsFor(ctx, uuid.Nil, 7); err == nil {
+		data["PowerMetrics"] = m
+	}
 
 	// Same cached hourly AI fleet report the devices page used to host.
 	if s, err := h.db.GetAISummary(ctx, "fleet"); err == nil && s.Summary != "" {
@@ -8882,6 +8903,11 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
+	}
+	// Power and usage over the last week: uptime, guest-pad time and what it costs the
+	// tablet's own battery, and the battery levels staff plug and unplug at.
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7); err == nil {
+		data["Metrics"] = m
 	}
 	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated

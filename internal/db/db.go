@@ -3245,6 +3245,138 @@ func (d *DB) GetRestaurantDailyStats(ctx context.Context, restaurantID uuid.UUID
 	return stats, rows.Err()
 }
 
+// SiteMetrics is a venue's power and usage picture over a window, aggregated from
+// device_daily_stats. Restaurants are managed per site but almost everything else in the
+// MDM reports per device, so this answers "how is this venue's hardware doing this week".
+//
+// Every figure carries what it was measured over, because a thin window must read as
+// "not enough data" rather than a confident zero — a venue whose devices checked in for
+// an hour is not a venue with 0% uptime.
+type SiteMetrics struct {
+	Days        int
+	DeviceCount int // devices with at least one rolled-up day in the window
+
+	PoweredMinutes     float64 // total, across devices
+	PoweredOpenMinutes float64 // ...restricted to opening hours
+	HasOpenHours       bool    // false when the site has no service window configured
+	OpenWindowMinutes  float64 // the site's opening hours over the window, × devices
+	FullWindowMinutes  float64 // days × 24h × devices
+
+	PadMinutes      float64 // a guest phone was on the tablet's pad this long
+	PadDrainPct     float64 // battery points that cost us, off mains only
+	PadDrainMinutes float64 // measured over
+
+	ConnectAvgPct    float64 // battery % when someone plugs the tablet in
+	ConnectCount     int
+	DisconnectAvgPct float64 // ...and when they unplug it
+	DisconnectCount  int
+}
+
+// PadDrainPctPerMin is the headline "1% per minute" figure, or 0 when the window holds
+// too little pad time to say anything honest.
+func (m SiteMetrics) PadDrainPctPerMin() float64 {
+	if m.PadDrainMinutes < 30 {
+		return 0
+	}
+	return m.PadDrainPct / m.PadDrainMinutes
+}
+
+// HasPadDrain reports whether the drain rate rests on enough measured time to show.
+func (m SiteMetrics) HasPadDrain() bool { return m.PadDrainMinutes >= 30 }
+
+// UptimeOpenPct is powered time as a share of opening hours, capped at 100: a device
+// left on overnight would otherwise read as 140% of a site that opens for 10 hours.
+func (m SiteMetrics) UptimeOpenPct() int {
+	if !m.HasOpenHours || m.OpenWindowMinutes <= 0 {
+		return 0
+	}
+	p := int(m.PoweredOpenMinutes * 100 / m.OpenWindowMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
+}
+
+// UptimeFullPct is powered time as a share of the whole window (every hour, open or not).
+func (m SiteMetrics) UptimeFullPct() int {
+	if m.FullWindowMinutes <= 0 {
+		return 0
+	}
+	p := int(m.PoweredMinutes * 100 / m.FullWindowMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
+}
+
+// SiteMetricsFor aggregates the window for one restaurant, or for the whole fleet when
+// restaurantID is uuid.Nil (which backs the Overview widget).
+func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days int) (SiteMetrics, error) {
+	if days <= 0 {
+		days = 7
+	}
+	m := SiteMetrics{Days: days}
+	scope := "d.restaurant_id IS NOT NULL"
+	args := []any{days}
+	if restaurantID != uuid.Nil {
+		scope = "d.restaurant_id = $2"
+		args = append(args, restaurantID)
+	}
+	var openMin, closeMin *int
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(DISTINCT s.device_id),
+			COALESCE(SUM(s.online_minutes), 0)::float8,
+			COALESCE(SUM(s.online_minutes_open), 0)::float8,
+			bool_or(s.online_minutes_open IS NOT NULL),
+			COALESCE(SUM(s.wlc_minutes), 0)::float8,
+			COALESCE(SUM(s.wlc_drain_pct), 0)::float8,
+			COALESCE(SUM(s.wlc_drain_minutes), 0)::float8,
+			COALESCE(SUM(s.charge_connect_sum), 0)::float8,
+			COALESCE(SUM(s.charge_connect_n), 0)::int,
+			COALESCE(SUM(s.charge_disconnect_sum), 0)::float8,
+			COALESCE(SUM(s.charge_disconnect_n), 0)::int
+		FROM device_daily_stats s
+		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
+		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)`, args...).
+		Scan(&m.DeviceCount, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
+			&m.PadMinutes, &m.PadDrainPct, &m.PadDrainMinutes,
+			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount)
+	if err != nil {
+		return m, err
+	}
+	// The scans above collected SUMS of the battery levels; turn them into averages now
+	// that the whole window is added up (an average of daily averages would weight a day
+	// with one connect the same as a day with twenty).
+	if m.ConnectCount > 0 {
+		m.ConnectAvgPct /= float64(m.ConnectCount)
+	}
+	if m.DisconnectCount > 0 {
+		m.DisconnectAvgPct /= float64(m.DisconnectCount)
+	}
+	m.FullWindowMinutes = float64(days) * 24 * 60 * float64(m.DeviceCount)
+
+	// Opening hours for the denominator: the venue's window, else the fleet default.
+	if restaurantID != uuid.Nil {
+		if w, ok, e := d.GetRestaurantServiceWindow(ctx, restaurantID); e == nil && ok {
+			openMin, closeMin = &w.OpenMin, &w.CloseMin
+		}
+	}
+	if openMin == nil {
+		if w, e := d.GetFleetServiceWindow(ctx); e == nil {
+			openMin, closeMin = &w.OpenMin, &w.CloseMin
+		}
+	}
+	if openMin != nil {
+		per := float64(*closeMin - *openMin)
+		if per < 0 {
+			per += 24 * 60 // a window that wraps past midnight
+		}
+		m.OpenWindowMinutes = per * float64(days) * float64(m.DeviceCount)
+	}
+	return m, nil
+}
+
 // GetRestaurantHealth returns a health scorecard per restaurant, worst score first.
 // Reuses the GroupHealth struct (GroupID carries the restaurant id, Name the restaurant
 // name). activeSecs is the offline threshold. windowDays sizes the recent aggregation
@@ -6816,15 +6948,41 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 				COALESCE(LEAST(EXTRACT(EPOCH FROM (
 					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
 					- c.created_at)), 600), 0) AS w,
-				LAG(c.battery_pct) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_batt
+				LAG(c.battery_pct) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_batt,
+				-- Charger transitions: the previous sample's charging state, so a flip can be
+				-- spotted and the battery level AT the flip recorded.
+				LAG((c.extra->>'charging')::boolean) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_charging,
+				-- Was this sample inside the site's opening hours? Minute-of-day in the venue's
+				-- own timezone (falling back to the device's, then UTC), tested against the
+				-- window — which may wrap past midnight, hence the OR form.
+				CASE
+					WHEN COALESCE(sw.open_min, fsw.open_min) IS NULL THEN NULL
+					ELSE (
+						WITH lt AS (
+							SELECT (EXTRACT(HOUR FROM c.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(fsw.timezone, ''), NULLIF(c.extra->>'timezone', ''), 'UTC')) * 60
+							      + EXTRACT(MINUTE FROM c.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(c.extra->>'timezone', ''), 'UTC')))::int AS m
+						)
+						SELECT CASE WHEN COALESCE(sw.open_min, fsw.open_min) <= COALESCE(sw.close_min, fsw.close_min)
+							THEN lt.m >= COALESCE(sw.open_min, fsw.open_min) AND lt.m < COALESCE(sw.close_min, fsw.close_min)
+							ELSE lt.m >= COALESCE(sw.open_min, fsw.open_min) OR lt.m < COALESCE(sw.close_min, fsw.close_min) END
+						FROM lt
+					)
+				END AS in_open_hours
 			FROM checkins c
+			JOIN devices d ON d.id = c.device_id
+			LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
+			-- The fleet default, used by every venue that has not set its own hours.
+			LEFT JOIN service_windows fsw ON fsw.restaurant_id IS NULL AND fsw.group_id IS NULL
 			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
 		)
 		INSERT INTO device_daily_stats AS s (
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
 			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
 			first_seen_at, last_seen_at,
-			wlc_guest_frac, pad_readable, storage_free_last_gb, discharge_pct, computed_at)
+			wlc_guest_frac, pad_readable, storage_free_last_gb, discharge_pct,
+			wlc_minutes, wlc_drain_pct, wlc_drain_minutes,
+			charge_connect_sum, charge_connect_n, charge_disconnect_sum, charge_disconnect_n,
+			online_minutes_open, computed_at)
 		SELECT
 			device_id,
 			$1::date,
@@ -6858,6 +7016,25 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			-- so a device that only charges accrues 0). NULL prev_batt (day's first
 			-- sample) contributes nothing, so a discharge spanning midnight isn't split.
 			COALESCE(SUM(GREATEST(0, prev_batt - battery_pct)), 0)::real,
+			-- Guest pad: how long a customer's phone sat on this tablet.
+			(SUM(CASE WHEN extra->>'wlc_status' = '1' THEN w ELSE 0 END) / 60.0)::real,
+			-- What that cost us: battery drops while the pad was busy AND we were not on
+			-- mains. On mains the charger hides the cost, so those samples are excluded
+			-- from both the drop and the minutes it is divided by.
+			COALESCE(SUM(CASE WHEN extra->>'wlc_status' = '1' AND COALESCE((extra->>'charging')::boolean, false) = false
+				THEN GREATEST(0, prev_batt - battery_pct) ELSE 0 END), 0)::real,
+			(SUM(CASE WHEN extra->>'wlc_status' = '1' AND COALESCE((extra->>'charging')::boolean, false) = false
+				THEN w ELSE 0 END) / 60.0)::real,
+			-- Battery level at each charger connect / disconnect. Sums and counts rather
+			-- than averages, so a week aggregates as SUM/SUM.
+			COALESCE(SUM(CASE WHEN (extra->>'charging')::boolean AND prev_charging = false THEN battery_pct ELSE 0 END), 0)::real,
+			COUNT(*) FILTER (WHERE (extra->>'charging')::boolean AND prev_charging = false)::int,
+			COALESCE(SUM(CASE WHEN (extra->>'charging')::boolean = false AND prev_charging THEN battery_pct ELSE 0 END), 0)::real,
+			COUNT(*) FILTER (WHERE (extra->>'charging')::boolean = false AND prev_charging)::int,
+			-- Powered minutes inside the site's opening hours. NULL when the site has no
+			-- window configured, so the UI can say so instead of showing a misleading 0.
+			CASE WHEN bool_or(in_open_hours IS NOT NULL)
+				THEN (SUM(CASE WHEN in_open_hours THEN w ELSE 0 END) / 60.0)::real END,
 			NOW()
 		FROM samples
 		GROUP BY device_id
@@ -6877,6 +7054,14 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			pad_readable         = EXCLUDED.pad_readable,
 			storage_free_last_gb = EXCLUDED.storage_free_last_gb,
 			discharge_pct  = EXCLUDED.discharge_pct,
+			wlc_minutes           = EXCLUDED.wlc_minutes,
+			wlc_drain_pct         = EXCLUDED.wlc_drain_pct,
+			wlc_drain_minutes     = EXCLUDED.wlc_drain_minutes,
+			charge_connect_sum    = EXCLUDED.charge_connect_sum,
+			charge_connect_n      = EXCLUDED.charge_connect_n,
+			charge_disconnect_sum = EXCLUDED.charge_disconnect_sum,
+			charge_disconnect_n   = EXCLUDED.charge_disconnect_n,
+			online_minutes_open   = EXCLUDED.online_minutes_open,
 			computed_at    = EXCLUDED.computed_at
 	`, dayStr)
 	if err != nil {
@@ -10258,6 +10443,22 @@ ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS deployed_only BOOLEAN NOT NULL 
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_guest_frac      REAL;     -- fraction of checkins with a guest device on the pad (wlc_status=1)
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS pad_readable        BOOLEAN;  -- pad was readable at all that day (any wlc_status >= 0)
 ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS storage_free_last_gb REAL;    -- last storage_free_gb reading of the day, for the 24h-delta rule
+
+-- Per-restaurant power/usage metrics. All are accumulated by RollupDailyStats using the
+-- same time-weighted samples CTE as the columns above, so an adaptive poll interval does
+-- not skew them.
+--
+-- NOTE on "wlc": wlc_status is the T7's OUTGOING guest pad (gpio27) — a customer's phone
+-- sitting on our tablet — not the tablet being charged. So wlc_minutes is how long we
+-- charged somebody else's phone, and wlc_drain_pct is what that cost our own battery.
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_minutes         REAL;     -- minutes with a guest device on the pad
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_drain_pct       REAL;     -- battery points lost while the pad was busy and we were NOT on mains
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_drain_minutes   REAL;     -- minutes those drops were measured over (the drain-rate denominator)
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_connect_sum  REAL;     -- sum of battery % at each charger connect
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_connect_n    INTEGER;  -- how many connects (so a week is SUM/SUM, not an average of averages)
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_disconnect_sum REAL;   -- sum of battery % at each charger disconnect
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS charge_disconnect_n INTEGER;
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS online_minutes_open REAL;     -- online_minutes restricted to the site's opening hours
 
 -- Alert channels: where fired alerts are routed. Each channel takes alerts at or
 -- above min_severity; realtime channels POST immediately, digest channels batch into
