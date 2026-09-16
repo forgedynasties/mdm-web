@@ -17605,7 +17605,7 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 // inactiveAfterDays is how long a device may go silent before it is auto-marked
 // inactive (hidden) and dropped from every list, count, and health stat. It comes
 // back automatically the moment it checks in again.
-const inactiveAfterDays = 10
+const inactiveAfterDays = 100
 
 func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
