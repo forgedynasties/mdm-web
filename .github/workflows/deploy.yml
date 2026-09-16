@@ -13,6 +13,10 @@ on:
         description: "Image tag to deploy (a commit SHA from the Build workflow, or 'main')"
         required: true
         default: main
+      app_dir:
+        description: "Compose directory on the box (live is /home/ubuntu/mdm; stage is /home/ubuntu/stage-mdm)"
+        required: true
+        default: /home/ubuntu/mdm
       confirm:
         description: "Type DEPLOY to confirm this goes to the live fleet"
         required: true
@@ -49,7 +53,7 @@ jobs:
         env:
           IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ inputs.image_tag }}
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          APP_DIR: ${{ vars.EC2_APP_DIR }}
+          APP_DIR: ${{ inputs.app_dir }}
           REGISTRY: ${{ vars.ECR_REGISTRY }}
         run: |
           set -euo pipefail
@@ -77,8 +81,11 @@ jobs:
 
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
+          # Ask compose which container it just started — the project name differs
+          # between the live and stage directories, so nothing here is hardcoded.
+          cid=\$(docker compose ps -q server)
           for i in \$(seq 1 30); do
-            state=\$(docker inspect -f '{{.State.Health.Status}}' mdm-server-1 2>/dev/null || echo starting)
+            state=\$(docker inspect -f '{{.State.Health.Status}}' "\$cid" 2>/dev/null || echo starting)
             [ "\$state" = "healthy" ] && break
             sleep 2
           done
@@ -120,5 +127,5 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "Deployed \`${{ inputs.image_tag }}\` to the live box." >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed \`${{ inputs.image_tag }}\` to \`${{ inputs.app_dir }}\`." >> "$GITHUB_STEP_SUMMARY"
           echo "Roll back by re-running this workflow with an earlier SHA." >> "$GITHUB_STEP_SUMMARY"
