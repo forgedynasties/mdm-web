@@ -67,7 +67,13 @@
     <div class="cc-actions">
       <a href="/alert-config" class="cc-btn{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Alert rules</a>
       {{if or .Critical .Watching}}
-      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire.">
+      {{/* Acknowledge is the action that sticks: it keeps one row per condition and stops
+           it re-appearing as new, where Clear all deletes the rows and the evaluator
+           re-creates anything still true within the minute. */}}
+      <form action="/alerts/ack-all" method="POST" hx-confirm="Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.">
+        <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
+      </form>
+      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear ALL alerts? This deletes them, including resolved history, and any whose condition still holds will re-fire within a minute. Acknowledge all is usually what you want.">
         <button type="submit" class="cc-btn danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>Clear all</button>
       </form>
       {{end}}
