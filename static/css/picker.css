@@ -37,6 +37,9 @@
 .co-stab[data-stab="restaurant"].on{color:var(--sc-rest)}
 .co-stab[data-stab="group"].on{color:var(--sc-group)}
 .co-r-cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:6px 2px 7px}
+.co-hint{font-size:11.5px;color:var(--muted);margin:7px 2px 2px;line-height:1.45}
+.co-hint .k,.co-paste .k{display:inline-block;border:1px solid var(--rule);border-radius:5px;padding:0 5px;font-size:10.5px;font-weight:700;line-height:1.5;color:var(--text-2);background:var(--surface2)}
+.co-paste .k{margin-left:auto}
 .co-scopelist{max-height:196px;overflow-y:auto;margin:0 -2px;padding:0 2px}
 .co-r-cap-tabs{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .co-stabs{margin-left:auto;display:inline-flex;gap:2px;background:var(--surface2);border-radius:99px;padding:2px}

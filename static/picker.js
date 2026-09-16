@@ -155,7 +155,7 @@
     }
     var tokens = pasteTokens();
     if (tokens) {
-      html += '<button type="button" class="co-paste" id="pk-paste"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Add ' + tokens.length + ' pasted serial' + (tokens.length === 1 ? '' : 's') + '</button>';
+      html += '<button type="button" class="co-paste" id="pk-paste"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Add ' + tokens.length + ' pasted serial' + (tokens.length === 1 ? '' : 's') + ' <span class="k">Enter</span></button>';
     }
     if (loading) html += '<div class="co-listempty">Loading devices…</div>';
     else if (!rows.length) html += '<div class="co-listempty">No device matches.</div>';
@@ -222,7 +222,7 @@
       return;
     }
     var paste = e.target.closest('#pk-paste');
-    if (paste) { (pasteTokens() || []).forEach(add); floatSel = true; el('pk-q').value = ''; load(true); return; }
+    if (paste) { addPasted(); return; }
     var qf = e.target.closest('.co-qf');
     if (qf) {
       var k = qf.dataset.qf;
@@ -244,7 +244,60 @@
     if (x) { delete picked[x.dataset.x]; render(); return; }
     if (e.target.closest('#pk-clear')) { picked = {}; render(); }
   });
-  el('pk-q').addEventListener('input', function () { load(false); });
+  // ── adding by typing / pasting ──────────────────────────────────────────────
+  // A serial-shaped token: long enough and carrying a digit. Used to tell a pasted
+  // serial list from an ordinary multi-word search ("flights vegas"), which must
+  // keep searching rather than being added as two bogus serials.
+  function looksLikeSerial(t) { return t.length >= 8 && /\d/.test(t); }
+  function serialList(toks) {
+    return !!toks && toks.length > 0 && toks.every(looksLikeSerial);
+  }
+  // Add every pasted token, clear the box and reload the list underneath.
+  function addPasted() {
+    var toks = pasteTokens();
+    if (!toks) return false;
+    toks.forEach(add);
+    floatSel = true;
+    el('pk-q').value = '';
+    load(true);
+    return true;
+  }
+
+  var q = el('pk-q');
+  q.addEventListener('input', function () { load(false); });
+
+  // Enter adds what is in the box instead of submitting the surrounding form (the
+  // picker lives inside the deploy/assign form, so a bare Enter used to submit it
+  // with nothing selected).
+  q.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (addPasted()) return;
+    var one = cleanToken(query());
+    if (!one) return;
+    // A single typed serial: prefer the exact row the server matched, so the basket
+    // gets the canonical serial and its metadata; otherwise take the token as typed.
+    var rows = visible().filter(function (d) { return !d.blocked; });
+    var exact = rows.filter(function (d) { return d.serial.toLowerCase() === one.toLowerCase(); })[0];
+    if (exact) add(exact.serial);
+    else if (rows.length === 1) add(rows[0].serial);
+    else if (looksLikeSerial(one)) add(one);
+    else return;
+    floatSel = true;
+    q.value = '';
+    load(true);
+  });
+
+  // Clipboard detection: pasting a list of serials adds them straight away — the
+  // paste button stays for anything the heuristic will not auto-add (a single
+  // serial, or tokens that do not look like serials).
+  q.addEventListener('paste', function () {
+    setTimeout(function () {
+      var toks = pasteTokens();
+      if (toks && toks.length > 1 && serialList(toks)) addPasted();
+      else load(false);
+    }, 0);
+  });
 
   // A scope adds every device it holds, then the basket is a plain serial list.
   function addScope(kind, id, name) {

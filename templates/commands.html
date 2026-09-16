@@ -270,6 +270,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
     <div class="co-rail">
       <div class="co-r-b">
         <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="co-q" type="text" placeholder="Search serial, restaurant, group — or paste serials" aria-label="Search devices, groups and restaurants"{{if not (canOperate .Role)}} disabled{{end}}><kbd>/</kbd></div>
+        <div class="co-hint">Paste a list of serials to add them all, or press <span class="k">Enter</span>. A dash or comma in front of a serial is fine.</div>
         <div class="co-quick" id="co-quick">
           <button type="button" class="co-qf" data-qf="online">Online <span class="n"></span></button>
           <button type="button" class="co-qf" data-qf="offline">Offline <span class="n"></span></button>
@@ -1481,6 +1482,19 @@ window.CMD_PREFILL = {{.Prefill}};
 
     // Rail wiring.
     qEl.addEventListener('input', function () { renderScopes(); ensureDevices(false); });
+    // Clipboard detection: pasting a list of serials adds them straight away. A
+    // multi-word search ("flights vegas") must keep searching, so every token has to
+    // look like a serial — long enough and carrying a digit.
+    qEl.addEventListener('paste', function () {
+      setTimeout(function () {
+        var toks = pasteTokens();
+        if (toks && toks.length > 1 && toks.every(function (t) { return t.length >= 8 && /\d/.test(t); })) {
+          addSerialsValidated(qEl.value);
+        } else {
+          renderScopes(); ensureDevices(false);
+        }
+      }, 0);
+    });
     qEl.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') { qEl.value = ''; renderScopes(); ensureDevices(true); qEl.blur(); }
       if (e.key === 'Enter') {
