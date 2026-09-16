@@ -1443,6 +1443,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return code
 		},
+		// basename shows the artifact's file name instead of a long S3 URL whose first
+		// 50 characters are identical on every package of every release.
+		"basename": func(u string) string {
+			if i := strings.IndexByte(u, '?'); i >= 0 {
+				u = u[:i]
+			}
+			u = strings.TrimSuffix(u, "/")
+			if i := strings.LastIndexByte(u, '/'); i >= 0 && i+1 < len(u) {
+				return u[i+1:]
+			}
+			return u
+		},
 		"truncate": func(s string, n int) string {
 			runes := []rune(s)
 			if len(runes) <= n {

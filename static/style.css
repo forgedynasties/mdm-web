@@ -5694,6 +5694,28 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .pkg-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 7px; border-radius: 6px; }
 .pkg-x:hover { color: var(--danger); background: var(--danger-bg); }
 
+/* package list — one dense row per artifact (see release_workspace.html) */
+.pkg-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+.pkg-tbl th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding: 0 10px 7px 0; border-bottom: 1px solid var(--border); }
+.pkg-tbl th.n, .pkg-tbl td.n { text-align: right; padding-right: 0; }
+.pkg-tbl td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+.pkg-tbl tr:last-child td { border-bottom: 0; }
+.pkg-tbl tr.yanked { opacity: .5; }
+.pkg-tbl .applies { white-space: nowrap; }
+.pkg-tbl .applies b { font-family: var(--mono); font-size: 12.5px; font-weight: 650; }
+.pkg-tbl .applies .arr { color: var(--text-faint); margin: 0 7px; }
+.pkg-tbl .applies .tgt { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.pkg-tbl .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 9px; vertical-align: 1px; }
+.pkg-tbl tr.base .dot { background: var(--ok); }
+.pkg-tbl tr.inc .dot { background: var(--warn); }
+.pkg-tbl .full-tag { margin-left: 9px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; background: var(--ok-bg); color: var(--ok); }
+.pkg-tbl .full-tag.yank { background: var(--danger-bg); color: var(--danger); }
+.pkg-tbl .art a { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-decoration: none; display: inline-block; max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.pkg-tbl .art a:hover { color: var(--accent-text); }
+.pkg-tbl .pkg-x { opacity: 0; transition: opacity .12s; }
+.pkg-tbl tr:hover .pkg-x, .pkg-tbl .pkg-x:focus { opacity: 1; }
+@media (max-width: 720px) { .pkg-tbl .art { display: none; } .pkg-tbl th:nth-child(2) { display: none; } }
+
 /* package composer */
 .composer { border: 1px dashed var(--accent-edge); border-radius: 13px; padding: 15px; background: var(--accent-soft); }
 /* A low-opacity warm tint over the dark surface reads as muddy brown rather

@@ -140,19 +140,30 @@
   </div>
   <div class="cc-cb">
     {{if .Packages}}
-    <div class="pkg-stack">
-      {{range .Packages}}
-      <div class="pkg {{if eq .Type "incremental"}}inc{{else}}base{{end}}"{{if eq .Status "yanked"}} style="opacity:.5"{{end}}>
-        <span class="ptype">{{.Type}}</span>
-        <div class="pmeta">
-          <b>{{if eq .Type "incremental"}}{{if .SourceBuildID}}from {{.SourceBuildID}}{{else}}from any build{{end}}{{else}}Baseline image{{end}}</b>
-          <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="u" title="{{.UpdateURL}}">{{truncate .UpdateURL 54}}</a>
-        </div>
-        <span class="pwhen muted small">{{timeSince .CreatedAt}}</span>
-        {{if canRelease $role}}<form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form>{{end}}
-      </div>
-      {{end}}
-    </div>
+    {{/* One line per package. The old card repeated the type badge, the shared S3 URL
+         prefix and the same "2m ago" on every row, so five incrementals read as five
+         near-identical blocks whose only difference — the source build — was the least
+         prominent thing on them. Now the source build leads, and the repeated parts are
+         either dropped or shown once. */}}
+    <table class="pkg-tbl">
+      <thead><tr><th>Applies to</th><th>Artifact</th><th class="n">Rollouts</th><th class="n">Added</th>{{if canRelease $role}}<th></th>{{end}}</tr></thead>
+      <tbody>
+        {{range .Packages}}
+        <tr class="{{if eq .Type "incremental"}}inc{{else}}base{{end}}{{if eq .Status "yanked"}} yanked{{end}}">
+          <td class="applies">
+            <span class="dot"></span>
+            {{if eq .Type "incremental"}}<b>{{if .SourceBuildID}}{{.SourceBuildID}}{{else}}any build{{end}}</b><span class="arr">→</span><span class="tgt">{{.TargetBuildID}}</span>
+            {{else}}<b>Any build</b><span class="arr">→</span><span class="tgt">{{.TargetBuildID}}</span><span class="full-tag">full image</span>{{end}}
+            {{if eq .Status "yanked"}}<span class="full-tag yank">yanked</span>{{end}}
+          </td>
+          <td class="art"><a href="{{.UpdateURL}}" target="_blank" rel="noopener" title="{{.UpdateURL}}">{{basename .UpdateURL}}</a></td>
+          <td class="n muted">{{if gt .DeploymentCount 0}}{{.DeploymentCount}}{{else}}—{{end}}</td>
+          <td class="n muted">{{timeSince .CreatedAt}}</td>
+          {{if canRelease $role}}<td class="n"><form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form></td>{{end}}
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
     {{else}}
     <div class="empty" style="padding:8px 0 16px;">No packages yet — add the full image below.</div>
     {{end}}
