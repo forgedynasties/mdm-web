@@ -3497,7 +3497,6 @@ func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
 		"RailGroups": []any{}, "RailRestaurants": []any{}, "RailReleases": []any{}, "RailProducts": []any{},
 		"Groups": []any{}, "Restaurants": []any{}, "Productions": []any{}, "Builds": []any{}, "Timezones": []any{},
 		"Products": h.fleetProductFilters(r.Context(), "viewer"), "Classes": product.Classes(),
-		"Composition": []any{}, "CompFirmware": 0, "CompDPC": 0,
 		"SelectedCollection": "All devices", "SelectedCount": 2622,
 		"ActiveRestaurant": nil, "ActiveGroup": nil, "ActiveReleaseID": 0,
 		"View": "", "ViewID": "", "ViewColl": "",
@@ -4487,36 +4486,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			filterCount++
 		}
 	}
-	// Composition strip: the fleet by class (and kind), independent of the current
-	// filter so it reads as "what the fleet is made of".
-	type compSeg struct {
-		Class string
-		Label string
-		N     int
-		Pct   int
-		Idx   int
-	}
-	var composition []compSeg
-	compFirmware, compDPC := 0, 0
-	if classes, fw, dp, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
-		compFirmware, compDPC = fw, dp
-		sum := 0
-		for _, c := range classes {
-			sum += c.N
-		}
-		for i, c := range classes {
-			pct := 0
-			if sum > 0 {
-				pct = c.N * 100 / sum
-			}
-			label := product.ClassLabel(c.Class)
-			if c.Class == "" {
-				label = "Unclassed"
-			}
-			composition = append(composition, compSeg{c.Class, label, c.N, pct, i%6 + 1})
-		}
-	}
-
 	// Name + size of the rail collection currently scoping the roster (heading)
 	// and which rail item to mark active.
 	selectedCollection := "All devices"
@@ -4649,9 +4618,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
 		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
 		"Classes":              product.Classes(),
-		"Composition":          composition,
-		"CompFirmware":         compFirmware,
-		"CompDPC":              compDPC,
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,

@@ -324,14 +324,6 @@ a.fleet-rail-item{min-height:40px}
 .dl-ktag.cls{background:var(--surface2);color:var(--text-2)}
 .dl-ktag.new{background:var(--warn-bg);color:var(--warn)}
 .dl-ktag.ret{background:var(--danger-bg);color:var(--danger)}
-/* composition strip */
-.fl-comp{margin:2px 0 12px}
-.fl-comp .cc-stack a{display:block;height:100%}
-.fl-comp .cc-legend{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);align-items:center}
-.fl-comp .cc-legend a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
-.fl-comp .cc-legend a:hover{color:var(--text)}
-.fl-comp .cc-legend b{color:var(--text);font-weight:650}
-.fl-comp-kind{margin-left:auto;color:var(--text-faint)}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
@@ -545,15 +537,6 @@ a.fleet-rail-item{min-height:40px}
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
-
-    {{/* ── Composition: what the fleet is made of (class), independent of filters.
-         Each segment / legend entry is a class filter. ── */}}
-    {{if gt (len .Composition) 1}}
-    <div class="fl-comp">
-      <div class="cc-stack" title="Fleet by device type">{{range .Composition}}<a class="cc-c{{.Idx}}" style="width:{{.Pct}}%" href="/devices?class={{.Class}}" title="{{.Label}} · {{.N}}"></a>{{end}}</div>
-      <div class="cc-legend">{{range .Composition}}<a href="/devices?class={{.Class}}"><i class="cc-c{{.Idx}}"></i>{{.Label}} <b>{{.N}}</b></a>{{end}}{{if canAdmin .Role}}<span class="fl-comp-kind">{{.CompFirmware}} firmware · {{.CompDPC}} DPC</span>{{end}}</div>
-    </div>
-    {{end}}
 
 
 <div class="fleet-bar dv-rise-1">
