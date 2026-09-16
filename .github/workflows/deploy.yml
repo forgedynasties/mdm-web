@@ -43,6 +43,14 @@ jobs:
             exit 1
           fi
 
+      # Check out the very commit being deployed, so the compose file shipped below
+      # matches the image. The box has its own (now stale) git checkout, and relying on
+      # it meant compose read an old file with no `image:` line, ignored MDM_IMAGE and
+      # restarted the locally built image while reporting success.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.image_tag }}
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -58,9 +66,18 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Ship the compose file with the deploy, base64'd so no quoting can mangle it.
+          COMPOSE_B64=$(base64 -w0 docker-compose.yml)
+
           REMOTE=$(cat <<EOF
           set -eu
           cd "$APP_DIR"
+
+          # Keep a copy of whatever is there, then install the version that belongs to
+          # this image. Without this the box decides which compose file to run, and it
+          # has no way of knowing the image name changed.
+          cp -f docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
+          echo "$COMPOSE_B64" | base64 -d > docker-compose.yml
 
           aws ecr get-login-password --region "$AWS_REGION" \
             | docker login --username AWS --password-stdin "$REGISTRY"
@@ -96,7 +113,14 @@ jobs:
             sleep 2
           done
           echo "health: \$state"
-          echo "running image: \$(docker inspect -f '{{.Config.Image}}' "\$cid")"
+          running=\$(docker inspect -f '{{.Config.Image}}' "\$cid")
+          echo "running image: \$running"
+          # The deploy is only real if the container is on the image we just pulled.
+          # This is exactly what silently failed twice: a green run over a stale image.
+          if [ "\$running" != "$IMAGE" ]; then
+            echo "ERROR: expected $IMAGE but the container is running \$running"
+            exit 1
+          fi
           echo "image digest:  \$(docker inspect -f '{{index .RepoDigests 0}}' "\$(docker inspect -f '{{.Image}}' "\$cid")" 2>/dev/null || echo n/a)"
           echo "started at:    \$(docker inspect -f '{{.State.StartedAt}}' "\$cid")"
           docker compose ps
