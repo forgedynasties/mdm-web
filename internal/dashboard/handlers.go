@@ -12344,14 +12344,6 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	if durCount > 0 {
 		avgDuration = durSum / durCount
 	}
-	// Ordered, non-zero status buckets for the rollup line (map iteration order
-	// is unstable, so build a fixed-order slice for the template).
-	var summary []map[string]any
-	for _, s := range []string{"pending", "downloading", "installing", "installed", "awaiting_reboot", "reboot_sent", "failed"} {
-		if counts[s] > 0 {
-			summary = append(summary, map[string]any{"Status": s, "Count": counts[s]})
-		}
-	}
 	pct := 0
 	if len(targets) > 0 {
 		pct = done * 100 / len(targets)
@@ -12387,6 +12379,33 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	if totalTargets > 0 {
 		pct = (done + legacyDone) * 100 / totalTargets
 		ringOffset = 276.5 * float64(100-pct) / 100
+	}
+
+	// The legacy devices count towards the same status chips. Without this the hero read
+	// "18 / 19 installed" next to a lone "7 installed" chip, because the chips only knew
+	// about the agent-managed half — and nothing on the page said which device was still
+	// going, or why the ring was short of 100%.
+	for _, dv := range legacyRows {
+		switch dv.Status {
+		case "offered":
+			counts["pending"]++
+		case "downloading", "installing", "verifying", "finalizing":
+			counts["installing"]++
+		case "installed", "awaiting_reboot", "updated":
+			counts["installed"]++
+		case "failed":
+			counts["failed"]++
+		default:
+			counts[dv.Status]++
+		}
+	}
+	// Ordered, non-zero status buckets for the rollup line (map iteration order
+	// is unstable, so build a fixed-order slice for the template).
+	var summary []map[string]any
+	for _, s := range []string{"pending", "downloading", "installing", "installed", "awaiting_reboot", "reboot_sent", "failed"} {
+		if counts[s] > 0 {
+			summary = append(summary, map[string]any{"Status": s, "Count": counts[s]})
+		}
 	}
 
 	data := map[string]any{
