@@ -53,6 +53,10 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
+    {{/* Screen state, shown only for firmware that reports it — the field the standby
+         metric is built on, so it is worth being able to see directly on the device. */}}
+    {{$scr := extraField .Device.LatestExtra "screen_on"}}{{if and $scr (ne $scr "—")}}<span class="ddc-chip" title="Display state, reported each check-in. Standby is powered time with the screen off.">
+      <svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="{{if eq $scr "true"}}#0f6d33{{else}}currentColor{{end}}" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>Screen {{if eq $scr "true"}}on{{else}}off{{end}}</span>{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
     {{/* Mic capture gain (TX_DEC0..7 Volume), admin-only: 102 on every channel = the
          trinket mic fix is present (OK), 84 = codec default (bad: quiet mic), anything
