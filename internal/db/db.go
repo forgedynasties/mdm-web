@@ -90,15 +90,52 @@ const (
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
 func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 
-// Class is the device's form factor: the stored class when set, else the product's
-// default (T7 → tablet, Kiosk 18/22/27 → panel), else "" (a DPC device enrolled
-// without a class on its profile).
+// Class is the device's category: the stored class when set, else the category its
+// product belongs to (T7 → t7, Kiosk 18/22/27 → kiosk), else "" (a stock device
+// whose type nobody has assigned and whose model told us nothing).
 func (d Device) Class() string {
 	if d.DeviceClass != "" {
 		return d.DeviceClass
 	}
 	p, _ := prod.Resolve(d.Product)
 	return p.Class
+}
+
+// productKeysForClass lists the product keys whose catalog category is class, so a
+// firmware device that stores no class still matches its category. The legacy empty
+// product is the default product, so it rides along with that product's class.
+func productKeysForClass(class string) []string {
+	var keys []string
+	for _, p := range prod.All() {
+		if p.Class == class {
+			keys = append(keys, p.Key)
+			if p.Key == prod.DefaultKey {
+				keys = append(keys, "") // legacy pre-product rows are the default product
+			}
+		}
+	}
+	return keys
+}
+
+// derivedClassSQL is the SQL form of Device.Class(): the stored class, else the
+// category of the device's product, built from the same catalog so the composition
+// strip can never disagree with the class filter.
+func derivedClassSQL() string {
+	var b strings.Builder
+	b.WriteString("COALESCE(NULLIF(device_class, ''), CASE")
+	for _, c := range prod.Classes() {
+		keys := productKeysForClass(c)
+		if len(keys) == 0 {
+			continue
+		}
+		quoted := make([]string, len(keys))
+		for i, k := range keys {
+			quoted[i] = "'" + k + "'" // catalog keys are our own constants, never user input
+		}
+		fmt.Fprintf(&b, " WHEN product IN (%s) THEN '%s'", strings.Join(quoted, ", "), c)
+	}
+	b.WriteString(" ELSE '' END)")
+	return b.String()
 }
 
 // ClassLabel is the display label for Class() ("—" when unset).
@@ -1392,6 +1429,23 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// not wipe a product already learned from an earlier keyframe (see COALESCE below).
 	product = prod.Normalize(product)
 
+	// Our own hardware carries its category in the product key, so the catalog answers
+	// it. A stock device under the DPC agent reports only a model, so guess a category
+	// from it — the upsert below uses this only when no class is stored yet, so it is a
+	// first guess an admin can correct, never an override. A delta frame that omits the
+	// model guesses nothing and leaves the stored value alone.
+	var guessedClass string
+	if len(extra) > 0 {
+		var ident struct {
+			AgentType    string `json:"agent_type"`
+			Model        string `json:"model"`
+			Manufacturer string `json:"manufacturer"`
+		}
+		if err := json.Unmarshal(extra, &ident); err == nil && ident.AgentType == prod.KindDPC {
+			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
+		}
+	}
+
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, 0, false, err
@@ -1419,8 +1473,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	var battery int
 	err = tx.QueryRow(ctx, fmt.Sprintf(`
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
-		                     agent_kind, capabilities, capabilities_degraded)
-		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5,
+		                     device_class, agent_kind, capabilities, capabilities_degraded)
+		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5, $6,
 		        CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE 'firmware' END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array' THEN $4::jsonb->'capabilities' ELSE '[]'::jsonb END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array' THEN $4::jsonb->'capabilities_degraded' ELSE '[]'::jsonb END)
@@ -1434,6 +1488,11 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
+			    -- A stock device's category cannot be derived from its product, so we
+			    -- guess it from the model it reports. Only ever fills an EMPTY class:
+			    -- an admin's assignment (inbox, device page, bulk) always wins.
+			    device_class       = CASE WHEN devices.device_class = '' THEN EXCLUDED.device_class
+			                              ELSE devices.device_class END,
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
@@ -1449,7 +1508,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			                              ELSE devices.enrollment_status END,
 			    latest_extra       = %s
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
-	`, extraExpr), serial, buildID, batteryPct, extra, product).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
+	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
@@ -1816,17 +1875,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	}
 	if f.Class != "" {
 		// Firmware devices rarely store a class; match the product default too.
-		var keys []string
-		for _, p := range prod.All() {
-			if p.Class == f.Class {
-				keys = append(keys, p.Key)
-				if p.Key == prod.DefaultKey {
-					keys = append(keys, "") // legacy pre-product rows are the default product
-				}
-			}
-		}
 		wheres = append(wheres, fmt.Sprintf("(d.device_class = $%d OR (d.device_class = '' AND d.product = ANY($%d)))", argN, argN+1))
-		args = append(args, f.Class, keys)
+		args = append(args, f.Class, productKeysForClass(f.Class))
 		argN += 2
 	}
 
@@ -2740,10 +2790,7 @@ func (d *DB) FleetComposition(ctx context.Context, excludeDPC bool) (classes []C
 		kindWhere = " AND agent_kind <> 'dpc'"
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT COALESCE(NULLIF(device_class, ''),
-		         CASE WHEN product IN ('', 't7') THEN 'tablet'
-		              WHEN product LIKE 'kiosk%' THEN 'panel'
-		              ELSE '' END) AS cls,
+		SELECT `+derivedClassSQL()+` AS cls,
 		       agent_kind, COUNT(*)
 		FROM devices
 		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`

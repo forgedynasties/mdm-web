@@ -66,6 +66,14 @@
       </div>
     </div>
 
+    <div class="form-row">
+      <label class="form-label" for="f-batch">Batch Code <span class="muted small">(optional)</span></label>
+      <input type="text" name="batch" id="f-batch" class="form-input" maxlength="2" placeholder="auto"
+             style="text-transform:uppercase" oninput="refreshPreview()">
+      <span class="muted small">Leave blank to encode it from the month and year. Set it only for an
+        early run whose serials predate that convention (e.g. <strong>26</strong>).</span>
+    </div>
+
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       <div class="form-row">
         <label class="form-label" for="f-start">Start Sequence</label>
@@ -130,7 +138,10 @@ function refreshPreview() {
     return;
   }
 
-  var batch  = encodeBatch(month, year);
+  // An explicit code wins over the month/year encoding — that is the whole point of
+  // the field: an early run whose serials predate the convention.
+  var batch  = document.getElementById('f-batch').value.trim().toUpperCase();
+  if (batch.length !== 2) batch = encodeBatch(month, year);
   var prefix = p + m + v + s + batch;
   var first  = prefix + pad5(start);
   var last   = prefix + pad5(start + qty - 1);

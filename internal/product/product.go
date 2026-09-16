@@ -46,9 +46,10 @@ type Product struct {
 	// client, shared key, auto-enrol on first check-in) or KindAndroid for stock devices
 	// managed by the Device-Owner DPC agent (explicit enrollment, per-device key).
 	Kind string
-	// Class is the default form factor for devices of this product (ClassTablet for
-	// the T7, ClassPanel for the wall kiosks). Empty for non-catalog products: their
-	// class is set per device at enrollment, not implied by hardware.
+	// Class is the category devices of this product belong to. Our own hardware is
+	// categorised by model (ClassT7 for the T7, ClassKiosk for the wall kiosks) —
+	// the model IS the category. Empty for non-catalog products: their class is
+	// guessed from the reported model and set per device, not implied by hardware.
 	Class string
 }
 
@@ -74,10 +75,10 @@ var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 // catalog is the declared capability set per product. Order here drives dashboard
 // dropdown order (see All).
 var catalog = []Product{
-	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassTablet},
-	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
-	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
-	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassPanel},
+	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7},
+	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
+	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
+	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 }
 
 var byKey = func() map[string]Product {

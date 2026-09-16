@@ -19520,6 +19520,19 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Product code and SKU must be exactly 2 characters, model code 2 digits, variant 1 character.", http.StatusBadRequest)
 		return
 	}
+	// The batch code normally encodes month+year, but the earliest runs shipped with
+	// codes that predate that convention (e.g. "26", which decodes to month 0). Those
+	// devices exist, so let an admin type the literal code; month/year still record
+	// when the run happened.
+	batch := strings.ToUpper(strings.TrimSpace(r.FormValue("batch")))
+	if batch == "" {
+		batch = db.EncodeBatch(batchMonth, batchYear)
+	} else if len(batch) != 2 || strings.IndexFunc(batch, func(c rune) bool {
+		return !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z'))
+	}) >= 0 {
+		http.Error(w, "Batch code must be exactly 2 letters or digits.", http.StatusBadRequest)
+		return
+	}
 
 	endSeq := startSeq + quantity - 1
 	params := db.ProductionParams{
@@ -19528,7 +19541,7 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 		ModelCode:     modelCode,
 		Variant:       variant,
 		SKU:           sku,
-		Batch:         db.EncodeBatch(batchMonth, batchYear),
+		Batch:         batch,
 		BatchMonth:    batchMonth,
 		BatchYear:     batchYear,
 		StartSequence: startSeq,

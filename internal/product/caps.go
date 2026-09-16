@@ -21,23 +21,29 @@ const (
 // class on the profile). Classes are display + filtering axes only: nothing is gated on
 // them, capabilities do that.
 const (
-	ClassTablet = "tablet" // handheld tablet (T7)
-	ClassPanel  = "panel"  // wall-mounted panel (Kiosk 18/22/27)
-	ClassKiosk  = "kiosk"  // outsourced self-service kiosk
+	ClassT7     = "t7"     // our T7 — the model IS the category, not a generic tablet
+	ClassKiosk  = "kiosk"  // self-service kiosk, ours (Kiosk 18/22/27) or outsourced
+	ClassTablet = "tablet" // stock Android tablet (DPC-managed)
 	ClassMPOS   = "mpos"   // mobile point of sale
 	ClassPOS    = "pos"    // counter point of sale
 	ClassOther  = "other"
+	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
+	// stay so a row written before the retag still renders; Classes() no longer
+	// offers it, so IsClass rejects it on new admin input.
+	ClassPanel = "panel"
 )
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassTablet, ClassPanel, ClassKiosk, ClassMPOS, ClassPOS, ClassOther}
+	return []string{ClassT7, ClassKiosk, ClassTablet, ClassMPOS, ClassPOS, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
 // empty class is "—" so templates never print a blank.
 func ClassLabel(class string) string {
 	switch strings.ToLower(strings.TrimSpace(class)) {
+	case ClassT7:
+		return "T7"
 	case ClassTablet:
 		return "Tablet"
 	case ClassPanel:

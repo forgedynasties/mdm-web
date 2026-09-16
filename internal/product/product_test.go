@@ -78,6 +78,59 @@ func TestCaps(t *testing.T) {
 	}
 }
 
+func TestCatalogClasses(t *testing.T) {
+	// Our own hardware is categorised by model: the T7 is its own category (not a
+	// generic tablet) and every wall kiosk is a Kiosk.
+	if p, _ := Resolve(KeyT7); p.Class != ClassT7 {
+		t.Errorf("t7 class: got %q, want %q", p.Class, ClassT7)
+	}
+	if p, _ := Resolve(""); p.Class != ClassT7 {
+		t.Errorf("legacy empty class: got %q, want %q", p.Class, ClassT7)
+	}
+	for _, k := range []string{KeyKiosk18, KeyKiosk22, KeyKiosk27} {
+		if p, _ := Resolve(k); p.Class != ClassKiosk {
+			t.Errorf("%s class: got %q, want %q", k, p.Class, ClassKiosk)
+		}
+	}
+	// A non-catalog product has no implied class — it is guessed/assigned per device.
+	if p, _ := Resolve("a14xmtfn"); p.Class != "" {
+		t.Errorf("unknown product class: got %q, want empty", p.Class)
+	}
+	// The picker no longer offers the retired panel class, but a row still holding it
+	// must render.
+	for _, c := range Classes() {
+		if c == ClassPanel {
+			t.Error("Classes() still offers the retired panel class")
+		}
+	}
+	if got := ClassLabel(ClassPanel); got != "Panel" {
+		t.Errorf("ClassLabel(panel): got %q, want Panel", got)
+	}
+	if got := ClassLabel(ClassT7); got != "T7" {
+		t.Errorf("ClassLabel(t7): got %q, want T7", got)
+	}
+}
+
+func TestClassForModel(t *testing.T) {
+	// The three stock devices in the fleet today, with the class an admin already
+	// chose for each by hand — the guess must reproduce those.
+	for _, tc := range []struct {
+		productKey, mfr, model, want string
+	}{
+		{"d3_pro", "SUNMI", "D3 PRO", ClassMPOS},
+		{"rk3399_android11", "telpo", "K20", ClassKiosk},
+		{"a14xmtfn", "samsung", "SM-S146VL", ClassMPOS},
+		{"kiosk_x", "vendor", "Self Service 21", ClassKiosk},
+		{"sm-x200", "samsung", "Galaxy Tab A8", ClassTablet},
+		{"sdk_gphone64_x86_64", "Google", "sdk_gphone64_x86_64", ""},
+		{"", "", "", ""},
+	} {
+		if got := ClassForModel(tc.productKey, tc.mfr, tc.model); got != tc.want {
+			t.Errorf("ClassForModel(%q,%q,%q): got %q, want %q", tc.productKey, tc.mfr, tc.model, got, tc.want)
+		}
+	}
+}
+
 func TestLabels(t *testing.T) {
 	if got := Label(KeyKiosk22); got != "Kiosk 22" {
 		t.Errorf("Label(kiosk22): got %q", got)

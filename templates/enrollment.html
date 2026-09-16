@@ -298,6 +298,9 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       <span>{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</span>
       <span>· {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</span>
       {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
+      {{/* Our own hardware carries its category in the product it reports; a stock
+           device only has whatever its model gave away, so say when that came up empty. */}}
+      {{if and .IsDPC (eq .Class "")}}<span class="cc-tag warn">type needed</span>{{end}}
     </div>
   </div>
   <div></div>
@@ -308,9 +311,13 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       <option value="">Site…</option>
       {{range $.Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
     </select>
-    <select class="en-sel short" name="device_class" aria-label="Class">
-      <option value="">{{if .Class}}{{.ClassLabel}}{{else}}Type…{{end}}</option>
-      {{range $.Classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
+    {{/* Firmware keeps "" (its type follows the product it reports, so it must not be
+         frozen into a stored override); a stock device preselects its guessed type so
+         "Done" confirms the guess in one click. */}}
+    {{$cls := .Class}}{{$isDPC := .IsDPC}}
+    <select class="en-sel short" name="device_class" aria-label="Type">
+      <option value="">{{if and $cls (not $isDPC)}}{{.ClassLabel}} (from model){{else}}Type…{{end}}</option>
+      {{range $.Classes}}<option value="{{.}}"{{if and $isDPC (eq . $cls)}} selected{{end}}>{{classLabel .}}</option>{{end}}
     </select>
     <button type="submit" class="cc-btn primary sm">Done</button>
   </form>

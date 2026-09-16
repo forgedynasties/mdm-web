@@ -22,10 +22,10 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
-	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
+	"mdm/internal/otagate"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -46,8 +46,8 @@ const maxIconBytes = 96 * 1024
 // deeply-nested body can overflow the goroutine stack — a fatal, unrecoverable crash
 // net/http's per-request recover does NOT catch), and the request rate per device.
 const (
-	maxSerialLen    = 64
-	maxBuildIDLen   = 128
+	maxSerialLen  = 64
+	maxBuildIDLen = 128
 	// The client's crash_events trace budget alone is 256 KiB (MAX_TOTAL_TRACE_BYTES),
 	// and the rest of extra (wifi/ram/storage/boot/summaries) stacks on top — a
 	// crash-heavy full-GMS device then blew past a 256 KiB cap and every check-in 413'd.
@@ -2029,13 +2029,17 @@ func (h *Handler) ListProductions(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name          string `json:"name"`
-		ProductCode   string `json:"product_code"`
-		ModelCode     string `json:"model_code"`
-		Variant       string `json:"variant"`
-		SKU           string `json:"sku"`
-		BatchMonth    int    `json:"batch_month"`
-		BatchYear     int    `json:"batch_year"`
+		Name        string `json:"name"`
+		ProductCode string `json:"product_code"`
+		ModelCode   string `json:"model_code"`
+		Variant     string `json:"variant"`
+		SKU         string `json:"sku"`
+		BatchMonth  int    `json:"batch_month"`
+		BatchYear   int    `json:"batch_year"`
+		// Batch is optional: blank encodes the code from batch_month+batch_year, which
+		// is the convention. An early run whose serials predate it (e.g. "26") sets the
+		// literal code here — those devices exist and must still match a production.
+		Batch         string `json:"batch"`
 		StartSequence int    `json:"start_sequence"`
 		EndSequence   int    `json:"end_sequence"`
 		Notes         string `json:"notes"`
@@ -2065,6 +2069,15 @@ func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid sequence range"})
 		return
 	}
+	batch := strings.ToUpper(strings.TrimSpace(body.Batch))
+	if batch == "" {
+		batch = db.EncodeBatch(body.BatchMonth, body.BatchYear)
+	} else if len(batch) != 2 || strings.IndexFunc(batch, func(c rune) bool {
+		return !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z'))
+	}) >= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "batch must be 2 letters or digits"})
+		return
+	}
 	variant := body.Variant
 	if variant == "" {
 		variant = "0"
@@ -2079,7 +2092,7 @@ func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
 		ModelCode:     body.ModelCode,
 		Variant:       variant,
 		SKU:           strings.ToUpper(sku),
-		Batch:         db.EncodeBatch(body.BatchMonth, body.BatchYear),
+		Batch:         batch,
 		BatchMonth:    body.BatchMonth,
 		BatchYear:     body.BatchYear,
 		StartSequence: body.StartSequence,
