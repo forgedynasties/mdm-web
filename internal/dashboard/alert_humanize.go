@@ -26,6 +26,7 @@ type alertAction struct {
 // an icon key, and the most useful next action.
 type humanAlert struct {
 	ID          uuid.UUID
+	Type        string // the rule type ("slow_charge_night", …), the grouping key
 	Severity    string // critical | warning | info
 	Status      string // open | acknowledged | resolved
 	IconKey     string // heat|crash|offline|battery|memory|wifi|storage|charge|generic
@@ -120,7 +121,7 @@ func humanizeAlert(a db.Alert) humanAlert {
 	}
 
 	h := humanAlert{
-		ID: a.ID, Severity: a.Severity, Status: a.Status,
+		ID: a.ID, Severity: a.Severity, Status: a.Status, Type: a.Type,
 		Serial: a.Serial, Restaurant: a.RestaurantName,
 		FiredAt: a.FiredAt, ResolvedAt: a.ResolvedAt,
 		Occurrences: a.Occurrences, IconKey: "generic",

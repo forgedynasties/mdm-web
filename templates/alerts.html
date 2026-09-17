@@ -33,6 +33,17 @@
 .alx-s b{color:var(--text);font-weight:650}
 .alx-foot{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
 .alx-foot form{display:inline}
+/* Folded group: the expander listing each device behind a "N devices" row. */
+.alx-fold-g{margin-top:9px}
+.alx-fold-g>summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none;display:inline-flex;align-items:center;gap:5px;border-bottom:1px solid var(--rule-2);padding-bottom:1px}
+.alx-fold-g>summary::-webkit-details-marker{display:none}
+.alx-fold-g>summary::before{content:"▸";font-size:10px}
+.alx-fold-g[open]>summary::before{content:"▾"}
+.alx-gm{border-top:1px solid var(--rule-2);padding:10px 0 2px}
+.alx-gm:first-of-type{margin-top:8px}
+.alx-gm-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px}
+.alx-gm-h a{font-family:var(--mono);color:var(--text);border-bottom:1px solid var(--rule-2)}
+.alx-gm .alx-foot{margin-top:8px}
 .alx-dev{margin-left:auto;font-size:12px;color:var(--muted)}
 .alx-dev a{font-family:var(--mono);color:var(--muted);border-bottom:1px solid var(--rule-2)}
 #alx-nomatch{padding:22px;text-align:center;color:var(--muted);font-size:13px;display:none}
@@ -128,12 +139,12 @@
 
   {{if and .Critical (ne .View "watching")}}
   <div class="cc-sec alx-sec">Needs attention now<span class="n">{{.NeedsCount}}</span></div>
-  {{range .Critical}}{{template "alx-card" .}}{{end}}
+  {{range .Critical}}{{template "alx-group" .}}{{end}}
   {{end}}
 
   {{if and .Watching (ne .View "needs")}}
   <div class="cc-sec alx-sec">Worth watching<span class="n">{{.WatchCount}}</span></div>
-  {{range .Watching}}{{template "alx-card" .}}{{end}}
+  {{range .Watching}}{{template "alx-group" .}}{{end}}
   {{end}}
 
   {{end}}
@@ -156,6 +167,9 @@ function alxFilter(){
     var ok=!q||hay.indexOf(q)!==-1; c.style.display=ok?"":"none"; if(ok)shown++;
   });
   document.querySelectorAll('#alerts-live .alx-sec, #alerts-live .alx-fold, #alerts-live .alx-pager').forEach(function(s){ s.style.display=q?"none":""; });
+  // A search that matches a device folded inside a group must not leave it hidden
+  // behind a collapsed expander — open every group while filtering.
+  document.querySelectorAll('#alerts-live .alx-fold-g').forEach(function(d){ d.open=!!q; });
   var nm=document.getElementById('alx-nomatch'); if(nm) nm.style.display=(q&&cards.length&&shown===0)?"block":"none";
 }
 // Live refresh: re-fetch the current (filter-preserving) URL and swap the region.
@@ -175,6 +189,52 @@ function alxFilter(){
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{/* One alert group. Dot is an alertGroup. A single-device group renders exactly as
+     it always did; two or more of the same rule at the same site fold into one row
+     with a "N devices" chip and an expander, the way the crash feed already merges
+     by signature. */}}
+{{define "alx-group"}}
+{{if le .DeviceCount 1}}{{template "alx-card" .Lead}}{{else}}
+{{$sev := "info"}}{{if eq .Lead.Severity "critical"}}{{$sev = "crit"}}{{else if eq .Lead.Severity "warning"}}{{$sev = "warn"}}{{end}}
+{{$sq := "info"}}{{if eq $sev "crit"}}{{$sq = "danger"}}{{else if eq $sev "warn"}}{{$sq = "warn"}}{{end}}
+<div class="alx-al {{$sev}}" data-search="{{.Search}}">
+  <span class="cc-sq {{$sq}}">{{if .Lead.AppIcon}}<img src="{{iconSrc .Lead.AppIcon}}" alt="">{{else}}{{template "alx-icon" .Lead.IconKey}}{{end}}</span>
+  <div class="alx-m">
+    <div class="alx-top">
+      <span class="alx-t">{{.Lead.Headline}}</span>
+      <span class="alx-kind" title="Devices with this same alert{{if .Lead.Restaurant}} at {{.Lead.Restaurant}}{{end}}">{{.DeviceCount}} devices</span>
+      {{if gt .Occurrences .DeviceCount}}<span class="alx-occ" title="Times this condition has come back across these devices">×{{.Occurrences}}</span>{{end}}
+      <span class="alx-when">{{timeSince .Lead.FiredAt}}</span>
+    </div>
+    {{/* The per-device numbers differ (58%→68% here, 66%→78% there), so the collapsed
+         row states the shape of the problem and the expander carries each sentence. */}}
+    <div class="alx-s">{{.DeviceCount}} devices{{if .Lead.Restaurant}} at <b>{{.Lead.Restaurant}}</b>{{end}} have the same alert.</div>
+    <details class="alx-fold-g">
+      <summary>Show each device</summary>
+      {{range .Members}}
+      <div class="alx-gm">
+        <div class="alx-gm-h">
+          <a href="/devices/{{.Serial}}" onclick="event.stopPropagation()">{{.Serial}}</a>
+          {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
+          {{if .Muted}}<span class="cc-tag">snoozed</span>{{end}}
+          <span class="alx-when">{{timeSince .FiredAt}}</span>
+        </div>
+        <div class="alx-s">{{.Sentence}}</div>
+        <div class="alx-foot">
+          {{if .Primary}}<a class="cc-btn sm" href="{{.Primary.Href}}">{{.Primary.Label}}</a>{{end}}
+          {{if .CanAct}}
+            {{if eq .Status "open"}}<form action="/alerts/{{.ID}}/ack" method="POST"><button type="submit" class="cc-btn sm">Acknowledge</button></form>{{end}}
+            <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="cc-btn sm">Resolve</button></form>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </details>
+  </div>
+</div>
+{{end}}
 {{end}}
 
 {{/* One friendly alert card. Dot is a humanAlert. */}}

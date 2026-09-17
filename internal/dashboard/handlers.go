@@ -3551,8 +3551,8 @@ func (h *Handler) SneakPeekAlerts(w http.ResponseWriter, r *http.Request) {
 		"Title":         "Alerts",
 		"Summary":       summary,
 		"View":          "",
-		"Critical":      crit,
-		"Watching":      watch,
+		"Critical":      groupAlerts(crit),
+		"Watching":      groupAlerts(watch),
 		"NeedsCount":    len(crit),
 		"WatchCount":    len(watch),
 		"ActiveCount":   len(crit) + len(watch),
@@ -7230,6 +7230,9 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	}
 	crashes := toCrashCards(crashEvents)
 	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch}, crashes)
+	// Fold each bucket by (type, site) AFTER icons are resolved, so a group's lead
+	// card keeps the icon its members resolved.
+	critGroups, watchGroups := groupAlerts(crit), groupAlerts(watch)
 	// Preserve the device scope on the pager links.
 	crashPageBase := "/alerts?view=crashes"
 	if deviceSerial != "" {
@@ -7239,8 +7242,10 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Title":         "Alerts",
 		"Summary":       summary,
 		"View":          view,
-		"Critical":      crit,
-		"Watching":      watch,
+		"Critical":      critGroups,
+		"Watching":      watchGroups,
+		// Counts stay per-device: an operator wants "14 devices need attention", not
+		// "1 group". Only the rendering folds.
 		"NeedsCount":    len(crit),
 		"WatchCount":    len(watch),
 		"ActiveCount":   len(crit) + len(watch),
@@ -7254,6 +7259,62 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"CrashPages":    crashPages,
 		"CrashPageBase": crashPageBase,
 	})
+}
+
+// alertGroup is one rule firing across one site, folded into a single row. The
+// crash feed has merged by signature for a while (ListRecentCrashGroupsPage); the
+// alert list did not, so one site-wide cause — fourteen T7s on the same weak
+// circuit tripping slow_charge_night — arrived as fourteen identical cards and
+// buried everything else. The unique index is (type, device_id), so the dedup that
+// already exists can only ever collapse repeats on ONE device.
+//
+// Lead is the newest member and renders the collapsed row; Members carries every
+// alert so the expander can list each device with its own sentence and its own
+// ack/resolve buttons (there is no bulk-resolve endpoint, and inventing one here
+// would be a bigger change than the noise warrants).
+type alertGroup struct {
+	Lead        humanAlert
+	Members     []humanAlert
+	DeviceCount int
+	Occurrences int    // summed across members
+	Search      string // every member's searchable text, so the client filter still finds a folded device
+}
+
+// groupAlerts folds a severity bucket by (type, restaurant). Order is preserved:
+// a group lands where its newest member sat, so the existing severity/fired_at
+// ordering from ListActiveAlerts still drives the page. A lone alert becomes a
+// one-member group and renders exactly as it did before.
+//
+// Restaurant is part of the key on purpose. "Fourteen devices at Flights Vegas
+// charged slowly" is one fact an operator can act on; the same rule firing at four
+// different sites is four separate problems and stays four rows.
+func groupAlerts(alerts []humanAlert) []alertGroup {
+	groups := make([]alertGroup, 0, len(alerts))
+	idx := make(map[string]int, len(alerts))
+	for _, a := range alerts {
+		// Crash alerts carry a per-device stack trace and app icon, so folding them
+		// would hide the one thing that makes them useful. The crashes view already
+		// groups them by signature.
+		key := a.Type + "\x00" + a.Restaurant
+		if a.Type == "device_crash" || a.Type == "" {
+			key = "\x00unique\x00" + a.ID.String()
+		}
+		if i, ok := idx[key]; ok {
+			g := &groups[i]
+			g.Members = append(g.Members, a)
+			g.DeviceCount++
+			g.Occurrences += a.Occurrences
+			g.Search += " " + a.Serial
+			continue
+		}
+		idx[key] = len(groups)
+		groups = append(groups, alertGroup{
+			Lead: a, Members: []humanAlert{a}, DeviceCount: 1,
+			Occurrences: a.Occurrences,
+			Search:      a.Headline + " " + a.Serial + " " + a.Restaurant + " " + plainSentence(a.Sentence),
+		})
+	}
+	return groups
 }
 
 // crashCardView is one crash/ANR/tombstone event rendered as a card on the alerts
