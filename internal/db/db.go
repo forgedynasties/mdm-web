@@ -1939,6 +1939,7 @@ type DeviceSample struct {
 	RAMUsedMB     *int32
 	RAMTotalMB    *int32
 	StorageFreeGB *float64
+	UptimeS       *int32
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -1971,6 +1972,46 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 		return *eventFrom, true, nil
 	}
 	return *sampleFrom, true, nil
+}
+
+// ShapedExportCoverage is ShapedCoverage for the CSV export, which needs more than the
+// chart does. The chart draws battery, temperature, RAM and the charge state, all of
+// which the shaped tables have held since dual writing began. The export also prints
+// uptime and position, which were added later — so a window the chart can answer from
+// the shaped tables may still be one where the export would print two empty columns.
+//
+// Using the chart's coverage here would therefore not fall back, it would silently
+// export blanks, which is worse than reading the old snapshot. Coverage instead starts
+// at the first sample that actually carries an uptime and the first recorded position.
+// It moves backwards on its own as the backfill fills uptime_s into older rows, and
+// positions begin the day the writer shipped, since state history cannot be
+// reconstructed from thinned check-ins.
+func (d *DB) ShapedExportCoverage(ctx context.Context, deviceID uuid.UUID) (from time.Time, ok bool, err error) {
+	base, ok, err := d.ShapedCoverage(ctx, deviceID)
+	if err != nil || !ok {
+		return time.Time{}, false, err
+	}
+	var uptimeFrom, locFrom *time.Time
+	// Both are LIMIT 1 walks of this device's own primary-key range, stopping at the
+	// first match rather than aggregating over the device's whole history.
+	err = d.pool.QueryRow(ctx, `
+		SELECT (SELECT at FROM device_samples
+		         WHERE device_id = $1 AND uptime_s IS NOT NULL ORDER BY at LIMIT 1),
+		       (SELECT at FROM device_state_events
+		         WHERE device_id = $1 AND key = 'location' ORDER BY at LIMIT 1)`,
+		deviceID).Scan(&uptimeFrom, &locFrom)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if uptimeFrom == nil || locFrom == nil {
+		return time.Time{}, false, nil
+	}
+	for _, t := range []time.Time{*uptimeFrom, *locFrom} {
+		if t.After(base) {
+			base = t
+		}
+	}
+	return base, true, nil
 }
 
 // GetDeviceSamples returns the numeric series for a window, oldest first — the order

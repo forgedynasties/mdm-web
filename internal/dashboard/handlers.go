@@ -8514,9 +8514,27 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		return cw.Write(rec)
 	}
-	if cycles {
+	// The shaped tables answer this window only if they cover its whole span for every
+	// device asked for; otherwise the snapshot does. Coverage begins the day dual
+	// writing started, so an export reaching further back still reads checkins — which
+	// is why the fallback stays rather than the old path being deleted.
+	//
+	// "source" overrides the choice. It exists so the two paths can be run against each
+	// other on real windows and diffed, which is the only way this move is safe to
+	// make, and it stays as the escape hatch if they ever disagree in the field.
+	useShaped := h.shapedCoversExport(r.Context(), deviceIDs, start.UTC())
+	switch r.FormValue("source") {
+	case "checkins":
+		useShaped = false
+	case "shaped":
+		useShaped = true
+	}
+	switch {
+	case useShaped:
+		err = h.db.StreamExportShaped(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, cycles, writeRow)
+	case cycles:
 		err = h.db.StreamExportCycles(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
-	} else {
+	default:
 		err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
 	}
 	cw.Flush()
