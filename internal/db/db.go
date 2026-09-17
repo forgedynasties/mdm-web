@@ -1549,13 +1549,32 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// volatile keys, skip the history row — the live snapshot on devices was updated
 	// above regardless. Any transition (battery %, build, charging, pad state, kiosk,
 	// boot…) still lands the instant it happens, so charts keep every real event.
+	// The snapshot itself is no longer stored: every reader now takes its values from
+	// device_samples and device_state_events, and the column costs about 600 of the
+	// row's 665 bytes. What the row still has to carry is the ONE thing the snapshot was
+	// being read for here — whether anything non-volatile has changed since the last
+	// stored row — so that is kept as a hash of exactly the projection the comparison
+	// used to make.
+	//
+	// A hash rather than comparing against devices.latest_extra, which is also to hand:
+	// that would compare against the last REPORT instead of the last STORED row. The two
+	// agree by an induction (a coalesced report was non-volatile-equal to the row before
+	// it, so the projections match) and the induction is sound, but the sample window
+	// would still be measured against one row and the equality against another. Getting
+	// this wrong does not break anything visibly — it stores a row per report, silently
+	// undoing the coalescing that cut the fleet from 118,869 rows a day to 52,488.
+	//
+	// jsonb normalises key order, so equal values always render to identical text and
+	// the hash is stable. Rows written before this have a NULL hash and so compare
+	// unequal, which stores one extra row per device once, and never again.
 	sample := int(d.checkinSampleSec.Load())
 	ct, err := tx.Exec(ctx, `
-		INSERT INTO checkins (device_id, battery_pct, build_id, extra)
-		SELECT $1, $2, $3, ($4::jsonb) - `+checkinStripKeys+`
+		INSERT INTO checkins (device_id, battery_pct, build_id, extra, state_hash)
+		SELECT $1, $2, $3, '{}'::jsonb,
+		       md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
 		WHERE NOT EXISTS (
 			SELECT 1 FROM (
-				SELECT created_at, battery_pct, build_id, extra
+				SELECT created_at, battery_pct, build_id, state_hash
 				FROM checkins WHERE device_id = $1
 				ORDER BY created_at DESC LIMIT 1
 			) last
@@ -1563,8 +1582,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			  AND last.created_at > NOW() - make_interval(secs => $5)
 			  AND last.battery_pct = $2
 			  AND last.build_id = $3
-			  AND (last.extra - `+checkinVolatileKeys+`)
-			    = ((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)
+			  AND last.state_hash
+			    = md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
 		)
 	`, deviceID, battery, buildID, merged, sample)
 	if err != nil {
@@ -7565,6 +7584,24 @@ func (d *DB) RollupDailyStatsFor(ctx context.Context, day time.Time) (int64, err
 	if ready {
 		return d.RollupDailyStatsShaped(ctx, day)
 	}
+	// The check-in path needs snapshots to read. Once they stopped being stored, a day
+	// without them would not fail here — it would compute a full set of statistics in
+	// which every state-derived figure is zero, and write them as fact. Better to roll
+	// the day up not at all than to roll it up wrong, so an unanswerable day is skipped
+	// and says so.
+	var haveSnapshots bool
+	if err := d.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM checkins
+			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
+			  AND extra <> '{}'::jsonb
+			LIMIT 1)`, day.Format("2006-01-02")).Scan(&haveSnapshots); err != nil {
+		return 0, err
+	}
+	if !haveSnapshots {
+		return 0, fmt.Errorf("rollup %s: shaped tables cannot answer the day and no check-in snapshots remain for it",
+			day.Format("2006-01-02"))
+	}
 	return d.RollupDailyStats(ctx, day)
 }
 
@@ -12461,6 +12498,18 @@ ALTER TABLE device_samples DROP COLUMN IF EXISTS storage_free_dgb;
 -- hundreds of megabytes a btree over millions of rows would cost, and the same query
 -- comes back in 5ms.
 CREATE INDEX IF NOT EXISTS idx_device_samples_at ON device_samples USING BRIN (at);
+
+-- checkins.extra stopped being written once every reader moved to the shaped tables.
+-- The column stays: rows written before that still hold their snapshots, and the
+-- fallback paths read them for any window the shaped tables do not reach. New rows
+-- carry '{}'.
+--
+-- state_hash replaces the one use the snapshot still had on the write path: deciding
+-- whether anything non-volatile changed since the last STORED row, which is what keeps
+-- a device reporting every few seconds from storing a row every few seconds. It holds
+-- an md5 of exactly the projection that comparison used to make.
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS state_hash TEXT;
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

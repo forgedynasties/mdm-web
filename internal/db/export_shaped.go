@@ -318,3 +318,50 @@ func atoiExport(s string) (int, bool) {
 	n, err := strconv.Atoi(s)
 	return n, err == nil
 }
+
+// checkinShapeStateKeys are the states a rebuilt check-in row carries.
+var checkinShapeStateKeys = []string{"charging", "wlc_status", "wifi", "ip_address", "timezone", "screen_on"}
+
+// ShapedCheckins returns check-in shaped rows for a window built from the shaped
+// tables, newest first — the order every check-in query returns. limit > 0 keeps only
+// that many of the most recent. ok is false when the shaped tables do not cover the
+// window, and the caller falls back to the snapshots.
+//
+// Each row's Extra is rebuilt rather than its readers being rewritten. The device
+// page's first paint renders battery, WLC, temperature and RAM out of Extra in the
+// template, chargeRuns reads charging from it, and the public API serialises it
+// verbatim — handing all three the object they already expect changes where the
+// numbers come from and nothing else.
+func (d *DB) ShapedCheckins(ctx context.Context, deviceID uuid.UUID, from, until time.Time, limit int) ([]Checkin, bool, error) {
+	coverFrom, ok, err := d.ShapedCoverage(ctx, deviceID)
+	if err != nil || !ok || from.Before(coverFrom) {
+		return nil, false, err
+	}
+	samples, err := d.GetDeviceSamples(ctx, deviceID, from, until)
+	if err != nil || len(samples) == 0 {
+		return nil, false, err
+	}
+	events, err := d.GetStateTimeline(ctx, deviceID, checkinShapeStateKeys, from, until)
+	if err != nil {
+		return nil, false, err
+	}
+
+	cur := map[string]string{}
+	next := 0
+	out := make([]Checkin, len(samples))
+	for i, s := range samples {
+		for next < len(events) && !events[next].At.After(s.At) {
+			cur[events[next].Key] = events[next].Value
+			next++
+		}
+		c := Checkin{DeviceID: deviceID, CreatedAt: s.At, Extra: ShapedExtra(s, cur)}
+		if s.BatteryPct != nil {
+			c.BatteryPct = int(*s.BatteryPct)
+		}
+		out[len(samples)-1-i] = c // samples come oldest first; callers want newest first
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, true, nil
+}
