@@ -1178,11 +1178,36 @@ function mdmBootCharts() {
   // to be loaded: the same outage was visible on one reload and gone on the next.
   //
   // deviceOnline only governs the trailing edge, below.
-  function insertGaps(pts) {
+  // A break must mean "this device went quiet", not "we are drawing thinned data".
+  // The server returns at most ~2500 points for whatever range it is asked for, so a
+  // 30-day window arrives ~17 minutes apart — past the fixed 15-minute threshold, which
+  // put a break between every pair and turned the line into isolated dots with the area
+  // fill dropping to zero between them. Measure the series being drawn and call a gap a
+  // gap only when it is well past that series' own spacing.
+  function gapThresholdFor(pts) {
+    if (!pts || pts.length < 4) return gapThresholdMs;
+    // Average spacing across the window, not the median of the deltas: the server
+    // thins by keeping each bucket's first, min and max, so the deltas are bimodal —
+    // clusters of near-zero gaps inside a bucket and one jump between buckets. The
+    // median lands on the near-zero ones and every between-bucket jump then reads as
+    // an outage, which is how a device reporting every 30 seconds drew 88 breaks.
+    const span = pts[pts.length - 1].x - pts[0].x;
+    const spacing = span / (pts.length - 1);
+    // Six times the average spacing, measured against the real distribution rather
+    // than guessed: on a 30-day window of a device that reports every 30 seconds and
+    // was genuinely dark three times, four times the spacing still drew 26 breaks
+    // (thinning spreads a bucket's representatives out), while six draws two. The
+    // fixed floor keeps short windows honest, where the spacing is small and a real
+    // twenty-minute silence should still break the line.
+    return Math.max(gapThresholdMs, spacing * 6);
+  }
+
+  function insertGaps(pts, thr) {
     if (!pts || pts.length < 2) return pts;
+    if (thr === undefined) thr = gapThresholdFor(pts);
     const out = [];
     for (let i = 0; i < pts.length; i++) {
-      if (i > 0 && (pts[i].x - pts[i - 1].x) > gapThresholdMs) {
+      if (i > 0 && (pts[i].x - pts[i - 1].x) > thr) {
         out.push({ x: (pts[i - 1].x + pts[i].x) / 2, y: null });
       }
       out.push(pts[i]);
@@ -1198,7 +1223,7 @@ function mdmBootCharts() {
     if (out.length) {
       const last = out[out.length - 1];
       if (last.y !== null && trailingSilenceMs(last.x) > 0) {
-        out.push({ x: last.x + gapThresholdMs, y: null });
+        out.push({ x: last.x + thr, y: null });
       }
     }
     return out;
