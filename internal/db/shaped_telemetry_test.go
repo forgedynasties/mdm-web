@@ -2,7 +2,6 @@ package db
 
 import (
 	"encoding/json"
-	"math"
 	"testing"
 )
 
@@ -136,82 +135,5 @@ func TestStateKeysAreNotSampled(t *testing.T) {
 		if sampled[k] {
 			t.Errorf("%q is both a state key and a sampled number; it must be one or the other", k)
 		}
-	}
-}
-
-// TestJSONInt32 covers uptime's column. The range guard matters: a device reporting
-// something absurd must land as NULL rather than overflow into a plausible-looking
-// small number.
-func TestJSONInt32(t *testing.T) {
-	deref := func(p *int32) any {
-		if p == nil {
-			return nil
-		}
-		return *p
-	}
-	cases := []struct {
-		in   string
-		want any
-	}{
-		{`523104`, int32(523104)},
-		{`0`, int32(0)},
-		{`2147483647`, int32(2147483647)},
-		{`2147483648`, nil}, // over int32: NULL, not a wrapped value
-		{`-2147483649`, nil},
-		{``, nil},
-		{`null`, nil},
-		{`"up"`, nil},
-	}
-	for _, c := range cases {
-		if got := deref(jsonInt32(json.RawMessage(c.in))); got != c.want {
-			t.Errorf("jsonInt32(%q) = %v, want %v", c.in, got, c.want)
-		}
-	}
-}
-
-// TestLocationValueRoundTrip: what is written must read back as the same fix, since
-// the stored text is what the next deadband comparison is made against.
-func TestLocationValueRoundTrip(t *testing.T) {
-	for _, c := range []struct{ lat, lon float64 }{
-		{31.520370, 74.358749},
-		{-33.865143, 151.209900},
-		{0, 0},
-	} {
-		lat, lon, ok := parseLocationValue(formatLocationValue(c.lat, c.lon))
-		if !ok || math.Abs(lat-c.lat) > 1e-6 || math.Abs(lon-c.lon) > 1e-6 {
-			t.Errorf("round trip of %v,%v gave %v,%v (ok=%v)", c.lat, c.lon, lat, lon, ok)
-		}
-	}
-}
-
-// TestParseLocationValueRejectsGarbage: a value that is not a fix must not be read as
-// one. Reporting ok on garbage would make the deadband compare against 0,0 — the Gulf
-// of Guinea — and every real position would then look like a 5,000 km move.
-func TestParseLocationValueRejectsGarbage(t *testing.T) {
-	for _, s := range []string{"", "31.5", "31.5,", ",74.3", "a,b", "null"} {
-		if _, _, ok := parseLocationValue(s); ok {
-			t.Errorf("parseLocationValue(%q) accepted a non-fix", s)
-		}
-	}
-}
-
-// TestMetersBetweenAgainstDeadband pins the two decisions the deadband rests on: the
-// jitter actually seen on the fleet stays inside it, and a real move out of the
-// building does not. Distances are checked against the measured worst case (5.9 m)
-// and a move a person would care about.
-func TestMetersBetweenAgainstDeadband(t *testing.T) {
-	const lat, lon = 31.520370, 74.358749
-	// ~5.9 m north — the largest apparent jump measured across 10,338 located reports.
-	if d := metersBetween(lat, lon, lat+5.9/111320, lon); d > locationDeadbandM {
-		t.Errorf("measured worst-case jitter (%.1f m) falls outside the deadband", d)
-	}
-	// ~250 m east: a device that genuinely left the counter.
-	east := lon + 250/(111320*math.Cos(lat*math.Pi/180))
-	if d := metersBetween(lat, lon, lat, east); d <= locationDeadbandM {
-		t.Errorf("a 250 m move measured as %.1f m, inside the deadband", d)
-	}
-	// Symmetric, and zero for the same point.
-	if metersBetween(lat, lon, lat, lon) != 0 {
-		t.Error("a point is not zero metres from itself")
 	}
 }

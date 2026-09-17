@@ -229,7 +229,7 @@ func buildChartBodyFromCheckins(device *db.Device, asc []db.Checkin) ([]byte, er
 // like a per-device data difference rather than a source difference.
 func (h *Handler) shapedCoversExport(ctx context.Context, deviceIDs []uuid.UUID, from time.Time) bool {
 	for _, id := range deviceIDs {
-		coverFrom, ok, err := h.db.ShapedExportCoverage(ctx, id)
+		coverFrom, ok, err := h.db.ShapedCoverage(ctx, id)
 		if err != nil || !ok || from.Before(coverFrom) {
 			return false
 		}

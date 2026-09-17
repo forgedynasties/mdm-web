@@ -24,7 +24,6 @@ func TestShapedExtraProducesIdenticalCSVCells(t *testing.T) {
 	snapshot := json.RawMessage(`{
 		"battery_temp_c": 34.400001525878906,
 		"storage_free_gb": 12.452000617980957,
-		"uptime_seconds": 523104,
 		"wifi_rssi": -57,
 		"ram_usage_mb": {"used": 2007, "total": 3630, "available": 1623},
 		"charging": true,
@@ -32,8 +31,6 @@ func TestShapedExtraProducesIdenticalCSVCells(t *testing.T) {
 		"wifi": "\"AIO-Guest\"",
 		"ip_address": "10.32.1.170",
 		"timezone": "Asia/Karachi",
-		"latitude": 31.520370,
-		"longitude": 74.358749,
 		"mic_gain": 84
 	}`)
 
@@ -45,7 +42,6 @@ func TestShapedExtraProducesIdenticalCSVCells(t *testing.T) {
 		RAMUsedMB:     p32(2007),
 		RAMTotalMB:    p32(3630),
 		StorageFreeGB: pf(12.452000617980957),
-		UptimeS:       p32(523104),
 	}
 	state := map[string]string{
 		"charging":   "true",
@@ -53,7 +49,6 @@ func TestShapedExtraProducesIdenticalCSVCells(t *testing.T) {
 		"wifi":       `"AIO-Guest"`, // jsonScalar strips JSON's quotes, Android's remain
 		"ip_address": "10.32.1.170",
 		"timezone":   "Asia/Karachi",
-		"location":   "31.520370,74.358749",
 	}
 	rebuilt := db.ShapedExtra(sample, state)
 
@@ -66,11 +61,8 @@ func TestShapedExtraProducesIdenticalCSVCells(t *testing.T) {
 			"ram_used_mb":     extraRamField(extra, "used"),
 			"ram_total_mb":    extraRamField(extra, "total"),
 			"storage_free_gb": extraFloat(extra, "storage_free_gb"),
-			"uptime_seconds":  extraInt(extra, "uptime_seconds"),
 			"wlc_status":      extraInt(extra, "wlc_status"),
 			"timezone":        extraString(extra, "timezone"),
-			"latitude":        extraCoord(extra, "latitude"),
-			"longitude":       extraCoord(extra, "longitude"),
 		}
 	}
 	from, to := cells(snapshot), cells(rebuilt)
@@ -114,13 +106,12 @@ func TestShapedExtraRejectsMalformedState(t *testing.T) {
 	rebuilt := db.ShapedExtra(db.DeviceSample{TempC: pf(30)}, map[string]string{
 		"charging":   "sometimes",
 		"wlc_status": "on",
-		"location":   "nowhere",
 	})
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(rebuilt, &m); err != nil {
 		t.Fatalf("malformed state produced invalid JSON: %v", err)
 	}
-	for _, k := range []string{"charging", "wlc_status", "latitude", "longitude"} {
+	for _, k := range []string{"charging", "wlc_status"} {
 		if _, ok := m[k]; ok {
 			t.Errorf("malformed state was written through as %s", k)
 		}

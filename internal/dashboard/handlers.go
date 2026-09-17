@@ -8227,29 +8227,6 @@ func extraFloat(raw json.RawMessage, key string) string {
 	return fmt.Sprintf("%.1f", f)
 }
 
-// extraCoord formats a latitude or longitude for the CSV. It exists because these
-// two columns went through extraFloat, whose "%.1f" is right for a temperature and
-// useless for a coordinate: one decimal place of latitude is about 11 km, so every
-// device in a city exported the same position. Six places is ~0.1 m.
-func extraCoord(raw json.RawMessage, key string) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return ""
-	}
-	v, ok := m[key]
-	if !ok {
-		return ""
-	}
-	var f float64
-	if err := json.Unmarshal(v, &f); err != nil {
-		return ""
-	}
-	return strconv.FormatFloat(f, 'f', 6, 64)
-}
-
 func extraInt(raw json.RawMessage, key string) string {
 	if len(raw) == 0 {
 		return ""
@@ -8321,16 +8298,14 @@ func extraRamField(raw json.RawMessage, field string) string {
 // dashboard use; bump it if a real workflow needs more.
 const maxExportRange = 90 * 24 * time.Hour
 
-// adminOnlyExportColumns are the export columns that identify where a device is
-// and how to reach it — network identity and physical location — rather than how
-// it is behaving. They are admin-only: an operator exporting battery history has
-// no reason to carry a fleet's SSIDs, IPs and coordinates out of the dashboard.
+// adminOnlyExportColumns are the export columns that identify how to reach a
+// device — its network identity — rather than how it is behaving. They are
+// admin-only: an operator exporting battery history has no reason to carry a
+// fleet's SSIDs and IPs out of the dashboard.
 // Enforced in ExportCSV, and the checkboxes are hidden in export.html.
 var adminOnlyExportColumns = map[string]bool{
 	"wifi":       true,
 	"ip_address": true,
-	"latitude":   true,
-	"longitude":  true,
 	"last_seen":  true,
 }
 
@@ -8441,8 +8416,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		colSet[c] = true
 	}
 	colOrder := []string{"battery_pct", "battery_temp_c", "charging", "build_id", "wifi", "ip_address",
-		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone",
-		"latitude", "longitude", "last_seen"}
+		"ram_used_mb", "ram_total_mb", "storage_free_gb", "wlc_status", "timezone", "last_seen"}
 
 	// timestamp is the row's time in the requester's wall clock (with offset),
 	// timestamp_utc the same instant in UTC, and sample_at the moment the check-in
@@ -8498,16 +8472,10 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, extraRamField(row.Extra, "total"))
 			case "storage_free_gb":
 				rec = append(rec, extraFloat(row.Extra, "storage_free_gb"))
-			case "uptime_seconds":
-				rec = append(rec, extraInt(row.Extra, "uptime_seconds"))
 			case "wlc_status":
 				rec = append(rec, extraInt(row.Extra, "wlc_status"))
 			case "timezone":
 				rec = append(rec, extraString(row.Extra, "timezone"))
-			case "latitude":
-				rec = append(rec, extraCoord(row.Extra, "latitude"))
-			case "longitude":
-				rec = append(rec, extraCoord(row.Extra, "longitude"))
 			case "last_seen":
 				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
 			}
@@ -8518,6 +8486,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	// device asked for; otherwise the snapshot does. Coverage begins the day dual
 	// writing started, so an export reaching further back still reads checkins — which
 	// is why the fallback stays rather than the old path being deleted.
+	//
 	//
 	// "source" overrides the choice. It exists so the two paths can be run against each
 	// other on real windows and diffed, which is the only way this move is safe to

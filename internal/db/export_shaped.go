@@ -13,7 +13,7 @@ import (
 // exportStateKeys are the state-event keys the CSV export can print. Kept narrow on
 // purpose: loading every key a device has ever changed would pull in fields no column
 // asks for.
-var exportStateKeys = []string{"charging", "wlc_status", "wifi", "ip_address", "timezone", "location"}
+var exportStateKeys = []string{"charging", "wlc_status", "wifi", "ip_address", "timezone"}
 
 // StreamExportShaped answers the CSV export from the shaped tables instead of from
 // checkins.extra. It produces exactly the same ExportRow stream as
@@ -184,7 +184,7 @@ func (d *DB) streamShapedDevice(ctx context.Context, dev exportDevice, start, en
 // streamShapedSamples is the raw and interval-sampled modes: one row per sample, or
 // the first sample of each interval bucket. Mirrors exportCheckinsQuery.
 func (d *DB) streamShapedSamples(ctx context.Context, dev exportDevice, start, end time.Time, intervalSec int, emit func(time.Time, *DeviceSample) error) error {
-	const cols = `at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, uptime_s`
+	const cols = `at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb`
 	var q string
 	var args []any
 	if intervalSec > 0 {
@@ -209,7 +209,7 @@ func (d *DB) streamShapedSamples(ctx context.Context, dev exportDevice, start, e
 	defer rows.Close()
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.UptimeS); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB); err != nil {
 			return err
 		}
 		if err := emit(s.At, &s); err != nil {
@@ -225,10 +225,10 @@ func (d *DB) streamShapedSamples(ctx context.Context, dev exportDevice, start, e
 // forever.
 func (d *DB) streamShapedCycles(ctx context.Context, dev exportDevice, start, end time.Time, intervalSec int, emit func(time.Time, *DeviceSample) error) error {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.ts, s.at, s.battery_pct, s.temp_c, s.wifi_rssi, s.ram_used_mb, s.ram_total_mb, s.storage_free_gb, s.uptime_s
+		SELECT g.ts, s.at, s.battery_pct, s.temp_c, s.wifi_rssi, s.ram_used_mb, s.ram_total_mb, s.storage_free_gb
 		FROM generate_series($2::timestamptz, $3::timestamptz, make_interval(secs => $4)) AS g(ts)
 		LEFT JOIN LATERAL (
-			SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, uptime_s
+			SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb
 			FROM device_samples
 			WHERE device_id = $1 AND at <= g.ts
 			  AND at > g.ts - GREATEST(
@@ -246,7 +246,7 @@ func (d *DB) streamShapedCycles(ctx context.Context, dev exportDevice, start, en
 		var mark time.Time
 		var at *time.Time
 		var s DeviceSample
-		if err := rows.Scan(&mark, &at, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.UptimeS); err != nil {
+		if err := rows.Scan(&mark, &at, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB); err != nil {
 			return err
 		}
 		if at == nil {
@@ -280,9 +280,6 @@ func ShapedExtra(s DeviceSample, state map[string]string) json.RawMessage {
 	if s.StorageFreeGB != nil {
 		put("storage_free_gb", strconv.FormatFloat(*s.StorageFreeGB, 'g', -1, 64))
 	}
-	if s.UptimeS != nil {
-		put("uptime_seconds", strconv.FormatInt(int64(*s.UptimeS), 10))
-	}
 	if s.WifiRSSI != nil {
 		put("wifi_rssi", strconv.FormatInt(int64(*s.WifiRSSI), 10))
 	}
@@ -306,12 +303,6 @@ func ShapedExtra(s DeviceSample, state map[string]string) json.RawMessage {
 	if v, ok := state["wlc_status"]; ok {
 		if _, isNum := atoiExport(v); isNum {
 			put("wlc_status", v)
-		}
-	}
-	if v, ok := state["location"]; ok {
-		if lat, lon, ok := parseLocationValue(v); ok {
-			put("latitude", strconv.FormatFloat(lat, 'f', -1, 64))
-			put("longitude", strconv.FormatFloat(lon, 'f', -1, 64))
 		}
 	}
 	b, err := json.Marshal(m)

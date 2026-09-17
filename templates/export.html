@@ -99,11 +99,10 @@
         <span class="form-label" style="margin-right:8px;">Preset:</span>
         <button type="button" class="dur-btn" onclick="applyPreset('common')">Common</button>
         <button type="button" class="dur-btn" onclick="applyPreset('battery')">Battery</button>
-        {{/* Both presets select only admin-only columns, so for anyone else they
+        {{/* This preset selects only admin-only columns, so for anyone else it
              would clear the form and select nothing. */}}
         {{if canAdmin .Role}}<button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>{{end}}
         <button type="button" class="dur-btn" onclick="applyPreset('system')">System</button>
-        {{if canAdmin .Role}}<button type="button" class="dur-btn" onclick="applyPreset('location')">Location</button>{{end}}
         <button type="button" class="dur-btn" onclick="applyPreset('all')">All</button>
         <button type="button" class="dur-btn" onclick="applyPreset('none')">None</button>
       </div>
@@ -121,8 +120,8 @@
         </div>
       </div>
 
-      {{/* Network, Location and Meta identify where a device is and how to reach it,
-           rather than how it is behaving — admin-only. ExportCSV drops these columns
+      {{/* Network and Meta identify how to reach a device rather than how it is
+           behaving — admin-only. ExportCSV drops these columns
            server-side too, since the form posts plain column names. */}}
       {{if canAdmin .Role}}
       <div class="export-col-group">
@@ -147,23 +146,11 @@
           <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_used_mb" checked onchange="updateColCount()"> RAM Used (MB)</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_total_mb" checked onchange="updateColCount()"> RAM Total (MB)</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="storage_free_gb" checked onchange="updateColCount()"> Storage Free (GB)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="uptime_seconds" checked onchange="updateColCount()"> Uptime (sec)</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="timezone" checked onchange="updateColCount()"> Timezone</label>
         </div>
       </div>
 
       {{if canAdmin .Role}}
-      <div class="export-col-group">
-        <div class="export-col-group-head">
-          <strong>Location</strong>
-          <button type="button" class="link-btn" onclick="toggleGroup('location')">toggle</button>
-        </div>
-        <div class="export-columns" data-group="location">
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="latitude" onchange="updateColCount()"> Latitude</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="longitude" onchange="updateColCount()"> Longitude</label>
-        </div>
-      </div>
-
       <div class="export-col-group">
         <div class="export-col-group-head">
           <strong>Meta</strong>
@@ -235,8 +222,7 @@ var COLUMN_PRESETS = {
   common:   ['battery_pct', 'build_id', 'wifi', 'ip_address', 'last_seen'],
   battery:  ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'last_seen'],
   network:  ['wifi', 'ip_address', 'last_seen'],
-  system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'uptime_seconds', 'timezone', 'last_seen'],
-  location: ['latitude', 'longitude', 'last_seen'],
+  system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'timezone', 'last_seen'],
   all:      null,  // sentinel: check everything
   none:     []
 };
