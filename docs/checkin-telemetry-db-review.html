@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check-in &amp; Telemetry Load Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #5f5f66; --faint: #8a8a92;
+    --line: #e9e9ed; --coral: #F9674E; --peri: #7A80F6; --ok: #0f6d33; --warn: #8f4209; --bad: #b42318;
+    --ok-bg: rgba(21,127,60,.10); --warn-bg: rgba(180,83,9,.10); --bad-bg: rgba(180,35,24,.10); --shadow: 0 12px 40px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, sans-serif; font-weight: 400; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-weight: 300; font-size: clamp(32px, 4.5vw, 46px); letter-spacing: -.04em; line-height: 1.06; margin: 10px 0 12px; text-wrap: balance; }
+  h1 .hl { color: var(--coral); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 64ch; margin: 0 0 32px; }
+  h2 { font-weight: 300; font-size: 26px; letter-spacing: -.03em; margin: 48px 0 12px; text-wrap: balance; }
+  h3 { font-weight: 500; font-size: 15px; margin: 22px 0 8px; }
+  p { max-width: 68ch; margin: 0 0 12px; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-bottom: 28px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; margin: 24px 0; }
+  .kpi { padding: 20px 22px 18px; border-left: 1px solid var(--line); }
+  .kpi:first-child { border-left: 0; }
+  .kpi .v { font-size: 38px; font-weight: 300; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi .v.bad { color: var(--bad); } .kpi .v.ok { color: var(--ok); }
+  .kpi .k { font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 22px 24px; margin: 16px 0 24px; }
+  .card h3:first-child { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 10px 10px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.n, th.n { text-align: right; padding-right: 0; }
+  .tw { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.off { background: var(--surface-2); color: var(--muted); }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 200px 1fr 60px; gap: 12px; align-items: center; font-size: 13px; }
+  .bar .lbl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .lbl b { color: var(--text); font-weight: 500; font-family: 'Poppins', sans-serif; }
+  .bar i { display: block; height: 12px; border-radius: 6px; background: var(--surface-2); position: relative; overflow: hidden; }
+  .bar i::after { content: ""; position: absolute; inset: 0; width: var(--p); background: var(--coral); border-radius: 6px; }
+  .bar.warn i::after { background: var(--warn); } .bar.peri i::after { background: var(--peri); }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; height: 90px; align-items: end; }
+  .hours i { display: block; background: var(--surface-2); height: 100%; border-radius: 5px; position: relative; overflow: hidden; }
+  .hours i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: var(--peri); border-radius: 5px; }
+  .hours i.svc::after { background: var(--coral); }
+  .axis { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; margin-top: 6px; font: 500 10px ui-monospace, monospace; color: var(--faint); }
+  .axis span:nth-child(3n+2), .axis span:nth-child(3n) { visibility: hidden; }
+  .callout { border-left: 3px solid var(--coral); padding: 4px 0 4px 16px; margin: 18px 0; color: var(--muted); }
+  .callout b { color: var(--text); font-weight: 500; }
+  ol.plan { padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; margin: 0; }
+  ol.plan li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr auto; gap: 14px; align-items: start; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 14px 18px; }
+  ol.plan li::before { content: counter(step); width: 30px; height: 30px; border-radius: 50%; background: var(--coral); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; }
+  ol.plan b { display: block; font-weight: 500; font-size: 15px; }
+  ol.plan span { font-size: 13px; color: var(--muted); }
+  ol.plan .who { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--peri); white-space: nowrap; margin-top: 4px; }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rules ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+  .rules li { margin: 3px 0; }
+  .rules li b { color: var(--text); font-weight: 500; }
+  .small { font-size: 12.5px; color: var(--muted); }
+  th.vd, td.vd { padding-left: 16px; }
+  ol.plan li.done::before { background: var(--ok); }
+  ol.plan li.done b .pill { margin-left: 8px; vertical-align: 2px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+  @media (max-width: 720px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .bar { grid-template-columns: 120px 1fr 48px; } .rules { grid-template-columns: 1fr; } ol.plan li { grid-template-columns: 34px 1fr; } ol.plan .who { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AIO MDM · check-ins · telemetry · database</div>
+  <h1>25.2 million check-in rows, <span class="hl">15 GB</span>, and the top device writes one every nine seconds.</h1>
+  <p class="lede">The senior dev asked four questions about the MDM server: is there a queue, what are the server specs, what are the DB specs, and how much data 100 idle devices produce in an hour. Those answers are below, together with his follow-up advice and a fresh audit of the live box that says the idle footprint is no longer the main problem — duplicate writes are.</p>
+  <div class="meta"><span>Source <b>dev box i-0bda11fb1feceaa74, live DB, 17 September 2026 07:52 UTC</b></span><span>Fleet <b>193 enrolled, 86 reporting in the last 24 h (190 firmware, 3 DPC)</b></span><span>Author <b>Ali, with Claude</b></span></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v bad">15 GB</div><div class="k">database, 97% check-ins</div></div>
+    <div class="kpi"><div class="v bad">25.2M</div><div class="k">check-in rows</div></div>
+    <div class="kpi"><div class="v bad">118,869</div><div class="k">rows written in 24 h</div></div>
+    <div class="kpi"><div class="v bad">0</div><div class="k">CPU credits left</div></div>
+  </div>
+
+  <div class="callout"><b>The headline finding.</b> Coalescing is supposed to hold an unchanged device to one row every 30 s. The six busiest devices are averaging a row every 9&ndash;14 s, and the smallest gap between two rows for one device is <b>5.8 milliseconds</b>. Two independent code paths are writing the same snapshot, and a goroutine leak makes the server ask for that snapshot more than once per interval. Retention has never been switched on, so every one of those rows is still there.</div>
+
+  <h2>His four questions, answered</h2>
+
+  <h3>1. Is there a queue in the server?</h3>
+  <div class="card">
+    <p>No broker. No Redis, NATS, Kafka or SQS. The device&nbsp;&rarr;&nbsp;server path is fully synchronous: <code>POST /api/v1/checkin</code> &rarr; <code>internal/api/handlers.go:704</code> &rarr; <code>db.UpsertCheckin</code> (<code>internal/db/db.go:1424</code>) &rarr; one Postgres transaction &rarr; response. Go's <code>net/http</code> gives one goroutine per request, unbounded. There is no worker pool anywhere.</p>
+    <p>There <b>is</b> a durable queue in the other direction. Server&nbsp;&rarr;&nbsp;device commands live in Postgres (<code>commands</code>, <code>command_targets</code>, <code>command_status</code>) with receipt-ack, client-side id dedup and per-type expiry &mdash; 5 min for quick actions, 24 h for installs. It is flushed on connect, after each ack, and every minute, so it survives an offline device.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Backpressure point</th><th>Limit</th><th>Behaviour when hit</th><th class="vd">Where</th></tr></thead>
+      <tbody>
+        <tr><td>pgx connection pool</td><td class="n">60 conns</td><td>requests block waiting for a connection</td><td class="vd"><code>db.go:1317-1353</code></td></tr>
+        <tr><td>Per-serial rate limit</td><td class="n">120 req/min</td><td>HTTP 429 + <code>Retry-After</code></td><td class="vd"><code>handlers.go:57,124</code></td></tr>
+        <tr><td>WS send buffer, per device</td><td class="n">256 msgs</td><td><span class="pill warn">drops</span> message, push reports failure</td><td class="vd"><code>ws/hub.go:635,509</code></td></tr>
+        <tr><td>Dashboard event channels</td><td class="n">32&ndash;64</td><td><span class="pill warn">drops</span> on full, 4 s per-device throttle</td><td class="vd"><code>ws/hub.go:355,375,407</code></td></tr>
+        <tr><td>Request body caps</td><td class="n">512 KB</td><td>rejected; icons 96 KB, 2000 pkgs/device</td><td class="vd"><code>handlers.go:38-55</code></td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">A dropped WS push is not lost work: the Postgres command queue re-delivers it. A dropped dashboard event only costs a live UI refresh.</p>
+  </div>
+
+  <h3>2. Server specs</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Item</th><th>Value</th><th class="vd">Note</th></tr></thead>
+      <tbody>
+        <tr><td>Instance</td><td><code>i-0bda11fb1feceaa74</code>, us-west-2c, launched 20 Jan 2026</td><td class="vd">mdm.dev.aioapp.com</td></tr>
+        <tr><td>Type</td><td><b>t2.medium</b> &mdash; 2 vCPU burstable, 20% baseline, 4 GiB RAM</td><td class="vd"><span class="pill warn">previous generation</span></td></tr>
+        <tr><td>Disk</td><td>96 GB gp3, 3000 IOPS, 125 MB/s &mdash; <b>76 GB used, 21 GB free (79%)</b></td><td class="vd"><span class="pill warn">filling</span></td></tr>
+        <tr><td>CPU credits</td><td><b>0</b> as of 17 Sep 01:00 and 07:00 (138 at 16 Sep 13:00)</td><td class="vd"><span class="pill bad">throttled to baseline</span></td></tr>
+        <tr><td>RAM in use</td><td>3.2 of 3.9 GiB at 07:51, 702 MB available</td><td class="vd">8 containers share the box</td></tr>
+        <tr><td>Container caps</td><td>server 512 MB (using 58 MB), postgres 2 GB (using 263 MB)</td><td class="vd">compose limits</td></tr>
+        <tr><td>Co-tenants</td><td>hrportal, ops-workforce, nat-dashboard front+back, ota_server, saas-manager</td><td class="vd">MDM is not alone on this box</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout" style="border-color:var(--bad)"><b>Two things a senior dev will pick up immediately.</b> The credit balance is at zero, which means the box has been running above its 20% baseline for long enough to exhaust burst &mdash; the same failure that took the live box down before. And 21 GB of free disk against a database growing ~85 MB a day is roughly 250 days at today's fleet size, far less as devices are added.</div>
+  </div>
+
+  <h3>3. DB specs</h3>
+  <div class="card">
+    <p>Postgres 17 (alpine) in a container on a Docker volume, sharing the box with the app. Every setting is the stock default; nothing has been tuned for a 15 GB table.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Setting</th><th class="n">Live value</th><th class="vd">Comment</th></tr></thead>
+      <tbody>
+        <tr><td><code>shared_buffers</code></td><td class="n">128 MB</td><td class="vd">0.8% of the database; the hot index alone is 1 GB</td></tr>
+        <tr><td><code>effective_cache_size</code></td><td class="n">4 GB</td><td class="vd">optimistic: the box has 4 GiB total for 8 containers</td></tr>
+        <tr><td><code>work_mem</code></td><td class="n">4 MB</td><td class="vd">default</td></tr>
+        <tr><td><code>maintenance_work_mem</code></td><td class="n">64 MB</td><td class="vd">low for vacuum/index builds at this size</td></tr>
+        <tr><td><code>max_wal_size</code></td><td class="n">1 GB</td><td class="vd">a bulk retention DELETE will checkpoint hard</td></tr>
+        <tr><td><code>max_connections</code></td><td class="n">100</td><td class="vd">pool asks for 60 &mdash; fine for one replica, not two</td></tr>
+        <tr><td><code>autovacuum_vacuum_scale_factor</code></td><td class="n">0.2</td><td class="vd">on 25 M rows that is 5 M dead rows before a vacuum</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Evidence that this is undersized rather than theoretical: a single ad-hoc statistics query over <code>checkins</code> during this audit killed a Postgres backend on the box. Postgres crash-recovered on its own in about 20 seconds with no data loss, and the API stayed healthy, but one read-only query should not be able to do that.</p>
+  </div>
+
+  <h3>4. Data stored for 100 idle devices in an hour</h3>
+  <div class="card">
+    <p>Almost all of it is <code>checkins</code>. The <code>devices</code> row is rewritten on every check-in too, but vacuum reclaims that space, so it does not accumulate. Measured row cost on the live box: <b>~595 bytes</b> including indexes, with <code>extra</code> averaging 779 bytes of JSON before compression.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Client</th><th class="n">Rows/device/hour</th><th class="n">100 devices, 1 h</th><th class="n">Per day</th><th class="n">Per year</th></tr></thead>
+      <tbody>
+        <tr><td>Design intent (30 s coalescing floor)</td><td class="n">120</td><td class="n">~7 MB</td><td class="n">~170 MB</td><td class="n">~60 GB</td></tr>
+        <tr><td>Firmware kiosk client, delta-gated</td><td class="n">~12</td><td class="n">~1&ndash;1.5 MB</td><td class="n">~36 MB</td><td class="n">~13 GB</td></tr>
+        <tr><td>DPC agent, full snapshot every 30 s over both transports</td><td class="n">~120</td><td class="n">~12 MB</td><td class="n">~280 MB</td><td class="n">~100 GB</td></tr>
+        <tr><td><b>Measured worst device, live, 17 Sep</b></td><td class="n"><b>277</b></td><td class="n"><b>~16 MB</b></td><td class="n"><b>~400 MB</b></td><td class="n"><b>~145 GB</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">The fleet-wide average today is gentler &mdash; 118,869 rows across 86 devices is 1,382 rows per device per day &mdash; because most firmware clients skip the send entirely when nothing changed. The spread is the problem, not the mean.</p>
+  </div>
+
+  <h2>What he advised next</h2>
+  <div class="card">
+    <div class="rules">
+      <ul>
+        <li><b>Turn retention on.</b> <code>checkin_retention_days</code> is 0, meaning keep forever. Setting 30&ndash;60 is config-only, no code.</li>
+        <li><b>Partition <code>checkins</code> by month.</b> A retention DELETE over tens of GB on 2 vCPU and 3000 IOPS will hurt; <code>DROP PARTITION</code> is free.</li>
+        <li><b>Raise <code>checkin_sample_sec</code></b> to 60&ndash;120. Transitions still land instantly; only the idle heartbeat thins out.</li>
+      </ul>
+      <ul>
+        <li><b>Watch pool vs max_connections.</b> 60 pool conns against 100 max is fine for one instance, not for two.</li>
+        <li><b>Past ~500 devices</b> needs an external session/rate-limit store and WS fan-out over LISTEN/NOTIFY or Redis before it can go multi-replica.</li>
+        <li><b>Move off t2.</b> t3.medium is the same size, cheaper, with better burst behaviour.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Fresh findings, 17 September</h2>
+
+  <h3>The same snapshot is written twice, and asked for more than once</h3>
+  <div class="card">
+    <p>Three independent mechanisms multiply the write rate:</p>
+    <ol class="plan">
+      <li><b>Dual-transport write</b><span>HTTP <code>Checkin</code> (<code>handlers.go:704</code>) and WS <code>HandleWsTelemetry</code> (<code>handlers.go:1397</code>) are two hand-maintained copies of the same logic writing the same tables. HTTP stores a full keyframe (<code>mergeExtra=false</code>), WS merges a delta (<code>mergeExtra=true</code>). Because coalescing compares the new <code>extra</code> against the previous stored row, alternating keyframe and delta shapes reads as a change every time &mdash; so the 30 s floor never applies.</span><span class="who">root cause</span></li>
+      <li><b>Leaked telemetry-request loops</b><span><code>Connect()</code> spawns <code>go h.runTelemetryRequestLoop(deviceID)</code> on every WS upgrade (<code>handlers.go:178</code>) with no context, no cancel map and no check for an existing loop. <code>hub.Push</code> keys on device id only, so after a fast reconnect the old loop keeps succeeding against the new connection and never exits. A device that flaps N times inside one interval ends up with N loops, each asking for telemetry on its own timer. Confirmed by reading the code; matches the 5.8 ms row gaps.</span><span class="who">root cause</span></li>
+      <li><b>DPC agent sends everything, always</b><span>30 s HTTP loop plus a WS send on connect and on every <code>telemetry_request</code>, both built from the same <code>buildCheckin()</code>, with no dedup between transports and no field-level diffing &mdash; only a CRC32 apps-hash gate on the installed-apps list. The firmware kiosk client, by contrast, skips the send entirely when no gated key changed, and its HTTP leg is a 5-minute safety net.</span><span class="who">3 devices today, the whole fleet later</span></li>
+    </ol>
+    <p class="small" style="margin:16px 0 0">The third item is the one that scales badly: the mixed-fleet work puts DPC agents on every new device, at roughly ten times the firmware client's write rate.</p>
+  </div>
+
+  <h3>Where the 15 GB sits</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Object</th><th class="n">Size</th><th class="n">Scans since restart</th><th class="vd">Verdict</th></tr></thead>
+      <tbody>
+        <tr><td><code>checkins</code> heap</td><td class="n">13 GB</td><td class="n">&mdash;</td><td class="vd">25.2 M rows, oldest 18 Mar 2026</td></tr>
+        <tr><td><code>idx_checkins_device_created_at</code></td><td class="n">1053 MB</td><td class="n">207</td><td class="vd"><span class="pill ok">earns it</span> device history queries</td></tr>
+        <tr><td><code>checkins_pkey</code> (uuid id)</td><td class="n">756 MB</td><td class="n">0</td><td class="vd"><span class="pill bad">dead weight</span> nothing looks a check-in up by id</td></tr>
+        <tr><td><code>idx_checkins_created_at</code></td><td class="n">582 MB</td><td class="n">105</td><td class="vd"><span class="pill warn">BRIN would do</span> append-only by time</td></tr>
+        <tr><td><code>idx_checkins_device_id</code></td><td class="n">177 MB</td><td class="n">0</td><td class="vd"><span class="pill bad">redundant</span> prefix of the composite index</td></tr>
+        <tr><td><code>command_results</code></td><td class="n">171 MB</td><td class="n">&mdash;</td><td class="vd">5,100 rows &mdash; no retention either</td></tr>
+        <tr><td><code>devices</code></td><td class="n">15 MB</td><td class="n">&mdash;</td><td class="vd">193 rows; 9 indexes rewritten on every check-in</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Index scan counts are since the last stats reset (container start, 19 h before the audit) and include a full daily cycle. 933 MB of the 2,569 MB of indexes on <code>checkins</code> served zero queries in that window while being written on every insert. The TOAST table is 8 KB, so the stripping of <code>crash_events</code> and <code>wifi_scan</code> from stored rows is working &mdash; without it this table was measured at 3.5 GB of one key alone.</p>
+  </div>
+
+  <h3>Smaller things the audit turned up</h3>
+  <div class="card">
+    <div class="rules">
+      <ul>
+        <li><b>A check-in is not atomic.</b> Only <code>UpsertCheckin</code> is in a transaction (3 statements). Device events, packages, OTA state, config and command acks are separate non-transactional calls in the same handler.</li>
+        <li><b>Idle is not free.</b> Recent-tier alerts run every minute over the whole fleet, hourly housekeeping rolls up <code>device_daily_stats</code> and re-evaluates alerts, five redrive jobs run every minute. An idle fleet still writes.</li>
+        <li><b>No migrations directory.</b> The whole schema is one embedded idempotent SQL string in <code>db.go</code> (~10225&ndash;11566), which is why partitioning has to be planned as a deliberate migration rather than a DDL edit.</li>
+      </ul>
+      <ul>
+        <li><b>Single-instance state:</b> WS client map, presence and throttle maps, seven subscriber channel sets, the per-serial rate limiter, remote-control sessions and tokens, the OTA verdict cache. Two replicas behind an LB would each see half the fleet.</li>
+        <li><b>Retention exists but is off</b> for check-ins and logcat. Resolved alerts do prune at 90 days.</li>
+        <li><b><code>wifi_ap_locations</code></b> took 19,065 updates on 769 rows &mdash; worth a look after the bigger items.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>The plan, in order</h2>
+  <p>Ordered by effect per unit of risk. The first three cost no schema change and stop the bleeding; the rest are the structural work.</p>
+  <ol class="plan">
+    <li><b>Stop the duplicate loops</b><span>Give <code>runTelemetryRequestLoop</code> a context and a per-device cancel map, cancel the previous loop in <code>Connect()</code>, and have the loop verify it still owns the connection it was spawned for. Small, contained, testable. Removes both the goroutine leak and the extra telemetry requests.</span><span class="who">1&ndash;2 h · low risk</span></li>
+    <li><b>Make one write path</b><span>Collapse HTTP <code>Checkin</code> and WS <code>HandleWsTelemetry</code> onto one shared ingest function so keyframe and delta shapes are normalised before the coalescing comparison. This is what makes <code>checkin_sample_sec</code> actually hold. Biggest single reduction in row rate.</span><span class="who">half a day · medium risk</span></li>
+    <li><b>Turn retention on, staged</b><span>Set <code>checkin_retention_days=60</code>, but do <b>not</b> let the first run delete 20 GB in one statement on a credit-starved t2 with <code>max_wal_size=1GB</code>. Delete oldest-day-first in batches, off-peak, then a manual <code>VACUUM</code>. Drops the table to roughly 2&ndash;3 GB at today's rate.</span><span class="who">config + a batched job · needs care</span></li>
+    <li><b>Drop the two dead indexes</b><span><code>idx_checkins_device_id</code> is a strict prefix of the composite index. <code>checkins_pkey</code> on a random uuid serves no query and is the worst kind of index on an append-only table &mdash; random insert positions on 756 MB. Confirm over a longer stats window first, then replace the pkey with <code>(device_id, created_at)</code> and consider BRIN for <code>created_at</code>.</span><span class="who">~900 MB back · low risk</span></li>
+    <li><b>Raise <code>checkin_sample_sec</code> to 60</b><span>Only meaningful after step 2, since today the comparison rarely matches anyway. Transitions still land instantly.</span><span class="who">config only</span></li>
+    <li><b>Teach the DPC agent to diff</b><span>Port the firmware client's gated-keys/delta design: skip the send when nothing changed, send deltas over WS, keep HTTP as a 5-minute safety net. Do this before DPC agents ship fleet-wide, not after. In the meantime Settings &rarr; Devices carries an <b>Ignore DPC agent check-ins</b> switch: the agent still gets a normal reply on its usual interval, and nothing is stored. Enrolled DPC devices keep their history and resume when it goes back off.</span><span class="who">agent release · blocks mixed-fleet scale</span></li>
+    <li><b>Partition <code>checkins</code> by month</b><span>Declarative range partitioning, new partitions created ahead, retention becomes <code>DROP PARTITION</code> instead of a DELETE. Needs a real migration path out of the single embedded SQL string, and a backfill window.</span><span class="who">1&ndash;2 days · the structural fix</span></li>
+    <li><b>Right-size the box and Postgres</b><span>t2 &rarr; t3.medium (credits are at zero today), then <code>shared_buffers</code> 1 GB, <code>maintenance_work_mem</code> 256 MB, <code>max_wal_size</code> 4 GB, and a per-table autovacuum scale factor on <code>checkins</code>. Consider moving Postgres off a box shared with seven other containers.</span><span class="who">infra · do with 3 and 7</span></li>
+    <li><b>Then, and only then, multi-replica</b><span>Shared rate-limit and session store, WS fan-out via Postgres LISTEN/NOTIFY or Redis, remote-session registry out of process. Not needed at 193 devices; needed before ~500.</span><span class="who">later</span></li>
+  </ol>
+
+  <h2>Two design changes on top</h2>
+  <p>Both come from the same observation: the table stores a full snapshot on a timer, when what anyone actually reads back is either <em>when something changed</em> or <em>a number over time</em>.</p>
+
+  <h3>Store transitions, not snapshots</h3>
+  <div class="card">
+    <p>Today a wireless-charging status flip writes a whole 600-byte row carrying every other field alongside it, and the next 30-second sample writes them all again. What the WLC feature needs from history is a list of changes with their timestamps &mdash; on at 11:04, off at 11:41 &mdash; which is roughly 60 bytes per real event and nothing at all while the state holds.</p>
+    <p>That splits the current single table into three things, each shaped like its reader:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Store</th><th>Holds</th><th class="n">Row cost</th><th class="vd">Written when</th></tr></thead>
+      <tbody>
+        <tr><td><code>devices.latest_extra</code></td><td>the live snapshot &mdash; already exists, already correct</td><td class="n">&mdash;</td><td class="vd">every report</td></tr>
+        <tr><td><code>device_state_events</code> (new)</td><td>one row per transition: key, from, to, at. WLC, charging, screen, kiosk, boot id, build, charger type, IP, timezone</td><td class="n">~60 B</td><td class="vd">only on a real change</td></tr>
+        <tr><td><code>device_samples</code> (new)</td><td>the numeric series in fixed columns, no jsonb: battery, temp, RSSI, RAM, free storage</td><td class="n">~40 B</td><td class="vd">on the sampling interval, downsampled to hourly min/avg/max after 48 h</td></tr>
+      </tbody>
+    </table></div>
+    <h3 style="margin-top:22px">Which keys are which, measured</h3>
+    <p>WLC was the example; it is not the biggest case. Below is every key in <code>extra</code> on the busiest firmware device, with how often its value actually differed from the previous stored row across 600 consecutive rows (about 1.5 hours), and what those bytes cost in every one of them.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Key</th><th class="n">Bytes/row</th><th class="n">Changed</th><th class="vd">Belongs in</th></tr></thead>
+      <tbody>
+        <tr><td><code>uptime_seconds</code></td><td class="n">24</td><td class="n">96.8%</td><td class="vd"><span class="pill bad">drop</span> a clock; derivable from the last boot event</td></tr>
+        <tr><td><code>battery_temp_c</code></td><td class="n">33</td><td class="n">89.0%</td><td class="vd"><span class="pill ok">series</span></td></tr>
+        <tr><td><code>charger_voltage_mv</code></td><td class="n">26</td><td class="n">88.3%</td><td class="vd"><span class="pill ok">series</span></td></tr>
+        <tr><td><code>ram_usage_mb</code></td><td class="n">64</td><td class="n">37.5%</td><td class="vd"><span class="pill ok">series</span> (a JSON object today, should be a number)</td></tr>
+        <tr><td><code>wlc_status</code></td><td class="n">15</td><td class="n">6.7%</td><td class="vd"><span class="pill warn">event</span></td></tr>
+        <tr><td><code>storage_free_gb</code></td><td class="n">21</td><td class="n">1.7%</td><td class="vd"><span class="pill ok">series</span>, hourly is plenty</td></tr>
+        <tr><td><code>mic_gain</code></td><td class="n">100</td><td class="n">0.3%</td><td class="vd"><span class="pill off">device row</span> the single largest key on the device</td></tr>
+        <tr><td><code>latitude</code>, <code>longitude</code></td><td class="n">61</td><td class="n">0.3%</td><td class="vd"><span class="pill warn">event</span> a location fix is a change, not a sample</td></tr>
+        <tr><td><code>location_address</code></td><td class="n">58</td><td class="n">0.0%</td><td class="vd"><span class="pill off">device row</span></td></tr>
+        <tr><td><code>boot_id</code>, <code>boot_reason</code></td><td class="n">66</td><td class="n">0.0%</td><td class="vd"><span class="pill warn">event</span> already mirrored into <code>device_events</code></td></tr>
+        <tr><td><code>wifi</code>, <code>ip_address</code></td><td class="n">58</td><td class="n">0.0%</td><td class="vd"><span class="pill warn">event</span></td></tr>
+        <tr><td><code>charging</code>, <code>charger_type</code>, <code>wlc_charging</code></td><td class="n">59</td><td class="n">0.0%</td><td class="vd"><span class="pill warn">event</span></td></tr>
+        <tr><td><code>kiosk_suspended</code>, <code>offline_exit_seed_set</code></td><td class="n">53</td><td class="n">0.0%</td><td class="vd"><span class="pill warn">event</span></td></tr>
+        <tr><td><code>timezone</code></td><td class="n">33</td><td class="n">0.0%</td><td class="vd"><span class="pill off">device row</span></td></tr>
+        <tr><td><code>wifi_rssi</code>, <code>wifi_disconnects_1h</code></td><td class="n">40</td><td class="n">0.0%</td><td class="vd"><span class="pill ok">series</span> / counter</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0"><b>390 of about 705 bytes per row &mdash; 55% &mdash; is keys that did not change once in 600 rows.</b> Counting the near-static ones too (under 2%), it is 81%. The five keys that genuinely move are 162 bytes of JSON text, which as fixed numeric columns is about 40 bytes.</p>
+    <p class="small">The DPC agent is worse in a different way: <code>capabilities</code> and <code>capabilities_degraded</code> are 165 bytes, re-sent and re-stored every 30 seconds, and never changed once. With <code>model</code>, <code>manufacturer</code>, <code>sdk_int</code>, <code>android_release</code> and the two <code>*_total_bytes</code> keys, roughly 300 bytes per row is device identity that belongs on the <code>devices</code> row and in history exactly never.</p>
+    <p class="small" style="margin:14px 0 0">The comparison that decides a transition already exists &mdash; it is the coalescing check in <code>UpsertCheckin</code> (<code>db.go:1544-1561</code>) that today's code uses only to decide whether to write a snapshot. It would write an event row instead.</p>
+    <p><b>What has to move with it.</b> <code>checkins</code> is read by the device page charts, the CSV export, the daily rollups, the rate and sustained alert rules, uptime and open-hours, and discharge cycles. Each needs pointing at the new store before the old one can go, which is why this is phased rather than a swap:</p>
+    <ol class="plan">
+      <li><b>Strip the snapshot down</b><span>Stop storing in <code>checkins.extra</code> anything already carried by a typed column or only ever read from <code>devices.latest_extra</code>. Same table, same readers, smaller rows. This is the same technique that already took <code>crash_events</code> and <code>wifi_scan</code> out and turned 3.5 GB into 8 KB of TOAST.</span><span class="who">measure first · low risk</span></li>
+      <li><b>Add <code>device_state_events</code>, WLC first</b><span>Write transitions for one key, read the WLC timeline off it, and stop forcing a full snapshot row on a WLC change. Prove the shape on one field before porting the rest.</span><span class="who">the one you asked for</span></li>
+      <li><b>Add <code>device_samples</code> and port the charts</b><span>Narrow columns for the numbers, hourly rollups past 48 h. Then export, alerts, uptime and discharge move over, and <code>checkins</code> becomes read-only history that retention drains.</span><span class="who">the real win · multi-day</span></li>
+    </ol>
+  </div>
+
+  <h3>One transport at a time</h3>
+  <div class="card">
+    <p>A device with a live WebSocket does not need its HTTP check-in stored as well &mdash; that is the duplicate write from the findings above, seen from the client side. The server can already answer the question: <code>h.hub.IsConnected(deviceID)</code>.</p>
+    <p>It cannot be dropped outright. The HTTP call is the only <b>keyframe</b> &mdash; it stores with <code>mergeExtra=false</code>, replacing <code>latest_extra</code> wholesale, which is what clears keys a device has stopped sending. WS frames merge (<code>mergeExtra=true</code>), so a device that only ever sent deltas would accumulate stale keys forever and never correct them. So the rule is demotion on a timer, not deletion.</p>
+
+    <h3 style="margin-top:20px">The rule</h3>
+    <div class="tw"><table>
+      <thead><tr><th>Condition</th><th>Store</th><th class="vd">Still does</th></tr></thead>
+      <tbody>
+        <tr><td>No live WS</td><td><span class="pill ok">everything</span> unchanged</td><td class="vd">the current path, untouched</td></tr>
+        <tr><td>WS live, last keyframe older than <code>http_keyframe_min_sec</code></td><td><span class="pill ok">everything</span></td><td class="vd">refreshes the keyframe clock</td></tr>
+        <tr><td>WS live, keyframe still fresh</td><td><span class="pill bad">nothing</span></td><td class="vd">returns config, policy and pending commands as usual</td></tr>
+        <tr><td>Payload carries <code>installed_apps</code></td><td><span class="pill ok">everything</span></td><td class="vd">never skipped; the app inventory only rides HTTP</td></tr>
+        <tr><td>Payload carries <code>ota_progress</code></td><td><span class="pill ok">everything</span></td><td class="vd">never skipped; a rollout in flight outranks the saving</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small">Default <code>http_keyframe_min_sec = 0</code> (off). Turn it on at 900 after watching one fleet-day. For the DPC agent that is 120 stored keyframes an hour down to 4; for the firmware client, 12 down to 4.</p>
+
+    <h3>What it needs</h3>
+    <div class="rules">
+      <ul>
+        <li><b>A serial &rarr; device id lookup</b> before the write. Today the handler learns the id from <code>UpsertCheckin</code> itself, so it cannot ask the hub anything yet. 193 devices: a small cached map, or the unique index on <code>serial_number</code>, which is a cheap hit either way.</li>
+        <li><b>A last-keyframe clock</b>, one timestamp per device, in process memory beside the hub. No schema change. An empty map after a restart means the first HTTP call per device stores &mdash; which is the behaviour you want anyway.</li>
+      </ul>
+      <ul>
+        <li><b>A liveness test stronger than "registered".</b> <code>hub.IsConnected</code> is true while the client object exists, and a half-open socket can outlive the device. Prefer "a frame was received from this device recently" over "a socket is registered", or accept that the keyframe floor bounds the damage to 15 minutes.</li>
+        <li><b>A counter</b> for skipped keyframes at <code>/debug/vars</code>, so the saving is visible and a device stuck in skip-mode is findable.</li>
+      </ul>
+    </div>
+
+    <h3>What it does not break</h3>
+    <p>The obvious worry is presence: skipping the write means <code>devices.last_seen_at</code> goes stale while the device is plainly alive, which would normally light up every offline alert in the fleet. That is already handled &mdash; the offline queries explicitly exempt a device with a live WebSocket (<code>db.go:9245</code>, <code>db.go:9529</code>: "A device with a live WebSocket is NOT offline, even if its last_seen_at has gone stale"). The same condition that makes the write skippable is the one that keeps the device online. Worth re-reading both queries before shipping, since the whole design leans on them.</p>
+    <p class="small" style="margin:14px 0 0">The firmware client already behaves this way by itself &mdash; WS deltas, HTTP only as a 5-minute safety net &mdash; so this rule barely touches it. The DPC agent posts a full snapshot every 30 seconds regardless, and is the reason to do it server-side: agents already in the field cannot be updated on demand, and the database should not depend on every agent being well-behaved.</p>
+  </div>
+
+  <div class="callout" style="margin-top:32px"><b>What to tell him in one line.</b> The idle-footprint answer he asked for was right, but it described the design, not the deployment: retention was never enabled, two write paths defeat the coalescing that the estimate assumed, and a reconnect bug multiplies the request rate. Fixing the write path and enabling staged retention takes the table from 15 GB to single-digit GB without touching the schema; partitioning and the DPC agent diff are what make it hold at 500 devices.</div>
+
+  <p class="small" style="margin-top:36px">Measurements taken read-only on the live dev box, 17 September 2026, via SSM. Code references are to <code>mdm-server</code> at the current <code>stage</code> working tree. One statistics query during this audit caused a Postgres backend crash and a ~20 second automatic recovery; no data was lost and the API stayed up.</p>
+</div>
+</body>
+</html>
