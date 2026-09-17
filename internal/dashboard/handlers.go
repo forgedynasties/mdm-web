@@ -9265,7 +9265,7 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	subject := fmt.Sprintf("%s — weekly device report", rest.Name)
-	body := reportEmailHTML(rest.Name, days, m, visible, h.baseURL(r)+"/restaurants/"+id.String()+"/report")
+	body := reportEmailHTML(rest.Name, days, m, visible)
 	if err := h.mail.Send(r.Context(), to, subject, body); err != nil {
 		log.Printf("[report] send to %s: %v", to, err)
 		h.reportMailResult(w, r, false, "Sending failed — check the server log")
@@ -9290,42 +9290,111 @@ func (h *Handler) reportMailResult(w http.ResponseWriter, r *http.Request, ok bo
 	fmt.Fprintf(w, `<span class="%s">%s</span>`, class, template.HTMLEscapeString(msg))
 }
 
-// reportEmailHTML renders the report for an email client: one table, inline styles,
-// no stylesheet and no theme variables — none of which survive Outlook or Gmail.
-func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek, url string) string {
+// reportEmailHTML renders the report for an email client. Tables and inline styles
+// throughout, no stylesheet, no flex or grid and no CSS variables: Outlook renders
+// with Word's engine, which supports none of them. The palette is the dashboard's so
+// the mail reads as the same product as the page it came from.
+func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek) string {
+	const (
+		ink    = "#2c2c2b"
+		muted  = "#77736f"
+		faint  = "#8a8a92"
+		canvas = "#f7f7f6"
+		line   = "#e6e5e3"
+		coral  = "#ff654f"
+		green  = "#39875f"
+		amber  = "#b46b2d"
+		red    = "#cc4c43"
+	)
 	hrs := func(min float64) string { return fmt.Sprintf("%.1f", min/60) }
-	var b strings.Builder
-	fmt.Fprintf(&b, `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:760px;margin:0 auto;padding:24px;">`)
-	fmt.Fprintf(&b, `<h2 style="margin:0 0 4px;">%s</h2>`, template.HTMLEscapeString(venue))
-	fmt.Fprintf(&b, `<p style="margin:0 0 18px;color:#666;">Weekly device report · last %d days · %d device(s) reporting</p>`, days, len(weeks))
-
-	fmt.Fprintf(&b, `<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%%;margin-bottom:18px;background:#f7f7f6;">`)
-	fmt.Fprintf(&b, `<tr><td><b>Average uptime</b></td><td align="right">%d%% of the measured window</td></tr>`, m.UptimeFullPct())
-	fmt.Fprintf(&b, `<tr><td><b>Wireless charging in use</b></td><td align="right">%s hrs</td></tr>`, hrs(m.PadMinutes))
-	if m.HasPadDrain() {
-		fmt.Fprintf(&b, `<tr><td><b>Wireless charging cost</b></td><td align="right">%.2f %%/min off mains</td></tr>`, m.PadDrainPctPerMin())
-	} else {
-		fmt.Fprintf(&b, `<tr><td><b>Wireless charging cost</b></td><td align="right">not enough charging time yet</td></tr>`)
-	}
-	if m.HasStandby() {
-		fmt.Fprintf(&b, `<tr><td><b>Standby</b></td><td align="right">%d%% of powered time, screen off</td></tr>`, m.StandbyPct())
-	}
-	fmt.Fprintf(&b, `</table>`)
-
-	fmt.Fprintf(&b, `<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%%;font-size:13px;">`)
-	fmt.Fprintf(&b, `<tr style="background:#eee;text-align:left;"><th>Serial</th><th align="right">Uptime</th><th align="right">Wireless charging</th><th align="right">Plugged in</th><th align="right">Days</th></tr>`)
-	for _, x := range weeks {
-		name := x.Serial
-		if x.Nickname != "" {
-			name += " · " + x.Nickname
+	// Same thresholds as the report's own legend, so a row that reads amber on the
+	// page reads amber in the mail.
+	band := func(pct int) string {
+		switch {
+		case pct < 70:
+			return red
+		case pct < 85:
+			return amber
 		}
-		fmt.Fprintf(&b, `<tr style="border-top:1px solid #ddd;"><td>%s</td><td align="right">%s hrs (%d%%)</td><td align="right">%s hrs</td><td align="right">%s hrs</td><td align="right">%d</td></tr>`,
-			template.HTMLEscapeString(name), hrs(x.PoweredMinutes), x.UptimeFullPct(), hrs(x.PadMinutes), hrs(x.PluggedMinutes), x.DeviceDays)
+		return green
 	}
-	fmt.Fprintf(&b, `</table>`)
-	fmt.Fprintf(&b, `<p style="margin:18px 0 0;"><a href="%s" style="color:#4f63d6;">Open the full report</a></p>`, template.HTMLEscapeString(url))
-	fmt.Fprintf(&b, `<p style="color:#888;font-size:12px;">Figures are measured over the device-days that reported, so a device deployed midweek shortens its own window.</p>`)
-	b.WriteString(`</body></html>`)
+	esc := template.HTMLEscapeString
+
+	// tile is one headline figure: a big number over a small caption.
+	tile := func(label, value, unit, note string) string {
+		return fmt.Sprintf(`<td width="25%%" valign="top" style="padding:14px 16px;border-left:1px solid %s;">`+
+			`<div style="font:600 11px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:%s;">%s</div>`+
+			`<div style="font:300 30px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:8px 0 0;">%s<span style="font-size:14px;color:%s;"> %s</span></div>`+
+			`<div style="font:400 12px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:6px 0 0;">%s</div></td>`,
+			line, muted, label, ink, value, muted, unit, muted, note)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, `<!doctype html><html><body style="margin:0;padding:0;background:%s;">`, canvas)
+	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="background:%s;padding:24px 12px;"><tr><td align="center">`, canvas)
+	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="680" style="width:680px;max-width:100%%;background:#ffffff;border:1px solid %s;border-radius:14px;overflow:hidden;">`, line)
+
+	// Header band.
+	fmt.Fprintf(&b, `<tr><td style="padding:22px 24px 18px;border-bottom:1px solid %s;">`+
+		`<div style="font:600 11px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.11em;text-transform:uppercase;color:%s;">Weekly device report</div>`+
+		`<div style="font:600 26px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:6px 0 0;">%s</div>`+
+		`<div style="font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:6px 0 0;">Last %d days · %d device%s reporting</div>`+
+		`</td></tr>`,
+		line, coral, ink, esc(venue), muted, days, len(weeks), plural(len(weeks)))
+
+	// Headline figures.
+	uptimeNote := fmt.Sprintf("%s fleet hours", hrs(m.PoweredMinutes))
+	padNote := "a guest phone charging on a tablet"
+	costValue, costUnit, costNote := "—", "", "not enough charging time yet"
+	if m.HasPadDrain() {
+		costValue = fmt.Sprintf("%.2f", m.PadDrainPctPerMin())
+		costUnit = "%/min"
+		costNote = fmt.Sprintf("off mains, over %s hrs of charging", hrs(m.PadDrainMinutes))
+	}
+	standbyValue, standbyUnit, standbyNote := "—", "", "not reported by this firmware yet"
+	if m.HasStandby() {
+		standbyValue = fmt.Sprintf("%d", m.StandbyPct())
+		standbyUnit = "%"
+		standbyNote = "of powered time, screen off"
+	}
+	fmt.Fprintf(&b, `<tr><td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%"><tr>`)
+	b.WriteString(strings.Replace(tile("Average uptime", fmt.Sprintf("%d", m.UptimeFullPct()), "%", uptimeNote), "border-left:1px solid "+line+";", "", 1))
+	b.WriteString(tile("Wireless charging", hrs(m.PadMinutes), "hrs", padNote))
+	b.WriteString(tile("Charging cost", costValue, costUnit, costNote))
+	b.WriteString(tile("Standby", standbyValue, standbyUnit, standbyNote))
+	fmt.Fprintf(&b, `</tr></table></td></tr>`)
+
+	// Per-device table.
+	fmt.Fprintf(&b, `<tr><td style="padding:0;border-top:1px solid %s;">`, line)
+	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="border-collapse:collapse;font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;">`)
+	th := `<th align="%s" style="padding:11px 16px;background:#faf9f8;border-bottom:1px solid ` + line + `;font:600 10.5px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:` + muted + `;">%s</th>`
+	fmt.Fprintf(&b, `<tr>`)
+	fmt.Fprintf(&b, th, "left", "Device")
+	fmt.Fprintf(&b, th, "right", "Uptime")
+	fmt.Fprintf(&b, th, "right", "Wireless charging")
+	fmt.Fprintf(&b, th, "right", "Plugged in")
+	fmt.Fprintf(&b, th, "right", "Days")
+	fmt.Fprintf(&b, `</tr>`)
+	for _, x := range weeks {
+		nick := ""
+		if x.Nickname != "" {
+			nick = fmt.Sprintf(`<div style="font-size:11.5px;color:%s;padding:2px 0 0;">%s</div>`, faint, esc(x.Nickname))
+		}
+		cell := `<td align="right" style="padding:11px 16px;border-bottom:1px solid ` + line + `;color:` + ink + `;">%s <span style="color:` + muted + `;font-size:11.5px;">%s</span></td>`
+		fmt.Fprintf(&b, `<tr><td style="padding:11px 16px;border-bottom:1px solid %s;color:%s;font-weight:600;">%s%s</td>`, line, ink, esc(x.Serial), nick)
+		fmt.Fprintf(&b, `<td align="right" style="padding:11px 16px;border-bottom:1px solid %s;color:%s;">%s <span style="color:%s;font-size:11.5px;">hrs</span> <span style="color:%s;font-weight:600;">%d%%</span></td>`,
+			line, ink, hrs(x.PoweredMinutes), muted, band(x.UptimeFullPct()), x.UptimeFullPct())
+		fmt.Fprintf(&b, cell, hrs(x.PadMinutes), "hrs")
+		fmt.Fprintf(&b, cell, hrs(x.PluggedMinutes), "hrs")
+		fmt.Fprintf(&b, `<td align="right" style="padding:11px 16px;border-bottom:1px solid %s;color:%s;">%d</td></tr>`, line, muted, x.DeviceDays)
+	}
+	fmt.Fprintf(&b, `</table></td></tr>`)
+
+	fmt.Fprintf(&b, `<tr><td style="padding:14px 16px 18px;font:400 11.5px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;">`+
+		`Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. A dash means the reading was never measured, not that it was zero.`+
+		`</td></tr>`, muted)
+
+	b.WriteString(`</table></td></tr></table></body></html>`)
 	return b.String()
 }
 
