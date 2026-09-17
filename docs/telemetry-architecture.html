@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html{color-scheme:light dark}
+  body{margin:0;font:14px/1.6 system-ui,sans-serif;background:#F6F7F9}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<title>Telemetry by Shape</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --ground:#F6F7F9; --surface:#FFFFFF; --surface-2:#F0F2F6;
+    --ink:#12161C; --ink-2:#39434F; --muted:#616C7C;
+    --line:#DCE2EA; --line-2:#C3CCD8;
+    --cool:#0E6F78;          /* the shaped side */
+    --cool-soft:#D6ECEE;
+    --warm:#A8501C;          /* the snapshot side / cost */
+    --warm-soft:#F6E3D5;
+    --good:#1E6E4B; --bad:#9A2B2B;
+    --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0D1015; --surface:#151A21; --surface-2:#1C222B;
+      --ink:#E7EBF1; --ink-2:#BFC8D4; --muted:#8D99A8;
+      --line:#242C36; --line-2:#333D4A;
+      --cool:#4FD0D8; --cool-soft:#123037;
+      --warm:#E2955C; --warm-soft:#33241A;
+      --good:#5FCf95; --bad:#E58484;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0D1015; --surface:#151A21; --surface-2:#1C222B;
+    --ink:#E7EBF1; --ink-2:#BFC8D4; --muted:#8D99A8;
+    --line:#242C36; --line-2:#333D4A;
+    --cool:#4FD0D8; --cool-soft:#123037;
+    --warm:#E2955C; --warm-soft:#33241A;
+    --good:#5FCf95; --bad:#E58484;
+  }
+
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .page{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:56px 96px;}
+  .prose{max-width:66ch;}
+
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--muted);font-weight:500;}
+  h1{font-size:clamp(34px,5.2vw,54px);line-height:1.06;font-weight:700;
+     letter-spacing:-.024em;text-wrap:balance;margin:14px 0 0;}
+  h1 .q{color:var(--cool);}
+  .lede{font-size:clamp(17px,2vw,20px);line-height:1.5;color:var(--ink-2);
+        margin:20px 0 0;max-width:62ch;}
+  h2{font-size:clamp(23px,2.7vw,30px);font-weight:650;letter-spacing:-.018em;
+     margin:0;text-wrap:balance;}
+  h3{font-size:17px;font-weight:600;letter-spacing:-.008em;margin:0 0 8px;}
+  p{margin:0 0 14px;}
+  a{color:var(--cool);}
+
+  .rule{height:1px;background:var(--line);border:0;margin:0;}
+
+  section{margin-top:72px;}
+  .sec-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
+            border-top:2px solid var(--ink);padding-top:14px;margin-bottom:26px;}
+  .sec-num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--cool);
+           letter-spacing:.08em;flex:none;}
+
+  code,.mono{font-family:var(--mono);font-size:.9em;}
+  code{background:var(--surface-2);padding:1px 5px;border-radius:4px;
+       border:1px solid var(--line);}
+
+  /* ---- figure frame ---- */
+  figure{margin:26px 0 0;}
+  .fig{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+       padding:22px;overflow-x:auto;}
+  figcaption{font-size:13.5px;color:var(--muted);margin-top:10px;max-width:70ch;}
+  figcaption b{color:var(--ink-2);font-weight:600;}
+
+  /* ---- shapes diagram ---- */
+  .lanes{display:grid;gap:18px;min-width:560px;}
+  .lane{display:grid;grid-template-columns:132px 1fr;gap:16px;align-items:center;}
+  .lane-label{font-family:var(--mono);font-size:11px;line-height:1.35;
+              text-transform:uppercase;letter-spacing:.07em;color:var(--muted);}
+  .lane-label b{display:block;font-size:12px;letter-spacing:.04em;color:var(--ink);
+                text-transform:none;font-weight:600;font-family:var(--sans);}
+  .track{position:relative;height:52px;border-radius:6px;background:var(--surface-2);
+         border:1px solid var(--line);overflow:hidden;}
+  .mark{position:absolute;top:0;bottom:0;border-radius:2px;}
+  .mark.snap{background:var(--warm);opacity:.85;}
+  .mark.samp{background:var(--cool);opacity:.8;}
+  .mark.evt{background:var(--cool);width:4px;border-radius:2px;}
+  .evt-flag{position:absolute;top:6px;transform:translateX(-50%);
+            font-family:var(--mono);font-size:9.5px;color:var(--cool);white-space:nowrap;}
+  .axis{display:grid;grid-template-columns:132px 1fr;gap:16px;margin-top:4px;}
+  .axis-in{display:flex;justify-content:space-between;font-family:var(--mono);
+           font-size:10.5px;color:var(--muted);}
+
+  /* ---- flow diagram ---- */
+  .flow{display:grid;gap:14px;min-width:600px;}
+  .frow{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:start;}
+  .fstage{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+          text-transform:uppercase;color:var(--muted);padding-top:13px;}
+  .fcards{display:flex;gap:10px;flex-wrap:wrap;}
+  .card{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;
+        padding:11px 13px;min-width:0;}
+  .card .t{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--ink);}
+  .card .s{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  .card.always{border-color:var(--cool);background:var(--cool-soft);}
+  .card.always .t{color:var(--cool);}
+  .card.cond{border-style:dashed;}
+  .card.gone{border-color:var(--line-2);opacity:.72;}
+  .card.gone .t{text-decoration:line-through;text-decoration-thickness:1px;color:var(--muted);}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--line-2);
+         font-size:15px;padding:0 2px;}
+  .gate{border-left:3px solid var(--warm);background:var(--warm-soft);
+        border-radius:6px;padding:11px 14px;}
+  .gate .t{font-family:var(--mono);font-size:12.5px;color:var(--warm);font-weight:500;}
+  .gate .s{font-size:12.5px;color:var(--ink-2);margin-top:4px;}
+
+  /* ---- reader map ---- */
+  .rmap{width:100%;border-collapse:collapse;min-width:560px;}
+  .rmap th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;
+           letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+           padding:0 12px 9px 0;border-bottom:1px solid var(--line);}
+  .rmap td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);
+           font-size:13.5px;vertical-align:top;}
+  .rmap tr:last-child td{border-bottom:0;}
+  .rmap .src{font-family:var(--mono);font-size:12px;color:var(--cool);}
+  .rmap .note{color:var(--muted);font-size:12.5px;}
+
+  /* ---- data table ---- */
+  .tw{overflow-x:auto;}
+  table.data{width:100%;border-collapse:collapse;min-width:520px;}
+  table.data th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;
+                letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+                padding:0 14px 9px 0;border-bottom:1px solid var(--line);}
+  table.data td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  table.data tr:last-child td{border-bottom:0;}
+  table.data .n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .down{color:var(--good);font-weight:600;}
+
+  /* ---- kpi ---- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+        gap:1px;background:var(--line);border:1px solid var(--line);
+        border-radius:10px;overflow:hidden;margin-top:34px;}
+  .kpi{background:var(--surface);padding:18px 16px;}
+  .kpi .v{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.02em;
+          color:var(--cool);font-variant-numeric:tabular-nums;line-height:1.1;}
+  .kpi .k{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.35;}
+
+  /* ---- callout ---- */
+  .note-box{border-left:3px solid var(--cool);background:var(--surface);
+            border-radius:0 8px 8px 0;padding:16px 18px;margin:24px 0 0;
+            border-top:1px solid var(--line);border-right:1px solid var(--line);
+            border-bottom:1px solid var(--line);}
+  .note-box.warn{border-left-color:var(--warm);}
+  .note-box p:last-child{margin-bottom:0;}
+  .note-box .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+                 text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;}
+
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px;margin-top:24px;}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;}
+  .panel p{font-size:14px;color:var(--ink-2);margin-bottom:0;}
+
+  ul.tight{margin:0 0 14px;padding-left:19px;}
+  ul.tight li{margin-bottom:7px;}
+
+  footer{margin-top:80px;padding-top:22px;border-top:1px solid var(--line);
+         font-size:12.5px;color:var(--muted);}
+  @media (max-width:560px){
+    .lane,.frow,.axis{grid-template-columns:1fr;gap:8px;}
+    .fstage{padding-top:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="eyebrow">AIO MDM · Telemetry storage</div>
+  <h1>One table held every reading.<br>Now the data is stored <span class="q">by what it is</span>.</h1>
+  <p class="lede">Check-ins were a single jsonb snapshot per report: the whole device state, re-sent and re-stored every few seconds whether anything had moved or not. That table reached 25 million rows and 97% of the database. This is what replaced it, and how a check-in is written and read today.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">641 → 66</div><div class="k">bytes per stored row</div></div>
+    <div class="kpi"><div class="v">118,869 → 52,488</div><div class="k">rows stored per day</div></div>
+    <div class="kpi"><div class="v">11.0M</div><div class="k">rows removed, no history deleted</div></div>
+    <div class="kpi"><div class="v">3,880</div><div class="k">state events, all of them, in 928 kB</div></div>
+  </div>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>Three shapes, not one</h2></div>
+    <div class="prose">
+      <p>A device reports about twenty-three fields. They do not behave alike. Some are numbers that move constantly and are worth a series. Some are states that hold for hours and are worth recording only when they change. Some were being stored and never read at all.</p>
+      <p>Storing all three as one snapshot means the cost of the noisiest field is paid by every field. A wireless-charging flip — one bit — cost a whole 641-byte row.</p>
+    </div>
+
+    <figure>
+      <div class="fig">
+        <div class="lanes">
+          <div class="lane">
+            <div class="lane-label"><b>checkins.extra</b>snapshot · retired</div>
+            <div class="track" id="t-snap"></div>
+          </div>
+          <div class="lane">
+            <div class="lane-label"><b>device_samples</b>numeric series</div>
+            <div class="track" id="t-samp"></div>
+          </div>
+          <div class="lane">
+            <div class="lane-label"><b>device_state_events</b>transitions</div>
+            <div class="track" id="t-evt"></div>
+          </div>
+        </div>
+        <div class="axis"><div></div><div class="axis-in"><span>08:00</span><span>one device, six hours</span><span>14:00</span></div></div>
+      </div>
+      <figcaption><b>The same six hours, three ways.</b> The snapshot stores everything on every report. The series stores the numbers in fixed columns — same rows, a fraction of the bytes. The transitions store nothing at all while a state holds, so an idle device costs nothing: two charge flips and a pad change, and that is the entire day.</figcaption>
+    </figure>
+
+    <div class="two">
+      <div class="panel">
+        <h3>Numbers → <span class="mono" style="color:var(--cool)">device_samples</span></h3>
+        <p>Battery, temperature, RAM used and total, free storage, Wi-Fi RSSI. Fixed columns, keyed <code>(device_id, at)</code> — the order every reader wants, so it needs no second index, and every insert lands at the right edge instead of dirtying a random page.</p>
+      </div>
+      <div class="panel">
+        <h3>States → <span class="mono" style="color:var(--cool)">device_state_events</span></h3>
+        <p>Charging, pad status, screen, Wi-Fi, IP, timezone, boot. One row per real change, plus one seed row recording a value the first time it is seen. 3,880 rows covered the whole fleet.</p>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <span class="lbl">Why the columns hold the reading, not a rounded one</span>
+      <p>The first cut stored tenths of a degree and whole percent. Smaller — and it would have made the CSV export and the chart quote different numbers for one reading: <span class="mono">34.400001525878906</span> against <span class="mono">34.4</span>, 55.3% against 55%. Two surfaces disagreeing about the same measurement is not a rounding question, it is a correctness one. RAM is kept as used <em>and</em> total so a percentage is computed the same way everywhere.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>What happens to a check-in now</h2></div>
+    <div class="prose">
+      <p>Every report still updates the live snapshot on <code>devices</code> — that is what the dashboard, the map and the SSE stream read, and it is unaffected by any of this. What changed is everything downstream of it.</p>
+    </div>
+
+    <figure>
+      <div class="fig">
+        <div class="flow">
+          <div class="frow">
+            <div class="fstage">Arrives</div>
+            <div class="fcards">
+              <div class="card"><div class="t">HTTP keyframe</div><div class="s">full snapshot</div></div>
+              <div class="card"><div class="t">WS delta frame</div><div class="s">changed fields only</div></div>
+              <div class="arrow">→</div>
+              <div class="card"><div class="t">ingestCheckin()</div><div class="s">one path for both, since 2026-09</div></div>
+            </div>
+          </div>
+
+          <div class="frow">
+            <div class="fstage">Always</div>
+            <div class="fcards">
+              <div class="card always"><div class="t">devices.latest_extra</div><div class="s">the live snapshot — dashboard, map, SSE, alerts-on-now</div></div>
+            </div>
+          </div>
+
+          <div class="frow">
+            <div class="fstage">Decide</div>
+            <div class="fcards" style="flex:1">
+              <div class="gate" style="flex:1">
+                <div class="t">state_hash = md5(report − stripped − volatile)</div>
+                <div class="s">Equal to the last stored row’s hash, and inside the sampling window? Then no history row: nothing non-volatile has moved. This is what keeps a device reporting every few seconds from storing a row every few seconds.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="frow">
+            <div class="fstage">If stored</div>
+            <div class="fcards">
+              <div class="card"><div class="t">checkins</div><div class="s">device_id, battery_pct, build_id, state_hash</div></div>
+              <div class="card gone"><div class="t">checkins.extra</div><div class="s">now '{}' · 608 of the old 641 bytes</div></div>
+              <div class="card always"><div class="t">device_samples</div><div class="s">one row, fixed columns</div></div>
+            </div>
+          </div>
+
+          <div class="frow">
+            <div class="fstage">If changed</div>
+            <div class="fcards">
+              <div class="card cond"><div class="t">device_state_events</div><div class="s">one row per key that actually moved — or a seed, the first time a key is seen at all</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>The write path.</b> Samples and events are written inside the same transaction as the check-in row, so a sample and the events around it can never disagree. Events sort before samples at equal timestamps, which is what makes a flip belong to the sample it arrived with.</figcaption>
+    </figure>
+
+    <div class="note-box warn">
+      <span class="lbl">The trap in retiring the column</span>
+      <p>The store-or-skip decision used to compare the incoming report against <code>last.extra</code> — the previous stored row's snapshot. Empty that column and the comparison is false for every report carrying any non-volatile key, so <em>every</em> report stores a row. Retiring the snapshot naively multiplies the write volume it exists to cut, and nothing about it looks broken. Hence <code>state_hash</code>: the row keeps a 32-character digest of exactly the projection that comparison made, and nothing else.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Who reads what</h2></div>
+    <div class="prose">
+      <p>Nine readers moved, one at a time, each verified against the old source on real data before the next. Every one keeps a fallback to the stored snapshots for windows the shaped tables do not reach — which is why those rows are kept rather than deleted.</p>
+    </div>
+
+    <figure>
+      <div class="fig">
+        <table class="rmap">
+          <thead><tr><th>Reader</th><th>Reads</th><th>Checked by</th></tr></thead>
+          <tbody>
+            <tr><td>Device chart — <span class="note">both the first paint and <code>/chart-data</code></span></td><td class="src">samples + events</td><td class="note">series diffed point for point</td></tr>
+            <tr><td>Live device stream (SSE)</td><td class="src">devices.latest_extra</td><td class="note">151 devices; the live row never staler</td></tr>
+            <tr><td>Alert <span class="mono">temp_elevated</span></td><td class="src">samples</td><td class="note">622 fires vs 622, 0 mismatched</td></tr>
+            <tr><td>Alert <span class="mono">memory_low</span></td><td class="src">samples</td><td class="note">1,011 vs 1,011, 0 mismatched</td></tr>
+            <tr><td>Alert <span class="mono">wifi_weak</span></td><td class="src">samples</td><td class="note">direct column swap</td></tr>
+            <tr><td>Alerts <span class="mono">wlc_continuous</span>, <span class="mono">slow_charge_night</span></td><td class="src">samples + events</td><td class="note">presence and state, separately</td></tr>
+            <tr><td>Charger flap detection</td><td class="src">events</td><td class="note">878 vs 879 over 44 devices</td></tr>
+            <tr><td>CSV export · battery CSV</td><td class="src">samples + events</td><td class="note">cell-for-cell equality test</td></tr>
+            <tr><td>Daily rollup → <span class="mono">device_daily_stats</span></td><td class="src">samples + events</td><td class="note">80 devices, every column exact</td></tr>
+            <tr><td>Public API <span class="mono">/api/v1/devices/{serial}</span></td><td class="src">samples + events</td><td class="note">response shape preserved</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption><b>Each of these fails silently if it is wrong.</b> An alert that never fires and a chart that renders empty look exactly like a fleet with nothing wrong — which is why every move was diffed against the old source rather than reviewed and shipped.</figcaption>
+    </figure>
+
+    <div class="note-box">
+      <span class="lbl">One decision, applied everywhere</span>
+      <p>Readers were not rewritten against typed columns. Instead each reader is handed a rebuilt <code>extra</code> object assembled from the shaped tables. Every formatting rule the export and the rollup have — an SSID stripped of Android's own quotes, a boolean printed as 0/1, a temperature at one decimal — therefore stays in exactly one place and cannot drift between two sources. For the rollup this goes further: the hundred lines of time-weighted aggregation are one shared constant, so the arithmetic is not merely equivalent between the two paths, it is the same characters.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>Two bugs the shape exposed</h2></div>
+
+    <div class="two">
+      <div class="panel">
+        <h3 style="color:var(--warm)">A field nothing read, writing a row every ten seconds</h3>
+        <p><code>charger_voltage_mv</code> was missing from the volatile-key list, so its last-digit jitter counted as a state change and forced a history row — on a field the server has never read. One line moved rows-forced-by-a-change from <b>90.3% to 6.7%</b>.</p>
+      </div>
+      <div class="panel">
+        <h3 style="color:var(--warm)">A change log with no starting point</h3>
+        <p>The transition writer recorded a key only when it <em>changed</em>, comparing against a snapshot that already held every value — so no device existing at the time ever got a first event. <span class="mono">timezone</span> had 0 events against 150 devices reporting it; <span class="mono">charging</span> 44 against 128. A state nobody had a baseline for reads as “never charging”, not as an error.</p>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <span class="lbl">Why backdating the missing baselines was sound</span>
+      <p>The writer records every change, so a device with no event for a key has not changed it since the stream began, and its current value is what it held throughout. That premise was tested rather than assumed: across <b>696 device-and-key pairs that do have events, the latest event's value equals the device's current value in every single case</b>. In the end no repair was needed at all — a device with no baseline is a device that is offline, and an offline device writes no samples; when it returns, its baseline lands in the same transaction as its first sample.</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Where the space went</h2></div>
+
+    <div class="tw">
+      <table class="data">
+        <thead><tr><th>Measure</th><th class="n">Before</th><th class="n">After</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Bytes per stored row</td><td class="n">641</td><td class="n down">~66</td><td>the snapshot was 608 of them</td></tr>
+          <tr><td>Rows stored per day</td><td class="n">118,869</td><td class="n down">52,488</td><td>jitter no longer counts as change</td></tr>
+          <tr><td>Rows in history</td><td class="n">26.3M</td><td class="n down">15.3M</td><td>5-minute downsample past 60 days</td></tr>
+          <tr><td>Days of history deleted</td><td class="n">—</td><td class="n">0</td><td>resolution dropped, never the record</td></tr>
+          <tr><td><span class="mono">device_samples</span></td><td class="n">—</td><td class="n">2.3 GB / 15.3M</td><td>the numbers, in fixed columns</td></tr>
+          <tr><td><span class="mono">device_state_events</span></td><td class="n">—</td><td class="n">928 kB / 3,880</td><td>every state change, whole fleet</td></tr>
+          <tr><td>Fleet-wide alert scan</td><td class="n">243.9 ms</td><td class="n down">5.4 ms</td><td>32 kB BRIN index on <code>at</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note-box">
+      <span class="lbl">Retention, restated</span>
+      <p>Retention deletes a period outright. What a fleet actually wants from old history is its <em>shape</em> — when a device was powered, charging, on a pad — and that survives at a fraction of the rows. Five-minute buckets were chosen because the daily rollup weights each sample by the gap to the next one, capped at 600 s: at or under that cap, a thinned day still recomputes its online minutes correctly.</p>
+    </div>
+  </section>
+
+  <footer>
+    Every figure measured against production or a restored copy of it. Fleet of 150 devices on mdm.dev.aioapp.com. Remaining: partition <span class="mono">checkins</span> by month, which makes reclaiming the 15 GB of historical snapshots free and gives <span class="mono">checkins_pkey</span> (756 MB, 0 scans) a key worth having.
+  </footer>
+</div>
+
+<script>
+  // The three lanes are drawn from one generated timeline so they describe the same
+  // six hours rather than three unrelated pictures.
+  (function () {
+    var N = 74;                    // reports in the window
+    var snap = document.getElementById('t-snap');
+    var samp = document.getElementById('t-samp');
+    var evt  = document.getElementById('t-evt');
+    if (!snap) return;
+
+    for (var i = 0; i < N; i++) {
+      var pct = (i / N) * 100 + 0.4;
+
+      var a = document.createElement('div');
+      a.className = 'mark snap';
+      a.style.left = pct + '%';
+      a.style.width = 'calc(' + (100 / N) + '% - 2px)';
+      snap.appendChild(a);
+
+      var b = document.createElement('div');
+      b.className = 'mark samp';
+      b.style.left = pct + '%';
+      b.style.width = '2px';
+      b.style.top = '18px';
+      b.style.bottom = '18px';
+      samp.appendChild(b);
+    }
+
+    // Three real transitions across the whole window.
+    [[27, 'charging → true'], [52, 'wlc → 1'], [78, 'charging → false']].forEach(function (e) {
+      var m = document.createElement('div');
+      m.className = 'mark evt';
+      m.style.left = e[0] + '%';
+      evt.appendChild(m);
+      var f = document.createElement('div');
+      f.className = 'evt-flag';
+      f.style.left = e[0] + '%';
+      f.textContent = e[1];
+      evt.appendChild(f);
+    });
+  })();
+</script>
+</body>
+</html>
