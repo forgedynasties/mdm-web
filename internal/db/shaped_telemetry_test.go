@@ -60,30 +60,63 @@ func TestScaledInt(t *testing.T) {
 	}
 }
 
-func TestRamPct(t *testing.T) {
-	deref := func(p *int16) any {
+// TestRamUsedTotal keeps the two numbers the CSV prints, rather than a percentage
+// computed early. Storing a rounded percentage is what made the chart say 55% where
+// the export's own columns give 55.3.
+func TestRamUsedTotal(t *testing.T) {
+	deref := func(p *int32) any {
 		if p == nil {
 			return nil
 		}
 		return *p
 	}
 	cases := []struct {
-		name string
-		in   string
-		want any
+		name              string
+		in                string
+		wantUsed, wantTot any
 	}{
-		{"used over total", `{"used":2007,"total":3630,"available":1623}`, int16(55)},
-		{"absent stays null", ``, nil},
-		{"zero total cannot divide", `{"used":10,"total":0}`, nil},
-		{"missing total stays null", `{"used":10}`, nil},
-		{"wrong shape stays null", `1234`, nil},
+		{"both numbers", `{"used":2007,"total":3630,"available":1623}`, int32(2007), int32(3630)},
+		{"absent stays null", ``, nil, nil},
+		{"missing total is not half a reading", `{"used":10}`, nil, nil},
+		{"missing used is not half a reading", `{"total":3630}`, nil, nil},
+		{"wrong shape stays null", `1234`, nil, nil},
+		{"null stays null", `null`, nil, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := deref(ramPct(json.RawMessage(c.in))); got != c.want {
-				t.Errorf("ramPct(%q) = %v, want %v", c.in, got, c.want)
+			u, tot := ramUsedTotal(json.RawMessage(c.in))
+			if deref(u) != c.wantUsed || deref(tot) != c.wantTot {
+				t.Errorf("ramUsedTotal(%q) = (%v,%v), want (%v,%v)", c.in, deref(u), deref(tot), c.wantUsed, c.wantTot)
 			}
 		})
+	}
+}
+
+// TestJSONFloat covers the value that reaches the chart. It must be the number the
+// device sent, unrounded, or the chart and the CSV quote different figures for one
+// reading.
+func TestJSONFloat(t *testing.T) {
+	deref := func(p *float64) any {
+		if p == nil {
+			return nil
+		}
+		return *p
+	}
+	cases := []struct {
+		in   string
+		want any
+	}{
+		{`31.4`, 31.4},
+		{`34.400001525878906`, 34.400001525878906}, // a Java float32 widened through json
+		{`-5.5`, -5.5},
+		{``, nil},
+		{`null`, nil},
+		{`"hot"`, nil},
+	}
+	for _, c := range cases {
+		if got := deref(jsonFloat(json.RawMessage(c.in))); got != c.want {
+			t.Errorf("jsonFloat(%q) = %v, want %v", c.in, got, c.want)
+		}
 	}
 }
 
