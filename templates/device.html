@@ -936,6 +936,61 @@ function mdmBootCharts() {
       if (done) done();
     });
   }
+  // ── Window fetch ────────────────────────────────────────────────────────────
+  // The server thins each series to ~2500 points FOR THE RANGE IT IS ASKED FOR. The
+  // old path asked for [chosen start, oldest loaded] — up to months — and then drew a
+  // single day out of the answer, so a day that has 829 points on its own arrived with
+  // 86 of them and the chart looked almost empty. Anything that moves the window to a
+  // place the live arrays were not loaded for now fetches exactly the window it is
+  // about to draw.
+  let viewData = null;       // series for the window on screen, or null to use the live arrays
+  let viewKey = '';          // which window viewData belongs to
+  let viewCtl = null;        // in-flight fetch, so a newer window supersedes it
+  const viewCache = new Map();
+  const VIEW_CACHE_MAX = 12;
+
+  function srcBattery() { return viewData && viewData.battery ? viewData.battery : allBattery; }
+  function srcTemp() { return viewData && viewData.temp ? viewData.temp : allTemp; }
+  function srcRam() { return viewData && viewData.ram ? viewData.ram : allRam; }
+  function srcCharge() { return viewData && viewData.charge ? viewData.charge : allCharge; }
+  window.mdmClearViewData = function () { viewData = null; viewKey = ''; };
+
+  function fetchWindow(from, to, done) {
+    from = Math.floor(from); to = Math.floor(to);
+    var key = from + '|' + to;
+    if (key === viewKey && viewData) { if (done) done(); return; }
+    if (viewCache.has(key)) {
+      viewData = viewCache.get(key); viewKey = key;
+      if (done) done();
+      return;
+    }
+    // Supersede rather than drop: the old code refused to start a second fetch while
+    // one was in flight, so clicking the arrows twice left the second window showing
+    // whatever the first had loaded.
+    if (viewCtl) viewCtl.abort();
+    var ctl = new AbortController();
+    viewCtl = ctl;
+    // Only show the overlay if the fetch is actually slow — a cached or fast window
+    // otherwise flashes "Loading graphs…" for one frame on every arrow click.
+    var spin = setTimeout(showChartLoading, 150);
+    fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + to, { credentials: 'same-origin', signal: ctl.signal })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (ctl !== viewCtl) return;   // a newer window already replaced this one
+        if (d) {
+          viewData = d; viewKey = key;
+          viewCache.set(key, d);
+          if (viewCache.size > VIEW_CACHE_MAX) viewCache.delete(viewCache.keys().next().value);
+        }
+      })
+      .catch(function () { /* aborted or offline: keep whatever is on screen */ })
+      .then(function () {
+        clearTimeout(spin);
+        if (ctl === viewCtl) { viewCtl = null; hideChartLoading(); }
+        if (done) done();
+      });
+  }
+
   function chartLoadOlder(fromMs, done) {
     if (fromMs >= loadedMinX || chartFetching) { if (done) done(); return; }
     chartFetching = true;
@@ -1326,7 +1381,7 @@ function mdmBootCharts() {
     return out;
   }
   function chargeAt(ms) {
-    const spans = chargeSpans(allCharge);
+    const spans = chargeSpans(srcCharge());
     for (let i = 0; i < spans.length; i++) {
       if (ms >= spans[i].from && ms <= spans[i].to) return spans[i].c;
     }
@@ -1343,10 +1398,10 @@ function mdmBootCharts() {
     id: 'chargeStrip',
     afterDraw(chart) {
       const ca = chart.chartArea, xs = chart.scales && chart.scales.x;
-      if (!ca || !xs || !allCharge.length) return;
+      if (!ca || !xs || !srcCharge().length) return;
       const ctx = chart.ctx, y = ca.bottom + CHARGE_STRIP_GAP;
       ctx.save();
-      chargeSpans(allCharge).forEach(function (sp) {
+      chargeSpans(srcCharge()).forEach(function (sp) {
         if (sp.c === null || sp.c === undefined) return;
         const x0 = Math.max(ca.left, xs.getPixelForValue(sp.from));
         const x1 = Math.min(ca.right, xs.getPixelForValue(sp.to));
@@ -1444,17 +1499,17 @@ function mdmBootCharts() {
 
   function applyUnifiedData() {
     if (!unifiedChart) return;
-    const { pts: bPts, minX, lastX } = filterWindow(allBattery);
+    const { pts: bPts, minX, lastX } = filterWindow(srcBattery());
     unifiedChart.data.datasets[0].data = toChangePoints(insertGaps(bPts));
-    unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
-    unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
+    unifiedChart.data.datasets[1].data = insertGaps(filterWindow(srcTemp()).pts);
+    unifiedChart.data.datasets[2].data = insertGaps(filterWindow(srcRam()).pts);
     unifiedChart.options.scales.x.min = minX;
     unifiedChart.options.scales.x.max = lastX;
     unifiedChart.update('none');
   }
 
   function updateCharts() {
-    const { pts } = filterWindow(allBattery);
+    const { pts } = filterWindow(srcBattery());
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
     // The window label renders on the graph (#chart-window-label), not in the control
     // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
@@ -1467,9 +1522,9 @@ function mdmBootCharts() {
     var _ci = document.getElementById("chart-info");
     if (_ci) _ci.textContent = "";
 
-    if (batteryChart) applyData(batteryChart, allBattery);
-    if (tempChart) applyData(tempChart, allTemp);
-    if (ramChart) applyData(ramChart, allRam);
+    if (batteryChart) applyData(batteryChart, srcBattery());
+    if (tempChart) applyData(tempChart, srcTemp());
+    if (ramChart) applyData(ramChart, srcRam());
     applyUnifiedData();
     syncMarkerToggle();
     refreshTabVals();
@@ -2155,6 +2210,9 @@ function mdmBootCharts() {
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
+      // Back to the rolling window: the live arrays are what SSE appends to, so the
+      // chart keeps updating in place.
+      window.mdmClearViewData();
       // The page only bakes in the default 6h window; 12h/24h/48h pull their extra
       // history from /chart-data on click (loadOlderWithSpinner shows the same
       // "Loading graphs…" overlay used on first paint while that's in flight, so a
@@ -2219,7 +2277,9 @@ function mdmBootCharts() {
     customMin = a; customMax = b;
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
-    loadOlderWithSpinner(customMin, updateCharts);
+    // Fetch this window, not everything back to it: the server thins to ~2500 points
+    // per request, so a month-wide request drawn as one day arrives nearly empty.
+    fetchWindow(customMin, customMax, updateCharts);
     return true;
   }
 
@@ -2309,9 +2369,11 @@ function mdmBootCharts() {
     var si = document.getElementById("range-start"), ei = document.getElementById("range-end");
     if (si) si.value = toLocalISO(new Date(a));
     if (ei) ei.value = toLocalISO(new Date(b));
-    // The arrows, zoom-out and drag can move the window before the oldest loaded
-    // check-in; pull that history first or the chart draws empty.
-    loadOlderWithSpinner(a, updateCharts);
+    // Fetch the window being drawn, at that window's own resolution. Asking for
+    // [a, oldest-loaded] instead — which is what this used to do — returns the same
+    // 2500 points spread over everything back to the chosen start, so a single day out
+    // of a month-wide answer arrives nearly empty.
+    fetchWindow(a, b, updateCharts);
   }
   function windowBounds(chart) {
     if (customMin !== null && customMax !== null) return [customMin, customMax];
