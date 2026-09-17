@@ -281,6 +281,36 @@ func extractCharging(raw json.RawMessage) bool {
 	return b
 }
 
+// extractBatteryMissing reports whether the device explicitly told us its pack is
+// absent (latest_extra.battery_present == false). Only a device that sends the field
+// can be missing a battery; an older client that never sends it reads as present, so
+// this never fires on a fleet that has not been updated yet.
+//
+// On the T7 the charger IC infers presence from the NTC (thermistor) fault bits rather
+// than a presence pin (sgm4154x_charger.c, POWER_SUPPLY_PROP_PRESENT), so this means
+// "thermistor open/out of range, or the pack is unplugged" — and in that state the
+// charger also refuses to charge while the fuel gauge keeps reporting a percentage off
+// the rail. Showing that percentage would look like a healthy battery, so callers show
+// a distinct state instead.
+func extractBatteryMissing(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	v, ok := m["battery_present"]
+	if !ok {
+		return false
+	}
+	var b bool
+	if err := json.Unmarshal(v, &b); err != nil {
+		return false
+	}
+	return !b
+}
+
 func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
 	if len(raw) == 0 {
 		return 0, false
@@ -423,6 +453,9 @@ type DeviceRowJSON struct {
 	KioskPackage string  `json:"kiosk_package"`
 	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
 	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
+	// BatteryMissing: product has a battery but the device reports the pack absent
+	// (NTC fault / unplugged). The live patch shows a "None" chip, never a percentage.
+	BatteryMissing bool  `json:"battery_missing"`
 	Charging     bool    `json:"charging"`
 	Flapping     bool    `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
 	FlapRate     int     `json:"flap_rate"` // observed toggles/min, for the tooltip
@@ -442,8 +475,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		KioskEnabled: dev.KioskEnabled,
 		KioskPackage: dev.KioskPackage,
 		Hidden:       dev.Hidden,
-		HasBattery:   dev.HasBattery(),
-		RowClasses:   deviceRowClasses(dev),
+		HasBattery:     dev.HasBattery(),
+		BatteryMissing: dev.HasBattery() && extractBatteryMissing(dev.LatestExtra),
+		RowClasses:     deviceRowClasses(dev),
 	}
 
 	switch {
@@ -1211,6 +1245,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"charging": func(raw json.RawMessage) bool {
 			return extractCharging(raw)
+		},
+		// batteryMissing: the device reports no pack on a product that should have one
+		// (NTC fault or unplugged). Templates show a distinct chip rather than a
+		// percentage read off the rail, or the kiosk "AC" chip which means by design.
+		"batteryMissing": func(raw json.RawMessage) bool {
+			return extractBatteryMissing(raw)
 		},
 		"notStale": func(t time.Time, thresholdSecs int) bool {
 			if thresholdSecs <= 0 {
