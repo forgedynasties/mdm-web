@@ -8227,6 +8227,29 @@ func extraFloat(raw json.RawMessage, key string) string {
 	return fmt.Sprintf("%.1f", f)
 }
 
+// extraCoord formats a latitude or longitude for the CSV. It exists because these
+// two columns went through extraFloat, whose "%.1f" is right for a temperature and
+// useless for a coordinate: one decimal place of latitude is about 11 km, so every
+// device in a city exported the same position. Six places is ~0.1 m.
+func extraCoord(raw json.RawMessage, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var f float64
+	if err := json.Unmarshal(v, &f); err != nil {
+		return ""
+	}
+	return strconv.FormatFloat(f, 'f', 6, 64)
+}
+
 func extraInt(raw json.RawMessage, key string) string {
 	if len(raw) == 0 {
 		return ""
@@ -8482,9 +8505,9 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			case "timezone":
 				rec = append(rec, extraString(row.Extra, "timezone"))
 			case "latitude":
-				rec = append(rec, extraFloat(row.Extra, "latitude"))
+				rec = append(rec, extraCoord(row.Extra, "latitude"))
 			case "longitude":
-				rec = append(rec, extraFloat(row.Extra, "longitude"))
+				rec = append(rec, extraCoord(row.Extra, "longitude"))
 			case "last_seen":
 				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
 			}
