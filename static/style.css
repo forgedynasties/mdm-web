@@ -1942,7 +1942,8 @@ input[type="checkbox"]:hover {
   width: 24px; height: 24px; border-radius: 7px; cursor: pointer; line-height: 1;
   font-size: 14px; display: grid; place-items: center;
 }
-.cr-cal-nav:hover { border-color: var(--accent); color: var(--accent-text); }
+.cr-cal-nav:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); }
+.cr-cal-nav:disabled { opacity: .35; cursor: not-allowed; }
 .cr-cal-dow, .cr-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .cr-cal-dow { margin-bottom: 2px; }
 .cr-cal-dow span { text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--text-faint); text-transform: uppercase; }

@@ -892,6 +892,19 @@ function mdmBootCharts() {
     // kiosk opens stayed empty. The default view is the last 6 hours, so start there.
     return xs.length ? Math.min.apply(null, xs) : Date.now() - 6 * 3600 * 1000;
   })();
+  // Nothing exists before the device joined the fleet, so the graph and the picker
+  // both stop there: panning further back used to walk into empty time and look like
+  // data loss. Falls back to the row's creation date for a device enrolled before that
+  // column existed.
+  var CHART_MIN_X = {{if .Device.EnrolledAt.IsZero}}{{.Device.CreatedAt.UnixMilli}}{{else}}{{.Device.EnrolledAt.UnixMilli}}{{end}};
+  function clampToOnboard(a, b) {
+    if (a >= CHART_MIN_X) return [a, b];
+    var span = b - a;
+    a = CHART_MIN_X;
+    b = Math.min(a + span, Date.now());
+    return [a, b];
+  }
+
   let chartFetching = false;
   // Fetch check-ins older than what's loaded, for [fromMs, loadedMinX), and prepend
   // them so the recent high-resolution data is kept. Then run `done` (re-render).
@@ -1536,6 +1549,7 @@ function mdmBootCharts() {
     var _ci = document.getElementById("chart-info");
     if (_ci) _ci.textContent = "";
 
+    if (window.mdmSyncShift) window.mdmSyncShift();
     if (batteryChart) applyData(batteryChart, srcBattery());
     if (tempChart) applyData(tempChart, srcTemp());
     if (ramChart) applyData(ramChart, srcRam());
@@ -2390,7 +2404,8 @@ function mdmBootCharts() {
       var ms = d.getTime(), cls = 'cr-day';
       if (d.getMonth() !== calView.getMonth()) cls += ' mut';
       if (sameDay(ms, Date.now())) cls += ' today';
-      if (ms > todayEnd) cls += ' off';
+      // Outside what this device can have data for: after today, or before it joined.
+      if (ms > todayEnd || ms < dayStart(CHART_MIN_X)) cls += ' off';
       if (calStart !== null && calEnd !== null && ms > calStart && ms < calEnd) cls += ' in';
       if (sameDay(ms, calStart)) cls += ' edge start';
       if (sameDay(ms, calEnd)) cls += ' edge end';
@@ -2398,6 +2413,15 @@ function mdmBootCharts() {
       btn.className = cls;
       btn.dataset.ms = String(ms);
       btn.textContent = String(d.getDate());
+    }
+    // Stop the month arrow at the device's first month for the same reason.
+    var prevBtn = document.getElementById('cal-prev');
+    if (prevBtn) {
+      var floor = new Date(CHART_MIN_X);
+      var atFloor = calView.getFullYear() < floor.getFullYear()
+        || (calView.getFullYear() === floor.getFullYear() && calView.getMonth() <= floor.getMonth());
+      prevBtn.disabled = atFloor;
+      prevBtn.title = atFloor ? 'This device was onboarded ' + floor.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : 'Previous month';
     }
     var sel = document.getElementById('cal-sel');
     if (sel) {
@@ -2481,6 +2505,7 @@ function mdmBootCharts() {
   function applyZoomWindow(a, b) {
     a = Math.round(a); b = Math.round(b);
     if (b - a < 60000) return;          // floor at 1 min so a stray drag can't over-zoom
+    var cl = clampToOnboard(a, b); a = cl[0]; b = cl[1];
     customMin = a; customMax = b;
     document.querySelectorAll(".dur-btn").forEach(x => x.classList.remove("active"));
     var cb = document.getElementById("custom-range-btn"); if (cb) cb.classList.add("active");
@@ -2640,8 +2665,29 @@ function mdmBootCharts() {
     var b = windowBounds(c);
     if (b[0] == null || b[1] == null) return;
     var span = b[1] - b[0];
+    if (dir < 0 && b[0] <= CHART_MIN_X) return;   // already at the device's first day
     applyZoomWindow(b[0] + dir * span, b[1] + dir * span);
   }
+  // Grey the arrow out when there is nothing earlier to show, so the limit is visible
+  // rather than something you discover by clicking and nothing happening.
+  function syncShiftButtons() {
+    var prev = document.getElementById('chart-shift-prev');
+    if (!prev) return;
+    // Mirror filterWindow's own arithmetic rather than reading chart.scales: on the
+    // first render the scale is not populated yet, and its zero start read as "already
+    // at the device's first day", which greyed the arrow out on page load.
+    var start;
+    if (customMin !== null) {
+      start = customMin;
+    } else {
+      var b = srcBattery();
+      var lastPt = b.length ? b[b.length - 1].x : Date.now();
+      start = lastPt - currentDuration;
+    }
+    prev.disabled = start <= CHART_MIN_X;
+    prev.title = prev.disabled ? 'Nothing before this device was onboarded' : 'Shift window earlier';
+  }
+  window.mdmSyncShift = syncShiftButtons;
   var _shiftPrev = document.getElementById('chart-shift-prev');
   var _shiftNext = document.getElementById('chart-shift-next');
   if (_shiftPrev) _shiftPrev.addEventListener('click', function () { shiftWindow(-1); });
