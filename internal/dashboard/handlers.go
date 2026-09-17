@@ -18112,7 +18112,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// are always aggregated before the retention prune below can delete them.
 	now := time.Now().UTC() // roll by UTC day (matches the DB session tz) for a stable boundary
 	for _, day := range []time.Time{now, now.AddDate(0, 0, -1)} {
-		if _, err := h.db.RollupDailyStats(ctx, day); err != nil {
+		if _, err := h.db.RollupDailyStatsFor(ctx, day); err != nil {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
 		}
 	}

@@ -7603,6 +7603,58 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 	return tag.RowsAffected(), nil
 }
 
+// RollupDailyStatsFor computes a day from the shaped tables when they can answer it
+// and from the check-in snapshots when they cannot. Callers should use this rather than
+// either path directly.
+func (d *DB) RollupDailyStatsFor(ctx context.Context, day time.Time) (int64, error) {
+	ready, err := d.shapedRollupReady(ctx, day)
+	if err != nil {
+		return 0, err
+	}
+	if ready {
+		return d.RollupDailyStatsShaped(ctx, day)
+	}
+	return d.RollupDailyStats(ctx, day)
+}
+
+// shapedRollupReady reports whether every device that reported during the day already
+// had a recorded baseline for each state the aggregates read, at or before its first
+// sample of that day.
+//
+// It asks that question of the data rather than comparing against the date the fix
+// shipped. A date would be a claim about deployment; this is a check of the thing that
+// actually matters, and it stays true if history is ever backfilled or a device is
+// re-enrolled. It is also naturally satisfied for a device that was offline: such a
+// device contributes no samples at all, and when it returns its baseline is written in
+// the same transaction as its first sample — and events sort before samples at equal
+// timestamps, so it is covered from that very first row.
+//
+// A single device short of it sends the whole day to the check-in path, because the
+// failure it guards against is silent: an unknown state reads as a device that was
+// never charging, not as an error.
+func (d *DB) shapedRollupReady(ctx context.Context, day time.Time) (bool, error) {
+	var ready bool
+	err := d.pool.QueryRow(ctx, `
+		WITH first_sample AS (
+			SELECT device_id, MIN(at) AS t
+			FROM device_samples
+			WHERE at >= $1::date AND at < ($1::date + INTERVAL '1 day')
+			GROUP BY device_id
+		)
+		SELECT NOT EXISTS (
+			SELECT 1
+			FROM first_sample f
+			JOIN devices dv ON dv.id = f.device_id
+			CROSS JOIN unnest($2::text[]) AS k(key)
+			WHERE dv.latest_extra ? k.key
+			  AND NOT EXISTS (
+				SELECT 1 FROM device_state_events e
+				WHERE e.device_id = f.device_id AND e.key = k.key AND e.at <= f.t)
+		) AND EXISTS (SELECT 1 FROM first_sample)`,
+		day.Format("2006-01-02"), rollupStateKeys).Scan(&ready)
+	return ready, err
+}
+
 // RollupDailyStatsShaped computes the same day from device_samples and
 // device_state_events instead of the check-in snapshots. Every statistic is produced by
 // the identical SQL — only the samples CTE differs — so the two can be run against each
@@ -8039,7 +8091,7 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 		if !hasRows {
 			continue
 		}
-		if _, err := d.RollupDailyStats(ctx, day); err != nil {
+		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
 			return n, err
 		}
 		n++
@@ -8084,7 +8136,7 @@ func (d *DB) BackfillDailyStats(ctx context.Context, maxDays int) (int, error) {
 			continue
 		}
 		day, _ := time.Parse("2006-01-02", dayStr)
-		if _, err := d.RollupDailyStats(ctx, day); err != nil {
+		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
 			return n, err
 		}
 		n++
