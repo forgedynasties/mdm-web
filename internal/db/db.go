@@ -1590,6 +1590,68 @@ const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','
 // SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
 func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
 
+// DownsampleCheckins thins history older than olderThanDays down to one row per device
+// per bucketSec, oldest day first, and returns the rows removed and the days processed.
+//
+// Why thin instead of delete: a venue's week is still readable years later — when a
+// device was powered, charging, on a pad — at a fraction of the rows. PruneCheckins
+// (retention) throws that period away entirely; this keeps its shape.
+//
+// One calendar day per transaction, and at most maxDays per call. Nothing runs long
+// enough to hold locks or block autovacuum, an interrupted run keeps the days it
+// finished, and a large backlog is worked off over successive housekeeping passes
+// instead of in one statement that would swamp a small box.
+//
+// The rows kept are the FIRST in each bucket. Sub-bucket detail in that period is gone,
+// which is the trade the setting describes; device_daily_stats already holds the
+// aggregates for those days and is not touched.
+func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, maxDays int) (rows int64, days int, err error) {
+	if olderThanDays <= 0 || bucketSec <= 0 || maxDays <= 0 {
+		return 0, 0, nil
+	}
+	// Oldest day holding history, and the day thinning stops at. Both from the server so
+	// the calendar maths matches the rows (the database runs in UTC).
+	var day, cutoff time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT COALESCE(MIN(created_at)::date, CURRENT_DATE), (CURRENT_DATE - $1::int)
+		FROM checkins`, olderThanDays).Scan(&day, &cutoff)
+	if err != nil {
+		return 0, 0, err
+	}
+	// A day that is already at the bucket costs one cheap indexed scan and removes
+	// nothing, so it must not spend the run's budget — otherwise a long history is
+	// walked three days an hour and takes days to reach the part that needs work.
+	// Only productive days count; examined bounds the total work per run.
+	const maxExamined = 400
+	for examined := 0; days < maxDays && examined < maxExamined && day.Before(cutoff); examined++ {
+		var n int64
+		err = d.pool.QueryRow(ctx, `
+			WITH doomed AS (
+				SELECT ctid FROM (
+					SELECT ctid, ROW_NUMBER() OVER (
+						PARTITION BY device_id,
+						             to_timestamp(floor(EXTRACT(EPOCH FROM created_at) / $2::int) * $2::int)
+						ORDER BY created_at
+					) AS rn
+					FROM checkins
+					WHERE created_at >= $1::date AND created_at < $1::date + 1
+				) t WHERE t.rn > 1
+			), del AS (
+				DELETE FROM checkins c USING doomed dd WHERE c.ctid = dd.ctid RETURNING 1
+			)
+			SELECT COUNT(*) FROM del`, day, bucketSec).Scan(&n)
+		if err != nil {
+			return rows, days, err
+		}
+		rows += n
+		if n > 0 {
+			days++
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return rows, days, nil
+}
+
 // StripLegacyCheckinKeys removes checkinStripKeys from up to `limit` checkins rows
 // of one UTC day — the one-off cleanup for rows written before UpsertCheckin
 // stripped them at insert. Returns rows rewritten; fewer than `limit` means the

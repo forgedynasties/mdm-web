@@ -955,6 +955,16 @@ function kioskAddPkg(pkg, el){
       <div class="muted small">A device's live state updates on every report. History rows are only added this often, unless something changed (battery level, build, charging, pad, kiosk, reboot), which is stored immediately. Default 60.</div>
     </div>
     <div class="form-group">
+      <label for="set-downsample-days">Thin check-in history older than (days)</label>
+      <input type="number" name="checkin_downsample_days" id="set-downsample-days" value="{{if .CheckinDownsampleDays}}{{.CheckinDownsampleDays}}{{end}}" min="0" step="1" placeholder="Off — keep every row" class="form-input">
+      <div class="muted small">Older history is thinned to one row per device per interval below, rather than deleted: the period stays readable — when a device was powered, charging or on a pad — at a fraction of the rows. Daily stats are computed already and are not affected. Default 60 days.</div>
+    </div>
+    <div class="form-group">
+      <label for="set-downsample-sec">Keep one thinned row every (seconds)</label>
+      <input type="number" name="checkin_downsample_sec" id="set-downsample-sec" value="{{.CheckinDownsampleSec}}" min="60" step="1" class="form-input">
+      <div class="muted small">Detail finer than this is dropped from the thinned period, so a state change and its reversal inside one interval are both lost. Default 300 (5 minutes).</div>
+    </div>
+    <div class="form-group">
       <label for="set-logcat-retention">Delete logcat results older than (days)</label>
       <input type="number" name="logcat_retention_days" id="set-logcat-retention" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>

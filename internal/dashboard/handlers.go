@@ -17627,6 +17627,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
 		"CheckinSampleSec":     h.cfg.CheckinSampleSec(),
+		"CheckinDownsampleDays": h.cfg.CheckinDownsampleDays(),
+		"CheckinDownsampleSec":  h.cfg.CheckinDownsampleSec(),
 		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
 		"LegacyStripPct":       h.legacyStripPct(r.Context()),
 		"MaintenanceMode":      h.cfg.MaintenanceMode(),
@@ -18120,8 +18122,34 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
+	h.downsampleOldCheckins(ctx)
 	h.stripLegacyCheckins(ctx)
 	h.backfillBuildHistory(ctx)
+}
+
+// downsampleCheckinsDaysPerRun is how much history one housekeeping pass thins. Three
+// days an hour works a long backlog off in a day or so without ever being the heaviest
+// thing on the box, and once caught up there is only ever one new day to do.
+const downsampleCheckinsDaysPerRun = 3
+
+// downsampleOldCheckins thins history past the configured age to one row per device per
+// bucket. Unlike retention it keeps the period — just at a coarser resolution — so a
+// venue's week stays readable years later at a fraction of the rows.
+func (h *Handler) downsampleOldCheckins(ctx context.Context) {
+	days := h.cfg.CheckinDownsampleDays()
+	if days <= 0 {
+		return // an admin turned it off; keep every row at full resolution
+	}
+	sec := h.cfg.CheckinDownsampleSec()
+	rows, processed, err := h.db.DownsampleCheckins(ctx, days, sec, downsampleCheckinsDaysPerRun)
+	if err != nil {
+		log.Printf("[housekeeping] downsample check-ins: %v", err)
+		return
+	}
+	if rows > 0 {
+		log.Printf("[housekeeping] downsampled %d check-in row(s) across %d day(s) older than %dd to 1 per %ds",
+			rows, processed, days, sec)
+	}
 }
 
 // stripLegacyCheckins walks the check-in history one UTC day at a time, oldest
@@ -18480,6 +18508,8 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 		atoiNonNeg(r.FormValue("checkin_retention_days")),
 		atoiNonNeg(r.FormValue("logcat_retention_days")),
 		atoiNonNeg(r.FormValue("checkin_sample_sec")),
+		atoiNonNeg(r.FormValue("checkin_downsample_days")),
+		atoiNonNeg(r.FormValue("checkin_downsample_sec")),
 	)
 	h.db.SetCheckinSampleSec(h.cfg.CheckinSampleSec())
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.

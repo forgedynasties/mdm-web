@@ -87,6 +87,13 @@ type Config struct {
 	// Minimum seconds between two stored check-in rows for one device when nothing
 	// but volatile fields changed (0 -> default 30). Transitions always store a row.
 	CheckinSampleSecVal int `json:"checkin_sample_sec"`
+	// History older than CheckinDownsampleDaysVal is thinned to one row per device per
+	// CheckinDownsampleSecVal, instead of being deleted: the shape of the week stays
+	// readable years later, at a fraction of the rows. 0 days = off.
+	// Pointers so an absent key (an existing config file) means "use the default"
+	// while an explicit 0 means "off" — with a plain int the two are the same value.
+	CheckinDownsampleDaysVal *int `json:"checkin_downsample_days,omitempty"`
+	CheckinDownsampleSecVal  *int `json:"checkin_downsample_sec,omitempty"`
 	// Progress cursor (YYYY-MM-DD) of the one-off legacy check-in cleanup that strips
 	// bulky keys from rows written before insert-time stripping existed. "" = not
 	// started, "done" = finished.
@@ -748,6 +755,39 @@ func (c *Config) CheckinSampleSec() int {
 	return c.CheckinSampleSecVal
 }
 
+// Defaults for thinning old history. 60 days of full-resolution check-ins covers every
+// chart and export the dashboard offers; past that a point every 5 minutes still shows
+// when a device was on, charging or on a pad, which is all anyone reads that far back.
+const (
+	DefaultCheckinDownsampleDays = 60
+	DefaultCheckinDownsampleSec  = 300
+)
+
+// CheckinDownsampleDays is the age past which history is thinned (0 = keep every row
+// forever, whatever its age).
+func (c *Config) CheckinDownsampleDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CheckinDownsampleDaysVal == nil {
+		return DefaultCheckinDownsampleDays
+	}
+	if *c.CheckinDownsampleDaysVal < 0 {
+		return 0
+	}
+	return *c.CheckinDownsampleDaysVal
+}
+
+// CheckinDownsampleSec is the bucket kept in thinned history: one row per device per
+// this many seconds.
+func (c *Config) CheckinDownsampleSec() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CheckinDownsampleSecVal == nil || *c.CheckinDownsampleSecVal <= 0 {
+		return DefaultCheckinDownsampleSec
+	}
+	return *c.CheckinDownsampleSecVal
+}
+
 func (c *Config) LegacyStripCursor() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -790,12 +830,16 @@ func (c *Config) SetLegacyStripCursor(cur string) error {
 	return writeFileAtomic(c.path, data)
 }
 
-func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet, sampleSec int) error {
+func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet, sampleSec, downsampleDays, downsampleSec int) error {
 	c.mu.Lock()
 	c.AutoHideDaysVal = autoHide
 	c.CheckinRetentionDaysVal = checkinRet
 	c.LogcatRetentionDaysVal = logcatRet
 	c.CheckinSampleSecVal = sampleSec
+	// Written explicitly from here on, so a later default change never silently
+	// re-thins history an admin chose to keep.
+	c.CheckinDownsampleDaysVal = &downsampleDays
+	c.CheckinDownsampleSecVal = &downsampleSec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

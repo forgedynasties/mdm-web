@@ -10,6 +10,9 @@ docs
 *.md
 tools
 docker-compose*.yml
+# Runtime settings written by a running server (root-owned in some setups, and it can
+# hold API keys). Never copied into the image, so it has no business in the context.
+config
 Dockerfile*
 data
 uploads
