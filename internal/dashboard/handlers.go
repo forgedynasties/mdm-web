@@ -6984,7 +6984,10 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 	writeDeviceUpdate := func() {
-		c, err := h.db.GetLatestCheckin(r.Context(), device.ID)
+		// The devices row, not the newest check-in: it is written on every report,
+		// while a history row is only stored when something changed or the sampling
+		// window elapsed.
+		c, err := h.db.GetDeviceLive(r.Context(), device.ID)
 		if err != nil {
 			fmt.Fprint(w, "event: device\ndata: {}\n\n")
 			flusher.Flush()

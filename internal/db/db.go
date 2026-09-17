@@ -2892,6 +2892,30 @@ func (d *DB) SetDeviceNotes(ctx context.Context, deviceID uuid.UUID, notes strin
 	return err
 }
 
+// GetDeviceLive returns the device's current state for the live page stream: the
+// snapshot on the devices row, not the newest history row.
+//
+// It is both fresher and cheaper. Fresher because devices.latest_extra is written on
+// every report, while a check-in row is only stored when something changed or the
+// sampling window elapsed — so the history-row version of "live" could sit a minute
+// behind what the device just said. Cheaper because it is one row on a 193-row table by
+// primary key, instead of an ordered read of the newest row from a table of millions
+// with a jsonb column to detoast.
+//
+// Shaped as a Checkin so the payload builder is unchanged: CreatedAt carries
+// last_seen_at, the instant the device last reported.
+func (d *DB) GetDeviceLive(ctx context.Context, deviceID uuid.UUID) (*Checkin, error) {
+	var c Checkin
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, COALESCE(latest_battery_pct, 0), build_id, COALESCE(latest_extra, '{}'::jsonb), last_seen_at
+		FROM devices WHERE id = $1
+	`, deviceID).Scan(&c.DeviceID, &c.BatteryPct, &c.BuildID, &c.Extra, &c.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 func (d *DB) GetLatestCheckin(ctx context.Context, deviceID uuid.UUID) (*Checkin, error) {
 	var c Checkin
 	err := d.pool.QueryRow(ctx, `
