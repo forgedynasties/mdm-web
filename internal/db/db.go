@@ -9464,22 +9464,28 @@ func (d *DB) criticalStorageFloor(ctx context.Context) float64 {
 }
 
 // chargingFlapSQL counts how many times a device's charging state toggled within a
-// recent window, off the raw check-in stream. A faulty charger/dock connection drops
-// in and out, so `charging` oscillates true↔false check-in to check-in — a healthy
-// unit shows 0–1 transitions over hours, a flapping one dozens per minute. Rows
-// missing the field are skipped so a partial payload can't fake a transition.
+// recent window. A faulty charger/dock connection drops in and out, so `charging`
+// oscillates true↔false — a healthy unit shows 0–1 transitions over hours, a flapping
+// one dozens per minute.
+//
+// This reads device_state_events, where every row already IS a transition, so the
+// count is a grouped scan of a table under a megabyte rather than a window function
+// over the 15 GB check-in history. It is also the more direct statement of the
+// question: the old form reconstructed transitions by comparing consecutive stored
+// check-ins, which worked only because a charging change is non-volatile and therefore
+// always forces a row to be stored.
+//
+// Seed rows are excluded. A seed records a state's first known value with an empty
+// from_val and is not a transition; counting it would report a flap for every device
+// the first time it was seen.
 const chargingFlapSQL = `
-	WITH seq AS (
-		SELECT device_id,
-		       (extra->>'charging')::boolean AS charging,
-		       LAG((extra->>'charging')::boolean) OVER (PARTITION BY device_id ORDER BY created_at) AS prev
-		FROM checkins
-		WHERE created_at > NOW() - ($1 * INTERVAL '1 minute')
-		  AND extra->>'charging' IN ('true','false')
-	)
 	SELECT device_id, COUNT(*) AS flaps
-	FROM seq
-	WHERE prev IS NOT NULL AND charging <> prev
+	FROM device_state_events
+	WHERE key = 'charging'
+	  AND at > NOW() - ($1 * INTERVAL '1 minute')
+	  AND from_val IN ('true','false')
+	  AND to_val   IN ('true','false')
+	  AND to_val <> from_val
 	GROUP BY device_id`
 
 // FlappingChargers returns devices whose charging state is toggling faster than
@@ -9529,14 +9535,12 @@ func (d *DB) DeviceChargerFlapRate(ctx context.Context, deviceID uuid.UUID, wind
 	}
 	var n int
 	err := d.pool.QueryRow(ctx, `
-		WITH seq AS (
-			SELECT (extra->>'charging')::boolean AS charging,
-			       LAG((extra->>'charging')::boolean) OVER (ORDER BY created_at) AS prev
-			FROM checkins
-			WHERE device_id = $1 AND created_at > NOW() - ($2 * INTERVAL '1 minute')
-			  AND extra->>'charging' IN ('true','false')
-		)
-		SELECT COUNT(*) FROM seq WHERE prev IS NOT NULL AND charging <> prev`,
+		SELECT COUNT(*) FROM device_state_events
+		WHERE device_id = $1 AND key = 'charging'
+		  AND at > NOW() - ($2 * INTERVAL '1 minute')
+		  AND from_val IN ('true','false')
+		  AND to_val   IN ('true','false')
+		  AND to_val <> from_val`,
 		deviceID, windowMin).Scan(&n)
 	if err != nil {
 		return 0, err
@@ -10510,8 +10514,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// connected AP's signal (extra.wifi_rssi), not the scan list. Always-on rule.
 		rows, err := d.pool.Query(ctx, `
 			SELECT c.device_id, dv.serial_number, MAX(c.rssi) FROM (
-				SELECT device_id, (extra->>'wifi_rssi')::numeric AS rssi, created_at
-				FROM checkins WHERE created_at > NOW() - INTERVAL '15 minutes'
+				SELECT device_id, wifi_rssi::numeric AS rssi, at AS created_at
+				FROM device_samples WHERE at > NOW() - INTERVAL '15 minutes'
 			) c JOIN devices dv ON dv.id = c.device_id
 			WHERE c.rssi IS NOT NULL AND NOT dv.hidden
 			GROUP BY c.device_id, dv.serial_number
@@ -10636,19 +10640,40 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// been continuously wireless-charging for over an hour (heat/battery stress). A
 		// gap or any non-'1'/missing reading breaks continuity (bool_and over NULL fails).
 		sustain := param(p, "sustain_min", 60)
+		// Read from the shaped tables, which answer the two halves of this separately:
+		// device_samples says the device was actually reporting across the window, and
+		// device_state_events says the pad state never left '1'. Both are needed — the
+		// state alone would fire on a device that went dark an hour ago still carrying
+		// its last known state, which is the opposite of continuous charging.
 		rows, err := d.pool.Query(ctx, `
-			SELECT c.device_id, dv.serial_number,
-			       EXTRACT(EPOCH FROM (MAX(c.created_at) - MIN(c.created_at)))/60 AS span_min
-			FROM (
-				SELECT device_id, (extra->>'wlc_status') AS wlc, created_at
-				FROM checkins WHERE created_at > NOW() - (($1 + 5) * INTERVAL '1 minute')
-			) c JOIN devices dv ON dv.id = c.device_id
+			WITH win AS (SELECT NOW() - (($1 + 5) * INTERVAL '1 minute') AS t0),
+			pres AS (
+				SELECT device_id, MIN(at) AS mn, MAX(at) AS mx
+				FROM device_samples, win WHERE at > win.t0 GROUP BY device_id
+			),
+			-- The pad state as the window opened. A device whose first ever wlc_status
+			-- event falls inside the window has no state here and cannot qualify, which
+			-- is the conservative reading: we do not know what it was doing before.
+			at_start AS (
+				SELECT DISTINCT ON (e.device_id) e.device_id, e.to_val
+				FROM device_state_events e, win
+				WHERE e.key = 'wlc_status' AND e.at <= win.t0
+				ORDER BY e.device_id, e.at DESC
+			),
+			-- Any change inside the window that moved it off the pad breaks continuity.
+			broke AS (
+				SELECT DISTINCT e.device_id FROM device_state_events e, win
+				WHERE e.key = 'wlc_status' AND e.at > win.t0 AND e.to_val IS DISTINCT FROM '1'
+			)
+			SELECT p.device_id, dv.serial_number,
+			       EXTRACT(EPOCH FROM (p.mx - p.mn))/60 AS span_min
+			FROM pres p
+			JOIN devices dv ON dv.id = p.device_id
+			LEFT JOIN at_start a ON a.device_id = p.device_id
 			WHERE NOT dv.hidden
-			GROUP BY c.device_id, dv.serial_number
-			-- A missing wlc_status must break continuity too (the comment above says so);
-			-- bool_and skips NULLs, so treat NULL as "not on the pad" explicitly.
-			HAVING bool_and(c.wlc IS NOT NULL AND c.wlc = '1')
-			   AND (MAX(c.created_at) - MIN(c.created_at)) >= ($1 * INTERVAL '1 minute')`, sustain)
+			  AND COALESCE(a.to_val, '') = '1'
+			  AND NOT EXISTS (SELECT 1 FROM broke b WHERE b.device_id = p.device_id)
+			  AND (p.mx - p.mn) >= ($1 * INTERVAL '1 minute')`, sustain)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -10790,23 +10815,38 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		maxGain := param(p, "max_gain_pct", 15)
 		windowH := param(p, "window_hours", 2)
 		rows, err := d.pool.Query(ctx, `
-			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
-			FROM (
+			WITH win AS (SELECT NOW() - ($1 * INTERVAL '1 hour') AS t0),
+			s AS (
 				SELECT device_id,
-				       (array_agg(battery_pct ORDER BY created_at ASC))[1]  AS first_batt,
-				       (array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_batt,
-				       -- COALESCE missing charging to FALSE: a check-in that doesn't
-				       -- confirm charging breaks "always charging" (bool_and silently
-				       -- SKIPS NULLs, so without this an unplugged stretch that omitted
-				       -- the field still counted as continuously charging).
-				       bool_and(COALESCE((extra->>'charging')::boolean, false)) AS always_charging,
+				       (array_agg(battery_pct ORDER BY at ASC))[1]  AS first_batt,
+				       (array_agg(battery_pct ORDER BY at DESC))[1] AS last_batt,
 				       COUNT(*) AS n,
-				       (MAX(created_at) - MIN(created_at)) AS span
-				FROM checkins
-				WHERE created_at > NOW() - ($1 * INTERVAL '1 hour')
+				       (MAX(at) - MIN(at)) AS span
+				FROM device_samples, win
+				WHERE at > win.t0
 				GROUP BY device_id
-			) s JOIN devices dv ON dv.id = s.device_id
-			WHERE NOT dv.hidden AND s.always_charging AND s.n >= 3
+			),
+			-- "Continuously charging" is now the charging state as the window opened,
+			-- with no event since that left it. A device with no charging event at or
+			-- before the window cannot qualify: the old query treated an unconfirmed
+			-- reading as not charging, and an unknown state is the same claim.
+			at_start AS (
+				SELECT DISTINCT ON (e.device_id) e.device_id, e.to_val
+				FROM device_state_events e, win
+				WHERE e.key = 'charging' AND e.at <= win.t0
+				ORDER BY e.device_id, e.at DESC
+			),
+			broke AS (
+				SELECT DISTINCT e.device_id FROM device_state_events e, win
+				WHERE e.key = 'charging' AND e.at > win.t0 AND e.to_val IS DISTINCT FROM 'true'
+			)
+			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
+			FROM s
+			JOIN devices dv ON dv.id = s.device_id
+			LEFT JOIN at_start a ON a.device_id = s.device_id
+			WHERE NOT dv.hidden AND s.n >= 3
+			  AND COALESCE(a.to_val, '') = 'true'
+			  AND NOT EXISTS (SELECT 1 FROM broke b WHERE b.device_id = s.device_id)
 			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
 			  AND (s.last_batt - s.first_batt) <= $2
 			  AND s.last_batt < 95`, windowH, maxGain)
