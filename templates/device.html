@@ -2369,7 +2369,21 @@ function mdmBootCharts() {
     var startCell = new Date(first);
     startCell.setDate(1 - lead);
     var todayEnd = dayEnd(Date.now());
-    var html = '';
+
+    // Build the 42 cells once, then only update them. Replacing innerHTML here would
+    // detach the very button being clicked before the document-level "click outside
+    // closes this popover" handler runs, so contains(e.target) came back false and the
+    // first click on a date shut the picker.
+    if (grid.children.length !== 42) {
+      var frag = document.createDocumentFragment();
+      for (var k = 0; k < 42; k++) {
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        frag.appendChild(cell);
+      }
+      grid.innerHTML = '';
+      grid.appendChild(frag);
+    }
     for (var i = 0; i < 42; i++) {
       var d = new Date(startCell);
       d.setDate(startCell.getDate() + i);
@@ -2380,9 +2394,11 @@ function mdmBootCharts() {
       if (calStart !== null && calEnd !== null && ms > calStart && ms < calEnd) cls += ' in';
       if (sameDay(ms, calStart)) cls += ' edge start';
       if (sameDay(ms, calEnd)) cls += ' edge end';
-      html += '<button type="button" class="' + cls + '" data-ms="' + ms + '">' + d.getDate() + '</button>';
+      var btn = grid.children[i];
+      btn.className = cls;
+      btn.dataset.ms = String(ms);
+      btn.textContent = String(d.getDate());
     }
-    grid.innerHTML = html;
     var sel = document.getElementById('cal-sel');
     if (sel) {
       var f = function (ms) { return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short' }); };
@@ -2427,7 +2443,7 @@ function mdmBootCharts() {
       calEnd = ms;
     }
     calRender();
-    if (calStart !== null && calEnd !== null) calCommit();
+    if (calStart !== null && calEnd !== null) { calCommit(); closeCustomPop(); }
   });
   var _calPrev = document.getElementById('cal-prev'), _calNext = document.getElementById('cal-next');
   if (_calPrev) _calPrev.addEventListener('click', function () { calView.setMonth(calView.getMonth() - 1); calRender(); });
