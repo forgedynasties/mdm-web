@@ -10414,7 +10414,6 @@ CREATE TABLE IF NOT EXISTS apps (
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX IF NOT EXISTS idx_checkins_device_id  ON checkins(device_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_device_created_at ON checkins(device_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_checkins_created_at ON checkins(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen   ON devices(last_seen_at DESC);
@@ -11724,6 +11723,14 @@ ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS last_enrolled_at TIMEST
 UPDATE users SET role = 'super_op' WHERE role = 'ota_admin';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','dev','admin','owner'));
+
+-- idx_checkins_device_id was a strict prefix of idx_checkins_device_created_at, so the
+-- planner never had a reason to choose it: measured over 6.5 hours of live traffic the
+-- composite took 29,440 scans and this one took none, while both were written on every
+-- insert. 177 MB back on the live box. Dropping an unused index is metadata work, so
+-- the exclusive lock it takes is momentary — but it is still a lock, hence last, after
+-- everything else has succeeded.
+DROP INDEX IF EXISTS idx_checkins_device_id;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

@@ -952,7 +952,7 @@ function kioskAddPkg(pkg, el){
     <div class="form-group">
       <label for="set-checkin-sample">Minimum seconds between stored check-in samples</label>
       <input type="number" name="checkin_sample_sec" id="set-checkin-sample" value="{{.CheckinSampleSec}}" min="1" step="1" class="form-input">
-      <div class="muted small">A device's live state updates on every report. History rows are only added this often, unless something changed (battery level, build, charging, pad, kiosk, reboot), which is stored immediately. Default 30.</div>
+      <div class="muted small">A device's live state updates on every report. History rows are only added this often, unless something changed (battery level, build, charging, pad, kiosk, reboot), which is stored immediately. Default 60.</div>
     </div>
     <div class="form-group">
       <label for="set-logcat-retention">Delete logcat results older than (days)</label>

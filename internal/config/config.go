@@ -730,7 +730,14 @@ func (c *Config) LogcatRetentionDays() int {
 }
 
 // DefaultCheckinSampleSec is the coalescing window used when none is configured.
-const DefaultCheckinSampleSec = 30
+//
+// 60 rather than 30: a device that changes nothing now stores half as many history
+// rows, and nothing is lost by it — a transition (battery %, build, charging, pad,
+// kiosk, boot) still writes its row the instant it happens, so charts keep every real
+// event and only the idle heartbeat thins out. 30 was chosen when the window rarely
+// applied anyway, because sensor jitter was counting as a state change; with that
+// fixed the window is what actually governs the row rate.
+const DefaultCheckinSampleSec = 60
 
 func (c *Config) CheckinSampleSec() int {
 	c.mu.RLock()
