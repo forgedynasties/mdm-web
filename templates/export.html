@@ -97,9 +97,11 @@
         <span class="form-label" style="margin-right:8px;">Preset:</span>
         <button type="button" class="dur-btn" onclick="applyPreset('common')">Common</button>
         <button type="button" class="dur-btn" onclick="applyPreset('battery')">Battery</button>
-        <button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>
+        {{/* Both presets select only admin-only columns, so for anyone else they
+             would clear the form and select nothing. */}}
+        {{if canAdmin .Role}}<button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>{{end}}
         <button type="button" class="dur-btn" onclick="applyPreset('system')">System</button>
-        <button type="button" class="dur-btn" onclick="applyPreset('location')">Location</button>
+        {{if canAdmin .Role}}<button type="button" class="dur-btn" onclick="applyPreset('location')">Location</button>{{end}}
         <button type="button" class="dur-btn" onclick="applyPreset('all')">All</button>
         <button type="button" class="dur-btn" onclick="applyPreset('none')">None</button>
       </div>
@@ -117,6 +119,10 @@
         </div>
       </div>
 
+      {{/* Network, Location and Meta identify where a device is and how to reach it,
+           rather than how it is behaving — admin-only. ExportCSV drops these columns
+           server-side too, since the form posts plain column names. */}}
+      {{if canAdmin .Role}}
       <div class="export-col-group">
         <div class="export-col-group-head">
           <strong>Network</strong>
@@ -127,6 +133,7 @@
           <label class="checkbox-label"><input type="checkbox" name="columns" value="ip_address" checked onchange="updateColCount()"> IP Address</label>
         </div>
       </div>
+      {{end}}
 
       <div class="export-col-group">
         <div class="export-col-group-head">
@@ -143,6 +150,7 @@
         </div>
       </div>
 
+      {{if canAdmin .Role}}
       <div class="export-col-group">
         <div class="export-col-group-head">
           <strong>Location</strong>
@@ -163,6 +171,7 @@
           <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked onchange="updateColCount()"> Last Seen</label>
         </div>
       </div>
+      {{end}}
     </div>
   </div>
 

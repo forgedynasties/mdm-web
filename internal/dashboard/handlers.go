@@ -8252,6 +8252,19 @@ func extraRamField(raw json.RawMessage, field string) string {
 // dashboard use; bump it if a real workflow needs more.
 const maxExportRange = 90 * 24 * time.Hour
 
+// adminOnlyExportColumns are the export columns that identify where a device is
+// and how to reach it — network identity and physical location — rather than how
+// it is behaving. They are admin-only: an operator exporting battery history has
+// no reason to carry a fleet's SSIDs, IPs and coordinates out of the dashboard.
+// Enforced in ExportCSV, and the checkboxes are hidden in export.html.
+var adminOnlyExportColumns = map[string]bool{
+	"wifi":       true,
+	"ip_address": true,
+	"latitude":   true,
+	"longitude":  true,
+	"last_seen":  true,
+}
+
 func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
@@ -8321,6 +8334,23 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	if len(columns) == 0 {
 		http.Error(w, "Select at least one column to export", http.StatusBadRequest)
 		return
+	}
+	// Admin-only columns are dropped here, not just hidden in the picker: the form
+	// posts plain column names, so anyone can add them back by hand. A non-admin
+	// asking for them gets a CSV without them rather than an error — the rest of
+	// the export is legitimate.
+	if h.role(r) != "admin" {
+		kept := columns[:0]
+		for _, c := range columns {
+			if !adminOnlyExportColumns[c] {
+				kept = append(kept, c)
+			}
+		}
+		columns = kept
+		if len(columns) == 0 {
+			http.Error(w, "Those columns are admin-only. Select at least one other column to export.", http.StatusForbidden)
+			return
+		}
 	}
 
 	// Resolve serials to device IDs
