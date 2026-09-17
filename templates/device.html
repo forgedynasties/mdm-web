@@ -669,9 +669,23 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <button type="button" class="cr-preset" data-preset="7d">Last 7 days</button>
           <button type="button" class="cr-preset" data-preset="30d">Last 30 days</button>
         </div>
+        {{/* One calendar for both ends: click a day for the start, click another for the
+             end. The two datetime inputs it replaces are kept as hidden fields so the
+             presets, the shift arrows and the range validation all still read and write
+             the same values. */}}
         <div class="cr-range">
-          <label class="cr-fld"><span>From</span><input type="datetime-local" id="range-start" class="range-input"></label>
-          <label class="cr-fld"><span>To</span><input type="datetime-local" id="range-end" class="range-input"></label>
+          <div class="cr-cal" id="range-cal">
+            <div class="cr-cal-head">
+              <button type="button" class="cr-cal-nav" id="cal-prev" aria-label="Previous month">&lsaquo;</button>
+              <span class="cr-cal-title" id="cal-title"></span>
+              <button type="button" class="cr-cal-nav" id="cal-next" aria-label="Next month">&rsaquo;</button>
+            </div>
+            <div class="cr-cal-dow"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+            <div class="cr-cal-grid" id="cal-grid" role="grid"></div>
+            <div class="cr-cal-sel" id="cal-sel">Pick a start date</div>
+          </div>
+          <input type="hidden" id="range-start">
+          <input type="hidden" id="range-end">
         </div>
         <div id="range-error" class="cr-error" role="alert" hidden></div>
         <div class="cr-pop-foot">
@@ -2235,6 +2249,7 @@ function mdmBootCharts() {
     var startMs = hasCustom ? customMin : (endMs - currentDuration);
     document.getElementById("range-start").value = toLocalISO(new Date(startMs));
     document.getElementById("range-end").value = toLocalISO(new Date(endMs));
+    if (window.mdmCalSync) window.mdmCalSync();
     inputs.removeAttribute("hidden");
   }
   document.getElementById("custom-range-btn").addEventListener("click", function (e) {
@@ -2296,6 +2311,7 @@ function mdmBootCharts() {
     else if (preset === "30d") { start = new Date(now.getTime() - 30 * 86400000); }
     document.getElementById("range-start").value = toLocalISO(start);
     document.getElementById("range-end").value = toLocalISO(new Date(end));
+    if (window.mdmCalSync) window.mdmCalSync();
     if (applyCustomRange()) closeCustomPop();
   }
 
@@ -2332,6 +2348,92 @@ function mdmBootCharts() {
   document.getElementById("reset-range-btn").addEventListener("click", resetCustomRange);
   document.getElementById("range-prev").addEventListener("click", () => nudgeRange(-1));
   document.getElementById("range-next").addEventListener("click", () => nudgeRange(1));
+  // ── Range calendar ──────────────────────────────────────────────────────────
+  // One grid picks both ends: first click is the start, second the end (reversed
+  // clicks swap). It writes the same two values the hidden inputs always held, so the
+  // presets, the shift arrows and applyCustomRange are untouched — a start covers from
+  // 00:00 and an end covers to 23:59:59.999, because the picker chooses days.
+  var calView = new Date();            // month on screen
+  var calStart = null, calEnd = null;  // chosen days, as ms at local midnight
+  function dayStart(ms) { var d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function dayEnd(ms) { var d = new Date(ms); d.setHours(23, 59, 59, 999); return d.getTime(); }
+  function sameDay(a, b) { return a !== null && b !== null && dayStart(a) === dayStart(b); }
+
+  function calRender() {
+    var grid = document.getElementById('cal-grid'), title = document.getElementById('cal-title');
+    if (!grid || !title) return;
+    title.textContent = calView.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    var first = new Date(calView.getFullYear(), calView.getMonth(), 1);
+    // Monday-first: getDay() is 0 for Sunday, so Sunday starts the last column.
+    var lead = (first.getDay() + 6) % 7;
+    var startCell = new Date(first);
+    startCell.setDate(1 - lead);
+    var todayEnd = dayEnd(Date.now());
+    var html = '';
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(startCell);
+      d.setDate(startCell.getDate() + i);
+      var ms = d.getTime(), cls = 'cr-day';
+      if (d.getMonth() !== calView.getMonth()) cls += ' mut';
+      if (sameDay(ms, Date.now())) cls += ' today';
+      if (ms > todayEnd) cls += ' off';
+      if (calStart !== null && calEnd !== null && ms > calStart && ms < calEnd) cls += ' in';
+      if (sameDay(ms, calStart)) cls += ' edge start';
+      if (sameDay(ms, calEnd)) cls += ' edge end';
+      html += '<button type="button" class="' + cls + '" data-ms="' + ms + '">' + d.getDate() + '</button>';
+    }
+    grid.innerHTML = html;
+    var sel = document.getElementById('cal-sel');
+    if (sel) {
+      var f = function (ms) { return new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short' }); };
+      sel.textContent = calStart === null ? 'Pick a start date'
+        : calEnd === null ? f(calStart) + ' — pick an end date'
+        : f(calStart) + ' to ' + f(calEnd);
+    }
+  }
+
+  // Reflect whatever the inputs hold (a preset, the shift arrows, a drag-zoom) back
+  // into the calendar, so what is highlighted is always what is on the chart.
+  function calSync() {
+    var si = document.getElementById('range-start'), ei = document.getElementById('range-end');
+    if (!si || !ei) return;
+    var a = si.value ? new Date(si.value).getTime() : NaN;
+    var b = ei.value ? new Date(ei.value).getTime() : NaN;
+    calStart = isNaN(a) ? null : dayStart(a);
+    calEnd = isNaN(b) ? null : dayStart(b);
+    if (calStart !== null) calView = new Date(calStart);
+    calRender();
+  }
+  window.mdmCalSync = calSync;
+
+  function calCommit() {
+    if (calStart === null || calEnd === null) return;
+    var si = document.getElementById('range-start'), ei = document.getElementById('range-end');
+    si.value = toLocalISO(new Date(calStart));
+    ei.value = toLocalISO(new Date(dayEnd(calEnd)));
+    applyCustomRange();
+  }
+
+  var _calGrid = document.getElementById('cal-grid');
+  if (_calGrid) _calGrid.addEventListener('click', function (e) {
+    var btn = e.target.closest('.cr-day');
+    if (!btn || btn.classList.contains('off')) return;
+    var ms = +btn.dataset.ms;
+    if (calStart === null || calEnd !== null) {        // start a fresh range
+      calStart = ms; calEnd = null;
+    } else if (ms < calStart) {                        // clicked before the start: swap
+      calEnd = calStart; calStart = ms;
+    } else {
+      calEnd = ms;
+    }
+    calRender();
+    if (calStart !== null && calEnd !== null) calCommit();
+  });
+  var _calPrev = document.getElementById('cal-prev'), _calNext = document.getElementById('cal-next');
+  if (_calPrev) _calPrev.addEventListener('click', function () { calView.setMonth(calView.getMonth() - 1); calRender(); });
+  if (_calNext) _calNext.addEventListener('click', function () { calView.setMonth(calView.getMonth() + 1); calRender(); });
+  calRender();
+
   document.querySelectorAll(".cr-preset").forEach(function (btn) {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
