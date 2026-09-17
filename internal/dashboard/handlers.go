@@ -9322,10 +9322,10 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 
 	// tile is one headline figure: a big number over a small caption.
 	tile := func(label, value, unit, note string) string {
-		return fmt.Sprintf(`<td width="25%%" valign="top" style="padding:14px 16px;border-left:1px solid %s;">`+
+		return fmt.Sprintf(`<td width="25%%" valign="top" height="104" style="height:104px;padding:14px 16px;border-left:1px solid %s;">`+
 			`<div style="font:600 11px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:%s;">%s</div>`+
 			`<div style="font:300 30px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:8px 0 0;">%s<span style="font-size:14px;color:%s;"> %s</span></div>`+
-			`<div style="font:400 12px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;padding:6px 0 0;">%s</div></td>`,
+			`<div style="font:400 11.5px -apple-system,Segoe UI,Roboto,sans-serif;line-height:1.35;color:%s;padding:6px 0 0;">%s</div></td>`,
 			line, muted, label, ink, value, muted, unit, muted, note)
 	}
 
@@ -9364,29 +9364,38 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	b.WriteString(tile("Standby", standbyValue, standbyUnit, standbyNote))
 	fmt.Fprintf(&b, `</tr></table></td></tr>`)
 
-	// Per-device table.
+	// Per-device table. Units live in the headers, not in every cell, and every
+	// numeric cell is nowrap with a fixed row height: the first cut wrapped
+	// "156.5 hrs 93%" onto two lines in a narrow reading pane, which made every
+	// other row a different height and the column impossible to scan.
 	fmt.Fprintf(&b, `<tr><td style="padding:0;border-top:1px solid %s;">`, line)
-	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="border-collapse:collapse;font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;">`)
-	th := `<th align="%s" style="padding:11px 16px;background:#faf9f8;border-bottom:1px solid ` + line + `;font:600 10.5px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:` + muted + `;">%s</th>`
+	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="border-collapse:collapse;table-layout:fixed;font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;">`)
+	fmt.Fprintf(&b, `<colgroup><col width="34%%"><col width="15%%"><col width="11%%"><col width="15%%"><col width="15%%"><col width="10%%"></colgroup>`)
+	th := `<th align="%s" style="padding:10px 14px;background:#faf9f8;border-bottom:1px solid ` + line + `;font:600 10px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:` + muted + `;white-space:nowrap;">%s</th>`
 	fmt.Fprintf(&b, `<tr>`)
 	fmt.Fprintf(&b, th, "left", "Device")
+	fmt.Fprintf(&b, th, "right", "Uptime hrs")
 	fmt.Fprintf(&b, th, "right", "Uptime")
-	fmt.Fprintf(&b, th, "right", "Wireless charging")
-	fmt.Fprintf(&b, th, "right", "Plugged in")
+	fmt.Fprintf(&b, th, "right", "Charging hrs")
+	fmt.Fprintf(&b, th, "right", "Mains hrs")
 	fmt.Fprintf(&b, th, "right", "Days")
 	fmt.Fprintf(&b, `</tr>`)
+	num := `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid ` + line + `;color:` + ink + `;white-space:nowrap;">%s</td>`
 	for _, x := range weeks {
 		nick := ""
 		if x.Nickname != "" {
-			nick = fmt.Sprintf(`<div style="font-size:11.5px;color:%s;padding:2px 0 0;">%s</div>`, faint, esc(x.Nickname))
+			nick = fmt.Sprintf(` <span style="color:%s;font-weight:400;">· %s</span>`, faint, esc(x.Nickname))
 		}
-		cell := `<td align="right" style="padding:11px 16px;border-bottom:1px solid ` + line + `;color:` + ink + `;">%s <span style="color:` + muted + `;font-size:11.5px;">%s</span></td>`
-		fmt.Fprintf(&b, `<tr><td style="padding:11px 16px;border-bottom:1px solid %s;color:%s;font-weight:600;">%s%s</td>`, line, ink, esc(x.Serial), nick)
-		fmt.Fprintf(&b, `<td align="right" style="padding:11px 16px;border-bottom:1px solid %s;color:%s;">%s <span style="color:%s;font-size:11.5px;">hrs</span> <span style="color:%s;font-weight:600;">%d%%</span></td>`,
-			line, ink, hrs(x.PoweredMinutes), muted, band(x.UptimeFullPct()), x.UptimeFullPct())
-		fmt.Fprintf(&b, cell, hrs(x.PadMinutes), "hrs")
-		fmt.Fprintf(&b, cell, hrs(x.PluggedMinutes), "hrs")
-		fmt.Fprintf(&b, `<td align="right" style="padding:11px 16px;border-bottom:1px solid %s;color:%s;">%d</td></tr>`, line, muted, x.DeviceDays)
+		// The name and its nickname share one line: a second line here was the other
+		// source of uneven rows.
+		fmt.Fprintf(&b, `<tr><td height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">%s%s</td>`,
+			line, ink, esc(x.Serial), nick)
+		fmt.Fprintf(&b, num, hrs(x.PoweredMinutes))
+		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;">%d%%</td>`,
+			line, band(x.UptimeFullPct()), x.UptimeFullPct())
+		fmt.Fprintf(&b, num, hrs(x.PadMinutes))
+		fmt.Fprintf(&b, num, hrs(x.PluggedMinutes))
+		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;white-space:nowrap;">%d</td></tr>`, line, muted, x.DeviceDays)
 	}
 	fmt.Fprintf(&b, `</table></td></tr>`)
 

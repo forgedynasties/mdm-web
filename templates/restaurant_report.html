@@ -32,7 +32,7 @@
 }
 </style>
 
-<div class="cc-wrap">
+<div class="cc-wrap" id="rp-doc">
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Fleet · Restaurants · Weekly report</div>
@@ -43,7 +43,7 @@
       </div>
     </div>
     <div class="cc-actions">
-      <button type="button" class="cc-btn primary" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>Save as PDF</button>
+      <button type="button" class="cc-btn primary" id="rp-pdf"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Save as PDF</span></button>
       <form class="rp-mail" method="POST" action="/restaurants/{{.Restaurant.ID}}/report/email" hx-post="/restaurants/{{.Restaurant.ID}}/report/email" hx-target="#rp-mail-out" hx-swap="innerHTML">
         <input class="form-input" type="email" name="to" required placeholder="name@aioapp.com" aria-label="Send this report to">
         <button type="submit" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></svg>Email report</button>
@@ -154,5 +154,74 @@
     {{end}}
   </div>
 </div>
+
+<script src="/static/vendor/html2canvas-pro.min.js?v={{.AssetVer}}" defer></script>
+<script src="/static/vendor/jspdf.umd.min.js?v={{.AssetVer}}" defer></script>
+<script>
+// Save as PDF: rasterise the page itself and lay it into A4 landscape, so the file
+// looks like what is on screen instead of a re-flowed print view.
+//
+// html2canvas-pro rather than stock html2canvas: the stylesheet uses color-mix() in
+// twenty places and stock html2canvas throws "unsupported color function" on it.
+(function () {
+  var btn = document.getElementById('rp-pdf');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var doc = document.getElementById('rp-doc');
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if (!doc || typeof html2canvas === 'undefined' || !jsPDFCtor) { window.print(); return; }
+
+    var label = btn.querySelector('span');
+    var was = label.textContent;
+    label.textContent = 'Building…';
+    btn.disabled = true;
+
+    // A PDF gets shared, so it is always the light theme whatever the viewer uses,
+    // and the controls do not belong in the file.
+    var root = document.documentElement;
+    var theme = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', 'light');
+    var actions = doc.querySelector('.cc-actions');
+    if (actions) actions.style.display = 'none';
+
+    html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+      .then(function (canvas) {
+        var pdf = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+        var pw = pdf.internal.pageSize.getWidth();
+        var ph = pdf.internal.pageSize.getHeight();
+        var margin = 8;
+        var w = pw - margin * 2;
+        var h = (canvas.height * w) / canvas.width;
+        var img = canvas.toDataURL('image/jpeg', 0.95);
+        // Taller than one page: shift the same image up a page at a time and clip.
+        var left = h;
+        var y = margin;
+        pdf.addImage(img, 'JPEG', margin, y, w, h);
+        left -= ph - margin * 2;
+        while (left > 0) {
+          pdf.addPage();
+          y = margin - (h - left);
+          pdf.addImage(img, 'JPEG', margin, y, w, h);
+          left -= ph - margin * 2;
+        }
+        pdf.save(FILENAME.replace(/[\\/:*?"<>|]/g, '-'));
+      })
+      .catch(function (err) {
+        console.error('pdf:', err);
+        label.textContent = 'PDF failed';
+        window.setTimeout(function () { label.textContent = was; }, 2500);
+      })
+      .then(restore);
+
+    function restore() {
+      if (actions) actions.style.display = '';
+      if (theme) { root.setAttribute('data-theme', theme); } else { root.removeAttribute('data-theme'); }
+      if (label.textContent === 'Building…') label.textContent = was;
+      btn.disabled = false;
+    }
+  });
+  var FILENAME = {{.Restaurant.Name}} + ' weekly report {{.WindowTo.Format "2006-01-02"}}.pdf';
+})();
+</script>
 {{template "footer" .}}
 {{end}}
