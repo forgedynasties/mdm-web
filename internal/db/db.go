@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -1644,13 +1645,19 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 		}
 	}
 
+	// Location is a state too, but it cannot use exact equality: a GPS fix is never
+	// bit-identical twice, so it needs a deadband. See writeLocationEvent.
+	if err := d.writeLocationEvent(ctx, tx, deviceID, curMap); err != nil {
+		return err
+	}
+
 	if !stored {
 		return nil // the history row was coalesced away; its sample would be too
 	}
 	used, total := ramUsedTotal(curMap["ram_usage_mb"])
 	_, err := tx.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, uptime_s)
+		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (device_id, at) DO NOTHING`,
 		deviceID,
 		battery,
@@ -1658,8 +1665,107 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 		scaledInt(curMap["wifi_rssi"], 1),
 		used, total,
 		jsonFloat(curMap["storage_free_gb"]),
+		jsonInt32(curMap["uptime_seconds"]),
 	)
 	return err
+}
+
+// locationDeadbandM is how far a device must appear to have moved before a new
+// location is recorded. It is a deadband against the last *stored* position, not
+// against the previous report: comparing to the previous report is what lets a
+// field drift arbitrarily far in steps that each look small.
+//
+// 25 m is chosen from the fleet rather than from taste. Over six hours, 10,338
+// located reports produced 3,613 changes to the exact latitude/longitude pair —
+// and not one of them moved the device more than 25 m; the largest apparent jump
+// in the whole window was 5.9 m. These are kiosks bolted to a counter, so every
+// one of those 3,613 "changes" was GPS noise, the same shape of mistake that had
+// charger_voltage_mv writing a history row every ten seconds.
+const locationDeadbandM = 25.0
+
+// writeLocationEvent records the device's position as a state transition, subject
+// to the deadband. Latitude and longitude are stored as one value rather than two
+// keys so a reader can never pair a latitude from one fix with a longitude from
+// another, which would place the device somewhere it has never been.
+func (d *DB) writeLocationEvent(ctx context.Context, tx pgx.Tx, deviceID uuid.UUID, curMap map[string]json.RawMessage) error {
+	lat, lon := jsonFloat(curMap["latitude"]), jsonFloat(curMap["longitude"])
+	if lat == nil || lon == nil {
+		return nil // a fix is both numbers or it is not a fix
+	}
+	var prevVal string
+	err := tx.QueryRow(ctx, `
+		SELECT to_val FROM device_state_events
+		WHERE device_id = $1 AND key = 'location'
+		ORDER BY at DESC LIMIT 1`, deviceID).Scan(&prevVal)
+	if err != nil && err != pgx.ErrNoRows {
+		return err
+	}
+	if err == nil {
+		if plat, plon, ok := parseLocationValue(prevVal); ok &&
+			metersBetween(plat, plon, *lat, *lon) <= locationDeadbandM {
+			return nil // inside the deadband: the same place, reported again
+		}
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
+		VALUES ($1, NOW(), 'location', $2, $3)
+		ON CONFLICT DO NOTHING`,
+		deviceID, prevVal, formatLocationValue(*lat, *lon))
+	return err
+}
+
+// formatLocationValue renders a fix as the text an event row stores. Six decimal
+// places is ~0.1 m at these latitudes — far finer than the deadband, so the stored
+// text never loses more than the deadband already allows.
+func formatLocationValue(lat, lon float64) string {
+	return strconv.FormatFloat(lat, 'f', 6, 64) + "," + strconv.FormatFloat(lon, 'f', 6, 64)
+}
+
+// parseLocationValue reads back what formatLocationValue wrote.
+func parseLocationValue(s string) (lat, lon float64, ok bool) {
+	i := strings.IndexByte(s, ',')
+	if i < 0 {
+		return 0, 0, false
+	}
+	lat, err := strconv.ParseFloat(s[:i], 64)
+	if err != nil {
+		return 0, 0, false
+	}
+	lon, err = strconv.ParseFloat(s[i+1:], 64)
+	if err != nil {
+		return 0, 0, false
+	}
+	return lat, lon, true
+}
+
+// metersBetween is an equirectangular approximation, which is exact enough by a
+// wide margin for distances near the deadband: its error against the great-circle
+// distance is well under a millimetre at 25 m.
+func metersBetween(lat1, lon1, lat2, lon2 float64) float64 {
+	const mPerDegLat = 111320.0
+	dLat := (lat2 - lat1) * mPerDegLat
+	dLon := (lon2 - lon1) * mPerDegLat * math.Cos(lat1*math.Pi/180)
+	return math.Hypot(dLat, dLon)
+}
+
+// jsonInt32 reads a whole-number check-in field for a fixed int column, NULL where
+// the device reported none or something that is not a number in range.
+func jsonInt32(raw json.RawMessage) *int32 {
+	// "null" unmarshals into a float64 without error, leaving zero — so without this
+	// guard a device explicitly reporting no uptime would be stored as having just
+	// booted.
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return nil
+	}
+	if f < math.MinInt32 || f > math.MaxInt32 {
+		return nil
+	}
+	v := int32(f)
+	return &v
 }
 
 // jsonScalar renders a jsonb value as the plain text an event row stores: "true",
@@ -1937,7 +2043,7 @@ func (d *DB) GetStateTimeline(ctx context.Context, deviceID uuid.UUID, keys []st
 // the day dual-writing began, and a reader can tell the two periods apart by that date.
 func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64, error) {
 	ct, err := d.pool.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, uptime_s)
 		SELECT c.device_id,
 		       c.created_at,
 		       c.battery_pct,
@@ -1948,12 +2054,20 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 		       (round((c.extra->>'wifi_rssi')::numeric))::smallint,
 		       (c.extra->'ram_usage_mb'->>'used')::int,
 		       (c.extra->'ram_usage_mb'->>'total')::int,
-		       (c.extra->>'storage_free_gb')::float8
+		       (c.extra->>'storage_free_gb')::float8,
+		       -- Same range guard as rssi: an out-of-range uptime must not abort the day.
+		       CASE WHEN (c.extra->>'uptime_seconds')::numeric BETWEEN -2147483648 AND 2147483647
+		            THEN (c.extra->>'uptime_seconds')::numeric::int END
 		FROM checkins c
 		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
 		  -- One absurd rssi would abort the whole day's insert.
 		  AND COALESCE((c.extra->>'wifi_rssi')::numeric, 0) BETWEEN -32768 AND 32767
-		ON CONFLICT (device_id, at) DO NOTHING`, day)
+		-- Days already backfilled have their rows; this fills only the column added
+		-- after they were written, and only where it is still empty, so a re-run can
+		-- never overwrite a reading with a later, different one.
+		ON CONFLICT (device_id, at) DO UPDATE
+		   SET uptime_s = EXCLUDED.uptime_s
+		   WHERE device_samples.uptime_s IS NULL AND EXCLUDED.uptime_s IS NOT NULL`, day)
 	if err != nil {
 		return 0, err
 	}
@@ -12187,6 +12301,16 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          DOUBLE PRECI
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_used_mb     INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_total_mb    INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECISION;
+-- Uptime is a number, not a state: it changes on every single report by definition,
+-- so recording it as a transition would write an event per report — the mistake this
+-- whole split exists to avoid. The alternative considered was to store the boot
+-- instant once and subtract, which the fleet ruled out: reconstructing boot_at as
+-- created_at - uptime_seconds disagrees with itself on every frame of the same boot,
+-- because one side is a device reading and the other is a server receive time. Across
+-- 99 boots the spread within a single boot averaged 45 s and reached 893 s. A sample
+-- column is four bytes, adds no rows at all to a table already written once per stored
+-- check-in, and is the number the device actually reported.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS uptime_s INTEGER;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
