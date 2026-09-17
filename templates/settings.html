@@ -250,6 +250,14 @@
     </div>
     {{template "settings-toggle" (dict "Action" "/settings/legacy-checkin/toggle" "On" .LegacyCheckin)}}
   </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--border-soft);">
+    <div>
+      <strong>Ignore DPC agent check-ins</strong>
+      {{if .IgnoreDPCCheckins}}<span class="cc-tag warn">DPC support off</span>{{end}}
+      <div class="muted small">Drop check-ins and telemetry from devices running the DPC agent instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. DPC devices already enrolled keep their history and stop updating until this is switched off. Firmware devices are unaffected.</div>
+    </div>
+    {{template "settings-toggle" (dict "Action" "/settings/ignore-dpc/toggle" "On" .IgnoreDPCCheckins)}}
+  </div>
   <div style="padding:0 16px 16px;border-top:1px solid var(--border-soft);">
     <div style="padding-top:14px;">
       <strong>Legacy device builds</strong>

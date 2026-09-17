@@ -17303,6 +17303,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
 		"LegacyStripPct":       h.legacyStripPct(r.Context()),
 		"MaintenanceMode":      h.cfg.MaintenanceMode(),
+		"IgnoreDPCCheckins":    h.cfg.IgnoreDPCCheckins(),
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
@@ -17529,6 +17530,15 @@ func (h *Handler) settingsToggleResponse(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	h.settingsRedirect(w, r)
+}
+
+// SettingsToggleIgnoreDPC switches DPC agent support off (and back on). While it
+// is on, check-ins and WS telemetry from DPC agents are answered normally and
+// stored nowhere. Enrolled DPC devices keep their history and stop updating.
+func (h *Handler) SettingsToggleIgnoreDPC(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetIgnoreDPCCheckins(!h.cfg.IgnoreDPCCheckins())
+	h.audit(r, "settings.ignore_dpc_checkins", "", fmt.Sprintf("%t", h.cfg.IgnoreDPCCheckins()))
+	h.settingsToggleResponse(w, r, "/settings/ignore-dpc/toggle", h.cfg.IgnoreDPCCheckins())
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
@@ -20590,6 +20600,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/legacy-builds/add", h.requireStrictAdmin(h.SettingsAddLegacyBuild))
 	post("POST /settings/legacy-builds/remove", h.requireStrictAdmin(h.SettingsRemoveLegacyBuild))
 	post("POST /settings/legacy-checkin/toggle", h.requireStrictAdmin(h.SettingsToggleLegacyCheckin))
+	post("POST /settings/ignore-dpc/toggle", h.requireStrictAdmin(h.SettingsToggleIgnoreDPC))
 	post("POST /settings/shell/toggle", h.requireStrictAdmin(h.SettingsToggleShell))
 	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))
 	post("POST /settings/command-expiry", h.requireStrictAdmin(h.SettingsSetCommandExpiry))

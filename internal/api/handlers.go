@@ -692,6 +692,24 @@ type checkinRequest struct {
 	} `json:"ota_progress,omitempty"`
 }
 
+// isDPCPayload reports whether a check-in or telemetry frame came from the DPC
+// agent. Every frame the agent sends carries extra.agent_type="dpc" (its
+// Telemetry.buildExtra always writes it, on keyframes and deltas alike), so this
+// answers from the payload without a database lookup — which is the point, since
+// the caller uses it to skip all storage work.
+func isDPCPayload(extra json.RawMessage) bool {
+	if len(extra) == 0 {
+		return false
+	}
+	var ident struct {
+		AgentType string `json:"agent_type"`
+	}
+	if err := json.Unmarshal(extra, &ident); err != nil {
+		return false
+	}
+	return ident.AgentType == "dpc"
+}
+
 // recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
 func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinRequest) {
 	if req.OtaProgress == nil || req.OtaProgress.CommandID == uuid.Nil {
@@ -732,6 +750,18 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
+		return
+	}
+
+	// DPC support can be switched off in Settings while the agent's write volume is
+	// being worked on. Reply as usual so the agent keeps its normal interval instead
+	// of retrying harder, but store nothing at all: no check-in row, no device
+	// update, no events, packages or OTA work. Devices already enrolled keep their
+	// history and resume the moment the toggle goes back off.
+	if h.cfg.IgnoreDPCCheckins() && isDPCPayload(req.Extra) {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "config": map[string]any{
+			"checkin_interval_seconds": h.cfg.CheckinInterval(),
+		}})
 		return
 	}
 
@@ -1409,6 +1439,12 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	}
 	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen || len(req.Extra) > maxExtraBytes {
 		log.Printf("[ws-telemetry] oversized field from %s", req.SerialNumber)
+		return
+	}
+
+	// Same gate as the HTTP path: DPC support off means store nothing. No config is
+	// pushed back either — the frame is simply dropped.
+	if h.cfg.IgnoreDPCCheckins() && isDPCPayload(req.Extra) {
 		return
 	}
 

@@ -99,6 +99,11 @@ type Config struct {
 	BuildHistoryCursorVal string `json:"build_history_cursor"`
 	// Dashboard shows a maintenance page to non-admin users while set.
 	MaintenanceModeFlag bool `json:"maintenance_mode"`
+	// Drop check-ins and telemetry from DPC agents instead of storing them. The
+	// agent still gets a normal reply, so it does not retry-storm; nothing is
+	// written. Devices already enrolled keep their history and simply stop
+	// updating until this is turned off again.
+	IgnoreDPCCheckinsFlag bool `json:"ignore_dpc_checkins"`
 
 	// Dashboard preferences & branding.
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
@@ -801,6 +806,25 @@ func (c *Config) MaintenanceMode() bool {
 func (c *Config) SetMaintenanceMode(v bool) error {
 	c.mu.Lock()
 	c.MaintenanceModeFlag = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// IgnoreDPCCheckins, when on, makes the device API accept check-ins and WS
+// telemetry from DPC agents and store nothing: no check-in row, no device
+// update, no events, packages or OTA work. The agent gets an ordinary reply so
+// it keeps its normal interval instead of retrying harder. Firmware clients are
+// never affected.
+func (c *Config) IgnoreDPCCheckins() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.IgnoreDPCCheckinsFlag
+}
+
+func (c *Config) SetIgnoreDPCCheckins(v bool) error {
+	c.mu.Lock()
+	c.IgnoreDPCCheckinsFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
