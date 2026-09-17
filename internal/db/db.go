@@ -7596,9 +7596,53 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 	// The day's last sample has no successor (NULL gap → weight 0); when all weights are 0
 	// (e.g. a single sample) we fall back to the plain row average. MAX/MIN/last-value
 	// aggregates are insensitive to sampling cadence and stay as-is.
-	tag, err := d.pool.Exec(ctx, `
-		WITH samples AS (
-			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
+		tag, err := d.pool.Exec(ctx, rollupSQL(rollupSamplesFromCheckins), dayStr)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// RollupDailyStatsShaped computes the same day from device_samples and
+// device_state_events instead of the check-in snapshots. Every statistic is produced by
+// the identical SQL — only the samples CTE differs — so the two can be run against each
+// other and compared column by column, which is how this was checked.
+//
+// Not yet wired into the housekeeping. It cannot be until every device has a recorded
+// baseline for the states it reports: the aggregates that read a state (charging_frac,
+// wlc_guest_frac, pad_readable, the charge sessions, and online_minutes_open through
+// the device's timezone) return a device that was simply never charging, rather than
+// failing, when the state is unknown. The seeding fix makes those baselines appear on
+// each device's next check-in; this becomes correct a day after that ships.
+//
+// Verified on live over one identical five-hour window across 80 devices: for the 39
+// with a charging baseline already recorded, checkin_count, battery min/max/avg,
+// temp_max, ram_pct_peak, charging_frac, online_minutes, build_id, wlc_guest_frac,
+// pad_readable, discharge_pct, charge_connect_n and screen_on_minutes all matched
+// exactly. Every remaining difference traced to a missing baseline and to nothing else
+// — the 31 devices whose online_minutes_open differed are precisely the 31 with no
+// venue timezone configured, which fall through to the device's own timezone, of which
+// there were no events at all.
+func (d *DB) RollupDailyStatsShaped(ctx context.Context, day time.Time) (int64, error) {
+	tag, err := d.pool.Exec(ctx, rollupSQL(rollupSamplesFromShaped), day.Format("2006-01-02"), rollupStateKeys)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// The daily rollup is split so that the arithmetic and the source of the readings are
+// separate things. Everything that computes a statistic lives in rollupAggregateSQL and
+// is shared verbatim; only the samples CTE differs between reading a check-in snapshot
+// and reading the shaped tables. Two copies of a hundred lines of time-weighted
+// aggregation would drift, and a rollup that drifts does not fail — it reports a
+// slightly different number and nobody can tell which one is right.
+func rollupSQL(samplesCTE string) string {
+	return "\t\tWITH samples AS (\n" + samplesCTE + "\n\t\t),\n" + rollupAggregateSQL
+}
+
+// rollupSamplesFromCheckins reads the day's readings out of the check-in snapshots.
+const rollupSamplesFromCheckins = `			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
 				COALESCE(LEAST(EXTRACT(EPOCH FROM (
 					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
 					- c.created_at)), 600), 0) AS w,
@@ -7627,9 +7671,9 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
 			-- The fleet default, used by every venue that has not set its own hours.
 			LEFT JOIN service_windows fsw ON fsw.restaurant_id IS NULL AND fsw.group_id IS NULL
-			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
-		),
-		-- Charge SESSIONS, not flag flips. The charging flag chatters: a full battery
+			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')`
+
+const rollupAggregateSQL = `		-- Charge SESSIONS, not flag flips. The charging flag chatters: a full battery
 		-- alternates CHARGING/FULL, and a failing charger can toggle ten times a minute
 		-- (which is what the charger_flapping rule exists to catch). Counting every
 		-- false->true edge therefore reported thousands of "charges" a week, all at 98%.
@@ -7754,13 +7798,158 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			charge_disconnect_n   = EXCLUDED.charge_disconnect_n,
 			online_minutes_open   = EXCLUDED.online_minutes_open,
 			screen_on_minutes     = EXCLUDED.screen_on_minutes,
-			computed_at    = EXCLUDED.computed_at
-	`, dayStr)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
+			computed_at    = EXCLUDED.computed_at`
+
+// rollupStateKeys are the states the aggregates read. Kept beside the CTE that pivots
+// them so adding an aggregate that reads a new state cannot forget to carry it.
+var rollupStateKeys = []string{"charging", "wlc_status", "screen_on", "timezone"}
+
+// rollupSamplesFromShaped reads the same day's readings out of device_samples and
+// device_state_events, and hands the aggregates the identical columns — including a
+// rebuilt `extra` object.
+//
+// Rebuilding extra rather than rewriting the aggregates against typed columns is the
+// same call made for the CSV export, for the same reason and with more at stake: the
+// hundred lines downstream stay character-for-character identical between the two
+// sources, so the only thing this change can alter is where the numbers came from. A
+// rollup that computes a slightly different number does not fail; it publishes, and
+// then nobody can say which figure was right.
+//
+// Every aggregate reads its state through ->>, which yields text whether the value was
+// stored as a JSON string or a number, so storing the event values as strings changes
+// no comparison downstream.
+//
+// The states are carried forward by gaps-and-islands rather than by a lookup per
+// sample: samples and events are merged into one ordered stream, each state column is
+// non-null only on its own event rows, a running count of non-nulls labels the stretch
+// between two events, and first_value fills the stretch. Events sort before samples at
+// the same instant, which matters because the writer records a sample and the events
+// around it in one transaction at one timestamp — the flip belongs to the sample it
+// arrived with.
+const rollupSamplesFromShaped = `
+			WITH bounds AS (SELECT $1::date AS d0, ($1::date + INTERVAL '1 day') AS d1),
+			-- The state of play when the day opened, pinned to its first instant, plus
+			-- every change during it. Without the leading row a device that has been on
+			-- charge since yesterday reads as unknown until it next unplugs.
+			ev AS (
+				-- Each branch is parenthesised: a DISTINCT ON branch carries its own
+				-- ORDER BY, which without parentheses would bind to the whole union.
+				(
+					SELECT DISTINCT ON (e.device_id, e.key) e.device_id, b.d0::timestamptz AS at, e.key, e.to_val
+					FROM device_state_events e, bounds b
+					WHERE e.key = ANY($2) AND e.at < b.d0
+					ORDER BY e.device_id, e.key, e.at DESC
+				)
+				UNION ALL
+				(
+					SELECT e.device_id, e.at, e.key, e.to_val
+					FROM device_state_events e, bounds b
+					WHERE e.key = ANY($2) AND e.at >= b.d0 AND e.at < b.d1
+				)
+			),
+			-- The build each device was running when the window opened. Three sources in
+			-- order of authority: the last recorded change before it; failing that the
+			-- from_build of its first change after it, which states what it was running
+			-- beforehand; and failing both, the build on the device, which is correct
+			-- precisely because a device with no history has never changed build.
+			bh AS (
+				SELECT d.id AS device_id, b.d0::timestamptz AS at,
+					COALESCE(
+						(SELECT h.to_build FROM device_build_history h
+						  WHERE h.device_id = d.id AND h.at < b.d0 ORDER BY h.at DESC LIMIT 1),
+						(SELECT h.from_build FROM device_build_history h
+						  WHERE h.device_id = d.id AND h.at >= b.d0 ORDER BY h.at LIMIT 1),
+						d.build_id
+					) AS to_build
+				FROM devices d, bounds b
+				UNION ALL
+				SELECT h.device_id, h.at, h.to_build
+				FROM device_build_history h, bounds b
+				WHERE h.at >= b.d0 AND h.at < b.d1
+			),
+			merged AS (
+				SELECT s.device_id, s.at, TRUE AS is_sample,
+				       s.battery_pct, s.temp_c, s.ram_used_mb, s.ram_total_mb, s.storage_free_gb,
+				       NULL::text AS ev_charging, NULL::text AS ev_wlc,
+				       NULL::text AS ev_screen, NULL::text AS ev_tz, NULL::text AS ev_build
+				FROM device_samples s, bounds b
+				WHERE s.at >= b.d0 AND s.at < b.d1
+				UNION ALL
+				SELECT ev.device_id, ev.at, FALSE,
+				       NULL::smallint, NULL::float8, NULL::int, NULL::int, NULL::float8,
+				       CASE WHEN ev.key = 'charging'   THEN ev.to_val END,
+				       CASE WHEN ev.key = 'wlc_status' THEN ev.to_val END,
+				       CASE WHEN ev.key = 'screen_on'  THEN ev.to_val END,
+				       CASE WHEN ev.key = 'timezone'   THEN ev.to_val END,
+				       NULL::text
+				FROM ev
+				UNION ALL
+				SELECT bh.device_id, bh.at, FALSE,
+				       NULL::smallint, NULL::float8, NULL::int, NULL::int, NULL::float8,
+				       NULL::text, NULL::text, NULL::text, NULL::text, bh.to_build
+				FROM bh
+			),
+			grouped AS (
+				SELECT m.*,
+					count(ev_charging) OVER w AS g_charging,
+					count(ev_wlc)      OVER w AS g_wlc,
+					count(ev_screen)   OVER w AS g_screen,
+					count(ev_tz)       OVER w AS g_tz,
+					count(ev_build)    OVER w AS g_build
+				FROM merged m
+				WINDOW w AS (PARTITION BY m.device_id ORDER BY m.at, m.is_sample
+				             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+			),
+			carried AS (
+				SELECT device_id, at, is_sample, battery_pct, temp_c, ram_used_mb, ram_total_mb, storage_free_gb,
+					first_value(ev_charging) OVER (PARTITION BY device_id, g_charging ORDER BY at, is_sample) AS charging,
+					first_value(ev_wlc)      OVER (PARTITION BY device_id, g_wlc      ORDER BY at, is_sample) AS wlc_status,
+					first_value(ev_screen)   OVER (PARTITION BY device_id, g_screen   ORDER BY at, is_sample) AS screen_on,
+					first_value(ev_tz)       OVER (PARTITION BY device_id, g_tz       ORDER BY at, is_sample) AS timezone,
+					first_value(ev_build)    OVER (PARTITION BY device_id, g_build    ORDER BY at, is_sample) AS build_id
+				FROM grouped
+			),
+			shaped AS (
+				SELECT c.device_id, c.at AS created_at, c.battery_pct, COALESCE(c.build_id, '') AS build_id,
+				       -- Absent keys are stripped rather than left null, so a key-presence
+				       -- test still answers "did this device ever report it", as it does
+				       -- against a real snapshot.
+				       jsonb_strip_nulls(jsonb_build_object(
+				           'charging',        c.charging,
+				           'wlc_status',      c.wlc_status,
+				           'screen_on',       c.screen_on,
+				           'timezone',        c.timezone,
+				           'battery_temp_c',  c.temp_c,
+				           'storage_free_gb', c.storage_free_gb,
+				           'ram_usage_mb',    CASE WHEN c.ram_used_mb IS NOT NULL AND c.ram_total_mb IS NOT NULL
+				                                   THEN jsonb_build_object('used', c.ram_used_mb, 'total', c.ram_total_mb) END
+				       )) AS extra
+				FROM carried c
+				WHERE c.is_sample
+			)
+			SELECT s.device_id, s.battery_pct, s.build_id, s.created_at, s.extra,
+				COALESCE(LEAST(EXTRACT(EPOCH FROM (
+					LEAD(s.created_at) OVER (PARTITION BY s.device_id ORDER BY s.created_at)
+					- s.created_at)), 600), 0) AS w,
+				LAG(s.battery_pct) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_batt,
+				LAG((s.extra->>'charging')::boolean) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_charging,
+				CASE
+					WHEN COALESCE(sw.open_min, fsw.open_min) IS NULL THEN NULL
+					ELSE (
+						WITH lt AS (
+							SELECT (EXTRACT(HOUR FROM s.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(fsw.timezone, ''), NULLIF(s.extra->>'timezone', ''), 'UTC')) * 60
+							      + EXTRACT(MINUTE FROM s.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(s.extra->>'timezone', ''), 'UTC')))::int AS m
+						)
+						SELECT CASE WHEN COALESCE(sw.open_min, fsw.open_min) <= COALESCE(sw.close_min, fsw.close_min)
+							THEN lt.m >= COALESCE(sw.open_min, fsw.open_min) AND lt.m < COALESCE(sw.close_min, fsw.close_min)
+							ELSE lt.m >= COALESCE(sw.open_min, fsw.open_min) OR lt.m < COALESCE(sw.close_min, fsw.close_min) END
+						FROM lt
+					)
+				END AS in_open_hours
+			FROM shaped s
+			JOIN devices d ON d.id = s.device_id
+			LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
+			LEFT JOIN service_windows fsw ON fsw.restaurant_id IS NULL AND fsw.group_id IS NULL`
 
 // backfillFlag marks the one-time historical daily-stats backfill as done, so it never
 // re-runs on subsequent deploys (the hourly housekeeping keeps recent days current).
