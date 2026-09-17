@@ -1804,6 +1804,83 @@ func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, m
 	return rows, days, nil
 }
 
+// DeviceSample is one row of the numeric series. Pointers where the device may not
+// report the field at all: nil means "not measured", which no reader should draw as a
+// zero.
+type DeviceSample struct {
+	At             time.Time
+	BatteryPct     *int16
+	TempDeciC      *int16
+	WifiRSSI       *int16
+	RAMPct         *int16
+	StorageFreeDGB *int16
+}
+
+// StateAt is a state key's value from a point in time until the next event for that key.
+type StateAt struct {
+	At    time.Time
+	Key   string
+	Value string
+}
+
+// GetDeviceSamples returns the numeric series for a window, oldest first — the order
+// every chart wants, and the order the (device_id, at) primary key already stores.
+func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb
+		FROM device_samples
+		WHERE device_id = $1 AND at >= $2 AND at <= $3
+		ORDER BY at`, deviceID, from, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeviceSample
+	for rows.Next() {
+		var s DeviceSample
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempDeciC, &s.WifiRSSI, &s.RAMPct, &s.StorageFreeDGB); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetStateTimeline returns the transitions of the given keys inside a window, plus the
+// last transition of each key BEFORE it. That leading row is what makes the series
+// correct at its left edge: a device that went on charge yesterday and has not changed
+// since has no event inside today's window, and without it the chart would show the
+// state as unknown until the next flip.
+func (d *DB) GetStateTimeline(ctx context.Context, deviceID uuid.UUID, keys []string, from, until time.Time) ([]StateAt, error) {
+	rows, err := d.pool.Query(ctx, `
+		(
+			SELECT DISTINCT ON (key) at, key, to_val
+			FROM device_state_events
+			WHERE device_id = $1 AND key = ANY($2) AND at < $3
+			ORDER BY key, at DESC
+		)
+		UNION ALL
+		(
+			SELECT at, key, to_val
+			FROM device_state_events
+			WHERE device_id = $1 AND key = ANY($2) AND at >= $3 AND at <= $4
+		)
+		ORDER BY at`, deviceID, keys, from, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StateAt
+	for rows.Next() {
+		var s StateAt
+		if err := rows.Scan(&s.At, &s.Key, &s.Value); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // BackfillDeviceSamplesDay fills device_samples from the check-in history of one UTC
 // day, so the shaped tables cover the past and not only what arrives from now on.
 // Idempotent: the day's rows are keyed (device_id, at) and conflicts are skipped, so a
