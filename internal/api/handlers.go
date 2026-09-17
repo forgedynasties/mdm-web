@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,10 +72,22 @@ type Handler struct {
 	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
 	logs        *logstream.Manager // live logcat, used to follow legacy installs (legacy_watch.go)
 	otaGate     *otagate.Gate      // which builds can take an MDM OTA (the rest go legacy)
+
+	// One telemetry-request loop per device, so a reconnect replaces its loop instead
+	// of adding one. Guarded by its own mutex: Connect runs on every WS upgrade.
+	telemetryMu    sync.Mutex
+	telemetryLoops map[uuid.UUID]*telemetryLoop
+}
+
+// telemetryLoop is a running loop's handle. Compared by pointer on exit so a loop
+// only ever removes its own entry — a superseded loop must not delete the map entry
+// belonging to the connection that replaced it.
+type telemetryLoop struct {
+	cancel context.CancelFunc
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg)}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}}
 }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
@@ -175,7 +188,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	// Request telemetry immediately, then on a repeating interval.
 	reqMsg, _ := json.Marshal(map[string]any{"type": "telemetry_request"})
 	h.hub.Push(device.ID, reqMsg)
-	go h.runTelemetryRequestLoop(device.ID)
+	h.startTelemetryRequestLoop(device.ID)
 
 	go client.WritePump()
 	client.ReadPump() // blocks until connection closes
@@ -189,23 +202,73 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// runTelemetryRequestLoop sends a telemetry_request to the device on the
-// configured checkin interval. Exits when the device disconnects (Push returns
-// false). Re-reads the interval each cycle so config changes take effect.
-func (h *Handler) runTelemetryRequestLoop(deviceID uuid.UUID) {
+// startTelemetryRequestLoop starts this device's telemetry loop, replacing any loop
+// left over from an earlier connection.
+//
+// Without the replace, a device that reconnects inside one check-in interval ends up
+// with two loops, then three: the old loop is asleep, and when it wakes hub.Push finds
+// the NEW client (the hub keys clients by device id, and register() refills the slot on
+// reconnect), so the push succeeds and the old loop never exits. Every extra loop asks
+// the device for telemetry on its own timer, which is answered, stored, and billed to
+// the devices with the worst connectivity.
+func (h *Handler) startTelemetryRequestLoop(deviceID uuid.UUID) {
+	ctx, cancel := context.WithCancel(context.Background())
+	loop := &telemetryLoop{cancel: cancel}
+
+	h.telemetryMu.Lock()
+	if prev, ok := h.telemetryLoops[deviceID]; ok {
+		prev.cancel() // the connection it belonged to is gone or superseded
+	}
+	h.telemetryLoops[deviceID] = loop
+	h.telemetryMu.Unlock()
+
+	go h.runTelemetryRequestLoop(ctx, deviceID, loop)
+}
+
+// runTelemetryRequestLoop sends a telemetry_request to the device on the configured
+// check-in interval. Exits when the device disconnects (Push returns false) or when a
+// newer connection supersedes it (ctx cancelled). Re-reads the interval each cycle so
+// config changes take effect.
+func (h *Handler) runTelemetryRequestLoop(ctx context.Context, deviceID uuid.UUID, loop *telemetryLoop) {
+	// Drop our own entry on the way out, and only ours: by the time a superseded loop
+	// notices, the map already points at its replacement, and deleting that would leave
+	// the live loop unreachable — a leak of exactly the kind this function fixes.
+	defer func() {
+		loop.cancel() // release the context's resources on every exit path
+		h.telemetryMu.Lock()
+		if h.telemetryLoops[deviceID] == loop {
+			delete(h.telemetryLoops, deviceID)
+		}
+		h.telemetryMu.Unlock()
+	}()
+
 	msg, _ := json.Marshal(map[string]any{"type": "telemetry_request"})
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+
 	for {
 		interval := time.Duration(h.cfg.CheckinInterval()) * time.Second
 		if interval < 10*time.Second {
 			interval = 30 * time.Second
 		}
-		time.Sleep(interval)
+		// A timer rather than time.Sleep: a superseded loop stops at once instead of
+		// pushing one more request when it eventually wakes.
+		timer.Reset(interval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
 		if !h.hub.Push(deviceID, msg) {
 			log.Printf("[ws] telemetry loop exiting for device %s — send channel full or disconnected", deviceID)
 			return
 		}
 	}
 }
+
 
 // PingDevice sends a ping_request to the device over WS and waits up to 5s for
 // a pong_response. Reports whether the device is truly responsive or just appears connected.
