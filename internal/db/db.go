@@ -1804,6 +1804,41 @@ func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, m
 	return rows, days, nil
 }
 
+// BackfillDeviceSamplesDay fills device_samples from the check-in history of one UTC
+// day, so the shaped tables cover the past and not only what arrives from now on.
+// Idempotent: the day's rows are keyed (device_id, at) and conflicts are skipped, so a
+// re-run costs a scan and writes nothing.
+//
+// Only the numbers are backfilled. State transitions are deliberately NOT derived from
+// history: that history has already been thinned to one row per device per few minutes,
+// so a flip and its reversal between two kept rows left no trace, and a derived event
+// stream would look complete while quietly missing changes. Events therefore start from
+// the day dual-writing began, and a reader can tell the two periods apart by that date.
+func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64, error) {
+	ct, err := d.pool.Exec(ctx, `
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb)
+		SELECT c.device_id,
+		       c.created_at,
+		       c.battery_pct,
+		       -- Scaled to the same units the live writer uses, and NULL rather than 0
+		       -- when the device never reported the field: "not measured" is not zero.
+		       (round((c.extra->>'battery_temp_c')::numeric * 10))::smallint,
+		       (round((c.extra->>'wifi_rssi')::numeric))::smallint,
+		       (round(((c.extra->'ram_usage_mb'->>'used')::numeric * 100)
+		              / NULLIF((c.extra->'ram_usage_mb'->>'total')::numeric, 0)))::smallint,
+		       (round((c.extra->>'storage_free_gb')::numeric * 10))::smallint
+		FROM checkins c
+		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
+		  -- A value outside smallint would abort the whole day's insert.
+		  AND COALESCE((c.extra->>'battery_temp_c')::numeric * 10, 0) BETWEEN -32768 AND 32767
+		  AND COALESCE((c.extra->>'storage_free_gb')::numeric * 10, 0) BETWEEN -32768 AND 32767
+		ON CONFLICT (device_id, at) DO NOTHING`, day)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 // StripLegacyCheckinKeys removes checkinStripKeys from up to `limit` checkins rows
 // of one UTC day — the one-off cleanup for rows written before UpsertCheckin
 // stripped them at insert. Returns rows rewritten; fewer than `limit` means the

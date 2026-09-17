@@ -104,6 +104,9 @@ type Config struct {
 	// Newest-first cursor (YYYY-MM-DD) of the device_build_history backfill: the
 	// next day to process. "" = not started, "done" = finished.
 	BuildHistoryCursorVal string `json:"build_history_cursor"`
+	// Same shape, for filling device_samples from existing check-in history so the
+	// shaped tables cover the past as well as everything arriving now.
+	SamplesBackfillCursorVal string `json:"samples_backfill_cursor"`
 	// Dashboard shows a maintenance page to non-admin users while set.
 	MaintenanceModeFlag bool `json:"maintenance_mode"`
 	// Drop check-ins and telemetry from DPC agents instead of storing them. The
@@ -812,6 +815,20 @@ func (c *Config) BuildHistoryCursor() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.BuildHistoryCursorVal
+}
+
+func (c *Config) SamplesBackfillCursor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SamplesBackfillCursorVal
+}
+
+func (c *Config) SetSamplesBackfillCursor(cur string) error {
+	c.mu.Lock()
+	c.SamplesBackfillCursorVal = cur
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetBuildHistoryCursor(cur string) error {

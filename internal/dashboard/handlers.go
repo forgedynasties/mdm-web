@@ -18125,6 +18125,61 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.downsampleOldCheckins(ctx)
 	h.stripLegacyCheckins(ctx)
 	h.backfillBuildHistory(ctx)
+	h.backfillDeviceSamples(ctx)
+}
+
+// backfillDeviceSamples fills device_samples from existing check-in history, one UTC
+// day per step, newest first — so the recent window every chart reads is shaped after
+// the first run and older history fills in over the following hours. Bounded per run;
+// the cursor persists in config; stops at the oldest check-in.
+//
+// Only numbers are backfilled; see BackfillDeviceSamplesDay for why transitions are
+// not derived from thinned history.
+func (h *Handler) backfillDeviceSamples(ctx context.Context) {
+	cur := h.cfg.SamplesBackfillCursor()
+	if cur == "done" {
+		return
+	}
+	oldest, ok, err := h.db.OldestCheckinDay(ctx)
+	if err != nil {
+		log.Printf("[samples-backfill] oldest checkin: %v", err)
+		return
+	}
+	if !ok {
+		_ = h.cfg.SetSamplesBackfillCursor("done")
+		return
+	}
+	day := time.Now().UTC().Truncate(24 * time.Hour)
+	if cur != "" {
+		if day, err = time.Parse("2006-01-02", cur); err != nil {
+			log.Printf("[samples-backfill] bad cursor %q, restarting", cur)
+			_ = h.cfg.SetSamplesBackfillCursor("")
+			return
+		}
+	}
+	deadline := time.Now().Add(3 * time.Minute)
+	var total int64
+	steps := 0
+	for ; steps < 20 && !day.Before(oldest) && time.Now().Before(deadline); steps++ {
+		n, err := h.db.BackfillDeviceSamplesDay(ctx, day)
+		if err != nil {
+			log.Printf("[samples-backfill] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		day = day.AddDate(0, 0, -1)
+		if err := h.cfg.SetSamplesBackfillCursor(day.Format("2006-01-02")); err != nil {
+			log.Printf("[samples-backfill] save cursor: %v", err)
+			return
+		}
+	}
+	if day.Before(oldest) {
+		_ = h.cfg.SetSamplesBackfillCursor("done")
+		log.Printf("[samples-backfill] complete, back to %s", oldest.Format("2006-01-02"))
+	}
+	if total > 0 {
+		log.Printf("[samples-backfill] wrote %d sample(s) across %d day(s), now at %s", total, steps, day.Format("2006-01-02"))
+	}
 }
 
 // downsampleCheckinsDaysPerRun is how much history one housekeeping pass thins. Three
