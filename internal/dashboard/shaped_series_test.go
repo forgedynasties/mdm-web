@@ -10,7 +10,7 @@ import (
 
 func i16(v int16) *int16     { return &v }
 func i32(v int32) *int32     { return &v }
-func f32(v float32) *float32 { return &v }
+func f64(v float64) *float64 { return &v }
 
 // TestMergeShapedSeriesCarriesStateForward is the core of reading transitions back: a
 // state is written once and must then apply to every sample until the next event. The
@@ -21,10 +21,10 @@ func TestMergeShapedSeriesCarriesStateForward(t *testing.T) {
 	at := func(m int) time.Time { return t0.Add(time.Duration(m) * time.Minute) }
 
 	samples := []db.DeviceSample{
-		{At: at(0), BatteryPct: i16(80), TempC: f32(30.2)},
-		{At: at(5), BatteryPct: i16(79), TempC: f32(30.5)},
-		{At: at(10), BatteryPct: i16(81), TempC: f32(31.1)},
-		{At: at(15), BatteryPct: i16(83), TempC: f32(31.8)},
+		{At: at(0), BatteryPct: i16(80), TempC: f64(30.2)},
+		{At: at(5), BatteryPct: i16(79), TempC: f64(30.5)},
+		{At: at(10), BatteryPct: i16(81), TempC: f64(31.1)},
+		{At: at(15), BatteryPct: i16(83), TempC: f64(31.8)},
 	}
 	events := []db.StateAt{
 		{At: at(7), Key: "charging", Value: "true"},

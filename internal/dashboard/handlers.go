@@ -6123,6 +6123,23 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(body)
 		return
 	}
+	// Prefer the shaped tables: a wide window there is fixed-width rows on a clustered
+	// index instead of tens of thousands of jsonb snapshots, each detoasted to read four
+	// numbers out of it. Falls back for any window they do not yet cover, so this needs
+	// no flag day and no backfill to have finished.
+	if pts, ok := h.shapedChartSeries(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs)); ok {
+		body, err := buildChartBody(device, pts)
+		if err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+		chartCachePut(ckey, body)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(body)
+		return
+	}
+
 	checkins, err := h.db.GetCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)

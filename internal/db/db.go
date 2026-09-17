@@ -1721,10 +1721,11 @@ func ramUsedTotal(raw json.RawMessage) (*int32, *int32) {
 	return &u, &t
 }
 
-// jsonFloat returns a JSON number as float32 — the width the device measured it at, so
-// the value stored is the value sent. Explicit null stays null: unmarshalling it into a
-// float succeeds and leaves zero behind, which would store "not measured" as a reading.
-func jsonFloat(raw json.RawMessage) *float32 {
+// jsonFloat returns a JSON number unchanged, so the value stored is the value sent and
+// no reader can quote a different figure from the CSV, which prints the same field out
+// of checkins. Explicit null stays null: unmarshalling it into a float succeeds and
+// leaves zero behind, which would store "not measured" as a reading.
+func jsonFloat(raw json.RawMessage) *float64 {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
@@ -1732,8 +1733,7 @@ func jsonFloat(raw json.RawMessage) *float32 {
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return nil
 	}
-	out := float32(f)
-	return &out
+	return &f
 }
 
 // checkinStripKeys are jsonb keys never persisted in checkins.extra (kept only in
@@ -1828,11 +1828,11 @@ func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, m
 type DeviceSample struct {
 	At            time.Time
 	BatteryPct    *int16
-	TempC         *float32
+	TempC         *float64
 	WifiRSSI      *int16
 	RAMUsedMB     *int32
 	RAMTotalMB    *int32
-	StorageFreeGB *float32
+	StorageFreeGB *float64
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -1944,11 +1944,11 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 		       -- The reading as the device sent it, NULL where it sent none: "not
 		       -- measured" is not zero, and a rounded copy here would disagree with the
 		       -- CSV export, which prints the same field straight from checkins.
-		       (c.extra->>'battery_temp_c')::real,
+		       (c.extra->>'battery_temp_c')::float8,
 		       (round((c.extra->>'wifi_rssi')::numeric))::smallint,
 		       (c.extra->'ram_usage_mb'->>'used')::int,
 		       (c.extra->'ram_usage_mb'->>'total')::int,
-		       (c.extra->>'storage_free_gb')::real
+		       (c.extra->>'storage_free_gb')::float8
 		FROM checkins c
 		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
 		  -- One absurd rssi would abort the whole day's insert.
@@ -12150,13 +12150,15 @@ CREATE TABLE IF NOT EXISTS device_samples (
 -- would have plotted 28.7, and anyone dividing the CSV's ram_used_mb by ram_total_mb
 -- got 55.3% where the chart said 55%. Two surfaces quoting the same reading must not
 -- differ, so the columns hold the reading itself:
---   real  round-trips the device's own float32 exactly, in 4 bytes
+--   double precision round-trips ANY json number exactly. real was tried first and is
+--   lossless only by accident of the current firmware, whose readings originate as a
+--   Java float32: a client sending a plain 31.4 came back as 31.399999618530273
 --   used/total stay as reported, so a percentage is computed the same way everywhere
 -- Six extra bytes a row against a 665-byte snapshot, and no disagreement to explain.
-ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          REAL;
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          DOUBLE PRECISION;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_used_mb     INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_total_mb    INTEGER;
-ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb REAL;
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECISION;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;

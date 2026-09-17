@@ -1,7 +1,11 @@
 package dashboard
 
 import (
+	"context"
+	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 
 	"mdm/internal/db"
 )
@@ -49,7 +53,7 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 			p.BatteryPct, p.HasBattery = int(*s.BatteryPct), true
 		}
 		if s.TempC != nil {
-			p.TempC, p.HasTemp = float64(*s.TempC), true
+			p.TempC, p.HasTemp = *s.TempC, true
 		}
 		// Percent computed here from used and total, exactly as the old path computed it
 		// from the same two numbers in extra — so the chart and the CSV, which prints
@@ -92,4 +96,128 @@ func atoiState(s string) (int, bool) {
 		n = -n
 	}
 	return n, true
+}
+
+// shapedChartSeries answers a chart window from the shaped tables, or reports that it
+// cannot. A window is only answerable when both halves cover it: the numbers come from
+// device_samples and the pad markers and charge runs from device_state_events, so
+// serving a window the events do not reach would quietly drop those series from an old
+// chart rather than fail.
+func (h *Handler) shapedChartSeries(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]shapedPoint, bool) {
+	coverFrom, ok, err := h.db.ShapedCoverage(ctx, deviceID)
+	if err != nil || !ok || from.Before(coverFrom) {
+		return nil, false
+	}
+	samples, err := h.db.GetDeviceSamples(ctx, deviceID, from, until)
+	if err != nil || len(samples) == 0 {
+		return nil, false
+	}
+	// Only the two keys the chart draws. Everything else in the event stream is for
+	// other readers and would be loaded for nothing.
+	events, err := h.db.GetStateTimeline(ctx, deviceID, []string{"charging", "wlc_status"}, from, until)
+	if err != nil {
+		return nil, false
+	}
+	return mergeShapedSeries(samples, events), true
+}
+
+// shapedChargeRuns folds the per-point charging state into the runs the chart draws,
+// identical in shape to chargeRuns over check-ins: consecutive points in the same state
+// merge, and a gap longer than the device's expected reporting interval breaks the run
+// rather than drawing a line across hours of silence.
+func shapedChargeRuns(points []shapedPoint, gapMs int64) []chargeRun {
+	runs := []chargeRun{}
+	for _, p := range points {
+		x := p.At.UnixMilli()
+		var st *bool
+		if p.HasCharge {
+			c := p.Charging
+			st = &c
+		}
+		if n := len(runs); n > 0 {
+			last := &runs[n-1]
+			same := (last.C == nil && st == nil) || (last.C != nil && st != nil && *last.C == *st)
+			if same && x-last.To <= gapMs {
+				last.To = x
+				continue
+			}
+		}
+		runs = append(runs, chargeRun{From: x, To: x, C: st})
+	}
+	return runs
+}
+
+// buildChartBody renders the chart payload from shaped points. Deliberately the same
+// series, the same field names and the same decimation as the check-in path: this is a
+// change of source, not of what the chart shows, and the two are diffed against each
+// other on real data before either is trusted.
+func buildChartBody(device *db.Device, pts []shapedPoint) ([]byte, error) {
+	const maxPoints = 2500
+	type bpt struct {
+		X   int64 `json:"x"`
+		Y   int   `json:"y"`
+		Wlc *int  `json:"wlc"`
+	}
+	type pt struct {
+		X int64   `json:"x"`
+		Y float64 `json:"y"`
+	}
+	hasBattery := device.HasBattery()
+	battery := make([]bpt, 0, len(pts))
+	temp := make([]pt, 0, len(pts))
+	ram := make([]pt, 0, len(pts))
+	for _, p := range pts {
+		x := p.At.UnixMilli()
+		if hasBattery {
+			var wlc *int
+			if p.HasWlc {
+				v := p.WlcStatus
+				wlc = &v
+			}
+			battery = append(battery, bpt{X: x, Y: p.BatteryPct, Wlc: wlc})
+		}
+		if p.HasTemp {
+			temp = append(temp, pt{X: x, Y: p.TempC})
+		}
+		if p.HasRAM {
+			ram = append(ram, pt{X: x, Y: p.RAMPct})
+		}
+	}
+	var charge []chargeRun
+	if hasBattery && device.HasCharging() {
+		charge = shapedChargeRuns(pts, chartGapMs(device.PollIntervalMs))
+	}
+	if len(temp) > maxPoints {
+		temp = decimateExtremes(temp, maxPoints, func(p pt) float64 { return p.Y })
+	}
+	if len(ram) > maxPoints {
+		ram = decimateExtremes(ram, maxPoints, func(p pt) float64 { return p.Y })
+	}
+	if len(battery) > maxPoints {
+		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
+	}
+	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge})
+}
+
+// buildChartBodyFromCheckins is the check-in path's series construction, lifted out so
+// the two sources can be rendered side by side and diffed on real data.
+func buildChartBodyFromCheckins(device *db.Device, asc []db.Checkin) ([]byte, error) {
+	pts := make([]shapedPoint, 0, len(asc))
+	for _, c := range asc {
+		p := shapedPoint{At: c.CreatedAt, BatteryPct: c.BatteryPct, HasBattery: true}
+		if t, ok := extractBatteryTempC(c.Extra); ok {
+			p.TempC, p.HasTemp = t, true
+		}
+		if rp, ok := ramPctFromExtra(c.Extra); ok {
+			p.RAMPct, p.HasRAM = rp, true
+		}
+		if w := wlcIntFromExtra(c.Extra); w != nil {
+			p.WlcStatus, p.HasWlc = *w, true
+		}
+		if ch := chargingFromExtra(c.Extra); ch != nil {
+			p.Charging, p.HasCharge = *ch, true
+		}
+		pts = append(pts, p)
+	}
+	return buildChartBody(device, pts)
 }
