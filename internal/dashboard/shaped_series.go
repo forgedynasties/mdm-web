@@ -48,11 +48,14 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 		if s.BatteryPct != nil {
 			p.BatteryPct, p.HasBattery = int(*s.BatteryPct), true
 		}
-		if s.TempDeciC != nil {
-			p.TempC, p.HasTemp = float64(*s.TempDeciC)/10, true
+		if s.TempC != nil {
+			p.TempC, p.HasTemp = float64(*s.TempC), true
 		}
-		if s.RAMPct != nil {
-			p.RAMPct, p.HasRAM = float64(*s.RAMPct), true
+		// Percent computed here from used and total, exactly as the old path computed it
+		// from the same two numbers in extra — so the chart and the CSV, which prints
+		// those two columns, can never quote different figures.
+		if s.RAMUsedMB != nil && s.RAMTotalMB != nil && *s.RAMTotalMB > 0 {
+			p.RAMPct, p.HasRAM = float64(*s.RAMUsedMB)*100/float64(*s.RAMTotalMB), true
 		}
 		if v, ok := cur["wlc_status"]; ok {
 			if n, ok := atoiState(v); ok {

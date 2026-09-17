@@ -1,13 +1,16 @@
 package dashboard
 
 import (
+	"math"
 	"testing"
 	"time"
 
 	"mdm/internal/db"
 )
 
-func i16(v int16) *int16 { return &v }
+func i16(v int16) *int16     { return &v }
+func i32(v int32) *int32     { return &v }
+func f32(v float32) *float32 { return &v }
 
 // TestMergeShapedSeriesCarriesStateForward is the core of reading transitions back: a
 // state is written once and must then apply to every sample until the next event. The
@@ -18,10 +21,10 @@ func TestMergeShapedSeriesCarriesStateForward(t *testing.T) {
 	at := func(m int) time.Time { return t0.Add(time.Duration(m) * time.Minute) }
 
 	samples := []db.DeviceSample{
-		{At: at(0), BatteryPct: i16(80), TempDeciC: i16(302)},
-		{At: at(5), BatteryPct: i16(79), TempDeciC: i16(305)},
-		{At: at(10), BatteryPct: i16(81), TempDeciC: i16(311)},
-		{At: at(15), BatteryPct: i16(83), TempDeciC: i16(318)},
+		{At: at(0), BatteryPct: i16(80), TempC: f32(30.2)},
+		{At: at(5), BatteryPct: i16(79), TempC: f32(30.5)},
+		{At: at(10), BatteryPct: i16(81), TempC: f32(31.1)},
+		{At: at(15), BatteryPct: i16(83), TempC: f32(31.8)},
 	}
 	events := []db.StateAt{
 		{At: at(7), Key: "charging", Value: "true"},
@@ -51,7 +54,7 @@ func TestMergeShapedSeriesCarriesStateForward(t *testing.T) {
 		t.Errorf("sample at +15 has wlc %v/%d, want 0", got[3].HasWlc, got[3].WlcStatus)
 	}
 	// Numbers come back unscaled.
-	if !got[0].HasTemp || got[0].TempC != 30.2 {
+	if !got[0].HasTemp || math.Abs(got[0].TempC-30.2) > 1e-4 {
 		t.Errorf("temp %v/%v, want 30.2", got[0].HasTemp, got[0].TempC)
 	}
 }
@@ -70,6 +73,33 @@ func TestMergeShapedSeriesUsesLeadingEvent(t *testing.T) {
 	for i, p := range mergeShapedSeries(samples, events) {
 		if !p.HasCharge || !p.Charging {
 			t.Errorf("point %d did not inherit the state from before the window", i)
+		}
+	}
+}
+
+// TestMergeShapedSeriesRAMPctMatchesCSVArithmetic pins the rule that stopped the chart
+// and the CSV disagreeing: the percentage is computed from used and total, the same two
+// numbers the export prints, rather than stored pre-rounded.
+func TestMergeShapedSeriesRAMPctMatchesCSVArithmetic(t *testing.T) {
+	p := mergeShapedSeries([]db.DeviceSample{{
+		At: time.Now(), RAMUsedMB: i32(2007), RAMTotalMB: i32(3630),
+	}}, nil)[0]
+	want := 2007.0 * 100 / 3630.0 // what a reader gets from the CSV columns
+	if !p.HasRAM || math.Abs(p.RAMPct-want) > 1e-9 {
+		t.Errorf("ram pct = %v, want %v (the CSV's own arithmetic)", p.RAMPct, want)
+	}
+}
+
+// TestMergeShapedSeriesRAMNeedsBothNumbers: a total of zero cannot be divided by, and
+// half a reading is not a reading.
+func TestMergeShapedSeriesRAMNeedsBothNumbers(t *testing.T) {
+	for _, s := range []db.DeviceSample{
+		{At: time.Now(), RAMUsedMB: i32(2007)},
+		{At: time.Now(), RAMTotalMB: i32(3630)},
+		{At: time.Now(), RAMUsedMB: i32(2007), RAMTotalMB: i32(0)},
+	} {
+		if mergeShapedSeries([]db.DeviceSample{s}, nil)[0].HasRAM {
+			t.Errorf("reported a RAM percentage from %+v", s)
 		}
 	}
 }

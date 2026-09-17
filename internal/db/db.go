@@ -1647,16 +1647,17 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 	if !stored {
 		return nil // the history row was coalesced away; its sample would be too
 	}
+	used, total := ramUsedTotal(curMap["ram_usage_mb"])
 	_, err := tx.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
+		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (device_id, at) DO NOTHING`,
 		deviceID,
 		battery,
-		scaledInt(curMap["battery_temp_c"], 10),
+		jsonFloat(curMap["battery_temp_c"]),
 		scaledInt(curMap["wifi_rssi"], 1),
-		ramPct(curMap["ram_usage_mb"]),
-		scaledInt(curMap["storage_free_gb"], 10),
+		used, total,
+		jsonFloat(curMap["storage_free_gb"]),
 	)
 	return err
 }
@@ -1701,20 +1702,37 @@ func scaledInt(raw json.RawMessage, scale float64) *int16 {
 	return &out
 }
 
-// ramPct converts the reported {used,total} object to whole percent. The object is
-// three numbers on every row; the percentage is the only part anything reads.
-func ramPct(raw json.RawMessage) *int16 {
+// ramUsedTotal pulls the two numbers a reader needs out of the reported object. Kept
+// as used and total rather than a percentage so the chart and the CSV export — which
+// prints ram_used_mb and ram_total_mb — can never quote different figures for the same
+// reading.
+func ramUsedTotal(raw json.RawMessage) (*int32, *int32) {
 	if len(raw) == 0 {
-		return nil
+		return nil, nil
 	}
 	var m struct {
-		Used  float64 `json:"used"`
-		Total float64 `json:"total"`
+		Used  *float64 `json:"used"`
+		Total *float64 `json:"total"`
 	}
-	if err := json.Unmarshal(raw, &m); err != nil || m.Total <= 0 {
+	if err := json.Unmarshal(raw, &m); err != nil || m.Used == nil || m.Total == nil {
+		return nil, nil
+	}
+	u, t := int32(*m.Used), int32(*m.Total)
+	return &u, &t
+}
+
+// jsonFloat returns a JSON number as float32 — the width the device measured it at, so
+// the value stored is the value sent. Explicit null stays null: unmarshalling it into a
+// float succeeds and leaves zero behind, which would store "not measured" as a reading.
+func jsonFloat(raw json.RawMessage) *float32 {
+	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
-	out := int16(m.Used * 100 / m.Total)
+	var f float64
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return nil
+	}
+	out := float32(f)
 	return &out
 }
 
@@ -1808,12 +1826,13 @@ func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, m
 // report the field at all: nil means "not measured", which no reader should draw as a
 // zero.
 type DeviceSample struct {
-	At             time.Time
-	BatteryPct     *int16
-	TempDeciC      *int16
-	WifiRSSI       *int16
-	RAMPct         *int16
-	StorageFreeDGB *int16
+	At            time.Time
+	BatteryPct    *int16
+	TempC         *float32
+	WifiRSSI      *int16
+	RAMUsedMB     *int32
+	RAMTotalMB    *int32
+	StorageFreeGB *float32
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -1827,7 +1846,7 @@ type StateAt struct {
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb
+		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb
 		FROM device_samples
 		WHERE device_id = $1 AND at >= $2 AND at <= $3
 		ORDER BY at`, deviceID, from, until)
@@ -1838,7 +1857,7 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	var out []DeviceSample
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempDeciC, &s.WifiRSSI, &s.RAMPct, &s.StorageFreeDGB); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -1893,22 +1912,22 @@ func (d *DB) GetStateTimeline(ctx context.Context, deviceID uuid.UUID, keys []st
 // the day dual-writing began, and a reader can tell the two periods apart by that date.
 func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64, error) {
 	ct, err := d.pool.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
 		SELECT c.device_id,
 		       c.created_at,
 		       c.battery_pct,
-		       -- Scaled to the same units the live writer uses, and NULL rather than 0
-		       -- when the device never reported the field: "not measured" is not zero.
-		       (round((c.extra->>'battery_temp_c')::numeric * 10))::smallint,
+		       -- The reading as the device sent it, NULL where it sent none: "not
+		       -- measured" is not zero, and a rounded copy here would disagree with the
+		       -- CSV export, which prints the same field straight from checkins.
+		       (c.extra->>'battery_temp_c')::real,
 		       (round((c.extra->>'wifi_rssi')::numeric))::smallint,
-		       (round(((c.extra->'ram_usage_mb'->>'used')::numeric * 100)
-		              / NULLIF((c.extra->'ram_usage_mb'->>'total')::numeric, 0)))::smallint,
-		       (round((c.extra->>'storage_free_gb')::numeric * 10))::smallint
+		       (c.extra->'ram_usage_mb'->>'used')::int,
+		       (c.extra->'ram_usage_mb'->>'total')::int,
+		       (c.extra->>'storage_free_gb')::real
 		FROM checkins c
 		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
-		  -- A value outside smallint would abort the whole day's insert.
-		  AND COALESCE((c.extra->>'battery_temp_c')::numeric * 10, 0) BETWEEN -32768 AND 32767
-		  AND COALESCE((c.extra->>'storage_free_gb')::numeric * 10, 0) BETWEEN -32768 AND 32767
+		  -- One absurd rssi would abort the whole day's insert.
+		  AND COALESCE((c.extra->>'wifi_rssi')::numeric, 0) BETWEEN -32768 AND 32767
 		ON CONFLICT (device_id, at) DO NOTHING`, day)
 	if err != nil {
 		return 0, err
@@ -12093,12 +12112,30 @@ CREATE TABLE IF NOT EXISTS device_samples (
     device_id        UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     battery_pct      SMALLINT,
-    temp_dc          SMALLINT,   -- deci-degrees C: 31.5 -> 315
+    temp_dc          SMALLINT,   -- superseded by temp_c; see below
     wifi_rssi        SMALLINT,
-    ram_pct          SMALLINT,
-    storage_free_dgb SMALLINT,   -- deci-GB: 12.4 -> 124
+    ram_pct          SMALLINT,   -- superseded by ram_used_mb/ram_total_mb
+    storage_free_dgb SMALLINT,   -- superseded by storage_free_gb
     PRIMARY KEY (device_id, at)
 );
+
+-- The first cut stored scaled integers (tenths of a degree, whole percent). That was
+-- smaller but it made the chart and the CSV export disagree: the CSV prints the value
+-- the device sent (28.700000762939453 — a Java float through JSON) while the chart
+-- would have plotted 28.7, and anyone dividing the CSV's ram_used_mb by ram_total_mb
+-- got 55.3% where the chart said 55%. Two surfaces quoting the same reading must not
+-- differ, so the columns hold the reading itself:
+--   real  round-trips the device's own float32 exactly, in 4 bytes
+--   used/total stay as reported, so a percentage is computed the same way everywhere
+-- Six extra bytes a row against a 665-byte snapshot, and no disagreement to explain.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          REAL;
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_used_mb     INTEGER;
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_total_mb    INTEGER;
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb REAL;
+-- Nothing ever read the scaled columns; they existed for part of one afternoon.
+ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
+ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
+ALTER TABLE device_samples DROP COLUMN IF EXISTS storage_free_dgb;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
