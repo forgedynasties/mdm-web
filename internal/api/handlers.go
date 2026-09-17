@@ -782,6 +782,218 @@ func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinReque
 	h.hub.PublishDeploymentUpdate() // live-refresh open deployment pages
 }
 
+// ingestSource is the transport a check-in arrived on. The two are not only plumbing:
+// an HTTP check-in is the periodic full keyframe and replaces the stored snapshot,
+// while a WebSocket frame is a delta merged into it.
+type ingestSource int
+
+const (
+	sourceHTTP ingestSource = iota
+	sourceWS
+)
+
+func (s ingestSource) tag() string {
+	if s == sourceWS {
+		return "ws-telemetry"
+	}
+	return "checkin"
+}
+
+// ingestResult is what the caller needs to answer the device.
+type ingestResult struct {
+	DeviceID uuid.UUID
+	Config   map[string]any
+	Commands []map[string]any // legacy poll list; only ever filled for HTTP
+	SendApps bool             // ask the device for a full app list
+}
+
+// ingestCheckin stores one check-in and works out what to send back. Both transports
+// run this; they differ only in how the payload arrives and how the answer is written.
+//
+// It used to be two hand-maintained copies of the same two hundred lines, and they had
+// drifted: the WebSocket copy skipped the OTA capability gate, so a device whose build
+// cannot apply an MDM OTA could still be handed the command, and it never asked a
+// device for its app list however stale the inventory was.
+func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src ingestSource) (*ingestResult, error) {
+	tag := src.tag()
+	req.Extra = h.enrichLocation(ctx, req.Extra)
+
+	// HTTP is the periodic full keyframe → replace latest_extra (clears stale keys).
+	// A WS frame is a delta → merge it. Product is usually empty on deltas, and
+	// UpsertCheckin keeps the previously learned value then.
+	merge := src == sourceWS
+	deviceID, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, merge, req.Product)
+	if err != nil {
+		return nil, err
+	}
+	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
+	if isNew {
+		// A device must already exist to open its WS, so over that transport this is
+		// rare — but onboarding must not depend on which one it used.
+		h.notifyDeviceOnboarded(ctx, deviceID, req.SerialNumber)
+	}
+
+	if len(req.InstalledApps) > 0 {
+		seen := make(map[string]struct{})
+		var pkgs []db.DevicePackage
+		for _, p := range req.InstalledApps {
+			if _, dup := seen[p.Package]; dup {
+				continue
+			}
+			seen[p.Package] = struct{}{}
+			icon := p.Icon
+			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
+				icon = ""
+			}
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
+			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
+				break
+			}
+		}
+		if err := h.db.UpsertDevicePackages(ctx, deviceID, pkgs); err != nil {
+			log.Printf("[%s] UpsertDevicePackages error: %v", tag, err)
+		}
+		// Clear any stuck "installing" whose app the device now reports present (e.g.
+		// a terminal ack lost on a half-open socket): mark the install command
+		// installed and refresh the UI. Without it a genuinely-installed app can sit
+		// showing "failed" forever.
+		if ids, err := h.db.ReconcileInstalledCommands(ctx, deviceID); err != nil {
+			log.Printf("[%s] ReconcileInstalledCommands error: %v", tag, err)
+		} else {
+			for _, id := range ids {
+				h.hub.PublishCommandUpdate(id)
+			}
+		}
+	}
+
+	h.recordCheckinOtaProgress(deviceID, req)
+
+	// Reconcile completion first, independently of the resolver: if the device is now
+	// running a deployment's target build, mark it installed. For an incremental-only
+	// release ResolveUpdateForDevice returns nil once the device leaves the source
+	// build, so without this the row would stay stuck at reboot_sent and the OTA could
+	// be re-sent. Doing it before the resolver also excludes an installed row below,
+	// preventing that re-send.
+	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(ctx, deviceID, req.BuildID); err != nil {
+		log.Printf("[%s] CompleteUpdatesAtTargetBuild error: %v", tag, err)
+	} else {
+		for _, uid := range doneIDs {
+			_ = h.db.CheckAndCompleteUpdate(ctx, uid)
+		}
+	}
+
+	if src == sourceHTTP {
+		// A device that also updates over the legacy path may just have booted into the
+		// build that rollout offered — settle it here rather than waiting up to fifteen
+		// minutes for its next otautil poll. Legacy devices only ever speak HTTP.
+		h.SettleLegacyAtBuild(ctx, req.SerialNumber, req.BuildID)
+	}
+
+	// OTA check: resolve the update from the update_devices table.
+	if upd, err := h.db.ResolveUpdateForDevice(ctx, deviceID); err != nil {
+		log.Printf("[%s] ResolveUpdateForDevice error: %v", tag, err)
+	} else if upd != nil && upd.OtaPackage != nil {
+		pkg := upd.OtaPackage
+		switch {
+		case pkg.TargetBuildID == req.BuildID:
+			// Already on the target build.
+			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "installed")
+			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
+		case upd.DeviceStatus == "reboot_sent" && bootedAfter(req.Extra, upd.DeviceRebootSentAt):
+			h.failSlotSwitch(ctx, upd, deviceID, req.SerialNumber, req.BuildID)
+		case upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent":
+			// Installed to the inactive slot, reboot pending (manual/scheduled) —
+			// don't re-issue the OTA command.
+		default:
+			// The last gate before the wire: this build's client cannot apply an MDM
+			// OTA, so never hand it the command however the row got created. The device
+			// updates over the legacy otautil path instead. This used to be checked on
+			// the HTTP path only, which let the same device get the command simply by
+			// having a WebSocket open.
+			if v := h.otaVerdict(ctx, req.BuildID, req.Product, req.Extra); !v.OK {
+				log.Printf("[%s] %s on %s: %s — not sending the OTA command", tag, req.SerialNumber, req.BuildID, v.Describe())
+			} else if cmd, err := h.db.TryCreateOTACommand(ctx, upd, deviceID, req.BuildID); err != nil {
+				log.Printf("[%s] create OTA command error: %v", tag, err)
+			} else if cmd != nil {
+				h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
+			}
+		}
+	}
+
+	deviceCfg, err := h.db.GetOrCreateDeviceConfig(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &ingestResult{DeviceID: deviceID}
+
+	if src == sourceHTTP {
+		log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
+			req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
+
+		// A check-in while the device has no live WS is proof it is back after a reboot,
+		// so complete any reboot that was only 'delivered' (FW-2026-000033). Guarded on
+		// the WS being down: a still-connected device hasn't rebooted, so it must not be
+		// completed off a routine keyframe.
+		if !h.hub.IsConnected(deviceID) {
+			_ = h.db.CompleteDeliveredReboots(ctx, deviceID)
+		}
+
+		// Pending commands ride the response for older clients that poll instead of
+		// holding a WebSocket.
+		if h.cfg.LegacyCheckin() && !h.hub.IsConnected(deviceID) {
+			if cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID); err == nil {
+				for _, cmd := range cmds {
+					out.Commands = append(out.Commands, map[string]any{
+						"id":      cmd.ID,
+						"type":    deviceCommandType(cmd.Type),
+						"apk_url": cmd.ApkURL,
+						"payload": cmd.Payload,
+					})
+					_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+					if cmd.Type == "reboot" {
+						break // reboot only 'delivered'; completes on the next check-in
+					}
+				}
+			}
+		}
+
+		// Ask for a full app list when ours is unknown or stale (a build change clears
+		// it), or a re-flashed device keeps showing its old apps until its own app set
+		// happens to change.
+		out.SendApps = h.db.NeedsAppInventory(ctx, deviceID)
+	}
+
+	cfg := map[string]any{
+		"kiosk_enabled":            deviceCfg.KioskEnabled,
+		"kiosk_package":            deviceCfg.KioskPackage,
+		"kiosk_features":           deviceCfg.KioskFeatures,
+		"kiosk_mode":               deviceCfg.KioskMode,
+		"kiosk_packages":           deviceCfg.KioskPackages,
+		"kiosk_url":                deviceCfg.KioskURL,
+		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
+		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
+		"checkin_interval_seconds": h.cfg.CheckinInterval(),
+	}
+	// Fleet-wide policy (update_policy, location_enabled, network, app_restrictions…)
+	// rides every config delivery; per-device keys above win on collision.
+	for k, v := range h.cfg.DevicePolicy() {
+		if _, taken := cfg[k]; !taken {
+			cfg[k] = v
+		}
+	}
+	addOfflineExit(cfg, deviceCfg)
+	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
+
+	// Publish AFTER processOfflineExit so this check-in's own (immediate) broadcast
+	// already carries the flipped kiosk state — the dashboard updates as promptly as
+	// battery/charging do, instead of waiting for a second trailing-throttle broadcast.
+	h.hub.PublishDeviceUpdate(deviceID)
+
+	out.Config = cfg
+	return out, nil
+}
+
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	var req checkinRequest
 	if err := decodeDeviceJSON(r.Body, &req); err != nil {
@@ -818,9 +1030,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 
 	// DPC support can be switched off in Settings while the agent's write volume is
 	// being worked on. Reply as usual so the agent keeps its normal interval instead
-	// of retrying harder, but store nothing at all: no check-in row, no device
-	// update, no events, packages or OTA work. Devices already enrolled keep their
-	// history and resume the moment the toggle goes back off.
+	// of retrying harder, but store nothing at all.
 	if h.cfg.IgnoreDPCCheckins() && isDPCPayload(req.Extra) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "config": map[string]any{
 			"checkin_interval_seconds": h.cfg.CheckinInterval(),
@@ -828,169 +1038,19 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Extra = h.enrichLocation(r.Context(), req.Extra)
-
-	// HTTP check-in is the periodic full keyframe → replace latest_extra (clears stale keys).
-	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, false, req.Product)
+	res, err := h.ingestCheckin(r.Context(), &req, sourceHTTP)
 	if err != nil {
+		log.Printf("[checkin] ingest error for %s: %v", req.SerialNumber, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
-	h.db.IngestDeviceEvents(r.Context(), deviceID, req.BuildID, req.Extra)
-	if isNew {
-		h.notifyDeviceOnboarded(r.Context(), deviceID, req.SerialNumber)
-	}
-
-	if len(req.InstalledApps) > 0 {
-		seen := make(map[string]struct{})
-		var pkgs []db.DevicePackage
-		for _, p := range req.InstalledApps {
-			if _, dup := seen[p.Package]; dup {
-				continue
-			}
-			seen[p.Package] = struct{}{}
-			icon := p.Icon
-			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
-				icon = ""
-			}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
-			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
-				break
-			}
-		}
-		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
-			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
-		}
-		// Clear any stuck "installing" whose app the device now reports present (e.g.
-		// a lost terminal ack): mark the install command installed and refresh the UI.
-		if ids, err := h.db.ReconcileInstalledCommands(r.Context(), deviceID); err != nil {
-			log.Printf("[checkin] ReconcileInstalledCommands error: %v", err)
-		} else {
-			for _, id := range ids {
-				h.hub.PublishCommandUpdate(id)
-			}
-		}
-	}
-
-	h.recordCheckinOtaProgress(deviceID, &req)
-
-	// Reconcile completion first, independently of the resolver: if the device is
-	// now running a deployment's target build, mark it installed. For an
-	// incremental-only release ResolveUpdateForDevice returns nil once the device
-	// leaves the source build, so without this the row would stay stuck at
-	// reboot_sent and the OTA could be re-sent. Doing it before the resolver also
-	// means an installed row is excluded below, preventing the re-send.
-	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(r.Context(), deviceID, req.BuildID); err != nil {
-		log.Printf("[checkin] CompleteUpdatesAtTargetBuild error: %v", err)
-	} else {
-		for _, uid := range doneIDs {
-			_ = h.db.CheckAndCompleteUpdate(r.Context(), uid)
-		}
-	}
-
-	// A device that also updates over the legacy path may just have booted into the
-	// build that rollout offered — settle it here rather than waiting up to fifteen
-	// minutes for its next otautil poll.
-	h.SettleLegacyAtBuild(r.Context(), req.SerialNumber, req.BuildID)
-
-	// OTA check: resolve update from update_devices table.
-	if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
-		log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)
-	} else if upd != nil && upd.OtaPackage != nil {
-		pkg := upd.OtaPackage
-		// If the device is already on the target build, mark as installed
-		if pkg.TargetBuildID == req.BuildID {
-			_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "installed")
-			_ = h.db.CheckAndCompleteUpdate(r.Context(), upd.ID)
-		} else if upd.DeviceStatus == "reboot_sent" && bootedAfter(req.Extra, upd.DeviceRebootSentAt) {
-			h.failSlotSwitch(r.Context(), upd, deviceID, req.SerialNumber, req.BuildID)
-		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
-			// Installed to the inactive slot, reboot pending (manual/scheduled)
-			// — don't re-issue the OTA command.
-		} else if v := h.otaVerdict(r.Context(), req.BuildID, req.Product, req.Extra); !v.OK {
-			// The last gate before the wire: this build's client cannot apply an MDM
-			// OTA, so never hand it the command however the row got created. The
-			// device updates over the legacy otautil path instead.
-			log.Printf("[checkin] %s on %s: %s — not sending the OTA command", req.SerialNumber, req.BuildID, v.Describe())
-		} else if cmd, err := h.db.TryCreateOTACommand(r.Context(), upd, deviceID, req.BuildID); err != nil {
-			log.Printf("[checkin] create OTA command error: %v", err)
-		} else if cmd != nil {
-			h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
-		}
-	}
-
-	deviceCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), deviceID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-
-	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
-		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
-
-	// A check-in while the device has no live WS is proof it is back after a reboot, so
-	// complete any reboot that was only 'delivered' (FW-2026-000033). Guarded on the WS
-	// being down: a still-connected device hasn't rebooted, so it must not be completed
-	// off a routine HTTP keyframe.
-	if !h.hub.IsConnected(deviceID) {
-		_ = h.db.CompleteDeliveredReboots(r.Context(), deviceID)
-	}
-
-	// Include pending commands in checkin response for backwards compatibility
-	// with older clients that poll via checkin instead of WebSocket.
-	var cmdList []map[string]any
-	if h.cfg.LegacyCheckin() && !h.hub.IsConnected(deviceID) {
-		if cmds, err := h.db.GetPendingCommandsForDevice(r.Context(), deviceID); err == nil {
-			for _, cmd := range cmds {
-				cmdList = append(cmdList, map[string]any{
-					"id":      cmd.ID,
-					"type":    deviceCommandType(cmd.Type),
-					"apk_url": cmd.ApkURL,
-					"payload": cmd.Payload,
-				})
-				_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, []uuid.UUID{cmd.ID})
-				if cmd.Type == "reboot" {
-					break // reboot only 'delivered'; completes on the next check-in (FW-2026-000033)
-				}
-			}
-		}
-	}
-
-	cfgMap := map[string]any{
-		"kiosk_enabled":            deviceCfg.KioskEnabled,
-		"kiosk_package":            deviceCfg.KioskPackage,
-		"kiosk_features":           deviceCfg.KioskFeatures,
-		"kiosk_mode":               deviceCfg.KioskMode,
-		"kiosk_packages":           deviceCfg.KioskPackages,
-		"kiosk_url":                deviceCfg.KioskURL,
-		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
-		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
-		"checkin_interval_seconds": h.cfg.CheckinInterval(),
-	}
-	// Fleet-wide policy (update_policy, location_enabled, network, app_restrictions…)
-	// rides every config delivery; per-device keys above win on collision.
-	for k, v := range h.cfg.DevicePolicy() {
-		if _, taken := cfgMap[k]; !taken {
-			cfgMap[k] = v
-		}
-	}
-	addOfflineExit(cfgMap, deviceCfg)
-	h.processOfflineExit(r.Context(), deviceID, req.SerialNumber, req.Extra, deviceCfg, cfgMap)
-
-	// Publish AFTER processOfflineExit so this check-in's own (immediate) broadcast
-	// already carries the flipped kiosk state — the dashboard updates as promptly as
-	// battery/charging do, instead of waiting for a second trailing-throttle broadcast.
-	h.hub.PublishDeviceUpdate(deviceID)
 
 	resp := map[string]any{
 		"status":   "ok",
-		"commands": cmdList,
-		"config":   cfgMap,
+		"commands": res.Commands,
+		"config":   res.Config,
 	}
-	// Ask for a full app list when ours is unknown or stale (a build change clears it).
-	// The client has always honoured this flag; nothing ever set it, so a device that was
-	// re-flashed kept showing its old apps until its own app set happened to change.
-	if h.db.NeedsAppInventory(r.Context(), deviceID) {
+	if res.SendApps {
 		resp["send_apps"] = true
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -1511,114 +1571,17 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		return
 	}
 
-	req.Extra = h.enrichLocation(ctx, req.Extra)
-
-	// WS telemetry frames are deltas → merge into the stored snapshot. Product is
-	// usually empty on deltas; UpsertCheckin keeps the previously learned value then.
-	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, true, req.Product)
+	res, err := h.ingestCheckin(ctx, &req, sourceWS)
 	if err != nil {
-		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
-		return
-	}
-	h.db.IngestDeviceEvents(ctx, id, req.BuildID, req.Extra)
-	if isNew {
-		// A device must already exist to open its WS, so this is rare, but keep
-		// onboarding parity with the HTTP checkin path.
-		h.notifyDeviceOnboarded(ctx, id, req.SerialNumber)
-	}
-
-	if len(req.InstalledApps) > 0 {
-		seen := make(map[string]struct{})
-		var pkgs []db.DevicePackage
-		for _, p := range req.InstalledApps {
-			if _, dup := seen[p.Package]; dup {
-				continue
-			}
-			seen[p.Package] = struct{}{}
-			icon := p.Icon
-			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
-				icon = ""
-			}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
-			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
-				break
-			}
-		}
-		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
-			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
-		}
-		// Mirror the HTTP check-in path: clear any install command the device now
-		// reports present (e.g. a terminal ack lost on a half-open WS). Without this,
-		// a device that reports its apps over WS (as the full-GMS client does) never
-		// reconciles, so a genuinely-installed app can stay stuck showing "failed".
-		if ids, err := h.db.ReconcileInstalledCommands(ctx, id); err != nil {
-			log.Printf("[ws-telemetry] ReconcileInstalledCommands error: %v", err)
-		} else {
-			for _, cid := range ids {
-				h.hub.PublishCommandUpdate(cid)
-			}
-		}
-	}
-
-	h.recordCheckinOtaProgress(id, &req)
-
-	// Reconcile completion by target build before resolving — see HTTP Checkin.
-	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(ctx, id, req.BuildID); err != nil {
-		log.Printf("[ws-telemetry] CompleteUpdatesAtTargetBuild error: %v", err)
-	} else {
-		for _, uid := range doneIDs {
-			_ = h.db.CheckAndCompleteUpdate(ctx, uid)
-		}
-	}
-
-	// OTA check — same logic as HTTP Checkin.
-	if upd, err := h.db.ResolveUpdateForDevice(ctx, id); err != nil {
-		log.Printf("[ws-telemetry] ResolveUpdateForDevice error: %v", err)
-	} else if upd != nil && upd.OtaPackage != nil {
-		pkg := upd.OtaPackage
-		if pkg.TargetBuildID == req.BuildID {
-			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "installed")
-			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
-		} else if upd.DeviceStatus == "reboot_sent" && bootedAfter(req.Extra, upd.DeviceRebootSentAt) {
-			h.failSlotSwitch(ctx, upd, id, req.SerialNumber, req.BuildID)
-		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
-			// Installed to the inactive slot, reboot pending — don't re-issue.
-		} else if cmd, err := h.db.TryCreateOTACommand(ctx, upd, id, req.BuildID); err != nil {
-			log.Printf("[ws-telemetry] create OTA command error: %v", err)
-		} else if cmd != nil {
-			h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
-		}
-	}
-
-	deviceCfg, err := h.db.GetOrCreateDeviceConfig(ctx, id)
-	if err != nil {
-		log.Printf("[ws-telemetry] GetOrCreateDeviceConfig error: %v", err)
+		log.Printf("[ws-telemetry] ingest error for %s: %v", req.SerialNumber, err)
 		return
 	}
 
-	wsCfg := map[string]any{
-		"type":                     "config",
-		"kiosk_enabled":            deviceCfg.KioskEnabled,
-		"kiosk_package":            deviceCfg.KioskPackage,
-		"kiosk_features":           deviceCfg.KioskFeatures,
-		"kiosk_mode":               deviceCfg.KioskMode,
-		"kiosk_packages":           deviceCfg.KioskPackages,
-		"kiosk_url":                deviceCfg.KioskURL,
-		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
-		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
-		"checkin_interval_seconds": h.cfg.CheckinInterval(),
-	}
-	for k, v := range h.cfg.DevicePolicy() {
-		if _, taken := wsCfg[k]; !taken {
-			wsCfg[k] = v
-		}
-	}
-	addOfflineExit(wsCfg, deviceCfg)
-	h.processOfflineExit(ctx, id, req.SerialNumber, req.Extra, deviceCfg, wsCfg)
-	// Publish after the flip — see HTTP Checkin — so the dashboard reflects an exit
-	// on this frame's broadcast rather than a later trailing one.
-	h.hub.PublishDeviceUpdate(id)
-	cfgMsg, _ := json.Marshal(wsCfg)
+	// The device gets its config back over the socket rather than in a response body.
+	// "type" is what the client switches on, and it is set last so it cannot be
+	// overwritten by a policy key of the same name.
+	res.Config["type"] = "config"
+	cfgMsg, _ := json.Marshal(res.Config)
 	h.hub.Push(deviceID, cfgMsg)
 }
 
