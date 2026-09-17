@@ -9218,6 +9218,117 @@ func pctCapped(part, whole float64) int {
 	return p
 }
 
+// reportRecipientDomain is the only domain a venue report may be sent to. A report
+// names every device at a site and how it behaved all week, so it goes to colleagues
+// and nowhere else — an open recipient box on an internal dashboard is a data-exfil
+// path that looks like a feature.
+const reportRecipientDomain = "@aioapp.com"
+
+// RestaurantReportEmail mails a venue's weekly report. The email carries the figures
+// themselves rather than a bare link, so it is readable without a login, and a link
+// back for the full per-device table.
+func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	to := strings.TrimSpace(r.FormValue("to"))
+	if to == "" || !strings.Contains(to, "@") {
+		h.reportMailResult(w, r, false, "Enter an email address")
+		return
+	}
+	if !strings.HasSuffix(strings.ToLower(to), reportRecipientDomain) {
+		h.reportMailResult(w, r, false, "Reports can only be sent to "+reportRecipientDomain+" addresses")
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+
+	const days = 7
+	m, _ := h.db.SiteMetricsFor(r.Context(), id, days)
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	if err != nil {
+		log.Printf("[report] email device weeks %s: %v", id, err)
+		h.reportMailResult(w, r, false, "Could not build the report")
+		return
+	}
+	acc := h.access(r)
+	visible := weeks[:0]
+	for _, x := range weeks {
+		if acc.visible(x.DeviceID) {
+			visible = append(visible, x)
+		}
+	}
+
+	subject := fmt.Sprintf("%s — weekly device report", rest.Name)
+	body := reportEmailHTML(rest.Name, days, m, visible, h.baseURL(r)+"/restaurants/"+id.String()+"/report")
+	if err := h.mail.Send(r.Context(), to, subject, body); err != nil {
+		log.Printf("[report] send to %s: %v", to, err)
+		h.reportMailResult(w, r, false, "Sending failed — check the server log")
+		return
+	}
+	h.audit(r, "restaurant.report.email", rest.Name, to)
+	h.reportMailResult(w, r, true, "Sent to "+to)
+}
+
+// reportMailResult answers the htmx form with a one-line status, or redirects back to
+// the report when the browser posted the form without JS.
+func (h *Handler) reportMailResult(w http.ResponseWriter, r *http.Request, ok bool, msg string) {
+	if !hxReq(r) {
+		h.hxRedirect(w, r, r.Header.Get("Referer"))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	class := "bad"
+	if ok {
+		class = "ok"
+	}
+	fmt.Fprintf(w, `<span class="%s">%s</span>`, class, template.HTMLEscapeString(msg))
+}
+
+// reportEmailHTML renders the report for an email client: one table, inline styles,
+// no stylesheet and no theme variables — none of which survive Outlook or Gmail.
+func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek, url string) string {
+	hrs := func(min float64) string { return fmt.Sprintf("%.1f", min/60) }
+	var b strings.Builder
+	fmt.Fprintf(&b, `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:760px;margin:0 auto;padding:24px;">`)
+	fmt.Fprintf(&b, `<h2 style="margin:0 0 4px;">%s</h2>`, template.HTMLEscapeString(venue))
+	fmt.Fprintf(&b, `<p style="margin:0 0 18px;color:#666;">Weekly device report · last %d days · %d device(s) reporting</p>`, days, len(weeks))
+
+	fmt.Fprintf(&b, `<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%%;margin-bottom:18px;background:#f7f7f6;">`)
+	fmt.Fprintf(&b, `<tr><td><b>Average uptime</b></td><td align="right">%d%% of the measured window</td></tr>`, m.UptimeFullPct())
+	fmt.Fprintf(&b, `<tr><td><b>Wireless charging in use</b></td><td align="right">%s hrs</td></tr>`, hrs(m.PadMinutes))
+	if m.HasPadDrain() {
+		fmt.Fprintf(&b, `<tr><td><b>Wireless charging cost</b></td><td align="right">%.2f %%/min off mains</td></tr>`, m.PadDrainPctPerMin())
+	} else {
+		fmt.Fprintf(&b, `<tr><td><b>Wireless charging cost</b></td><td align="right">not enough charging time yet</td></tr>`)
+	}
+	if m.HasStandby() {
+		fmt.Fprintf(&b, `<tr><td><b>Standby</b></td><td align="right">%d%% of powered time, screen off</td></tr>`, m.StandbyPct())
+	}
+	fmt.Fprintf(&b, `</table>`)
+
+	fmt.Fprintf(&b, `<table cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%%;font-size:13px;">`)
+	fmt.Fprintf(&b, `<tr style="background:#eee;text-align:left;"><th>Serial</th><th align="right">Uptime</th><th align="right">Wireless charging</th><th align="right">Plugged in</th><th align="right">Days</th></tr>`)
+	for _, x := range weeks {
+		name := x.Serial
+		if x.Nickname != "" {
+			name += " · " + x.Nickname
+		}
+		fmt.Fprintf(&b, `<tr style="border-top:1px solid #ddd;"><td>%s</td><td align="right">%s hrs (%d%%)</td><td align="right">%s hrs</td><td align="right">%s hrs</td><td align="right">%d</td></tr>`,
+			template.HTMLEscapeString(name), hrs(x.PoweredMinutes), x.UptimeFullPct(), hrs(x.PadMinutes), hrs(x.PluggedMinutes), x.DeviceDays)
+	}
+	fmt.Fprintf(&b, `</table>`)
+	fmt.Fprintf(&b, `<p style="margin:18px 0 0;"><a href="%s" style="color:#4f63d6;">Open the full report</a></p>`, template.HTMLEscapeString(url))
+	fmt.Fprintf(&b, `<p style="color:#888;font-size:12px;">Figures are measured over the device-days that reported, so a device deployed midweek shortens its own window.</p>`)
+	b.WriteString(`</body></html>`)
+	return b.String()
+}
+
 // RestaurantDevicesModal serves just the "deploy devices" card + members list —
 // the fleet-page kebab menu's "Add/remove devices" popup loads this via htmx
 // instead of navigating to the full venue page.
@@ -20642,6 +20753,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
 	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
+	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.RestaurantReportEmail))
 	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
 	post("POST /restaurants/{id}/delete", h.requireAdminOrOperator(h.RestaurantDelete))
