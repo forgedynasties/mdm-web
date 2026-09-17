@@ -1980,6 +1980,10 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
 		  -- One absurd rssi would abort the whole day's insert.
 		  AND COALESCE((c.extra->>'wifi_rssi')::numeric, 0) BETWEEN -32768 AND 32767
+		  -- Rows written after the snapshot stopped being stored carry '{}' and would
+		  -- backfill a sample of all NULLs over a day the dual write already covered.
+		  -- Those days need no backfill; this makes running it on one a no-op.
+		  AND c.extra <> '{}'::jsonb
 		ON CONFLICT (device_id, at) DO NOTHING`, day)
 	if err != nil {
 		return 0, err
@@ -2725,17 +2729,6 @@ func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, star
 	return rows.Err()
 }
 
-// ExportCheckins returns checkin data for multiple devices within a time range,
-// sampled at the given interval in seconds (0 = all rows). Prefer
-// StreamExportCheckins for large windows so the rows aren't all buffered.
-func (d *DB) ExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) ([]ExportRow, error) {
-	var out []ExportRow
-	err := d.StreamExportCheckins(ctx, deviceIDs, start, end, intervalSec, func(r ExportRow) error {
-		out = append(out, r)
-		return nil
-	})
-	return out, err
-}
 
 // ListAllSerials returns every device serial (visible and hidden), so callers can
 // detect and linkify serials named in free text (e.g. the AI report prose).
@@ -2943,18 +2936,6 @@ func (d *DB) GetDeviceLive(ctx context.Context, deviceID uuid.UUID) (*Checkin, e
 	return &c, nil
 }
 
-func (d *DB) GetLatestCheckin(ctx context.Context, deviceID uuid.UUID) (*Checkin, error) {
-	var c Checkin
-	err := d.pool.QueryRow(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins WHERE device_id = $1
-		ORDER BY created_at DESC LIMIT 1
-	`, deviceID).Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &c.Extra, &c.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
-}
 
 func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]Checkin, error) {
 	rows, err := d.pool.Query(ctx, `
@@ -3065,36 +3046,6 @@ func (d *DB) BackfillBuildHistoryDay(ctx context.Context, day time.Time) (int64,
 	return t1.RowsAffected() + t2.RowsAffected(), nil
 }
 
-func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time.Time) ([]Checkin, error) {
-	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
-	end := start.Add(24 * time.Hour)
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1 AND created_at >= $2 AND created_at < $3
-		ORDER BY created_at DESC
-	`, deviceID, start, end)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checkins []Checkin
-	for rows.Next() {
-		var c Checkin
-		var extra []byte
-		if err := rows.Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &extra, &c.CreatedAt); err != nil {
-			return nil, err
-		}
-		if len(extra) > 0 {
-			c.Extra = json.RawMessage(extra)
-		} else {
-			c.Extra = json.RawMessage("{}")
-		}
-		checkins = append(checkins, c)
-	}
-	return checkins, rows.Err()
-}
 
 func (d *DB) GetCheckinsForDuration(ctx context.Context, deviceID uuid.UUID, since time.Time) ([]Checkin, error) {
 	rows, err := d.pool.Query(ctx, `

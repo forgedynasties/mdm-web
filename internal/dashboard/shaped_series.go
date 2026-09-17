@@ -236,3 +236,50 @@ func (h *Handler) shapedCoversExport(ctx context.Context, deviceIDs []uuid.UUID,
 	}
 	return true
 }
+
+// checkinShapeStateKeys are the states a rebuilt check-in row carries: the two the
+// device page's chart draws, plus the ones its vitals row reads. Loading every key a
+// device has ever changed would pull in fields nothing here asks for.
+var checkinShapeStateKeys = []string{"charging", "wlc_status", "wifi", "ip_address", "timezone", "screen_on"}
+
+// shapedCheckins answers a window with check-in shaped rows built from the shaped
+// tables, newest first — the order the check-in queries return and the order both
+// callers reverse. Reports false when the shaped tables do not cover the window, so
+// the caller falls back to the snapshots.
+//
+// It rebuilds each row's Extra rather than changing what reads it. The device page's
+// first paint renders battery, WLC, temperature and RAM straight out of Extra in the
+// template, and chargeRuns reads charging from it; handing those the same object they
+// already expect means this changes where the numbers come from and nothing else. It
+// is the same choice made for the CSV export and the daily rollup, and for the same
+// reason: the formatting stays in one place and cannot drift between two sources.
+func (h *Handler) shapedCheckins(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]db.Checkin, bool) {
+	coverFrom, ok, err := h.db.ShapedCoverage(ctx, deviceID)
+	if err != nil || !ok || from.Before(coverFrom) {
+		return nil, false
+	}
+	samples, err := h.db.GetDeviceSamples(ctx, deviceID, from, until)
+	if err != nil || len(samples) == 0 {
+		return nil, false
+	}
+	events, err := h.db.GetStateTimeline(ctx, deviceID, checkinShapeStateKeys, from, until)
+	if err != nil {
+		return nil, false
+	}
+
+	cur := map[string]string{}
+	next := 0
+	out := make([]db.Checkin, len(samples))
+	for i, s := range samples {
+		for next < len(events) && !events[next].At.After(s.At) {
+			cur[events[next].Key] = events[next].Value
+			next++
+		}
+		c := db.Checkin{CreatedAt: s.At, Extra: db.ShapedExtra(s, cur)}
+		if s.BatteryPct != nil {
+			c.BatteryPct = int(*s.BatteryPct)
+		}
+		out[len(samples)-1-i] = c // samples come oldest first; callers want newest first
+	}
+	return out, true
+}

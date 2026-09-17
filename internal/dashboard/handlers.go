@@ -5694,6 +5694,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Prefer the shaped tables for the default window; fall through to the
+		// snapshots for anything they do not reach. Same fallback the /chart-data
+		// endpoint already has — the first paint simply never had one.
 		if !havePeak {
 			// Bake in only the default 6h view (matches the chart's default
 			// currentDuration) instead of the full 48h range the duration buttons
@@ -5704,7 +5707,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			// buttons pull their extra history from /chart-data on demand
 			// (chartLoadOlder), and the client also warms that cache in the
 			// background right after load — see chartWarmBackground in device.html.
-			cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, device.LastSeenAt.Add(-6*time.Hour))
+			from := device.LastSeenAt.Add(-6 * time.Hour)
+			if shaped, ok := h.shapedCheckins(ctx, device.ID, from, time.Now().UTC()); ok {
+				cc, err = shaped, nil
+			} else {
+				cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, from)
+			}
 		}
 		if err != nil {
 			fail(err)
@@ -7115,10 +7123,15 @@ func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	checkins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, time.Now().UTC().Add(-time.Duration(hours)*time.Hour))
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	from := time.Now().UTC().Add(-time.Duration(hours) * time.Hour)
+	checkins, ok := h.shapedCheckins(r.Context(), device.ID, from, time.Now().UTC())
+	if !ok {
+		var err error
+		checkins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, from)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	filename := fmt.Sprintf("%s_battery_%dh.csv", serial, hours)
