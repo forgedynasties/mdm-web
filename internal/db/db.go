@@ -10171,10 +10171,14 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		lo := param(p, "temp_min", 38)
 		hi := param(p, "temp_max", 45)
 		// Sustained: every reading in the last ~20 min is in [lo,hi) and spans ≥14 min.
+		// Reads device_samples, not checkins: the same readings in fixed columns, so
+		// this runs over a narrow table instead of detoasting a jsonb snapshot per row
+		// — every minute, for the whole fleet. Samples are written under the same
+		// condition as history rows, so the window holds the same readings.
 		rows, err := d.pool.Query(ctx, `
 			SELECT c.device_id, dv.serial_number, MAX(c.temp) FROM (
-				SELECT device_id, (extra->>'battery_temp_c')::numeric AS temp, created_at
-				FROM checkins WHERE created_at > NOW() - INTERVAL '20 minutes'
+				SELECT device_id, temp_c::numeric AS temp, at AS created_at
+				FROM device_samples WHERE at > NOW() - INTERVAL '20 minutes'
 			) c JOIN devices dv ON dv.id = c.device_id
 			WHERE c.temp IS NOT NULL
 			GROUP BY c.device_id, dv.serial_number
@@ -10202,12 +10206,12 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		availMB := param(p, "avail_mb", 400)
 		// Sustained low available RAM (total-used) over the last ~10 min: even the
 		// highest reading in the window stays below the floor. Always-on hardware rule.
+		// device_samples keeps used and total as they were reported, so the available
+		// figure is the same arithmetic on the same numbers, off a narrow table.
 		rows, err := d.pool.Query(ctx, `
 			SELECT c.device_id, dv.serial_number, MAX(c.avail) FROM (
-				SELECT device_id,
-					((extra->'ram_usage_mb'->>'total')::numeric - (extra->'ram_usage_mb'->>'used')::numeric) AS avail,
-					created_at
-				FROM checkins WHERE created_at > NOW() - INTERVAL '12 minutes'
+				SELECT device_id, (ram_total_mb - ram_used_mb)::numeric AS avail, at AS created_at
+				FROM device_samples WHERE at > NOW() - INTERVAL '12 minutes'
 			) c JOIN devices dv ON dv.id = c.device_id
 			WHERE c.avail IS NOT NULL AND NOT dv.hidden
 			GROUP BY c.device_id, dv.serial_number
@@ -12187,6 +12191,17 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECI
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS storage_free_dgb;
+
+-- The primary key answers "this device, this time range". Fleet-wide rules ask the
+-- other question — "every device, these last twenty minutes" — and with only the
+-- composite key that scanned the whole table: 244ms against 4ms for the same window
+-- off checkins, which has its own created_at index.
+--
+-- BRIN rather than btree because samples are appended in time order, so one min/max
+-- per block range is enough to skip everything outside the window. 32kB against the
+-- hundreds of megabytes a btree over millions of rows would cost, and the same query
+-- comes back in 5ms.
+CREATE INDEX IF NOT EXISTS idx_device_samples_at ON device_samples USING BRIN (at);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
