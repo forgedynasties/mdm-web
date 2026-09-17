@@ -1569,7 +1569,19 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 // checkinStripKeys are jsonb keys never persisted in checkins.extra (kept only in
 // devices.latest_extra): bulky, re-sent every frame, and already stored elsewhere
 // (device_events / the learned Wi-Fi index).
-const checkinStripKeys = `'crash_events' - 'wifi_scan'`
+//
+// charger_voltage_mv, mic_gain and location_address were added after measuring a week
+// of real rows: nothing on the server reads any of them out of history — the mic chip,
+// the map pin and the device page all read devices.latest_extra — yet together they
+// cost ~180 bytes on every stored row. charger_voltage_mv was the expensive one for a
+// second reason: it is absent from checkinVolatileKeys, so its last-digit jitter read
+// as a state change and forced a new history row on roughly 88% of samples. Stripping
+// a key removes it from the duplicate comparison below as well, so that stops too.
+//
+// battery_temp_c and ram_usage_mb deliberately stay: they feed the device chart, the
+// live SSE payload, a CSV column, the temp_elevated/memory_low rules and the daily
+// rollup. They are quantised on the device instead.
+const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address'`
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.
