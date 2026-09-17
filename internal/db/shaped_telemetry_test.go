@@ -137,3 +137,64 @@ func TestStateKeysAreNotSampled(t *testing.T) {
 		}
 	}
 }
+
+// TestStateEventRowsSeedsFirstSight pins the fix for the missing-baseline bug. A value
+// that has not changed still has to be recorded the first time it is seen, or the event
+// stream says only when a state last flipped and never what it is. On the live fleet
+// this left timezone with no events at all against 150 devices reporting it, because
+// the comparison is against a snapshot that already held every value.
+func TestStateEventRowsSeedsFirstSight(t *testing.T) {
+	raw := func(m map[string]string) map[string]json.RawMessage {
+		out := map[string]json.RawMessage{}
+		for k, v := range m {
+			out[k] = json.RawMessage(v)
+		}
+		return out
+	}
+	prev := raw(map[string]string{"charging": "true", "timezone": `"Asia/Karachi"`})
+	cur := raw(map[string]string{
+		"charging":   "false",          // changed
+		"timezone":   `"Asia/Karachi"`, // unchanged: must still be offered, as a seed
+		"wlc_status": "1",              // never seen before: a change, not a seed
+	})
+
+	keys, froms, tos, seeds := stateEventRows(prev, cur)
+	got := map[string]struct {
+		from, to string
+		seed     bool
+	}{}
+	for i, k := range keys {
+		got[k] = struct {
+			from, to string
+			seed     bool
+		}{froms[i], tos[i], seeds[i]}
+	}
+
+	if len(got) != 3 {
+		t.Fatalf("got %d keys (%v), want charging, timezone and wlc_status", len(got), keys)
+	}
+	if g := got["charging"]; g.seed || g.from != "true" || g.to != "false" {
+		t.Errorf("charging = %+v, want a change from true to false", g)
+	}
+	// Unchanged, so it is a seed — and it claims nothing about what came before, since
+	// we genuinely do not know when the value was first set.
+	if g := got["timezone"]; !g.seed || g.from != "" || g.to != "Asia/Karachi" {
+		t.Errorf("timezone = %+v, want a seed to Asia/Karachi with no from", g)
+	}
+	// Absent from prev is a real transition, not a seed: it must be written even if an
+	// event for the key already exists.
+	if g := got["wlc_status"]; g.seed || g.to != "1" {
+		t.Errorf("wlc_status = %+v, want a change to 1", g)
+	}
+}
+
+// TestStateEventRowsIgnoresAbsentKeys: a delta frame that does not mention a key says
+// nothing about it. Treating the omission as a change would write an event every time
+// the client sent a partial frame.
+func TestStateEventRowsIgnoresAbsentKeys(t *testing.T) {
+	prev := map[string]json.RawMessage{"charging": json.RawMessage("true")}
+	keys, _, _, _ := stateEventRows(prev, map[string]json.RawMessage{})
+	if len(keys) != 0 {
+		t.Errorf("a frame mentioning nothing produced events for %v", keys)
+	}
+}

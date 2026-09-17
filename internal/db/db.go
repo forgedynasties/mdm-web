@@ -1620,26 +1620,26 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 
 	// Transitions. A key absent from the current report is not a change — a delta frame
 	// simply did not mention it — so only keys present now are considered.
-	var keys, froms, tos []string
-	for _, k := range stateKeys {
-		c, ok := curMap[k]
-		if !ok {
-			continue
-		}
-		p, had := prevMap[k]
-		if had && string(p) == string(c) {
-			continue
-		}
-		keys = append(keys, k)
-		froms = append(froms, jsonScalar(p))
-		tos = append(tos, jsonScalar(c))
-	}
+	//
+	// A key whose value has NOT changed still needs one event if it has never been
+	// recorded: without it the stream has no baseline and a reader cannot say what the
+	// state was, only when it last flipped. That is not hypothetical — comparing against
+	// devices.latest_extra, which already held every value when dual writing began, meant
+	// no device that existed then ever got a first event. On the fleet that left timezone
+	// with 0 events against 150 devices reporting it, wifi with 2 against 147, and
+	// charging with 44 against 128: only keys that happened to flip afterwards existed at
+	// all. Such keys are marked as seeds and inserted only where the device has no event
+	// for them yet, so this costs one indexed probe per key and writes once per device.
+	keys, froms, tos, seeds := stateEventRows(prevMap, curMap)
 	if len(keys) > 0 {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
 			SELECT $1, NOW(), k, f, t
-			FROM unnest($2::text[], $3::text[], $4::text[]) AS u(k, f, t)
-			ON CONFLICT DO NOTHING`, deviceID, keys, froms, tos); err != nil {
+			FROM unnest($2::text[], $3::text[], $4::text[], $5::bool[]) AS u(k, f, t, seed)
+			WHERE NOT u.seed
+			   OR NOT EXISTS (SELECT 1 FROM device_state_events e
+			                  WHERE e.device_id = $1 AND e.key = u.k)
+			ON CONFLICT DO NOTHING`, deviceID, keys, froms, tos, seeds); err != nil {
 			return err
 		}
 	}
@@ -1660,6 +1660,33 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 		jsonFloat(curMap["storage_free_gb"]),
 	)
 	return err
+}
+
+// stateEventRows decides which state events a report produces. Split out from the
+// write so the decision can be tested directly: it is where the missing-baseline bug
+// lived, and a bug here is invisible until a reader asks what a state was.
+//
+// A key returns a seed flag rather than being filtered out, so the caller can insert
+// changes unconditionally and seeds only where nothing has been recorded yet.
+func stateEventRows(prevMap, curMap map[string]json.RawMessage) (keys, froms, tos []string, seeds []bool) {
+	for _, k := range stateKeys {
+		c, ok := curMap[k]
+		if !ok {
+			continue
+		}
+		p, had := prevMap[k]
+		unchanged := had && string(p) == string(c)
+		keys = append(keys, k)
+		// A seed records the value as it stands, with no claim about what preceded it.
+		if unchanged {
+			froms = append(froms, "")
+		} else {
+			froms = append(froms, jsonScalar(p))
+		}
+		tos = append(tos, jsonScalar(c))
+		seeds = append(seeds, unchanged)
+	}
+	return keys, froms, tos, seeds
 }
 
 // jsonScalar renders a jsonb value as the plain text an event row stores: "true",
