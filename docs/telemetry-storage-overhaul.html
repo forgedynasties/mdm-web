@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telemetry Storage Overhaul</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f7f7; --surface: #ffffff; --surface-2: #f1f1f3; --text: #1a1a1a; --muted: #5f5f66; --faint: #8a8a92;
+    --line: #e9e9ed; --coral: #F9674E; --peri: #7A80F6; --ok: #0f6d33; --warn: #8f4209; --bad: #b42318;
+    --ok-bg: rgba(21,127,60,.10); --warn-bg: rgba(180,83,9,.10); --bad-bg: rgba(180,35,24,.10); --shadow: 0 12px 40px rgba(0,0,0,.08);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d0d12; --surface: #16161d; --surface-2: #1e1e27; --text: #f4f4f6; --muted: #a0a1ab; --faint: #7d7e88; --line: #2a2a35;
+    --ok: #55bd75; --warn: #dba33a; --bad: #e07575; --ok-bg: rgba(85,189,117,.14); --warn-bg: rgba(219,163,58,.14); --bad-bg: rgba(224,117,117,.14); --shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Poppins', system-ui, sans-serif; font-weight: 400; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; }
+  .eyebrow { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--coral); }
+  h1 { font-weight: 300; font-size: clamp(32px, 4.5vw, 46px); letter-spacing: -.04em; line-height: 1.06; margin: 10px 0 12px; text-wrap: balance; }
+  h1 .hl { color: var(--coral); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 64ch; margin: 0 0 32px; }
+  h2 { font-weight: 300; font-size: 26px; letter-spacing: -.03em; margin: 48px 0 12px; text-wrap: balance; }
+  h3 { font-weight: 500; font-size: 15px; margin: 22px 0 8px; }
+  p { max-width: 68ch; margin: 0 0 12px; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-bottom: 28px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; margin: 24px 0; }
+  .kpi { padding: 20px 22px 18px; border-left: 1px solid var(--line); }
+  .kpi:first-child { border-left: 0; }
+  .kpi .v { font-size: 38px; font-weight: 300; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi .v.bad { color: var(--bad); } .kpi .v.ok { color: var(--ok); }
+  .kpi .k { font-size: 11px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+  .card { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 22px 24px; margin: 16px 0 24px; }
+  .card h3:first-child { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 10px 10px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.n, th.n { text-align: right; padding-right: 0; }
+  .tw { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; border-radius: 40px; padding: 3px 9px; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.warn { background: var(--warn-bg); color: var(--warn); } .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.off { background: var(--surface-2); color: var(--muted); }
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 200px 1fr 60px; gap: 12px; align-items: center; font-size: 13px; }
+  .bar .lbl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .lbl b { color: var(--text); font-weight: 500; font-family: 'Poppins', sans-serif; }
+  .bar i { display: block; height: 12px; border-radius: 6px; background: var(--surface-2); position: relative; overflow: hidden; }
+  .bar i::after { content: ""; position: absolute; inset: 0; width: var(--p); background: var(--coral); border-radius: 6px; }
+  .bar.warn i::after { background: var(--warn); } .bar.peri i::after { background: var(--peri); }
+  .bar .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; height: 90px; align-items: end; }
+  .hours i { display: block; background: var(--surface-2); height: 100%; border-radius: 5px; position: relative; overflow: hidden; }
+  .hours i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: var(--peri); border-radius: 5px; }
+  .hours i.svc::after { background: var(--coral); }
+  .axis { display: grid; grid-template-columns: repeat(24, 1fr); gap: 4px; margin-top: 6px; font: 500 10px ui-monospace, monospace; color: var(--faint); }
+  .axis span:nth-child(3n+2), .axis span:nth-child(3n) { visibility: hidden; }
+  .callout { border-left: 3px solid var(--coral); padding: 4px 0 4px 16px; margin: 18px 0; color: var(--muted); }
+  .callout b { color: var(--text); font-weight: 500; }
+  ol.plan { padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; margin: 0; }
+  ol.plan li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr auto; gap: 14px; align-items: start; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 14px 18px; }
+  ol.plan li::before { content: counter(step); width: 30px; height: 30px; border-radius: 50%; background: var(--coral); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; }
+  ol.plan b { display: block; font-weight: 500; font-size: 15px; }
+  ol.plan span { font-size: 13px; color: var(--muted); }
+  ol.plan .who { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--peri); white-space: nowrap; margin-top: 4px; }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rules ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+  .rules li { margin: 3px 0; }
+  .rules li b { color: var(--text); font-weight: 500; }
+  .small { font-size: 12.5px; color: var(--muted); }
+  th.vd, td.vd { padding-left: 16px; }
+  ol.plan li.done::before { background: var(--ok); }
+  ol.plan li.done b .pill { margin-left: 8px; vertical-align: 2px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+  @media (max-width: 720px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi:nth-child(3) { border-left: 0; } .kpi:nth-child(n+3) { border-top: 1px solid var(--line); } .bar { grid-template-columns: 120px 1fr 48px; } .rules { grid-template-columns: 1fr; } ol.plan li { grid-template-columns: 34px 1fr; } ol.plan .who { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">AIO MDM · 17 September 2026 · one day's work</div>
+  <h1>The database was growing forever. Now it <span class="hl">finds a steady state</span> on its own.</h1>
+  <p class="lede">It started as four questions from a senior dev about queueing and storage. Measuring the answers turned up a table that had grown to 25 million rows with retention never switched on, sensor jitter writing a row every nine seconds, and a reconnect bug multiplying the request rate. This is what was measured, what shipped, and what is deliberately still open.</p>
+  <div class="meta"><span>Scope <b>18 commits · 3,303 insertions</b></span><span>Fleet <b>193 devices on mdm.dev.aioapp.com</b></span><span>Author <b>Ali, with Claude</b></span></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v ok">11.0M</div><div class="k">rows removed, history kept</div></div>
+    <div class="kpi"><div class="v ok">90% → 7%</div><div class="k">rows forced by jitter</div></div>
+    <div class="kpi"><div class="v ok">937 → 665</div><div class="k">bytes per stored row</div></div>
+    <div class="kpi"><div class="v ok">verified</div><div class="k">backup, restored and diffed</div></div>
+  </div>
+
+  <div class="callout"><b>The finding that paid for the day.</b> <code>charger_voltage_mv</code> was absent from the server's volatile-key list, so its last-digit jitter counted as a state change and forced a history row roughly every ten seconds — on a field <b>nothing on the server has ever read</b>. One line moved rows-forced-by-a-change from 90.3% to 6.7%.</div>
+
+  <h2>What the audit measured</h2>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Measurement</th><th class="n">Before</th><th class="vd">How it was found</th></tr></thead>
+      <tbody>
+        <tr><td>Check-in rows</td><td class="n">25.2M / 15 GB</td><td class="vd">97% of the database</td></tr>
+        <tr><td>Retention</td><td class="n">off</td><td class="vd"><code>checkin_retention_days = 0</code> since March</td></tr>
+        <tr><td>Rows written per day</td><td class="n">118,869</td><td class="vd">across 86 reporting devices</td></tr>
+        <tr><td>Smallest gap between two rows</td><td class="n">5.8 ms</td><td class="vd">the same snapshot arriving twice</td></tr>
+        <tr><td>Keys unchanged across 600 consecutive rows</td><td class="n">17 of 23</td><td class="vd">55% of every row by bytes; 81% counting near-static</td></tr>
+        <tr><td>Indexes on <code>checkins</code> serving zero queries</td><td class="n">933 MB</td><td class="vd">over 6.5 h of live traffic</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h2>What shipped</h2>
+
+  <h3>Write less, at the source</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Change</th><th class="vd">Effect, measured on live</th></tr></thead>
+      <tbody>
+        <tr><td>Stop storing three keys nothing reads from history<br><span class="small">charger_voltage_mv, mic_gain, location_address — all still in the live snapshot</span></td><td class="vd">937 → 665 bytes/row; rows forced by a "change" 90.3% → 6.7%</td></tr>
+        <tr><td>Drop <code>idx_checkins_device_id</code><br><span class="small">a strict prefix of the composite index; 0 scans against 29,440</span></td><td class="vd">177 MB, and one less index written per insert</td></tr>
+        <tr><td>Sampling window 30 s → 60 s</td><td class="vd">an idle device stores half as many rows; transitions still land instantly</td></tr>
+        <tr><td>Deadband on the device<br><span class="small">1 °C and 50 mV against the last <em>reported</em> value</span></td><td class="vd">88% of samples differed on voltage alone; a deadband cannot flap where grid rounding does</td></tr>
+        <tr><td>One telemetry loop per device, not one per reconnect</td><td class="vd">a flapping device ran N loops, each asking it for telemetry on its own timer</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h3>Keep the history, drop the resolution</h3>
+  <div class="card">
+    <p>Retention deletes a period outright. What a fleet actually wants from old history is its <b>shape</b> — when a device was powered, charging, on a pad — which survives at a fraction of the rows.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Step</th><th class="n">Result</th><th class="vd">Note</th></tr></thead>
+      <tbody>
+        <tr><td>Rehearsed on a restored copy of production</td><td class="n">26.3M → 15.3M</td><td class="vd">most days under a second, slowest 7 s</td></tr>
+        <tr><td>Run on live</td><td class="n">11,035,364 rows</td><td class="vd">no lock longer than seconds, no outage</td></tr>
+        <tr><td>Now a housekeeping job</td><td class="n">5 min buckets</td><td class="vd">three productive days per hourly pass; already-thin days do not spend the budget</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0"><b>Why 10 minutes was the right rehearsal number and 5 is the right default:</b> the daily rollup weights each sample by the gap to the next one, capped at 600 s. At or under that cap, <code>online_minutes</code> for a thinned day still recomputes correctly.</p>
+  </div>
+
+  <h3>Store telemetry by what it is</h3>
+  <div class="card">
+    <p>A check-in row carries everything the device sent, so a wireless-charging flip costs a whole snapshot. Two tables split that by shape:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Table</th><th class="n">Bytes/row</th><th class="vd">Written when</th></tr></thead>
+      <tbody>
+        <tr><td><code>checkins</code> snapshot <span class="pill off">today</span></td><td class="n">665</td><td class="vd">every stored report</td></tr>
+        <tr><td><code>device_samples</code> — the numbers, in fixed columns</td><td class="n">~57</td><td class="vd">every stored report</td></tr>
+        <tr><td><code>device_state_events</code> — one row per real change</td><td class="n">~68</td><td class="vd">only when something actually changes</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Three test reports produced three samples and five events: wifi and ip on first sight, charging and pad status on the flip, ip again when it moved. Nothing at all while a state held.</p>
+    <div class="callout" style="margin-top:18px"><b>The constraint that shaped the schema.</b> The first cut stored tenths of a degree and whole percent — smaller, and it would have made the CSV export and the graph quote different numbers for one reading (<code>34.400001525878906</code> against <code>34.4</code>; 55.3% against 55%). The columns now hold the reading itself, and RAM stays as used and total so a percentage is computed the same way everywhere. Verified across 443,886 real rows: zero disagreements, on every field and on the derived percentage.</div>
+  </div>
+
+  <h3>Reports, and two bugs the merge exposed</h3>
+  <div class="card">
+    <div class="rules">
+      <ul>
+        <li><b>Weekly venue report</b> — printable page, real PDF download, emailed through the existing SES mailer with recipients restricted to the company domain.</li>
+        <li><b>Ignore DPC check-ins</b> — a switch for the agent's write volume while it learns to diff.</li>
+      </ul>
+      <ul>
+        <li><b>The WebSocket path had no OTA capability gate.</b> HTTP refuses to hand the OTA command to a build that cannot apply it; over WS the same device got it anyway.</li>
+        <li><b>The WebSocket path never asked for an app list</b>, so a re-flashed device kept showing its old apps indefinitely.</li>
+      </ul>
+    </div>
+    <p class="small" style="margin:14px 0 0">Both had been quietly true for as long as the two ingest paths were maintained by hand. Merging them into one function is what surfaced them — the refactor was worth more than the 37 lines it saved.</p>
+  </div>
+
+  <h2>Where it stands</h2>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Item</th><th>State</th><th class="vd">Note</th></tr></thead>
+      <tbody>
+        <tr><td>Write-side savings, index drop, sampling</td><td><span class="pill ok">live</span></td><td class="vd">measured on the fleet</td></tr>
+        <tr><td>Downsample of existing history</td><td><span class="pill ok">live</span></td><td class="vd">11.0M rows, run by hand</td></tr>
+        <tr><td>Backup</td><td><span class="pill ok">verified</span></td><td class="vd">restored into a throwaway database: 15 GB, 134 indexes, 63 foreign keys, zero errors; copy in versioned S3</td></tr>
+        <tr><td>Downsampling as a job, shaped tables, chart swap</td><td><span class="pill warn">pushed, awaiting deploy</span></td><td class="vd">additive; the chart falls back wherever the shaped tables do not reach</td></tr>
+        <tr><td>Device deadband</td><td><span class="pill warn">needs a firmware build</span></td><td class="vd">on <code>main</code>, not on any device</td></tr>
+        <tr><td>Remaining readers — SSE payload, CSV export, two alert rules, the daily rollup</td><td><span class="pill off">not started</span></td><td class="vd">each one wants the same both-sources diff the chart got</td></tr>
+        <tr><td>Retiring <code>checkins.extra</code></td><td><span class="pill off">blocked on the above</span></td><td class="vd">the payoff, and not safe until every reader has moved</td></tr>
+        <tr><td>Partitioning by month</td><td><span class="pill off">not started</span></td><td class="vd">makes retention and space reclaim free, and gives <code>checkins_pkey</code> (756 MB, 0 scans) a key worth having</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h2>Things that went wrong</h2>
+  <div class="card">
+    <p>Recorded because each one changed how the rest of the work was done.</p>
+    <div class="tw"><table>
+      <thead><tr><th>What</th><th class="vd">Consequence, and what changed after</th></tr></thead>
+      <tbody>
+        <tr><td>An ad-hoc <code>avg(pg_column_size(extra))</code> over 25M rows killed a Postgres backend on the live box — <b>twice</b></td><td class="vd">Crash recovery each time, ~20 s, no data lost. The container sits at 1.86 GB of a 2 GB limit, so any query wanting real work memory tips it. Afterwards: sampled and bounded queries only, never a full-table aggregate.</td></tr>
+        <tr><td>The weekly report shipped unstyled</td><td class="vd">The app is hx-boosted and swaps only <code>&lt;main&gt;</code>, so a standalone page's <code>&lt;head&gt;</code> was discarded. Rebuilt as an ordinary dashboard page; every visual change since was rendered and looked at before pushing.</td></tr>
+        <tr><td>A PDF button that produced an unstyled file</td><td class="vd">html2canvas cannot parse <code>color-mix()</code>, which the stylesheet uses in twenty places. Found by driving the button in a headless browser rather than trusting the library.</td></tr>
+        <tr><td>Told you a short SHA works for deploys</td><td class="vd">It does not — <code>actions/checkout</code> treats anything under 40 characters as a branch name. Cost one failed deploy.</td></tr>
+        <tr><td>Copied a 1.75 GB dump while it was still downloading and called it verified</td><td class="vd"><code>pg_restore --list</code> reads only the table of contents, which sits at the end of the file. It proved nothing about the middle, and the restore failed. Real verification is a full read, then an actual restore.</td></tr>
+        <tr><td>Pushed a commit whose test package did not compile</td><td class="vd">Read <code>go build</code> passing and stopped there. Fixed one commit later.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="callout" style="margin-top:32px"><b>The one-line version.</b> Check-ins are 42% fewer rows and a third smaller each, the table has stopped growing without a single day of history being deleted, and there is a verified restore point behind all of it. The structural half — storing telemetry by shape instead of as snapshots — is built, proven byte-identical on real data, and waiting on the remaining readers before it can pay off.</div>
+
+  <p class="small" style="margin-top:36px">Every figure here was measured against production or a restored copy of it, not estimated. 18 commits, <code>5ab5407</code> to <code>da7969c</code>.</p>
+</div>
+</body>
+</html>
