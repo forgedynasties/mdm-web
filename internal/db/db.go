@@ -1842,6 +1842,31 @@ type StateAt struct {
 	Value string
 }
 
+// ShapedCoverage reports the instant from which this device's history can be answered
+// from the shaped tables: the later of its first sample and its first state event.
+//
+// Both halves are needed. Samples alone would draw the numbers but lose the charge runs
+// and pad markers, which come from events; events alone have nothing to plot. ok is
+// false when either side has nothing at all, which is the case for every window older
+// than the day dual-writing began.
+func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.Time, ok bool, err error) {
+	var sampleFrom, eventFrom *time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT (SELECT MIN(at) FROM device_samples      WHERE device_id = $1),
+		       (SELECT MIN(at) FROM device_state_events WHERE device_id = $1)`,
+		deviceID).Scan(&sampleFrom, &eventFrom)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if sampleFrom == nil || eventFrom == nil {
+		return time.Time{}, false, nil
+	}
+	if eventFrom.After(*sampleFrom) {
+		return *eventFrom, true, nil
+	}
+	return *sampleFrom, true, nil
+}
+
 // GetDeviceSamples returns the numeric series for a window, oldest first — the order
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
