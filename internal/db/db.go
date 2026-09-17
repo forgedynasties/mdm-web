@@ -1476,6 +1476,14 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		}
 	}
 
+	// The snapshot as it stands before this report, so a transition can be told from a
+	// value simply being reported again. One indexed read on a small table; no row yet
+	// for a device enrolling now, which reads as "everything it sends is new".
+	var prevExtra json.RawMessage
+	if err := tx.QueryRow(ctx, `SELECT latest_extra FROM devices WHERE serial_number = $1`, serial).Scan(&prevExtra); err != nil && err != pgx.ErrNoRows {
+		return uuid.Nil, 0, false, err
+	}
+
 	extraExpr := "EXCLUDED.latest_extra"
 	if mergeExtra {
 		extraExpr = "COALESCE(devices.latest_extra, '{}'::jsonb) || EXCLUDED.latest_extra"
@@ -1542,7 +1550,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// above regardless. Any transition (battery %, build, charging, pad state, kiosk,
 	// boot…) still lands the instant it happens, so charts keep every real event.
 	sample := int(d.checkinSampleSec.Load())
-	_, err = tx.Exec(ctx, `
+	ct, err := tx.Exec(ctx, `
 		INSERT INTO checkins (device_id, battery_pct, build_id, extra)
 		SELECT $1, $2, $3, ($4::jsonb) - `+checkinStripKeys+`
 		WHERE NOT EXISTS (
@@ -1562,8 +1570,152 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
+	stored := ct.RowsAffected() > 0
+
+	// Dual-write the shaped tables. Nothing reads them yet: they exist to be compared
+	// against checkins before any reader moves over.
+	//
+	// Inside a SAVEPOINT, because an error anywhere in a transaction poisons the whole
+	// transaction — "log it and carry on" would still fail the commit, and take the
+	// check-in down with a parallel write that nothing depends on yet. The savepoint
+	// lets this half roll back on its own.
+	//
+	// A failure here is therefore silent, which is only acceptable because it is
+	// detectable: device_samples rows and checkins rows are written under the same
+	// condition, so the two counts diverging is the signal. Phase 2 compares them
+	// before a single reader moves over.
+	if sp, spErr := tx.Begin(ctx); spErr == nil {
+		if err := d.writeShapedTelemetry(ctx, sp, deviceID, prevExtra, merged, battery, stored); err != nil {
+			_ = sp.Rollback(ctx)
+		} else {
+			_ = sp.Commit(ctx)
+		}
+	}
 
 	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
+}
+
+// stateKeys are the fields stored as transitions: they describe a state that holds,
+// so what matters is when it changed, not its value on every report. Measured over 600
+// consecutive rows of the busiest device, every one of these changed 0% of the time
+// while costing bytes in each row.
+var stateKeys = []string{
+	"charging", "charger_type", "wlc_status", "wlc_charging",
+	"screen_on", "kiosk_suspended", "boot_id", "boot_reason",
+	"ip_address", "wifi", "timezone", "foreground_pkg",
+	"adb_enabled", "screen_lock_set", "storage_encrypted",
+}
+
+// writeShapedTelemetry records state transitions and, when this report stored a
+// history row, one narrow numeric sample. Runs inside the caller's transaction so a
+// sample and the events around it cannot disagree.
+func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.UUID, prev, cur json.RawMessage, battery int, stored bool) error {
+	var prevMap, curMap map[string]json.RawMessage
+	if len(prev) > 0 {
+		_ = json.Unmarshal(prev, &prevMap)
+	}
+	if err := json.Unmarshal(cur, &curMap); err != nil {
+		return err
+	}
+
+	// Transitions. A key absent from the current report is not a change — a delta frame
+	// simply did not mention it — so only keys present now are considered.
+	var keys, froms, tos []string
+	for _, k := range stateKeys {
+		c, ok := curMap[k]
+		if !ok {
+			continue
+		}
+		p, had := prevMap[k]
+		if had && string(p) == string(c) {
+			continue
+		}
+		keys = append(keys, k)
+		froms = append(froms, jsonScalar(p))
+		tos = append(tos, jsonScalar(c))
+	}
+	if len(keys) > 0 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
+			SELECT $1, NOW(), k, f, t
+			FROM unnest($2::text[], $3::text[], $4::text[]) AS u(k, f, t)
+			ON CONFLICT DO NOTHING`, deviceID, keys, froms, tos); err != nil {
+			return err
+		}
+	}
+
+	if !stored {
+		return nil // the history row was coalesced away; its sample would be too
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_dc, wifi_rssi, ram_pct, storage_free_dgb)
+		VALUES ($1, NOW(), $2, $3, $4, $5, $6)
+		ON CONFLICT (device_id, at) DO NOTHING`,
+		deviceID,
+		battery,
+		scaledInt(curMap["battery_temp_c"], 10),
+		scaledInt(curMap["wifi_rssi"], 1),
+		ramPct(curMap["ram_usage_mb"]),
+		scaledInt(curMap["storage_free_gb"], 10),
+	)
+	return err
+}
+
+// jsonScalar renders a jsonb value as the plain text an event row stores: "true",
+// "1", "wlan0" — without the quotes a JSON string would carry, so a reader never has
+// to know which kind it was.
+func jsonScalar(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return "" // the key was not in this report at all
+	}
+	// Explicit null is a reported value and stays distinguishable from absent:
+	// unmarshalling it into a string succeeds and leaves "" behind.
+	if string(raw) == "null" {
+		return "null"
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	return string(raw)
+}
+
+// scaledInt turns a JSON number into a scaled smallint (temperature ×10, and so on),
+// or nil when the field is absent or out of a smallint's range — a stored NULL says
+// "not measured", which is not the same as zero.
+func scaledInt(raw json.RawMessage, scale float64) *int16 {
+	// Explicit null must stay null: json.Unmarshal accepts it into a float and leaves
+	// zero behind, which would store "not measured" as a real reading of 0.
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err != nil {
+		return nil
+	}
+	v := f * scale
+	if v > 32767 || v < -32768 {
+		return nil
+	}
+	out := int16(v)
+	return &out
+}
+
+// ramPct converts the reported {used,total} object to whole percent. The object is
+// three numbers on every row; the percentage is the only part anything reads.
+func ramPct(raw json.RawMessage) *int16 {
+	if len(raw) == 0 {
+		return nil
+	}
+	var m struct {
+		Used  float64 `json:"used"`
+		Total float64 `json:"total"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil || m.Total <= 0 {
+		return nil
+	}
+	out := int16(m.Used * 100 / m.Total)
+	return &out
 }
 
 // checkinStripKeys are jsonb keys never persisted in checkins.extra (kept only in
@@ -11793,6 +11945,48 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 -- the exclusive lock it takes is momentary — but it is still a lock, hence last, after
 -- everything else has succeeded.
 DROP INDEX IF EXISTS idx_checkins_device_id;
+
+-- Telemetry, stored by shape rather than as one snapshot per report.
+--
+-- A checkins row carries every field the device sent, so a wireless-charging flip
+-- costs ~665 bytes of which ~55% never changed from the row before it. These two
+-- tables split that: what CHANGED, and what is a NUMBER OVER TIME. Measured over 600
+-- consecutive rows of the busiest device, seventeen of twenty-three keys never changed
+-- once, and the five that genuinely move fit in fixed columns.
+--
+-- Nothing reads these yet; they are written alongside checkins so the two can be
+-- compared before any reader moves over.
+
+-- One row per real state change. Nothing is written while a state holds, so an idle
+-- device costs nothing at all.
+CREATE TABLE IF NOT EXISTS device_state_events (
+    device_id UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    key       TEXT        NOT NULL,
+    from_val  TEXT        NOT NULL DEFAULT '',
+    to_val    TEXT        NOT NULL DEFAULT '',
+    PRIMARY KEY (device_id, key, at)
+);
+CREATE INDEX IF NOT EXISTS idx_state_events_device_at ON device_state_events(device_id, at DESC);
+
+-- The numeric series, in fixed columns instead of jsonb. Scaled integers rather than
+-- floats: temperature in tenths of a degree and storage in tenths of a GB are finer
+-- than the sensors are accurate, and smallint is 2 bytes against 8 for a float8 and
+-- ~20 for the same number as jsonb text.
+--
+-- The primary key is (device_id, at) — the order every reader wants, so it needs no
+-- second index, and unlike checkins' random uuid key every insert lands at the right
+-- edge instead of dirtying a random page.
+CREATE TABLE IF NOT EXISTS device_samples (
+    device_id        UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    battery_pct      SMALLINT,
+    temp_dc          SMALLINT,   -- deci-degrees C: 31.5 -> 315
+    wifi_rssi        SMALLINT,
+    ram_pct          SMALLINT,
+    storage_free_dgb SMALLINT,   -- deci-GB: 12.4 -> 124
+    PRIMARY KEY (device_id, at)
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
