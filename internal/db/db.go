@@ -3356,6 +3356,122 @@ func (m SiteMetrics) UptimeFullPct() int {
 	return p
 }
 
+// DeviceWeek is one device's row in a venue's weekly report: the same figures as
+// SiteMetrics, measured for a single serial. Denominators are built from the
+// device-days actually rolled up, so a device enrolled midweek reads as a short
+// window rather than a bad one.
+type DeviceWeek struct {
+	DeviceID uuid.UUID
+	Serial   string
+	Nickname string
+
+	Days              int
+	DeviceDays        int
+	PoweredMinutes    float64
+	FullWindowMinutes float64 // 24h × device-days present
+	PluggedMinutes    float64
+
+	PadMinutes      float64
+	PadDrainPct     float64
+	PadDrainMinutes float64
+
+	ScreenOnMinutes      float64
+	ScreenPoweredMinutes float64
+	ScreenDeviceDays     int
+}
+
+// UptimeFullPct is powered time as a share of the device-days present, capped at 100.
+func (w DeviceWeek) UptimeFullPct() int {
+	if w.FullWindowMinutes <= 0 {
+		return 0
+	}
+	p := int(w.PoweredMinutes * 100 / w.FullWindowMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
+}
+
+// PluggedPct is time on mains as a share of the device-days present.
+func (w DeviceWeek) PluggedPct() int {
+	if w.FullWindowMinutes <= 0 {
+		return 0
+	}
+	p := int(w.PluggedMinutes * 100 / w.FullWindowMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
+}
+
+// HasPadDrain reports whether the drain rate rests on enough measured time to show.
+// Same 30-minute floor as the site figure, so a row and the header agree.
+func (w DeviceWeek) HasPadDrain() bool { return w.PadDrainMinutes >= 30 }
+
+// PadDrainPctPerMin is the per-device drain while a guest phone is on the pad and
+// the tablet is off mains, or 0 when too little pad time was measured to say.
+func (w DeviceWeek) PadDrainPctPerMin() float64 {
+	if !w.HasPadDrain() {
+		return 0
+	}
+	return w.PadDrainPct / w.PadDrainMinutes
+}
+
+// HasStandby reports whether this device reported screen state at all in the window.
+func (w DeviceWeek) HasStandby() bool { return w.ScreenDeviceDays > 0 && w.ScreenPoweredMinutes > 0 }
+
+// StandbyMinutes is powered time with the screen off, over the days that measured it.
+func (w DeviceWeek) StandbyMinutes() float64 {
+	v := w.ScreenPoweredMinutes - w.ScreenOnMinutes
+	if v < 0 {
+		return 0 // clock skew or a partial day; never report negative idle time
+	}
+	return v
+}
+
+// RestaurantDeviceWeeks returns one row per device at a venue for the same window
+// SiteMetricsFor aggregates, so the report's table sums to its header. Reads only
+// device_daily_stats — never raw check-ins.
+func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, days int) ([]DeviceWeek, error) {
+	if days <= 0 {
+		days = 7
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dev.id, dev.serial_number, COALESCE(n.name, ''),
+			COUNT(*)::int,
+			COALESCE(SUM(s.online_minutes), 0)::float8,
+			COALESCE(SUM(s.charging_frac * s.online_minutes), 0)::float8,
+			COALESCE(SUM(s.wlc_minutes), 0)::float8,
+			COALESCE(SUM(s.wlc_drain_pct), 0)::float8,
+			COALESCE(SUM(s.wlc_drain_minutes), 0)::float8,
+			COALESCE(SUM(s.screen_on_minutes), 0)::float8,
+			COALESCE(SUM(s.online_minutes) FILTER (WHERE s.screen_on_minutes IS NOT NULL), 0)::float8,
+			COUNT(s.screen_on_minutes)::int
+		FROM device_daily_stats s
+		JOIN devices dev ON dev.id = s.device_id AND NOT dev.hidden
+		LEFT JOIN device_nicknames n ON n.device_id = dev.id
+		WHERE dev.restaurant_id = $2 AND s.day >= CURRENT_DATE - ($1::int - 1)
+		GROUP BY dev.id, dev.serial_number, n.name
+		ORDER BY SUM(s.online_minutes) DESC NULLS LAST, dev.serial_number`, days, restaurantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeviceWeek
+	for rows.Next() {
+		w := DeviceWeek{Days: days}
+		if err := rows.Scan(&w.DeviceID, &w.Serial, &w.Nickname, &w.DeviceDays,
+			&w.PoweredMinutes, &w.PluggedMinutes, &w.PadMinutes, &w.PadDrainPct,
+			&w.PadDrainMinutes, &w.ScreenOnMinutes, &w.ScreenPoweredMinutes,
+			&w.ScreenDeviceDays); err != nil {
+			return nil, err
+		}
+		w.FullWindowMinutes = float64(w.DeviceDays) * 24 * 60
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
 // SiteMetricsDay is one day of a venue's power picture, for the evidence strip under the
 // headline figures: a percentage nobody can check is a percentage nobody trusts.
 type SiteMetricsDay struct {

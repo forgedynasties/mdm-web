@@ -1606,6 +1606,32 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 	}
 
+	// Weekly report helpers. Rollups are kept in minutes throughout; the report is the
+	// only place that reads in hours, so the conversion lives here rather than in the
+	// query.
+	funcMap["hrs1"] = func(minutes float64) string { return fmt.Sprintf("%.1f", minutes/60) }
+	// band colours an uptime meter: the legend in the report footer names these.
+	funcMap["band"] = func(pct int) string {
+		switch {
+		case pct < 70:
+			return "risk"
+		case pct < 85:
+			return "warn"
+		}
+		return ""
+	}
+	// padDrainBar scales a %/min drain rate onto a meter. 0.2%/min is the full bar:
+	// at that rate a full battery is gone in about eight hours of pad use.
+	funcMap["padDrainBar"] = func(rate float64) int { return pctCapped(rate, 0.2) }
+	// initials is the two-character tile in front of a serial: its last two characters,
+	// which are what actually differs between units on one site.
+	funcMap["initials"] = func(serial string) string {
+		if len(serial) <= 2 {
+			return strings.ToUpper(serial)
+		}
+		return strings.ToUpper(serial[len(serial)-2:])
+	}
+
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
 
 	// S3 APK store — nil (feature disabled) when S3_BUCKET is unset or AWS config fails.
@@ -9078,6 +9104,118 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "restaurant_detail.html", data)
+}
+
+// reportBar is one day in the weekly report's powered-hours strip, already reduced
+// to what the template draws: a label, the per-device hours, and a bar height.
+type reportBar struct {
+	Label string
+	Hours float64
+	Pct   int
+}
+
+// RestaurantReport renders a venue's weekly report: the same figures the venue page
+// shows in its Power & usage card, plus a row per device, on a standalone printable
+// page. Everything comes from device_daily_stats rollups, never raw check-ins.
+func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+	const days = 7
+	data := map[string]any{
+		"Title":      rest.Name + " — Weekly report",
+		"Restaurant": rest,
+		"Days":       days,
+		"WindowFrom": time.Now().AddDate(0, 0, -(days - 1)),
+		"WindowTo":   time.Now(),
+	}
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, days); err == nil {
+		data["Metrics"] = m
+	}
+	// Bars are drawn per device against a 24-hour day, like the venue page, so a site
+	// with more devices does not simply read as taller.
+	if daily, err := h.db.SiteMetricsDaily(r.Context(), id, days); err == nil {
+		bars := make([]reportBar, 0, len(daily))
+		for _, x := range daily {
+			n := x.Devices
+			if n < 1 {
+				n = 1
+			}
+			per := x.PoweredMinutes / float64(n)
+			bars = append(bars, reportBar{
+				Label: x.Day.Format("Mon"),
+				Hours: per / 60,
+				Pct:   pctCapped(per, 24*60),
+			})
+		}
+		data["Bars"] = bars
+	}
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	if err != nil {
+		log.Printf("[report] device weeks %s: %v", id, err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// A viewer who cannot see a device on the fleet page must not see its row here.
+	acc := h.access(r)
+	visible := weeks[:0]
+	for _, x := range weeks {
+		if acc.visible(x.DeviceID) {
+			visible = append(visible, x)
+		}
+	}
+	data["DeviceWeeks"] = visible
+	data["WindowHours"] = days * 24
+
+	// Per-device averages for the header tiles. Divided by the devices that actually
+	// reported, not by the venue's device count, so one never-deployed tablet cannot
+	// halve the venue's uptime.
+	if n := len(visible); n > 0 {
+		var plugged, powered, pad, standby float64
+		standbyDevices := 0
+		for _, x := range visible {
+			plugged += x.PluggedMinutes
+			powered += x.PoweredMinutes
+			pad += x.PadMinutes
+			if x.HasStandby() {
+				standby += x.StandbyMinutes()
+				standbyDevices++
+			}
+		}
+		full := float64(days) * 24 * 60
+		data["AvgPluggedMinutes"] = plugged / float64(n)
+		data["AvgPluggedPct"] = pctCapped(plugged/float64(n), full)
+		data["AvgPoweredMinutes"] = powered / float64(n)
+		data["AvgPadMinutes"] = pad / float64(n)
+		data["AvgPadPct"] = pctCapped(pad/float64(n), full)
+		if standbyDevices > 0 {
+			data["AvgStandbyMinutes"] = standby / float64(standbyDevices)
+		}
+	}
+	h.render(w, r, "restaurant_report.html", data)
+}
+
+// pctCapped is a share of a whole as a whole number, never past 100 — the report's
+// meters are bars, and a bar past its track reads as a bug rather than as good news.
+func pctCapped(part, whole float64) int {
+	if whole <= 0 {
+		return 0
+	}
+	p := int(part * 100 / whole)
+	if p > 100 {
+		return 100
+	}
+	if p < 0 {
+		return 0
+	}
+	return p
 }
 
 // RestaurantDevicesModal serves just the "deploy devices" card + members list —
@@ -20503,6 +20641,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrOperator(h.RestaurantDevicesModal))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
+	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
 	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
 	post("POST /restaurants/{id}/delete", h.requireAdminOrOperator(h.RestaurantDelete))

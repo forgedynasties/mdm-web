@@ -1,0 +1,179 @@
+{{define "restaurant_report.html"}}<!doctype html>
+{{/* Standalone printable weekly report for one venue. Deliberately not wrapped in the
+     dashboard header: this page is meant to be printed or handed over, so it carries
+     its own light-only styling and its own print rules. Every figure comes from
+     device_daily_stats rollups via SiteMetricsFor / RestaurantDeviceWeeks. */}}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>{{.Restaurant.Name}} — Weekly Device Report</title>
+  <style>
+    :root{--ink:#2c2c2b;--muted:#77736f;--canvas:#f7f7f6;--surface:#fff;--soft:#f3f2f0;--border:#e6e5e3;--coral:#ff654f;--coral-soft:#fff0ed;--green:#39875f;--amber:#b46b2d;--red:#cc4c43;--shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.045)}
+    *{box-sizing:border-box}body{margin:0;min-width:320px;background:var(--canvas);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}button,input{font:inherit}button:focus-visible,input:focus-visible,.table-wrap:focus-visible{outline:3px solid rgba(39,131,222,.28);outline-offset:2px}
+    .page{width:min(1420px,calc(100% - 48px));margin:auto;padding:32px 0 64px}.eyebrow{margin:0 0 6px;color:var(--coral);font-size:13px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}.eyebrow a{color:inherit;text-decoration:none}.eyebrow a:hover{text-decoration:underline}.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:24px}h1{margin:0;font-size:clamp(32px,3vw,48px);line-height:1.08;letter-spacing:-.035em;font-weight:650}.subhead{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0;color:var(--muted);font-size:15px}.subhead strong{color:var(--ink)}.dot{color:#b0ada8}.button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04);font-weight:650}.button:hover{background:var(--soft)}.button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .panel{overflow:hidden;margin-bottom:24px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 22px;border-bottom:1px solid var(--border)}.title-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}h2{margin:0;font-size:21px;line-height:1.25;letter-spacing:-.015em}.panel-head p{margin:5px 0 0;color:var(--muted);font-size:14px}.window{flex:0 0 auto;padding:8px 11px;border-radius:8px;background:var(--soft);color:var(--muted);font-size:13px;font-weight:650}
+    .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--border)}.metric{min-width:0;padding:20px;background:var(--surface)}.metric-label{display:flex;align-items:center;gap:8px;min-height:24px;color:#615e59;font-size:13px;font-weight:750}.icon{width:22px;height:22px;display:grid;place-items:center;border-radius:6px;background:var(--soft);color:var(--muted)}.icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.value{margin-top:14px;font-size:clamp(30px,2.6vw,42px);line-height:1;letter-spacing:-.045em;white-space:nowrap}.value.none{color:var(--muted);font-size:20px;letter-spacing:-.01em}.unit{margin-left:3px;color:var(--muted);font-size:16px;letter-spacing:0}.note{min-height:42px;margin:8px 0 0;color:var(--muted);font-size:13px;line-height:1.35}.meter,.row-meter{height:6px;overflow:hidden;border-radius:4px;background:#eceae8}.meter{margin-top:14px}.meter span,.row-meter span{display:block;height:100%;border-radius:inherit;background:var(--coral)}
+    .weekly{padding:18px 22px 22px;border-top:1px solid var(--border)}.weekly-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:16px}.weekly-head strong{font-size:14px}.weekly-head span{color:var(--muted);font-size:13px}.bars{height:112px;display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end}.bar{height:100%;display:grid;grid-template-rows:1fr auto auto;gap:5px;text-align:center}.track{position:relative;align-self:end;height:70px;overflow:hidden;border-radius:7px 7px 4px 4px;background:#efefef}.fill{position:absolute;right:0;bottom:0;left:0;min-height:6px;border-radius:7px 7px 4px 4px;background:linear-gradient(180deg,#ff7a65,var(--coral))}.day{color:var(--muted);font-size:12px}.hours{font-size:13px;font-weight:750}
+    .report-head{align-items:flex-end}.search{width:230px;min-height:44px;padding:0 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink)}.table-wrap{overflow-x:auto}table{width:100%;min-width:1030px;border-collapse:collapse;font-variant-numeric:tabular-nums}thead th{padding:12px 16px;border-bottom:1px solid var(--border);background:#faf9f8;color:#6e6b66;font-size:12px;font-weight:800;letter-spacing:.04em;text-align:left;text-transform:uppercase;white-space:nowrap}tbody td{padding:14px 16px;border-bottom:1px solid #efeeec;color:#45433f;font-size:14px;vertical-align:middle}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#fcfbfa}.serial{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:750;text-decoration:none}.serial:hover{text-decoration:underline}.mark{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;background:var(--soft);color:#6b6863;font-size:12px;font-weight:800}.nick{display:block;color:var(--muted);font-size:12px;font-weight:500}.uptime{min-width:230px}.uptime-top{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}.uptime-top strong,.number strong{color:var(--ink)}.uptime-top span,.number small{color:var(--muted);font-size:12px}.number .na{color:var(--muted)}.row-meter span{background:var(--green)}.row-meter span.warn{background:var(--amber)}.row-meter span.risk{background:var(--red)}.empty{display:none;padding:40px 20px;color:var(--muted);text-align:center}.norows{padding:40px 20px;color:var(--muted);text-align:center}.footer{display:flex;justify-content:space-between;gap:12px;padding:13px 18px;border-top:1px solid var(--border);background:#faf9f8;color:var(--muted);font-size:13px}.legend{display:flex;flex-wrap:wrap;gap:14px}.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:8px;height:8px;border-radius:50%;display:inline-block}.mobile-hint{display:none}
+    @media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}.metric:nth-child(n+4){border-top:1px solid var(--border)}}
+    @media(max-width:760px){.page{width:min(100% - 32px,1420px);padding-top:20px}.page-header,.panel-head{align-items:stretch;flex-direction:column}.button{width:100%}.window{text-align:left}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:17px}.metric:nth-child(3){border-top:1px solid var(--border)}.metric:last-child{grid-column:1/-1}.search{width:100%}.weekly{padding-inline:16px}.bars{gap:7px}.footer{align-items:flex-start;flex-direction:column}.mobile-hint{display:inline}}
+    @media(max-width:430px){.page{width:min(100% - 24px,1420px)}h1{font-size:34px}.panel-head{padding:18px}.metrics{grid-template-columns:1fr}.metric,.metric:last-child{grid-column:auto;border-top:1px solid var(--border)}.metric:first-child{border-top:0}.weekly-head{align-items:flex-start;flex-direction:column;gap:4px}.bars{gap:5px}.hours,.day{font-size:11px}}
+    @media print{body{background:#fff}.page{width:100%;padding:0}.button,.search,.mobile-hint{display:none!important}.panel{box-shadow:none}.table-wrap{overflow:visible}table{min-width:0}thead th,tbody td{padding:8px;font-size:10px}}
+  </style>
+</head>
+<body>
+{{$m := .Metrics}}
+{{$days := .Days}}
+<main class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Fleet · <a href="/restaurants/{{.Restaurant.ID}}">Restaurants</a></p>
+      <h1>{{.Restaurant.Name}}</h1>
+      <p class="subhead">
+        <strong>{{len .DeviceWeeks}} device{{if ne (len .DeviceWeeks) 1}}s{{end}}</strong>
+        {{if .Restaurant.Address}}<span class="dot">·</span><span>{{.Restaurant.Address}}</span>{{end}}
+      </p>
+    </div>
+    <button class="button" type="button" onclick="window.print()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>Print report</button>
+  </header>
+
+  <section class="panel" aria-labelledby="summary-title">
+    <div class="panel-head">
+      <div>
+        <div class="title-row"><h2 id="summary-title">Weekly fleet summary</h2></div>
+        <p>Averages per device over the last {{$days}} days. Each figure is measured over the device-days that reported, so a device deployed midweek shortens its own window instead of dragging the venue down.</p>
+      </div>
+      <div class="window">{{shortDate .WindowFrom}} – {{shortDate .WindowTo}} · {{.WindowHours}} hours</div>
+    </div>
+
+    {{if $m}}
+    <div class="metrics">
+      <article class="metric">
+        <div class="metric-label"><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 1M9 3h6M12 3v3"/></svg></span>Average uptime</div>
+        <div class="value">{{hrs1 .AvgPoweredMinutes}}<span class="unit">/ {{.WindowHours}} hrs</span></div>
+        <p class="note"><strong>{{$m.UptimeFullPct}}%</strong> of the measured window · {{hrs1 $m.PoweredMinutes}} fleet hours total</p>
+        <div class="meter"><span style="width:{{$m.UptimeFullPct}}%"></span></div>
+      </article>
+
+      <article class="metric">
+        <div class="metric-label"><span class="icon"><svg viewBox="0 0 24 24"><path d="M7 8.5a7 7 0 0 1 10 0M9.5 11a3.5 3.5 0 0 1 5 0"/><circle cx="12" cy="14" r="1"/></svg></span>WLC in use</div>
+        <div class="value">{{hrs1 .AvgPadMinutes}}<span class="unit">hrs</span></div>
+        <p class="note">Average time a guest phone sat on the tablet's pad</p>
+        <div class="meter"><span style="width:{{.AvgPadPct}}%"></span></div>
+      </article>
+
+      <article class="metric">
+        <div class="metric-label"><span class="icon"><svg viewBox="0 0 24 24"><path d="m13 2-7 12h6l-1 8 7-12h-6l1-8Z"/></svg></span>Battery drain with WLC</div>
+        {{if $m.HasPadDrain}}
+        <div class="value">{{printf "%.2f" $m.PadDrainPctPerMin}}<span class="unit">%/min</span></div>
+        <p class="note">Battery lost per minute with a phone on the pad and the tablet off mains · measured over {{hrs1 $m.PadDrainMinutes}} hrs</p>
+        <div class="meter"><span style="width:{{padDrainBar $m.PadDrainPctPerMin}}%"></span></div>
+        {{else}}
+        <div class="value none">Not enough pad time</div>
+        <p class="note">Needs 30 minutes of pad use off mains before a rate means anything · {{hrs1 $m.PadDrainMinutes}} hrs so far</p>
+        <div class="meter"><span style="width:0"></span></div>
+        {{end}}
+      </article>
+
+      <article class="metric">
+        <div class="metric-label"><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg></span>Standby</div>
+        {{if $m.HasStandby}}
+        <div class="value">{{hrs1 .AvgStandbyMinutes}}<span class="unit">hrs</span></div>
+        <p class="note"><strong>{{$m.StandbyPct}}%</strong> of powered time with the screen off</p>
+        <div class="meter"><span style="width:{{$m.StandbyPct}}%"></span></div>
+        {{else}}
+        <div class="value none">Not reported yet</div>
+        <p class="note">Screen state arrives with the newer firmware; devices without it are left out rather than counted as idle</p>
+        <div class="meter"><span style="width:0"></span></div>
+        {{end}}
+      </article>
+
+      <article class="metric">
+        <div class="metric-label"><span class="icon"><svg viewBox="0 0 24 24"><path d="M9 4v5M15 4v5M7 9h10v2a5 5 0 0 1-5 5v4M9 20h6"/></svg></span>Plugged in</div>
+        <div class="value">{{hrs1 .AvgPluggedMinutes}}<span class="unit">/ {{.WindowHours}} hrs</span></div>
+        <p class="note">Average time on mains power across the week</p>
+        <div class="meter"><span style="width:{{.AvgPluggedPct}}%"></span></div>
+      </article>
+    </div>
+    {{end}}
+
+    {{if .Bars}}
+    <div class="weekly">
+      <div class="weekly-head"><strong>Average powered hours per device, by day</strong><span>Each bar is measured against a 24-hour day</span></div>
+      <div class="bars" style="grid-template-columns:repeat({{len .Bars}},1fr)">
+        {{range .Bars}}
+        <div class="bar" title="{{.Label}}: {{printf "%.1f" .Hours}} powered hours">
+          <div class="track"><div class="fill" style="height:{{.Pct}}%"></div></div>
+          <span class="day">{{.Label}}</span>
+          <span class="hours">{{printf "%.1f" .Hours}}h</span>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </section>
+
+  <section class="panel" aria-labelledby="devices-title">
+    <div class="panel-head report-head">
+      <div><h2 id="devices-title">Individual device reports</h2><p>Serial-level performance for the same {{$days}}-day window. <span class="mobile-hint">Swipe the table to view all metrics.</span></p></div>
+      <label><span style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Search devices</span><input id="search" class="search" type="search" placeholder="Search serial number…" /></label>
+    </div>
+    {{if .DeviceWeeks}}
+    <div class="table-wrap" role="region" aria-label="Individual device weekly report" tabindex="0">
+      <table>
+        <thead><tr><th>Serial number</th><th>Uptime</th><th>WLC in use</th><th>Battery drain with WLC</th><th>Standby</th><th>Plugged in</th></tr></thead>
+        <tbody id="rows">
+          {{range .DeviceWeeks}}
+          <tr data-serial="{{.Serial}} {{.Nickname}}">
+            <td>
+              <a class="serial" href="/devices/{{.Serial}}"><span class="mark">{{initials .Serial}}</span>
+                <span>{{.Serial}}{{if .Nickname}}<span class="nick">{{.Nickname}}</span>{{end}}</span>
+              </a>
+            </td>
+            <td class="uptime">
+              <div class="uptime-top"><strong>{{hrs1 .PoweredMinutes}} hrs</strong><span>{{.UptimeFullPct}}%</span></div>
+              <div class="row-meter"><span class="{{band .UptimeFullPct}}" style="width:{{.UptimeFullPct}}%"></span></div>
+              <div class="uptime-top" style="margin:6px 0 0"><span>over {{.DeviceDays}} day{{if ne .DeviceDays 1}}s{{end}} reported</span></div>
+            </td>
+            <td class="number"><strong>{{hrs1 .PadMinutes}}</strong> <small>hrs</small></td>
+            <td class="number">{{if .HasPadDrain}}<strong>{{printf "%.2f" .PadDrainPctPerMin}}</strong> <small>%/min</small>{{else}}<span class="na">—</span>{{end}}</td>
+            <td class="number">{{if .HasStandby}}<strong>{{hrs1 .StandbyMinutes}}</strong> <small>hrs</small>{{else}}<span class="na">—</span>{{end}}</td>
+            <td class="number"><strong>{{hrs1 .PluggedMinutes}}</strong> <small>hrs</small></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      <div class="empty" id="empty">No devices match this search.</div>
+    </div>
+    <footer class="footer">
+      <span id="count">Showing {{len .DeviceWeeks}} of {{len .DeviceWeeks}} devices</span>
+      <div class="legend"><span><i style="background:#39875f"></i>85% or higher</span><span><i style="background:#b46b2d"></i>70–84%</span><span><i style="background:#cc4c43"></i>Below 70%</span></div>
+    </footer>
+    {{else}}
+    <div class="norows">No device has a rolled-up day at this venue yet. Daily stats are built by the hourly housekeeping job.</div>
+    {{end}}
+  </section>
+</main>
+<script>
+  // Filter rows in place. The table is rendered server-side; this only hides rows.
+  var search = document.getElementById('search');
+  if (search) {
+    search.addEventListener('input', function (event) {
+      var q = event.target.value.trim().toLowerCase();
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#rows tr'));
+      var shown = 0;
+      rows.forEach(function (row) {
+        var hit = row.getAttribute('data-serial').toLowerCase().indexOf(q) !== -1;
+        row.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      document.getElementById('empty').style.display = shown ? 'none' : 'block';
+      document.getElementById('count').textContent = 'Showing ' + shown + ' of ' + rows.length + ' devices';
+    });
+  }
+</script>
+</body>
+</html>
+{{end}}
