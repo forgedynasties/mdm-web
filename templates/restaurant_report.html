@@ -35,7 +35,21 @@
      pushed down the page by a header that is no longer there. */
   main,.app-main,.shell-main{margin:0!important;padding-top:0!important}
   .cc-wrap{max-width:none;padding:0}
-  .cc-card,.cc-kpi{box-shadow:none;break-inside:avoid}
+  .cc-kpi{box-shadow:none;break-inside:avoid}
+  .cc-card{box-shadow:none}
+
+  /* The device table scrolls sideways on screen. On paper there is no sideways, so
+     that container simply clipped the last column off every printed report — the
+     plugged-in figures were cut mid-number. Let it lay out to the page instead, and
+     give the table room to do so. */
+  .rp-tablewrap{overflow:visible!important}
+  .cc-table{width:100%;font-size:10.5px}
+  .cc-table th,.cc-table td{padding-left:6px;padding-right:6px}
+  .rp-upcell{min-width:120px!important}
+
+  /* Cards may split across pages, but never a row. break-inside:avoid on the card
+     pushed the whole device table to page 2 and left the first page half empty. */
+  .cc-table tr{break-inside:avoid}
 }
 </style>
 
@@ -123,10 +137,10 @@
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg></span>
       <h3>Individual device reports</h3>
-      <span class="m">same {{.Days}}-day window</span>
+      <span class="m">same week</span>
     </div>
     {{if .DeviceWeeks}}
-    <div style="overflow-x:auto;">
+    <div class="rp-tablewrap" style="overflow-x:auto;">
       <table class="cc-table">
         <thead><tr><th>Serial number</th><th>Uptime</th><th>Wireless charging</th><th>Battery drain</th><th>Standby</th><th>Plugged in</th></tr></thead>
         <tbody>
@@ -136,7 +150,7 @@
               <a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a>
               {{if .Nickname}}<div class="rp-sub">{{.Nickname}}</div>{{end}}
             </td>
-            <td style="min-width:200px;">
+            <td class="rp-upcell" style="min-width:200px;">
               <div class="rp-up"><b>{{hrs1 .PoweredMinutes}} hrs</b><span class="muted">{{.UptimeFullPct}}%</span></div>
               <div class="rp-meter"><i class="{{band .UptimeFullPct}}" style="width:{{.UptimeFullPct}}%"></i></div>
               <div class="rp-sub">over {{.DeviceDays}} day{{if ne .DeviceDays 1}}s{{end}} reported</div>
