@@ -333,16 +333,41 @@ func (a *access) hasViewRestriction() bool {
 // visibleIDs is the device-id allowlist for list queries, or nil for "no filter".
 // Computed once per request.
 func (a *access) visibleIDs() []uuid.UUID {
-	if !a.hidesDevices() && !a.hidesDPC() {
+	hideDev, hideDPC := a.hidesDevices(), a.hidesDPC()
+	if !hideDev && !hideDPC {
 		return nil
 	}
 	a.visOnce.Do(func() {
 		a.loadScopes()
 		ids := make([]uuid.UUID, 0, len(a.scopes))
 		for id := range a.scopes {
-			if a.canDevice("view", id) {
-				ids = append(ids, id)
+			// Each reason filters on its own criterion. Applying the view policy
+			// whenever ANY reason is in play is what made an operator with a base-deny
+			// policy and no hide flag see an empty device list: DPC hiding put them on
+			// the filter path, and the filter then also enforced the view restriction
+			// that was deliberately meant to leave their list alone and only disable
+			// the actions.
+			if hideDPC && a.isDPC(id) {
+				continue
 			}
+			if hideDev && !a.canDevice("view", id) {
+				continue
+			}
+			ids = append(ids, id)
+		}
+		// When the only reason to filter was DPC hiding and no DPC device was found,
+		// there is no filter to apply, and saying so with nil is not just tidier: a
+		// materialised list is a snapshot of the devices that existed when this request
+		// loaded its scopes, so returning one would quietly exclude anything enrolled
+		// afterwards.
+		//
+		// Deliberately not done when hideDev is set. Callers do not agree on what nil
+		// means — OwnerHome reads it as "no devices" while the list pages read it as "no
+		// filter" — so collapsing a policy-filtered result to nil would blank an owner's
+		// home page the moment their grants happened to cover the whole fleet.
+		if !hideDev && len(ids) == len(a.scopes) {
+			a.vis = nil
+			return
 		}
 		sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
 		a.vis = ids

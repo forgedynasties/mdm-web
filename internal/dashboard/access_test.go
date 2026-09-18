@@ -179,3 +179,55 @@ func TestRoleCeilings(t *testing.T) {
 		t.Fatalf("owner grantable = %d", n)
 	}
 }
+
+// TestVisibleIDsDPCOnlyFilterKeepsOthers pins the fix for an operator seeing an empty
+// device list. Two independent reasons can put a user on the filter path — the access
+// policy, and DPC devices being hidden from non-admins — and each must filter on its
+// own criterion. Applying the view policy merely because DPC hiding was in play meant
+// an operator with a base-deny policy and no hide flag, who is supposed to see every
+// device with its actions disabled, saw nothing at all.
+func TestVisibleIDsDPCOnlyFilterKeepsOthers(t *testing.T) {
+	// One DPC device among the four; the operator's policy denies by default but has
+	// no hide flag, so the policy must not remove anything.
+	a := newAccess("operator", db.AccessPolicy{Base: "deny"})
+	sc := fixtureScopes()
+	sc[d2] = db.DeviceScope{RestaurantID: sc[d2].RestaurantID, Groups: sc[d2].Groups, DPC: true}
+	a.scopes = sc
+
+	ids := a.visibleIDs()
+	if ids == nil {
+		t.Fatal("a DPC device is present, so the list must be filtered")
+	}
+	if len(ids) != 3 {
+		t.Fatalf("operator sees %d devices, want 3 (all but the DPC one)", len(ids))
+	}
+	for _, id := range ids {
+		if id == d2 {
+			t.Error("the DPC device was not hidden from the operator")
+		}
+	}
+	// The policy still must not hide anything by itself.
+	if a.hidesDevices() {
+		t.Error("an operator without the hide flag must not hide on policy grounds")
+	}
+}
+
+// TestVisibleIDsOwnerNeverCollapsesToNil guards the other half of that fix. Callers
+// disagree about what nil means — the fleet list reads it as "no filter", OwnerHome
+// reads it as "no devices" — so a policy-filtered result must stay an explicit list
+// even when the policy happens to admit every device, or an owner whose grants cover
+// the whole venue gets a blank home page.
+func TestVisibleIDsOwnerNeverCollapsesToNil(t *testing.T) {
+	a := newAccess("owner", db.AccessPolicy{
+		Base: "deny",
+		Grants: []db.AccessGrant{allow("device", &d1, "view"), allow("device", &d2, "view"),
+			allow("device", &d3, "view"), allow("device", &d4, "view")},
+	})
+	ids := a.visibleIDs()
+	if ids == nil {
+		t.Fatal("an owner allowed every device still needs an explicit list, not nil")
+	}
+	if len(ids) != 4 {
+		t.Fatalf("owner sees %d devices, want 4", len(ids))
+	}
+}
