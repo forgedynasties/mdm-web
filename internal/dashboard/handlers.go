@@ -2668,20 +2668,30 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// The owner's own weekly report — the same one that is emailed. Prefer the rendered
-	// PDF for the last finished week and fall back to the live page, so the link is
-	// never a dead end on a week that has not been rendered yet.
-	reportURL := ""
+	// The owner's own weekly report, inline. This card used to be a mock-up captioned
+	// "Preview"; it now carries the real figures for the last finished week — the same
+	// numbers the emailed report and the PDF quote, from the same query, so an owner
+	// comparing the three never sees three different answers.
+	reportURL, reportFrom, reportTo := "", time.Time{}, time.Time{}
+	var reportMetrics *db.SiteMetrics
 	if restaurantID != nil {
-		_, weekEnd := lastFullWeek(time.Now())
+		reportFrom, reportTo = lastFullWeek(time.Now())
 		reportURL = fmt.Sprintf("%s/restaurants/%s/report", h.baseURL(r), *restaurantID)
-		if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(*restaurantID, weekEnd)+".pdf")); err == nil {
-			reportURL = h.ReportPDFURL(r, *restaurantID, weekEnd)
+		// Prefer the rendered PDF when one exists for that week; fall back to the live
+		// page so the link is never a dead end on a week not yet rendered.
+		if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(*restaurantID, reportTo)+".pdf")); err == nil {
+			reportURL = h.ReportPDFURL(r, *restaurantID, reportTo)
+		}
+		if m, err := h.db.SiteMetricsFor(ctx, *restaurantID, 7, reportTo); err == nil && m.DeviceDays > 0 {
+			reportMetrics = &m
 		}
 	}
 
 	h.render(w, r, "owner_home.html", map[string]any{
 		"ReportURL":     reportURL,
+		"ReportMetrics": reportMetrics,
+		"ReportFrom":    reportFrom,
+		"ReportTo":      reportTo,
 		"TodoGroups":    needGroups,
 		"TodoCount":     len(todos),
 		"Headline":      headline,
