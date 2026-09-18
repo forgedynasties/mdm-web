@@ -187,7 +187,7 @@
           <span class="cc-pill {{$sc}}">{{.Status}}</span>
           <span class="cc-tag">{{productLabel .Product}}</span>{{if .Legacy}}<span class="cc-tag" title="Includes devices served over the legacy otautil path">+ legacy</span>{{end}}
         </div>
-        <div class="uh-sub"><span class="reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}}</span>{{if .Reboot}} · {{.Reboot}} reboot{{end}}{{if .CreatedBy}}{{$by := userBubble .CreatedBy}}{{if not $by.Admin}} · by <b>{{$by.Name}}</b>{{end}}{{end}}</div>
+        <div class="uh-sub"><span class="reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}}</span>{{if .Reboot}} · {{.Reboot}} reboot{{end}}{{if .CreatedBy}}{{$by := userBubble .CreatedBy}}{{if not $by.Admin}} · by {{template "ubub" $by}} <b>{{$by.Name}}</b>{{end}}{{end}}</div>
       </div>
       <div class="uh-roll">
         {{if gt .Total 0}}
