@@ -60,19 +60,19 @@
   <div class="card-header"><h3>Power &amp; usage</h3><span class="muted small">last {{$m.Days}} days · {{$m.DeviceCount}} device{{if ne $m.DeviceCount 1}}s{{end}}</span></div>
   <div class="cc-kpis sm-kpis">
     <div class="cc-kpi">
-      <span class="k">Uptime · open hours</span>
+      <span class="k">Average uptime · open hours</span>
       {{if $m.HasOpenHours}}
-      <div class="v">{{hrs $m.PoweredOpenMinutes}}<span class="muted" style="font-size:.6em;"> / {{hrs $m.OpenWindowMinutes}} hrs</span></div>
+      <div class="v">{{hrs (perDev $m.PoweredOpenMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.OpenWindowMinutes $m.DeviceCount)}} hrs</span></div>
       <div class="muted small">{{$m.UptimeOpenPct}}% of opening hours · {{$m.UptimeFullPct}}% of the full week</div>
       {{else}}
-      <div class="v">{{hrs $m.PoweredMinutes}}<span class="muted" style="font-size:.6em;"> / {{hrs $m.FullWindowMinutes}} hrs</span></div>
+      <div class="v">{{hrs (perDev $m.PoweredMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.FullWindowMinutes $m.DeviceCount)}} hrs</span></div>
       <div class="muted small">{{$m.UptimeFullPct}}% of the full week · no service hours set</div>
       {{end}}
     </div>
     <div class="cc-kpi">
       <span class="k">Wireless charging in use</span>
       <div class="v">{{hrs $m.PadMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.PadMinutes 60.0}} hrs{{end}}</span></div>
-      <div class="muted small">a customer's phone charging on a tablet</div>
+      <div class="muted small">total time TSAI wireless charging was used</div>
     </div>
     <div class="cc-kpi">
       <span class="k">Battery drained through wireless charging</span>
@@ -84,16 +84,13 @@
       <div class="muted small">not enough charging time yet</div>
       {{end}}
     </div>
+    {{if $m.HasStandby}}
     <div class="cc-kpi">
       <span class="k">Standby</span>
-      {{if $m.HasStandby}}
       <div class="v">{{hrs $m.StandbyMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.StandbyMinutes 60.0}} hrs{{end}}</span></div>
       <div class="muted small">{{$m.StandbyPct}}% of powered time with the screen off</div>
-      {{else}}
-      <div class="v muted">—</div>
-      <div class="muted small">needs the firmware that reports screen state</div>
-      {{end}}
     </div>
+    {{end}}
     <div class="cc-kpi">
       <span class="k">Plugged in at</span>
       {{if $m.ConnectCount}}

@@ -725,15 +725,20 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
         {{if .Device.HasWLC}}
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging active</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e8a13a;"></span> Charging pad misplaced</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
+        {{/* Two different things are drawn here and they were both called "charging".
+             The LINE colour is the wireless pad — a customer's phone on the tablet.
+             The STRIP is the tablet charging itself from mains. Naming both of them
+             "charging" made the chart unreadable, so the line says wireless
+             throughout and the strip says what is being charged. */}}
+        <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging in use</span>
+        <span class="chart-legend-item" title="Line colour: pad powered, nothing on it"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Wireless pad vacant</span>
+        <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> Wireless pad misplaced</span>
+        <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> Wireless pad unreadable</span>
         {{end}}
         {{if .Device.HasCharging}}
         {{/* The strip under the chart (chargeStripPlugin), not the line colour. */}}
-        <span class="chart-legend-item" title="Strip under the chart: filled where the device reported it was charging"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Charging</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Not charging</span>
+        <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
+        <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
         {{end}}
       </div>
     </div>
@@ -1620,9 +1625,9 @@ function mdmBootCharts() {
       // WLC text comes from the raw nearest reading (not the smoothed line), so the
       // label is the exact wireless-charging state recorded at that checkin.
       let s = 'Battery: ' + bPt.y + '%';
-      if (bPt.wlc === 1) s += ' · ⚡ Wireless charging active';
-      else if (bPt.wlc === 0) s += ' · Charging pad vacant';
-      else if (bPt.wlc === 2) s += ' · ⚠ Charging pad misplaced — please place it again';
+      if (bPt.wlc === 1) s += ' · ⚡ Wireless charging in use';
+      else if (bPt.wlc === 0) s += ' · Wireless pad vacant';
+      else if (bPt.wlc === 2) s += ' · ⚠ Wireless pad misplaced — please place it again';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       if (allCharge.length) {
         const c = chargeAt(ms);
@@ -2054,7 +2059,7 @@ function mdmBootCharts() {
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
-    if (pt.wlc === 1) return line + ' ⚡ Wireless charging active';
+    if (pt.wlc === 1) return line + ' ⚡ Wireless charging in use';
     if (pt.wlc === 0) return line + ' — Charging pad vacant';
     if (pt.wlc === 2) return line + ' ⚠ Charging pad misplaced — please place it again';
     if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ Pad unreadable';

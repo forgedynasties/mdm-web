@@ -1543,6 +1543,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return fmt.Sprintf("%.1f", circ*float64(100-pct)/100)
 		},
+		// perDev turns a figure summed across a venue's devices into the per-device
+		// average the cards actually want to show. Fleet totals read as impressively
+		// large numbers that mean nothing without knowing the device count.
+		"perDev": func(total float64, n int) float64 {
+			if n <= 0 {
+				return 0
+			}
+			return total / float64(n)
+		},
 		"div": func(a, b int) int {
 			if b == 0 {
 				return 0
@@ -9453,7 +9462,7 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 		costUnit = "%/min"
 		costNote = fmt.Sprintf("off mains, over %s hrs of charging", hrs(m.PadDrainMinutes))
 	}
-	standbyValue, standbyUnit, standbyNote := "—", "", "not reported by this firmware yet"
+	standbyValue, standbyUnit, standbyNote := "", "", ""
 	if m.HasStandby() {
 		standbyValue = fmt.Sprintf("%d", m.StandbyPct())
 		standbyUnit = "%"
@@ -9463,7 +9472,11 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	b.WriteString(strings.Replace(tile("Average uptime", fmt.Sprintf("%d", m.UptimeFullPct()), "%", uptimeNote), "border-left:1px solid "+line+";", "", 1))
 	b.WriteString(tile("Wireless charging", hrs(m.PadMinutes), "hrs", padNote))
 	b.WriteString(tile("Battery drained by wireless charging", costValue, costUnit, costNote))
-	b.WriteString(tile("Standby", standbyValue, standbyUnit, standbyNote))
+	// Omitted entirely where the firmware does not report screen state, matching the
+	// web report: a tile that only explains its own emptiness is worse than one fewer.
+	if m.HasStandby() {
+		b.WriteString(tile("Standby", standbyValue, standbyUnit, standbyNote))
+	}
 	fmt.Fprintf(&b, `</tr></table></td></tr>`)
 
 	// Per-device table. Units live in the headers, not in every cell, and every

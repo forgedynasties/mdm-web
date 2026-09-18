@@ -74,16 +74,16 @@
       <div class="muted small">not enough charging time yet</div>
       {{end}}
     </div>
+    {{/* Only shown where the firmware reports screen state. A card explaining why it
+         is empty is an apology taking up a slot in a five-card row; a venue whose
+         devices cannot report it should simply see four cards. */}}
+    {{if $m.HasStandby}}
     <div class="cc-kpi">
       <span class="k">Standby</span>
-      {{if $m.HasStandby}}
       <div class="v">{{hrs1 .AvgStandbyMinutes}}<span class="muted" style="font-size:.6em;"> hrs</span></div>
       <div class="muted small"><b>{{$m.StandbyPct}}%</b> of powered time with the screen off</div>
-      {{else}}
-      <div class="v muted">—</div>
-      <div class="muted small">needs the firmware that reports screen state</div>
-      {{end}}
     </div>
+    {{end}}
     <div class="cc-kpi">
       <span class="k">Plugged in</span>
       <div class="v">{{hrs1 .AvgPluggedMinutes}}<span class="muted" style="font-size:.6em;"> / {{.WindowHours}} hrs</span></div>
