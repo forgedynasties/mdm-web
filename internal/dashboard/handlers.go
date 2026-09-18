@@ -5623,15 +5623,56 @@ func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
 // downsampleCheckins keeps at most maxPoints evenly-strided rows, preserving whatever
 // order it's given (GetCheckinsForDuration/GetCheckinsBetween return newest-first).
 // Mirrors the stride used by DeviceChartData for the on-demand range fetch.
+// downsampleCheckins thins a series to roughly maxPoints while keeping its shape in
+// TIME rather than in row count.
+//
+// Thinning by row index — every Nth row — is only equivalent to thinning by time if the
+// device reports at a steady rate, and a misbehaving one does not. A unit with a
+// flapping charger stores a row every couple of seconds while it flaps and one every
+// two minutes when it settles: a 70x swing inside a single six-hour window, measured on
+// AT070AABU00527. Taking every 7th row there leaves the busy stretch untouched and
+// stretches the quiet stretch's real 140-second spacing into 16-minute holes, which the
+// chart then draws as gaps in the data. They are not in the data; the thinning put them
+// there. The same window fetched from /chart-data looked fine only because its larger
+// budget happened to keep the induced gaps under the threshold.
+//
+// Bucketing by time cannot invent a gap. A sparse stretch has at most one point per
+// bucket and so survives whole; only stretches denser than one point per bucket lose
+// anything, which is exactly where losing points is safe.
 func downsampleCheckins(checkins []db.Checkin, maxPoints int) []db.Checkin {
 	n := len(checkins)
-	if n <= maxPoints {
+	if n <= maxPoints || maxPoints < 2 {
 		return checkins
 	}
-	stride := (n + maxPoints - 1) / maxPoints
-	out := make([]db.Checkin, 0, maxPoints+1)
-	for i := 0; i < n; i += stride {
-		out = append(out, checkins[i])
+	// The slice arrives newest-first; span it from whichever end is older.
+	first, last := checkins[0].CreatedAt, checkins[n-1].CreatedAt
+	span := first.Sub(last)
+	if span < 0 {
+		span = -span
+	}
+	if span <= 0 {
+		// All at one instant — nothing time-based to do, fall back to row stride.
+		stride := (n + maxPoints - 1) / maxPoints
+		out := make([]db.Checkin, 0, maxPoints+1)
+		for i := 0; i < n; i += stride {
+			out = append(out, checkins[i])
+		}
+		return out
+	}
+	bucket := span / time.Duration(maxPoints)
+	if bucket <= 0 {
+		return checkins
+	}
+	out := make([]db.Checkin, 0, maxPoints+2)
+	var haveBucket bool
+	var curBucket int64
+	for i, c := range checkins {
+		b := c.CreatedAt.UnixNano() / int64(bucket)
+		// Always keep the two ends, so the window's extent never shrinks.
+		if i == 0 || i == n-1 || !haveBucket || b != curBucket {
+			out = append(out, c)
+			curBucket, haveBucket = b, true
+		}
 	}
 	return out
 }
