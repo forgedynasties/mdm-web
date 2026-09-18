@@ -13,7 +13,7 @@
 //
 // SETUP (once)
 //   cd mdm-server/tools/report-pdf && npm install
-//   npx playwright install chromium        # skip if already there for tools/reel
+//   npx playwright install chromium        # playwright is pinned: 1.63 dropped Ubuntu 20.04
 //   Credentials go in a file only you can read — ~/.config/mdm-report.env, mode 600:
 //     MDM_URL=https://mdm.dev.aioapp.com
 //     MDM_USER=you@aioapp.com
@@ -121,16 +121,21 @@ try {
     const label = `${v.name} (${v.id})`;
     try {
       const url = `${cfg.url}/restaurants/${v.id}/report`;
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+      // NOT networkidle: the dashboard holds an SSE stream open for live updates, so
+      // the network is never idle and that wait can only ever time out. Wait for the
+      // thing we actually need instead — the KPI row the report is built around.
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
       // Fail loudly rather than filing a login page as a report: a session that expired
       // mid-run would otherwise produce a perfectly valid PDF of the wrong thing.
       if (new URL(page.url()).pathname.startsWith('/login')) {
         throw new Error('redirected to login — session lost');
       }
-      if (!(await page.locator('.cc-kpis').count())) {
-        throw new Error('report body did not render (no KPI row)');
-      }
+      await page.waitForSelector('.cc-kpis', { timeout: 30000 });
+      // Webfonts and the chart canvases finish after DOM ready; printing before they
+      // land gives a PDF in fallback type with empty charts.
+      await page.evaluate(() => document.fonts?.ready);
+      await page.waitForTimeout(1500);
 
       // print:false so the PDF matches the page as designed rather than any print
       // stylesheet; backgrounds on, because the report's meaning is partly in colour.

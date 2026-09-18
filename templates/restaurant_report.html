@@ -25,8 +25,15 @@
 .rp-mail{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .rp-mail input{min-width:210px}
 @media print{
-  /* Saved as a PDF: drop the app chrome and the controls, keep the report. */
-  .topbar,.dock,.cc-actions,.skip-link,#htmx-progress,footer,.rp-mail{display:none!important}
+  /* Saved as a PDF: drop the app chrome and the controls, keep the report.
+     .appbar is the header's real class — this rule said .topbar, which matches
+     nothing, so every rendered PDF carried the staff nav: search, the theme toggle,
+     an alert badge and the signed-in operator's name and role, in a document that
+     goes to venue owners. */
+  .appbar,.topbar,.dock,.cc-actions,.skip-link,#htmx-progress,footer,.rp-mail{display:none!important}
+  /* The chrome is fixed/sticky, so its space has to go too or the report prints
+     pushed down the page by a header that is no longer there. */
+  main,.app-main,.shell-main{margin:0!important;padding-top:0!important}
   .cc-wrap{max-width:none;padding:0}
   .cc-card,.cc-kpi{box-shadow:none;break-inside:avoid}
 }
@@ -38,7 +45,8 @@
       <div class="cc-eyebrow">Fleet · Restaurants · Weekly report</div>
       <h1 class="cc-h1">{{.Restaurant.Name}}</h1>
       <div class="cc-sub">
-        <b>{{len .DeviceWeeks}}</b> device{{if ne (len .DeviceWeeks) 1}}s{{end}} reporting over the last <b>{{.Days}}</b> days
+        <b>{{len .DeviceWeeks}}</b> device{{if ne (len .DeviceWeeks) 1}}s{{end}} reporting ·
+        <b>{{.WindowFrom.Format "Mon 2 Jan"}}</b> &ndash; <b>{{.WindowTo.Format "Mon 2 Jan 2006"}}</b>
       </div>
     </div>
     <div class="cc-actions">
