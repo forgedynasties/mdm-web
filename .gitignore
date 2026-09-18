@@ -8,3 +8,6 @@ __pycache__/
 *.md
 *.claude
 .codex
+# Weekly report renderer (tools/report-pdf): deps and rendered output
+tools/report-pdf/node_modules/
+tools/report-pdf/out/
