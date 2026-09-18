@@ -1,5 +1,15 @@
-# Deploy a published image to the live EC2 box. Manual only: pushing to main builds an
-# image (see build.yml) but never restarts live by itself.
+# Deploy the MDM to the EC2 box: live or stage, picked from a dropdown.
+#
+#   live  = the `main` branch   -> /home/ubuntu/mdm        (the restaurant fleet)
+#   stage = the `stage` branch  -> /home/ubuntu/stage-mdm  (mdm-stage.dev.aioapp.com)
+#
+# Each target is tied to its branch and directory here, so a run can no longer put
+# `main` into the stage directory (or anything into live by mistyping a path). Manual
+# only: pushing builds an image (build.yml, for main) but never restarts anything.
+#
+# The image is the one for the branch's latest commit, or for an older commit given in
+# `sha` (rollback). If ECR has no image for that commit yet (stage commits, which
+# build.yml does not publish), this workflow builds and pushes it first.
 #
 # The box runs a compose stack — the server needs the Postgres container on the same
 # compose network (DB_HOST=postgres), two published ports and the splashdata volume — so
@@ -9,47 +19,137 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "Commit SHA from the Build workflow. 'main' works but is a floating tag — a SHA is what makes a rollback exact."
+      target:
+        description: "Where to deploy: live (main branch) or stage (stage branch)"
         required: true
-        default: main
-      app_dir:
-        description: "Compose directory on the box (live is /home/ubuntu/mdm; stage is /home/ubuntu/stage-mdm)"
-        required: true
-        default: /home/ubuntu/mdm
-      confirm:
-        description: "Type DEPLOY to confirm this goes to the live fleet"
-        required: true
+        type: choice
+        options:
+          - stage
+          - live
+        default: stage
+      sha:
+        description: "Optional: an older commit of that branch to deploy (rollback). Empty = the branch's latest commit."
+        required: false
         default: ""
 
 env:
   AWS_REGION: us-west-2
+  GO_VERSION: "1.24"
+
+# One deploy per target at a time; a stage deploy never waits on a live one.
+concurrency:
+  group: deploy-${{ inputs.target }}
 
 jobs:
-  deploy:
-    name: Deploy to live
+  resolve:
+    name: Resolve ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.t.outputs.branch }}
+      app_dir: ${{ steps.t.outputs.app_dir }}
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: t
+        run: |
+          case "${{ inputs.target }}" in
+            live)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/mdm"       >> "$GITHUB_OUTPUT" ;;
+            stage) echo "branch=stage" >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/stage-mdm" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::Unknown target"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.t.outputs.branch }}
+          fetch-depth: 0
+
+      - id: sha
+        # A given sha must be on the target's branch: a rollback cannot smuggle another
+        # branch's commit into live or stage.
+        run: |
+          if [ -n "${{ inputs.sha }}" ]; then
+            full=$(git rev-parse --verify "${{ inputs.sha }}^{commit}")
+            git merge-base --is-ancestor "$full" HEAD || {
+              echo "::error::${{ inputs.sha }} is not on ${{ steps.t.outputs.branch }}"; exit 1; }
+          else
+            full=$(git rev-parse HEAD)
+          fi
+          echo "sha=$full" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${{ inputs.target }}: ${{ steps.t.outputs.branch }} @ $full"
+
+  image:
+    name: Ensure image
+    needs: resolve
     runs-on: ubuntu-latest
     environment: dev
     permissions:
       id-token: write
       contents: read
     steps:
-      - name: Check the confirmation
-        # A deploy restarts the server every restaurant device talks to; make it a
-        # deliberate act rather than a click.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: exists
         run: |
-          if [ "${{ inputs.confirm }}" != "DEPLOY" ]; then
-            echo "::error::Type DEPLOY in the confirm box to proceed."
-            exit 1
+          if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
+               --image-ids imageTag="${{ needs.resolve.outputs.sha }}" --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"; echo "Image already in ECR"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"; echo "No image yet: building it"
           fi
 
+      - if: steps.exists.outputs.found != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - if: steps.exists.outputs.found != 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Test
+        if: steps.exists.outputs.found != 'true'
+        # Same gate as build.yml, with the same known-broken test skipped.
+        run: go build ./... && go test ./... -skip 'TestVisibleIDsAndHiding'
+
+      - if: steps.exists.outputs.found != 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - if: steps.exists.outputs.found != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push
+        if: steps.exists.outputs.found != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.sha }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.branch }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to ${{ inputs.target }}
+    needs: [resolve, image]
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
       # Check out the very commit being deployed, so the compose file shipped below
       # matches the image. The box has its own (now stale) git checkout, and relying on
       # it meant compose read an old file with no `image:` line, ignored MDM_IMAGE and
       # restarted the locally built image while reporting success.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.image_tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -59,9 +159,9 @@ jobs:
 
       - name: Deploy via SSM
         env:
-          IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ inputs.image_tag }}
+          IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.sha }}
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          APP_DIR: ${{ inputs.app_dir }}
+          APP_DIR: ${{ needs.resolve.outputs.app_dir }}
           REGISTRY: ${{ vars.ECR_REGISTRY }}
         run: |
           set -euo pipefail
@@ -133,7 +233,7 @@ jobs:
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy MDM ${{ inputs.image_tag }}" \
+            --comment "Deploy MDM ${{ needs.resolve.outputs.sha }}" \
             --parameters "$PARAMS" \
             --region "$AWS_REGION" \
             --query "Command.CommandId" --output text)
@@ -160,5 +260,5 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "Deployed \`${{ inputs.image_tag }}\` to \`${{ inputs.app_dir }}\`." >> "$GITHUB_STEP_SUMMARY"
-          echo "Roll back by re-running this workflow with an earlier SHA." >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed **${{ inputs.target }}**: \`${{ needs.resolve.outputs.branch }}\` @ \`${{ needs.resolve.outputs.sha }}\` to \`${{ needs.resolve.outputs.app_dir }}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Roll back by re-running with an earlier commit of that branch in **sha**." >> "$GITHUB_STEP_SUMMARY"
