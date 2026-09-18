@@ -11,9 +11,26 @@
 // POSTs the bytes to the MDM, which stores them under an unguessable URL that the
 // weekly email and the owner's home page both link to.
 //
-//   MDM_URL=https://mdm.dev.aioapp.com \
-//   MDM_USER=... MDM_PASS=... ADMIN_API_KEY=... \
-//   node render.mjs [--week YYYY-MM-DD] [--venue <uuid>] [--keep <dir>]
+// SETUP (once)
+//   cd mdm-server/tools/report-pdf && npm install
+//   npx playwright install chromium        # skip if already there for tools/reel
+//   Credentials go in a file only you can read — ~/.config/mdm-report.env, mode 600:
+//     MDM_URL=https://mdm.dev.aioapp.com
+//     MDM_USER=you@aioapp.com
+//     MDM_PASS=...
+//     ADMIN_API_KEY=...                    # same value as ADMIN_API_KEY on the server
+//
+// RUN
+//   set -a; . ~/.config/mdm-report.env; set +a
+//   node render.mjs                        # last completed week, every venue
+//   node render.mjs --venue <uuid>         # one venue
+//   node render.mjs --week 2026-09-13      # a specific week (the Sunday it ends on)
+//   node render.mjs --keep ./out           # also keep a local copy, to eyeball it
+//
+// WEEKLY CRON — Monday morning, because the week that just ended is the one described:
+//   30 7 * * 1 cd ~/mdm-kiosk/mdm-server/tools/report-pdf && set -a && \
+//     . ~/.config/mdm-report.env && set +a && /usr/bin/node render.mjs \
+//     >> ~/.cache/mdm-report.log 2>&1
 //
 // Exit code is non-zero if any venue failed, so cron mails the operator.
 
