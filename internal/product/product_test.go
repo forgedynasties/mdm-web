@@ -122,6 +122,7 @@ func TestClassForModel(t *testing.T) {
 		{"a14xmtfn", "samsung", "SM-S146VL", ClassMPOS},
 		{"kiosk_x", "vendor", "Self Service 21", ClassKiosk},
 		{"sm-x200", "samsung", "Galaxy Tab A8", ClassTablet},
+		{"rockchip029", "Google", "HK1 RBOX D8", ClassDongle},
 		{"sdk_gphone64_x86_64", "Google", "sdk_gphone64_x86_64", ""},
 		{"", "", "", ""},
 	} {

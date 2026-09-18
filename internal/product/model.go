@@ -26,6 +26,9 @@ func ClassForModel(productKey, manufacturer, model string) string {
 		class string
 		keys  []string
 	}{
+		// TV boxes first: their model strings carry short tokens ("d8") that the
+		// handheld rules below would otherwise catch.
+		{ClassDongle, []string{"rk3528", "rbox", "hk1", "tvbox", "tv box", "dongle"}},
 		{ClassKiosk, []string{"kiosk", "rk3399", "rk3288", "rk3568", "panel"}},
 		{ClassMPOS, []string{"mpos", "d3", "d2", "p2lite", "v2s", "handheld"}},
 		{ClassPOS, []string{"pos", "t2lite", "t3", "counter", "desktop"}},

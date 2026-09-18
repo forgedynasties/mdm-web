@@ -26,6 +26,7 @@ const (
 	ClassTablet = "tablet" // stock Android tablet (DPC-managed)
 	ClassMPOS   = "mpos"   // mobile point of sale
 	ClassPOS    = "pos"    // counter point of sale
+	ClassDongle = "dongle" // Android TV stick / box on an HDMI screen (leanback, remote-driven)
 	ClassOther  = "other"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
@@ -35,7 +36,7 @@ const (
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassT7, ClassKiosk, ClassTablet, ClassMPOS, ClassPOS, ClassOther}
+	return []string{ClassT7, ClassKiosk, ClassTablet, ClassMPOS, ClassPOS, ClassDongle, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
@@ -54,6 +55,8 @@ func ClassLabel(class string) string {
 		return "mPOS"
 	case ClassPOS:
 		return "POS"
+	case ClassDongle:
+		return "Dongle"
 	case ClassOther:
 		return "Other"
 	case "":
@@ -77,21 +80,21 @@ func IsClass(class string) bool {
 // assumes for firmware products (DefaultCaps). Keep the two in sync: a command is only
 // offered to a device when its capability set contains the command's requirement.
 const (
-	CapKiosk         = "kiosk"          // lock-task / kiosk config
+	CapKiosk         = "kiosk" // lock-task / kiosk config
 	CapInstallAPK    = "install_apk"
 	CapUninstall     = "uninstall"
 	CapReboot        = "reboot"
-	CapWipe          = "wipe"           // factory reset (Device Owner only)
-	CapConfig        = "config"         // managed app configurations
+	CapWipe          = "wipe"   // factory reset (Device Owner only)
+	CapConfig        = "config" // managed app configurations
 	CapTelemetry     = "telemetry"
 	CapScreenCapture = "screen_capture" // screenshot + remote screen
 	CapInput         = "input"          // remote taps/keys
 	CapLogcat        = "logcat"
 	CapShell         = "shell"
-	CapOTA           = "ota"            // firmware OTA (system partition)
-	CapUpdateSplash  = "update_splash"  // boot splash write
-	CapMicGain       = "mic_gain"       // T7 codec gain (TX_DEC)
-	CapWLC           = "wlc"            // wireless-charging guest pad control
+	CapOTA           = "ota"           // firmware OTA (system partition)
+	CapUpdateSplash  = "update_splash" // boot splash write
+	CapMicGain       = "mic_gain"      // T7 codec gain (TX_DEC)
+	CapWLC           = "wlc"           // wireless-charging guest pad control
 )
 
 // commandNeeds maps a command type (the "type" a dashboard form or the admin API
