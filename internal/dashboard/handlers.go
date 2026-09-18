@@ -452,7 +452,7 @@ type DeviceRowJSON struct {
 	KioskEnabled bool    `json:"kiosk_enabled"`
 	KioskPackage string  `json:"kiosk_package"`
 	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
-	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
+	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
 	// BatteryMissing: product has a battery but the device reports the pack absent
 	// (NTC fault / unplugged). The live patch shows a "None" chip, never a percentage.
 	BatteryMissing bool  `json:"battery_missing"`
