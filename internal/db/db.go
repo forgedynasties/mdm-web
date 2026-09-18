@@ -12672,6 +12672,19 @@ CREATE INDEX IF NOT EXISTS idx_device_samples_at ON device_samples USING BRIN (a
 -- an md5 of exactly the projection that comparison used to make.
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS state_hash TEXT;
 
+-- checkins.id is not a key anyone uses. Nothing in the database references it (no
+-- foreign key points at checkins), no query looks a check-in up by it, and its scan
+-- counter sat at 0 for weeks while the composite index beside it served 17,425. What
+-- it cost was 756 MB, and a random page dirtied on every single insert: the id is a
+-- random uuid, so each row lands at a random position in the index on a table where
+-- everything else appends at the end. That is the worst shape of index for an
+-- append-only log.
+--
+-- The column stays, default and all — the public API echoes it — it simply stops being
+-- indexed and enforced-unique. Collisions on random uuids are not a practical concern,
+-- and nothing would notice one if it happened, because nothing reads the column.
+ALTER TABLE checkins DROP CONSTRAINT IF EXISTS checkins_pkey;
+
 -- Keep monthly partitions created ahead of the present, so a check-in can never be
 -- rejected for want of a partition. Guarded on relkind = 'p': until checkins is
 -- actually converted (tools/partition-checkins.sql) this is a cheap no-op, and it
