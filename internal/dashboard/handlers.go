@@ -4285,11 +4285,13 @@ func summarizePreview(md string) string {
 	return ""
 }
 
-// connectedSlice returns the live WebSocket-connected device IDs as a slice, for DB
-// queries that compute online/offline from real presence (the ws.Hub) instead of
-// check-in recency. Empty slice = nobody online.
+// connectedSlice returns the device IDs shown as present, as a slice, for DB queries
+// that compute online counts and filters from real presence (the ws.Hub) instead of
+// check-in recency: live sockets, plus the display grace and MDM-lite check-in
+// presence (ConnectedIDsForDisplay), so a counter never says "0 of 1 online" beside
+// a card that says Reporting. Empty slice = nobody online.
 func (h *Handler) connectedSlice() []uuid.UUID {
-	set := h.hub.ConnectedIDs()
+	set := h.hub.ConnectedIDsForDisplay()
 	out := make([]uuid.UUID, 0, len(set))
 	for id := range set {
 		out = append(out, id)
@@ -8109,7 +8111,7 @@ func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []de
 	if err != nil {
 		return []deviceMapPoint{}
 	}
-	online := h.hub.ConnectedIDs()
+	online := h.hub.ConnectedIDsForDisplay()
 	pts := make([]deviceMapPoint, 0, 16)
 	for _, dv := range devs {
 		var m map[string]json.RawMessage
@@ -8736,7 +8738,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.ListGroups(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	connected := h.hub.ConnectedIDs()
+	connected := h.hub.ConnectedIDsForDisplay()
 	online := make(map[uuid.UUID]bool, len(connected))
 	for id := range connected {
 		online[id] = true
@@ -18219,10 +18221,10 @@ func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
 // matrix rules) and dispatches any new alerts. Called every minute from main.go so
 // 5-minute-offline / SoC-now / discharge-rate alerts fire promptly, not hourly.
 func (h *Handler) RunRecentAlerts(ctx context.Context) {
-	// The offline-family rules must not page a device that still has a live WebSocket,
-	// so pass the currently-connected set (see offlineHitsQuery / the alerts-offline
-	// design note).
-	connSet := h.hub.ConnectedIDs()
+	// The offline-family rules must not page a device that is still present, so pass
+	// the present set (see offlineHitsQuery / the alerts-offline design note): live
+	// sockets, and MDM-lite devices that checked in recently (they never hold one).
+	connSet := h.hub.ConnectedIDsForDisplay()
 	connected := make([]uuid.UUID, 0, len(connSet))
 	for id := range connSet {
 		connected = append(connected, id)
