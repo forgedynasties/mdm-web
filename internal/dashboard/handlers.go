@@ -18468,19 +18468,21 @@ func (h *Handler) stripDupCheckins(ctx context.Context) {
 		}
 	}
 
-	// Budget set from what happened when it was not. The first run on live rewrote
-	// 295,161 rows in under four minutes and Postgres was OOM-killed shortly after:
-	// every one of those UPDATEs writes a new row version, and on a 2 GB instance the
-	// WAL and dead-tuple churn from a quarter of a million of them in one pass is
-	// enough to take the database down. Throughput was never the point — the table has
-	// stopped growing, so this can take a week.
-	//
 	// A row cap as well as a deadline, because the deadline alone does not bound the
-	// damage: it bounds how long we spend, not how much we rewrite, and these rows turn
-	// out to be fast enough that three minutes is a quarter-million of them.
-	const batch, maxRows = 500, 10000
+	// damage: it bounds how long we spend, not how much we rewrite. The first run on
+	// live had only a deadline, rewrote 295,161 rows in under four minutes, and
+	// Postgres was OOM-killed shortly after — every one of those UPDATEs writes a new
+	// row version, and that much WAL and dead-tuple churn in one pass was more than the
+	// instance had room for.
+	//
+	// 10,000 was the emergency setting, chosen while the database had no headroom at
+	// all. The cause of that has since been fixed — idle pool connections were holding
+	// 1.7 GB of the 2 GB limit — and the instance now sits near 20%, so the cap moves
+	// to 50,000: about ten days to walk the history rather than two months, and still
+	// a fifth of the pass that caused the trouble.
+	const batch, maxRows = 2000, 50000
 	stop := time.Now().UTC().Truncate(24 * time.Hour)
-	deadline := time.Now().Add(45 * time.Second)
+	deadline := time.Now().Add(2 * time.Minute)
 	var total int64
 	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
 		n, err := h.db.StripRedundantCheckinKeys(ctx, day, batch)
