@@ -50,10 +50,32 @@ for D in $DEVICES; do
     out=$($A shell dpm set-device-owner "$COMPONENT" 2>&1 || true)
     case "$out" in *Success*) echo "   ✓ device owner set" ;; *) echo "   ✗ set-device-owner: $out"; fail=$((fail+1)); continue ;; esac
   fi
+  # Grants a Device Owner cannot give itself but adb can (no root): crash/ANR reports and
+  # whole-device logcat (READ_LOGS + usage-stats appop), silent screen capture (PROJECT_MEDIA),
+  # self-enabled remote input (WRITE_SECURE_SETTINGS). Best-effort: an older agent that does
+  # not declare them just stays degraded.
+  for p in android.permission.READ_LOGS android.permission.WRITE_SECURE_SETTINGS; do
+    $A shell pm grant com.skorra.agent "$p" >/dev/null 2>&1 || echo "   · $p not granted (agent too old?)"
+  done
+  $A shell appops set com.skorra.agent GET_USAGE_STATS allow >/dev/null 2>&1 || true
+  $A shell appops set com.skorra.agent PROJECT_MEDIA allow >/dev/null 2>&1 || true
+  since=$($A shell date +'%m-%d %H:%M:%S.000' | tr -d '\r')
   $A shell am start -W -n com.skorra.agent/.ui.MainActivity --es server_url "$SERVER" --es enroll_token "$TOKEN" >/dev/null 2>&1 || true
-  # the agent enrolls in the background; give it a moment and read back its serial
+  # The agent enrolls in the background and logs "Enrolled — device key issued" once the
+  # server accepts the token. Wait for that instead of assuming it: an agent that ignores
+  # the extras (too old) or cannot reach the server would otherwise report success here.
+  enrolled=""
+  for _ in $(seq 1 20); do
+    if $A logcat -d -T "$since" -s MdmService:I 2>/dev/null | grep -q "Enrolled"; then enrolled=1; break; fi
+    sleep 1
+  done
   serial=$($A shell getprop ro.serialno 2>/dev/null | tr -d '\r')
-  echo "   ✓ handed server + token to the agent (serial $serial) — watch Fleet › Enroll"
-  ok=$((ok+1))
+  if [ -n "$enrolled" ]; then
+    echo "   ✓ enrolled (serial $serial)"
+    ok=$((ok+1))
+  else
+    echo "   ✗ agent did not confirm enrollment within 20s (serial $serial) — check the server URL is reachable from the device"
+    fail=$((fail+1))
+  fi
 done
 echo "done: $ok enrolled, $fail failed"
