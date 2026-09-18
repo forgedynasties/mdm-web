@@ -9322,8 +9322,23 @@ func (d *DB) BumpWifiAPHits(ctx context.Context, bssids []string) error {
 	if len(bssids) == 0 {
 		return nil
 	}
-	_, err := d.pool.Exec(ctx,
-		`UPDATE wifi_ap_locations SET hits = hits + 1 WHERE bssid = ANY($1)`, bssids)
+	// Locks are taken in BSSID order, deliberately. A plain multi-row UPDATE acquires
+	// its row locks in whatever order it happens to reach the rows, so two of these with
+	// overlapping BSSIDs can each hold what the other wants. That is not theoretical:
+	// three deadlocked against each other on live during a restart, when every device
+	// reconnects and submits its Wi-Fi scan at once.
+	//
+	// Sorting the array is not on its own enough — nothing promises an UPDATE visits
+	// rows in the order of a subquery. The rows are therefore locked explicitly, by an
+	// ORDER BY ... FOR UPDATE that completes before the write, which is what actually
+	// imposes the total order and makes a lock cycle impossible.
+	_, err := d.pool.Exec(ctx, `
+		WITH locked AS (
+			SELECT bssid FROM wifi_ap_locations
+			WHERE bssid = ANY($1) ORDER BY bssid FOR UPDATE
+		)
+		UPDATE wifi_ap_locations w SET hits = hits + 1
+		FROM locked l WHERE w.bssid = l.bssid`, bssids)
 	return err
 }
 
