@@ -2890,6 +2890,28 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{end}}
     </div>
     {{end}}
+    {{/* Who changed what on this device. Commands live in "Action history" on the
+         Overview tab; this is the settings side — kiosk, charging, placement, naming
+         — which was previously recorded only in the global audit log and could not be
+         traced back to a device at all. */}}
+    <div class="ddc-card" id="dd-activity">
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Activity</h3>{{if .Activity}}<span class="m muted small"><a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a></span>{{end}}</div>
+      {{if .Activity}}
+      {{range .Activity}}
+      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+        {{template "ubub" (userBubble .ActorKey)}}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;line-height:1.45;">{{$u := userURL .ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{.Actor}}</a>{{else}}<b>{{.Actor}}</b>{{end}} {{.Did}}</div>
+          <div class="muted" style="font-size:11.5px;margin-top:2px;" title="{{.At}}">{{.At.Format "2 Jan 2006, 15:04"}} UTC</div>
+        </div>
+      </div>
+      {{end}}
+      {{else}}
+      <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
+        Nothing recorded yet. Changes made from this page — kiosk mode, wireless charging, placement, naming — will appear here with who made them.
+      </div>
+      {{end}}
+    </div>
     <div class="ddc-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h3>Hardware</h3></div>
       {{$ram := ramUsage .Device.LatestExtra}}

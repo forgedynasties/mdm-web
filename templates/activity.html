@@ -132,22 +132,32 @@
         Include page views
       </label>
       {{end}}
+      {{/* Device filter. A datalist rather than a select: the list is every device
+           that has any recorded activity, which is short today and will not stay
+           short, and typing a serial is how anyone who arrived here from a device
+           page will look. */}}
+      <label class="muted small" style="display:flex;align-items:center;gap:6px;">
+        Device
+        <input type="text" name="device" value="{{.Device}}" list="ac-devices" placeholder="any"
+               style="width:150px;font-family:ui-monospace,monospace;font-size:12px;" onchange="this.form.submit()">
+      </label>
+      <datalist id="ac-devices">{{range .DeviceSerials}}<option value="{{.}}"></option>{{end}}</datalist>
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
-      {{if .Actor}}<a href="/activity?{{if .ShowAdmin}}admin=1&{{end}}{{if .ShowViews}}views=1{{end}}" class="muted small">Clear filter</a>{{end}}
+      {{if or .Actor .Device}}<a href="/activity?{{if .ShowAdmin}}admin=1&{{end}}{{if .ShowViews}}views=1{{end}}" class="muted small">Clear filter</a>{{end}}
     </form>
 
     {{if .Entries}}
     <div style="overflow-x:auto;">
       <table class="cc-table">
-        <thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+        <thead><tr><th>When</th><th>User</th><th>Device</th><th>Action</th><th>What changed</th></tr></thead>
         <tbody>
           {{range .Entries}}
           <tr>
             <td class="ac-when">{{timeSince .CreatedAt}}</td>
             <td>{{$u := userURL .Actor}}{{$b := userBubble .Actor}}{{if $u}}<a href="{{$u}}" class="ac-actor ht-user"><span class="ac-av{{if $b.URL}} has-img{{end}}">{{if $b.URL}}<img src="{{$b.URL}}" alt="" loading="lazy">{{else}}{{$b.Initial}}{{end}}</span>{{.Actor}}</a>{{else}}<span class="ac-actor"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</span>{{end}}</td>
+            <td class="ac-target">{{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail" style="font-family:ui-monospace,monospace;font-size:12px;">{{.DeviceSerial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
             <td><span class="cc-tag">{{.Action}}</span></td>
-            <td class="ac-target" title="{{.Target}}">{{.Target}}</td>
-            <td class="ac-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{.Detail}}{{end}}</td>
+            <td class="ac-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{auditSentence .}}{{end}}</td>
           </tr>
           {{end}}
         </tbody>

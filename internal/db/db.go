@@ -7415,6 +7415,47 @@ type AuditEntry struct {
 	Action    string    `json:"action"`
 	Target    string    `json:"target"`
 	Detail    string    `json:"detail"`
+	// DeviceID is set when the action was performed on one device; nil otherwise.
+	DeviceID *uuid.UUID `json:"device_id,omitempty"`
+	// DeviceSerial is resolved for display and is empty when DeviceID is nil.
+	DeviceSerial string `json:"device_serial,omitempty"`
+}
+
+// InsertAuditDevice records an action against a specific device, so "what was done to
+// this device, and by whom" is an indexed lookup rather than a guess at what `target`
+// happens to mean for that action.
+func (d *DB) InsertAuditDevice(ctx context.Context, actor, action, target, detail string, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx,
+		`INSERT INTO audit_log (actor, action, target, detail, device_id) VALUES ($1, $2, $3, $4, $5)`,
+		actor, action, target, detail, deviceID)
+	return err
+}
+
+// ListAuditForDevice returns the actions taken on one device, newest first.
+func (d *DB) ListAuditForDevice(ctx context.Context, deviceID uuid.UUID, limit int) ([]AuditEntry, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, created_at, actor, action, target, detail
+		FROM audit_log
+		WHERE device_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AuditEntry
+	for rows.Next() {
+		var e AuditEntry
+		if err := rows.Scan(&e.ID, &e.CreatedAt, &e.Actor, &e.Action, &e.Target, &e.Detail); err != nil {
+			return nil, err
+		}
+		e.DeviceID = &deviceID
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 func (d *DB) InsertAudit(ctx context.Context, actor, action, target, detail string) error {
@@ -7496,14 +7537,22 @@ func (d *DB) AuditCountsByActor(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) ListAuditForActivity(ctx context.Context, excludeActor string, includeViews bool, limit int) ([]AuditEntry, error) {
+func (d *DB) ListAuditForActivity(ctx context.Context, excludeActor string, includeViews bool, limit int, serial string) ([]AuditEntry, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, created_at, actor, action, target, detail FROM audit_log
-		WHERE ($2 = '' OR actor <> $2) AND ($3 OR action <> '`+PageViewAction+`')
-		ORDER BY created_at DESC LIMIT $1`, limit, excludeActor, includeViews)
+		SELECT a.id, a.created_at, a.actor, a.action, a.target, a.detail,
+		       a.device_id, COALESCE(dv.serial_number, '')
+		FROM audit_log a
+		LEFT JOIN devices dv ON dv.id = a.device_id
+		WHERE ($2 = '' OR a.actor <> $2) AND ($3 OR a.action <> '`+PageViewAction+`')
+		  -- $4 empty means every device. Matched on the device, not on target: target
+		  -- holds a serial for some actions, a comma-joined list for bulk ones and a
+		  -- rollout id for others, so a text match there answers a different question
+		  -- per action.
+		  AND ($4 = '' OR dv.serial_number = $4)
+		ORDER BY a.created_at DESC LIMIT $1`, limit, excludeActor, includeViews, serial)
 	if err != nil {
 		return nil, err
 	}
@@ -7511,10 +7560,34 @@ func (d *DB) ListAuditForActivity(ctx context.Context, excludeActor string, incl
 	var out []AuditEntry
 	for rows.Next() {
 		var a AuditEntry
-		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Actor, &a.Action, &a.Target, &a.Detail); err != nil {
+		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Actor, &a.Action, &a.Target, &a.Detail, &a.DeviceID, &a.DeviceSerial); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// ListAuditDeviceSerials returns the devices that have any recorded activity, most
+// recently active first — the Activity page's device filter.
+func (d *DB) ListAuditDeviceSerials(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.serial_number
+		FROM audit_log a JOIN devices dv ON dv.id = a.device_id
+		WHERE a.device_id IS NOT NULL
+		GROUP BY dv.serial_number
+		ORDER BY MAX(a.created_at) DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var sn string
+		if err := rows.Scan(&sn); err != nil {
+			return nil, err
+		}
+		out = append(out, sn)
 	}
 	return out, rows.Err()
 }
@@ -11385,6 +11458,26 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
+-- Which device an action was performed on, when it was performed on one. The target
+-- column cannot answer this: it holds a serial for some actions, a comma-joined list
+-- for bulk ones, a deployment id for others and a URL path for page views, so asking
+-- "what happened to this device" meant matching text against a column that means a
+-- different thing per action. ON DELETE SET NULL, not CASCADE: the log is the record
+-- of what people did, and un-enrolling a device must not erase it.
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS device_id UUID REFERENCES devices(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_audit_device_created ON audit_log(device_id, created_at DESC) WHERE device_id IS NOT NULL;
+
+-- Attach the history that can be attached. Most single-device actions already wrote
+-- the serial into target, so those rows can be linked to their device exactly; bulk
+-- actions wrote a comma-joined list and simply will not match, which is the right
+-- outcome — a half-parsed list is worse than no link. Idempotent (only fills NULLs),
+-- and the LIKE keeps it off the page-view rows that are most of the table.
+UPDATE audit_log a SET device_id = d.id
+FROM devices d
+WHERE a.device_id IS NULL
+  AND a.target = d.serial_number
+  AND (a.action LIKE 'device.%' OR a.action LIKE 'deployment.%' OR a.action LIKE 'legacy_ota.%');
 
 -- Per-device per-day rollup of checkin telemetry (Tier 1 descriptive analytics).
 -- Populated by RollupDailyStats; queried for trends so we never scan raw checkins.

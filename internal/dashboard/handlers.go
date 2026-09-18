@@ -720,6 +720,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	funcMap := template.FuncMap{
 		"userURL":       userURL,
 		"userBubble":    userBubble,
+		"auditSentence": humanizeAudit,
 		"authorIsAdmin": authorIsAdmin,
 		// msLoginEnabled reports whether Microsoft sign-in is configured, so
 		// login.html only shows the button when it'll actually work.
@@ -1913,6 +1914,29 @@ const builtinAdminDisplayName = "Ali"
 // Storing the username lets every render path resolve it to the user's
 // CURRENT display name (see actorDisplayNames), so a rename shows up on
 // every past action too, not just new ones.
+// boolWord renders a toggle's new state as the word an activity line reads with:
+// "enabled" / "disabled", not "true" / "false".
+func boolWord(on bool) string {
+	if on {
+		return "enabled"
+	}
+	return "disabled"
+}
+
+// auditDev records an action against a device. Same as audit, but the entry can then
+// be found by device rather than by hoping `target` holds a serial for this particular
+// action — it holds a comma-joined list for bulk actions and a deployment id for
+// others, which is why the device page could not show its own history before.
+func (h *Handler) auditDev(r *http.Request, action string, deviceID uuid.UUID, target, detail string) {
+	actor := h.currentUsername(r)
+	if actor == "" {
+		actor = "unknown"
+	}
+	if err := h.db.InsertAuditDevice(r.Context(), actor, action, target, detail, deviceID); err != nil {
+		log.Printf("[audit] insert failed: %v", err)
+	}
+}
+
 func (h *Handler) audit(r *http.Request, action, target, detail string) {
 	actor := h.currentUsername(r)
 	if actor == "" {
@@ -2735,7 +2759,7 @@ func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "device.nickname", device.SerialNumber, name)
+	h.auditDev(r, "device.nickname", device.ID, device.SerialNumber, name)
 	h.hxRedirect(w, r, "/devices/"+device.SerialNumber)
 }
 
@@ -5603,6 +5627,16 @@ func downsampleCheckins(checkins []db.Checkin, maxPoints int) []db.Checkin {
 	return out
 }
 
+// deviceActivityItem is one line of the device page's activity feed: when, who, and
+// what they did, already phrased for reading.
+type deviceActivityItem struct {
+	At       time.Time
+	Actor    string // display name
+	ActorKey string // stable username, for the avatar/link helpers
+	Did      string // "disabled wireless charging"
+	Action   string // raw action, for the tag and for filtering
+}
+
 func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -5640,6 +5674,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		otaClass        string
 		otaPercent      int
 		buildChanges    []db.BuildChange
+		activity        []deviceActivityItem
 	)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -5737,6 +5772,29 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		redactDeviceCommandURLs(role, c)
 		commands = filterShellDeviceCommands(role, c)
+	})
+	run(func() {
+		// Who did what to this device. Best-effort: losing it must not cost the page.
+		entries, err := h.db.ListAuditForDevice(ctx, device.ID, 40)
+		if err != nil {
+			log.Printf("[device] ListAuditForDevice %s: %v", device.SerialNumber, err)
+			return
+		}
+		names := h.actorDisplayNames(ctx)
+		items := make([]deviceActivityItem, 0, len(entries))
+		for _, e := range entries {
+			actor := e.Actor
+			if dn, ok := names[actor]; ok && dn != "" {
+				actor = dn
+			}
+			items = append(items, deviceActivityItem{
+				At: e.CreatedAt, Actor: actor, ActorKey: e.Actor,
+				Did: humanizeAudit(e), Action: e.Action,
+			})
+		}
+		mu.Lock()
+		activity = items
+		mu.Unlock()
 	})
 	run(func() {
 		// Best-effort: build-change markers on the vitals chart. A failure here
@@ -5935,6 +5993,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"BuildChanges":        buildChanges,
+		"Activity":            activity,
 		"Commands":            commands,
 		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),
@@ -6003,7 +6062,7 @@ func (h *Handler) DeviceRotateOfflineCode(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "device.offline_code_rotate", serial, "")
+	h.auditDev(r, "device.offline_code_rotate", device.ID, serial, "")
 	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
@@ -9386,8 +9445,8 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 		line, coral, ink, esc(venue), muted, days, len(weeks), plural(len(weeks)))
 
 	// Headline figures.
-	uptimeNote := fmt.Sprintf("%s fleet hours", hrs(m.PoweredMinutes))
-	padNote := "a guest phone charging on a tablet"
+	uptimeNote := "of the measured window"
+	padNote := "customer's phone charged through the T7 charging pad"
 	costValue, costUnit, costNote := "—", "", "not enough charging time yet"
 	if m.HasPadDrain() {
 		costValue = fmt.Sprintf("%.2f", m.PadDrainPctPerMin())
@@ -9403,7 +9462,7 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	fmt.Fprintf(&b, `<tr><td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%"><tr>`)
 	b.WriteString(strings.Replace(tile("Average uptime", fmt.Sprintf("%d", m.UptimeFullPct()), "%", uptimeNote), "border-left:1px solid "+line+";", "", 1))
 	b.WriteString(tile("Wireless charging", hrs(m.PadMinutes), "hrs", padNote))
-	b.WriteString(tile("Charging cost", costValue, costUnit, costNote))
+	b.WriteString(tile("Battery drained by wireless charging", costValue, costUnit, costNote))
 	b.WriteString(tile("Standby", standbyValue, standbyUnit, standbyNote))
 	fmt.Fprintf(&b, `</tr></table></td></tr>`)
 
@@ -9781,9 +9840,11 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "device.restaurant", serial, ridStr)
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
+		h.auditDev(r, "device.restaurant", device.ID, serial, ridStr)
 		h.hub.PublishDeviceUpdate(device.ID)
+	} else {
+		h.audit(r, "device.restaurant", serial, ridStr)
 	}
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
@@ -10070,7 +10131,7 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "device.hide", serial, "")
+	h.auditDev(r, "device.hide", device.ID, serial, "")
 	h.hub.PublishDeviceUpdate(device.ID)
 	// 204 + device-updated instead of a full /devices reload: the fleet SSE row patch
 	// (patchRow) drops the now-hidden card in place, so nothing flashes.
@@ -10088,7 +10149,7 @@ func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "device.unhide", serial, "")
+	h.auditDev(r, "device.unhide", device.ID, serial, "")
 	h.hub.PublishDeviceUpdate(device.ID)
 	// 204 + device-updated: the row patch handles the change in place (no full reload).
 	h.hxDone(w, r, "/devices?hidden=only", "device-updated")
@@ -13214,7 +13275,7 @@ func (h *Handler) DeploymentCancelDeviceOTA(w http.ResponseWriter, r *http.Reque
 	_ = h.db.SetUpdateDeviceFailed(r.Context(), did, device.ID, "CANCELLED")
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
-	h.audit(r, "deployment.cancel_ota", r.PathValue("serial"), strconv.Itoa(did))
+	h.auditDev(r, "deployment.cancel_ota", device.ID, r.PathValue("serial"), strconv.Itoa(did))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
@@ -13267,7 +13328,7 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	_ = h.db.ReactivateUpdate(r.Context(), did)
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
-	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
+	h.auditDev(r, "deployment.retry", device.ID, r.PathValue("serial"), strconv.Itoa(did))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
@@ -13318,7 +13379,7 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
-	h.audit(r, "deployment.reboot", r.PathValue("serial"), strconv.Itoa(did))
+	h.auditDev(r, "deployment.reboot", device.ID, r.PathValue("serial"), strconv.Itoa(did))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
@@ -20198,6 +20259,11 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	detail := boolWord(enabled)
+	if enabled && mode != "" {
+		detail += " (" + mode + ")"
+	}
+	h.auditDev(r, "device.kiosk", device.ID, serial, detail)
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
@@ -20221,6 +20287,7 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.auditDev(r, "device.wlc_charging", device.ID, serial, boolWord(enabled))
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
@@ -20581,11 +20648,17 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	// that person's own history. Matching on the resolved display name instead
 	// catches all three shapes.
 	showViews := isAdmin && r.URL.Query().Get("views") == "1"
-	entries, err := h.db.ListAuditForActivity(r.Context(), excludeActor, showViews, 1000)
+	// device= filters to one device's activity. Exact serial match on the device the
+	// action was recorded against, so bulk actions and rollout steps land on every
+	// device they actually touched rather than only where the serial happens to be
+	// spelled out in `target`.
+	deviceSerial := strings.TrimSpace(r.URL.Query().Get("device"))
+	entries, err := h.db.ListAuditForActivity(r.Context(), excludeActor, showViews, 1000, deviceSerial)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	deviceSerials, _ := h.db.ListAuditDeviceSerials(r.Context())
 	// The actor filter only lists real team accounts (users with an @aioapp.com
 	// email), not raw audit_log.actor noise like "System"/"API key"/scheduled-recipe
 	// labels or stale entries from accounts that no longer exist.
@@ -20693,6 +20766,8 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"MoreActors":    moreActors,
 		"Actor":         actor,
 		"ActorName":     actorName,
+		"Device":        deviceSerial,
+		"DeviceSerials": deviceSerials,
 		"ShowAdmin":     showAdmin,
 		"ShowViews":     showViews,
 		"EntriesToday":  entriesToday,
