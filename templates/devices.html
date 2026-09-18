@@ -8,7 +8,14 @@
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
     <div class="dl-bat">
-      {{if batteryMissing .LatestExtra}}
+      {{if eq .DeviceClass "dongle"}}
+      {{/* TV box / HDMI dongle: mains-powered by design, so no battery or AC reading —
+           the chip says what the device is. */}}
+      <span class="dl-chip dl-tv" role="img" aria-label="TV box" title="TV box / HDMI dongle — mains powered, no battery">
+        <span class="bat-glyph"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg></span>
+        <span class="battery-label">TV</span>
+      </span>
+      {{else if batteryMissing .LatestExtra}}
       {{/* Product has a battery but the device says the pack is absent (NTC fault or
            unplugged): distinct from the kiosk mains chip, which is by design. */}}
       <span class="dl-chip battery-low" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.">
@@ -39,7 +46,7 @@
     </div>
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-      <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-m" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
       {{if .HasBattery}}<span class="dl-m" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
     </div>
     <div class="dl-status-col">

@@ -4749,6 +4749,8 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
   font-family: var(--sans, inherit); font-size: 10px; letter-spacing: .02em; vertical-align: middle; }
 /* Mains-power chip shown in place of the battery chip for wall-powered kiosks. */
 .dl-chip.dl-mains { color: var(--muted); }
+/* TV chip shown in place of the battery chip for TV boxes / HDMI dongles. */
+.dl-chip.dl-tv { color: var(--text); }
 
 /* status column: online/offline + last sync */
 .dl-status-col { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }

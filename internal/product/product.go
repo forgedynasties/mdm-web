@@ -119,6 +119,36 @@ func CapsFor(key string) Caps {
 	return p.Caps
 }
 
+// CapsForDevice is CapsFor with the device's class applied. A stock device's product
+// key rarely says what the hardware is ("rockchip029"), so the generic caps assume a
+// phone-like battery; the class, once known, overrides that. A dongle (TV box on an
+// HDMI screen) is always mains-powered: no battery, no charger, no pad.
+func CapsForDevice(key, class string) Caps {
+	if class == ClassDongle {
+		return Caps{}
+	}
+	return CapsFor(key)
+}
+
+// BatteryPredicateSQL is a WHERE fragment, for the devices table aliased as `alias`,
+// true only for devices that have a battery — the SQL twin of CapsForDevice().HasBattery.
+// Battery-less devices still store a latest_battery_pct (often 0), and without this
+// every low-battery count and filter would include them.
+func BatteryPredicateSQL(alias string) string {
+	var none []string
+	for _, p := range catalog {
+		if !p.Caps.HasBattery {
+			none = append(none, "'"+p.Key+"'")
+		}
+	}
+	pred := alias + ".device_class <> '" + ClassDongle + "'"
+	if len(none) > 0 {
+		// An empty product resolves to the default (T7), which has a battery.
+		pred += " AND COALESCE(NULLIF(" + alias + ".product, ''), '" + DefaultKey + "') NOT IN (" + strings.Join(none, ", ") + ")"
+	}
+	return "(" + pred + ")"
+}
+
 // Label is the display label for a product key: the catalog label for known keys,
 // the T7 default for empty (legacy) ones, the reported key itself for unknown ones.
 func Label(key string) string {

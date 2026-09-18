@@ -204,12 +204,17 @@ func (d Device) ProductKey() string {
 
 // Caps returns the hardware capabilities of the device's product. Gate wlc/charging
 // UI and telemetry on these instead of checking whether a telemetry key is present.
-func (d Device) Caps() prod.Caps { return prod.CapsFor(d.Product) }
+func (d Device) Caps() prod.Caps { return prod.CapsForDevice(d.Product, d.DeviceClass) }
 
 // HasWLC / HasCharging / HasBattery are template-friendly capability shortcuts.
 func (d Device) HasWLC() bool      { return d.Caps().HasWLC }
 func (d Device) HasCharging() bool { return d.Caps().HasCharging }
 func (d Device) HasBattery() bool  { return d.Caps().HasBattery }
+
+// hasBatteryD is the SQL form of HasBattery for the devices table aliased "d". Every
+// battery-percentage count and filter must AND it in: battery-less devices (kiosks,
+// dongles) still carry a latest_battery_pct, usually 0, and would read as "low".
+var hasBatteryD = prod.BatteryPredicateSQL("d")
 
 // BatteryCycles converts the lifetime cumulative discharge into equivalent full
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
@@ -2256,7 +2261,7 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	q := fmt.Sprintf(`SELECT
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.id = ANY($%d::uuid[])),
-			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20 AND `+hasBatteryD+`),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true))
 		FROM devices d`, connArg)
@@ -2278,7 +2283,7 @@ func (d *DB) GetSummary(ctx context.Context, connected []uuid.UUID) (Summary, er
 		SELECT
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.id = ANY($1::uuid[])),
-			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20 AND `+hasBatteryD+`),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
@@ -2488,11 +2493,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		// Battery filters run against the latest checkin snapshot denormalized onto devices.
 		switch f.Battery {
 		case "low":
-			base += " AND d.latest_battery_pct < 20"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 		case "mid":
-			base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 		case "ok":
-			base += " AND d.latest_battery_pct >= 50"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 		}
 
 		if dir != "asc" && dir != "desc" {
@@ -2579,11 +2584,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	base += "\nWHERE " + strings.Join(wheres, " AND ")
 	switch f.Battery {
 	case "low":
-		base += " AND d.latest_battery_pct < 20"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 	case "mid":
-		base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		base += " AND d.latest_battery_pct >= 50"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 	}
 
 	return base, args
@@ -3648,11 +3653,11 @@ func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, 
 	}
 	switch battery {
 	case "low":
-		q += " AND d.latest_battery_pct < 20"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 	case "mid":
-		q += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		q += " AND d.latest_battery_pct >= 50"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 	}
 	args = append(args, limit)
 	q += fmt.Sprintf(" ORDER BY (d.restaurant_id IS NULL) DESC, d.last_seen_at DESC LIMIT $%d", len(args))

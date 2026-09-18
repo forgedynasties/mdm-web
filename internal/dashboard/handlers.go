@@ -424,10 +424,10 @@ func micGainPtr(raw json.RawMessage) *MicGainView {
 func deviceRowClasses(dev db.Device) string {
 	var classes []string
 
-	if dev.BatteryPct < 20 {
+	if dev.HasBattery() && dev.BatteryPct < 20 {
 		classes = append(classes, "row-alert-battery")
 	}
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok && (temp >= 45 || temp <= 0) {
+	if lvl := deviceTempClass(dev.LatestExtra); lvl != "" && lvl != "ok" {
 		classes = append(classes, "row-alert-temp")
 	}
 
@@ -526,20 +526,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		}
 	}
 
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok {
+	if temp, src, ok := deviceTempC(dev.LatestExtra); ok {
 		r.TempStr = fmt.Sprintf("%.1f°C", temp)
-		switch {
-		case temp >= 60:
-			r.TempClass = "danger"
-		case temp >= 45:
-			r.TempClass = "warn"
-		case temp <= -10:
-			r.TempClass = "danger"
-		case temp <= 0:
-			r.TempClass = "warn"
-		default:
-			r.TempClass = "ok"
-		}
+		r.TempClass = tempLevel(temp, src)
 	}
 
 	if !dev.LastSeenAt.IsZero() {
@@ -1270,24 +1259,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return fmt.Sprintf("%.1f°C", temp)
 		},
-		"tempClass": func(raw json.RawMessage) string {
-			temp, ok := extractBatteryTempC(raw)
-			if !ok {
-				return ""
-			}
-			switch {
-			case temp >= 60:
-				return "danger"
-			case temp >= 45:
-				return "warn"
-			case temp <= -10:
-				return "danger"
-			case temp <= 0:
-				return "warn"
-			default:
-				return "ok"
-			}
-		},
+		"tempClass": deviceTempClass,
+		"tempSource": deviceTempSrc,
 		"ramPct": func(ram map[string]int) int {
 			total, ok := ram["total"]
 			if !ok || total == 0 {
@@ -1304,7 +1277,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return pct
 		},
 		"extraTempC": func(raw json.RawMessage) template.JS {
-			temp, ok := extractBatteryTempC(raw)
+			temp, _, ok := deviceTempC(raw)
 			if !ok {
 				return "null"
 			}
@@ -2692,22 +2665,9 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// batteryTempStr renders battery_temp_c from extra as "39.2°C" or "".
-func batteryTempStr(raw json.RawMessage) string {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(raw, &m) != nil {
-		return ""
-	}
-	v, ok := m["battery_temp_c"]
-	if !ok {
-		return ""
-	}
-	var f float64
-	if json.Unmarshal(v, &f) != nil {
-		return ""
-	}
-	return fmt.Sprintf("%.1f°C", f)
-}
+// batteryTempStr renders the device's temperature as "39.2°C" or "": battery_temp_c,
+// or cpu_temp_c on a battery-less TV box (see deviceTempC).
+func batteryTempStr(raw json.RawMessage) string { return deviceTempStr(raw) }
 
 // numWord spells small counts the way a sentence would ("six of eight").
 func numWord(n int) string {
@@ -6252,7 +6212,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		if hasBattery {
 			battery = append(battery, bpt{X: x, Y: c.BatteryPct, Wlc: wlcIntFromExtra(c.Extra)})
 		}
-		if t, ok := extractBatteryTempC(c.Extra); ok {
+		if t, _, ok := deviceTempC(c.Extra); ok {
 			temp = append(temp, pt{X: x, Y: t})
 		}
 		if rp, ok := ramPctFromExtra(c.Extra); ok {
@@ -6772,7 +6732,7 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 			}
 		}
 	}
-	if temp, ok := extractBatteryTempC(c.Extra); ok {
+	if temp, _, ok := deviceTempC(c.Extra); ok {
 		p.TempC = &temp
 	}
 	return p
