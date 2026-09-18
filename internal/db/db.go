@@ -12992,9 +12992,15 @@ func (d *DB) DeleteRelease(ctx context.Context, id int) error {
 	return err
 }
 
-// GetFleetVersions returns every release version actually reported by non-hidden devices,
-// with the devices on each and a link to the managed release (if one exists). This is the
-// "what's really running in the field" view for release tracking.
+// GetFleetVersions returns every release version actually reported by non-hidden devices
+// running OUR firmware, with the devices on each and a link to the managed release (if one
+// exists). This is the "what's really running in the field" view for release tracking.
+//
+// DPC devices are excluded. They are stock Android managed by the agent, and their
+// build_id is the vendor's ROM fingerprint — "AP3A.240905.015.A2.S146VLUDSLDZH3",
+// "K20_V1.0.1_202303221019" — not a release of ours. Including them put those strings in
+// the Releases page's untracked list, inviting someone to "track" a Samsung ROM as if it
+// were something we ship and could push. Nothing here can build, sign or deploy one.
 func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.build_id, COUNT(*)::int,
@@ -13007,6 +13013,7 @@ func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 		LEFT JOIN releases rel ON rel.version = d.build_id
 		    AND rel.product = CASE WHEN d.product = '' THEN 't7' ELSE d.product END
 		WHERE NOT d.hidden AND d.build_id <> ''
+		  AND COALESCE(d.agent_kind, '') <> 'dpc'
 		GROUP BY d.build_id, rel.id, rel.status, rel.hidden, rel.product
 		ORDER BY COUNT(*) DESC, d.build_id
 	`)
