@@ -39,7 +39,6 @@
       <h1 class="cc-h1">{{.Restaurant.Name}}</h1>
       <div class="cc-sub">
         <b>{{len .DeviceWeeks}}</b> device{{if ne (len .DeviceWeeks) 1}}s{{end}} reporting over the last <b>{{.Days}}</b> days
-        {{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}
       </div>
     </div>
     <div class="cc-actions">
@@ -58,15 +57,15 @@
     <div class="cc-kpi">
       <span class="k">Average uptime</span>
       <div class="v">{{hrs1 .AvgPoweredMinutes}}<span class="muted" style="font-size:.6em;"> / {{.WindowHours}} hrs</span></div>
-      <div class="muted small"><b>{{$m.UptimeFullPct}}%</b> of the measured window · {{hrs1 $m.PoweredMinutes}} fleet hours</div>
+      <div class="muted small"><b>{{$m.UptimeFullPct}}%</b> of the measured window</div>
     </div>
     <div class="cc-kpi">
       <span class="k">Wireless charging in use</span>
       <div class="v">{{hrs1 .AvgPadMinutes}}<span class="muted" style="font-size:.6em;"> hrs</span></div>
-      <div class="muted small">a guest phone charging on a tablet</div>
+      <div class="muted small">customer's phone charged through the T7 charging pad</div>
     </div>
     <div class="cc-kpi">
-      <span class="k">Wireless charging cost</span>
+      <span class="k">Battery drained through wireless charging</span>
       {{if $m.HasPadDrain}}
       <div class="v">{{printf "%.2f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
       <div class="muted small">off mains, over {{hrs1 $m.PadDrainMinutes}} hrs of charging</div>
@@ -88,7 +87,7 @@
     <div class="cc-kpi">
       <span class="k">Plugged in</span>
       <div class="v">{{hrs1 .AvgPluggedMinutes}}<span class="muted" style="font-size:.6em;"> / {{.WindowHours}} hrs</span></div>
-      <div class="muted small"><b>{{.AvgPluggedPct}}%</b> of the week on mains power</div>
+      <div class="muted small"><b>{{.AvgPluggedPct}}%</b> of the full week</div>
     </div>
   </div>
   {{end}}
@@ -121,7 +120,7 @@
     {{if .DeviceWeeks}}
     <div style="overflow-x:auto;">
       <table class="cc-table">
-        <thead><tr><th>Serial number</th><th>Uptime</th><th>Wireless charging</th><th>Charging cost</th><th>Standby</th><th>Plugged in</th></tr></thead>
+        <thead><tr><th>Serial number</th><th>Uptime</th><th>Wireless charging</th><th>Battery drain</th><th>Standby</th><th>Plugged in</th></tr></thead>
         <tbody>
           {{range .DeviceWeeks}}
           <tr>

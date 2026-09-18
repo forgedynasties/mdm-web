@@ -75,7 +75,7 @@
       <div class="muted small">a customer's phone charging on a tablet</div>
     </div>
     <div class="cc-kpi">
-      <span class="k">Wireless charging cost</span>
+      <span class="k">Battery drained through wireless charging</span>
       {{if $m.HasPadDrain}}
       <div class="v">{{printf "%.1f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
       <div class="muted small">off mains, over {{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} of wireless charging</div>
