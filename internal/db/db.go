@@ -13089,6 +13089,30 @@ func (d *DB) FilterDeviceIDsByProduct(ctx context.Context, ids []uuid.UUID, prod
 	return out, rows.Err()
 }
 
+// FilterFirmwareDeviceIDs keeps the ids of devices that are not DPC-managed. OTA is for
+// our firmware devices only; a DPC agent on stock hardware has no OTA path, MDM or
+// legacy, so it must never become an update target however it was selected.
+func (d *DB) FilterFirmwareDeviceIDs(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id FROM devices WHERE id = ANY($1) AND agent_kind <> $2`, ids, prod.KindDPC)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // OTAInProgress is one device currently taking an OTA, with its live download/install
 // percent (from the device's last ota_progress telemetry). Powers the releases-page
 // "OTA in progress" summary card.

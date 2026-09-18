@@ -13658,6 +13658,16 @@ func (h *Handler) resolveEligibleDevicesUnscoped(r *http.Request, product string
 		}
 	}
 
+	// OTA is for our firmware devices only: DPC-managed devices are never targets,
+	// whatever scope, group or pasted serial list selected them.
+	if len(unique) > 0 {
+		var err error
+		unique, err = h.db.FilterFirmwareDeviceIDs(r.Context(), unique)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Keep only devices matching the release's product (wrong-product devices can't be
 	// targeted at all). Skipped when no product is supplied.
 	if product != "" && len(unique) > 0 {
@@ -14683,8 +14693,11 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 		// A build with no MDM OTA is not blocked any more — it is served the same
 		// release over the legacy path, in the same rollout. Only a full image can
 		// reach one, since the legacy client has no incremental story.
-		legacy := !h.otaGate.Device(ctx, d).OK
+		verdict := h.otaGate.Device(ctx, d)
+		legacy := verdict.Legacy()
 		switch {
+		case verdict.Source == otagate.SourceDPC:
+			blocked[s] = "DPC device — OTA is firmware-only"
 		case d.BuildID == rel.Version:
 			blocked[s] = "up to date"
 		case newer[s] != "":
@@ -18874,9 +18887,10 @@ func (h *Handler) splitOTACapable(ctx context.Context, ids []uuid.UUID) (mdm, le
 			mdm = append(mdm, id) // can't tell: the existing paths decide
 			continue
 		}
-		if h.otaGate.Device(ctx, *d).OK {
+		// A DPC device has no OTA path at all: it goes in neither half.
+		if v := h.otaGate.Device(ctx, *d); v.OK {
 			mdm = append(mdm, id)
-		} else {
+		} else if v.Legacy() {
 			legacy = append(legacy, id)
 		}
 	}

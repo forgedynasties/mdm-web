@@ -1233,9 +1233,13 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 func (h *Handler) otaVerdict(ctx context.Context, buildID, productKey string, extra json.RawMessage) otagate.Verdict {
 	if len(extra) > 0 {
 		var probe struct {
+			AgentType    string   `json:"agent_type"`
 			Capabilities []string `json:"capabilities"`
 		}
 		if err := json.Unmarshal(extra, &probe); err == nil {
+			if v, ok := otagate.ForAgentKind(probe.AgentType); ok {
+				return v
+			}
 			if v, ok := otagate.Reported(probe.Capabilities); ok {
 				return v
 			}
@@ -1819,6 +1823,13 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		targetIDs = ids
+		// OTA is for our firmware devices only; a DPC device named here is dropped.
+		if body.Type == "ota" {
+			if targetIDs, err = h.db.FilterFirmwareDeviceIDs(r.Context(), targetIDs); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+				return
+			}
+		}
 	case "groups":
 		for _, s := range body.Targets {
 			id, err := uuid.Parse(s)

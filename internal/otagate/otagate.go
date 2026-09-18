@@ -39,8 +39,18 @@ import (
 type Verdict struct {
 	OK     bool
 	Reason string // why not, for the UI: "" when OK
-	Source string // device | manual | observed | cutoff | untracked | off
+	Source string // dpc | device | manual | observed | cutoff | untracked | off
 }
+
+// SourceDPC marks a device managed by the DPC (Device-Owner) agent on stock hardware.
+// OTA is for our firmware devices only: a DPC device takes neither an MDM OTA nor the
+// legacy one, so it must not be routed to the legacy path like a device whose build
+// merely predates MDM OTA.
+const SourceDPC = "dpc"
+
+// Legacy reports whether the legacy otautil path is this device's way to update:
+// no MDM OTA, and not a DPC device (which has no OTA path at all).
+func (v Verdict) Legacy() bool { return !v.OK && v.Source != SourceDPC }
 
 // Store is the slice of the database the gate reads.
 type Store interface {
@@ -70,7 +80,10 @@ func New(store Store, cfg Config) *Gate { return &Gate{db: store, cfg: cfg} }
 
 // Device answers for a device: what it said about itself first, then its build.
 func (g *Gate) Device(ctx context.Context, d db.Device) Verdict {
-	// A DPC agent advertises a full capability list and is the authority on itself.
+	if v, ok := ForAgentKind(d.AgentKind); ok {
+		return v
+	}
+	// A client that advertises a capability list is the authority on itself.
 	if v, ok := Reported(d.Capabilities); ok {
 		return v
 	}
@@ -82,6 +95,15 @@ func (g *Gate) Device(ctx context.Context, d db.Device) Verdict {
 		return v
 	}
 	return g.Build(ctx, d.BuildID, d.ProductKey())
+}
+
+// ForAgentKind answers for a DPC-managed device (agent kind, or a check-in's
+// extra.agent_type, "dpc"): never, by any path. ok is false for anything else.
+func ForAgentKind(kind string) (v Verdict, ok bool) {
+	if kind != product.KindDPC {
+		return Verdict{}, false
+	}
+	return Verdict{Reason: "OTA is for AIO firmware devices only — this device is managed by the DPC agent", Source: SourceDPC}, true
 }
 
 // ReportedExtra reads the firmware client's own answer out of a check-in's extra
