@@ -14,7 +14,20 @@ const (
 	// KindAndroid is the catalog's name for "not our firmware": a product outside the
 	// catalog is stock Android, and any agent on it is the DPC agent.
 	KindAndroid = "android"
+	// AgentTypeMDMLite is the agent_type of AIO MDM-lite, the library embedded in an
+	// app (e.g. the menu board) that reports vitals and crashes with no Device Owner.
+	// It is stored as KindDPC: like the DPC agent it runs on stock hardware and
+	// advertises what it can do, and every non-firmware rule (capability gating, no
+	// OTA) applies. latest_extra.agent_type keeps "mdm-lite" so the dashboard can tell
+	// the two apart. It only checks in over HTTP: it has no live connection.
+	AgentTypeMDMLite = "mdm-lite"
 )
+
+// IsStockAgent reports whether a check-in's agent_type is one of the stock-device
+// agents (the DPC agent or the embedded app library) rather than our firmware.
+func IsStockAgent(agentType string) bool {
+	return agentType == KindDPC || agentType == AgentTypeMDMLite
+}
 
 // Device classes (form factor / role). Stored on devices.device_class; empty means
 // "derive from product" (firmware) or "not set yet" (DPC devices enrolled without a
@@ -95,28 +108,39 @@ const (
 	CapUpdateSplash  = "update_splash" // boot splash write
 	CapMicGain       = "mic_gain"      // T7 codec gain (TX_DEC)
 	CapWLC           = "wlc"           // wireless-charging guest pad control
+	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
+	// app, clear its web cache, check for an app update). No Device Owner needed.
+	CapAppControl = "app_control"
 )
+
+// AppControlCommands are the MDM-lite app-control command types, all gated by
+// CapAppControl and delivered in the check-in response (MDM-lite polls, no socket).
+var AppControlCommands = []string{"app_reload", "app_restart", "app_clear_cache", "app_update_check"}
 
 // commandNeeds maps a command type (the "type" a dashboard form or the admin API
 // sends) to the capability it requires. Types absent from the map need nothing
 // (e.g. "query"). Names line up with the DPC agent's list so its advertised
 // capabilities are used verbatim.
 var commandNeeds = map[string]string{
-	"screenshot":     CapScreenCapture,
-	"install_apk":    CapInstallAPK,
-	"uninstall":      CapUninstall,
-	"reboot":         CapReboot,
-	"shell":          CapShell,
-	"logcat":         CapLogcat,
-	"ota":            CapOTA,
-	"update_splash":  CapUpdateSplash,
-	"wipe":           CapWipe,
-	"kiosk_set":      CapKiosk,
-	"managed_config": CapConfig,
-	"mic_gain_read":  CapMicGain,
-	"mic_gain_set":   CapMicGain,
-	"wlc_set":        CapWLC,
-	"remote":         CapScreenCapture,
+	"screenshot":       CapScreenCapture,
+	"install_apk":      CapInstallAPK,
+	"uninstall":        CapUninstall,
+	"reboot":           CapReboot,
+	"shell":            CapShell,
+	"logcat":           CapLogcat,
+	"ota":              CapOTA,
+	"update_splash":    CapUpdateSplash,
+	"app_reload":       CapAppControl,
+	"app_restart":      CapAppControl,
+	"app_clear_cache":  CapAppControl,
+	"app_update_check": CapAppControl,
+	"wipe":             CapWipe,
+	"kiosk_set":        CapKiosk,
+	"managed_config":   CapConfig,
+	"mic_gain_read":    CapMicGain,
+	"mic_gain_set":     CapMicGain,
+	"wlc_set":          CapWLC,
+	"remote":           CapScreenCapture,
 }
 
 // CommandNeeds returns the capability a command type requires ("" = none).

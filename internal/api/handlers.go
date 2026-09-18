@@ -755,9 +755,9 @@ type checkinRequest struct {
 	} `json:"ota_progress,omitempty"`
 }
 
-// isDPCPayload reports whether a check-in or telemetry frame came from the DPC
-// agent. Every frame the agent sends carries extra.agent_type="dpc" (its
-// Telemetry.buildExtra always writes it, on keyframes and deltas alike), so this
+// isDPCPayload reports whether a check-in or telemetry frame came from a stock-device
+// agent: the DPC agent (agent_type "dpc") or the MDM-lite library in an app ("mdm-lite").
+// Every frame either sends carries extra.agent_type, so this
 // answers from the payload without a database lookup — which is the point, since
 // the caller uses it to skip all storage work.
 func isDPCPayload(extra json.RawMessage) bool {
@@ -770,7 +770,15 @@ func isDPCPayload(extra json.RawMessage) bool {
 	if err := json.Unmarshal(extra, &ident); err != nil {
 		return false
 	}
-	return ident.AgentType == "dpc"
+	return ident.AgentType == "dpc" || ident.AgentType == "mdm-lite"
+}
+
+// isMDMLitePayload reports whether a check-in came from the MDM-lite library.
+func isMDMLitePayload(extra json.RawMessage) bool {
+	var ident struct {
+		AgentType string `json:"agent_type"`
+	}
+	return len(extra) > 0 && json.Unmarshal(extra, &ident) == nil && ident.AgentType == "mdm-lite"
 }
 
 // recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
@@ -827,6 +835,10 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		return nil, err
 	}
 	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
+	if isMDMLitePayload(req.Extra) {
+		// MDM-lite has no live connection; its check-ins are its presence.
+		h.hub.MarkCheckinPresence(deviceID)
+	}
 	if isNew {
 		// A device must already exist to open its WS, so over that transport this is
 		// rare — but onboarding must not depend on which one it used.
@@ -939,9 +951,10 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			_ = h.db.CompleteDeliveredReboots(ctx, deviceID)
 		}
 
-		// Pending commands ride the response for older clients that poll instead of
-		// holding a WebSocket.
-		if h.cfg.LegacyCheckin() && !h.hub.IsConnected(deviceID) {
+		// Pending commands ride the response for clients that poll instead of holding a
+		// WebSocket: older firmware (when legacy check-in is on) and MDM-lite, which
+		// never holds one.
+		if (h.cfg.LegacyCheckin() || isMDMLitePayload(req.Extra)) && !h.hub.IsConnected(deviceID) {
 			if cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID); err == nil {
 				for _, cmd := range cmds {
 					out.Commands = append(out.Commands, map[string]any{
@@ -1233,9 +1246,13 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 func (h *Handler) otaVerdict(ctx context.Context, buildID, productKey string, extra json.RawMessage) otagate.Verdict {
 	if len(extra) > 0 {
 		var probe struct {
+			AgentType    string   `json:"agent_type"`
 			Capabilities []string `json:"capabilities"`
 		}
 		if err := json.Unmarshal(extra, &probe); err == nil {
+			if v, ok := otagate.ForAgentKind(probe.AgentType); ok {
+				return v
+			}
 			if v, ok := otagate.Reported(probe.Capabilities); ok {
 				return v
 			}
@@ -1793,7 +1810,8 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true,
+		"app_reload": true, "app_restart": true, "app_clear_cache": true, "app_update_check": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
@@ -1838,6 +1856,13 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		targetIDs = ids
+		// OTA is for our firmware devices only; a DPC device named here is dropped.
+		if body.Type == "ota" {
+			if targetIDs, err = h.db.FilterFirmwareDeviceIDs(r.Context(), targetIDs); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+				return
+			}
+		}
 	case "groups":
 		for _, s := range body.Targets {
 			id, err := uuid.Parse(s)

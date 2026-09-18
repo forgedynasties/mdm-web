@@ -52,8 +52,11 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 		if s.BatteryPct != nil {
 			p.BatteryPct, p.HasBattery = int(*s.BatteryPct), true
 		}
+		// A battery reading when there is one; a battery-less TV box has only its SoC.
 		if s.TempC != nil {
 			p.TempC, p.HasTemp = *s.TempC, true
+		} else if s.CPUTempC != nil {
+			p.TempC, p.HasTemp = *s.CPUTempC, true
 		}
 		// Percent computed here from used and total, exactly as the old path computed it
 		// from the same two numbers in extra — so the chart and the CSV, which prints

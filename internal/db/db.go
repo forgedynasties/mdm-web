@@ -90,6 +90,17 @@ const (
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
 func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 
+// IsMDMLite reports whether a stock device is reported by the MDM-lite library
+// embedded in an app, rather than by the DPC agent. See prod.AgentTypeMDMLite. Such a
+// device never holds a live connection, so it shows Reporting / Not reporting (from
+// check-in recency) where others show Online / Offline.
+func (d Device) IsMDMLite() bool {
+	var probe struct {
+		AgentType string `json:"agent_type"`
+	}
+	return d.IsDPC() && json.Unmarshal(d.LatestExtra, &probe) == nil && probe.AgentType == prod.AgentTypeMDMLite
+}
+
 // Class is the device's category: the stored class when set, else the category its
 // product belongs to (T7 → t7, Kiosk 18/22/27 → kiosk), else "" (a stock device
 // whose type nobody has assigned and whose model told us nothing).
@@ -204,12 +215,17 @@ func (d Device) ProductKey() string {
 
 // Caps returns the hardware capabilities of the device's product. Gate wlc/charging
 // UI and telemetry on these instead of checking whether a telemetry key is present.
-func (d Device) Caps() prod.Caps { return prod.CapsFor(d.Product) }
+func (d Device) Caps() prod.Caps { return prod.CapsForDevice(d.Product, d.DeviceClass) }
 
 // HasWLC / HasCharging / HasBattery are template-friendly capability shortcuts.
 func (d Device) HasWLC() bool      { return d.Caps().HasWLC }
 func (d Device) HasCharging() bool { return d.Caps().HasCharging }
 func (d Device) HasBattery() bool  { return d.Caps().HasBattery }
+
+// hasBatteryD is the SQL form of HasBattery for the devices table aliased "d". Every
+// battery-percentage count and filter must AND it in: battery-less devices (kiosks,
+// dongles) still carry a latest_battery_pct, usually 0, and would read as "low".
+var hasBatteryD = prod.BatteryPredicateSQL("d")
 
 // BatteryCycles converts the lifetime cumulative discharge into equivalent full
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
@@ -1457,7 +1473,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			Model        string `json:"model"`
 			Manufacturer string `json:"manufacturer"`
 		}
-		if err := json.Unmarshal(extra, &ident); err == nil && ident.AgentType == prod.KindDPC {
+		if err := json.Unmarshal(extra, &ident); err == nil && prod.IsStockAgent(ident.AgentType) {
 			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
 		}
 	}
@@ -1509,7 +1525,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
 		                     device_class, agent_kind, capabilities, capabilities_degraded)
 		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5, $6,
-		        CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE 'firmware' END,
+		        CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE 'firmware' END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array' THEN $4::jsonb->'capabilities' ELSE '[]'::jsonb END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array' THEN $4::jsonb->'capabilities_degraded' ELSE '[]'::jsonb END)
 		ON CONFLICT (serial_number) DO UPDATE
@@ -1530,7 +1546,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
-			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE devices.agent_kind END,
+			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE devices.agent_kind END,
 			    capabilities       = CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array'
 			                              THEN $4::jsonb->'capabilities' ELSE devices.capabilities END,
 			    capabilities_degraded = CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array'
@@ -1683,8 +1699,8 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 	}
 	used, total := ramUsedTotal(curMap["ram_usage_mb"])
 	_, err := tx.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c)
+		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (device_id, at) DO NOTHING`,
 		deviceID,
 		battery,
@@ -1692,6 +1708,7 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 		scaledInt(curMap["wifi_rssi"], 1),
 		used, total,
 		jsonFloat(curMap["storage_free_gb"]),
+		jsonFloat(curMap["cpu_temp_c"]),
 	)
 	return err
 }
@@ -1894,6 +1911,7 @@ type DeviceSample struct {
 	RAMUsedMB     *int32
 	RAMTotalMB    *int32
 	StorageFreeGB *float64
+	CPUTempC      *float64 // SoC reading from battery-less TV boxes; see the schema note
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -1910,17 +1928,28 @@ type StateAt struct {
 // and pad markers, which come from events; events alone have nothing to plot. ok is
 // false when either side has nothing at all, which is the case for every window older
 // than the day dual-writing began.
+//
+// A device first seen after dual-writing began has samples from its very first
+// check-in, and nothing older exists anywhere: the shaped tables cover its whole life,
+// so coverage is unbounded. Its first state event can still come later (a key first
+// reported, or seeded, after enrollment), and holding coverage to that would send its
+// first hours to the check-in fallback, whose rows no longer carry a snapshot. A new
+// device's chart then showed only the stray early rows that still had one.
 func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.Time, ok bool, err error) {
-	var sampleFrom, eventFrom *time.Time
+	var sampleFrom, eventFrom, checkinFrom *time.Time
 	err = d.pool.QueryRow(ctx, `
-		SELECT (SELECT MIN(at) FROM device_samples      WHERE device_id = $1),
-		       (SELECT MIN(at) FROM device_state_events WHERE device_id = $1)`,
-		deviceID).Scan(&sampleFrom, &eventFrom)
+		SELECT (SELECT MIN(at)         FROM device_samples      WHERE device_id = $1),
+		       (SELECT MIN(at)         FROM device_state_events WHERE device_id = $1),
+		       (SELECT MIN(created_at) FROM checkins            WHERE device_id = $1)`,
+		deviceID).Scan(&sampleFrom, &eventFrom, &checkinFrom)
 	if err != nil {
 		return time.Time{}, false, err
 	}
 	if sampleFrom == nil || eventFrom == nil {
 		return time.Time{}, false, nil
+	}
+	if checkinFrom != nil && !checkinFrom.Before(*sampleFrom) {
+		return time.Time{}, true, nil
 	}
 	if eventFrom.After(*sampleFrom) {
 		return *eventFrom, true, nil
@@ -1932,7 +1961,7 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb
+		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c
 		FROM device_samples
 		WHERE device_id = $1 AND at >= $2 AND at <= $3
 		ORDER BY at`, deviceID, from, until)
@@ -1943,7 +1972,7 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	var out []DeviceSample
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -2256,7 +2285,7 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	q := fmt.Sprintf(`SELECT
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.id = ANY($%d::uuid[])),
-			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20 AND `+hasBatteryD+`),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true))
 		FROM devices d`, connArg)
@@ -2278,7 +2307,7 @@ func (d *DB) GetSummary(ctx context.Context, connected []uuid.UUID) (Summary, er
 		SELECT
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.id = ANY($1::uuid[])),
-			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20 AND `+hasBatteryD+`),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
@@ -2488,11 +2517,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		// Battery filters run against the latest checkin snapshot denormalized onto devices.
 		switch f.Battery {
 		case "low":
-			base += " AND d.latest_battery_pct < 20"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 		case "mid":
-			base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 		case "ok":
-			base += " AND d.latest_battery_pct >= 50"
+			base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 		}
 
 		if dir != "asc" && dir != "desc" {
@@ -2579,11 +2608,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	base += "\nWHERE " + strings.Join(wheres, " AND ")
 	switch f.Battery {
 	case "low":
-		base += " AND d.latest_battery_pct < 20"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 	case "mid":
-		base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		base += " AND d.latest_battery_pct >= 50"
+		base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 	}
 
 	return base, args
@@ -3648,11 +3677,11 @@ func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, 
 	}
 	switch battery {
 	case "low":
-		q += " AND d.latest_battery_pct < 20"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
 	case "mid":
-		q += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		q += " AND d.latest_battery_pct >= 50"
+		q += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 	}
 	args = append(args, limit)
 	q += fmt.Sprintf(" ORDER BY (d.restaurant_id IS NULL) DESC, d.last_seen_at DESC LIMIT $%d", len(args))
@@ -12664,6 +12693,9 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          DOUBLE PRECI
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_used_mb     INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_total_mb    INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECISION;
+-- SoC temperature from battery-less TV boxes (extra.cpu_temp_c). Its own column, not
+-- temp_c: temp_c feeds the overheating rule at 45 °C, and an SoC idles above that.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS cpu_temp_c      DOUBLE PRECISION;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
@@ -13079,6 +13111,54 @@ func (d *DB) FilterDeviceIDsByProduct(ctx context.Context, ids []uuid.UUID, prod
 	rows, err := d.pool.Query(ctx, `
 		SELECT id FROM devices
 		WHERE id = ANY($1) AND (CASE WHEN product = '' THEN 't7' ELSE product END) = $2`, ids, p.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// DevicesWithPackages maps each device to the given packages it has installed (from its
+// reported app inventory). Only devices with at least one of them appear.
+func (d *DB) DevicesWithPackages(ctx context.Context, packages []string) (map[uuid.UUID]map[string]bool, error) {
+	out := map[uuid.UUID]map[string]bool{}
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id, package_name FROM device_packages WHERE package_name = ANY($1)`, packages)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var p string
+		if err := rows.Scan(&id, &p); err != nil {
+			return out, err
+		}
+		if out[id] == nil {
+			out[id] = map[string]bool{}
+		}
+		out[id][p] = true
+	}
+	return out, rows.Err()
+}
+
+// FilterFirmwareDeviceIDs keeps the ids of devices that are not DPC-managed. OTA is for
+// our firmware devices only; a DPC agent on stock hardware has no OTA path, MDM or
+// legacy, so it must never become an update target however it was selected.
+func (d *DB) FilterFirmwareDeviceIDs(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id FROM devices WHERE id = ANY($1) AND agent_kind <> $2`, ids, prod.KindDPC)
 	if err != nil {
 		return nil, err
 	}

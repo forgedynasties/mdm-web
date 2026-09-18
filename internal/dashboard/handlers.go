@@ -426,10 +426,10 @@ func micGainPtr(raw json.RawMessage) *MicGainView {
 func deviceRowClasses(dev db.Device) string {
 	var classes []string
 
-	if dev.BatteryPct < 20 {
+	if dev.HasBattery() && dev.BatteryPct < 20 {
 		classes = append(classes, "row-alert-battery")
 	}
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok && (temp >= 45 || temp <= 0) {
+	if lvl := deviceTempClass(dev.LatestExtra); lvl != "" && lvl != "ok" {
 		classes = append(classes, "row-alert-temp")
 	}
 
@@ -454,7 +454,7 @@ type DeviceRowJSON struct {
 	KioskEnabled bool    `json:"kiosk_enabled"`
 	KioskPackage string  `json:"kiosk_package"`
 	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
-	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
+	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
 	// BatteryMissing: product has a battery but the device reports the pack absent
 	// (NTC fault / unplugged). The live patch shows a "None" chip, never a percentage.
 	BatteryMissing bool  `json:"battery_missing"`
@@ -528,20 +528,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		}
 	}
 
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok {
+	if temp, src, ok := deviceTempC(dev.LatestExtra); ok {
 		r.TempStr = fmt.Sprintf("%.1f°C", temp)
-		switch {
-		case temp >= 60:
-			r.TempClass = "danger"
-		case temp >= 45:
-			r.TempClass = "warn"
-		case temp <= -10:
-			r.TempClass = "danger"
-		case temp <= 0:
-			r.TempClass = "warn"
-		default:
-			r.TempClass = "ok"
-		}
+		r.TempClass = tempLevel(temp, src)
 	}
 
 	if !dev.LastSeenAt.IsZero() {
@@ -1272,24 +1261,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return fmt.Sprintf("%.1f°C", temp)
 		},
-		"tempClass": func(raw json.RawMessage) string {
-			temp, ok := extractBatteryTempC(raw)
-			if !ok {
-				return ""
-			}
-			switch {
-			case temp >= 60:
-				return "danger"
-			case temp >= 45:
-				return "warn"
-			case temp <= -10:
-				return "danger"
-			case temp <= 0:
-				return "warn"
-			default:
-				return "ok"
-			}
-		},
+		"tempClass": deviceTempClass,
+		"tempSource": deviceTempSrc,
 		"ramPct": func(ram map[string]int) int {
 			total, ok := ram["total"]
 			if !ok || total == 0 {
@@ -1306,7 +1279,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return pct
 		},
 		"extraTempC": func(raw json.RawMessage) template.JS {
-			temp, ok := extractBatteryTempC(raw)
+			temp, _, ok := deviceTempC(raw)
 			if !ok {
 				return "null"
 			}
@@ -2718,22 +2691,9 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// batteryTempStr renders battery_temp_c from extra as "39.2°C" or "".
-func batteryTempStr(raw json.RawMessage) string {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(raw, &m) != nil {
-		return ""
-	}
-	v, ok := m["battery_temp_c"]
-	if !ok {
-		return ""
-	}
-	var f float64
-	if json.Unmarshal(v, &f) != nil {
-		return ""
-	}
-	return fmt.Sprintf("%.1f°C", f)
-}
+// batteryTempStr renders the device's temperature as "39.2°C" or "": battery_temp_c,
+// or cpu_temp_c on a battery-less TV box (see deviceTempC).
+func batteryTempStr(raw json.RawMessage) string { return deviceTempStr(raw) }
 
 // numWord spells small counts the way a sentence would ("six of eight").
 func numWord(n int) string {
@@ -4351,11 +4311,13 @@ func summarizePreview(md string) string {
 	return ""
 }
 
-// connectedSlice returns the live WebSocket-connected device IDs as a slice, for DB
-// queries that compute online/offline from real presence (the ws.Hub) instead of
-// check-in recency. Empty slice = nobody online.
+// connectedSlice returns the device IDs shown as present, as a slice, for DB queries
+// that compute online counts and filters from real presence (the ws.Hub) instead of
+// check-in recency: live sockets, plus the display grace and MDM-lite check-in
+// presence (ConnectedIDsForDisplay), so a counter never says "0 of 1 online" beside
+// a card that says Reporting. Empty slice = nobody online.
 func (h *Handler) connectedSlice() []uuid.UUID {
-	set := h.hub.ConnectedIDs()
+	set := h.hub.ConnectedIDsForDisplay()
 	out := make([]uuid.UUID, 0, len(set))
 	for id := range set {
 		out = append(out, id)
@@ -6319,7 +6281,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		if hasBattery {
 			battery = append(battery, bpt{X: x, Y: c.BatteryPct, Wlc: wlcIntFromExtra(c.Extra)})
 		}
-		if t, ok := extractBatteryTempC(c.Extra); ok {
+		if t, _, ok := deviceTempC(c.Extra); ok {
 			temp = append(temp, pt{X: x, Y: t})
 		}
 		if rp, ok := ramPctFromExtra(c.Extra); ok {
@@ -6839,7 +6801,7 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 			}
 		}
 	}
-	if temp, ok := extractBatteryTempC(c.Extra); ok {
+	if temp, _, ok := deviceTempC(c.Extra); ok {
 		p.TempC = &temp
 	}
 	return p
@@ -8175,7 +8137,7 @@ func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []de
 	if err != nil {
 		return []deviceMapPoint{}
 	}
-	online := h.hub.ConnectedIDs()
+	online := h.hub.ConnectedIDsForDisplay()
 	pts := make([]deviceMapPoint, 0, 16)
 	for _, dv := range devs {
 		var m map[string]json.RawMessage
@@ -8802,7 +8764,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.ListGroups(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	connected := h.hub.ConnectedIDs()
+	connected := h.hub.ConnectedIDsForDisplay()
 	online := make(map[uuid.UUID]bool, len(connected))
 	for id := range connected {
 		online[id] = true
@@ -13760,6 +13722,16 @@ func (h *Handler) resolveEligibleDevicesUnscoped(r *http.Request, product string
 		}
 	}
 
+	// OTA is for our firmware devices only: DPC-managed devices are never targets,
+	// whatever scope, group or pasted serial list selected them.
+	if len(unique) > 0 {
+		var err error
+		unique, err = h.db.FilterFirmwareDeviceIDs(r.Context(), unique)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Keep only devices matching the release's product (wrong-product devices can't be
 	// targeted at all). Skipped when no product is supplied.
 	if product != "" && len(unique) > 0 {
@@ -14123,6 +14095,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
+			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM-lite"},
 		}
 		for _, a := range allActions {
 			switch a.Type {
@@ -14785,8 +14761,11 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 		// A build with no MDM OTA is not blocked any more — it is served the same
 		// release over the legacy path, in the same rollout. Only a full image can
 		// reach one, since the legacy client has no incremental story.
-		legacy := !h.otaGate.Device(ctx, d).OK
+		verdict := h.otaGate.Device(ctx, d)
+		legacy := verdict.Legacy()
 		switch {
+		case verdict.Source == otagate.SourceDPC:
+			blocked[s] = "DPC device — OTA is firmware-only"
 		case d.BuildID == rel.Version:
 			blocked[s] = "up to date"
 		case newer[s] != "":
@@ -15721,6 +15700,11 @@ var commandRoles = map[string][]string{
 	"install_apk":   {"admin", "dev", "operator", "user_manager", "super_op"},
 	"uninstall":     {"admin", "dev", "operator", "user_manager", "super_op"},
 	"reboot":        {"admin", "dev", "operator", "user_manager", "super_op"},
+	// MDM-lite app controls: operator-level, like reboot, and far less disruptive.
+	"app_reload":       {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
@@ -15922,6 +15906,11 @@ func policyActionForCommand(cmdType string) string {
 	if cmdType == "set_kiosk" {
 		return "kiosk"
 	}
+	for _, t := range product.AppControlCommands {
+		if cmdType == t {
+			return "app_control"
+		}
+	}
 	return cmdType
 }
 
@@ -16049,6 +16038,14 @@ func cmdTypeLabel(cmdType string) string {
 		return "Wipe"
 	case "update_splash":
 		return "Boot logo"
+	case "app_reload":
+		return "Reload page"
+	case "app_restart":
+		return "Restart app"
+	case "app_clear_cache":
+		return "Clear web cache"
+	case "app_update_check":
+		return "Check for update"
 	case "logcat":
 		return "Log capture"
 	case "ota":
@@ -17324,7 +17321,9 @@ func (h *Handler) RecipeDelete(w http.ResponseWriter, r *http.Request) {
 // their own mechanisms and their params aren't captured in a recipe payload).
 func schedulableType(t string) bool {
 	switch t {
-	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash":
+	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash",
+		// e.g. a nightly restart to clear WebView memory buildup
+		"app_reload", "app_restart", "app_clear_cache":
 		return true
 	}
 	return false
@@ -18267,10 +18266,10 @@ func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
 // matrix rules) and dispatches any new alerts. Called every minute from main.go so
 // 5-minute-offline / SoC-now / discharge-rate alerts fire promptly, not hourly.
 func (h *Handler) RunRecentAlerts(ctx context.Context) {
-	// The offline-family rules must not page a device that still has a live WebSocket,
-	// so pass the currently-connected set (see offlineHitsQuery / the alerts-offline
-	// design note).
-	connSet := h.hub.ConnectedIDs()
+	// The offline-family rules must not page a device that is still present, so pass
+	// the present set (see offlineHitsQuery / the alerts-offline design note): live
+	// sockets, and MDM-lite devices that checked in recently (they never hold one).
+	connSet := h.hub.ConnectedIDsForDisplay()
 	connected := make([]uuid.UUID, 0, len(connSet))
 	for id := range connSet {
 		connected = append(connected, id)
@@ -18976,9 +18975,10 @@ func (h *Handler) splitOTACapable(ctx context.Context, ids []uuid.UUID) (mdm, le
 			mdm = append(mdm, id) // can't tell: the existing paths decide
 			continue
 		}
-		if h.otaGate.Device(ctx, *d).OK {
+		// A DPC device has no OTA path at all: it goes in neither half.
+		if v := h.otaGate.Device(ctx, *d); v.OK {
 			mdm = append(mdm, id)
-		} else {
+		} else if v.Legacy() {
 			legacy = append(legacy, id)
 		}
 	}

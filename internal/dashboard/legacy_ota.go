@@ -123,6 +123,18 @@ func (h *Handler) LegacyOTAPush(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, "/updates/legacy", "Pick at least one device", "error")
 		return
 	}
+	// OTA is for our firmware devices only; drop any DPC-managed serial pasted in.
+	firmware := serials[:0]
+	for _, s := range serials {
+		if d, err := h.db.GetDevice(r.Context(), s); err == nil && d != nil && d.IsDPC() {
+			continue
+		}
+		firmware = append(firmware, s)
+	}
+	if serials = firmware; len(serials) == 0 {
+		h.hxDoneToast(w, r, "/updates/legacy", "OTA is for firmware devices only — none of these can take it", "error")
+		return
+	}
 	id, err := h.db.CreateLegacyDeployment(r.Context(), relID, serials, h.currentUsername(r))
 	if err != nil {
 		h.hxDoneToast(w, r, "/updates/legacy", "Could not create the deployment", "error")
