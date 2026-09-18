@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AIO MDM — how the architecture works</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* A 1920x1080 stage driven entirely by window.seek(t). Nothing animates on a wall
+     clock: every visual is a pure function of t, so frame N always renders identically
+     no matter how long the capture takes or how loaded the machine is. That is the
+     whole reason this is not CSS keyframes. */
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --bg:#0B0E13; --panel:#141A22; --panel-2:#1B2330;
+    --ink:#EAEFF6; --ink-2:#AEBACA; --muted:#7C8899;
+    --line:#242E3B;
+    --cool:#48D6C6;      /* shaped tables, the good path */
+    --warm:#F08A4B;      /* the old snapshot, cost */
+    --dev:#8E86F0;       /* commands / outbound */
+    --good:#5FCF95; --bad:#E86A6A;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);overflow:hidden}
+  #stage{position:relative;width:1920px;height:1080px;background:
+      radial-gradient(1200px 700px at 78% 12%, #16202B 0%, var(--bg) 62%);
+      color:var(--ink);font-family:var(--sans);overflow:hidden}
+  .scene{position:absolute;inset:0;opacity:0;will-change:opacity}
+
+  .eyebrow{font-family:var(--mono);font-size:19px;letter-spacing:.24em;text-transform:uppercase;color:var(--cool)}
+  h1{font-size:104px;line-height:1.02;font-weight:700;letter-spacing:-.03em;margin:0}
+  h2{font-size:62px;line-height:1.08;font-weight:650;letter-spacing:-.022em;margin:0}
+  .sub{font-size:27px;color:var(--ink-2);line-height:1.45;max-width:1120px;margin:0}
+  .tiny{font-family:var(--mono);font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+  .pad{position:absolute;left:120px;top:110px;right:120px}
+
+  /* generic node box */
+  .node{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:20px 24px;min-width:240px}
+  .node .t{font-family:var(--mono);font-size:22px;font-weight:500}
+  .node .s{font-size:17px;color:var(--muted);margin-top:6px;line-height:1.35}
+  .node.cool{border-color:var(--cool)}   .node.cool .t{color:var(--cool)}
+  .node.warm{border-color:var(--warm)}   .node.warm .t{color:var(--warm)}
+  .node.dev{border-color:var(--dev)}     .node.dev .t{color:var(--dev)}
+
+  svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .wire{fill:none;stroke:var(--line);stroke-width:2.5}
+  .wire.live{stroke:var(--cool)}
+  .packet{fill:var(--cool)}
+  .packet.warm{fill:var(--warm)}
+  .packet.dev{fill:var(--dev)}
+
+  /* device grid */
+  .grid{position:absolute;display:grid;gap:9px}
+  .dev{width:22px;height:30px;border-radius:4px;background:var(--panel-2);border:1px solid var(--line)}
+  .dev.on{background:#12313a;border-color:var(--cool)}
+
+  /* three-shape lanes */
+  .lane{position:absolute;height:74px;border-radius:10px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+  .lane .mk{position:absolute;top:0;bottom:0}
+  .lanelab{position:absolute;font-family:var(--mono);font-size:19px;color:var(--ink-2)}
+  .lanesub{position:absolute;font-size:15px;color:var(--muted)}
+
+  /* counters */
+  .stat{position:absolute;text-align:left}
+  .stat .v{font-family:var(--mono);font-size:72px;font-weight:600;letter-spacing:-.02em;line-height:1}
+  .stat .k{font-size:19px;color:var(--muted);margin-top:10px}
+
+  .bignum{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .strike{position:relative}
+  .strike::after{content:"";position:absolute;left:-4px;right:-4px;top:52%;height:3px;background:var(--bad);
+                 transform-origin:left center}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Tiny deterministic scene engine.
+// ─────────────────────────────────────────────────────────────────────────────
+const S = document.getElementById('stage');
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,u)=>a+(b-a)*u;
+// smoothstep, the only easing used: everything accelerates and settles the same way,
+// which is what makes a cut between two scenes feel like one film.
+const ease=u=>{u=clamp(u,0,1);return u*u*(3-2*u)};
+// progress of t through [a,b]
+const seg=(t,a,b)=>ease((t-a)/(b-a));
+const el=(cls,html,style)=>{const d=document.createElement('div');if(cls)d.className=cls;
+  if(html!=null)d.innerHTML=html;if(style)Object.assign(d.style,style);return d};
+
+const scenes=[];
+function scene(from,to,build){
+  const root=el('scene');S.appendChild(root);
+  const api=build(root);
+  scenes.push({from,to,root,render:api&&api.render});
+}
+
+// ── 1. Title ────────────────────────────────────────────────────────────────
+scene(0,7.5,root=>{
+  const w=el('',null,{position:'absolute',left:'120px',top:'330px',right:'120px'});
+  const eb=el('eyebrow','AIO MDM · System architecture');
+  const h=el('',`One Go binary, one Postgres,<br>and <span style="color:var(--cool)">three shapes of telemetry</span>.`);
+  h.style.cssText='font-size:104px;line-height:1.04;font-weight:700;letter-spacing:-.03em;margin:26px 0 0';
+  const s=el('sub','194 devices report in. Operators send commands back. Everything between is one process and one database.',{marginTop:'34px'});
+  w.append(eb,h,s);root.append(w);
+  return{render(t){
+    const a=seg(t,0,1.1);
+    eb.style.opacity=a; eb.style.transform=`translateY(${lerp(18,0,a)}px)`;
+    const b=seg(t,.35,1.7); h.style.opacity=b; h.style.transform=`translateY(${lerp(30,0,b)}px)`;
+    const c=seg(t,.9,2.2); s.style.opacity=c; s.style.transform=`translateY(${lerp(22,0,c)}px)`;
+  }};
+});
+
+// ── 2. The fleet and its three transports ───────────────────────────────────
+scene(7.5,19,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','01 — How a device talks to the server'));
+  const h=el('',`A fleet, three ways in.`);h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0';
+  p.append(h);
+
+  // device grid on the left
+  const g=el('grid',null,{left:'120px',top:'330px',gridTemplateColumns:'repeat(10,22px)'});
+  const devs=[];for(let i=0;i<60;i++){const d=el('dev');g.append(d);devs.push(d)}
+  root.append(g);
+  const glab=el('lanesub','194 kiosks · 20 venues',{left:'120px',top:'588px'});root.append(glab);
+
+  const rows=[
+    ['POST /api/v1/checkin','a full snapshot · every ~5 min · the safety net','cool',330],
+    ['GET /api/v1/ws','delta frames up, commands down · live','cool',470],
+    ['otautil : 8000','legacy OTA polling · every 15 min · the port is a contract','warm',610],
+  ];
+  const nodes=rows.map(([t,s,k,y])=>{
+    const n=el('node '+k,`<div class="t">${t}</div><div class="s">${s}</div>`,{left:'720px',top:y+'px',width:'940px'});
+    root.append(n);return n;
+  });
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','wires');root.append(svg);
+  const wires=rows.map(([,,,y])=>{
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('class','wire live');
+    path.setAttribute('d',`M 400 ${y+150} C 560 ${y+150}, 580 ${y+40}, 720 ${y+40}`);
+    svg.append(path);return path;
+  });
+  const dots=rows.map(()=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('r','7');c.setAttribute('class','packet');svg.append(c);return c});
+
+  return{render(t){
+    p.style.opacity=seg(t,0,.8);
+    const gu=seg(t,.4,1.6); g.style.opacity=gu; glab.style.opacity=seg(t,.9,1.8);
+    // devices wake in a wave
+    devs.forEach((d,i)=>{const u=seg(t,.5+i*0.012,1.0+i*0.012);d.classList.toggle('on',u>.5);d.style.opacity=lerp(.25,1,u)});
+    nodes.forEach((n,i)=>{const u=seg(t,1.6+i*.55,2.5+i*.55);
+      n.style.opacity=u;n.style.transform=`translateX(${lerp(40,0,u)}px)`});
+    wires.forEach((w,i)=>{
+      const u=seg(t,1.9+i*.55,2.9+i*.55);
+      const L=w.getTotalLength();w.style.strokeDasharray=L;w.style.strokeDashoffset=lerp(L,0,u);w.style.opacity=u*.8;
+      const d=dots[i];
+      if(t>3.2+i*.3){
+        const cyc=((t-3.2-i*.3)/1.5)%1, pt=w.getPointAtLength(cyc*L);
+        d.setAttribute('cx',pt.x);d.setAttribute('cy',pt.y);d.style.opacity=Math.sin(cyc*Math.PI);
+      } else d.style.opacity=0;
+    });
+  }};
+});
+
+// ── 3. The write path ───────────────────────────────────────────────────────
+scene(19,34,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','02 — What happens to a check-in'));
+  const h=el('',`One synchronous transaction.`);h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0';
+  p.append(h);
+
+  const ingest=el('node','<div class="t">ingestCheckin()</div><div class="s">HTTP and WS, one path</div>',
+    {left:'120px',top:'360px',width:'330px'});
+  const live=el('node cool','<div class="t">devices.latest_extra</div><div class="s">the live snapshot — always written</div>',
+    {left:'560px',top:'300px',width:'470px'});
+  const gate=el('node warm','<div class="t">state_hash</div><div class="s">same as the last stored row, inside the window? then no history row</div>',
+    {left:'560px',top:'470px',width:'470px'});
+  const t1=el('node','<div class="t">checkins</div><div class="s">battery · build · hash</div>',{left:'1180px',top:'330px',width:'400px'});
+  const t2=el('node cool','<div class="t">device_samples</div><div class="s">the numbers, fixed columns</div>',{left:'1180px',top:'470px',width:'400px'});
+  const t3=el('node cool','<div class="t">device_state_events</div><div class="s">only when something changes</div>',{left:'1180px',top:'610px',width:'400px'});
+  root.append(ingest,live,gate,t1,t2,t3);
+
+  const note=el('sub','A queue absorbs work you cannot make smaller. This work got smaller: 937 bytes a row, down to about 71.',
+    {position:'absolute',left:'120px',top:'830px',fontSize:'25px'});
+  root.append(note);
+
+  return{render(t){
+    p.style.opacity=seg(t,0,.7);
+    const io=seg(t,.5,1.3); ingest.style.opacity=io; ingest.style.transform=`translateY(${lerp(20,0,io)}px)`;
+    [live,gate].forEach((n,i)=>{const u=seg(t,1.2+i*.5,2.0+i*.5);n.style.opacity=u;n.style.transform=`translateX(${lerp(-30,0,u)}px)`});
+    [t1,t2,t3].forEach((n,i)=>{const u=seg(t,2.6+i*.45,3.4+i*.45);n.style.opacity=u;n.style.transform=`translateX(${lerp(-30,0,u)}px)`});
+    // the gate pulses while it is "deciding", then the tables settle
+    const pulse=t>4.2&&t<8.5?(Math.sin((t-4.2)*4.2)*0.5+0.5):0;
+    gate.style.boxShadow=`0 0 ${lerp(0,44,pulse)}px rgba(240,138,75,${lerp(0,.35,pulse)})`;
+    // most reports are skipped: t1 dims on the skipped beats
+    const beat=Math.floor((t-4.2)/1.1);
+    const skipped=t>4.6&&(beat%4!==0);
+    t1.style.opacity=t<2.6?0:(skipped?0.34:1);
+    t2.style.opacity=t<3.05?0:(skipped?0.34:1);
+    t3.style.opacity=t<3.5?0:(skipped||beat%8!==0?0.24:1);
+    note.style.opacity=seg(t,9.5,10.6);
+  }};
+});
+
+// ── 4. Three shapes over the same six hours ─────────────────────────────────
+scene(34,50,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','03 — Why three tables and not one'));
+  const h=el('',`The same six hours, three ways.`);h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0';
+  p.append(h);
+
+  const L=[
+    ['checkins  snapshot','every report carried all 23 fields · 641 bytes','warm',380],
+    ['device_samples','the numbers, in fixed columns · 91 bytes','cool',540],
+    ['device_state_events','nothing at all while a state holds','cool',700],
+  ];
+  const lanes=L.map(([t,s,k,y])=>{
+    const lab=el('lanelab',t,{left:'120px',top:(y+16)+'px'});
+    const sub=el('lanesub',s,{left:'120px',top:(y+46)+'px',width:'420px'});
+    const ln=el('lane',null,{left:'600px',top:y+'px',width:'1200px'});
+    root.append(lab,sub,ln);return{ln,lab,sub,kind:k};
+  });
+  const N=76;
+  const marks=lanes.map((L0,li)=>{
+    const out=[];
+    for(let i=0;i<N;i++){
+      const m=el('mk');
+      if(li===0){m.style.cssText='position:absolute;top:0;bottom:0;border-radius:3px;background:var(--warm);opacity:.9';
+                 m.style.left=(i*(1200/N)+1)+'px';m.style.width=(1200/N-2)+'px'}
+      if(li===1){m.style.cssText='position:absolute;top:26px;bottom:26px;width:3px;border-radius:2px;background:var(--cool)';
+                 m.style.left=(i*(1200/N)+3)+'px'}
+      if(li===2){m.style.cssText='position:absolute;top:0;bottom:0;width:5px;border-radius:3px;background:var(--cool)';
+                 m.style.left='0px';m.style.opacity='0'}
+      L0.ln.append(m);out.push(m);
+    }
+    return out;
+  });
+  // three real transitions across the window
+  const events=[0.27,0.52,0.78];
+  const flags=events.map(x=>{const f=el('lanesub','',{left:(600+x*1200+10)+'px',top:'754px',color:'var(--cool)',fontFamily:'var(--mono)',fontSize:'15px'});root.append(f);return f});
+  const flagText=['charging → true','wlc → 1','charging → false'];
+
+  const tally=el('sub','',{position:'absolute',left:'120px',top:'860px',fontSize:'26px'});root.append(tally);
+
+  return{render(t){
+    p.style.opacity=seg(t,0,.7);
+    lanes.forEach((L0,i)=>{const u=seg(t,.5+i*.5,1.3+i*.5);
+      L0.ln.style.opacity=u;L0.lab.style.opacity=u;L0.sub.style.opacity=u});
+    // fill lane 0 and 1 left to right
+    const fill=seg(t,1.6,6.5);
+    marks.forEach((row,li)=>{
+      if(li===2)return;
+      row.forEach((m,i)=>{m.style.opacity=(i/N<fill)?(li===0?.9:1):0});
+    });
+    // lane 2: only three marks, and only when their moment passes
+    events.forEach((x,i)=>{
+      const on=fill>x;
+      const m=marks[2][i];
+      m.style.left=(x*1200)+'px';m.style.opacity=on?1:0;
+      flags[i].textContent=on?flagText[i]:'';
+      flags[i].style.opacity=on?seg(t,1.6+x*4.9,2.1+x*4.9):0;
+    });
+    const u=seg(t,7.2,8.2);
+    tally.style.opacity=u;
+    tally.innerHTML='<span style="color:var(--warm)">76 fat rows</span> · <span style="color:var(--cool)">76 thin rows</span> · <span style="color:var(--cool)">3 events</span> — same six hours, same information.';
+  }};
+});
+
+// ── 5. The queue that does exist ────────────────────────────────────────────
+scene(50,63,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','04 — The queue that does exist'));
+  const h=el('',`Nothing queues inbound.<br>Everything queues outbound.`);
+  h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0;line-height:1.1';
+  p.append(h);
+
+  const q=el('node dev','<div class="t">commands · command_targets · command_status</div><div class="s">queued → delivered → received → done, with receipt-ack. Flushed on connect, after every ack, and once a minute.</div>',
+    {left:'120px',top:'470px',width:'760px'});
+  const dev=el('node','<div class="t">a device, offline</div><div class="s">asleep, out of coverage, mid-reboot</div>',
+    {left:'1320px',top:'470px',width:'440px'});
+  root.append(q,dev);
+
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','wires');root.append(svg);
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('class','wire');path.setAttribute('d','M 880 530 L 1320 530');svg.append(path);
+  const pk=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  pk.setAttribute('r','9');pk.setAttribute('class','packet dev');svg.append(pk);
+
+  const cap=el('sub','',{position:'absolute',left:'120px',top:'760px',fontSize:'26px'});root.append(cap);
+  return{render(t){
+    p.style.opacity=seg(t,0,.7);
+    q.style.opacity=seg(t,.8,1.6); dev.style.opacity=seg(t,1.2,2.0);
+    path.style.opacity=seg(t,1.8,2.4)*.6;
+    // a packet tries, fails, waits, then lands when the device returns
+    let x=null,o=0;
+    if(t>2.6&&t<4.2){const u=(t-2.6)/1.6;x=lerp(880,1180,u);o=1-Math.max(0,(u-.7)/.3)}
+    if(t>6.2&&t<7.6){const u=ease((t-6.2)/1.4);x=lerp(880,1320,u);o=1}
+    if(x!=null){pk.setAttribute('cx',x);pk.setAttribute('cy',530);pk.style.opacity=o}else pk.style.opacity=0;
+    dev.style.borderColor=t>5.9?'var(--good)':'var(--line)';
+    dev.querySelector('.t').textContent=t>5.9?'the device returns':'a device, offline';
+    dev.querySelector('.s').textContent=t>5.9?'the queue re-delivers — nothing was lost':'asleep, out of coverage, mid-reboot';
+    const u=seg(t,8.4,9.4);cap.style.opacity=u;
+    cap.textContent='A command must survive the device being away. A check-in must not — the next one is along in seconds.';
+  }};
+});
+
+// ── 6. Readers ──────────────────────────────────────────────────────────────
+scene(63,75,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','05 — Who reads what'));
+  const h=el('',`Nine readers, moved one at a time.`);h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0';
+  p.append(h);
+
+  const items=[
+    ['Live page · fleet · map','devices.latest_extra'],
+    ['Vitals chart','samples + events'],
+    ['Alert rules','samples + events'],
+    ['Charger-flap detection','events'],
+    ['CSV export','samples + events'],
+    ['Daily rollup','samples + events'],
+    ['Venue report · owner home','device_daily_stats'],
+  ];
+  const rows=items.map(([a,b],i)=>{
+    const y=330+i*82;
+    const l=el('node',`<div class="t" style="font-size:20px">${a}</div>`,{left:'120px',top:y+'px',width:'620px',padding:'14px 20px',minWidth:'0'});
+    const r=el('lanesub',b,{left:'820px',top:(y+18)+'px',fontFamily:'var(--mono)',fontSize:'20px',color:'var(--cool)'});
+    root.append(l,r);return{l,r};
+  });
+  const cap=el('sub','',{position:'absolute',left:'120px',top:'930px',fontSize:'25px'});root.append(cap);
+  return{render(t){
+    p.style.opacity=seg(t,0,.7);
+    rows.forEach((R,i)=>{const u=seg(t,.6+i*.3,1.3+i*.3);
+      R.l.style.opacity=u;R.l.style.transform=`translateX(${lerp(-24,0,u)}px)`;R.r.style.opacity=u});
+    const u=seg(t,4.6,5.6);cap.style.opacity=u;
+    cap.innerHTML='Each was diffed against the old source before the next was touched — <span class="bignum" style="color:var(--cool)">622</span> alert fires against <span class="bignum" style="color:var(--cool)">622</span>. These failures are silent: an alert that never fires looks like a fleet with nothing wrong.';
+  }};
+});
+
+// ── 7. The numbers ──────────────────────────────────────────────────────────
+scene(75,89,root=>{
+  const p=el('pad');root.append(p);
+  p.append(el('tiny','06 — What it costs'));
+  const h=el('',`Measured, not projected.`);h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0';
+  p.append(h);
+
+  const defs=[
+    ['bytes per stored row',937,71,'',120],
+    ['rows stored per day',118869,52000,'',620],
+    ['MB per 100 idle devices, per hour',7,1.1,'',1120],
+    ['Postgres memory at idle, MB',1940,412,'',1500],
+  ];
+  const sts=defs.map(([k,a,b,suf,x])=>{
+    const s=el('stat',`<div class="v"></div><div class="k">${k}</div>`,{left:x+'px',top:'430px',width:'420px'});
+    root.append(s);return{node:s,v:s.querySelector('.v'),a,b,suf};
+  });
+  const cap=el('sub','',{position:'absolute',left:'120px',top:'700px',fontSize:'27px',maxWidth:'1500px'});root.append(cap);
+  const cap2=el('sub','',{position:'absolute',left:'120px',top:'800px',fontSize:'23px',color:'var(--muted)',maxWidth:'1500px'});root.append(cap2);
+
+  const fmt=(n)=>n>=1000?Math.round(n).toLocaleString('en-US'):(n<10?n.toFixed(1):String(Math.round(n)));
+  return{render(t){
+    p.style.opacity=seg(t,0,.7);
+    sts.forEach((S0,i)=>{
+      const appear=seg(t,.6+i*.35,1.3+i*.35);
+      S0.node.style.opacity=appear;
+      const u=seg(t,2.0+i*.4,4.2+i*.4);
+      const val=lerp(S0.a,S0.b,u);
+      S0.v.textContent=fmt(val);
+      S0.v.style.color=u>.98?'var(--cool)':(u>0.02?'var(--ink)':'var(--warm)');
+    });
+    cap.style.opacity=seg(t,6.4,7.4);
+    cap.innerHTML='Not one day of history was deleted. Resolution was traded, never the record.';
+    cap2.style.opacity=seg(t,7.6,8.6);
+    cap2.textContent='The table stopped growing without retention being switched on — which was never an option here.';
+  }};
+});
+
+// ── 8. Close ────────────────────────────────────────────────────────────────
+scene(89,97,root=>{
+  const w=el('',null,{position:'absolute',left:'120px',top:'380px',right:'120px'});
+  const h=el('',`Storage follows the shape of the data,<br>not the shape of the message.`);
+  h.style.cssText='font-size:74px;line-height:1.1;font-weight:700;letter-spacing:-.028em;margin:0';
+  const s=el('sub','Snapshots for what is true now. Series for what moves. Transitions for what holds.',{marginTop:'34px',fontSize:'29px'});
+  const f=el('tiny','mdm-server/docs/mdm-architecture.html',{marginTop:'56px'});
+  w.append(h,s,f);root.append(w);
+  return{render(t){
+    const a=seg(t,.2,1.4);h.style.opacity=a;h.style.transform=`translateY(${lerp(26,0,a)}px)`;
+    s.style.opacity=seg(t,.9,2.0);
+    f.style.opacity=seg(t,1.6,2.6);
+    const out=1-seg(t,6.6,7.9);
+    [h,s,f].forEach(n=>n.style.filter=`opacity(${out})`);
+  }};
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+const DURATION = scenes[scenes.length-1].to;
+window.FILM_DURATION = DURATION;
+
+window.seek = function(t){
+  t = clamp(t, 0, DURATION);
+  for (const sc of scenes){
+    const inside = t >= sc.from && t < sc.to;
+    if (!inside){ sc.root.style.opacity = 0; sc.root.style.display='none'; continue; }
+    sc.root.style.display='block';
+    const lt = t - sc.from, len = sc.to - sc.from;
+    // 0.5s cross-fade at each end so no cut is abrupt
+    const fin = ease(lt/0.5), fout = 1 - ease((lt-(len-0.6))/0.6);
+    sc.root.style.opacity = Math.min(fin, fout);
+    if (sc.render) sc.render(lt);
+  }
+};
+window.seek(0);
+</script>
+</body>
+</html>
