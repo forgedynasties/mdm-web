@@ -18406,15 +18406,19 @@ func (h *Handler) stripDupCheckins(ctx context.Context) {
 		}
 	}
 
-	// Paced far harder than the legacy strip, on purpose. That job crawled because the
-	// rows it rewrote carried tens of KB of TOASTed crash traces; these are ~600-byte
-	// rows, so the same budget would take about 26 days to walk 12.5M of them and the
-	// job would never finish. The wall-clock deadline, not the row count, is the real
-	// governor — it bounds the I/O this steals from live traffic per run regardless of
-	// how fast the rows turn out to be.
-	const batch, maxRows = 5000, 500000
+	// Budget set from what happened when it was not. The first run on live rewrote
+	// 295,161 rows in under four minutes and Postgres was OOM-killed shortly after:
+	// every one of those UPDATEs writes a new row version, and on a 2 GB instance the
+	// WAL and dead-tuple churn from a quarter of a million of them in one pass is
+	// enough to take the database down. Throughput was never the point — the table has
+	// stopped growing, so this can take a week.
+	//
+	// A row cap as well as a deadline, because the deadline alone does not bound the
+	// damage: it bounds how long we spend, not how much we rewrite, and these rows turn
+	// out to be fast enough that three minutes is a quarter-million of them.
+	const batch, maxRows = 500, 10000
 	stop := time.Now().UTC().Truncate(24 * time.Hour)
-	deadline := time.Now().Add(3 * time.Minute)
+	deadline := time.Now().Add(45 * time.Second)
 	var total int64
 	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
 		n, err := h.db.StripRedundantCheckinKeys(ctx, day, batch)
@@ -18434,7 +18438,7 @@ func (h *Handler) stripDupCheckins(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(400 * time.Millisecond):
 		}
 	}
 	if !day.Before(stop) {
