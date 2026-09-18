@@ -1335,9 +1335,24 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 	cfg.MinConns = 2
 	// Recycle connections so a long-lived pool rebalances after failovers/restarts;
 	// jitter avoids all conns expiring at once (thundering-herd reconnect).
-	cfg.MaxConnLifetime = time.Hour
+	//
+	// The lifetime and idle time are what keep the pool's PEAK from becoming its
+	// steady state, which on this database is the difference between running and being
+	// OOM-killed. A Postgres backend does not return memory to the OS when its query
+	// finishes — it keeps the context it allocated — so an idle connection still holds
+	// whatever the largest query it ever ran needed. Measured on live: 59 idle
+	// connections against a 2 GiB instance, 1.72 GiB of non-reclaimable anonymous
+	// memory between them, roughly 29 MB apiece, and the cgroup sitting at 99.8% of its
+	// limit with nothing running.
+	//
+	// So idle connections are reaped in a minute and a half rather than half an hour.
+	// MaxConns stays at 60: the fan-out that needs it is real, and capping the burst
+	// would trade a memory problem for a latency one. What was wrong was holding the
+	// burst open long after it ended — between bursts the pool now falls back to
+	// MinConns and gives the memory back.
+	cfg.MaxConnLifetime = 30 * time.Minute
 	cfg.MaxConnLifetimeJitter = 5 * time.Minute
-	cfg.MaxConnIdleTime = 30 * time.Minute
+	cfg.MaxConnIdleTime = 90 * time.Second
 	// Pin the session timezone to UTC so `::date` bucketing in the daily-stats
 	// rollup is deterministic regardless of the server/container locale (and matches
 	// the Go side, which uses time.Now().UTC()).
