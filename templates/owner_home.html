@@ -186,12 +186,32 @@
       <div class="li"><span class="dot info"></span><span>Menu v41 reached all stations</span><em>9:12 am</em></div>
       <div class="li"><span class="dot ok"></span><span>Morning check: 6 of 6 charged and locked</span><em>7:00 am</em></div>
     </div>
+    {{/* Last week's report, with the real figures rather than a mock-up. Same numbers
+         as the emailed report and the PDF, from the same query and the same window, so
+         an owner comparing the three never sees three different answers. Falls back to
+         the old "what this will be" card only when there is nothing to show yet. */}}
+    {{if .ReportMetrics}}
+    {{$rm := .ReportMetrics}}
+    <div class="list">
+      <b>Last week&rsquo;s report</b>
+      <p style="margin:6px 0 10px;font-size:13px;color:var(--muted);line-height:1.5">
+        {{.ReportFrom.Format "Mon 2 Jan"}} &ndash; {{.ReportTo.Format "Mon 2 Jan"}} ·
+        <b>{{$rm.DeviceCount}}</b> station{{if ne $rm.DeviceCount 1}}s{{end}} reporting
+      </p>
+      <div class="li"><span class="dot {{if ge $rm.UptimeFullPct 85}}ok{{else if ge $rm.UptimeFullPct 70}}warn{{else}}bad{{end}}"></span><span>Powered and online</span><em>{{$rm.UptimeFullPct}}% of the week</em></div>
+      {{if $rm.HasOpenHours}}<div class="li"><span class="dot {{if ge $rm.UptimeOpenPct 85}}ok{{else if ge $rm.UptimeOpenPct 70}}warn{{else}}bad{{end}}"></span><span>During opening hours</span><em>{{$rm.UptimeOpenPct}}%</em></div>{{end}}
+      <div class="li"><span class="dot info"></span><span>Wireless charging used</span><em>{{hrs1 (perDev $rm.PadMinutes $rm.DeviceCount)}} hrs per station</em></div>
+      {{if $rm.HasStandby}}<div class="li"><span class="dot info"></span><span>Screen off (standby)</span><em>{{$rm.StandbyPct}}% of powered time</em></div>{{end}}
+      {{if .ReportURL}}<p style="margin:10px 0 0;"><a href="{{.ReportURL}}" class="link-detail" style="font-weight:650;">Open the full report</a></p>{{end}}
+    </div>
+    {{else}}
     <div class="list"><span class="pv">Preview</span>
       <b>Weekly summary email</b>
       <p style="margin:6px 0 10px;font-size:13px;color:var(--muted);line-height:1.5">Every Monday 8 am: uptime in service, incidents, battery health and the stations that need attention. Sent to you and your manager.</p>
       <div class="li"><span class="dot ok"></span><span>Recipients: you, manager@flightsvegas.com</span><em>on</em></div>
       <div class="li"><span class="dot info"></span><span>Also on WhatsApp</span><em>off</em></div>
     </div>
+    {{end}}
   </div>
 
   <h2>Help <span>the MDM team answers within the day</span></h2>

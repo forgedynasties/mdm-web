@@ -201,6 +201,8 @@ type Handler struct {
 	password    string
 	cfg         *config.Config
 	adminAPIKey string
+	// reportSecret signs the unguessable weekly-report PDF links.
+	reportSecret string
 	alerts      *alerts.Dispatcher
 	otaGate     *otagate.Gate // which builds can take an MDM OTA (the rest go legacy)
 
@@ -1636,6 +1638,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		password:      password,
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
+		reportSecret:  sessionSecret,
 		mapsEmbedKey:  mapsEmbedKey,
 		geo:           geo,
 		geocoder:      geocoder,
@@ -2638,7 +2641,30 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// The owner's own weekly report, inline. This card used to be a mock-up captioned
+	// "Preview"; it now carries the real figures for the last finished week — the same
+	// numbers the emailed report and the PDF quote, from the same query, so an owner
+	// comparing the three never sees three different answers.
+	reportURL, reportFrom, reportTo := "", time.Time{}, time.Time{}
+	var reportMetrics *db.SiteMetrics
+	if restaurantID != nil {
+		reportFrom, reportTo = lastFullWeek(time.Now())
+		reportURL = fmt.Sprintf("%s/restaurants/%s/report", h.baseURL(r), *restaurantID)
+		// Prefer the rendered PDF when one exists for that week; fall back to the live
+		// page so the link is never a dead end on a week not yet rendered.
+		if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(*restaurantID, reportTo)+".pdf")); err == nil {
+			reportURL = h.ReportPDFURL(r, *restaurantID, reportTo)
+		}
+		if m, err := h.db.SiteMetricsFor(ctx, *restaurantID, 7, reportTo); err == nil && m.DeviceDays > 0 {
+			reportMetrics = &m
+		}
+	}
+
 	h.render(w, r, "owner_home.html", map[string]any{
+		"ReportURL":     reportURL,
+		"ReportMetrics": reportMetrics,
+		"ReportFrom":    reportFrom,
+		"ReportTo":      reportTo,
 		"TodoGroups":    needGroups,
 		"TodoCount":     len(todos),
 		"Headline":      headline,
@@ -4844,7 +4870,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 
 	// Power & usage widget: the same figures the restaurant page shows per site, summed
 	// across every placed device (uuid.Nil = the whole deployed fleet).
-	if m, err := h.db.SiteMetricsFor(ctx, uuid.Nil, 7); err == nil {
+	if m, err := h.db.SiteMetricsFor(ctx, uuid.Nil, 7, time.Time{}); err == nil {
 		data["PowerMetrics"] = m
 	}
 
@@ -9198,10 +9224,10 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	// Power and usage over the last week: uptime, guest-pad time and what it costs the
 	// tablet's own battery, and the battery levels staff plug and unplug at.
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7); err == nil {
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7, time.Time{}); err == nil {
 		data["Metrics"] = m
 		// The evidence behind the headline: the same week, day by day.
-		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7); err == nil {
+		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7, time.Time{}); err == nil {
 			data["MetricsDaily"] = daily
 			max := 1.0
 			for _, x := range daily {
@@ -9231,6 +9257,25 @@ type reportBar struct {
 // RestaurantReport renders a venue's weekly report: the same figures the venue page
 // shows in its Power & usage card, plus a row per device, on a standalone printable
 // page. Everything comes from device_daily_stats rollups, never raw check-ins.
+// lastFullWeek returns the Monday and Sunday of the most recently COMPLETED week.
+//
+// The report used a rolling seven days ending now, which means a report opened on
+// Wednesday covers half of this week and half of last, and the same link shows
+// different numbers depending on when it is clicked. A weekly report should describe a
+// week: one that has finished and will not change again.
+//
+// The Sunday is strictly before today, so on a Sunday the week that ends tonight is not
+// yet claimed as complete.
+func lastFullWeek(now time.Time) (from, to time.Time) {
+	today := now.UTC().Truncate(24 * time.Hour)
+	back := int(today.Weekday()) // Sunday = 0
+	if back == 0 {
+		back = 7
+	}
+	to = today.AddDate(0, 0, -back)
+	return to.AddDate(0, 0, -6), to
+}
+
 func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -9243,19 +9288,20 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	const days = 7
+	from, to := lastFullWeek(time.Now())
 	data := map[string]any{
 		"Title":      rest.Name + " — Weekly report",
 		"Restaurant": rest,
 		"Days":       days,
-		"WindowFrom": time.Now().AddDate(0, 0, -(days - 1)),
-		"WindowTo":   time.Now(),
+		"WindowFrom": from,
+		"WindowTo":   to,
 	}
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, days); err == nil {
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, days, to); err == nil {
 		data["Metrics"] = m
 	}
 	// Bars are drawn per device against a 24-hour day, like the venue page, so a site
 	// with more devices does not simply read as taller.
-	if daily, err := h.db.SiteMetricsDaily(r.Context(), id, days); err == nil {
+	if daily, err := h.db.SiteMetricsDaily(r.Context(), id, days, to); err == nil {
 		bars := make([]reportBar, 0, len(daily))
 		for _, x := range daily {
 			n := x.Devices
@@ -9271,7 +9317,7 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 		}
 		data["Bars"] = bars
 	}
-	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days, to)
 	if err != nil {
 		log.Printf("[report] device weeks %s: %v", id, err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -9362,9 +9408,12 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Same window as the page it links to — the last completed week — or the mail and
+	// the report it points at would quote different numbers for the same venue.
 	const days = 7
-	m, _ := h.db.SiteMetricsFor(r.Context(), id, days)
-	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	_, weekEnd := lastFullWeek(time.Now())
+	m, _ := h.db.SiteMetricsFor(r.Context(), id, days, weekEnd)
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days, weekEnd)
 	if err != nil {
 		log.Printf("[report] email device weeks %s: %v", id, err)
 		h.reportMailResult(w, r, false, "Could not build the report")
@@ -9379,7 +9428,14 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	subject := fmt.Sprintf("%s — weekly device report", rest.Name)
-	body := reportEmailHTML(rest.Name, days, m, visible)
+	// Prefer the rendered PDF when one exists for this week — that is the artifact the
+	// mail is pointing at — and fall back to the live page when it has not been
+	// rendered yet, so the mail is never a dead end.
+	reportURL := fmt.Sprintf("%s/restaurants/%s/report", h.baseURL(r), rest.ID)
+	if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(id, weekEnd)+".pdf")); err == nil {
+		reportURL = h.ReportPDFURL(r, id, weekEnd)
+	}
+	body := reportEmailHTML(rest.Name, days, m, visible, reportURL)
 	if err := h.mail.Send(r.Context(), to, subject, body); err != nil {
 		log.Printf("[report] send to %s: %v", to, err)
 		h.reportMailResult(w, r, false, "Sending failed — check the server log")
@@ -9408,7 +9464,7 @@ func (h *Handler) reportMailResult(w http.ResponseWriter, r *http.Request, ok bo
 // throughout, no stylesheet, no flex or grid and no CSS variables: Outlook renders
 // with Word's engine, which supports none of them. The palette is the dashboard's so
 // the mail reads as the same product as the page it came from.
-func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek) string {
+func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek, reportURL string) string {
 	const (
 		ink    = "#2c2c2b"
 		muted  = "#77736f"
@@ -9416,22 +9472,8 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 		canvas = "#f7f7f6"
 		line   = "#e6e5e3"
 		coral  = "#ff654f"
-		green  = "#39875f"
-		amber  = "#b46b2d"
-		red    = "#cc4c43"
 	)
 	hrs := func(min float64) string { return fmt.Sprintf("%.1f", min/60) }
-	// Same thresholds as the report's own legend, so a row that reads amber on the
-	// page reads amber in the mail.
-	band := func(pct int) string {
-		switch {
-		case pct < 70:
-			return red
-		case pct < 85:
-			return amber
-		}
-		return green
-	}
 	esc := template.HTMLEscapeString
 
 	// tile is one headline figure: a big number over a small caption.
@@ -9482,40 +9524,19 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	}
 	fmt.Fprintf(&b, `</tr></table></td></tr>`)
 
-	// Per-device table. Units live in the headers, not in every cell, and every
-	// numeric cell is nowrap with a fixed row height: the first cut wrapped
-	// "156.5 hrs 93%" onto two lines in a narrow reading pane, which made every
-	// other row a different height and the column impossible to scan.
-	fmt.Fprintf(&b, `<tr><td style="padding:0;border-top:1px solid %s;">`, line)
-	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="border-collapse:collapse;table-layout:fixed;font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;">`)
-	fmt.Fprintf(&b, `<colgroup><col width="34%%"><col width="15%%"><col width="11%%"><col width="15%%"><col width="15%%"><col width="10%%"></colgroup>`)
-	th := `<th align="%s" style="padding:10px 14px;background:#faf9f8;border-bottom:1px solid ` + line + `;font:600 10px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:` + muted + `;white-space:nowrap;">%s</th>`
-	fmt.Fprintf(&b, `<tr>`)
-	fmt.Fprintf(&b, th, "left", "Device")
-	fmt.Fprintf(&b, th, "right", "Uptime hrs")
-	fmt.Fprintf(&b, th, "right", "Uptime")
-	fmt.Fprintf(&b, th, "right", "Charging hrs")
-	fmt.Fprintf(&b, th, "right", "Mains hrs")
-	fmt.Fprintf(&b, th, "right", "Days")
-	fmt.Fprintf(&b, `</tr>`)
-	num := `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid ` + line + `;color:` + ink + `;white-space:nowrap;">%s</td>`
-	for _, x := range weeks {
-		nick := ""
-		if x.Nickname != "" {
-			nick = fmt.Sprintf(` <span style="color:%s;font-weight:400;">· %s</span>`, faint, esc(x.Nickname))
-		}
-		// The name and its nickname share one line: a second line here was the other
-		// source of uneven rows.
-		fmt.Fprintf(&b, `<tr><td height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">%s%s</td>`,
-			line, ink, esc(x.Serial), nick)
-		fmt.Fprintf(&b, num, hrs(x.PoweredMinutes))
-		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;">%d%%</td>`,
-			line, band(x.UptimeFullPct()), x.UptimeFullPct())
-		fmt.Fprintf(&b, num, hrs(x.PadMinutes))
-		fmt.Fprintf(&b, num, hrs(x.PluggedMinutes))
-		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;white-space:nowrap;">%d</td></tr>`, line, muted, x.DeviceDays)
-	}
-	fmt.Fprintf(&b, `</table></td></tr>`)
+	// No per-device table here. An email is a summary — the headline figures are what
+	// someone reads on a phone — and a table of every device made it long, made it wrap
+	// badly in narrow reading panes, and duplicated a page that renders it properly.
+	// The full breakdown lives in the MDM, one click away, where it can also be saved
+	// as a PDF.
+	fmt.Fprintf(&b, `<tr><td align="center" style="padding:22px 16px 4px;">`+
+		`<a href="%s" style="display:inline-block;background:%s;color:#ffffff;text-decoration:none;`+
+		`font:600 14px -apple-system,Segoe UI,Roboto,sans-serif;padding:12px 22px;border-radius:8px;">`+
+		`View the full report</a></td></tr>`, esc(reportURL), coral)
+	fmt.Fprintf(&b, `<tr><td align="center" style="padding:8px 16px 18px;`+
+		`font:400 12px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;">`+
+		`Every device, day by day — and a Save as PDF button for the whole thing.`+
+		`</td></tr>`, muted)
 
 	fmt.Fprintf(&b, `<tr><td style="padding:14px 16px 18px;font:400 11.5px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;">`+
 		`Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. A dash means the reading was never measured, not that it was zero.`+
@@ -21199,6 +21220,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
 	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
+	// Deliberately unauthenticated: the token in the path is the credential, so a venue
+	// owner can open their report from an email without a dashboard account. See the
+	// note at the top of report_pdf.go.
+	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.RestaurantReportEmail))
 	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
