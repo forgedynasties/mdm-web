@@ -10749,7 +10749,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			}
 			rate := flapping[id]
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Faulty charger — charging toggling ~%d×/min", rate),
+				"Faulty charger — charging keeps dropping in and out; use a genuine charger",
 				map[string]any{"rate": rate, "window_min": windowMin}})
 		}
 		return hits, "warning", rows.Err()
