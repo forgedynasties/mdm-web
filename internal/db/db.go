@@ -1688,8 +1688,8 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 	}
 	used, total := ramUsedTotal(curMap["ram_usage_mb"])
 	_, err := tx.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)
+		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c)
+		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (device_id, at) DO NOTHING`,
 		deviceID,
 		battery,
@@ -1697,6 +1697,7 @@ func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.
 		scaledInt(curMap["wifi_rssi"], 1),
 		used, total,
 		jsonFloat(curMap["storage_free_gb"]),
+		jsonFloat(curMap["cpu_temp_c"]),
 	)
 	return err
 }
@@ -1899,6 +1900,7 @@ type DeviceSample struct {
 	RAMUsedMB     *int32
 	RAMTotalMB    *int32
 	StorageFreeGB *float64
+	CPUTempC      *float64 // SoC reading from battery-less TV boxes; see the schema note
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -1915,17 +1917,28 @@ type StateAt struct {
 // and pad markers, which come from events; events alone have nothing to plot. ok is
 // false when either side has nothing at all, which is the case for every window older
 // than the day dual-writing began.
+//
+// A device first seen after dual-writing began has samples from its very first
+// check-in, and nothing older exists anywhere: the shaped tables cover its whole life,
+// so coverage is unbounded. Its first state event can still come later (a key first
+// reported, or seeded, after enrollment), and holding coverage to that would send its
+// first hours to the check-in fallback, whose rows no longer carry a snapshot. A new
+// device's chart then showed only the stray early rows that still had one.
 func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.Time, ok bool, err error) {
-	var sampleFrom, eventFrom *time.Time
+	var sampleFrom, eventFrom, checkinFrom *time.Time
 	err = d.pool.QueryRow(ctx, `
-		SELECT (SELECT MIN(at) FROM device_samples      WHERE device_id = $1),
-		       (SELECT MIN(at) FROM device_state_events WHERE device_id = $1)`,
-		deviceID).Scan(&sampleFrom, &eventFrom)
+		SELECT (SELECT MIN(at)         FROM device_samples      WHERE device_id = $1),
+		       (SELECT MIN(at)         FROM device_state_events WHERE device_id = $1),
+		       (SELECT MIN(created_at) FROM checkins            WHERE device_id = $1)`,
+		deviceID).Scan(&sampleFrom, &eventFrom, &checkinFrom)
 	if err != nil {
 		return time.Time{}, false, err
 	}
 	if sampleFrom == nil || eventFrom == nil {
 		return time.Time{}, false, nil
+	}
+	if checkinFrom != nil && !checkinFrom.Before(*sampleFrom) {
+		return time.Time{}, true, nil
 	}
 	if eventFrom.After(*sampleFrom) {
 		return *eventFrom, true, nil
@@ -1937,7 +1950,7 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb
+		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c
 		FROM device_samples
 		WHERE device_id = $1 AND at >= $2 AND at <= $3
 		ORDER BY at`, deviceID, from, until)
@@ -1948,7 +1961,7 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	var out []DeviceSample
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -12650,6 +12663,9 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS temp_c          DOUBLE PRECI
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_used_mb     INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS ram_total_mb    INTEGER;
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECISION;
+-- SoC temperature from battery-less TV boxes (extra.cpu_temp_c). Its own column, not
+-- temp_c: temp_c feeds the overheating rule at 45 °C, and an SoC idles above that.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS cpu_temp_c      DOUBLE PRECISION;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
