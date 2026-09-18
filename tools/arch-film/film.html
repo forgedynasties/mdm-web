@@ -42,14 +42,16 @@
   .node .s{font-size:17px;color:var(--muted);margin-top:6px;line-height:1.35}
   .node.cool{border-color:var(--cool)}   .node.cool .t{color:var(--cool)}
   .node.warm{border-color:var(--warm)}   .node.warm .t{color:var(--warm)}
-  .node.dev{border-color:var(--dev)}     .node.dev .t{color:var(--dev)}
+  /* NOT .dev — that class is the device-grid square, and its 30px height
+     collapses any node that borrows the name. */
+  .node.cmd{border-color:var(--dev)}     .node.cmd .t{color:var(--dev)}
 
   svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .wire{fill:none;stroke:var(--line);stroke-width:2.5}
   .wire.live{stroke:var(--cool)}
   .packet{fill:var(--cool)}
   .packet.warm{fill:var(--warm)}
-  .packet.dev{fill:var(--dev)}
+  .packet.cmd{fill:var(--dev)}
 
   /* device grid */
   .grid{position:absolute;display:grid;gap:9px}
@@ -278,7 +280,7 @@ scene(50,63,root=>{
   h.style.cssText='font-size:62px;font-weight:650;letter-spacing:-.022em;margin:14px 0 0;line-height:1.1';
   p.append(h);
 
-  const q=el('node dev','<div class="t">commands · command_targets · command_status</div><div class="s">queued → delivered → received → done, with receipt-ack. Flushed on connect, after every ack, and once a minute.</div>',
+  const q=el('node cmd','<div class="t">commands · command_targets · command_status</div><div class="s">queued → delivered → received → done, with receipt-ack. Flushed on connect, after every ack, and once a minute.</div>',
     {left:'120px',top:'470px',width:'760px'});
   const dev=el('node','<div class="t">a device, offline</div><div class="s">asleep, out of coverage, mid-reboot</div>',
     {left:'1320px',top:'470px',width:'440px'});
@@ -288,7 +290,7 @@ scene(50,63,root=>{
   const path=document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('class','wire');path.setAttribute('d','M 880 530 L 1320 530');svg.append(path);
   const pk=document.createElementNS('http://www.w3.org/2000/svg','circle');
-  pk.setAttribute('r','9');pk.setAttribute('class','packet dev');svg.append(pk);
+  pk.setAttribute('r','9');pk.setAttribute('class','packet cmd');svg.append(pk);
 
   const cap=el('sub','',{position:'absolute',left:'120px',top:'760px',fontSize:'26px'});root.append(cap);
   return{render(t){
