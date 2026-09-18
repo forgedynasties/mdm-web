@@ -13,10 +13,12 @@
 --
 -- BEFORE RUNNING
 --   1. Take a backup and verify it by restoring, not by reading the TOC.
---   2. Let the dup-key strip finish (config dup_strip_cursor = "done"). It halves the
---      bytes this script has to copy — the copy writes live tuples, so stripped rows
---      are copied in their smaller form even though the old heap has not shrunk.
---   3. Check free space: this needs room for a second copy of the live data.
+--   2. Check free space: this needs room for a second copy of the live data, though
+--      phase 2 strips the duplicated keys as it copies, so the new table lands at
+--      roughly half the old one's size.
+--   3. The housekeeping dup-strip can keep running throughout; it only touches the old
+--      table and its work is simply redone by the copy. Once this lands, that job has
+--      nothing left to find.
 --
 -- HOW IT RUNS
 --   Phase 1 and 2 are online — the app keeps writing to the old table throughout.
@@ -79,9 +81,26 @@ CREATE INDEX IF NOT EXISTS idx_checkins_p_created_at        ON checkins_p (creat
 -- Resumable: the NOT EXISTS makes a re-run of the same month copy only what is
 -- missing, so an interrupted month can simply be repeated.
 --
+-- The copy also does the dup-key strip, because it is already rewriting every row and
+-- doing it twice would be silly: ram_usage_mb, battery_temp_c, storage_free_gb and
+-- wifi_rssi are held in fixed columns on device_samples for the whole of history, so
+-- carrying them here is a second copy of the same reading. That is about half the
+-- surviving bytes, so it roughly halves what this phase writes.
+--
+-- Guarded the same way the housekeeping strip is: the keys are only dropped from a row
+-- whose reading demonstrably survives, matched on the exact (device_id, at) pair. A row
+-- the shaped tables somehow missed keeps its snapshot intact. The state keys are never
+-- touched — device_state_events only begins the day dual writing started, so for older
+-- windows the snapshot is the only record of what a device was doing.
+--
 --   \set mon '2026-03-01'
 --   INSERT INTO checkins_p (id, device_id, battery_pct, build_id, extra, created_at, state_hash)
---   SELECT c.id, c.device_id, c.battery_pct, c.build_id, c.extra, c.created_at, c.state_hash
+--   SELECT c.id, c.device_id, c.battery_pct, c.build_id,
+--          CASE WHEN EXISTS (SELECT 1 FROM device_samples s
+--                             WHERE s.device_id = c.device_id AND s.at = c.created_at)
+--               THEN c.extra - 'ram_usage_mb' - 'battery_temp_c' - 'storage_free_gb' - 'wifi_rssi'
+--               ELSE c.extra END,
+--          c.created_at, c.state_hash
 --   FROM checkins c
 --   WHERE c.created_at >= :'mon'::date
 --     AND c.created_at <  (:'mon'::date + INTERVAL '1 month')
