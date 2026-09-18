@@ -90,13 +90,15 @@ const (
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
 func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 
-// IsAppAgent reports whether a stock device is reported by the MDM-lite library
-// embedded in an app, rather than by the DPC agent. See prod.AgentTypeApp.
-func (d Device) IsAppAgent() bool {
+// IsMDMLite reports whether a stock device is reported by the MDM-lite library
+// embedded in an app, rather than by the DPC agent. See prod.AgentTypeMDMLite. Such a
+// device never holds a live connection, so it shows Reporting / Not reporting (from
+// check-in recency) where others show Online / Offline.
+func (d Device) IsMDMLite() bool {
 	var probe struct {
 		AgentType string `json:"agent_type"`
 	}
-	return d.IsDPC() && json.Unmarshal(d.LatestExtra, &probe) == nil && probe.AgentType == prod.AgentTypeApp
+	return d.IsDPC() && json.Unmarshal(d.LatestExtra, &probe) == nil && probe.AgentType == prod.AgentTypeMDMLite
 }
 
 // Class is the device's category: the stored class when set, else the category its
@@ -1523,7 +1525,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
 		                     device_class, agent_kind, capabilities, capabilities_degraded)
 		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5, $6,
-		        CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'app') THEN 'dpc' ELSE 'firmware' END,
+		        CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE 'firmware' END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array' THEN $4::jsonb->'capabilities' ELSE '[]'::jsonb END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array' THEN $4::jsonb->'capabilities_degraded' ELSE '[]'::jsonb END)
 		ON CONFLICT (serial_number) DO UPDATE
@@ -1544,7 +1546,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
-			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'app') THEN 'dpc' ELSE devices.agent_kind END,
+			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE devices.agent_kind END,
 			    capabilities       = CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array'
 			                              THEN $4::jsonb->'capabilities' ELSE devices.capabilities END,
 			    capabilities_degraded = CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array'

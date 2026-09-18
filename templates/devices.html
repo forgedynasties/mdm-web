@@ -49,8 +49,8 @@
       {{if .HasBattery}}<span class="dl-m" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
     </div>
     <div class="dl-status-col">
-      {{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}}{{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
-      <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}">Last seen {{timeSince .LastSeenAt}}</span>
+      {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}{{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
+      {{if .IsMDMLite}}<span class="dl-synced" data-always="1">Last check-in {{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}">Last seen {{timeSince .LastSeenAt}}</span>{{end}}
     </div>
     <div class="dl-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
@@ -1834,13 +1834,15 @@ document.addEventListener('keydown', function(e) {
       }
 
       var st = card.querySelector('.dl-status');
-      if (st) { st.className = 'dl-status ' + (d.online ? 'on' : 'off'); st.innerHTML = '<i></i>' + (d.online ? 'Online' : 'Offline'); }
+      if (st) { st.className = 'dl-status ' + (d.online ? 'on' : 'off'); st.innerHTML = '<i></i>' + (d.online ? (st.dataset.labelOn || 'Online') : (st.dataset.labelOff || 'Offline')); }
       var sy = card.querySelector('.dl-synced');
       if (sy) {
         // Heartbeat text: hidden while the WebSocket is live (the Online badge says it all),
         // shown as "Last seen …" only when the device is offline.
-        sy.textContent = 'Last seen ' + d.time_since;
-        sy.className = 'dl-synced' + (d.online ? ' hidden' : '');
+        // MDM-lite (data-always) has no live connection: its last check-in is always shown.
+        var always = sy.dataset.always === '1';
+        sy.textContent = (always ? 'Last check-in ' : 'Last seen ') + d.time_since;
+        sy.className = 'dl-synced' + (d.online && !always ? ' hidden' : '');
       }
 
       // Preserve inspector selection, which lives in a class the patch would clobber.

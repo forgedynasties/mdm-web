@@ -756,7 +756,7 @@ type checkinRequest struct {
 }
 
 // isDPCPayload reports whether a check-in or telemetry frame came from a stock-device
-// agent: the DPC agent (agent_type "dpc") or the MDM-lite library in an app ("app").
+// agent: the DPC agent (agent_type "dpc") or the MDM-lite library in an app ("mdm-lite").
 // Every frame either sends carries extra.agent_type, so this
 // answers from the payload without a database lookup — which is the point, since
 // the caller uses it to skip all storage work.
@@ -770,7 +770,15 @@ func isDPCPayload(extra json.RawMessage) bool {
 	if err := json.Unmarshal(extra, &ident); err != nil {
 		return false
 	}
-	return ident.AgentType == "dpc" || ident.AgentType == "app"
+	return ident.AgentType == "dpc" || ident.AgentType == "mdm-lite"
+}
+
+// isMDMLitePayload reports whether a check-in came from the MDM-lite library.
+func isMDMLitePayload(extra json.RawMessage) bool {
+	var ident struct {
+		AgentType string `json:"agent_type"`
+	}
+	return len(extra) > 0 && json.Unmarshal(extra, &ident) == nil && ident.AgentType == "mdm-lite"
 }
 
 // recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
@@ -827,6 +835,10 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		return nil, err
 	}
 	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
+	if isMDMLitePayload(req.Extra) {
+		// MDM-lite has no live connection; its check-ins are its presence.
+		h.hub.MarkCheckinPresence(deviceID)
+	}
 	if isNew {
 		// A device must already exist to open its WS, so over that transport this is
 		// rare — but onboarding must not depend on which one it used.

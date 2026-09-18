@@ -14,18 +14,19 @@ const (
 	// KindAndroid is the catalog's name for "not our firmware": a product outside the
 	// catalog is stock Android, and any agent on it is the DPC agent.
 	KindAndroid = "android"
-	// AgentTypeApp is the agent_type of AIO MDM-lite, the library embedded in an app
-	// (e.g. the menu board) that reports vitals and crashes with no Device Owner. It is
-	// stored as KindDPC: like the DPC agent it runs on stock hardware and advertises
-	// what it can do, and every non-firmware rule (capability gating, no OTA) applies.
-	// latest_extra.agent_type keeps "app" so the dashboard can tell the two apart.
-	AgentTypeApp = "app"
+	// AgentTypeMDMLite is the agent_type of AIO MDM-lite, the library embedded in an
+	// app (e.g. the menu board) that reports vitals and crashes with no Device Owner.
+	// It is stored as KindDPC: like the DPC agent it runs on stock hardware and
+	// advertises what it can do, and every non-firmware rule (capability gating, no
+	// OTA) applies. latest_extra.agent_type keeps "mdm-lite" so the dashboard can tell
+	// the two apart. It only checks in over HTTP: it has no live connection.
+	AgentTypeMDMLite = "mdm-lite"
 )
 
 // IsStockAgent reports whether a check-in's agent_type is one of the stock-device
 // agents (the DPC agent or the embedded app library) rather than our firmware.
 func IsStockAgent(agentType string) bool {
-	return agentType == KindDPC || agentType == AgentTypeApp
+	return agentType == KindDPC || agentType == AgentTypeMDMLite
 }
 
 // Device classes (form factor / role). Stored on devices.device_class; empty means
