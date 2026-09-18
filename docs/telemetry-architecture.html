@@ -383,7 +383,7 @@
   </section>
 
   <footer>
-    Every figure measured against production or a restored copy of it. Fleet of 150 devices on mdm.dev.aioapp.com. Remaining: partition <span class="mono">checkins</span> by month, which makes reclaiming the 15 GB of historical snapshots free and gives <span class="mono">checkins_pkey</span> (756 MB, 0 scans) a key worth having.
+    Every figure measured against production or a restored copy of it. Fleet of 150 devices on mdm.dev.aioapp.com. The historical snapshots are being reclaimed in two steps: a housekeeping job strips the keys <span class="mono">device_samples</span> already holds — 52% of the remaining bytes, measured on a real day, with no information lost anywhere — and <span class="mono">tools/partition-checkins.sql</span> converts the table to monthly partitions, which turns retention into a <span class="mono">DROP TABLE</span> and drops <span class="mono">checkins_pkey</span> (756 MB, 0 scans) on the way.
   </footer>
 </div>
 

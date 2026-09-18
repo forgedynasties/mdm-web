@@ -199,29 +199,6 @@ func buildChartBody(device *db.Device, pts []shapedPoint) ([]byte, error) {
 	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge})
 }
 
-// buildChartBodyFromCheckins is the check-in path's series construction, lifted out so
-// the two sources can be rendered side by side and diffed on real data.
-func buildChartBodyFromCheckins(device *db.Device, asc []db.Checkin) ([]byte, error) {
-	pts := make([]shapedPoint, 0, len(asc))
-	for _, c := range asc {
-		p := shapedPoint{At: c.CreatedAt, BatteryPct: c.BatteryPct, HasBattery: true}
-		if t, ok := extractBatteryTempC(c.Extra); ok {
-			p.TempC, p.HasTemp = t, true
-		}
-		if rp, ok := ramPctFromExtra(c.Extra); ok {
-			p.RAMPct, p.HasRAM = rp, true
-		}
-		if w := wlcIntFromExtra(c.Extra); w != nil {
-			p.WlcStatus, p.HasWlc = *w, true
-		}
-		if ch := chargingFromExtra(c.Extra); ch != nil {
-			p.Charging, p.HasCharge = *ch, true
-		}
-		pts = append(pts, p)
-	}
-	return buildChartBody(device, pts)
-}
-
 // shapedCoversExport reports whether every selected device's shaped history reaches
 // back to the start of the window. One device short of it is enough to send the whole
 // export to checkins: a CSV where some devices' rows come from one source and some
