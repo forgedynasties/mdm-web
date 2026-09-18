@@ -12549,6 +12549,30 @@ CREATE INDEX IF NOT EXISTS idx_device_samples_at ON device_samples USING BRIN (a
 -- an md5 of exactly the projection that comparison used to make.
 ALTER TABLE checkins ADD COLUMN IF NOT EXISTS state_hash TEXT;
 
+-- Keep monthly partitions created ahead of the present, so a check-in can never be
+-- rejected for want of a partition. Guarded on relkind = 'p': until checkins is
+-- actually converted (tools/partition-checkins.sql) this is a cheap no-op, and it
+-- starts maintaining itself the moment the conversion lands, with nothing to remember
+-- and no second deploy.
+DO $checkin_parts$
+DECLARE
+    m      DATE;
+    last_m DATE;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'checkins' AND relkind = 'p') THEN
+        RETURN;
+    END IF;
+    m      := date_trunc('month', NOW())::date;
+    last_m := (date_trunc('month', NOW()) + INTERVAL '3 months')::date;
+    WHILE m <= last_m LOOP
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS %I PARTITION OF checkins FOR VALUES FROM (%L) TO (%L)',
+            'checkins_' || to_char(m, 'YYYY_MM'), m, (m + INTERVAL '1 month')::date);
+        m := (m + INTERVAL '1 month')::date;
+    END LOOP;
+END
+$checkin_parts$;
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

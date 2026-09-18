@@ -18345,7 +18345,13 @@ func (h *Handler) stripDupCheckins(ctx context.Context) {
 		}
 	}
 
-	const batch, maxRows = 1000, 20000
+	// Paced far harder than the legacy strip, on purpose. That job crawled because the
+	// rows it rewrote carried tens of KB of TOASTed crash traces; these are ~600-byte
+	// rows, so the same budget would take about 26 days to walk 12.5M of them and the
+	// job would never finish. The wall-clock deadline, not the row count, is the real
+	// governor — it bounds the I/O this steals from live traffic per run regardless of
+	// how fast the rows turn out to be.
+	const batch, maxRows = 5000, 500000
 	stop := time.Now().UTC().Truncate(24 * time.Hour)
 	deadline := time.Now().Add(3 * time.Minute)
 	var total int64
@@ -18367,7 +18373,7 @@ func (h *Handler) stripDupCheckins(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(300 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 		}
 	}
 	if !day.Before(stop) {
