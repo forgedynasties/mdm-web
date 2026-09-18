@@ -13100,6 +13100,30 @@ func (d *DB) FilterDeviceIDsByProduct(ctx context.Context, ids []uuid.UUID, prod
 	return out, rows.Err()
 }
 
+// DevicesWithPackages maps each device to the given packages it has installed (from its
+// reported app inventory). Only devices with at least one of them appear.
+func (d *DB) DevicesWithPackages(ctx context.Context, packages []string) (map[uuid.UUID]map[string]bool, error) {
+	out := map[uuid.UUID]map[string]bool{}
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id, package_name FROM device_packages WHERE package_name = ANY($1)`, packages)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var p string
+		if err := rows.Scan(&id, &p); err != nil {
+			return out, err
+		}
+		if out[id] == nil {
+			out[id] = map[string]bool{}
+		}
+		out[id][p] = true
+	}
+	return out, rows.Err()
+}
+
 // FilterFirmwareDeviceIDs keeps the ids of devices that are not DPC-managed. OTA is for
 // our firmware devices only; a DPC agent on stock hardware has no OTA path, MDM or
 // legacy, so it must never become an update target however it was selected.
