@@ -383,6 +383,7 @@ func main() {
 	mux.Handle("POST /api/v1/ota/progress", devicePost(apiHandler.OtaProgress))
 
 	// Admin-authenticated API endpoints
+	mux.Handle("GET /api/v1/restaurants", adminAuth(http.HandlerFunc(apiHandler.ListRestaurants)))
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))

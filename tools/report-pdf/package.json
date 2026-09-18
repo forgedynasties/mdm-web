@@ -1,0 +1,12 @@
+{
+  "name": "mdm-report-pdf",
+  "private": true,
+  "type": "module",
+  "description": "Renders the weekly venue report to PDF off-box and uploads it to the MDM.",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.62.0"
+  }
+}

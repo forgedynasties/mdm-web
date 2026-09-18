@@ -1640,6 +1640,25 @@ func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, devices)
 }
 
+// ListRestaurants returns the venues, for tooling that has to iterate them — the
+// weekly report renderer runs off-box and needs to know what to render. Deliberately
+// thin: id and name are what a caller needs to build a report URL, and this is an
+// admin-key endpoint, not a place to widen the fleet's surface.
+func (h *Handler) ListRestaurants(w http.ResponseWriter, r *http.Request) {
+	rests, err := h.db.ListRestaurants(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	out := make([]map[string]any, 0, len(rests))
+	for _, x := range rests {
+		out = append(out, map[string]any{
+			"id": x.ID, "name": x.Name, "device_count": x.DeviceCount,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (h *Handler) GetDevice(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
