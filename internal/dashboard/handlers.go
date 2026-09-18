@@ -13036,14 +13036,36 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			counts["pending"]++
 		case "downloading", "installing", "verifying", "finalizing":
 			counts["installing"]++
-		case "installed", "awaiting_reboot", "updated":
+		case "installed", "updated":
 			counts["installed"]++
+		// Its own bucket, not "installed". Folding it into installed is what made
+		// "Reboot all installed (N)" quietly exclude the legacy half: the button reads
+		// the awaiting_reboot count, so every otautil device waiting on a reboot was
+		// invisible to it.
+		case "awaiting_reboot":
+			counts["awaiting_reboot"]++
 		case "failed":
 			counts["failed"]++
 		default:
 			counts[dv.Status]++
 		}
 	}
+	// What "Reboot all" can actually reach. The chips count every device awaiting a
+	// reboot, which is the truth about the rollout; the button must instead count only
+	// the ones a reboot can be delivered to. otautil has no reboot of its own, so a
+	// legacy device is only rebootable remotely if the same serial also runs the agent
+	// — and a button offering to reboot devices it cannot reach is worse than one that
+	// admits the number is smaller.
+	rebootable := counts["awaiting_reboot"]
+	for _, dv := range legacyRows {
+		if dv.Status == "awaiting_reboot" && !dv.InFleet {
+			rebootable--
+		}
+	}
+	if rebootable < 0 {
+		rebootable = 0
+	}
+
 	// Ordered, non-zero status buckets for the rollup line (map iteration order
 	// is unstable, so build a fixed-order slice for the template).
 	var summary []map[string]any
@@ -13059,6 +13081,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"Release":      upd.Release,
 		"OTAProgress":  otaProgress,
 		"Summary":      summary,
+		"Rebootable":   rebootable,
 		"SummaryDone":  done + legacyDone,
 		"SummaryTotal": totalTargets,
 		"SummaryPct":   pct,
@@ -13435,8 +13458,34 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 		h.hub.PublishDeviceUpdate(deviceID)
 	}
+	// One rollout, both halves — the same rule cancelling already follows. The legacy
+	// devices installed the same build over otautil and are waiting on the same reboot;
+	// leaving them out meant "reboot all" rebooted some of them and said nothing.
+	legacyN := 0
+	legacyAwaiting, lerr := h.db.ListLegacyAwaitingRebootForUpdate(r.Context(), did)
+	if lerr != nil {
+		log.Printf("[deployment-reboot-all] list legacy awaiting: %v", lerr)
+	}
+	for _, la := range legacyAwaiting {
+		// Same guard the per-device legacy reboot uses: never reboot a device that is
+		// still taking an OTA.
+		if blocked, why, err := h.db.RebootBlockedFor(r.Context(), la.DeviceID); err == nil && blocked {
+			log.Printf("[deployment-reboot-all] skipped legacy %s: %s", la.Serial, why)
+			continue
+		}
+		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{la.DeviceID}, h.currentUsername(r))
+		if err != nil {
+			log.Printf("[deployment-reboot-all] create reboot error legacy=%s: %v", la.Serial, err)
+			continue
+		}
+		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{la.DeviceID})
+		_ = h.db.SetLegacyDeploymentReboot(r.Context(), la.DeploymentID, la.Serial, cmd.ID)
+		h.hub.PublishDeviceUpdate(la.DeviceID)
+		legacyN++
+	}
 	h.hub.PublishDeploymentUpdate()
-	h.audit(r, "deployment.reboot_all", strconv.Itoa(did), strconv.Itoa(len(ids)))
+	h.audit(r, "deployment.reboot_all", strconv.Itoa(did),
+		fmt.Sprintf("%d fleet, %d legacy", len(ids), legacyN))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 

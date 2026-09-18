@@ -18,7 +18,11 @@
     </div>
     {{/* Bulk apply: reboot every device that installed and is waiting (manual, or a
          scheduled deployment not yet due). Only shown when some are awaiting reboot. */}}
-    {{$awaiting := 0}}{{range .Summary}}{{if eq .Status "awaiting_reboot"}}{{$awaiting = .Count}}{{end}}{{end}}
+    {{/* Rebootable, not awaiting: the chips count every device waiting on a reboot,
+         but otautil has no reboot command, so a legacy device can only be rebooted
+         remotely when the same serial also runs the agent. The button counts what it
+         can actually reach. */}}
+    {{$awaiting := .Rebootable}}
     {{if and (gt $awaiting 0) (canOperate $.Role)}}
     <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/reboot-all" method="POST" hx-boost="true" style="margin-top:12px;"
           hx-confirm="Reboot all {{$awaiting}} installed device{{if ne $awaiting 1}}s{{end}} now to apply the update?">

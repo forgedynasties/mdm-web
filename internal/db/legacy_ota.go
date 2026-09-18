@@ -359,6 +359,48 @@ func (d *DB) LegacyDeploymentForUpdate(ctx context.Context, updateID int) (*Lega
 	return d.GetLegacyDeployment(ctx, id)
 }
 
+// LegacyAwaitingReboot is one otautil device that has installed a rollout's build and
+// is waiting for the reboot that switches it over.
+type LegacyAwaitingReboot struct {
+	DeploymentID int
+	Serial       string
+	DeviceID     uuid.UUID // the fleet row for the same serial; a reboot needs a command
+}
+
+// ListLegacyAwaitingRebootForUpdate returns the legacy half of a fleet deployment that
+// has installed and still needs rebooting. Rows already rebooted from here are skipped,
+// so running it twice does not send a second reboot.
+//
+// The join to devices is an inner join on purpose: the otautil protocol has no reboot,
+// so a reboot can only be delivered as an MDM command, which needs the same serial to
+// also be running the agent. A legacy-only device cannot be rebooted remotely at all
+// and is left out rather than counted and silently skipped.
+func (d *DB) ListLegacyAwaitingRebootForUpdate(ctx context.Context, updateID int) ([]LegacyAwaitingReboot, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dd.deployment_id, dd.serial, dv.id
+		FROM legacy_ota_deployment_devices dd
+		JOIN legacy_ota_deployments dep ON dep.id = dd.deployment_id
+		JOIN devices dv ON dv.serial_number = dd.serial
+		WHERE dep.update_id = $1
+		  AND dd.reboot_sent_at IS NULL
+		  AND (dd.status IN ('awaiting_reboot','installed','updated')
+		       OR (dd.status = 'installing' AND dd.percent >= 100))
+		ORDER BY dd.serial`, updateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LegacyAwaitingReboot
+	for rows.Next() {
+		var a LegacyAwaitingReboot
+		if err := rows.Scan(&a.DeploymentID, &a.Serial, &a.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // LinkLegacyDeployment attaches a legacy rollout to the fleet deployment it was
 // pushed with, so both halves render as one.
 func (d *DB) LinkLegacyDeployment(ctx context.Context, legacyID, updateID int) error {
