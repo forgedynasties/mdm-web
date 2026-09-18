@@ -416,6 +416,11 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+
+	// The weekly report PDF is rendered off-box (a Playwright job on a workstation —
+	// this container has no browser and no memory to spare for one) and posted here.
+	mux.Handle("POST /api/v1/restaurants/{id}/report.pdf",
+		adminAuth(middleware.MaxBytes(32<<20, http.HandlerFunc(dash.ReportPDFUpload))))
 	dash.RegisterRoutes(mux)
 
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.

@@ -201,6 +201,8 @@ type Handler struct {
 	password    string
 	cfg         *config.Config
 	adminAPIKey string
+	// reportSecret signs the unguessable weekly-report PDF links.
+	reportSecret string
 	alerts      *alerts.Dispatcher
 	otaGate     *otagate.Gate // which builds can take an MDM OTA (the rest go legacy)
 
@@ -1663,6 +1665,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		password:      password,
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
+		reportSecret:  sessionSecret,
 		mapsEmbedKey:  mapsEmbedKey,
 		geo:           geo,
 		geocoder:      geocoder,
@@ -2665,7 +2668,20 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// The owner's own weekly report — the same one that is emailed. Prefer the rendered
+	// PDF for the last finished week and fall back to the live page, so the link is
+	// never a dead end on a week that has not been rendered yet.
+	reportURL := ""
+	if restaurantID != nil {
+		_, weekEnd := lastFullWeek(time.Now())
+		reportURL = fmt.Sprintf("%s/restaurants/%s/report", h.baseURL(r), *restaurantID)
+		if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(*restaurantID, weekEnd)+".pdf")); err == nil {
+			reportURL = h.ReportPDFURL(r, *restaurantID, weekEnd)
+		}
+	}
+
 	h.render(w, r, "owner_home.html", map[string]any{
+		"ReportURL":     reportURL,
 		"TodoGroups":    needGroups,
 		"TodoCount":     len(todos),
 		"Headline":      headline,
@@ -9440,7 +9456,13 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	subject := fmt.Sprintf("%s — weekly device report", rest.Name)
-	reportURL := fmt.Sprintf("%s/restaurants/%s/report?days=%d", h.baseURL(r), rest.ID, days)
+	// Prefer the rendered PDF when one exists for this week — that is the artifact the
+	// mail is pointing at — and fall back to the live page when it has not been
+	// rendered yet, so the mail is never a dead end.
+	reportURL := fmt.Sprintf("%s/restaurants/%s/report", h.baseURL(r), rest.ID)
+	if _, err := os.Stat(filepath.Join(ReportStoreDir(), h.reportToken(id, weekEnd)+".pdf")); err == nil {
+		reportURL = h.ReportPDFURL(r, id, weekEnd)
+	}
 	body := reportEmailHTML(rest.Name, days, m, visible, reportURL)
 	if err := h.mail.Send(r.Context(), to, subject, body); err != nil {
 		log.Printf("[report] send to %s: %v", to, err)
@@ -21212,6 +21234,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
 	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
+	// Deliberately unauthenticated: the token in the path is the credential, so a venue
+	// owner can open their report from an email without a dashboard account. See the
+	// note at the top of report_pdf.go.
+	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.RestaurantReportEmail))
 	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))

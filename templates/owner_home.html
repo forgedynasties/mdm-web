@@ -189,6 +189,7 @@
     <div class="list"><span class="pv">Preview</span>
       <b>Weekly summary email</b>
       <p style="margin:6px 0 10px;font-size:13px;color:var(--muted);line-height:1.5">Every Monday 8 am: uptime in service, incidents, battery health and the stations that need attention. Sent to you and your manager.</p>
+      {{if .ReportURL}}<p style="margin:0 0 10px;"><a href="{{.ReportURL}}" class="link-detail" style="font-weight:650;">Open last week&rsquo;s report</a></p>{{end}}
       <div class="li"><span class="dot ok"></span><span>Recipients: you, manager@flightsvegas.com</span><em>on</em></div>
       <div class="li"><span class="dot info"></span><span>Also on WhatsApp</span><em>off</em></div>
     </div>
