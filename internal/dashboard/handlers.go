@@ -9417,7 +9417,8 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	subject := fmt.Sprintf("%s — weekly device report", rest.Name)
-	body := reportEmailHTML(rest.Name, days, m, visible)
+	reportURL := fmt.Sprintf("%s/restaurants/%s/report?days=%d", h.baseURL(r), rest.ID, days)
+	body := reportEmailHTML(rest.Name, days, m, visible, reportURL)
 	if err := h.mail.Send(r.Context(), to, subject, body); err != nil {
 		log.Printf("[report] send to %s: %v", to, err)
 		h.reportMailResult(w, r, false, "Sending failed — check the server log")
@@ -9446,7 +9447,7 @@ func (h *Handler) reportMailResult(w http.ResponseWriter, r *http.Request, ok bo
 // throughout, no stylesheet, no flex or grid and no CSS variables: Outlook renders
 // with Word's engine, which supports none of them. The palette is the dashboard's so
 // the mail reads as the same product as the page it came from.
-func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek) string {
+func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.DeviceWeek, reportURL string) string {
 	const (
 		ink    = "#2c2c2b"
 		muted  = "#77736f"
@@ -9454,22 +9455,8 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 		canvas = "#f7f7f6"
 		line   = "#e6e5e3"
 		coral  = "#ff654f"
-		green  = "#39875f"
-		amber  = "#b46b2d"
-		red    = "#cc4c43"
 	)
 	hrs := func(min float64) string { return fmt.Sprintf("%.1f", min/60) }
-	// Same thresholds as the report's own legend, so a row that reads amber on the
-	// page reads amber in the mail.
-	band := func(pct int) string {
-		switch {
-		case pct < 70:
-			return red
-		case pct < 85:
-			return amber
-		}
-		return green
-	}
 	esc := template.HTMLEscapeString
 
 	// tile is one headline figure: a big number over a small caption.
@@ -9520,40 +9507,19 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	}
 	fmt.Fprintf(&b, `</tr></table></td></tr>`)
 
-	// Per-device table. Units live in the headers, not in every cell, and every
-	// numeric cell is nowrap with a fixed row height: the first cut wrapped
-	// "156.5 hrs 93%" onto two lines in a narrow reading pane, which made every
-	// other row a different height and the column impossible to scan.
-	fmt.Fprintf(&b, `<tr><td style="padding:0;border-top:1px solid %s;">`, line)
-	fmt.Fprintf(&b, `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%" style="border-collapse:collapse;table-layout:fixed;font:400 13px -apple-system,Segoe UI,Roboto,sans-serif;">`)
-	fmt.Fprintf(&b, `<colgroup><col width="34%%"><col width="15%%"><col width="11%%"><col width="15%%"><col width="15%%"><col width="10%%"></colgroup>`)
-	th := `<th align="%s" style="padding:10px 14px;background:#faf9f8;border-bottom:1px solid ` + line + `;font:600 10px -apple-system,Segoe UI,Roboto,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:` + muted + `;white-space:nowrap;">%s</th>`
-	fmt.Fprintf(&b, `<tr>`)
-	fmt.Fprintf(&b, th, "left", "Device")
-	fmt.Fprintf(&b, th, "right", "Uptime hrs")
-	fmt.Fprintf(&b, th, "right", "Uptime")
-	fmt.Fprintf(&b, th, "right", "Charging hrs")
-	fmt.Fprintf(&b, th, "right", "Mains hrs")
-	fmt.Fprintf(&b, th, "right", "Days")
-	fmt.Fprintf(&b, `</tr>`)
-	num := `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid ` + line + `;color:` + ink + `;white-space:nowrap;">%s</td>`
-	for _, x := range weeks {
-		nick := ""
-		if x.Nickname != "" {
-			nick = fmt.Sprintf(` <span style="color:%s;font-weight:400;">· %s</span>`, faint, esc(x.Nickname))
-		}
-		// The name and its nickname share one line: a second line here was the other
-		// source of uneven rows.
-		fmt.Fprintf(&b, `<tr><td height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">%s%s</td>`,
-			line, ink, esc(x.Serial), nick)
-		fmt.Fprintf(&b, num, hrs(x.PoweredMinutes))
-		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;font-weight:600;white-space:nowrap;">%d%%</td>`,
-			line, band(x.UptimeFullPct()), x.UptimeFullPct())
-		fmt.Fprintf(&b, num, hrs(x.PadMinutes))
-		fmt.Fprintf(&b, num, hrs(x.PluggedMinutes))
-		fmt.Fprintf(&b, `<td align="right" height="40" style="height:40px;padding:0 14px;border-bottom:1px solid %s;color:%s;white-space:nowrap;">%d</td></tr>`, line, muted, x.DeviceDays)
-	}
-	fmt.Fprintf(&b, `</table></td></tr>`)
+	// No per-device table here. An email is a summary — the headline figures are what
+	// someone reads on a phone — and a table of every device made it long, made it wrap
+	// badly in narrow reading panes, and duplicated a page that renders it properly.
+	// The full breakdown lives in the MDM, one click away, where it can also be saved
+	// as a PDF.
+	fmt.Fprintf(&b, `<tr><td align="center" style="padding:22px 16px 4px;">`+
+		`<a href="%s" style="display:inline-block;background:%s;color:#ffffff;text-decoration:none;`+
+		`font:600 14px -apple-system,Segoe UI,Roboto,sans-serif;padding:12px 22px;border-radius:8px;">`+
+		`View the full report</a></td></tr>`, esc(reportURL), coral)
+	fmt.Fprintf(&b, `<tr><td align="center" style="padding:8px 16px 18px;`+
+		`font:400 12px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;">`+
+		`Every device, day by day — and a Save as PDF button for the whole thing.`+
+		`</td></tr>`, muted)
 
 	fmt.Fprintf(&b, `<tr><td style="padding:14px 16px 18px;font:400 11.5px -apple-system,Segoe UI,Roboto,sans-serif;color:%s;">`+
 		`Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. A dash means the reading was never measured, not that it was zero.`+
