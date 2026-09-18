@@ -2010,6 +2010,45 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 	return ct.RowsAffected(), nil
 }
 
+// checkinDupKeys are the snapshot keys whose values now live in fixed columns on
+// device_samples for the whole of history — the backfill reaches 2026-03-18, the same
+// day check-ins begin. Holding them in both places buys nothing, and they are the
+// largest remaining part of the old rows: about half the surviving bytes.
+//
+// Deliberately NOT the state keys. device_state_events only begins the day dual writing
+// started, so for any window older than that the snapshot is the only record of what a
+// device was doing, and stripping charging or wlc_status would destroy history that
+// cannot be reconstructed.
+const checkinDupKeys = `'ram_usage_mb' - 'battery_temp_c' - 'storage_free_gb' - 'wifi_rssi'`
+
+// StripRedundantCheckinKeys removes checkinDupKeys from up to `limit` rows of one UTC
+// day, and ONLY from rows whose reading demonstrably survives in device_samples — the
+// EXISTS is on the exact (device_id, at) pair, so a row is never emptied on the
+// assumption that the backfill covered it. Anything the shaped tables missed keeps its
+// snapshot.
+//
+// Returns rows rewritten; fewer than `limit` means the day is done. Batched and paced
+// by the caller for the same reason as the legacy strip: rewriting rows is I/O the
+// dashboard and the device traffic need too.
+func (d *DB) StripRedundantCheckinKeys(ctx context.Context, day time.Time, limit int) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE checkins SET extra = extra - `+checkinDupKeys+`
+		WHERE ctid IN (
+			SELECT c.ctid FROM checkins c
+			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
+			  AND c.extra ?| ARRAY['ram_usage_mb','battery_temp_c','storage_free_gb','wifi_rssi']
+			  AND EXISTS (
+				SELECT 1 FROM device_samples s
+				WHERE s.device_id = c.device_id AND s.at = c.created_at)
+			LIMIT $2
+		)
+	`, day.Format("2006-01-02"), limit)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // StripLegacyCheckinKeys removes checkinStripKeys from up to `limit` checkins rows
 // of one UTC day — the one-off cleanup for rows written before UpsertCheckin
 // stripped them at insert. Returns rows rewritten; fewer than `limit` means the

@@ -18169,6 +18169,11 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.stripLegacyCheckins(ctx)
 	h.backfillBuildHistory(ctx)
 	h.backfillDeviceSamples(ctx)
+	// After the backfill, never before it: a day whose samples have not been written
+	// yet must not have its snapshots stripped. The EXISTS guard inside the strip makes
+	// that safe regardless, but running them in this order means the guard is a backstop
+	// rather than the only thing standing between us and deleted history.
+	h.stripDupCheckins(ctx)
 }
 
 // backfillDeviceSamples fills device_samples from existing check-in history, one UTC
@@ -18304,6 +18309,75 @@ func (h *Handler) backfillBuildHistory(ctx context.Context) {
 		return
 	}
 	log.Printf("[build-history] %d change(s) this run; next day %s", total, day.Format("2006-01-02"))
+}
+
+// stripDupCheckins removes the snapshot keys that device_samples now holds in fixed
+// columns, from history written before the snapshot stopped being stored. Same shape
+// as stripLegacyCheckins — its own cursor, small paced batches, a per-run budget —
+// because it is the same kind of job: a one-off walk of the whole history whose I/O
+// competes with live traffic.
+//
+// It stops at the day the snapshot stopped being written; rows after that carry '{}'
+// and have nothing to strip.
+func (h *Handler) stripDupCheckins(ctx context.Context) {
+	cur := h.cfg.DupStripCursor()
+	if cur == "done" {
+		return
+	}
+	var day time.Time
+	if cur == "" {
+		oldest, ok, err := h.db.OldestCheckinDay(ctx)
+		if err != nil {
+			log.Printf("[dup-strip] oldest checkin: %v", err)
+			return
+		}
+		if !ok {
+			_ = h.cfg.SetDupStripCursor("done")
+			return
+		}
+		day = oldest
+	} else {
+		var err error
+		if day, err = time.Parse("2006-01-02", cur); err != nil {
+			log.Printf("[dup-strip] bad cursor %q, restarting", cur)
+			_ = h.cfg.SetDupStripCursor("")
+			return
+		}
+	}
+
+	const batch, maxRows = 1000, 20000
+	stop := time.Now().UTC().Truncate(24 * time.Hour)
+	deadline := time.Now().Add(3 * time.Minute)
+	var total int64
+	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
+		n, err := h.db.StripRedundantCheckinKeys(ctx, day, batch)
+		if err != nil {
+			log.Printf("[dup-strip] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		if n < int64(batch) {
+			day = day.AddDate(0, 0, 1)
+			if err := h.cfg.SetDupStripCursor(day.Format("2006-01-02")); err != nil {
+				log.Printf("[dup-strip] save cursor: %v", err)
+				return
+			}
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	if !day.Before(stop) {
+		_ = h.cfg.SetDupStripCursor("done")
+		log.Printf("[dup-strip] finished (%d row(s) rewritten this run)", total)
+		return
+	}
+	if total > 0 {
+		log.Printf("[dup-strip] rewrote %d row(s); cursor at %s", total, day.Format("2006-01-02"))
+	}
 }
 
 func (h *Handler) stripLegacyCheckins(ctx context.Context) {

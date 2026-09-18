@@ -98,6 +98,9 @@ type Config struct {
 	// bulky keys from rows written before insert-time stripping existed. "" = not
 	// started, "done" = finished.
 	LegacyStripCursorVal string `json:"legacy_strip_cursor"`
+
+	// DupStripCursorVal walks the strip of keys now held in device_samples.
+	DupStripCursorVal string `json:"dup_strip_cursor"`
 	// First day the cleanup started from (oldest check-in at that time); fixed
 	// denominator for the progress percentage shown in Settings.
 	LegacyStripStartVal string `json:"legacy_strip_start"`
@@ -789,6 +792,20 @@ func (c *Config) CheckinDownsampleSec() int {
 		return DefaultCheckinDownsampleSec
 	}
 	return *c.CheckinDownsampleSecVal
+}
+
+func (c *Config) DupStripCursor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.DupStripCursorVal
+}
+
+func (c *Config) SetDupStripCursor(cur string) error {
+	c.mu.Lock()
+	c.DupStripCursorVal = cur
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) LegacyStripCursor() string {
