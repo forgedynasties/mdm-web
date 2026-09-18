@@ -365,6 +365,20 @@
     </table></div>
   </div>
 
+  <h3>His fourth question, re-measured: 100 idle devices, one hour</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Then (17 Sep)</th><th class="n">100 devices, 1 h</th><th>Now (18 Sep)</th><th class="n">100 devices, 1 h</th></tr></thead>
+      <tbody>
+        <tr><td>Design intent, 30 s coalescing</td><td class="n">~7 MB</td><td rowspan="3">Measured: 25 rows per idle device-hour at ~444 bytes a stored report</td><td class="n" rowspan="3"><b>~1.1 MB</b><br><span class="small">~26 MB/day · ~9.5 GB/year</span></td></tr>
+        <tr><td>DPC agent, full snapshot every 30 s</td><td class="n">~12 MB</td></tr>
+        <tr><td>Worst device measured live</td><td class="n">~16 MB</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Measured over one finished clock hour across the 70 devices that had no state change in it, so "idle" means idle rather than merely quiet. Per stored report: <code>checkins</code> ~142 bytes of heap and 138 of index, <code>device_samples</code> 91 and 73. <code>extra</code> is 5 bytes, down from 779 bytes of JSON.</p>
+    <p class="small" style="margin:10px 0 0"><b>Two things that figure exposes.</b> Indexes are now the majority of the cost &mdash; 211 bytes of the 444 against 233 of heap &mdash; so the next saving comes from indexes, not columns. And <code>checkins</code> is close to redundant: it costs ~280 bytes a row to carry <code>battery_pct</code>, <code>build_id</code> and <code>state_hash</code>, while <code>device_samples</code> already holds the battery reading and the timestamp and <code>device_build_history</code> holds build changes. Its only irreplaceable column is <code>state_hash</code>, which exists solely to decide whether to write the row at all. Retiring the table would roughly halve this again, and is where the next real saving is.</p>
+  </div>
+
   <h3>The part he did not ask for</h3>
   <div class="card">
     <p>Storing telemetry by shape rather than as one snapshot per report was not on his list, and is the change the rest rests on. Numbers go to <code>device_samples</code> in fixed columns; states go to <code>device_state_events</code>, one row per real change, so an idle device costs nothing. Every reader moved across one at a time, each diffed against the old source on real data before the next: the chart, the SSE payload, five alert rules, charger-flap detection, the CSV export, the daily rollup, the device page and the public API. Then <code>checkins.extra</code> stopped being written.</p>
