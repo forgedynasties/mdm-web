@@ -325,7 +325,69 @@
     <p class="small" style="margin:14px 0 0">The firmware client already behaves this way by itself &mdash; WS deltas, HTTP only as a 5-minute safety net &mdash; so this rule barely touches it. The DPC agent posts a full snapshot every 30 seconds regardless, and is the reason to do it server-side: agents already in the field cannot be updated on demand, and the database should not depend on every agent being well-behaved.</p>
   </div>
 
-  <div class="callout" style="margin-top:32px"><b>What to tell him in one line.</b> The idle-footprint answer he asked for was right, but it described the design, not the deployment: retention was never enabled, two write paths defeat the coalescing that the estimate assumed, and a reconnect bug multiplies the request rate. Fixing the write path and enabling staged retention takes the table from 15 GB to single-digit GB without touching the schema; partitioning and the DPC agent diff are what make it hold at 500 devices.</div>
+  <h2>Status, 18 September</h2>
+
+  <div class="callout"><b>His first question, asked again: is there a queue now?</b> No &mdash; and deliberately not. There is still no broker, no Redis or NATS, and no worker pool: a check-in is still <code>POST /api/v1/checkin</code> &rarr; <code>ingestCheckin</code> &rarr; <code>UpsertCheckin</code> &rarr; one Postgres transaction &rarr; response. What changed is the size of that transaction. The row it writes went from 937 bytes to about 71, the snapshot it used to store is gone, and the fleet stores 52,000 rows a day instead of 118,869. A queue absorbs work you cannot make smaller; this work got smaller. The durable queue in the other direction &mdash; server &rarr; device commands in Postgres, with receipt-ack and per-type expiry &mdash; is unchanged and still the thing carrying the load that actually needs a queue.</div>
+
+  <h3>Against his plan, in his order</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Step</th><th>State</th><th class="vd">Note</th></tr></thead>
+      <tbody>
+        <tr><td>1. Stop the duplicate telemetry loops</td><td><span class="pill ok">done</span></td><td class="vd">per-device cancel map; a flapping device no longer runs N loops</td></tr>
+        <tr><td>2. Make one write path</td><td><span class="pill ok">done</span></td><td class="vd">HTTP and WS collapsed onto <code>ingestCheckin</code>. Merging them exposed two bugs that had been true for as long as the paths were maintained by hand: the WS path had no OTA capability gate, and never asked for an app list</td></tr>
+        <tr><td>3. Turn retention on, staged</td><td><span class="pill warn">superseded</span></td><td class="vd">Ali's call: no day is deleted. Downsampled to 5-minute buckets past 60 days instead &mdash; 11.0M rows removed, every day still present</td></tr>
+        <tr><td>4. Drop the two dead indexes</td><td><span class="pill ok">done</span></td><td class="vd"><code>idx_checkins_device_id</code> 177 MB, then <code>checkins_pkey</code> 756 MB &mdash; still 0 scans against 17,425 for the composite, and nothing references <code>checkins.id</code></td></tr>
+        <tr><td>5. Raise <code>checkin_sample_sec</code> to 60</td><td><span class="pill ok">done</span></td><td class="vd">30 &rarr; 60</td></tr>
+        <tr><td>6. Teach the DPC agent to diff</td><td><span class="pill off">not started</span></td><td class="vd">a toggle to ignore DPC check-ins shipped instead &mdash; a stopgap for write volume, not the fix he described</td></tr>
+        <tr><td>7. Partition <code>checkins</code> by month</td><td><span class="pill warn">written, parked</span></td><td class="vd">script rehearsed end to end in <code>tools/partition-checkins.sql</code>. Parked on the evidence: retention is not used here, and the table has stopped growing in bytes &mdash; 171 kB of <code>extra</code> on 18 Sep against 70 MB on the 17th. Dropping the dead primary key was the one thing it was still needed for, and that is done</td></tr>
+        <tr><td>8. Right-size the box and Postgres</td><td><span class="pill warn">partly</span></td><td class="vd">the memory pressure is gone (below), but the instance is still t2 and <code>shared_buffers</code>, <code>maintenance_work_mem</code> and <code>max_wal_size</code> are untouched</td></tr>
+        <tr><td>9. Then, and only then, multi-replica</td><td><span class="pill off">not needed</span></td><td class="vd">150 devices</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="callout"><b>He was right about the pool, for a reason neither of us had found.</b> "Watch pool vs max_connections" read as a headroom warning. It was actually the cause of an outage pattern this audit never diagnosed: Postgres backends were OOM-killed <b>17 times between 16 and 18 September</b>. Not from heavy queries. <code>MaxConnIdleTime</code> was 30 minutes against <code>MaxConns</code> 60, and a Postgres backend never returns memory to the OS after a query &mdash; so one burst of dashboard fan-out grew the pool to 60 and every idle connection then held whatever its largest query had needed. Measured with nothing running: 59 idle connections, <b>1.72 GiB of non-reclaimable anonymous memory</b> against a 2 GiB limit, page cache only 221 MB. Idle connections are now reaped in 90 seconds and the lifetime halved; <code>MaxConns</code> stays at 60 because the fan-out that needs it is real. After: 6 idle connections, 216 MB anon, the container at 412 MB of 2 GiB, and no kill since.</div>
+
+  <h3>Where the numbers landed</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Measure</th><th class="n">17 Sep</th><th class="n">Now</th><th class="vd">Note</th></tr></thead>
+      <tbody>
+        <tr><td>Rows stored per day</td><td class="n">118,869</td><td class="n">~52,000</td><td class="vd">jitter no longer counts as a change</td></tr>
+        <tr><td>Bytes per stored row</td><td class="n">937</td><td class="n">~71</td><td class="vd">the snapshot was 608 of them</td></tr>
+        <tr><td><code>checkins</code> rows</td><td class="n">25.2M</td><td class="n">12.5M</td><td class="vd">downsampled; no day deleted</td></tr>
+        <tr><td><code>checkins</code> total size</td><td class="n">15 GB</td><td class="n">14 GB</td><td class="vd">the dead primary key went; the heap is now mostly reusable free space</td></tr>
+        <tr><td>Database</td><td class="n">18 GB</td><td class="n">17 GB</td><td class="vd"><code>device_samples</code> 2.4 GB, <code>device_state_events</code> 1.4 MB</td></tr>
+        <tr><td>Postgres memory, idle</td><td class="n">1.94 GiB / 2 GiB</td><td class="n">412 MB / 2 GiB</td><td class="vd">the pool fix</td></tr>
+        <tr><td>Fleet-wide alert scan</td><td class="n">243.9 ms</td><td class="n">5.4 ms</td><td class="vd">32 kB BRIN index on <code>device_samples(at)</code></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <h3>His fourth question, re-measured: 100 idle devices, one hour</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Then (17 Sep)</th><th class="n">100 devices, 1 h</th><th>Now (18 Sep)</th><th class="n">100 devices, 1 h</th></tr></thead>
+      <tbody>
+        <tr><td>Design intent, 30 s coalescing</td><td class="n">~7 MB</td><td rowspan="3">Measured: 25 rows per idle device-hour at ~444 bytes a stored report</td><td class="n" rowspan="3"><b>~1.1 MB</b><br><span class="small">~26 MB/day · ~9.5 GB/year</span></td></tr>
+        <tr><td>DPC agent, full snapshot every 30 s</td><td class="n">~12 MB</td></tr>
+        <tr><td>Worst device measured live</td><td class="n">~16 MB</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Measured over one finished clock hour across the 70 devices that had no state change in it, so "idle" means idle rather than merely quiet. Per stored report: <code>checkins</code> ~142 bytes of heap and 138 of index, <code>device_samples</code> 91 and 73. <code>extra</code> is 5 bytes, down from 779 bytes of JSON.</p>
+    <p class="small" style="margin:10px 0 0"><b>Two things that figure exposes.</b> Indexes are now the majority of the cost &mdash; 211 bytes of the 444 against 233 of heap &mdash; so the next saving comes from indexes, not columns. And <code>checkins</code> is close to redundant: it costs ~280 bytes a row to carry <code>battery_pct</code>, <code>build_id</code> and <code>state_hash</code>, while <code>device_samples</code> already holds the battery reading and the timestamp and <code>device_build_history</code> holds build changes. Its only irreplaceable column is <code>state_hash</code>, which exists solely to decide whether to write the row at all. Retiring the table would roughly halve this again, and is where the next real saving is.</p>
+  </div>
+
+  <h3>The part he did not ask for</h3>
+  <div class="card">
+    <p>Storing telemetry by shape rather than as one snapshot per report was not on his list, and is the change the rest rests on. Numbers go to <code>device_samples</code> in fixed columns; states go to <code>device_state_events</code>, one row per real change, so an idle device costs nothing. Every reader moved across one at a time, each diffed against the old source on real data before the next: the chart, the SSE payload, five alert rules, charger-flap detection, the CSV export, the daily rollup, the device page and the public API. Then <code>checkins.extra</code> stopped being written.</p>
+    <p class="small" style="margin:10px 0 0">Two things that only a diff would have caught. The state stream had no baseline &mdash; the writer recorded a key only when it <em>changed</em>, comparing against a snapshot that already held every value, so no device existing at the time ever got a first event: <code>timezone</code> had 0 events against 150 devices reporting it. And the store-or-skip decision on the write path read the snapshot it was about to stop storing; emptying the column would have made every report store a row, multiplying the write volume the work exists to cut. Neither would have failed loudly.</p>
+  </div>
+
+  <div class="callout" style="margin-top:32px"><b>What to tell him in one line.</b> The idle-footprint answer he asked for was right, but it described the design, not the deployment: retention was never enabled, two write paths defeated the coalescing the estimate assumed, and a reconnect bug multiplied the request rate. All three are fixed, and the table has stopped growing &mdash; not by enabling retention, which was rejected because no day may be deleted, but by storing telemetry by shape and downsampling old history. Still open from his list: the DPC agent diff, and moving off t2 with Postgres tuned to match. Partitioning is written and rehearsed but parked, because the two things it was wanted for &mdash; cheap retention and dropping the dead primary key &mdash; turned out not to need it.</div>
+
+  <p class="small" style="margin-top:20px">Status section added 18 September, after the work in it shipped. Figures measured against the live box, not estimated. The one thing this audit got wrong by omission: it read "watch pool vs max_connections" as headroom advice, and it was the cause of an outage pattern &mdash; see above.</p>
 
   <p class="small" style="margin-top:36px">Measurements taken read-only on the live dev box, 17 September 2026, via SSM. Code references are to <code>mdm-server</code> at the current <code>stage</code> working tree. One statistics query during this audit caused a Postgres backend crash and a ~20 second automatic recovery; no data was lost and the API stayed up.</p>
 </div>
