@@ -951,9 +951,10 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			_ = h.db.CompleteDeliveredReboots(ctx, deviceID)
 		}
 
-		// Pending commands ride the response for older clients that poll instead of
-		// holding a WebSocket.
-		if h.cfg.LegacyCheckin() && !h.hub.IsConnected(deviceID) {
+		// Pending commands ride the response for clients that poll instead of holding a
+		// WebSocket: older firmware (when legacy check-in is on) and MDM-lite, which
+		// never holds one.
+		if (h.cfg.LegacyCheckin() || isMDMLitePayload(req.Extra)) && !h.hub.IsConnected(deviceID) {
 			if cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID); err == nil {
 				for _, cmd := range cmds {
 					out.Commands = append(out.Commands, map[string]any{
@@ -1790,7 +1791,8 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true,
+		"app_reload": true, "app_restart": true, "app_clear_cache": true, "app_update_check": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return

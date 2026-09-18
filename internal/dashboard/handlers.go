@@ -14095,6 +14095,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
+			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM-lite"},
 		}
 		for _, a := range allActions {
 			switch a.Type {
@@ -15696,6 +15700,11 @@ var commandRoles = map[string][]string{
 	"install_apk":   {"admin", "dev", "operator", "user_manager", "super_op"},
 	"uninstall":     {"admin", "dev", "operator", "user_manager", "super_op"},
 	"reboot":        {"admin", "dev", "operator", "user_manager", "super_op"},
+	// MDM-lite app controls: operator-level, like reboot, and far less disruptive.
+	"app_reload":       {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
@@ -15897,6 +15906,11 @@ func policyActionForCommand(cmdType string) string {
 	if cmdType == "set_kiosk" {
 		return "kiosk"
 	}
+	for _, t := range product.AppControlCommands {
+		if cmdType == t {
+			return "app_control"
+		}
+	}
 	return cmdType
 }
 
@@ -16024,6 +16038,14 @@ func cmdTypeLabel(cmdType string) string {
 		return "Wipe"
 	case "update_splash":
 		return "Boot logo"
+	case "app_reload":
+		return "Reload page"
+	case "app_restart":
+		return "Restart app"
+	case "app_clear_cache":
+		return "Clear web cache"
+	case "app_update_check":
+		return "Check for update"
 	case "logcat":
 		return "Log capture"
 	case "ota":
@@ -17299,7 +17321,9 @@ func (h *Handler) RecipeDelete(w http.ResponseWriter, r *http.Request) {
 // their own mechanisms and their params aren't captured in a recipe payload).
 func schedulableType(t string) bool {
 	switch t {
-	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash":
+	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash",
+		// e.g. a nightly restart to clear WebView memory buildup
+		"app_reload", "app_restart", "app_clear_cache":
 		return true
 	}
 	return false
