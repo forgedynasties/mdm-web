@@ -3889,7 +3889,18 @@ func (w DeviceWeek) StandbyMinutes() float64 {
 // RestaurantDeviceWeeks returns one row per device at a venue for the same window
 // SiteMetricsFor aggregates, so the report's table sums to its header. Reads only
 // device_daily_stats — never raw check-ins.
-func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, days int) ([]DeviceWeek, error) {
+// endDayArg renders an explicit window end for the metrics queries. The zero time
+// means "up to today", which is what every rolling caller wants; the weekly report
+// passes the last completed Sunday instead so it covers a finished week rather than a
+// part-week that changes under you as the day goes on.
+func endDayArg(endDay time.Time) any {
+	if endDay.IsZero() {
+		return nil
+	}
+	return endDay
+}
+
+func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) ([]DeviceWeek, error) {
 	if days <= 0 {
 		days = 7
 	}
@@ -3907,9 +3918,11 @@ func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, 
 		FROM device_daily_stats s
 		JOIN devices dev ON dev.id = s.device_id AND NOT dev.hidden
 		LEFT JOIN device_nicknames n ON n.device_id = dev.id
-		WHERE dev.restaurant_id = $2 AND s.day >= CURRENT_DATE - ($1::int - 1)
+		WHERE dev.restaurant_id = $2
+		  AND s.day >  COALESCE($3::date, CURRENT_DATE) - $1::int
+		  AND s.day <= COALESCE($3::date, CURRENT_DATE)
 		GROUP BY dev.id, dev.serial_number, n.name
-		ORDER BY SUM(s.online_minutes) DESC NULLS LAST, dev.serial_number`, days, restaurantID)
+		ORDER BY SUM(s.online_minutes) DESC NULLS LAST, dev.serial_number`, days, restaurantID, endDayArg(endDay))
 	if err != nil {
 		return nil, err
 	}
@@ -3944,16 +3957,18 @@ func (d SiteMetricsDay) HasOpen() bool { return d.OpenMinutes >= 0 }
 
 // SiteMetricsDaily returns the window day by day, oldest first, so the card can show what
 // the headline is made of and which days are missing.
-func (d *DB) SiteMetricsDaily(ctx context.Context, restaurantID uuid.UUID, days int) ([]SiteMetricsDay, error) {
+func (d *DB) SiteMetricsDaily(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) ([]SiteMetricsDay, error) {
 	if days <= 0 {
 		days = 7
 	}
-	scope := "d.restaurant_id IS NOT NULL"
-	args := []any{days}
+	// Fixed argument positions ($1 days, $2 end, $3 venue) so the window predicate is
+	// one string regardless of whether a venue was named.
+	scope := "d.restaurant_id IS NOT NULL AND ($3::uuid IS NULL OR d.restaurant_id = $3)"
+	var venue any
 	if restaurantID != uuid.Nil {
-		scope = "d.restaurant_id = $2"
-		args = append(args, restaurantID)
+		venue = restaurantID
 	}
+	args := []any{days, endDayArg(endDay), venue}
 	rows, err := d.pool.Query(ctx, `
 		SELECT s.day,
 		       COUNT(DISTINCT s.device_id),
@@ -3963,7 +3978,9 @@ func (d *DB) SiteMetricsDaily(ctx context.Context, restaurantID uuid.UUID, days 
 		       COALESCE(SUM(s.wlc_minutes), 0)::float8
 		FROM device_daily_stats s
 		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
-		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)
+		WHERE `+scope+`
+		  AND s.day >  COALESCE($2::date, CURRENT_DATE) - $1::int
+		  AND s.day <= COALESCE($2::date, CURRENT_DATE)
 		GROUP BY s.day
 		ORDER BY s.day`, args...)
 	if err != nil {
@@ -3983,17 +4000,17 @@ func (d *DB) SiteMetricsDaily(ctx context.Context, restaurantID uuid.UUID, days 
 
 // SiteMetricsFor aggregates the window for one restaurant, or for the whole fleet when
 // restaurantID is uuid.Nil (which backs the Overview widget).
-func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days int) (SiteMetrics, error) {
+func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) (SiteMetrics, error) {
 	if days <= 0 {
 		days = 7
 	}
 	m := SiteMetrics{Days: days}
-	scope := "d.restaurant_id IS NOT NULL"
-	args := []any{days}
+	scope := "d.restaurant_id IS NOT NULL AND ($3::uuid IS NULL OR d.restaurant_id = $3)"
+	var venue any
 	if restaurantID != uuid.Nil {
-		scope = "d.restaurant_id = $2"
-		args = append(args, restaurantID)
+		venue = restaurantID
 	}
+	args := []any{days, endDayArg(endDay), venue}
 	var openMin, closeMin *int
 	err := d.pool.QueryRow(ctx, `
 		SELECT
@@ -4015,7 +4032,9 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 			COUNT(s.screen_on_minutes)
 		FROM device_daily_stats s
 		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
-		WHERE `+scope+` AND s.day >= CURRENT_DATE - ($1::int - 1)`, args...).
+		WHERE `+scope+`
+		  AND s.day >  COALESCE($2::date, CURRENT_DATE) - $1::int
+		  AND s.day <= COALESCE($2::date, CURRENT_DATE)`, args...).
 		Scan(&m.DeviceCount, &m.DeviceDays, &m.OpenDeviceDays, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
 			&m.PadMinutes, &m.PadDrainPct, &m.PadDrainMinutes,
 			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount,

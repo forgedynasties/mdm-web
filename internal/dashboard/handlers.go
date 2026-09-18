@@ -4882,7 +4882,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 
 	// Power & usage widget: the same figures the restaurant page shows per site, summed
 	// across every placed device (uuid.Nil = the whole deployed fleet).
-	if m, err := h.db.SiteMetricsFor(ctx, uuid.Nil, 7); err == nil {
+	if m, err := h.db.SiteMetricsFor(ctx, uuid.Nil, 7, time.Time{}); err == nil {
 		data["PowerMetrics"] = m
 	}
 
@@ -9236,10 +9236,10 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	// Power and usage over the last week: uptime, guest-pad time and what it costs the
 	// tablet's own battery, and the battery levels staff plug and unplug at.
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7); err == nil {
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7, time.Time{}); err == nil {
 		data["Metrics"] = m
 		// The evidence behind the headline: the same week, day by day.
-		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7); err == nil {
+		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7, time.Time{}); err == nil {
 			data["MetricsDaily"] = daily
 			max := 1.0
 			for _, x := range daily {
@@ -9269,6 +9269,25 @@ type reportBar struct {
 // RestaurantReport renders a venue's weekly report: the same figures the venue page
 // shows in its Power & usage card, plus a row per device, on a standalone printable
 // page. Everything comes from device_daily_stats rollups, never raw check-ins.
+// lastFullWeek returns the Monday and Sunday of the most recently COMPLETED week.
+//
+// The report used a rolling seven days ending now, which means a report opened on
+// Wednesday covers half of this week and half of last, and the same link shows
+// different numbers depending on when it is clicked. A weekly report should describe a
+// week: one that has finished and will not change again.
+//
+// The Sunday is strictly before today, so on a Sunday the week that ends tonight is not
+// yet claimed as complete.
+func lastFullWeek(now time.Time) (from, to time.Time) {
+	today := now.UTC().Truncate(24 * time.Hour)
+	back := int(today.Weekday()) // Sunday = 0
+	if back == 0 {
+		back = 7
+	}
+	to = today.AddDate(0, 0, -back)
+	return to.AddDate(0, 0, -6), to
+}
+
 func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -9281,19 +9300,20 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	const days = 7
+	from, to := lastFullWeek(time.Now())
 	data := map[string]any{
 		"Title":      rest.Name + " — Weekly report",
 		"Restaurant": rest,
 		"Days":       days,
-		"WindowFrom": time.Now().AddDate(0, 0, -(days - 1)),
-		"WindowTo":   time.Now(),
+		"WindowFrom": from,
+		"WindowTo":   to,
 	}
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, days); err == nil {
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, days, to); err == nil {
 		data["Metrics"] = m
 	}
 	// Bars are drawn per device against a 24-hour day, like the venue page, so a site
 	// with more devices does not simply read as taller.
-	if daily, err := h.db.SiteMetricsDaily(r.Context(), id, days); err == nil {
+	if daily, err := h.db.SiteMetricsDaily(r.Context(), id, days, to); err == nil {
 		bars := make([]reportBar, 0, len(daily))
 		for _, x := range daily {
 			n := x.Devices
@@ -9309,7 +9329,7 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 		}
 		data["Bars"] = bars
 	}
-	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days, to)
 	if err != nil {
 		log.Printf("[report] device weeks %s: %v", id, err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -9400,9 +9420,12 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Same window as the page it links to — the last completed week — or the mail and
+	// the report it points at would quote different numbers for the same venue.
 	const days = 7
-	m, _ := h.db.SiteMetricsFor(r.Context(), id, days)
-	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days)
+	_, weekEnd := lastFullWeek(time.Now())
+	m, _ := h.db.SiteMetricsFor(r.Context(), id, days, weekEnd)
+	weeks, err := h.db.RestaurantDeviceWeeks(r.Context(), id, days, weekEnd)
 	if err != nil {
 		log.Printf("[report] email device weeks %s: %v", id, err)
 		h.reportMailResult(w, r, false, "Could not build the report")
