@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AIO MDM — System Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --ground:#F6F7F9; --surface:#FFFFFF; --surface-2:#F0F2F6;
+    --ink:#12161C; --ink-2:#39434F; --muted:#616C7C;
+    --line:#DCE2EA; --line-2:#C3CCD8;
+    --cool:#0E6F78; --cool-soft:#D6ECEE;
+    --warm:#A8501C; --warm-soft:#F6E3D5;
+    --dev:#5B4BC4; --dev-soft:#E4E1F7;
+    --good:#1E6E4B; --bad:#9A2B2B;
+    --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0D1015; --surface:#151A21; --surface-2:#1C222B;
+      --ink:#E7EBF1; --ink-2:#BFC8D4; --muted:#8D99A8;
+      --line:#242C36; --line-2:#333D4A;
+      --cool:#4FD0D8; --cool-soft:#123037;
+      --warm:#E2955C; --warm-soft:#33241A;
+      --dev:#A79BF5; --dev-soft:#1E1B33;
+      --good:#5FCF95; --bad:#E58484;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0D1015; --surface:#151A21; --surface-2:#1C222B;
+    --ink:#E7EBF1; --ink-2:#BFC8D4; --muted:#8D99A8;
+    --line:#242C36; --line-2:#333D4A;
+    --cool:#4FD0D8; --cool-soft:#123037;
+    --warm:#E2955C; --warm-soft:#33241A;
+    --dev:#A79BF5; --dev-soft:#1E1B33;
+    --good:#5FCF95; --bad:#E58484;
+  }
+  html{color-scheme:light dark}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .page{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:56px 96px}
+  .prose{max-width:66ch}
+
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--muted);font-weight:500}
+  h1{font-size:clamp(32px,5vw,52px);line-height:1.06;font-weight:700;
+     letter-spacing:-.024em;text-wrap:balance;margin:14px 0 0}
+  h1 .hl{color:var(--cool)}
+  .lede{font-size:clamp(17px,2vw,20px);line-height:1.5;color:var(--ink-2);margin:20px 0 0;max-width:64ch}
+  h2{font-size:clamp(23px,2.7vw,30px);font-weight:650;letter-spacing:-.018em;margin:0;text-wrap:balance}
+  h3{font-size:16.5px;font-weight:600;margin:0 0 8px}
+  p{margin:0 0 14px}
+  section{margin-top:72px}
+  .sec-head{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
+            border-top:2px solid var(--ink);padding-top:14px;margin-bottom:26px}
+  .sec-num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--cool);letter-spacing:.08em;flex:none}
+
+  code,.mono{font-family:var(--mono);font-size:.9em}
+  code{background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:22px;margin-top:24px}
+  figure{margin:26px 0 0}
+  figcaption{font-size:13.5px;color:var(--muted);margin-top:10px;max-width:72ch}
+  figcaption b{color:var(--ink-2);font-weight:600}
+
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:540px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.09em;
+     text-transform:uppercase;color:var(--muted);padding:0 14px 9px 0;border-bottom:1px solid var(--line)}
+  td{padding:11px 14px 11px 0;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1px;
+        background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:34px}
+  .kpi{background:var(--surface);padding:18px 16px}
+  .kpi .v{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--cool);
+          font-variant-numeric:tabular-nums;line-height:1.1}
+  .kpi .k{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.35}
+
+  .note{border-left:3px solid var(--cool);background:var(--surface);border-radius:0 8px 8px 0;
+        padding:16px 18px;margin:24px 0 0;border-top:1px solid var(--line);
+        border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .note.warn{border-left-color:var(--warm)}
+  .note p:last-child{margin-bottom:0}
+  .note .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+             color:var(--muted);display:block;margin-bottom:6px}
+
+  /* ---- flow diagram ---- */
+  .flow{display:grid;gap:12px;min-width:640px}
+  .frow{display:grid;grid-template-columns:130px 1fr;gap:14px;align-items:start}
+  .fstage{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+          color:var(--muted);padding-top:12px}
+  .fcards{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+  .box{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;min-width:0;flex:1}
+  .box .t{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--ink)}
+  .box .s{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .box.always{border-color:var(--cool);background:var(--cool-soft)}
+  .box.always .t{color:var(--cool)}
+  .box.cond{border-style:dashed}
+  .box.gone{opacity:.7}
+  .box.gone .t{text-decoration:line-through;color:var(--muted)}
+  .box.dev{border-color:var(--dev);background:var(--dev-soft)}
+  .box.dev .t{color:var(--dev)}
+  .gate{border-left:3px solid var(--warm);background:var(--warm-soft);border-radius:6px;padding:11px 14px;flex:1}
+  .gate .t{font-family:var(--mono);font-size:12.5px;color:var(--warm);font-weight:500}
+  .gate .s{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+  .arrow{display:flex;align-items:center;color:var(--line-2);font-size:15px;flex:none}
+
+  /* ---- storage bars ---- */
+  .bars{display:grid;gap:9px;min-width:520px}
+  .bar{display:grid;grid-template-columns:190px 1fr 172px;gap:12px;align-items:center}
+  .bar .nm{font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .bar .track{height:20px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;background:var(--cool);opacity:.85;min-width:3px;border-radius:0 2px 2px 0}
+  .bar .fill.warm{background:var(--warm)}
+  .bar .fill.dev{background:var(--dev)}
+  .bar .sz{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;
+           font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:24px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+        text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted)}
+  .pill.ok{color:var(--good);border-color:var(--good)}
+  .pill.off{color:var(--muted)}
+
+  footer{margin-top:80px;padding-top:22px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+  @media (max-width:640px){
+    .frow,.bar{grid-template-columns:1fr;gap:8px}
+    .fstage{padding-top:0}
+    .bar .sz{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="eyebrow">AIO MDM · System architecture · 18 September 2026</div>
+  <h1>One Go binary, one Postgres,<br>and <span class="hl">three shapes of telemetry</span>.</h1>
+  <p class="lede">A fleet of Android kiosks reports in; an operator sends commands back. Everything between those two sentences is one process and one database. This is what the parts are, what they cost, and which of them exist because of something that went wrong.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">194</div><div class="k">devices enrolled</div></div>
+    <div class="kpi"><div class="v">17 GB</div><div class="k">database, 83% of it check-in history</div></div>
+    <div class="kpi"><div class="v">~1.1 MB</div><div class="k">stored per 100 idle devices per hour</div></div>
+    <div class="kpi"><div class="v">386</div><div class="k">HTTP routes across two listeners</div></div>
+  </div>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>How a device talks to the server</h2></div>
+    <div class="prose">
+      <p>Three transports, for three different reasons. The split matters because each has a different failure mode, and the storage design follows from which one a device is using.</p>
+    </div>
+
+    <div class="card">
+      <div class="tw"><table>
+        <thead><tr><th>Transport</th><th>Carries</th><th>When</th><th class="vd">Note</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /api/v1/checkin</code></td><td>a full snapshot (keyframe)</td><td class="n">~5 min</td><td>the safety net: works through anything that survives a plain HTTP request</td></tr>
+          <tr><td><code>GET /api/v1/ws</code></td><td>delta frames up, commands down</td><td class="n">live</td><td>the normal path. A frame is sent only when a gated field actually moves</td></tr>
+          <tr><td><code>GET /api/v1/remote/{serial}</code></td><td>H.264 screen + input</td><td class="n">on demand</td><td>one session per device; a second viewer takes over the first</td></tr>
+          <tr><td>otautil, port 8000</td><td>legacy OTA polling</td><td class="n">15 min</td><td>a second listener. The IP is baked into pre-agent firmware, so the port is a contract that cannot be changed</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="note">
+      <span class="lbl">Both ingest paths are one function</span>
+      <p>HTTP and WebSocket used to be maintained separately, which is exactly how they drifted: the WS path had no OTA capability gate, so a build that could not apply an update was handed one anyway, and it never asked for an app list, so a re-flashed device showed its old apps indefinitely. Both had been quietly true for as long as the two paths existed. Collapsing them onto one <code>ingestCheckin</code> is what surfaced them — the refactor was worth more than the 37 lines it saved.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>What happens to a check-in</h2></div>
+
+    <figure>
+      <div class="card" style="overflow-x:auto">
+        <div class="flow">
+          <div class="frow">
+            <div class="fstage">Arrives</div>
+            <div class="fcards">
+              <div class="box"><div class="t">HTTP keyframe</div><div class="s">full snapshot</div></div>
+              <div class="box"><div class="t">WS delta frame</div><div class="s">changed fields only</div></div>
+              <div class="arrow">→</div>
+              <div class="box"><div class="t">ingestCheckin()</div><div class="s">one path, both transports</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">Always</div>
+            <div class="fcards">
+              <div class="box always"><div class="t">devices.latest_extra</div><div class="s">the live snapshot — dashboard, map, SSE, everything that asks “what is true now”</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">Decide</div>
+            <div class="fcards">
+              <div class="gate">
+                <div class="t">state_hash = md5(report − stripped − volatile)</div>
+                <div class="s">Same as the last stored row, and inside the sampling window? Then no history row — nothing non-volatile moved. This is what stops a device reporting every few seconds from storing a row every few seconds.</div>
+              </div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">If stored</div>
+            <div class="fcards">
+              <div class="box"><div class="t">checkins</div><div class="s">device_id, battery_pct, build_id, state_hash</div></div>
+              <div class="box gone"><div class="t">checkins.extra</div><div class="s">retired — was 608 of the row’s 641 bytes</div></div>
+              <div class="box always"><div class="t">device_samples</div><div class="s">the numbers, in fixed columns</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">If changed</div>
+            <div class="fcards">
+              <div class="box cond"><div class="t">device_state_events</div><div class="s">one row per key that actually moved — or a seed, the first time a key is seen at all</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>One synchronous Postgres transaction.</b> There is no broker and no worker pool on this path, deliberately: a queue absorbs work you cannot make smaller, and this work got smaller instead — 937 bytes a row down to about 71. Samples and events are written inside the same transaction as the check-in row, so a sample and the events around it can never disagree.</figcaption>
+    </figure>
+
+    <div class="note warn">
+      <span class="lbl">The one thing the write path still reads</span>
+      <p>The store-or-skip decision used to compare the incoming report against the previous stored row’s snapshot. Retiring that column would have made the comparison false for every report, so every report would store a row — multiplying the write volume the whole exercise exists to cut, with nothing appearing broken. Hence <code>state_hash</code>: the row keeps a digest of exactly the projection that comparison made, and nothing else.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>Where it all lives</h2></div>
+    <div class="prose"><p>Fifty-odd tables; six matter for size. Everything else is configuration, identity and bookkeeping measured in kilobytes.</p></div>
+
+    <figure>
+      <div class="card" style="overflow-x:auto">
+        <div class="bars">
+          <div class="bar"><div class="nm">checkins</div><div class="track"><div class="fill warm" style="width:100%"></div></div><div class="sz">14 GB · 12.5M rows</div></div>
+          <div class="bar"><div class="nm">device_samples</div><div class="track"><div class="fill" style="width:17%"></div></div><div class="sz">2.4 GB · 15.3M rows</div></div>
+          <div class="bar"><div class="nm">command_results</div><div class="track"><div class="fill dev" style="width:1.2%"></div></div><div class="sz">171 MB · 5,100 rows</div></div>
+          <div class="bar"><div class="nm">device_build_history</div><div class="track"><div class="fill dev" style="width:0.2%"></div></div><div class="sz">25 MB · 155,848 rows</div></div>
+          <div class="bar"><div class="nm">devices</div><div class="track"><div class="fill" style="width:0.12%"></div></div><div class="sz">16 MB · 194 rows</div></div>
+          <div class="bar"><div class="nm">device_state_events</div><div class="track"><div class="fill" style="width:0.04%"></div></div><div class="sz">5.6 MB · 23,403 rows</div></div>
+        </div>
+      </div>
+      <figcaption><b>Bars are to scale against <code>checkins</code>.</b> That 14 GB is almost entirely historical snapshots from before the column was retired; new rows are ~71 bytes. A housekeeping job is stripping the keys <code>device_samples</code> already holds, which converts about half of it into reusable free space inside the file.</figcaption>
+    </figure>
+
+    <div class="two">
+      <div class="card" style="margin-top:0">
+        <h3>Numbers → <span class="mono" style="color:var(--cool)">device_samples</span></h3>
+        <p style="font-size:14px;color:var(--ink-2);margin:0">Battery, temperature, RAM used and total, free storage, Wi-Fi signal. Fixed columns keyed <code>(device_id, at)</code> — the order every reader wants, so it needs no second index, and each insert lands at the right edge instead of dirtying a random page. 91 bytes of heap, 73 of index.</p>
+      </div>
+      <div class="card" style="margin-top:0">
+        <h3>States → <span class="mono" style="color:var(--cool)">device_state_events</span></h3>
+        <p style="font-size:14px;color:var(--ink-2);margin:0">Charging, pad status, screen, Wi-Fi, IP, timezone, boot. One row per real change, plus one seed recording a value the first time it is seen. Nothing at all is written while a state holds, so an idle device costs nothing here.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <span class="lbl">Where the next saving is</span>
+      <p>Indexes are now the majority of the cost — 211 bytes of the 444 a stored report takes, against 233 of heap. The payload got small enough that finding it costs more than storing it. And <code>checkins</code> is close to redundant: it spends ~280 bytes a row on <code>battery_pct</code>, <code>build_id</code> and <code>state_hash</code>, while <code>device_samples</code> already holds the battery reading and the timestamp and <code>device_build_history</code> holds build changes. Its only irreplaceable column is the hash that decides whether to write the row at all.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>The queue that does exist</h2></div>
+    <div class="prose">
+      <p>Nothing queues on the way in. Everything queues on the way out — because a command must survive a device being asleep, offline or mid-reboot, and a check-in must not.</p>
+    </div>
+
+    <div class="card">
+      <div class="tw"><table>
+        <thead><tr><th>Table</th><th>Holds</th><th class="vd">Why it is durable</th></tr></thead>
+        <tbody>
+          <tr><td><code>commands</code></td><td>the instruction and its payload</td><td>a device offline for a day must still get its install when it returns</td></tr>
+          <tr><td><code>command_targets</code></td><td>who it was aimed at</td><td>one command, many devices, resolved from groups at send time</td></tr>
+          <tr><td><code>command_status</code></td><td>per-device delivery state</td><td>queued → delivered → received → done, with receipt-ack from the client</td></tr>
+          <tr><td><code>command_results</code></td><td>what came back</td><td>171 MB for 5,100 rows — nearly all TOASTed output blobs</td></tr>
+        </tbody>
+      </table></div>
+      <p style="font-size:14px;color:var(--ink-2);margin:14px 0 0">Flushed on connect, after every ack, and once a minute. Commands expire by type — minutes for a reboot, a day for an install — so a stale instruction cannot surprise a device that has been away. A dropped WebSocket push costs nothing: the queue re-delivers it.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>Who reads what</h2></div>
+
+    <div class="card">
+      <div class="tw"><table>
+        <thead><tr><th>Reader</th><th>Source</th><th class="vd">Note</th></tr></thead>
+        <tbody>
+          <tr><td>Live device page, fleet list, map</td><td class="mono" style="color:var(--cool)">devices.latest_extra</td><td>“what is true now” never touches history</td></tr>
+          <tr><td>Vitals chart — first paint and <code>/chart-data</code></td><td class="mono" style="color:var(--cool)">samples + events</td><td>states carried forward between events</td></tr>
+          <tr><td>Alert rules — temp, memory, Wi-Fi, pad, slow charge</td><td class="mono" style="color:var(--cool)">samples + events</td><td>fleet-wide scans served by a 32 kB BRIN index</td></tr>
+          <tr><td>Charger-flap detection</td><td class="mono" style="color:var(--cool)">events</td><td>flapping <em>is</em> transitions — a grouped count, not a window function over 14 GB</td></tr>
+          <tr><td>CSV export, per-device battery CSV</td><td class="mono" style="color:var(--cool)">samples + events</td><td>falls back to stored snapshots for older windows</td></tr>
+          <tr><td>Daily rollup → <code>device_daily_stats</code></td><td class="mono" style="color:var(--cool)">samples + events</td><td>time-weighted, gap-capped at 600 s</td></tr>
+          <tr><td>Venue report, owner home, weekly email</td><td class="mono">device_daily_stats</td><td>never scans raw history</td></tr>
+          <tr><td>AI summaries</td><td class="mono">device_daily_stats</td><td>same</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="note">
+      <span class="lbl">Every one of these moved one at a time</span>
+      <p>Each reader was diffed against the old source on real data before the next was touched — 622 alert fires against 622, a rollup compared column by column across 80 devices, a CSV asserted cell for cell. That discipline is the only reason the snapshot could be retired at all: these failures are silent by nature. An alert that never fires and a chart that renders empty look exactly like a fleet with nothing wrong.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">06</span><h2>What runs on its own</h2></div>
+    <div class="prose"><p>Eight jobs in one hourly housekeeping pass, each bounded so none can monopolise a database with no headroom.</p></div>
+
+    <div class="card">
+      <div class="tw"><table>
+        <thead><tr><th>Job</th><th>Does</th><th class="vd">Bound</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">downsampleOldCheckins</td><td>thins history past 60 days to 5-minute buckets</td><td>three productive days a pass</td></tr>
+          <tr><td class="mono">stripDupCheckins</td><td>drops keys <code>device_samples</code> already holds</td><td>50,000 rows, 2 minutes</td></tr>
+          <tr><td class="mono">stripLegacyCheckins</td><td>one-off cleanup of crash traces and Wi-Fi scans</td><td>20,000 rows</td></tr>
+          <tr><td class="mono">backfillDeviceSamples</td><td>fills the shaped tables from old history</td><td>one UTC day a step</td></tr>
+          <tr><td class="mono">backfillBuildHistory</td><td>reconstructs build changes</td><td>one day a step</td></tr>
+          <tr><td class="mono">applyPrunes</td><td>retention for logs, results, events</td><td>per-table caps</td></tr>
+          <tr><td class="mono">refreshFleetSummary</td><td>recomputes the overview tiles</td><td>whole fleet, cheap</td></tr>
+          <tr><td class="mono">maybeSendDigest</td><td>the scheduled alert digest</td><td>once per window</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="note warn">
+      <span class="lbl">Why every one of them has a row cap</span>
+      <p>The strip job shipped with a wall-clock deadline and no effective row cap. Its first run rewrote 295,161 rows in under four minutes and a Postgres backend was OOM-killed shortly after. A deadline bounds how long you spend, not how much you rewrite — and on a 2 GB instance that distinction is the difference between a background job and an outage.</p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">07</span><h2>The weekly report, rendered off-box</h2></div>
+
+    <figure>
+      <div class="card" style="overflow-x:auto">
+        <div class="flow">
+          <div class="frow">
+            <div class="fstage">Workstation</div>
+            <div class="fcards">
+              <div class="box dev"><div class="t">Playwright + Chromium</div><div class="s">opens each venue’s report for the last completed week and prints it</div></div>
+              <div class="arrow">→</div>
+              <div class="box dev"><div class="t">POST …/report.pdf</div><div class="s">admin API key</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">Server</div>
+            <div class="fcards">
+              <div class="box"><div class="t">/app/data/reports/{token}.pdf</div><div class="s">token = HMAC(venue, week) — derived, not stored</div></div>
+              <div class="arrow">→</div>
+              <div class="box always"><div class="t">GET /reports/{token}.pdf</div><div class="s">no login: the link is the credential</div></div>
+            </div>
+          </div>
+          <div class="frow">
+            <div class="fstage">Reaches</div>
+            <div class="fcards">
+              <div class="box"><div class="t">weekly email</div><div class="s">headline figures + a link</div></div>
+              <div class="box"><div class="t">owner home</div><div class="s">last week’s real numbers inline</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>The render happens on a workstation, not the MDM box.</b> That container is a bare alpine with no browser and a 512 MB cap, on a host where Postgres has been OOM-killed; a Chromium render spikes several hundred megabytes. A weekly job has no reason to live in the request path of the machine it reports on.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ───────────────────────────── -->
+  <section>
+    <div class="sec-head"><span class="sec-num">08</span><h2>What it costs to run</h2></div>
+
+    <div class="card">
+      <div class="tw"><table>
+        <thead><tr><th>Measure</th><th class="n">Before</th><th class="n">Now</th><th class="vd">Note</th></tr></thead>
+        <tbody>
+          <tr><td>100 idle devices, one hour</td><td class="n">~7 MB</td><td class="n">~1.1 MB</td><td>25 rows per device-hour at ~444 bytes</td></tr>
+          <tr><td>Bytes per stored row</td><td class="n">937</td><td class="n">~71</td><td>the snapshot was 608 of them</td></tr>
+          <tr><td>Rows stored per day</td><td class="n">118,869</td><td class="n">~52,000</td><td>jitter stopped counting as a change</td></tr>
+          <tr><td>Postgres memory, idle</td><td class="n">1.94 GiB</td><td class="n">412 MB</td><td>of a 2 GiB cap</td></tr>
+          <tr><td>Idle pool connections</td><td class="n">59</td><td class="n">4–6</td><td>reaped in 90 s instead of 30 min</td></tr>
+          <tr><td>Fleet-wide alert scan</td><td class="n">243.9 ms</td><td class="n">5.4 ms</td><td>32 kB BRIN index</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="note warn">
+      <span class="lbl">The failure this box is actually prone to</span>
+      <p>Postgres backends were OOM-killed 17 times in three days, and not by heavy queries. A backend never returns memory to the OS after a query, so with idle connections held for 30 minutes, one burst of dashboard fan-out left 59 of them holding 1.72 GiB of a 2 GiB limit with nothing running. Anything that adds sustained memory pressure here — a browser, a large rewrite, an unbounded aggregate — should be assumed to take the database down until the instance is resized.</p>
+    </div>
+  </section>
+
+  <footer>
+    Measured against the live box on 18 September 2026, not estimated. Companion documents: <span class="mono">checkin-telemetry-db-review.html</span> for the original audit and the senior dev’s questions, <span class="mono">telemetry-storage-overhaul.html</span> for the storage design, <span class="mono">telemetry-architecture.html</span> for the check-in path in detail.
+  </footer>
+</div>
+</body>
+</html>
