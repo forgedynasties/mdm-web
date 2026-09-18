@@ -16,6 +16,9 @@ func TestDPCHasNoOTAPath(t *testing.T) {
 	if v.OK || v.Source != SourceDPC || v.Legacy() {
 		t.Errorf("DPC verdict = %+v (legacy %v), want not OK, source dpc, not legacy", v, v.Legacy())
 	}
+	if v, ok := ForAgentKind(product.AgentTypeApp); !ok || v.Legacy() {
+		t.Errorf("app agent: got %+v ok=%v, want the no-OTA verdict", v, ok)
+	}
 	if _, ok := ForAgentKind(product.KindFirmware); ok {
 		t.Error("ForAgentKind answered for a firmware device")
 	}

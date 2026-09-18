@@ -100,7 +100,7 @@ func (g *Gate) Device(ctx context.Context, d db.Device) Verdict {
 // ForAgentKind answers for a DPC-managed device (agent kind, or a check-in's
 // extra.agent_type, "dpc"): never, by any path. ok is false for anything else.
 func ForAgentKind(kind string) (v Verdict, ok bool) {
-	if kind != product.KindDPC {
+	if !product.IsStockAgent(kind) {
 		return Verdict{}, false
 	}
 	return Verdict{Reason: "OTA is for AIO firmware devices only — this device is managed by the DPC agent", Source: SourceDPC}, true

@@ -755,9 +755,9 @@ type checkinRequest struct {
 	} `json:"ota_progress,omitempty"`
 }
 
-// isDPCPayload reports whether a check-in or telemetry frame came from the DPC
-// agent. Every frame the agent sends carries extra.agent_type="dpc" (its
-// Telemetry.buildExtra always writes it, on keyframes and deltas alike), so this
+// isDPCPayload reports whether a check-in or telemetry frame came from a stock-device
+// agent: the DPC agent (agent_type "dpc") or the MDM-lite library in an app ("app").
+// Every frame either sends carries extra.agent_type, so this
 // answers from the payload without a database lookup — which is the point, since
 // the caller uses it to skip all storage work.
 func isDPCPayload(extra json.RawMessage) bool {
@@ -770,7 +770,7 @@ func isDPCPayload(extra json.RawMessage) bool {
 	if err := json.Unmarshal(extra, &ident); err != nil {
 		return false
 	}
-	return ident.AgentType == "dpc"
+	return ident.AgentType == "dpc" || ident.AgentType == "app"
 }
 
 // recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
