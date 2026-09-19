@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	prod "mdm/internal/product"
@@ -6867,7 +6868,9 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 	var curHash string
 	if err := d.pool.QueryRow(ctx, `SELECT COALESCE(packages_hash, '') FROM devices WHERE id = $1`, deviceID).Scan(&curHash); err == nil {
 		if curHash == newHash {
-			return nil
+			// Same apps and versions, but the device may be sending icons it didn't
+			// before (the hash ignores icons): keep those, or they are lost for good.
+			return d.upsertAppIcons(ctx, d.pool, packages)
 		}
 	}
 
@@ -6902,23 +6905,8 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 			return err
 		}
 
-		// Populate the shared package→icon index from whatever icons this device sent.
-		// Non-empty only; keyed by package_name so all devices benefit. Last write wins.
-		var iconPkgs, iconVals []string
-		for _, p := range packages {
-			if p.Icon != "" {
-				iconPkgs = append(iconPkgs, p.PackageName)
-				iconVals = append(iconVals, p.Icon)
-			}
-		}
-		if len(iconPkgs) > 0 {
-			if _, err := tx.Exec(ctx, `
-				INSERT INTO app_icons (package_name, icon)
-				SELECT unnest($1::text[]), unnest($2::text[])
-				ON CONFLICT (package_name) DO UPDATE SET icon = EXCLUDED.icon, updated_at = NOW()
-			`, iconPkgs, iconVals); err != nil {
-				return err
-			}
+		if err := d.upsertAppIcons(ctx, tx, packages); err != nil {
+			return err
 		}
 	}
 
@@ -6927,6 +6915,29 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 	}
 
 	return tx.Commit(ctx)
+}
+
+// upsertAppIcons populates the shared package→icon index from whatever icons a device
+// sent. Non-empty only; keyed by package_name so all devices benefit. Last write wins.
+func (d *DB) upsertAppIcons(ctx context.Context, q interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}, packages []DevicePackage) error {
+	var iconPkgs, iconVals []string
+	for _, p := range packages {
+		if p.Icon != "" {
+			iconPkgs = append(iconPkgs, p.PackageName)
+			iconVals = append(iconVals, p.Icon)
+		}
+	}
+	if len(iconPkgs) == 0 {
+		return nil
+	}
+	_, err := q.Exec(ctx, `
+		INSERT INTO app_icons (package_name, icon)
+		SELECT unnest($1::text[]), unnest($2::text[])
+		ON CONFLICT (package_name) DO UPDATE SET icon = EXCLUDED.icon, updated_at = NOW()
+	`, iconPkgs, iconVals)
+	return err
 }
 
 func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
