@@ -51,6 +51,10 @@ type Product struct {
 	// the model IS the category. Empty for non-catalog products: their class is
 	// guessed from the reported model and set per device, not implied by hardware.
 	Class string
+	// DisplayName is what a device of this product is called on its fleet row and
+	// device page (the T7 is sold as "TSAI" — Tableside AI); "" = use Label. Label
+	// stays the product name everywhere products are listed or filtered.
+	DisplayName string
 }
 
 // Keys for the known products. Clients send these verbatim in the check-in payload.
@@ -75,7 +79,7 @@ var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 // catalog is the declared capability set per product. Order here drives dashboard
 // dropdown order (see All).
 var catalog = []Product{
-	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7},
+	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7, DisplayName: "TSAI"},
 	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},

@@ -16,8 +16,22 @@ import (
 // productLabels: template funcs are built before any Handler exists.
 var productNames atomic.Value // map[string]string
 
-// productName is the admin-set display name for a product key, or "".
+// productName is what a device of this product is called on its fleet row and device
+// page: the admin-set name for a stock product, else the catalog display name of our
+// own hardware ("TSAI" for the T7), else "".
 func productName(key string) string {
+	if n := adminProductName(key); n != "" {
+		return n
+	}
+	// Legacy rows with no product key are the default product (T7) too.
+	if p, ok := product.Resolve(key); ok || product.Normalize(key) == "" {
+		return p.DisplayName
+	}
+	return ""
+}
+
+// adminProductName is only the admin-set name (Products page), or "".
+func adminProductName(key string) string {
 	if m, ok := productNames.Load().(map[string]string); ok {
 		return m[product.Normalize(key)]
 	}

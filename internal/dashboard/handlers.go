@@ -10617,7 +10617,7 @@ var productLabels atomic.Value // map[string]string
 // productLabel is the template-facing label for a product key: a learned model name
 // when we have one, else the catalog label (which falls back to the key itself).
 func productLabel(key string) string {
-	if n := productName(key); n != "" {
+	if n := adminProductName(key); n != "" {
 		return n
 	}
 	if m, ok := productLabels.Load().(map[string]string); ok {
@@ -10662,7 +10662,7 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 		out = append(out, p)
 	}
 	for i := range out {
-		if n := productName(out[i].Key); n != "" {
+		if n := adminProductName(out[i].Key); n != "" {
 			out[i].Label = n
 		}
 	}
