@@ -4695,8 +4695,8 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
    and actions sit at the same x on every row whatever a device reports. The vitals
    are labelled blocks (small caps label over value); a missing reading is "—". */
 .dl-card { display: grid; align-items: center; column-gap: 16px; padding: 12px 18px;
-  grid-template-columns: 18px minmax(280px, 1.8fr) 84px 64px 64px 140px auto;
-  grid-template-areas: "cb lead tp rm cy st act";
+  grid-template-columns: 18px minmax(0, 1fr) 124px auto;
+  grid-template-areas: "cb lead stats act";
   border-bottom: 1px solid var(--border-soft); background: var(--surface); cursor: pointer;
   transition: background var(--dur) var(--ease); }
 .dl-card:first-of-type { border-top: 1px solid var(--border-soft); }
@@ -4744,8 +4744,9 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .dl-l2 .dl-agent::before { content: "·"; margin-right: 8px; }
 
 /* vitals: display:contents so each block is a grid column of the card */
-.dl-stats { display: contents; }
-.dl-blk { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
+/* vitals: one compact column right before the open button, one row per reading */
+.dl-card > .dl-stats { grid-area: stats; display: flex; flex-direction: column; gap: 1px; justify-self: end; width: 124px; }
+.dl-blk { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; white-space: nowrap; }
 /* power glyph, type tile and identity as one group right after the checkbox */
 .dl-card > .dl-lead { grid-area: lead; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dl-lead > .dl-ic { margin-right: 2px; }
@@ -4769,11 +4770,8 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .pw-bat .mk { width: 9px; height: 9px; flex: none; }
 .pw-bat .mk.chg { color: var(--ok); }
 .pw-bat .mk.flap { fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.dl-blk[data-m="temp"] { grid-area: tp; }
-.dl-blk[data-m="ram"] { grid-area: rm; }
-.dl-blk[data-m="cycles"] { grid-area: cy; }
-.dl-blk .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
-.dl-blk .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.dl-blk .k { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.dl-blk .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .dl-blk .v.warn { color: var(--warn); }
 .dl-blk .v.danger { color: var(--danger); }
 .dl-blk .v.muted { color: var(--text-faint); font-weight: 500; }
@@ -4794,13 +4792,14 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .g-sm.flap { color: var(--warn); }
 
 /* status: state over last seen */
-.dl-card > .dl-st { grid-area: st; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; min-width: 0; }
-.dl-st .dl-status { font-size: 13px; }
-.dl-st .dl-synced { font-size: 12px; color: var(--muted); padding-left: 11px; }
-/* Offline / not reporting needs attention: subdued amber, not faint grey. Legacy
-   builds are offline by design and stay neutral. */
-.dl-st .dl-status.off:not([data-legacy]) { color: var(--warn); }
-.dl-st .dl-status.off:not([data-legacy]) i { background: var(--warn); }
+/* status: a dot right after the name. Green = online / reporting, grey = not, with a
+   faint "3 h ago" beside it. Legacy builds (offline by design) stay grey too. */
+.dl-l1 .dl-status { display: inline-flex; align-items: center; flex: none; }
+.dl-l1 .dl-status i { width: 8px; height: 8px; border-radius: 50%; margin: 0; background: var(--text-faint); }
+.dl-l1 .dl-status.on i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.dl-l1 .dl-synced { font-size: 11.5px; color: var(--text-faint); opacity: .8; white-space: nowrap; margin-left: -3px; }
+.dl-l1 .dl-synced.hidden { display: none; }
+.dl-card .dl-l3 { font-family: var(--mono); font-size: 11px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dl-card > .dl-act { grid-area: act; display: flex; align-items: center; gap: 10px; justify-self: end; }
 /* battery — tinted chip: glyph + % on a level-tinted pill */
 .dl-bat { display: flex; align-items: center; flex: none; }
@@ -4888,12 +4887,10 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 /* Compact (narrow pane or multi-column): identity and status on top, the vitals
    as one wrapped strip underneath; build and cycles drop out. */
 @container (max-width: 760px) {
-  .dl-card { grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
-  .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+  .dl-card { column-gap: 12px; grid-template-columns: 18px minmax(0, 1fr) 108px auto; }
+  .dl-card > .dl-stats { width: 108px; }
   .dl-rel, .dl-blk[data-m="cycles"] { display: none; }
   .dl-ic { width: 34px; height: 34px; }
-  .dl-stats .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for ≥2 columns: offer the control, and lay the cards out in
    their compact form when multi-column. cols-3 falls back to 2 here and only
@@ -4902,12 +4899,10 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
   .cols-seg { display: inline-flex; }
   .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft);
-    grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
-  .dl-list.cols-2 .dl-stats, .dl-list.cols-3 .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+    grid-template-columns: 18px minmax(0, 1fr) 108px auto; column-gap: 12px; }
+  .dl-list.cols-2 .dl-card > .dl-stats, .dl-list.cols-3 .dl-card > .dl-stats { width: 108px; }
   .dl-list.cols-2 :is(.dl-rel, .dl-blk[data-m="cycles"]), .dl-list.cols-3 :is(.dl-rel, .dl-blk[data-m="cycles"]) { display: none; }
   .dl-list.cols-2 .dl-ic, .dl-list.cols-3 .dl-ic { width: 34px; height: 34px; }
-  .dl-list:is(.cols-2, .cols-3) .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for three columns: surface the option and use it. */
 @container (min-width: 930px) {

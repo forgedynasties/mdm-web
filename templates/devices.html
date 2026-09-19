@@ -140,26 +140,22 @@ if (!window.__dlRowNav) {
           {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
                product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
           <a href="/devices/{{.SerialNumber}}" class="dl-serial dl-lead link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a>
+          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i></span>{{end}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
           {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
           {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
           {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
           {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
         </div>
-        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{with .Class}}<span class="dl-role">{{classLabel .}}</span>{{end}}{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{.KindLabel}}</span></div>
+        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{with .Class}}<span class="dl-role">{{classLabel .}}</span>{{end}}{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span><span class="dl-agent">{{.KindLabel}}</span></div>
+        {{if and (not .IsDPC) .BuildID}}<div class="dl-l3"><span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span></div>{{end}}
       </div>
     </div>
-    {{/* Vitals as labelled blocks, one fixed column each, so values line up down the
-         list whatever a device lacks ("—" rather than a missing cell). Power sits first,
-         drawn before the type icon: a plug for mains (TV boxes, kiosks), a battery filled to its level, a bolt
-         while charging, a crossed-out pack when the charger reports it absent. */}}
+    {{/* Vitals, stacked in one compact column next to the open button: Temp (or CPU),
+         RAM, and Cycles for battery devices; a missing reading is "—". */}}
     <div class="dl-stats">
       <span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
       <span class="dl-blk" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
       {{if and .HasBattery (ne $kind "dongle")}}<span class="dl-blk" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
-    </div>
-    <div class="dl-st">
-          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$off}}</span>{{end}}
-          {{if .IsMDMLite}}<span class="dl-synced" data-always="1" title="Last check-in">{{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="Last seen">{{timeSince .LastSeenAt}}</span>{{end}}
     </div>
     <div class="dl-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
@@ -2073,7 +2069,13 @@ document.addEventListener('keydown', function(e) {
       }
 
       var st = card.querySelector('.dl-status');
-      if (st) { st.className = 'dl-status ' + (d.online ? 'on' : 'off'); st.innerHTML = '<i></i>' + (d.online ? (st.dataset.labelOn || 'Online') : (st.dataset.labelOff || 'Offline')); }
+      if (st) {
+        var lbl = d.online ? (st.dataset.labelOn || 'Online') : (st.dataset.labelOff || 'Offline');
+        st.className = 'dl-status ' + (d.online ? 'on' : 'off');
+        // New layout: a bare dot (label in the tooltip). Classic: dot + label.
+        if (st.closest('.dl-l1')) { st.title = lbl; st.setAttribute('aria-label', lbl); st.innerHTML = '<i></i>'; }
+        else st.innerHTML = '<i></i>' + lbl;
+      }
       var sy = card.querySelector('.dl-synced');
       if (sy) {
         // Heartbeat text: hidden while the WebSocket is live (the Online badge says it all),
