@@ -126,12 +126,12 @@ func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 	key := product.Normalize(r.PathValue("key"))
 	if key == "" || product.IsKnown(key) {
-		h.hxDoneToast(w, r, "/products", "Our own hardware takes its role from the catalog", "error")
+		h.hxDoneToast(w, r, "/products", "Our own hardware takes its product from the catalog", "error")
 		return
 	}
 	role := strings.TrimSpace(r.FormValue("role"))
 	if role != "" && !product.IsClass(role) {
-		h.hxDoneToast(w, r, "/products", "Unknown role", "error")
+		h.hxDoneToast(w, r, "/products", "Unknown product", "error")
 		return
 	}
 	n, err := h.db.SetProductRole(r.Context(), key, role, h.currentUsername(r))
@@ -140,9 +140,9 @@ func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "product.role", key, role)
-	msg := "Role cleared — new devices of this model will need one"
+	msg := "Product cleared — new devices of this model will need one"
 	if role != "" {
-		msg = fmt.Sprintf("%s set as the role · %d device%s updated", product.ClassLabel(role), n, map[bool]string{true: "", false: "s"}[n == 1])
+		msg = fmt.Sprintf("Set to %s · %d device%s updated", product.ClassLabel(role), n, map[bool]string{true: "", false: "s"}[n == 1])
 	}
 	h.hxDoneToast(w, r, "/products", msg, "success")
 }

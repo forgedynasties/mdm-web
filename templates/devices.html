@@ -272,12 +272,12 @@ if (!window.__dlRowNav) {
 {{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterClass}}<span class="fchip"><span class="k">Role</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
+  {{if .FilterClass}}<span class="fchip"><span class="k">Product</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
-  {{if .FilterProduct}}<span class="fchip"><span class="k">Product</span> {{productLabel .FilterProduct}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
+  {{if .FilterProduct}}<span class="fchip"><span class="k">Model</span> {{productLabel .FilterProduct}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
   {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
   {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
   {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
@@ -345,7 +345,7 @@ if (!window.__dlRowNav) {
     <div class="ss-sec">
       <div class="ss-lbl">Admin</div>
       <div class="ss-grid">
-        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the role of the selected devices">Set role</button>
+        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the product of the selected devices">Set product</button>
         <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
         <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:contents;" onsubmit="return confirmBulkHide(event)">
           <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
@@ -759,14 +759,14 @@ a.fleet-rail-item{min-height:40px}
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>MDM DPC</option>
             <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
           </select></label>{{end}}
-        <label class="fp-field"><span>Role</span>
+        <label class="fp-field"><span>Product</span>
           <select id="filter-class" onchange="applyFilters()">
-            <option value="">Any role</option>
+            <option value="">Any product</option>
             {{range .Classes}}<option value="{{.}}" {{if eq . $.FilterClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
           </select></label>
-        <label class="fp-field"><span>Product</span>
+        <label class="fp-field"><span>Model</span>
           <select id="filter-product" onchange="applyFilters()">
-            <option value="">Any product</option>
+            <option value="">Any model</option>
             {{range .Products}}<option value="{{.Key}}" {{if eq .Key $.FilterProduct}}selected{{end}}>{{.Label}}</option>{{end}}
           </select></label>
         <label class="fp-field"><span>Production</span>
@@ -798,8 +798,8 @@ a.fleet-rail-item{min-height:40px}
         <label class="fp-field"><span>Temperature</span>
           <select id="filter-temp" onchange="applyFilters()">
             <option value="">Any temperature</option>
-            <option value="hot" {{if eq .FilterTemp "hot"}}selected{{end}}>Hot (battery 60°C+, CPU 85°C+)</option>
-            <option value="warm" {{if eq .FilterTemp "warm"}}selected{{end}}>Warm or hotter (battery 40°C+, CPU 70°C+)</option>
+            <option value="hot" {{if eq .FilterTemp "hot"}}selected{{end}}>Hot</option>
+            <option value="warm" {{if eq .FilterTemp "warm"}}selected{{end}}>Warm or hotter</option>
           </select></label>
         <label class="fp-field"><span>Kiosk</span>
           <select id="filter-kiosk" onchange="applyFilters()">
@@ -1063,6 +1063,19 @@ function setView(view) {
 // closes Sort (only one popover at a time). __fOpen is tracked on window so the
 // popover can be re-opened after an htmx re-render — applying one filter swaps the
 // whole toolbar, and we want it to stay open so several filters can be stacked.
+// Keep an open popover inside the window, above the floating bottom nav: cap its
+// height to the room below its top edge and let it scroll inside.
+function fitFleetPop(pop) {
+  var dock = document.querySelector('.dock, nav.dock, #dock');
+  var bottom = dock ? dock.getBoundingClientRect().top - 12 : window.innerHeight - 16;
+  var room = bottom - pop.getBoundingClientRect().top;
+  pop.style.maxHeight = Math.max(220, room) + 'px';
+  pop.style.overflowY = 'auto';
+}
+window.addEventListener('resize', function () {
+  document.querySelectorAll('.fleet-pop:not([hidden])').forEach(fitFleetPop);
+});
+
 function toggleFilters(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   var pop = document.getElementById('filters-pop');
@@ -1071,7 +1084,7 @@ function toggleFilters(e) {
   var willOpen = pop.hasAttribute('hidden');
   if (willOpen) closeSort();
   window.__fOpen = willOpen;
-  if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
+  if (willOpen) { pop.removeAttribute('hidden'); fitFleetPop(pop); } else { pop.setAttribute('hidden', ''); }
   if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
 }
 function closeFilters() {
@@ -1091,7 +1104,7 @@ function toggleSort(e) {
   if (!pop) return;
   var willOpen = pop.hasAttribute('hidden');
   if (willOpen) closeFilters();
-  if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
+  if (willOpen) { pop.removeAttribute('hidden'); fitFleetPop(pop); } else { pop.setAttribute('hidden', ''); }
   if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
 }
 function closeSort() {
@@ -2285,7 +2298,7 @@ document.addEventListener('keydown', function(e) {
 <div id="bulk-class-modal" class="modal-backdrop" onclick="ssClose('bulk-class-modal', event)">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Set role</span>
+      <span class="modal-title">Set product</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-class-modal')">&times;</button>
     </div>
     <div class="modal-body">

@@ -42,13 +42,13 @@
   <div>
     <div class="cc-eyebrow">Fleet · Products</div>
     <h1 class="cc-h1">Products</h1>
-    <div class="cc-sub">Many vendor models can serve one role (POS terminal, menu board, …). Give each stock model a role and a name people recognise; our own boards keep their catalog names. Admins only.</div>
+    <div class="cc-sub">Many vendor models can serve one product (POS terminal, menu board, …). Map each stock model to its product and give it a name people recognise; our own boards keep their catalog names. Admins only.</div>
   </div>
 </div>
 
-<div class="pr-cap"><h2>Stock hardware</h2><span>MDM DPC and MDM Lite devices · set each model's role once and all its devices follow</span></div>
+<div class="pr-cap"><h2>Stock hardware</h2><span>MDM DPC and MDM Lite devices · set each model's product once and all its devices follow</span></div>
 <div class="pr-list">
-  <div class="pr-hd"><span>Shown as</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Role</span><span>Display name</span></div>
+  <div class="pr-hd"><span>Model</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span>Display name</span></div>
   {{range .Stock}}
   <div class="pr-row">
     <div><div class="pr-name">{{.Display}}</div><div class="pr-key">{{.Key}}</div></div>
@@ -57,8 +57,8 @@
     {{template "pr-agents" .}}
     <div class="pr-role">
       <form method="POST" action="/products/{{.Key}}/role" hx-post="/products/{{.Key}}/role" hx-swap="none" hx-trigger="change" hx-on::after-request="if(event.detail.successful)location.reload()">
-        <select name="role" class="pr-sel{{if not .Role}} unset{{end}}" aria-label="Role for {{.Key}}">
-          <option value="">Choose a role…</option>
+        <select name="role" class="pr-sel{{if not .Role}} unset{{end}}" aria-label="Product for {{.Key}}">
+          <option value="">Choose a product…</option>
           {{$cur := .Role}}{{range $.Classes}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}
         </select>
       </form>
@@ -79,7 +79,7 @@
 
 <div class="pr-cap"><h2>Our hardware</h2><span>MDM Firmware catalog · names are fixed</span></div>
 <div class="pr-list">
-  <div class="pr-hd"><span>Product</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Role</span><span></span></div>
+  <div class="pr-hd"><span>Product</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span></span></div>
   {{range .Ours}}
   <div class="pr-row">
     <div><div class="pr-name">{{.Display}}</div><div class="pr-key">{{.Key}}</div></div>
@@ -87,7 +87,7 @@
     <div class="pr-n">{{.Devices}}</div>
     {{template "pr-agents" .}}
     <div class="pr-rep">{{classLabel .Role}}</div>
-    <div class="pr-fixed">Catalog name and role</div>
+    <div class="pr-fixed">Catalog name and product</div>
   </div>
   {{else}}
   <div class="pr-row"><div class="pr-fixed">No devices on our hardware yet.</div></div>
