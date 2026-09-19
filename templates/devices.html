@@ -13,6 +13,10 @@
     <symbol id="dk-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
     <symbol id="dk-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
     <symbol id="dk-other" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
+    <symbol id="dk-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></symbol>
+    <symbol id="dk-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="dk-flap" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="dk-batx" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor" stroke="none"/><path d="M7 4l9 6M16 4l-9 6" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="dk-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </svg>
   {{range .Devices}}
@@ -22,7 +26,7 @@
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
     <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
-    <div class="dl-body">
+    <div class="dl-id">
       <div class="dl-l1">
         {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
              product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}
@@ -30,23 +34,23 @@
         {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
         {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
         {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
-        <span class="dl-mdl" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}{{$model}} · {{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"> · <span class="dl-buildid">{{.BuildID}}</span></span>{{end}}</span>
-        <span class="dl-right">
+        {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
+      </div>
+      <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{if .IsMDMLite}}MDM-lite{{else if .IsDPC}}DPC agent{{else}}Firmware{{end}}</span></div>
+    </div>
+    {{/* Vitals as labelled blocks, one fixed column each, so values line up down the
+         list whatever a device lacks ("—" rather than a missing cell). Power is drawn:
+         a plug for mains (TV boxes, kiosks), a battery filled to its level, a bolt
+         while charging, a crossed-out pack when the charger reports it absent. */}}
+    <div class="dl-stats">
+      <span class="dl-blk" data-m="power"><span class="k">Power</span><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg><span class="v">{{.BatteryPct}}%</span>{{if $flap}}<span class="g-sm flap" title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"><svg viewBox="0 0 24 24"><use href="#dk-flap"/></svg></span>{{else if and .HasCharging (charging .LatestExtra)}}<span class="g-sm chg" title="Charging"><svg viewBox="0 0 24 24"><use href="#dk-bolt"/></svg></span>{{end}}</span>{{else}}<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
+      <span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-blk" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-blk" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if and .HasBattery (ne $kind "dongle") .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+    </div>
+    <div class="dl-st">
           {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$off}}</span>{{end}}
           {{if .IsMDMLite}}<span class="dl-synced" data-always="1" title="Last check-in">{{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="Last seen">{{timeSince .LastSeenAt}}</span>{{end}}
-          {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
-        </span>
-      </div>
-      <div class="dl-l2">
-        <span class="dl-v dl-agent">{{if .IsMDMLite}}MDM-lite{{else if .IsDPC}}DPC agent{{else}}Firmware{{end}}</span>
-        {{/* Power as words: TV boxes and kiosks are on mains by design; a product whose
-             pack the charger reports absent says so instead of a rail-read percentage. */}}
-        <span class="dl-v" data-m="power">{{if $noPack}}<span class="v danger" title="The charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><span class="k">Battery</span> missing</span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="k">Battery</span> <span class="v {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>{{if $flap}} <span class="dl-flap" title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected">flapping</span>{{else if and .HasCharging (charging .LatestExtra)}} <span class="k">charging</span>{{end}}{{else}}<svg class="dl-sock" aria-hidden="true"><use href="#dk-socket"/></svg><span class="k">Mains power</span>{{end}}</span>
-        <span class="dl-v" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span> {{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-        <span class="dl-v" data-m="ram"><span class="k">RAM</span> {{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-        {{if and .HasBattery (ne $kind "dongle")}}<span class="dl-v" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span> {{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
-        <span class="dl-issue">{{if $noPack}}No battery detected{{else if $flap}}Charger flapping{{else if and .HasBattery (lt .BatteryPct 20)}}Battery low{{else if eq (tempClass .LatestExtra) "danger"}}Running hot{{end}}</span>
-      </div>
     </div>
     <div class="dl-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
@@ -1828,28 +1832,24 @@ document.addEventListener('keydown', function(e) {
       var rel = card.querySelector('.dl-buildid');
       if (rel) rel.textContent = d.build_id;
 
-      // Power as words (mirrors the device-cards template). TV boxes have no battery
-      // by design, so they never repaint as a pack reading or a missing pack.
+      // Power glyph (mirrors the device-cards template). TV boxes have no battery by
+      // design, so they never repaint as a pack reading or a missing pack.
       var dongle = card.dataset.kind === 'dongle';
-      var noPack = d.battery_missing && !dongle;
-      var pw = card.querySelector('[data-m="power"]');
-      if (pw) {
-        if (noPack) {
-          pw.innerHTML = '<span class="v danger" title="The charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><span class="k">Battery</span> missing</span>';
+      var pv = card.querySelector('[data-m="power"] .pv');
+      if (pv) {
+        if (d.battery_missing && !dongle) {
+          pv.innerHTML = '<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>';
         } else if (d.has_battery && !dongle) {
-          pw.innerHTML = '<span class="k">Battery</span> <span class="v ' + d.battery_class + '">' + d.battery_pct + '%</span>' +
-            (d.flapping ? ' <span class="dl-flap" title="Charger flapping — charging toggling ~' + d.flap_rate + '×/min; faulty charger, dock, or cable suspected">flapping</span>'
-              : d.charging ? ' <span class="k">charging</span>' : '');
+          var fill = Math.max(2, Math.min(18, Math.round(d.battery_pct * 18 / 100)));
+          pv.innerHTML = '<span class="pw ' + d.battery_class + '" role="img" aria-label="Battery ' + d.battery_pct + '%">' +
+            '<svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + fill + '" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg>' +
+            '<span class="v">' + d.battery_pct + '%</span>' +
+            (d.flapping ? '<span class="g-sm flap" title="Charger flapping — charging toggling ~' + d.flap_rate + '×/min; faulty charger, dock, or cable suspected"><svg viewBox="0 0 24 24"><use href="#dk-flap"/></svg></span>'
+              : d.charging ? '<span class="g-sm chg" title="Charging"><svg viewBox="0 0 24 24"><use href="#dk-bolt"/></svg></span>' : '') +
+            '</span>';
         } else {
-          pw.innerHTML = '<svg class="dl-sock" aria-hidden="true"><use href="#dk-socket"/></svg><span class="k">Mains power</span>';
+          pv.innerHTML = '<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>';
         }
-      }
-      var iss = card.querySelector('.dl-issue');
-      if (iss) {
-        iss.textContent = noPack ? 'No battery detected'
-          : d.flapping ? 'Charger flapping'
-          : d.has_battery && d.battery_pct < 20 ? 'Battery low'
-          : d.temp_class === 'danger' ? 'Running hot' : '';
       }
 
       var ram = card.querySelector('[data-m="ram"] .v');

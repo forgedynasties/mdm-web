@@ -4690,21 +4690,23 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cols-seg button.on { background: var(--accent-soft); color: var(--accent-text); }
 .cols-seg button svg { width: 15px; height: 15px; }
 .cols-seg [data-cols="3"] { display: none; }
-/* A card is two lines beside a device-type tile: identity + status over vitals,
-   with the worst problem pinned right. Flex, not a per-card grid, so a long
-   model or a Legacy tag never pushes a neighbour's vitals out of line. */
-.dl-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
-  background: var(--surface); transition: background var(--dur) var(--ease); }
+/* Stat-block rows: every card is the same grid, so identity, each vital, status
+   and actions sit at the same x on every row whatever a device reports. The vitals
+   are labelled blocks (small caps label over value); a missing reading is "—". */
+.dl-card { display: grid; align-items: center; column-gap: 16px; padding: 12px 18px;
+  grid-template-columns: 18px 38px minmax(200px, 1.6fr) 104px 84px 64px 64px 140px auto;
+  grid-template-areas: "cb ic id pw tp rm cy st act";
+  border-bottom: 1px solid var(--border-soft); background: var(--surface); cursor: pointer;
+  transition: background var(--dur) var(--ease); }
 .dl-card:first-of-type { border-top: 1px solid var(--border-soft); }
-.dl-card { cursor: pointer; }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
-.dl-card > .device-cb { width: 15px; height: 15px; flex: none; margin: 0; }
-.dl-card > .dl-cb-spacer { display: none; }
+.dl-card > .device-cb { grid-area: cb; width: 15px; height: 15px; margin: 0; }
+.dl-card > .dl-cb-spacer { grid-area: cb; }
 .dl-icons { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* device-type tile, tinted per class */
-.dl-ic { width: 38px; height: 38px; border-radius: 10px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.dl-ic { grid-area: ic; width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
 .dl-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .dl-ic.t7 { background: #fdebe7; color: #c9442d; }
 .dl-ic.kiosk { background: #ecedfd; color: #4f55cc; }
@@ -4720,46 +4722,56 @@ html[data-theme="dark"] .dl-ic.mpos { background: rgba(152,89,10,.26); color: #f
 html[data-theme="dark"] .dl-ic.pos, html[data-theme="dark"] .dl-ic.other { background: rgba(255,255,255,.08); color: var(--text-2); }
 html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: #8fb6f0; }
 
-.dl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.dl-l1, .dl-l2 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.dl-l1 > .dl-serial { flex: none; }
-.dl-l1 .dl-serial.dl-lead { font-family: inherit; font-size: 14px; font-weight: 650; min-width: 0; }
-.dl-l1 .dl-kiosk { align-self: center; }
-.dl-mdl { font-size: 12.5px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* hardware identity (serial) reads stronger than the software layer (build) */
-.dl-mdl .dl-sn { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text-2); }
-.dl-mdl .dl-buildid { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
-.dl-mdl .dl-rel { color: var(--text-faint); }
-.dl-right { margin-left: auto; display: inline-flex; align-items: baseline; gap: 8px; flex: none; white-space: nowrap; }
-.dl-right .dl-legacy-tag { margin-top: 0; }
-.dl-right .dl-synced { font-size: 12px; color: var(--muted); }
+/* identity: name + tags, then serial · build · agent */
+.dl-card > .dl-id { grid-area: id; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dl-card .dl-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-card .dl-l1 .dl-serial.dl-lead { font-family: inherit; font-size: 14px; font-weight: 600; min-width: 0; }
+.dl-card .dl-l1 .dl-ktag { margin: 0; }
+.dl-card .dl-l1 .dl-legacy-tag { margin: 0; }
+.dl-card .dl-l2 { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }
+.dl-l2 .dl-model { font-size: 12px; color: var(--text-2); }
+.dl-l2 .dl-sn { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.dl-l2 .dl-buildid { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
+.dl-l2 .dl-agent { font-size: 12px; color: var(--text-faint); }
+.dl-l2 .dl-agent::before { content: "·"; margin-right: 8px; }
+
+/* vitals: display:contents so each block is a grid column of the card */
+.dl-stats { display: contents; }
+.dl-blk { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
+.dl-blk[data-m="power"] { grid-area: pw; }
+.dl-blk[data-m="temp"] { grid-area: tp; }
+.dl-blk[data-m="ram"] { grid-area: rm; }
+.dl-blk[data-m="cycles"] { grid-area: cy; }
+.dl-blk .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.dl-blk .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.dl-blk .v.warn { color: var(--warn); }
+.dl-blk .v.danger { color: var(--danger); }
+.dl-blk .v.muted { color: var(--text-faint); font-weight: 500; }
+/* power glyphs */
+.pv { display: flex; align-items: center; height: 20px; }
+.pw { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+.pw.battery-ok { color: var(--ok); }
+.pw.battery-mid { color: var(--warn); }
+.pw.battery-low, .pw.danger { color: var(--danger); }
+.pw .v { color: inherit; }
+.pw.battery-ok .v { color: var(--text); }
+.g-bat { width: 24px; height: 13px; flex: none; }
+.g-plug { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pw.mains { color: var(--text-2); }
+.g-sm { display: inline-flex; }
+.g-sm svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.g-sm.chg { color: var(--ok); }
+.g-sm.flap { color: var(--warn); }
+
+/* status: state over last seen */
+.dl-card > .dl-st { grid-area: st; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; min-width: 0; }
+.dl-st .dl-status { font-size: 13px; }
+.dl-st .dl-synced { font-size: 12px; color: var(--muted); padding-left: 11px; }
 /* Offline / not reporting needs attention: subdued amber, not faint grey. Legacy
    builds are offline by design and stay neutral. */
-.dl-right .dl-status.off:not([data-legacy]) { color: var(--warn); }
-.dl-right .dl-status.off:not([data-legacy]) i { background: var(--warn); }
-
-.dl-l2 { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dl-v { display: inline-flex; align-items: baseline; gap: 4px; }
-/* Vitals sit in fixed-width columns so RAM / temperature line up down the list,
-   whatever a device lacks (a mains kiosk still fills the power column). */
-.dl-l2 { gap: 0; }
-.dl-v { flex: none; }
-.dl-v.dl-agent { width: 84px; }
-.dl-v[data-m="power"] { width: 176px; }
-.dl-v[data-m="temp"] { width: 104px; }
-.dl-v[data-m="ram"] { width: 84px; }
-.dl-v[data-m="cycles"] { width: 100px; }
-.dl-v .k { color: var(--muted); }
-.dl-agent { font-size: 11.5px; color: var(--text-faint); letter-spacing: .01em; }
-.dl-v .v { font-weight: 600; color: var(--text); }
-.dl-v .v.muted { color: var(--text-faint); font-weight: 500; }
-.dl-v .v.warn, .dl-v .v.battery-mid { color: var(--warn); }
-.dl-v .v.danger, .dl-v .v.battery-low { color: var(--danger); }
-.dl-v .dl-flap { color: var(--warn); font-weight: 600; }
-.dl-sock { width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 2; align-self: center; }
-.dl-issue { margin-left: auto; color: var(--danger); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
-.dl-issue:empty { display: none; }
-
+.dl-st .dl-status.off:not([data-legacy]) { color: var(--warn); }
+.dl-st .dl-status.off:not([data-legacy]) i { background: var(--warn); }
+.dl-card > .dl-act { grid-area: act; display: flex; align-items: center; gap: 10px; justify-self: end; }
 /* battery — tinted chip: glyph + % on a level-tinted pill */
 .dl-bat { display: flex; align-items: center; flex: none; }
 .dl-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 99px;
@@ -4832,7 +4844,6 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 .dl-m .v { font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
-.dl-act { display: flex; align-items: center; gap: 10px; flex: none; }
 .dl-view { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   padding: 0; border: 0; border-radius: 8px; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .dl-view:hover { background: var(--accent-soft); color: var(--accent-text); }
@@ -4844,13 +4855,15 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 /* Reflow based on the list's own width (handles the narrow inspector pane,
    not just the viewport): stay one line, dropping the secondary info but
    keeping status, serial and battery. */
-/* Compact (narrow pane or multi-column): drop the model line and cycles, and let
-   both lines wrap — status under the name, vitals without separators. */
-@container (max-width: 680px) {
-  .dl-rel, [data-m="cycles"] { display: none; }
-  .dl-l1, .dl-l2 { flex-wrap: wrap; row-gap: 2px; column-gap: 12px; }
-  .dl-l1 .dl-right { margin-left: 0; }
-  .dl-l2 .dl-v { width: auto; }
+/* Compact (narrow pane or multi-column): identity and status on top, the vitals
+   as one wrapped strip underneath; build and cycles drop out. */
+@container (max-width: 760px) {
+  .dl-card { grid-template-columns: 18px 34px minmax(0, 1fr) auto auto;
+    grid-template-areas: "cb ic id st act" "cb ic vs vs act"; row-gap: 8px; column-gap: 12px; }
+  .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+  .dl-rel, .dl-blk[data-m="cycles"] { display: none; }
+  .dl-ic { width: 34px; height: 34px; }
+  .dl-stats .dl-blk[data-m="power"] { width: 88px; } .dl-stats .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for ≥2 columns: offer the control, and lay the cards out in
    their compact form when multi-column. cols-3 falls back to 2 here and only
@@ -4858,14 +4871,13 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 @container (min-width: 640px) {
   .cols-seg { display: inline-flex; }
   .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { gap: 12px; border-right: 1px solid var(--border-soft); }
-  .dl-list.cols-2 .dl-rel, .dl-list.cols-3 .dl-rel,
-  .dl-list.cols-2 [data-m="cycles"], .dl-list.cols-3 [data-m="cycles"] { display: none; }
-  .dl-list.cols-2 :is(.dl-l1, .dl-l2), .dl-list.cols-3 :is(.dl-l1, .dl-l2) { flex-wrap: wrap; row-gap: 2px; column-gap: 12px; }
-  .dl-list.cols-2 .dl-right, .dl-list.cols-3 .dl-right { margin-left: 0; }
-  .dl-list.cols-2 .dl-l2 .dl-v, .dl-list.cols-3 .dl-l2 .dl-v { width: auto; }
-  .dl-list.cols-3 .dl-ic { width: 32px; height: 32px; }
-  .dl-list.cols-3 .dl-ic svg { width: 18px; height: 18px; }
+  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft);
+    grid-template-columns: 18px 34px minmax(0, 1fr) auto auto;
+    grid-template-areas: "cb ic id st act" "cb ic vs vs act"; row-gap: 8px; column-gap: 12px; }
+  .dl-list.cols-2 .dl-stats, .dl-list.cols-3 .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+  .dl-list.cols-2 :is(.dl-rel, .dl-blk[data-m="cycles"]), .dl-list.cols-3 :is(.dl-rel, .dl-blk[data-m="cycles"]) { display: none; }
+  .dl-list.cols-2 .dl-ic, .dl-list.cols-3 .dl-ic { width: 34px; height: 34px; }
+  .dl-list:is(.cols-2, .cols-3) .dl-blk[data-m="power"] { width: 88px; } .dl-list:is(.cols-2, .cols-3) .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for three columns: surface the option and use it. */
 @container (min-width: 930px) {
