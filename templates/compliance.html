@@ -148,6 +148,13 @@
           <option value="min_battery" data-param="Minimum battery %" data-ph="e.g. 30">Minimum battery level</option>
           <option value="require_build_prefix" data-param="Build prefix" data-ph="e.g. AT07">Require OS build prefix</option>
           <option value="max_offline_hours" data-param="Max hours offline" data-ph="e.g. 24">Maximum hours offline</option>
+          <option value="forbid_dev_options">Forbid developer options</option>
+          <option value="forbid_unknown_sources">Forbid installs from unknown sources</option>
+          <option value="forbid_root">Forbid root (su binary)</option>
+          <option value="forbid_network_adb">Forbid ADB over the network</option>
+          <option value="require_play_protect">Require Play Protect</option>
+          <option value="allowed_accessibility" data-param="Allowed services (comma-separated; empty = none)" data-ph="e.g. com.example.a11y/.Service">Allowed accessibility services</option>
+          <option value="forbid_apps" data-param="Package names (comma-separated)" data-ph="e.g. com.apkpure.aegon, cm.aptoide.pt">Forbid apps</option>
         </select>
       </div>
       <div class="f" id="cp-param-f" hidden>

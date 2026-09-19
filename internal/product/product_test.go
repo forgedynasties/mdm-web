@@ -1,6 +1,9 @@
 package product
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestResolveEmptyStaysT7(t *testing.T) {
 	// Empty / whitespace-only product = legacy device that predates the product
@@ -103,11 +106,12 @@ func TestCatalogClasses(t *testing.T) {
 			t.Error("Classes() still offers the retired panel class")
 		}
 	}
-	if got := ClassLabel(ClassPanel); got != "Panel" {
-		t.Errorf("ClassLabel(panel): got %q, want Panel", got)
+	// A retired panel row renders as the kiosk role it became.
+	if got := ClassLabel(ClassPanel); got != "Self-order kiosk" {
+		t.Errorf("ClassLabel(panel): got %q, want Self-order kiosk", got)
 	}
-	if got := ClassLabel(ClassT7); got != "T7" {
-		t.Errorf("ClassLabel(t7): got %q, want T7", got)
+	if got := ClassLabel(ClassT7); got != "Tableside AI" {
+		t.Errorf("ClassLabel(t7): got %q, want Tableside AI", got)
 	}
 }
 
@@ -141,5 +145,30 @@ func TestLabels(t *testing.T) {
 	}
 	if got := Label("a14xmtfn"); got != "a14xmtfn" {
 		t.Errorf("Label(a14xmtfn): got %q, want a14xmtfn", got)
+	}
+}
+
+func TestCapsForDevice(t *testing.T) {
+	// An unknown product gets generic (battery) caps; the dongle class overrides them.
+	if !CapsForDevice("rockchip029", "").HasBattery {
+		t.Error("unclassified stock device: want generic caps with a battery")
+	}
+	if c := CapsForDevice("rockchip029", ClassDongle); c.HasBattery || c.HasCharging || c.HasWLC {
+		t.Errorf("dongle caps: got %+v, want none", c)
+	}
+	if !CapsForDevice(KeyT7, ClassT7).HasBattery {
+		t.Error("T7 lost its battery")
+	}
+}
+
+func TestBatteryPredicateSQL(t *testing.T) {
+	got := BatteryPredicateSQL("d")
+	for _, want := range []string{"d.device_class <> 'dongle'", "'kiosk18'", "'kiosk22'", "'kiosk27'", "'" + DefaultKey + "')"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("BatteryPredicateSQL: %q missing %q", got, want)
+		}
+	}
+	if strings.Contains(got, "'"+KeyT7+"',") || strings.Contains(got, "IN ('"+KeyT7) {
+		t.Errorf("BatteryPredicateSQL excludes the T7: %q", got)
 	}
 }

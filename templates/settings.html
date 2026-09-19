@@ -252,9 +252,9 @@
   </div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--border-soft);">
     <div>
-      <strong>Ignore DPC agent check-ins</strong>
+      <strong>Ignore MDM DPC check-ins</strong>
       {{if .IgnoreDPCCheckins}}<span class="cc-tag warn">DPC support off</span>{{end}}
-      <div class="muted small">Drop check-ins and telemetry from devices running the DPC agent instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. DPC devices already enrolled keep their history and stop updating until this is switched off. Firmware devices are unaffected.</div>
+      <div class="muted small">Drop check-ins and telemetry from devices running MDM DPC instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. DPC devices already enrolled keep their history and stop updating until this is switched off. MDM Firmware devices are unaffected.</div>
     </div>
     {{template "settings-toggle" (dict "Action" "/settings/ignore-dpc/toggle" "On" .IgnoreDPCCheckins)}}
   </div>
@@ -1000,7 +1000,7 @@ function kioskAddPkg(pkg, el){
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
-    <h3>DPC agent for QR provisioning</h3>
+    <h3>MDM DPC for QR provisioning</h3>
     {{if or .AgentAPKHosted (and .AgentAPKURL .AgentAPKChecksum)}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
     {{if .AgentAPKFromEnv}}<span class="cc-tag" title="Values come from AGENT_APK_URL / AGENT_APK_CHECKSUM in the server env; saving here overrides them">from env</span>{{end}}
   </div>

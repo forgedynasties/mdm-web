@@ -134,3 +134,23 @@ func TestAtoiState(t *testing.T) {
 		}
 	}
 }
+
+// TestMergeShapedSeriesCPUTempForBatterylessDevices: a TV box has no battery reading, so
+// its SoC temperature is what the chart draws; a battery reading still wins when present.
+func TestMergeShapedSeriesCPUTempForBatterylessDevices(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	pts := mergeShapedSeries([]db.DeviceSample{
+		{At: time.Now(), CPUTempC: f(57.7)},
+		{At: time.Now().Add(time.Minute), TempC: f(31.2), CPUTempC: f(60)},
+		{At: time.Now().Add(2 * time.Minute)},
+	}, nil)
+	if !pts[0].HasTemp || pts[0].TempC != 57.7 {
+		t.Errorf("cpu-only sample: got %v/%v, want 57.7", pts[0].HasTemp, pts[0].TempC)
+	}
+	if pts[1].TempC != 31.2 {
+		t.Errorf("battery + cpu: got %v, want the battery's 31.2", pts[1].TempC)
+	}
+	if pts[2].HasTemp {
+		t.Error("no reading at all must not plot a point")
+	}
+}

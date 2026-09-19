@@ -14,20 +14,39 @@ const (
 	// KindAndroid is the catalog's name for "not our firmware": a product outside the
 	// catalog is stock Android, and any agent on it is the DPC agent.
 	KindAndroid = "android"
+	// AgentTypeMDMLite is the agent_type of AIO MDM-lite, the library embedded in an
+	// app (e.g. the menu board) that reports vitals and crashes with no Device Owner.
+	// It is stored as KindDPC: like the DPC agent it runs on stock hardware and
+	// advertises what it can do, and every non-firmware rule (capability gating, no
+	// OTA) applies. latest_extra.agent_type keeps "mdm-lite" so the dashboard can tell
+	// the two apart. It only checks in over HTTP: it has no live connection.
+	AgentTypeMDMLite = "mdm-lite"
 )
 
-// Device classes (form factor / role). Stored on devices.device_class; empty means
+// IsStockAgent reports whether a check-in's agent_type is one of the stock-device
+// agents (the DPC agent or the embedded app library) rather than our firmware.
+func IsStockAgent(agentType string) bool {
+	return agentType == KindDPC || agentType == AgentTypeMDMLite
+}
+
+// Device roles — what a device does in the restaurant, following the AIO lineup
+// (aioapp.com): POS terminal, self-order kiosk, kitchen display, menu board,
+// Tableside AI (our T7), handheld, payment terminal. Keys are the historical class
+// keys ("dongle" is the menu board, "mpos" the handheld) so stored rows need no
+// migration; only the labels changed. Stored on devices.device_class; empty means
 // "derive from product" (firmware) or "not set yet" (DPC devices enrolled without a
 // class on the profile). Classes are display + filtering axes only: nothing is gated on
 // them, capabilities do that.
 const (
-	ClassT7     = "t7"     // our T7 — the model IS the category, not a generic tablet
-	ClassKiosk  = "kiosk"  // self-service kiosk, ours (Kiosk 18/22/27) or outsourced
-	ClassTablet = "tablet" // stock Android tablet (DPC-managed)
-	ClassMPOS   = "mpos"   // mobile point of sale
-	ClassPOS    = "pos"    // counter point of sale
-	ClassDongle = "dongle" // Android TV stick / box on an HDMI screen (leanback, remote-driven)
-	ClassOther  = "other"
+	ClassT7      = "t7"      // our T7 — the model IS the category, not a generic tablet
+	ClassKiosk   = "kiosk"   // self-service kiosk, ours (Kiosk 18/22/27) or outsourced
+	ClassTablet  = "tablet"  // stock Android tablet (DPC-managed)
+	ClassMPOS    = "mpos"    // mobile point of sale
+	ClassPOS     = "pos"     // counter point of sale
+	ClassDongle  = "dongle"  // Android TV stick / box on an HDMI screen (leanback, remote-driven)
+	ClassKDS     = "kds"     // kitchen display
+	ClassPayment = "payment" // payment terminal running our agent
+	ClassOther   = "other"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
 	// offers it, so IsClass rejects it on new admin input.
@@ -36,7 +55,7 @@ const (
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassT7, ClassKiosk, ClassTablet, ClassMPOS, ClassPOS, ClassDongle, ClassOther}
+	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassKDS, ClassT7, ClassMPOS, ClassPayment, ClassTablet, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
@@ -44,19 +63,21 @@ func Classes() []string {
 func ClassLabel(class string) string {
 	switch strings.ToLower(strings.TrimSpace(class)) {
 	case ClassT7:
-		return "T7"
+		return "Tableside AI"
 	case ClassTablet:
 		return "Tablet"
-	case ClassPanel:
-		return "Panel"
-	case ClassKiosk:
-		return "Kiosk"
+	case ClassPanel, ClassKiosk:
+		return "Self-order kiosk"
 	case ClassMPOS:
-		return "mPOS"
+		return "Handheld"
 	case ClassPOS:
-		return "POS"
+		return "POS terminal"
 	case ClassDongle:
-		return "Dongle"
+		return "Menu board"
+	case ClassKDS:
+		return "Kitchen display"
+	case ClassPayment:
+		return "Payment terminal"
 	case ClassOther:
 		return "Other"
 	case "":
@@ -95,28 +116,45 @@ const (
 	CapUpdateSplash  = "update_splash" // boot splash write
 	CapMicGain       = "mic_gain"      // T7 codec gain (TX_DEC)
 	CapWLC           = "wlc"           // wireless-charging guest pad control
+	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
+	// app, clear its web cache, check for an app update). No Device Owner needed.
+	CapAppControl = "app_control"
+	// CapSelfUpdate: the MDM-lite host app can install a newer version of itself from a
+	// URL (silently when the device allows it to install apps, else via Android's prompt).
+	CapSelfUpdate = "self_update"
 )
+
+// AppControlCommands are the MDM-lite app-control command types, all gated by
+// CapAppControl and delivered in the check-in response (MDM-lite polls, no socket).
+var AppControlCommands = []string{"app_reload", "app_restart", "app_clear_cache", "app_update_check"}
 
 // commandNeeds maps a command type (the "type" a dashboard form or the admin API
 // sends) to the capability it requires. Types absent from the map need nothing
 // (e.g. "query"). Names line up with the DPC agent's list so its advertised
 // capabilities are used verbatim.
 var commandNeeds = map[string]string{
-	"screenshot":     CapScreenCapture,
-	"install_apk":    CapInstallAPK,
-	"uninstall":      CapUninstall,
-	"reboot":         CapReboot,
-	"shell":          CapShell,
-	"logcat":         CapLogcat,
-	"ota":            CapOTA,
-	"update_splash":  CapUpdateSplash,
-	"wipe":           CapWipe,
-	"kiosk_set":      CapKiosk,
-	"managed_config": CapConfig,
-	"mic_gain_read":  CapMicGain,
-	"mic_gain_set":   CapMicGain,
-	"wlc_set":        CapWLC,
-	"remote":         CapScreenCapture,
+	"screenshot":       CapScreenCapture,
+	"install_apk":      CapInstallAPK,
+	"uninstall":        CapUninstall,
+	"reboot":           CapReboot,
+	"shell":            CapShell,
+	"logcat":           CapLogcat,
+	"ota":              CapOTA,
+	"update_splash":    CapUpdateSplash,
+	"app_reload":       CapAppControl,
+	"app_restart":      CapAppControl,
+	"app_clear_cache":  CapAppControl,
+	"app_update_check": CapAppControl,
+	"app_update":       CapSelfUpdate,
+	"wipe":             CapWipe,
+	"kiosk_set":        CapKiosk,
+	"managed_config":   CapConfig,
+	"mic_gain_read":    CapMicGain,
+	"mic_gain_set":     CapMicGain,
+	"wlc_set":          CapWLC,
+	"remote":           CapScreenCapture,
+	"query":            CapShell, // runs as a shell command on the device
+	"set_kiosk":        CapKiosk, // the Actions page's kiosk card (applyKioskForTargets)
 }
 
 // CommandNeeds returns the capability a command type requires ("" = none).

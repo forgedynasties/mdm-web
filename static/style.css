@@ -4690,29 +4690,108 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cols-seg button.on { background: var(--accent-soft); color: var(--accent-text); }
 .cols-seg button svg { width: 15px; height: 15px; }
 .cols-seg [data-cols="3"] { display: none; }
-.dl-card { display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
-  grid-template-areas: "cb bat id metrics status act";
-  align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
-  background: var(--surface); transition: background var(--dur) var(--ease); }
-.dl-card:first-child { border-top: 1px solid var(--border-soft); }
+/* Stat-block rows: every card is the same grid, so identity, each vital, status
+   and actions sit at the same x on every row whatever a device reports. The vitals
+   are labelled blocks (small caps label over value); a missing reading is "—". */
+.dl-card { display: grid; align-items: center; column-gap: 16px; padding: 12px 18px;
+  grid-template-columns: 18px minmax(280px, 1.8fr) 84px 64px 64px 140px auto;
+  grid-template-areas: "cb lead tp rm cy st act";
+  border-bottom: 1px solid var(--border-soft); background: var(--surface); cursor: pointer;
+  transition: background var(--dur) var(--ease); }
+.dl-card:first-of-type { border-top: 1px solid var(--border-soft); }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
-.dl-card > .device-cb { width: 15px; height: 15px; grid-area: cb; }
-.dl-card > .dl-cb-spacer { grid-area: cb; width: 0; }
-.dl-card > .dl-bat { grid-area: bat; }
-.dl-card > .dl-id { grid-area: id; }
-/* Top-align (not the grid's default center) — .dl-card's align-items:center
-   centers each column on its OWN height, and .dl-metrics (always 2-3 lines)
-   vs .dl-status-col (1 line online, 2 offline with "Last seen") differ, so
-   centering independently put their first lines at different heights: an
-   offline row's RAM/Temp/Cycles rows didn't line up with an online row's. */
-.dl-card > .dl-metrics { grid-area: metrics; align-self: start; min-width: 104px; }
-.dl-card > .dl-status-col { grid-area: status; align-self: start; min-width: 124px; }
-/* Each card is its own grid, so a wider status column (Legacy pill + "Last seen")
-   used to shift that row's vitals left of its neighbours'. Fixed width keeps every
-   row's RAM/TEMP/CYCLES on the same line. */
-.dl-card > .dl-act { grid-area: act; }
+.dl-card > .device-cb { grid-area: cb; width: 15px; height: 15px; margin: 0; }
+.dl-card > .dl-cb-spacer { grid-area: cb; }
+.dl-icons { position: absolute; width: 0; height: 0; overflow: hidden; }
 
+/* device-type tile, tinted per class */
+.dl-ic { flex: none; width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
+.dl-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dl-ic.t7 { background: #fdebe7; color: #c9442d; }
+.dl-ic.kiosk { background: #ecedfd; color: #4f55cc; }
+.dl-ic.dongle { background: #e2f3ef; color: #0f7263; }
+.dl-ic.mpos { background: #fcefd8; color: #98590a; }
+.dl-ic.pos { background: #ece9e4; color: #4a453e; }
+.dl-ic.tablet { background: #e3edfa; color: #285aab; }
+.dl-ic.other { background: #efece7; color: #6b655c; }
+.dl-ic.kds { background: #fde8ef; color: #b0305f; }
+.dl-ic.payment { background: #e6f0f7; color: #1f5f85; }
+html[data-theme="dark"] .dl-ic.kds { background: rgba(176,48,95,.24); color: #f193b6; }
+html[data-theme="dark"] .dl-ic.payment { background: rgba(31,95,133,.28); color: #8cc3e6; }
+html[data-theme="dark"] .dl-ic.t7 { background: rgba(201,68,45,.2); color: #f0907d; }
+html[data-theme="dark"] .dl-ic.kiosk { background: rgba(79,85,204,.24); color: #a9adf5; }
+html[data-theme="dark"] .dl-ic.dongle { background: rgba(15,114,99,.26); color: #6fd1bf; }
+html[data-theme="dark"] .dl-ic.mpos { background: rgba(152,89,10,.26); color: #f0b765; }
+html[data-theme="dark"] .dl-ic.pos, html[data-theme="dark"] .dl-ic.other { background: rgba(255,255,255,.08); color: var(--text-2); }
+html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: #8fb6f0; }
+
+/* identity: name + tags, then serial · build · agent */
+.dl-card .dl-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dl-card .dl-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-card .dl-l1 .dl-serial.dl-lead { font-family: inherit; font-size: 14px; font-weight: 600; min-width: 0; }
+.dl-card .dl-l1 .dl-ktag { margin: 0; }
+.dl-card .dl-l1 .dl-legacy-tag { margin: 0; }
+.dl-card .dl-l2 { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }
+.dl-l2 .dl-model { font-size: 12px; color: var(--text-2); }
+.dl-l2 .dl-sn { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
+.dl-l2 .dl-buildid { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
+.dl-l2 .dl-agent { font-size: 12px; color: var(--text-faint); }
+.dl-l2 .dl-agent::before { content: "·"; margin-right: 8px; }
+
+/* vitals: display:contents so each block is a grid column of the card */
+.dl-stats { display: contents; }
+.dl-blk { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
+/* power glyph, type tile and identity as one group right after the checkbox */
+.dl-card > .dl-lead { grid-area: lead; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dl-lead > .dl-ic { margin-right: 2px; }
+/* power slot: one fixed width for plug and battery alike, so the type tiles line up */
+.dl-lead > .dl-pw { width: 30px; flex: none; display: flex; justify-content: center; }
+.dl-pw .pv { height: auto; }
+/* battery: the % as small text over a compact glyph; charging / flapping is a
+   small mark inside the pack rather than extra width */
+.pw-bat { flex-direction: column; align-items: center; gap: 2px; }
+.dl-pw .pw-bat .v { font-size: 10.5px; font-weight: 500; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pw-bat.battery-mid .v { color: var(--warn); }
+.pw-bat.battery-low .v { color: var(--danger); }
+.pw-bat .gb { position: relative; display: inline-flex; }
+.pw-bat .g-bat { width: 22px; height: 12px; }
+.pw-bat .ov { position: absolute; left: 5px; top: 1.5px; width: 9px; height: 9px; }
+.pw-bat .ov.chg { color: var(--surface); filter: drop-shadow(0 0 .6px var(--ok)); }
+.pw-bat .ov.flap { left: 5.5px; fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; background: var(--surface); border-radius: 2px; }
+.dl-blk[data-m="temp"] { grid-area: tp; }
+.dl-blk[data-m="ram"] { grid-area: rm; }
+.dl-blk[data-m="cycles"] { grid-area: cy; }
+.dl-blk .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.dl-blk .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.dl-blk .v.warn { color: var(--warn); }
+.dl-blk .v.danger { color: var(--danger); }
+.dl-blk .v.muted { color: var(--text-faint); font-weight: 500; }
+/* power glyphs */
+.pv { display: flex; align-items: center; height: 20px; }
+.pw { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+.pw.battery-ok { color: var(--ok); }
+.pw.battery-mid { color: var(--warn); }
+.pw.battery-low, .pw.danger { color: var(--danger); }
+.pw .v { color: inherit; }
+.pw.battery-ok .v { color: var(--text); }
+.g-bat { width: 24px; height: 13px; flex: none; }
+.g-plug { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pw.mains { color: var(--text-2); }
+.g-sm { display: inline-flex; }
+.g-sm svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.g-sm.chg { color: var(--ok); }
+.g-sm.flap { color: var(--warn); }
+
+/* status: state over last seen */
+.dl-card > .dl-st { grid-area: st; display: flex; flex-direction: column; gap: 2px; white-space: nowrap; min-width: 0; }
+.dl-st .dl-status { font-size: 13px; }
+.dl-st .dl-synced { font-size: 12px; color: var(--muted); padding-left: 11px; }
+/* Offline / not reporting needs attention: subdued amber, not faint grey. Legacy
+   builds are offline by design and stay neutral. */
+.dl-st .dl-status.off:not([data-legacy]) { color: var(--warn); }
+.dl-st .dl-status.off:not([data-legacy]) i { background: var(--warn); }
+.dl-card > .dl-act { grid-area: act; display: flex; align-items: center; gap: 10px; justify-self: end; }
 /* battery — tinted chip: glyph + % on a level-tinted pill */
 .dl-bat { display: flex; align-items: center; flex: none; }
 .dl-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 99px;
@@ -4749,6 +4828,8 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
   font-family: var(--sans, inherit); font-size: 10px; letter-spacing: .02em; vertical-align: middle; }
 /* Mains-power chip shown in place of the battery chip for wall-powered kiosks. */
 .dl-chip.dl-mains { color: var(--muted); }
+/* TV chip shown in place of the battery chip for TV boxes / HDMI dongles. */
+.dl-chip.dl-tv { color: var(--text); }
 
 /* status column: online/offline + last sync */
 .dl-status-col { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
@@ -4783,7 +4864,6 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 .dl-m .v { font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
-.dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
 .dl-view { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   padding: 0; border: 0; border-radius: 8px; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .dl-view:hover { background: var(--accent-soft); color: var(--accent-text); }
@@ -4795,39 +4875,34 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 /* Reflow based on the list's own width (handles the narrow inspector pane,
    not just the viewport): stay one line, dropping the secondary info but
    keeping status, serial and battery. */
-@container (max-width: 680px) {
-  .dl-card {
-    grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "cb id  status act"
-      "cb bat status act";
-    gap: 5px 14px;
-  }
-  .dl-metrics { display: none; }
-  .dl-rel, .dl-onboard { display: none; }
+/* Compact (narrow pane or multi-column): identity and status on top, the vitals
+   as one wrapped strip underneath; build and cycles drop out. */
+@container (max-width: 760px) {
+  .dl-card { grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
+  .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+  .dl-rel, .dl-blk[data-m="cycles"] { display: none; }
+  .dl-ic { width: 34px; height: 34px; }
+  .dl-stats .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for ≥2 columns: offer the control, and lay the cards out in
    their compact form when multi-column. cols-3 falls back to 2 here and only
    becomes 3 once there's room (next query). */
 @container (min-width: 640px) {
   .cols-seg { display: inline-flex; }
-  .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: 1fr 1fr; }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card {
+  .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft);
     grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "cb id  status act"
-      "cb bat status act";
-    gap: 5px 14px;
-  }
-  .dl-list.cols-2 .dl-metrics, .dl-list.cols-3 .dl-metrics { display: none; }
-  .dl-list.cols-2 .dl-rel, .dl-list.cols-2 .dl-onboard,
-  .dl-list.cols-3 .dl-rel, .dl-list.cols-3 .dl-onboard { display: none; }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft); }
+    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
+  .dl-list.cols-2 .dl-stats, .dl-list.cols-3 .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
+  .dl-list.cols-2 :is(.dl-rel, .dl-blk[data-m="cycles"]), .dl-list.cols-3 :is(.dl-rel, .dl-blk[data-m="cycles"]) { display: none; }
+  .dl-list.cols-2 .dl-ic, .dl-list.cols-3 .dl-ic { width: 34px; height: 34px; }
+  .dl-list:is(.cols-2, .cols-3) .dl-blk[data-m="temp"] { width: 72px; }
 }
 /* Wide enough for three columns: surface the option and use it. */
 @container (min-width: 930px) {
   .cols-seg [data-cols="3"] { display: inline-flex; }
-  .dl-list.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .dl-list.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */

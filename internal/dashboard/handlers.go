@@ -426,10 +426,10 @@ func micGainPtr(raw json.RawMessage) *MicGainView {
 func deviceRowClasses(dev db.Device) string {
 	var classes []string
 
-	if dev.BatteryPct < 20 {
+	if dev.HasBattery() && dev.BatteryPct < 20 {
 		classes = append(classes, "row-alert-battery")
 	}
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok && (temp >= 45 || temp <= 0) {
+	if lvl := deviceTempClass(dev.LatestExtra); lvl != "" && lvl != "ok" {
 		classes = append(classes, "row-alert-temp")
 	}
 
@@ -454,7 +454,7 @@ type DeviceRowJSON struct {
 	KioskEnabled bool    `json:"kiosk_enabled"`
 	KioskPackage string  `json:"kiosk_package"`
 	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
-	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
+	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
 	// BatteryMissing: product has a battery but the device reports the pack absent
 	// (NTC fault / unplugged). The live patch shows a "None" chip, never a percentage.
 	BatteryMissing bool  `json:"battery_missing"`
@@ -528,20 +528,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		}
 	}
 
-	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok {
+	if temp, src, ok := deviceTempC(dev.LatestExtra); ok {
 		r.TempStr = fmt.Sprintf("%.1f°C", temp)
-		switch {
-		case temp >= 60:
-			r.TempClass = "danger"
-		case temp >= 45:
-			r.TempClass = "warn"
-		case temp <= -10:
-			r.TempClass = "danger"
-		case temp <= 0:
-			r.TempClass = "warn"
-		default:
-			r.TempClass = "ok"
-		}
+		r.TempClass = tempLevel(temp, src)
 	}
 
 	if !dev.LastSeenAt.IsZero() {
@@ -1021,6 +1010,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// productLabel: the catalog label, or the real model name for a product the
 		// catalog does not know ("Sunmi D3 PRO", not the wire key "d3_pro").
 		"productLabel": productLabel,
+		"productName":  productName, // admin-set display name for a stock product, "" if none
 		// clFormat makes a changelog line scannable: the lead sentence (up to the
 		// first ". ") becomes a bold headline, the rest stays as body text. Input is
 		// HTML-escaped first, so entries are plain text authored in version.go.
@@ -1272,24 +1262,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return fmt.Sprintf("%.1f°C", temp)
 		},
-		"tempClass": func(raw json.RawMessage) string {
-			temp, ok := extractBatteryTempC(raw)
-			if !ok {
-				return ""
-			}
-			switch {
-			case temp >= 60:
-				return "danger"
-			case temp >= 45:
-				return "warn"
-			case temp <= -10:
-				return "danger"
-			case temp <= 0:
-				return "warn"
-			default:
-				return "ok"
-			}
-		},
+		"tempClass": deviceTempClass,
+		"tempSource": deviceTempSrc,
 		"ramPct": func(ram map[string]int) int {
 			total, ok := ram["total"]
 			if !ok || total == 0 {
@@ -1306,7 +1280,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return pct
 		},
 		"extraTempC": func(raw json.RawMessage) template.JS {
-			temp, ok := extractBatteryTempC(raw)
+			temp, _, ok := deviceTempC(raw)
 			if !ok {
 				return "null"
 			}
@@ -1314,6 +1288,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"rowClasses": func(dev db.Device) string {
 			return deviceRowClasses(dev)
+		},
+		// deviceIcon: the fleet card's type-icon key for a device's class. The retired
+		// panel class draws as a kiosk; unknown or unset classes get the generic chip.
+		"deviceIcon": func(dev db.Device) string {
+			switch c := dev.Class(); c {
+			case "t7", "kiosk", "tablet", "mpos", "pos", "dongle", "kds", "payment":
+				return c
+			case "panel":
+				return "kiosk"
+			}
+			return "other"
 		},
 		"colorizeLogcat": func(content string) template.HTML {
 			return colorizeLogcatText(content)
@@ -1421,6 +1406,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"joinLines": func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
 		"classes":    product.Classes,
+		// extraBool reads a boolean from latest_extra (false when absent or not a bool).
+		"extraBool": func(raw []byte, key string) bool {
+			var m map[string]json.RawMessage
+			if json.Unmarshal(raw, &m) != nil {
+				return false
+			}
+			var b bool
+			return json.Unmarshal(m[key], &b) == nil && b
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
@@ -1650,6 +1644,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	apkStore, apkErr := apkstore.New(context.Background())
 	if apkErr != nil {
 		log.Printf("apkstore init: %v (APK upload disabled)", apkErr)
+	}
+	if d != nil {
+		if m, err := d.ProductNames(context.Background()); err == nil {
+			productNames.Store(m)
+		}
 	}
 
 	return &Handler{
@@ -2718,22 +2717,9 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// batteryTempStr renders battery_temp_c from extra as "39.2°C" or "".
-func batteryTempStr(raw json.RawMessage) string {
-	var m map[string]json.RawMessage
-	if json.Unmarshal(raw, &m) != nil {
-		return ""
-	}
-	v, ok := m["battery_temp_c"]
-	if !ok {
-		return ""
-	}
-	var f float64
-	if json.Unmarshal(v, &f) != nil {
-		return ""
-	}
-	return fmt.Sprintf("%.1f°C", f)
-}
+// batteryTempStr renders the device's temperature as "39.2°C" or "": battery_temp_c,
+// or cpu_temp_c on a battery-less TV box (see deviceTempC).
+func batteryTempStr(raw json.RawMessage) string { return deviceTempStr(raw) }
 
 // numWord spells small counts the way a sentence would ("six of eight").
 func numWord(n int) string {
@@ -3671,7 +3657,7 @@ func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
 		"Page": 1, "TotalPages": 1, "Query": "", "PageSize": 60,
 		"Summary": summary, "Sort": "", "SortDir": "",
 		"FilterRestaurant": "", "FilterGroup": "", "FilterProduction": "", "FilterProduct": "",
-		"FilterStatus": "", "FilterBuild": "", "FilterBattery": "", "FilterKiosk": "",
+		"FilterStatus": "", "FilterBuild": "", "FilterBattery": "", "FilterRAM": "", "FilterTemp": "", "FilterKiosk": "",
 		"FilterCharging": "", "FilterTimezone": "", "FilterKind": "", "FilterClass": "",
 		"FilterOnboarding": "", "FilterLifecycle": "", "FilterHidden": false,
 		"ActiveThresholdSecs": 180, "ActiveThresholdLabel": "3 min",
@@ -4351,11 +4337,13 @@ func summarizePreview(md string) string {
 	return ""
 }
 
-// connectedSlice returns the live WebSocket-connected device IDs as a slice, for DB
-// queries that compute online/offline from real presence (the ws.Hub) instead of
-// check-in recency. Empty slice = nobody online.
+// connectedSlice returns the device IDs shown as present, as a slice, for DB queries
+// that compute online counts and filters from real presence (the ws.Hub) instead of
+// check-in recency: live sockets, plus the display grace and MDM-lite check-in
+// presence (ConnectedIDsForDisplay), so a counter never says "0 of 1 online" beside
+// a card that says Reporting. Empty slice = nobody online.
 func (h *Handler) connectedSlice() []uuid.UUID {
-	set := h.hub.ConnectedIDs()
+	set := h.hub.ConnectedIDsForDisplay()
 	out := make([]uuid.UUID, 0, len(set))
 	for id := range set {
 		out = append(out, id)
@@ -4431,6 +4419,8 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Battery:             r.URL.Query().Get("battery"),
 		Kiosk:               r.URL.Query().Get("kiosk"),
 		Charging:            r.URL.Query().Get("charging"),
+		RAM:                 r.URL.Query().Get("ram"),
+		Temp:                r.URL.Query().Get("temp"),
 		Timezone:            r.URL.Query().Get("timezone"),
 		Product:             r.URL.Query().Get("product"),
 		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
@@ -4649,7 +4639,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
+	for _, k := range []string{"status", "production", "build", "battery", "ram", "temp", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
 		if qv.Get(k) != "" {
 			filterCount++
 		}
@@ -4693,6 +4683,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// A product selected from the rail scopes the roster too — name it by the
 		// product label and count the filtered result, so the heading isn't "All devices".
 		selectedCollection, selectedCount = productLabel(pk), total
+	} else if cl := qv.Get("class"); cl != "" && product.IsClass(cl) {
+		// A device type picked in the rail names the roster the same way.
+		selectedCollection, selectedCount = product.ClassLabel(cl), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
@@ -4707,6 +4700,22 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	for _, p := range h.fleetProductFilters(r.Context(), h.role(r)) {
 		if n := prodCounts[p.Key]; n > 0 {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
+		}
+	}
+	// Products rail (roles): stored class, else the product's catalog class.
+	// Every role is listed, in lineup order, even with no devices yet (the lineup is
+	// being brought onto the MDM a role at a time).
+	var railClasses []db.ClassCount
+	{
+		counts := map[string]int{}
+		if cc, _, _, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
+			for _, c := range cc {
+				counts[c.Class] += c.N
+			}
+		}
+		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
+		for _, c := range product.Classes() {
+			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
 		}
 	}
 
@@ -4749,6 +4758,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"RailRestaurants":      railRests,
 		"RailReleases":         railRels,
 		"RailProducts":         railProducts,
+		"RailClasses":          railClasses,
 		"FilterRestaurant":     qv.Get("restaurant"),
 		"SelectedCollection":   selectedCollection,
 		"SelectedCount":        selectedCount,
@@ -4778,6 +4788,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterStatus":         r.URL.Query().Get("status"),
 		"FilterBuild":          r.URL.Query().Get("build"),
 		"FilterBattery":        r.URL.Query().Get("battery"),
+		"FilterRAM":            r.URL.Query().Get("ram"),
+		"FilterTemp":           r.URL.Query().Get("temp"),
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
@@ -4807,7 +4819,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// boosted full-page navigation — a boosted nav must get the whole page (which
 	// the layout renders as main-only) so <main> is swapped correctly.
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
-		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
+		rd := h.withRole(r, data)
+		h.tmpl.ExecuteTemplate(w, "device-table", rd)
+		// Filters and refreshes change the counts too; keep the headline in step.
+		h.tmpl.ExecuteTemplate(w, "fleet-headline-oob", rd)
 		return
 	}
 	h.render(w, r, "devices.html", data)
@@ -6153,6 +6168,10 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !device.Supports("remote") || device.IsMDMLite() {
+		http.Error(w, "Remote control isn't available on this device's agent ("+device.KindLabel()+").", http.StatusBadRequest)
+		return
+	}
 
 	h.render(w, r, "remote.html", map[string]any{
 		"Title":  "Remote — " + device.SerialNumber,
@@ -6319,7 +6338,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		if hasBattery {
 			battery = append(battery, bpt{X: x, Y: c.BatteryPct, Wlc: wlcIntFromExtra(c.Extra)})
 		}
-		if t, ok := extractBatteryTempC(c.Extra); ok {
+		if t, _, ok := deviceTempC(c.Extra); ok {
 			temp = append(temp, pt{X: x, Y: t})
 		}
 		if rp, ok := ramPctFromExtra(c.Extra); ok {
@@ -6839,7 +6858,7 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 			}
 		}
 	}
-	if temp, ok := extractBatteryTempC(c.Extra); ok {
+	if temp, _, ok := deviceTempC(c.Extra); ok {
 		p.TempC = &temp
 	}
 	return p
@@ -8175,7 +8194,7 @@ func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []de
 	if err != nil {
 		return []deviceMapPoint{}
 	}
-	online := h.hub.ConnectedIDs()
+	online := h.hub.ConnectedIDsForDisplay()
 	pts := make([]deviceMapPoint, 0, 16)
 	for _, dv := range devs {
 		var m map[string]json.RawMessage
@@ -8802,7 +8821,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.ListGroups(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	connected := h.hub.ConnectedIDs()
+	connected := h.hub.ConnectedIDsForDisplay()
 	online := make(map[uuid.UUID]bool, len(connected))
 	for id := range connected {
 		online[id] = true
@@ -10611,6 +10630,9 @@ var productLabels atomic.Value // map[string]string
 // productLabel is the template-facing label for a product key: a learned model name
 // when we have one, else the catalog label (which falls back to the key itself).
 func productLabel(key string) string {
+	if n := adminProductName(key); n != "" {
+		return n
+	}
 	if m, ok := productLabels.Load().(map[string]string); ok {
 		if label := m[product.Normalize(key)]; label != "" {
 			return label
@@ -10651,6 +10673,11 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 			p.Label = label
 		}
 		out = append(out, p)
+	}
+	for i := range out {
+		if n := adminProductName(out[i].Key); n != "" {
+			out[i].Label = n
+		}
 	}
 	return out
 }
@@ -13760,6 +13787,16 @@ func (h *Handler) resolveEligibleDevicesUnscoped(r *http.Request, product string
 		}
 	}
 
+	// OTA is for our firmware devices only: DPC-managed devices are never targets,
+	// whatever scope, group or pasted serial list selected them.
+	if len(unique) > 0 {
+		var err error
+		unique, err = h.db.FilterFirmwareDeviceIDs(r.Context(), unique)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Keep only devices matching the release's product (wrong-product devices can't be
 	// targeted at all). Skipped when no product is supplied.
 	if product != "" && len(unique) > 0 {
@@ -14116,13 +14153,18 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		allActions := []palAction{
 			{Type: "install_apk", Name: "Install app", Desc: "push apps from the library, silently", Payload: "apps"},
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
-			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none", Cap: "system app"},
+			{Type: "app_update", Name: "Update app", Desc: "install a newer version of the MDM Lite app itself", Payload: "apps"},
+			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
+			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM Lite"},
 		}
 		for _, a := range allActions {
 			switch a.Type {
@@ -14785,8 +14827,11 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 		// A build with no MDM OTA is not blocked any more — it is served the same
 		// release over the legacy path, in the same rollout. Only a full image can
 		// reach one, since the legacy client has no incremental story.
-		legacy := !h.otaGate.Device(ctx, d).OK
+		verdict := h.otaGate.Device(ctx, d)
+		legacy := verdict.Legacy()
 		switch {
+		case verdict.Source == otagate.SourceDPC:
+			blocked[s] = "DPC device — OTA is firmware-only"
 		case d.BuildID == rel.Version:
 			blocked[s] = "up to date"
 		case newer[s] != "":
@@ -14834,11 +14879,22 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	dpcCount, _ := h.db.CountDPCDevices(r.Context(), ids)
 
 	// Uninstall is a no-op on devices without the package — count and subtract.
+	// Only among devices that can uninstall at all: the rest are already counted
+	// as unsupported below, and must not be subtracted twice.
 	skipped := 0
 	if cmdType == "uninstall" {
 		if pkg := strings.TrimSpace(r.FormValue("package")); pkg != "" {
-			have, _ := h.db.CountDevicesWithPackage(r.Context(), ids, pkg)
-			skipped = len(devices) - have
+			var capable []uuid.UUID
+			for _, d := range devices {
+				if d.Supports("uninstall") {
+					capable = append(capable, d.ID)
+				}
+			}
+			have := 0
+			if len(capable) > 0 {
+				have, _ = h.db.CountDevicesWithPackage(r.Context(), capable, pkg)
+			}
+			skipped = len(capable) - have
 			if skipped < 0 {
 				skipped = 0
 			}
@@ -14858,7 +14914,8 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupSerials = append(unsupSerials, d.SerialNumber)
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe",
+			"app_reload", "app_restart", "app_clear_cache", "app_update_check", "app_update"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
@@ -15721,6 +15778,12 @@ var commandRoles = map[string][]string{
 	"install_apk":   {"admin", "dev", "operator", "user_manager", "super_op"},
 	"uninstall":     {"admin", "dev", "operator", "user_manager", "super_op"},
 	"reboot":        {"admin", "dev", "operator", "user_manager", "super_op"},
+	// MDM-lite app controls: operator-level, like reboot, and far less disruptive.
+	"app_reload":       {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_update":       {"admin", "dev", "operator", "user_manager", "super_op"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
@@ -15922,6 +15985,11 @@ func policyActionForCommand(cmdType string) string {
 	if cmdType == "set_kiosk" {
 		return "kiosk"
 	}
+	for _, t := range product.AppControlCommands {
+		if cmdType == t {
+			return "app_control"
+		}
+	}
 	return cmdType
 }
 
@@ -16049,6 +16117,16 @@ func cmdTypeLabel(cmdType string) string {
 		return "Wipe"
 	case "update_splash":
 		return "Boot logo"
+	case "app_reload":
+		return "Reload page"
+	case "app_restart":
+		return "Restart app"
+	case "app_clear_cache":
+		return "Clear web cache"
+	case "app_update_check":
+		return "Check for update"
+	case "app_update":
+		return "Update app"
 	case "logcat":
 		return "Log capture"
 	case "ota":
@@ -16375,6 +16453,16 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Kiosk only reaches agents that can lock the device (not MDM-lite).
+	if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
+		kept := ids[:0:0]
+		for _, d := range devs {
+			if d.Supports("kiosk_set") {
+				kept = append(kept, d.ID)
+			}
+		}
+		ids = kept
 	}
 	if len(ids) == 0 {
 		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
@@ -17324,7 +17412,9 @@ func (h *Handler) RecipeDelete(w http.ResponseWriter, r *http.Request) {
 // their own mechanisms and their params aren't captured in a recipe payload).
 func schedulableType(t string) bool {
 	switch t {
-	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash":
+	case "install_apk", "uninstall", "reboot", "screenshot", "shell", "update_splash",
+		// e.g. a nightly restart to clear WebView memory buildup
+		"app_reload", "app_restart", "app_clear_cache":
 		return true
 	}
 	return false
@@ -18124,7 +18214,8 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
-		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail":
+		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail",
+		"fleet-cards", "fleet-rows":
 	default:
 		http.NotFound(w, r)
 		return
@@ -18267,10 +18358,10 @@ func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
 // matrix rules) and dispatches any new alerts. Called every minute from main.go so
 // 5-minute-offline / SoC-now / discharge-rate alerts fire promptly, not hourly.
 func (h *Handler) RunRecentAlerts(ctx context.Context) {
-	// The offline-family rules must not page a device that still has a live WebSocket,
-	// so pass the currently-connected set (see offlineHitsQuery / the alerts-offline
-	// design note).
-	connSet := h.hub.ConnectedIDs()
+	// The offline-family rules must not page a device that is still present, so pass
+	// the present set (see offlineHitsQuery / the alerts-offline design note): live
+	// sockets, and MDM-lite devices that checked in recently (they never hold one).
+	connSet := h.hub.ConnectedIDsForDisplay()
 	connected := make([]uuid.UUID, 0, len(connSet))
 	for id := range connSet {
 		connected = append(connected, id)
@@ -18976,9 +19067,10 @@ func (h *Handler) splitOTACapable(ctx context.Context, ids []uuid.UUID) (mdm, le
 			mdm = append(mdm, id) // can't tell: the existing paths decide
 			continue
 		}
-		if h.otaGate.Device(ctx, *d).OK {
+		// A DPC device has no OTA path at all: it goes in neither half.
+		if v := h.otaGate.Device(ctx, *d); v.OK {
 			mdm = append(mdm, id)
-		} else {
+		} else if v.Legacy() {
 			legacy = append(legacy, id)
 		}
 	}
@@ -20037,6 +20129,12 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmdType), device.ID) {
 		return
 	}
+	// Capability gate, as the bulk Actions path does: never queue a command the
+	// device's agent can't run (e.g. uninstall on MDM-lite, which has no Device Owner).
+	if !device.Supports(cmdType) {
+		http.Error(w, fmt.Sprintf("%s isn't available on this device's agent (%s).", cmdTypeLabel(cmdType), device.KindLabel()), http.StatusBadRequest)
+		return
+	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
@@ -20225,7 +20323,7 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if device.IsDPC() {
-		h.hxDoneToast(w, r, "/devices/"+serial, "The DPC agent reads its server from its own config, not this property", "error")
+		h.hxDoneToast(w, r, "/devices/"+serial, "MDM DPC reads its server from its own config, not this property", "error")
 		return
 	}
 	r.ParseForm()
@@ -21340,6 +21438,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
+	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))
 	mux.HandleFunc("GET /settings/google-usage", h.requireStrictAdmin(h.GoogleUsageJSON))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
@@ -21359,6 +21458,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
+	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
+	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
@@ -21547,6 +21648,10 @@ func (h *Handler) LogcatLivePage(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if !device.Supports("logcat") {
+		http.Error(w, "Live logs aren't available on this device's agent ("+device.KindLabel()+").", http.StatusBadRequest)
 		return
 	}
 	h.render(w, r, "logcat_live.html", map[string]any{

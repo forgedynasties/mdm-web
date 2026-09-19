@@ -64,9 +64,11 @@ for D in $DEVICES; do
   # The agent enrolls in the background and logs "Enrolled — device key issued" once the
   # server accepts the token. Wait for that instead of assuming it: an agent that ignores
   # the extras (too old) or cannot reach the server would otherwise report success here.
+  # grep reads to the end (no -q): with pipefail, an early exit kills logcat with
+  # SIGPIPE and a found line would read as "not enrolled".
   enrolled=""
   for _ in $(seq 1 20); do
-    if $A logcat -d -T "$since" -s MdmService:I 2>/dev/null | grep -q "Enrolled"; then enrolled=1; break; fi
+    if $A logcat -d -T "$since" -s MdmService:I 2>/dev/null | grep "Enrolled" >/dev/null; then enrolled=1; break; fi
     sleep 1
   done
   serial=$($A shell getprop ro.serialno 2>/dev/null | tr -d '\r')

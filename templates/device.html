@@ -44,8 +44,12 @@
       <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><path d="M6 4l12 8M18 4L6 12" stroke="currentColor" stroke-width="1.5"/></svg>No battery
     </span>{{else if .ShowBattery}}<span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
       <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}
-    </span>{{else}}<span class="ddc-chip" title="Mains powered — no battery">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg>AC
+    </span>{{else if .Device.HasBattery}}<span class="ddc-chip" title="This device has a battery but has not reported a reading yet">
+      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/></svg>—
+    </span>{{else if eq .Device.DeviceClass "dongle"}}<span class="ddc-chip" title="TV box / HDMI dongle — mains powered, no battery">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg>TV
+    </span>{{else}}<span class="ddc-chip" role="img" aria-label="Mains powered" title="Mains powered — no battery">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
     </span>{{end}}
     {{/* wlc_status: 1 = device placed, 0 = vacant, 2 = flapping (gpio27 kept disagreeing
          instead of settling — a real hardware symptom, e.g. a loose connector or failing
@@ -218,7 +222,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-id">
       <div class="cc-eyebrow">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
       <div class="dd-title-row">
-        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{else}}{{.Device.SerialNumber}}{{end}}</h1>
+        {{/* Title leads with what the device is (nickname, else the reported model, else
+             its product), serial beside it — the same identity order as the fleet rows. */}}
+        {{$hwModel := .Device.ProductLabel}}{{$rm := extraField .Device.LatestExtra "model"}}{{if and (ne $rm "") (ne $rm "—")}}{{$hwModel = $rm}}{{$rmf := extraField .Device.LatestExtra "manufacturer"}}{{if and (ne $rmf "") (ne $rmf "—")}}{{$hwModel = printf "%s %s" $rmf $rm}}{{end}}{{end}}{{with productName .Device.Product}}{{$hwModel = .}}{{end}}
+        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span></h1>
         {{if not .IsOwner}}<details class="dd-nick{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><summary title="Friendly name shown to restaurant owners, e.g. Table 4"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{{if .Nickname}}Rename{{else}}Name{{end}}</summary><form action="/devices/{{.Device.SerialNumber}}/nickname" method="POST" class="dd-nick-pop" hx-boost="true"><input type="text" name="nickname" class="form-input" placeholder="e.g. Table 4" value="{{.Nickname}}" maxlength="40" style="width:170px;" autofocus><button type="submit" class="cc-btn sm primary">Save</button>{{if .Nickname}}<button type="submit" name="nickname" value="" class="cc-btn sm" title="Remove the name">Clear</button>{{end}}</form></details>
         <style>
         .dd-nick{position:relative;display:inline-block;vertical-align:middle;margin-left:6px}
@@ -229,24 +236,24 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .dd-nick-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);white-space:nowrap}
         .ddc-hero:has(.dd-nick[open]){overflow:visible}
         </style>{{end}}
-        {{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite"><i></i>Offline</span>{{end}}
+        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
              clients don't report it so the tag simply doesn't render for them. */}}
         {{$model := extraField .Device.LatestExtra "model"}}{{$manu := extraField .Device.LatestExtra "manufacturer"}}
-        {{if and (ne $model "") (ne $model "—")}}<span class="cc-tag" title="Hardware model">{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$model}}</span>{{end}}
+        {{if and .Nickname (ne $model "") (ne $model "—")}}<span class="cc-tag" title="Hardware model">{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$model}}</span>{{end}}
         {{if .Device.BuildID}}<span class="cc-tag">{{.Device.BuildID}}</span>{{end}}
         {{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag cc-tag warn" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
-        {{if .IsDPC}}<span class="cc-tag info" tabindex="0" role="note" title="Managed by the AIO MDM Device-Owner agent on a stock device. Actions the agent cannot run are disabled in the Actions menu.">DPC agent</span>{{else}}<span class="cc-tag" title="Our hardware running the system-app client">Firmware</span>{{end}}
-        {{if .Device.Class}}<span class="cc-tag" title="Device type">{{.Device.ClassLabel}}</span>{{end}}
+        {{if .Device.IsMDMLite}}<span class="cc-tag info" tabindex="0" role="note" title="Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection. Actions it cannot run are disabled in the Actions menu.">MDM Lite</span>{{else if .IsDPC}}<span class="cc-tag info" tabindex="0" role="note" title="Managed by the AIO MDM Device-Owner agent on a stock device. Actions the agent cannot run are disabled in the Actions menu.">MDM DPC</span>{{else}}<span class="cc-tag" title="Our hardware running the system-app client">MDM Firmware</span>{{end}}
+        {{if .Device.Class}}<span class="cc-tag" title="Role">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
-      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (not .OTAGate.OK)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .ShowBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
+      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .ShowBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
     </div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <div class="ddc-actions cc-actions">
-      {{if .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
+      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       <button type="button" class="ddc-btn ddc-btn-ai cc-btn" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
@@ -259,12 +266,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button type="button" class="ddc-btn cc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="ddc-menu" id="ddc-actions-menu" hidden>
           <div class="ddc-mcap">Diagnostics</div>
-          {{if supports .Device "logcat"}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"{{if degraded .Device "logcat"}} title="App-scoped logs only on the DPC agent"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs{{if degraded .Device "logcat"}} <span class="cc-tag">limited</span>{{end}}</a>{{else}}<span class="ddc-mi is-disabled" role="note" title="This agent does not report logs."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/></svg>Realtime logs</span>{{end}}
+          {{if supports .Device "logcat"}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"{{if degraded .Device "logcat"}} title="App-scoped logs only on MDM DPC"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs{{if degraded .Device "logcat"}} <span class="cc-tag">limited</span>{{end}}</a>{{else}}<span class="ddc-mi is-disabled" role="note" title="This agent does not report logs."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/></svg>Realtime logs</span>{{end}}
           {{if not (supports .Device "screenshot")}}<span class="ddc-mi is-disabled" role="note" title="Not available on this agent — use Remote Control for a live screen."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</span>{{else}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="screenshot"><button type="submit" class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button></form>{{end}}
           <div class="ddc-msep"></div>
           <div class="ddc-mcap">Device</div>
-          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on the DPC agent"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>
+          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on MDM DPC"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
+          {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
+          {{if supports .Device "app_reload"}}
+          {{/* MDM Lite: control the app that hosts it (the menu board). */}}
+          <div class="ddc-msep"></div>
+          <div class="ddc-mcap">App</div>
+          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_reload"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Reload page</button></form>
+          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_clear_cache"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 21-4-4 11-11 4 4z"/><path d="M11 21h10"/></svg>Clear web cache</button></form>
+          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_update_check"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Check for update</button></form>
+          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Restart the app on {{.Device.SerialNumber}}? The screen goes blank for a few seconds."><input type="hidden" name="type" value="app_restart"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/></svg>Restart app</button></form>
+          {{end}}
           {{if and (supports .Device "wipe") (canAdmin .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>Wipe device</button></form>{{end}}
           <div class="ddc-msep"></div>
           <a class="ddc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>
@@ -284,7 +300,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
        .ddc-ribbon wrapper above); the Kiosk pill and Charging switch live inline in
        the action row, and vitals ride a borderless ghost-chip strip below. */}}
   <style>
-  /* DPC-agent badge + disabled action items (capability-aware device page). */
+  /* MDM DPC badge + disabled action items (capability-aware device page). */
   .ddc-dpc-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent-edge);cursor:default;}
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
   </style>
@@ -524,10 +540,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
        fleet key, DPC devices carry a per-device key from a profile. */}}
   {{if canAdmin .Role}}<div class="ddc-card" id="enrollment-card">
     <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
-    <div class="ddc-kv"><span class="k">Managed by</span><span class="v">{{.Device.KindLabel}}{{if .IsDPC}} <span class="muted small">Device Owner</span>{{else}} <span class="muted small">system app</span>{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Managed by</span><span class="v">{{if .Device.IsMDMLite}}MDM Lite <span class="muted small">in app, no device owner</span>{{else}}{{.Device.KindLabel}}{{if .IsDPC}} <span class="muted small">Device Owner</span>{{else}} <span class="muted small">system app</span>{{end}}{{end}}</span></div>
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Credential</span><span class="v">{{if .IsDPC}}Per-device key{{else}}Fleet device key{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Device type</span><span class="v">{{if canAdminOrOperator .Role}}
+    <div class="ddc-kv"><span class="k">Role</span><span class="v">{{if canAdminOrOperator .Role}}
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/class" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;margin:0">
         <select name="device_class" class="en-sel" style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)" onchange="this.form.submit()">
           <option value="" {{if not .Device.DeviceClass}}selected{{end}}>{{if .Device.Class}}{{.Device.ClassLabel}} (product default){{else}}— not set —{{end}}</option>
@@ -720,7 +736,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{if .ShowBattery}}
   <div id="chart-panel-battery">
     {{/* The pad legend only makes sense on hardware with a wireless charging pad;
-         DPC-agent devices and products without a pad get the plain battery chart. */}}
+         MDM DPC devices and products without a pad get the plain battery chart. */}}
     {{if or .Device.HasWLC .Device.HasCharging}}
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
@@ -2963,8 +2979,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <h3>Installed applications</h3>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-        Install app</button>
+{{if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+        Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
     {{if canOperate .Role}}
@@ -2985,8 +3001,9 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
              without navigating; the server returns 204 + HX-Trigger:device-updated, which
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
-        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();">
-          <input type="hidden" name="type" value="install_apk">
+        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
+          {{/* MDM Lite can't install other apps, only update itself (app_update). */}}
+          <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
           <input type="hidden" name="progress_view" value="1">
@@ -3053,7 +3070,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{/* hx-post + hx-swap="none" + close the popup after: fire the uninstall without
            navigating; the drawer refreshes (device-updated) to show "Uninstalling…". */}}
       <input type="hidden" id="ai-uninstall-pkg" value="">
-      <button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>
+      {{if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
     </div>
     {{end}}
   </div>
@@ -3164,9 +3181,9 @@ window.appInfoOpen = function (el) {
   var host = byId('ai-icon'); host.innerHTML = '';
   var ic = el.querySelector('.app-icon, .app-mono');
   if (ic) { var c = ic.cloneNode(true); c.classList.add('ai-iconimg'); host.appendChild(c); }
-  var form = byId('ai-uninstall-form');
-  if (form) {
-    var btn = byId('ai-uninstall-btn'), note = byId('ai-sysnote');
+  var btn = byId('ai-uninstall-btn');
+  if (btn) {
+    var note = byId('ai-sysnote');
     byId('ai-uninstall-pkg').value = pkg;
     btn.hidden = sys;
     if (note) note.hidden = !sys;
@@ -3367,6 +3384,16 @@ window.doUninstall = function (tile) {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'HX-Request': 'true' },
     body: 'type=uninstall&package=' + encodeURIComponent(pkg)
+  }).then(function (r) {
+    if (r.ok) return;
+    // Refused (e.g. the agent can't uninstall): say why and put the tile back now,
+    // instead of spinning "Uninstalling…" for 30 s and silently reverting.
+    return r.text().then(function (t) {
+      clearInterval(iv); settle();
+      tile.classList.remove('app-uninstalling');
+      var sub = tile.querySelector('.app-tsub.un'); if (sub) sub.remove();
+      if (window.showToast) showToast((t || 'Uninstall failed').trim(), 'error'); else alert((t || 'Uninstall failed').trim());
+    });
   }).catch(function () {});
   var tries = 0;
   var settle = function () { window.__uninstallPending = Math.max(0, (window.__uninstallPending || 1) - 1); };
@@ -3964,7 +3991,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       var online = event.data === 'online';
       if (window.mdmChart) window.mdmChart.setOnline(online);
       badge.className = 'ddc-status ' + (online ? 'on' : 'off');
-      badge.innerHTML = '<i></i>' + (online ? 'Online' : 'Offline');
+      badge.innerHTML = '<i></i>' + (online ? (badge.dataset.labelOn || 'Online') : (badge.dataset.labelOff || 'Offline'));
       badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
       // "Last seen" belongs only to the offline state. It's rendered server-side but
       // was never toggled here, so a device that came back online kept a stale "Last
@@ -4442,7 +4469,7 @@ async function saveNewApp() {
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
-    {{if and (canOperate $.Role) (not $isUn)}}
+    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall")}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
          shows "Uninstalling…" until the device confirms removal. */}}
@@ -4484,7 +4511,7 @@ async function saveNewApp() {
   <h1 class="ov-title">History</h1>
   <span class="ov-date">check-in and action history for this device</span>
   <span class="acts">
-    <a href="/devices/{{.Device.SerialNumber}}/logcat/live" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>Realtime logs</a>
+    {{if supports .Device "logcat"}}<a href="/devices/{{.Device.SerialNumber}}/logcat/live" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>Realtime logs</a>{{end}}
   </span>
 </div>
 

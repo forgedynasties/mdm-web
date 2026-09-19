@@ -51,6 +51,10 @@ type Product struct {
 	// the model IS the category. Empty for non-catalog products: their class is
 	// guessed from the reported model and set per device, not implied by hardware.
 	Class string
+	// DisplayName is what a device of this product is called on its fleet row and
+	// device page (the T7 is sold as "TSAI" — Tableside AI); "" = use Label. Label
+	// stays the product name everywhere products are listed or filtered.
+	DisplayName string
 }
 
 // Keys for the known products. Clients send these verbatim in the check-in payload.
@@ -75,7 +79,7 @@ var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 // catalog is the declared capability set per product. Order here drives dashboard
 // dropdown order (see All).
 var catalog = []Product{
-	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7},
+	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7, DisplayName: "TSAI"},
 	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
@@ -117,6 +121,36 @@ func Resolve(key string) (Product, bool) {
 func CapsFor(key string) Caps {
 	p, _ := Resolve(key)
 	return p.Caps
+}
+
+// CapsForDevice is CapsFor with the device's class applied. A stock device's product
+// key rarely says what the hardware is ("rockchip029"), so the generic caps assume a
+// phone-like battery; the class, once known, overrides that. A dongle (TV box on an
+// HDMI screen) is always mains-powered: no battery, no charger, no pad.
+func CapsForDevice(key, class string) Caps {
+	if class == ClassDongle {
+		return Caps{}
+	}
+	return CapsFor(key)
+}
+
+// BatteryPredicateSQL is a WHERE fragment, for the devices table aliased as `alias`,
+// true only for devices that have a battery — the SQL twin of CapsForDevice().HasBattery.
+// Battery-less devices still store a latest_battery_pct (often 0), and without this
+// every low-battery count and filter would include them.
+func BatteryPredicateSQL(alias string) string {
+	var none []string
+	for _, p := range catalog {
+		if !p.Caps.HasBattery {
+			none = append(none, "'"+p.Key+"'")
+		}
+	}
+	pred := alias + ".device_class <> '" + ClassDongle + "'"
+	if len(none) > 0 {
+		// An empty product resolves to the default (T7), which has a battery.
+		pred += " AND COALESCE(NULLIF(" + alias + ".product, ''), '" + DefaultKey + "') NOT IN (" + strings.Join(none, ", ") + ")"
+	}
+	return "(" + pred + ")"
 }
 
 // Label is the display label for a product key: the catalog label for known keys,

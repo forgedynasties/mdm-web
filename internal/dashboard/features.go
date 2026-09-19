@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"context"
 	"sort"
 	"strconv"
 	"strings"
@@ -852,6 +853,14 @@ var complianceKinds = map[string]string{
 	"min_battery":          "int",
 	"require_build_prefix": "text",
 	"max_offline_hours":    "int",
+	// Security posture, reported by firmware, the DPC agent and MDM-lite alike.
+	"forbid_dev_options":     "",
+	"forbid_unknown_sources": "",
+	"forbid_root":            "",
+	"forbid_network_adb":     "",
+	"require_play_protect":   "",
+	"allowed_accessibility":  "text", // comma-separated allowlist of services (empty: none allowed)
+	"forbid_apps":            "text", // comma-separated package names
 }
 
 // ruleLabel renders a rule as words for the rules list ("Battery at least 30%").
@@ -869,8 +878,34 @@ func ruleLabel(ru db.ComplianceRule) string {
 		return "OS build starts with " + ru.Param
 	case "max_offline_hours":
 		return "Seen within the last " + ru.Param + " hours"
+	case "forbid_dev_options":
+		return "Developer options forbidden"
+	case "forbid_unknown_sources":
+		return "Installs from unknown sources forbidden"
+	case "forbid_root":
+		return "Root (su) forbidden"
+	case "forbid_network_adb":
+		return "ADB over the network forbidden"
+	case "require_play_protect":
+		return "Play Protect required"
+	case "allowed_accessibility":
+		if strings.TrimSpace(ru.Param) == "" {
+			return "No accessibility services"
+		}
+		return "Accessibility services only: " + ru.Param
+	case "forbid_apps":
+		return "Apps forbidden: " + ru.Param
 	}
 	return ru.Kind
+}
+
+// splitList parses a rule's comma/space-separated parameter into a set.
+func splitList(param string) map[string]bool {
+	out := map[string]bool{}
+	for _, f := range strings.FieldsFunc(param, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' }) {
+		out[strings.TrimSpace(f)] = true
+	}
+	return out
 }
 
 // complianceIssues evaluates every enabled rule against one device and returns
@@ -878,11 +913,21 @@ func ruleLabel(ru db.ComplianceRule) string {
 // latest_extra) are unknown, not failures — a fleet of legacy T7 clients doesn't
 // go red the moment a posture rule is added. Shared by CompliancePage and the
 // compliance CSV report so the two can never disagree.
-func complianceIssues(rules []db.ComplianceRule, d db.Device) []complianceIssue {
+//
+// installed is the device's installed packages that appear in a forbid_apps rule
+// (nil when no such rule is enabled).
+func complianceIssues(rules []db.ComplianceRule, d db.Device, installed map[string]bool) []complianceIssue {
 	var posture struct {
-		ScreenLockSet    *bool `json:"screen_lock_set"`
-		AdbEnabled       *bool `json:"adb_enabled"`
-		StorageEncrypted *bool `json:"storage_encrypted"`
+		ScreenLockSet    *bool     `json:"screen_lock_set"`
+		AdbEnabled       *bool     `json:"adb_enabled"`
+		StorageEncrypted *bool     `json:"storage_encrypted"`
+		DevOptions       *bool     `json:"dev_options_enabled"`
+		UnknownSources   *bool     `json:"unknown_sources"`
+		UnknownApps      []string  `json:"unknown_source_apps"`
+		SuPresent        *bool     `json:"su_present"`
+		AdbTCP           *bool     `json:"adb_tcp"`
+		PlayProtect      *bool     `json:"play_protect"`
+		Accessibility    *[]string `json:"accessibility_services"`
 	}
 	if len(d.LatestExtra) > 0 {
 		_ = json.Unmarshal(d.LatestExtra, &posture)
@@ -918,6 +963,53 @@ func complianceIssues(rules []db.ComplianceRule, d db.Device) []complianceIssue 
 			if n, err := strconv.Atoi(ru.Param); err == nil && n > 0 && time.Since(d.LastSeenAt) > time.Duration(n)*time.Hour {
 				text = fmt.Sprintf("Offline for more than %d hours", n)
 			}
+		case "forbid_dev_options":
+			if posture.DevOptions != nil && *posture.DevOptions {
+				text = "Developer options enabled"
+			}
+		case "forbid_unknown_sources":
+			if posture.UnknownSources != nil && *posture.UnknownSources {
+				text = "Unknown sources allowed"
+				if len(posture.UnknownApps) > 0 {
+					text += " (" + strings.Join(posture.UnknownApps, ", ") + ")"
+				}
+			}
+		case "forbid_root":
+			if posture.SuPresent != nil && *posture.SuPresent {
+				text = "Rooted: su binary present"
+			}
+		case "forbid_network_adb":
+			if posture.AdbTCP != nil && *posture.AdbTCP {
+				text = "ADB listening on the network"
+			}
+		case "require_play_protect":
+			if posture.PlayProtect != nil && !*posture.PlayProtect {
+				text = "Play Protect off"
+			}
+		case "allowed_accessibility":
+			if posture.Accessibility != nil {
+				allowed := splitList(ru.Param)
+				var extra []string
+				for _, s := range *posture.Accessibility {
+					if !allowed[s] && !allowed[strings.SplitN(s, "/", 2)[0]] {
+						extra = append(extra, s)
+					}
+				}
+				if len(extra) > 0 {
+					text = "Unexpected accessibility service: " + strings.Join(extra, ", ")
+				}
+			}
+		case "forbid_apps":
+			var found []string
+			for p := range splitList(ru.Param) {
+				if installed[p] {
+					found = append(found, p)
+				}
+			}
+			if len(found) > 0 {
+				sort.Strings(found)
+				text = "Forbidden app installed: " + strings.Join(found, ", ")
+			}
 		}
 		if text != "" {
 			issues = append(issues, complianceIssue{Text: text, Severity: ru.Severity})
@@ -931,8 +1023,21 @@ func complianceIssues(rules []db.ComplianceRule, d db.Device) []complianceIssue 
 // warn-only failures show amber but don't break compliance.
 func (h *Handler) evaluateCompliance(rules []db.ComplianceRule, devs []db.Device) (rows []complianceRow, compliant int) {
 	rows = make([]complianceRow, 0, len(devs))
+	// Installed packages matter only for forbid_apps: load just the forbidden ones.
+	var forbidden []string
+	for _, ru := range rules {
+		if ru.Enabled && ru.Kind == "forbid_apps" {
+			for p := range splitList(ru.Param) {
+				forbidden = append(forbidden, p)
+			}
+		}
+	}
+	var installed map[uuid.UUID]map[string]bool
+	if len(forbidden) > 0 {
+		installed, _ = h.db.DevicesWithPackages(context.Background(), forbidden)
+	}
 	for _, d := range devs {
-		issues := complianceIssues(rules, d)
+		issues := complianceIssues(rules, d, installed[d.ID])
 		row := complianceRow{
 			Serial:    d.SerialNumber,
 			Build:     d.BuildID,
@@ -1046,8 +1151,13 @@ func (h *Handler) ComplianceRuleCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		param = strconv.Itoa(n)
 	case "text":
-		if param == "" {
-			h.hxDoneToast(w, r, "/compliance", "This rule needs a build prefix (e.g. AT07)", "error")
+		// An empty accessibility allowlist is meaningful: no service allowed at all.
+		if param == "" && kind != "allowed_accessibility" {
+			msg := "This rule needs a build prefix (e.g. AT07)"
+			if kind == "forbid_apps" {
+				msg = "List at least one package name"
+			}
+			h.hxDoneToast(w, r, "/compliance", msg, "error")
 			return
 		}
 	}
@@ -1345,9 +1455,9 @@ func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "settings.agent_apk", u, "")
-	msg := "DPC agent APK saved — QR cold-provisioning is on"
+	msg := "MDM DPC APK saved — QR cold-provisioning is on"
 	if u == "" || sum == "" {
-		msg = "DPC agent APK cleared — QR cold-provisioning is off"
+		msg = "MDM DPC APK cleared — QR cold-provisioning is off"
 	}
 	h.hxDoneToast(w, r, "/settings", msg, "success")
 }

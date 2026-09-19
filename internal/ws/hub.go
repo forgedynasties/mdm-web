@@ -106,11 +106,27 @@ type Hub struct {
 	// keep reflecting the real socket state, not a display-smoothed one.
 	presenceMu       sync.Mutex
 	lastDisconnectAt map[uuid.UUID]time.Time
+	// checkinSeenAt is the display presence of devices that never hold a socket
+	// (MDM-lite): the time until which a device counts as present after its last
+	// check-in (CheckinPresence in the foreground, BackgroundCheckinPresence otherwise).
+	checkinSeenAt map[uuid.UUID]time.Time
 }
 
 // PresenceGrace is how long a device still shows "Online" after its socket
 // actually drops, purely for display.
 const PresenceGrace = 30 * time.Second
+
+// CheckinPresence is how long an MDM-lite check-in keeps a device shown as present:
+// two and a half of its one-minute check-in intervals, so one late or lost check-in
+// does not flip it.
+const CheckinPresence = 150 * time.Second
+
+// BackgroundCheckinPresence is the same for a check-in from an MDM-lite app that is not
+// in the foreground: it then checks in from a 15-minute background job, so it stays
+// present for two of those intervals plus slack rather than flipping to "not reporting"
+// ninety percent of the time. (Doze can stretch the job further on an idle phone on
+// battery; mains-powered menu boards do not doze.)
+const BackgroundCheckinPresence = 35 * time.Minute
 
 // presenceGrace kept as an unexported alias so existing call sites in this file
 // don't all need renaming.
@@ -159,6 +175,7 @@ func NewHub() *Hub {
 		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
 		pingWaiters:    make(map[string]chan struct{}),
 		lastDisconnectAt: make(map[uuid.UUID]time.Time),
+		checkinSeenAt:    make(map[uuid.UUID]time.Time),
 	}
 }
 
@@ -546,8 +563,22 @@ func (h *Hub) IsConnectedForDisplay(deviceID uuid.UUID) bool {
 	}
 	h.presenceMu.Lock()
 	t, ok := h.lastDisconnectAt[deviceID]
+	seen, checkedIn := h.checkinSeenAt[deviceID]
 	h.presenceMu.Unlock()
-	return ok && time.Since(t) < presenceGrace
+	return (ok && time.Since(t) < presenceGrace) || (checkedIn && time.Now().Before(seen))
+}
+
+// MarkCheckinPresence records a check-in from a device that has no live connection
+// (MDM-lite). Display only, like presenceGrace: IsConnected stays false, so nothing
+// ever tries to push to it.
+func (h *Hub) MarkCheckinPresence(deviceID uuid.UUID, foreground bool) {
+	ttl := CheckinPresence
+	if !foreground {
+		ttl = BackgroundCheckinPresence
+	}
+	h.presenceMu.Lock()
+	h.checkinSeenAt[deviceID] = time.Now().Add(ttl)
+	h.presenceMu.Unlock()
 }
 
 // ConnectedIDs returns the set of device IDs with active connections.
@@ -571,6 +602,11 @@ func (h *Hub) ConnectedIDsForDisplay() map[uuid.UUID]struct{} {
 	now := time.Now()
 	for id, t := range h.lastDisconnectAt {
 		if now.Sub(t) < presenceGrace {
+			ids[id] = struct{}{}
+		}
+	}
+	for id, t := range h.checkinSeenAt {
+		if now.Before(t) {
 			ids[id] = struct{}{}
 		}
 	}
