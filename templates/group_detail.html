@@ -155,7 +155,7 @@ function dpAddSubmit(e, gid) {
     </div>
   </div>
   {{end}}
-  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel)}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel "Classic" $.ClassicCards)}}
   {{end}}
   {{end}}
 {{end}}

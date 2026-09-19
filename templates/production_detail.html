@@ -84,7 +84,7 @@
     <div><b>No devices connected yet</b>Devices will appear here once they check in to AIO MDM for the first time.</div>
   </div>
   {{else}}
-  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs)}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "Classic" $.ClassicCards)}}
   {{end}}
 </div>
 </div>

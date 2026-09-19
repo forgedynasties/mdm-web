@@ -3,9 +3,11 @@
      Used by the fleet table and by device rosters on other pages.
      Each card is two lines: who it is (name, model · agent · build, status) over
      how it is (power, temperature, RAM), with the worst problem on the right. */}}
+{{/* Fleet cards: the stat-block layout, or the classic one when the viewer chose it
+     (Classic = the fleet_layout cookie, passed in by each caller). The type-icon sprite
+     and the row-click handler serve both, and the side rail's icons too. */}}
 {{define "device-cards"}}
-<div class="dl-list">
-  <svg class="dl-icons" width="0" height="0" aria-hidden="true" focusable="false">
+<svg class="dl-icons" width="0" height="0" aria-hidden="true" focusable="false">
     <symbol id="dk-t7" viewBox="0 0 24 24"><path d="M5.5 19.5V6.6A2.8 2.8 0 0 1 7.9 3.8Q12 3.2 16.1 3.8A2.8 2.8 0 0 1 18.5 6.6v12.9a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M10.5 3.4v1.6h3V3.4"/><rect x="7.8" y="7.2" width="8.4" height="9.8" rx=".6"/><path d="M10.3 18.9h3.4"/><path d="M3.5 22.2h17"/></symbol>
     <symbol id="dk-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
     <symbol id="dk-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
@@ -21,6 +23,109 @@
     <symbol id="dk-batx" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor" stroke="none"/><path d="M7 4l9 6M16 4l-9 6" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="dk-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </svg>
+{{if .Classic}}{{template "device-cards-classic" .}}{{else}}{{template "device-cards-new" .}}{{end}}
+<script>
+// The whole card opens the device (same as its arrow link, so the fleet inspector
+// still catches it); controls inside the card and text selection keep their own
+// behaviour. Registered once — the list is re-rendered by htmx swaps.
+if (!window.__dlRowNav) {
+  window.__dlRowNav = true;
+  document.addEventListener('click', function (e) {
+    var card = e.target.closest && e.target.closest('.dl-card');
+    if (!card || e.target.closest('a, button, input, label, select, form, .dl-legacy-tag')) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length) return;
+    var link = card.querySelector('.dl-view');
+    if (!link) return;
+    if (e.metaKey || e.ctrlKey) { window.open(link.href, '_blank'); return; }
+    link.click();
+  });
+
+  // Shift-click range select: tick one box, shift-click another, and every box in
+  // between takes the clicked box's new state (like a mail client). The anchor is
+  // the last box clicked without shift; it survives list re-renders by serial.
+  var anchorSerial = null;
+  document.addEventListener('click', function (e) {
+    var cb = e.target.closest && e.target.closest('.dl-card .device-cb');
+    if (!cb) return;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.dl-list .device-cb'));
+    var from = anchorSerial ? boxes.findIndex(function (b) { return b.value === anchorSerial; }) : -1;
+    if (e.shiftKey && from >= 0) {
+      var to = boxes.indexOf(cb), lo = Math.min(from, to), hi = Math.max(from, to);
+      for (var i = lo; i <= hi; i++) boxes[i].checked = cb.checked;
+      if (window.getSelection) { try { window.getSelection().removeAllRanges(); } catch (_) {} }
+      if (typeof updateBulkBar === 'function') updateBulkBar();
+    }
+    anchorSerial = cb.value;
+  });
+}
+</script>
+{{end}}
+
+{{/* Classic (pre-redesign) fleet cards, kept for people who prefer them: the
+     Layout switch on the fleet page stores the choice in the fleet_layout cookie. */}}
+{{define "device-cards-classic"}}
+<div class="dl-list classic">
+  {{range .Devices}}
+  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
+    {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
+    {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
+    <div class="dl-bat">
+      {{if eq .DeviceClass "dongle"}}
+      {{/* TV box / HDMI dongle: mains-powered by design, so no battery or AC reading —
+           the chip says what the device is. */}}
+      <span class="dl-chip dl-tv" role="img" aria-label="TV box" title="TV box / HDMI dongle — mains powered, no battery">
+        <span class="bat-glyph"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg></span>
+        <span class="battery-label">TV</span>
+      </span>
+      {{else if batteryMissing .LatestExtra}}
+      {{/* Product has a battery but the device says the pack is absent (NTC fault or
+           unplugged): distinct from the kiosk mains chip, which is by design. */}}
+      <span class="dl-chip battery-low" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.">
+        <span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><path d="M6 4l12 8M18 4L6 12" stroke="currentColor" stroke-width="1.5"/></svg></span>
+        <span class="battery-label">None</span>
+      </span>
+      {{else if .HasBattery}}
+      <span class="dl-chip {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%">
+        {{if $flap}}<span class="bat-glyph dl-flap" title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping — faulty charger suspected"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if and .HasCharging (charging .LatestExtra)}}<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{else}}<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg></span>{{end}}
+        <span class="battery-label">{{.BatteryPct}}%</span>
+      </span>
+      {{else}}
+      {{/* No battery (wall-powered kiosk): a power-socket icon instead of a
+           meaningless 0% battery reading. */}}
+      <span class="dl-chip dl-mains" role="img" aria-label="Mains powered" title="Mains powered — no battery">
+        <span class="bat-glyph"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span>
+      </span>
+      {{end}}
+    </div>
+    <div class="dl-id">
+      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
+      {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+           product key ("a14xmtfn" means nothing to a human); T7s report no model and
+           keep their catalog label. */}}
+      <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
+      <span class="dl-onboard">{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
+    </div>
+    <div class="dl-metrics">
+      <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-m" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      {{if .HasBattery}}<span class="dl-m" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
+    </div>
+    <div class="dl-status-col">
+      {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}{{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
+      {{if .IsMDMLite}}<span class="dl-synced" data-always="1">Last check-in {{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}">Last seen {{timeSince .LastSeenAt}}</span>{{end}}
+    </div>
+    <div class="dl-act">
+      {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
+      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "device-cards-new"}}
+<div class="dl-list">
   {{range .Devices}}
   {{$kind := deviceIcon .}}
   <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}">
@@ -63,42 +168,6 @@
   </div>
   {{end}}
 </div>
-<script>
-// The whole card opens the device (same as its arrow link, so the fleet inspector
-// still catches it); controls inside the card and text selection keep their own
-// behaviour. Registered once — the list is re-rendered by htmx swaps.
-if (!window.__dlRowNav) {
-  window.__dlRowNav = true;
-  document.addEventListener('click', function (e) {
-    var card = e.target.closest && e.target.closest('.dl-card');
-    if (!card || e.target.closest('a, button, input, label, select, form, .dl-legacy-tag')) return;
-    var sel = window.getSelection && window.getSelection();
-    if (sel && String(sel).length) return;
-    var link = card.querySelector('.dl-view');
-    if (!link) return;
-    if (e.metaKey || e.ctrlKey) { window.open(link.href, '_blank'); return; }
-    link.click();
-  });
-
-  // Shift-click range select: tick one box, shift-click another, and every box in
-  // between takes the clicked box's new state (like a mail client). The anchor is
-  // the last box clicked without shift; it survives list re-renders by serial.
-  var anchorSerial = null;
-  document.addEventListener('click', function (e) {
-    var cb = e.target.closest && e.target.closest('.dl-card .device-cb');
-    if (!cb) return;
-    var boxes = Array.prototype.slice.call(document.querySelectorAll('.dl-list .device-cb'));
-    var from = anchorSerial ? boxes.findIndex(function (b) { return b.value === anchorSerial; }) : -1;
-    if (e.shiftKey && from >= 0) {
-      var to = boxes.indexOf(cb), lo = Math.min(from, to), hi = Math.max(from, to);
-      for (var i = lo; i <= hi; i++) boxes[i].checked = cb.checked;
-      if (window.getSelection) { try { window.getSelection().removeAllRanges(); } catch (_) {} }
-      if (typeof updateBulkBar === 'function') updateBulkBar();
-    }
-    anchorSerial = cb.value;
-  });
-}
-</script>
 {{end}}
 
 {{/* Lean device list — serial + one action button, nothing else. Used in place of
@@ -288,6 +357,12 @@ if (!window.__dlRowNav) {
     </div>
     {{end}}
   </div>
+  {{/* Layout switch: stat-block rows (new) or the classic cards; the choice lives in
+       the fleet_layout cookie so the server renders it directly. */}}
+  <div class="layout-seg" role="group" aria-label="Card layout">
+    <button type="button" class="{{if not .ClassicCards}}on{{end}}" aria-pressed="{{if .ClassicCards}}false{{else}}true{{end}}" onclick="setFleetLayout('new')" title="New layout">New</button>
+    <button type="button" class="{{if .ClassicCards}}on{{end}}" aria-pressed="{{if .ClassicCards}}true{{else}}false{{end}}" onclick="setFleetLayout('classic')" title="Classic layout">Classic</button>
+  </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
     <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
     <button type="button" data-cols="2" onclick="setCols(2)" title="2 columns" aria-label="Two columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="6.5" height="14" rx="1"/><rect x="13.5" y="5" width="6.5" height="14" rx="1"/></svg></button>
@@ -295,8 +370,29 @@ if (!window.__dlRowNav) {
   </div>
 </div>
 
+{{if not .ClassicCards}}
+<div class="fl-intro" id="fl-layout-intro" role="dialog" aria-modal="true" aria-labelledby="fl-intro-t" hidden>
+  <div class="fl-intro-box">
+    <div class="fl-intro-t" id="fl-intro-t">The fleet has a new layout</div>
+    <p>Devices now show their power, type and vitals in aligned columns. Prefer the old cards?</p>
+    <div class="fl-intro-acts">
+      <button type="button" class="cc-btn" onclick="setFleetLayout('classic')">Switch to old layout</button>
+      <button type="button" class="cc-btn primary" onclick="fleetIntroDone()">Keep the new layout</button>
+    </div>
+    <div class="fl-intro-note">You can change this any time with the New / Classic switch above the list.</div>
+  </div>
+</div>
+<script>
+(function () {
+  var seen = false;
+  try { seen = localStorage.getItem('fleet-layout-intro') === '1'; } catch (_) { seen = true; }
+  var el = document.getElementById('fl-layout-intro');
+  if (el && !seen) el.hidden = false;
+})();
+</script>
+{{end}}
 {{if .Devices}}
-{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true)}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards)}}
 {{else}}
 <div class="dl-list">
   <div class="empty-state" style="padding:40px 20px;">
@@ -401,10 +497,29 @@ a.fleet-rail-item{min-height:40px}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */
+/* New / Classic card layout switch, and the one-time intro */
+.layout-seg{display:inline-flex;margin-left:auto;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.layout-seg button{height:28px;padding:0 11px;border:0;background:var(--surface);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.layout-seg button+button{border-left:1px solid var(--border)}
+.layout-seg button:hover{color:var(--text-2);background:var(--hover)}
+.layout-seg button.on{background:var(--accent-soft);color:var(--accent-text)}
+.layout-seg + .cols-seg{margin-left:8px}
+.fl-intro{position:fixed;inset:0;z-index:80;background:var(--overlay);display:flex;align-items:center;justify-content:center;padding:16px}
+.fl-intro[hidden]{display:none}
+.fl-intro-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-pop,0 20px 60px rgba(0,0,0,.25));max-width:440px;width:100%;padding:22px 22px 18px}
+.fl-intro-t{font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px;color:var(--text)}
+.fl-intro-box p{margin:0 0 16px;color:var(--text-2);font-size:14px;line-height:1.5}
+.fl-intro-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.fl-intro-note{margin-top:12px;font-size:12px;color:var(--text-faint)}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
-.fleet-rail-cls.empty{opacity:.55}
+/* a product with no devices yet: same row height, dimmed, "Coming soon" instead of 0 */
+.fleet-rail-cls.rc-soon .rc-ic{opacity:.55}
+.fleet-rail-cls.rc-soon .rc-soon-nm{color:var(--muted)}
+.fleet-rail-cls .nm{min-width:0}
+.fleet-rail-cls .rc-soon-nm{display:flex;flex-direction:column;line-height:1.15;font-weight:500}
+.rc-soon-sub{font-size:10px;font-weight:500;color:var(--text-faint);letter-spacing:.01em}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
@@ -447,8 +562,8 @@ a.fleet-rail-item{min-height:40px}
     {{if .RailClasses}}
     <div class="fleet-rail-cap"><span>Products</span></div>
     {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
-    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} empty{{end}}" href="/devices?class={{.Class}}">
-      <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span><span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>
+    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} rc-soon{{end}}" href="/devices?class={{.Class}}">
+      <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{if .N}}<span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>{{else}}<span class="nm rc-soon-nm">{{classLabel .Class}}<span class="rc-soon-sub">Coming soon</span></span>{{end}}
     </a>
     {{end}}
     {{end}}
@@ -910,6 +1025,18 @@ function clearFilters() {
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
+// Card layout (New / Classic): a cookie the server reads when rendering the cards, so
+// the choice holds across pages, reloads and live refreshes.
+function setFleetLayout(v) {
+  document.cookie = 'fleet_layout=' + (v === 'classic' ? 'classic' : 'new') + '; path=/; max-age=31536000; samesite=lax';
+  try { localStorage.setItem('fleet-layout-intro', '1'); } catch (_) {}
+  location.reload();
+}
+function fleetIntroDone() {
+  try { localStorage.setItem('fleet-layout-intro', '1'); } catch (_) {}
+  var el = document.getElementById('fl-layout-intro'); if (el) el.hidden = true;
+}
+
 function selectCollection(type, id) {
   var ov = {page: '1', group: '', restaurant: ''};
   if (type === 'group') ov.group = id;
@@ -1870,6 +1997,35 @@ document.addEventListener('keydown', function(e) {
       // (the pill would vanish on live patch and only return on a full reload).
       var rel = card.querySelector('.dl-buildid');
       if (rel) rel.textContent = d.build_id;
+
+      // Classic layout: the old battery chip (see device-cards-classic).
+      var chip = card.querySelector('.dl-chip');
+      if (chip && d.battery_missing) {
+        // Pack absent on a product that has one (NTC fault / unplugged). Distinct from
+        // the kiosk mains chip below, and never repainted as a percentage.
+        chip.className = 'dl-chip battery-low';
+        chip.setAttribute('aria-label', 'No battery detected');
+        chip.setAttribute('title', 'No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.');
+        chip.innerHTML = '<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><path d="M6 4l12 8M18 4L6 12" stroke="currentColor" stroke-width="1.5"/></svg></span><span class="battery-label">None</span>';
+      } else if (chip && chip.classList.contains('dl-tv')) {
+        // TV box / dongle: the chip names the device, it carries no live reading.
+      } else if (chip && !d.has_battery) {
+        // Wall-powered kiosk: keep the mains socket chip; never repaint it as a battery
+        // (which would show a bogus 0%). Mirrors the server-rendered dl-mains chip.
+        chip.className = 'dl-chip dl-mains';
+        chip.setAttribute('aria-label', 'Mains powered');
+        chip.setAttribute('title', 'Mains powered — no battery');
+        chip.innerHTML = '<span class="bat-glyph"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span>';
+      } else if (chip) {
+        chip.className = 'dl-chip ' + d.battery_class;
+        chip.setAttribute('aria-label', 'Battery ' + d.battery_pct + '%');
+        var glyph = d.flapping
+          ? '<span class="bat-glyph dl-flap" title="Charger flapping — charging toggling ~' + d.flap_rate + '×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping — faulty charger suspected"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>'
+          : d.charging
+          ? '<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>'
+          : '<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + Math.max(2, Math.round(d.battery_pct * 18 / 100)) + '" height="9" rx="1.5" fill="currentColor"/></svg></span>';
+        chip.innerHTML = glyph + '<span class="battery-label">' + d.battery_pct + '%</span>';
+      }
 
       // Power glyph (mirrors the device-cards template). TV boxes have no battery by
       // design, so they never repaint as a pack reading or a missing pack.
