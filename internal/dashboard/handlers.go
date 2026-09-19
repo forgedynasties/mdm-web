@@ -1293,7 +1293,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// panel class draws as a kiosk; unknown or unset classes get the generic chip.
 		"deviceIcon": func(dev db.Device) string {
 			switch c := dev.Class(); c {
-			case "t7", "kiosk", "tablet", "mpos", "pos", "dongle":
+			case "t7", "kiosk", "tablet", "mpos", "pos", "dongle", "kds", "payment":
 				return c
 			case "panel":
 				return "kiosk"
@@ -21442,6 +21442,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
+	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.

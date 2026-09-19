@@ -29,18 +29,24 @@ func IsStockAgent(agentType string) bool {
 	return agentType == KindDPC || agentType == AgentTypeMDMLite
 }
 
-// Device classes (form factor / role). Stored on devices.device_class; empty means
+// Device roles — what a device does in the restaurant, following the AIO lineup
+// (aioapp.com): POS terminal, self-order kiosk, kitchen display, menu board,
+// Tableside AI (our T7), handheld, payment terminal. Keys are the historical class
+// keys ("dongle" is the menu board, "mpos" the handheld) so stored rows need no
+// migration; only the labels changed. Stored on devices.device_class; empty means
 // "derive from product" (firmware) or "not set yet" (DPC devices enrolled without a
 // class on the profile). Classes are display + filtering axes only: nothing is gated on
 // them, capabilities do that.
 const (
-	ClassT7     = "t7"     // our T7 — the model IS the category, not a generic tablet
-	ClassKiosk  = "kiosk"  // self-service kiosk, ours (Kiosk 18/22/27) or outsourced
-	ClassTablet = "tablet" // stock Android tablet (DPC-managed)
-	ClassMPOS   = "mpos"   // mobile point of sale
-	ClassPOS    = "pos"    // counter point of sale
-	ClassDongle = "dongle" // Android TV stick / box on an HDMI screen (leanback, remote-driven)
-	ClassOther  = "other"
+	ClassT7      = "t7"      // our T7 — the model IS the category, not a generic tablet
+	ClassKiosk   = "kiosk"   // self-service kiosk, ours (Kiosk 18/22/27) or outsourced
+	ClassTablet  = "tablet"  // stock Android tablet (DPC-managed)
+	ClassMPOS    = "mpos"    // mobile point of sale
+	ClassPOS     = "pos"     // counter point of sale
+	ClassDongle  = "dongle"  // Android TV stick / box on an HDMI screen (leanback, remote-driven)
+	ClassKDS     = "kds"     // kitchen display
+	ClassPayment = "payment" // payment terminal running our agent
+	ClassOther   = "other"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
 	// offers it, so IsClass rejects it on new admin input.
@@ -49,7 +55,7 @@ const (
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassT7, ClassKiosk, ClassTablet, ClassMPOS, ClassPOS, ClassDongle, ClassOther}
+	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassKDS, ClassT7, ClassMPOS, ClassPayment, ClassTablet, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
@@ -57,19 +63,21 @@ func Classes() []string {
 func ClassLabel(class string) string {
 	switch strings.ToLower(strings.TrimSpace(class)) {
 	case ClassT7:
-		return "T7"
+		return "Tableside AI"
 	case ClassTablet:
 		return "Tablet"
-	case ClassPanel:
-		return "Panel"
-	case ClassKiosk:
-		return "Kiosk"
+	case ClassPanel, ClassKiosk:
+		return "Self-order kiosk"
 	case ClassMPOS:
-		return "mPOS"
+		return "Handheld"
 	case ClassPOS:
-		return "POS"
+		return "POS terminal"
 	case ClassDongle:
-		return "Dongle"
+		return "Menu board"
+	case ClassKDS:
+		return "Kitchen display"
+	case ClassPayment:
+		return "Payment terminal"
 	case ClassOther:
 		return "Other"
 	case "":

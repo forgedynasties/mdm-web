@@ -106,11 +106,12 @@ func TestCatalogClasses(t *testing.T) {
 			t.Error("Classes() still offers the retired panel class")
 		}
 	}
-	if got := ClassLabel(ClassPanel); got != "Panel" {
-		t.Errorf("ClassLabel(panel): got %q, want Panel", got)
+	// A retired panel row renders as the kiosk role it became.
+	if got := ClassLabel(ClassPanel); got != "Self-order kiosk" {
+		t.Errorf("ClassLabel(panel): got %q, want Self-order kiosk", got)
 	}
-	if got := ClassLabel(ClassT7); got != "T7" {
-		t.Errorf("ClassLabel(t7): got %q, want T7", got)
+	if got := ClassLabel(ClassT7); got != "Tableside AI" {
+		t.Errorf("ClassLabel(t7): got %q, want Tableside AI", got)
 	}
 }
 

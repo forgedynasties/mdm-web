@@ -12,6 +12,8 @@
     <symbol id="dk-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
     <symbol id="dk-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
     <symbol id="dk-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+    <symbol id="dk-kds" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M6 7h4M6 10h4M14 7h4M14 10h4M12 16v4M8 20h8"/></symbol>
+    <symbol id="dk-payment" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><rect x="8.5" y="4.5" width="7" height="5" rx="1"/><path d="M9 13h.01M12 13h.01M15 13h.01M9 16h.01M12 16h.01M15 16h.01M9 19h6"/></symbol>
     <symbol id="dk-other" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
     <symbol id="dk-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></symbol>
     <symbol id="dk-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></symbol>
@@ -192,7 +194,7 @@ if (!window.__dlRowNav) {
 {{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
+  {{if .FilterClass}}<span class="fchip"><span class="k">Role</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -265,7 +267,7 @@ if (!window.__dlRowNav) {
     <div class="ss-sec">
       <div class="ss-lbl">Admin</div>
       <div class="ss-grid">
-        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the device type (tablet, panel, kiosk…)">Set type</button>
+        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the role of the selected devices">Set role</button>
         <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
         <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:contents;" onsubmit="return confirmBulkHide(event)">
           <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
@@ -445,7 +447,7 @@ a.fleet-rail-item{min-height:40px}
     {{/* Device types: one entry per class that has devices; the type icon doubles as
          the bullet so the rail matches the fleet rows. */}}
     {{if .RailClasses}}
-    <div class="fleet-rail-cap"><span>Device types</span></div>
+    <div class="fleet-rail-cap"><span>Roles</span></div>
     {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
     <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}" href="/devices?class={{.Class}}">
       <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span><span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>
@@ -646,9 +648,9 @@ a.fleet-rail-item{min-height:40px}
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>MDM DPC</option>
             <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
           </select></label>{{end}}
-        <label class="fp-field"><span>Device type</span>
+        <label class="fp-field"><span>Role</span>
           <select id="filter-class" onchange="applyFilters()">
-            <option value="">Any type</option>
+            <option value="">Any role</option>
             {{range .Classes}}<option value="{{.}}" {{if eq . $.FilterClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
           </select></label>
         <label class="fp-field"><span>Product</span>
@@ -2137,7 +2139,7 @@ document.addEventListener('keydown', function(e) {
 <div id="bulk-class-modal" class="modal-backdrop" onclick="ssClose('bulk-class-modal', event)">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Set device type</span>
+      <span class="modal-title">Set role</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-class-modal')">&times;</button>
     </div>
     <div class="modal-body">

@@ -161,7 +161,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       </div>
       <div class="en-pane" data-pane="fw">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Nothing to scan</div><div class="t">Our own hardware ships with the system-app client. It authenticates with the fleet device key and registers itself on first check-in.</div></div></div>
-        <div class="en-step"><div class="en-num">2</div><div><div class="b">It lands in the inbox</div><div class="t">Give it a site (and a device type if the product default is wrong), press Done. That is the whole enrollment.</div></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">It lands in the inbox</div><div class="t">Give it a site (and a role if the model default is wrong), press Done. That is the whole enrollment.</div></div></div>
         {{if canAdmin .Role}}
         <div class="en-kv"><span class="k">Server URL</span><span class="v">{{.ServerURL}}</span></div>
         <div class="en-kv"><span class="k">Fleet device key</span><span class="v"><span>{{.DeviceKeyMask}}</span> <button type="button" class="en-copy" onclick="enCopy(this, document.getElementById('en-key-real').value)">Copy</button></span></div>
@@ -184,7 +184,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       {{/* hx-boost off: these mutations redirect back to a re-rendered page (a boosted 204 would leave the modal open). */}}
       <form id="en-modal-form" method="POST" action="/enrollment/profiles" class="en-form" hx-boost="false">
         <div class="full"><label for="en-f-name">Name</label><input id="en-f-name" name="name" required placeholder="e.g. mPOS rollout, Downtown"></div>
-        <div><label for="en-f-class">Device type</label>
+        <div><label for="en-f-class">Role</label>
           <select id="en-f-class" name="device_class"><option value="">— not set —</option>{{range .Classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}</select>
           <div class="hint">What these devices are for. Filters and icons only.</div></div>
         <div><label for="en-f-site">Site</label>

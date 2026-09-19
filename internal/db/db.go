@@ -1504,6 +1504,12 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		}
 		if err := json.Unmarshal(extra, &ident); err == nil && prod.IsStockAgent(ident.AgentType) {
 			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
+			// An admin-set role for this model (Products page) beats the guess.
+			if product != "" {
+				if role, _ := d.ProductRole(ctx, product); role != "" {
+					guessedClass = role
+				}
+			}
 		}
 	}
 

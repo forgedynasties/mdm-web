@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -46,13 +47,18 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		Key, Display, Reported, Catalog string
 		Known                           bool
 		Devices, Firmware, DPC, Lite    int
-		Name, UpdatedBy                 string
+		Name, Role, UpdatedBy           string
 	}
 	var ours, stock []view
 	for _, p := range rows {
 		v := view{
 			Key: p.Key, Known: product.IsKnown(p.Key), Reported: modelLabel(p.Manufacturer, p.Model),
-			Devices: p.Devices, Firmware: p.Firmware, DPC: p.DPC, Lite: p.Lite, Name: p.Name, UpdatedBy: p.UpdatedBy,
+			Devices: p.Devices, Firmware: p.Firmware, DPC: p.DPC, Lite: p.Lite, Name: p.Name, Role: p.Role, UpdatedBy: p.UpdatedBy,
+		}
+		if v.Known {
+			// Our boards carry their role in the catalog (T7 → Tableside AI, Kiosk → kiosk).
+			cp, _ := product.Resolve(p.Key)
+			v.Role = cp.Class
 		}
 		v.Catalog = product.Label(p.Key)
 		v.Display = productLabel(p.Key)
@@ -63,9 +69,10 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "products.html", map[string]any{
-		"Title": "Products",
-		"Ours":  ours,
-		"Stock": stock,
+		"Title":   "Products",
+		"Ours":    ours,
+		"Stock":   stock,
+		"Classes": product.Classes(),
 	})
 }
 
@@ -94,6 +101,31 @@ func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 	msg := "Renamed to " + name
 	if name == "" {
 		msg = "Name reset — showing what the devices report"
+	}
+	h.hxDoneToast(w, r, "/products", msg, "success")
+}
+
+// ProductSetRole sets a stock model's default role and applies it to the model's devices.
+func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
+	key := product.Normalize(r.PathValue("key"))
+	if key == "" || product.IsKnown(key) {
+		h.hxDoneToast(w, r, "/products", "Our own hardware takes its role from the catalog", "error")
+		return
+	}
+	role := strings.TrimSpace(r.FormValue("role"))
+	if role != "" && !product.IsClass(role) {
+		h.hxDoneToast(w, r, "/products", "Unknown role", "error")
+		return
+	}
+	n, err := h.db.SetProductRole(r.Context(), key, role, h.currentUsername(r))
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "product.role", key, role)
+	msg := "Role cleared — new devices of this model will need one"
+	if role != "" {
+		msg = fmt.Sprintf("%s set as the role · %d device%s updated", product.ClassLabel(role), n, map[bool]string{true: "", false: "s"}[n == 1])
 	}
 	h.hxDoneToast(w, r, "/products", msg, "success")
 }

@@ -4715,6 +4715,10 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-ic.pos { background: #ece9e4; color: #4a453e; }
 .dl-ic.tablet { background: #e3edfa; color: #285aab; }
 .dl-ic.other { background: #efece7; color: #6b655c; }
+.dl-ic.kds { background: #fde8ef; color: #b0305f; }
+.dl-ic.payment { background: #e6f0f7; color: #1f5f85; }
+html[data-theme="dark"] .dl-ic.kds { background: rgba(176,48,95,.24); color: #f193b6; }
+html[data-theme="dark"] .dl-ic.payment { background: rgba(31,95,133,.28); color: #8cc3e6; }
 html[data-theme="dark"] .dl-ic.t7 { background: rgba(201,68,45,.2); color: #f0907d; }
 html[data-theme="dark"] .dl-ic.kiosk { background: rgba(79,85,204,.24); color: #a9adf5; }
 html[data-theme="dark"] .dl-ic.dongle { background: rgba(15,114,99,.26); color: #6fd1bf; }
