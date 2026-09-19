@@ -256,7 +256,7 @@ if (!window.__dlRowNav) {
      views. Counts follow the current scope (see Devices handler). */}}
 {{define "fleet-product-tabs"}}{{if .RailClasses}}
       <button type="button" class="ptab{{if not .FilterClass}} on{{end}}" role="tab" aria-selected="{{if .FilterClass}}false{{else}}true{{end}}" onclick="setProductTab('')">All products</button>
-      {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
+      {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} zero{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
 {{end}}{{end}}
 
 {{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>{{end}}
@@ -272,10 +272,9 @@ if (!window.__dlRowNav) {
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterClass}}<span class="fchip"><span class="k">Product</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -521,6 +520,8 @@ a.fleet-rail-item{min-height:40px}
 .ptab{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 10px;border-radius:99px;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);background:none;border:1px solid transparent;cursor:pointer;white-space:nowrap}
 .ptab:first-child{padding-left:13px}
 .ptab:hover{background:var(--surface2);color:var(--text)}
+.ptab.zero:not(.on){color:var(--text-faint)}
+.ptab.zero:not(.on) .ptab-ic{opacity:.5}
 .ptab.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 .ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
 .ptab.on .n{color:var(--accent-text)}

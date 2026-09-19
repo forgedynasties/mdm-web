@@ -4722,24 +4722,37 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
 	}
-	// Product tabs above the roster: one per product (role) present in the current scope
-	// (collection, search, the Filters panel), counted without the product itself or the
-	// Online/Offline quick views, so the tabs stay put while those change. Most devices
-	// first; products with none here are not shown (the Products page lists them all).
+	// Product tabs above the roster: one per product (role) the fleet has, counted in the
+	// current scope (collection, search, the Filters panel) without the product itself or
+	// the Online/Offline quick views, so the tabs stay put while those change. A product
+	// with none in this scope keeps its tab at 0 (so picking a restaurant doesn't make the
+	// others vanish); one the fleet has no devices of at all is not shown. Order is by the
+	// fleet-wide count, so the tabs don't reshuffle as the scope changes.
 	var railClasses []db.ClassCount
 	{
 		scope := filter
 		scope.Class, scope.Online, scope.Battery, scope.Kiosk = "", "", "", ""
+		fleet := db.DeviceFilter{Hidden: filter.Hidden, Lifecycle: filter.Lifecycle, OnlyIDs: filter.OnlyIDs}
+		fleetN := map[string]int{}
 		for _, c := range product.Classes() {
+			ff := fleet
+			ff.Class = c
+			total, err := h.db.CountDevices(r.Context(), ff)
+			if err != nil || (total == 0 && c != filter.Class) {
+				continue
+			}
 			f := scope
 			f.Class = c
-			if n, err := h.db.CountDevices(r.Context(), f); err == nil && (n > 0 || c == filter.Class) {
-				railClasses = append(railClasses, db.ClassCount{Class: c, N: n})
+			n, err := h.db.CountDevices(r.Context(), f)
+			if err != nil {
+				continue
 			}
+			fleetN[c] = total
+			railClasses = append(railClasses, db.ClassCount{Class: c, N: n})
 		}
 		// (stable insertion sort: "sort" is a query parameter in this handler)
 		for i := 1; i < len(railClasses); i++ {
-			for j := i; j > 0 && railClasses[j].N > railClasses[j-1].N; j-- {
+			for j := i; j > 0 && fleetN[railClasses[j].Class] > fleetN[railClasses[j-1].Class]; j-- {
 				railClasses[j], railClasses[j-1] = railClasses[j-1], railClasses[j]
 			}
 		}
