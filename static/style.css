@@ -4694,8 +4694,8 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
    and actions sit at the same x on every row whatever a device reports. The vitals
    are labelled blocks (small caps label over value); a missing reading is "—". */
 .dl-card { display: grid; align-items: center; column-gap: 16px; padding: 12px 18px;
-  grid-template-columns: 18px 140px minmax(200px, 1.6fr) 84px 64px 64px 140px auto;
-  grid-template-areas: "cb lead id tp rm cy st act";
+  grid-template-columns: 18px minmax(280px, 1.8fr) 84px 64px 64px 140px auto;
+  grid-template-areas: "cb lead tp rm cy st act";
   border-bottom: 1px solid var(--border-soft); background: var(--surface); cursor: pointer;
   transition: background var(--dur) var(--ease); }
 .dl-card:first-of-type { border-top: 1px solid var(--border-soft); }
@@ -4723,7 +4723,7 @@ html[data-theme="dark"] .dl-ic.pos, html[data-theme="dark"] .dl-ic.other { backg
 html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: #8fb6f0; }
 
 /* identity: name + tags, then serial · build · agent */
-.dl-card > .dl-id { grid-area: id; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dl-card .dl-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .dl-card .dl-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .dl-card .dl-l1 .dl-serial.dl-lead { font-family: inherit; font-size: 14px; font-weight: 600; min-width: 0; }
 .dl-card .dl-l1 .dl-ktag { margin: 0; }
@@ -4738,9 +4738,9 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 /* vitals: display:contents so each block is a grid column of the card */
 .dl-stats { display: contents; }
 .dl-blk { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
-/* power glyph + type tile as one group right after the checkbox; the group's
-   column is fixed so the identity column still lines up across rows */
+/* power glyph, type tile and identity as one group right after the checkbox */
 .dl-card > .dl-lead { grid-area: lead; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dl-lead > .dl-ic { margin-right: 2px; }
 .dl-pw .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-blk[data-m="temp"] { grid-area: tp; }
 .dl-blk[data-m="ram"] { grid-area: rm; }
@@ -4861,8 +4861,8 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 /* Compact (narrow pane or multi-column): identity and status on top, the vitals
    as one wrapped strip underneath; build and cycles drop out. */
 @container (max-width: 760px) {
-  .dl-card { grid-template-columns: 18px 136px minmax(0, 1fr) auto auto;
-    grid-template-areas: "cb lead id st act" "cb lead vs vs act"; row-gap: 8px; column-gap: 12px; }
+  .dl-card { grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
   .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
   .dl-rel, .dl-blk[data-m="cycles"] { display: none; }
   .dl-ic { width: 34px; height: 34px; }
@@ -4875,8 +4875,8 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
   .cols-seg { display: inline-flex; }
   .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft);
-    grid-template-columns: 18px 136px minmax(0, 1fr) auto auto;
-    grid-template-areas: "cb lead id st act" "cb lead vs vs act"; row-gap: 8px; column-gap: 12px; }
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas: "cb lead st act" "cb vs vs act"; row-gap: 8px; column-gap: 12px; }
   .dl-list.cols-2 .dl-stats, .dl-list.cols-3 .dl-stats { display: flex; grid-area: vs; gap: 20px; flex-wrap: wrap; }
   .dl-list.cols-2 :is(.dl-rel, .dl-blk[data-m="cycles"]), .dl-list.cols-3 :is(.dl-rel, .dl-blk[data-m="cycles"]) { display: none; }
   .dl-list.cols-2 .dl-ic, .dl-list.cols-3 .dl-ic { width: 34px; height: 34px; }

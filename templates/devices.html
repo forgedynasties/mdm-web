@@ -25,21 +25,21 @@
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
-    <span class="dl-lead">
+    <div class="dl-lead">
       <span class="dl-pw" data-m="power"><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg><span class="v">{{.BatteryPct}}%</span>{{if $flap}}<span class="g-sm flap" title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"><svg viewBox="0 0 24 24"><use href="#dk-flap"/></svg></span>{{else if and .HasCharging (charging .LatestExtra)}}<span class="g-sm chg" title="Charging"><svg viewBox="0 0 24 24"><use href="#dk-bolt"/></svg></span>{{end}}</span>{{else}}<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
       <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
-    </span>
-    <div class="dl-id">
-      <div class="dl-l1">
-        {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
-             product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}
-        <a href="/devices/{{.SerialNumber}}" class="dl-serial dl-lead link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a>
-        {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
-        {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
-        {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
-        {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
+      <div class="dl-id">
+        <div class="dl-l1">
+          {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}
+          <a href="/devices/{{.SerialNumber}}" class="dl-serial dl-lead link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a>
+          {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
+          {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
+          {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
+          {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
+        </div>
+        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{if .IsMDMLite}}MDM-lite{{else if .IsDPC}}DPC agent{{else}}Firmware{{end}}</span></div>
       </div>
-      <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{if .IsMDMLite}}MDM-lite{{else if .IsDPC}}DPC agent{{else}}Firmware{{end}}</span></div>
     </div>
     {{/* Vitals as labelled blocks, one fixed column each, so values line up down the
          list whatever a device lacks ("—" rather than a missing cell). Power sits first,
