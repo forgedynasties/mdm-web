@@ -1455,9 +1455,9 @@ func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "settings.agent_apk", u, "")
-	msg := "DPC agent APK saved — QR cold-provisioning is on"
+	msg := "MDM DPC APK saved — QR cold-provisioning is on"
 	if u == "" || sum == "" {
-		msg = "DPC agent APK cleared — QR cold-provisioning is off"
+		msg = "MDM DPC APK cleared — QR cold-provisioning is off"
 	}
 	h.hxDoneToast(w, r, "/settings", msg, "success")
 }

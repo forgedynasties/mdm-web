@@ -103,7 +103,7 @@ func ForAgentKind(kind string) (v Verdict, ok bool) {
 	if !product.IsStockAgent(kind) {
 		return Verdict{}, false
 	}
-	return Verdict{Reason: "OTA is for AIO firmware devices only — this device is managed by the DPC agent", Source: SourceDPC}, true
+	return Verdict{Reason: "OTA is for AIO firmware devices only — this device is managed by MDM DPC", Source: SourceDPC}, true
 }
 
 // ReportedExtra reads the firmware client's own answer out of a check-in's extra

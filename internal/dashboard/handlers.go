@@ -20276,7 +20276,7 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if device.IsDPC() {
-		h.hxDoneToast(w, r, "/devices/"+serial, "The DPC agent reads its server from its own config, not this property", "error")
+		h.hxDoneToast(w, r, "/devices/"+serial, "MDM DPC reads its server from its own config, not this property", "error")
 		return
 	}
 	r.ParseForm()

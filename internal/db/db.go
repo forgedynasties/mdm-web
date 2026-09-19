@@ -158,7 +158,7 @@ func (d Device) KindLabel() string {
 	case d.IsMDMLite():
 		return "MDM-lite"
 	case d.IsDPC():
-		return "DPC agent"
+		return "MDM DPC"
 	}
 	return "MDM Pro" // the system-app client on our own firmware
 }
