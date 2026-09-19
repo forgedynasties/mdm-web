@@ -388,9 +388,16 @@ a.fleet-rail-item{min-height:40px}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */
-.fleet-prods{margin-top:-4px}
+/* product row: a quieter second tier — "Product" caption, square-ish chips without
+   borders, and the secondary (periwinkle) accent so it never reads as a status view */
+.fleet-prods{margin-top:-6px;align-items:center;gap:4px}
 .fleet-prods:empty{display:none}
-.fleet-view.fleet-prod{min-height:32px;font-size:12.5px;padding-top:4px;padding-bottom:4px}
+.fleet-prods::before{content:"Product";font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-right:6px}
+.fleet-view.fleet-prod{min-height:28px;height:28px;padding:0 10px;font-size:12.5px;font-weight:500;border-radius:8px!important;border-color:transparent;background:transparent;color:var(--text-2)}
+.fleet-view.fleet-prod:hover{background:var(--surface2);border-color:transparent}
+.fleet-view.fleet-prod .n{font-size:10.5px}
+.fleet-view.fleet-prod.on{background:var(--accent-2-soft);border-color:transparent;color:var(--accent-2);font-weight:600}
+.fleet-view.fleet-prod.on .n{color:var(--accent-2)}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
