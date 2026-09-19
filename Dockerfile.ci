@@ -1,0 +1,28 @@
+# CI image: the runtime stage of Dockerfile, around a server binary already compiled on
+# the runner (deploy.yml builds it with a warm Go cache right after the tests). Building
+# Go inside Docker in CI recompiled the whole tree every time — BuildKit cache mounts are
+# not kept by the GitHub cache — so this cuts the image build from ~85 s to seconds.
+# Keep in step with the final stage of Dockerfile.
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+
+COPY server .
+COPY templates/ templates/
+COPY static/    static/
+
+RUN addgroup -S mdm && adduser -S -G mdm -H mdm \
+    && mkdir -p /app/data \
+    && chown -R mdm:mdm /app/data
+USER mdm
+
+EXPOSE 8082
+
+# --start-interval probes every 2 s while starting (Docker 25+; older engines ignore it
+# and use --interval), so a deploy sees "healthy" seconds after boot instead of ~15 s.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8082}/health" || exit 1
+
+CMD ["./server"]
