@@ -371,15 +371,14 @@ if (!window.__dlRowNav) {
 </div>
 
 {{if not .ClassicCards}}
-<div class="fl-intro" id="fl-layout-intro" role="dialog" aria-modal="true" aria-labelledby="fl-intro-t" hidden>
-  <div class="fl-intro-box">
+<div class="fl-intro" id="fl-layout-intro" role="region" aria-labelledby="fl-intro-t" hidden>
+  <div class="fl-intro-txt">
     <div class="fl-intro-t" id="fl-intro-t">The fleet has a new layout</div>
-    <p>Devices now show their power, type and vitals in aligned columns. Prefer the old cards?</p>
-    <div class="fl-intro-acts">
-      <button type="button" class="cc-btn" onclick="setFleetLayout('classic')">Switch to old layout</button>
-      <button type="button" class="cc-btn primary" onclick="fleetIntroDone()">Keep the new layout</button>
-    </div>
-    <div class="fl-intro-note">You can change this any time with the New / Classic switch above the list.</div>
+    <p>Devices now show their power, type and vitals in aligned columns. Prefer the old cards? You can change this any time with the New / Classic switch above.</p>
+  </div>
+  <div class="fl-intro-acts">
+    <button type="button" class="cc-btn sm" onclick="setFleetLayout('classic')">Switch to old layout</button>
+    <button type="button" class="cc-btn sm primary" onclick="fleetIntroDone()">Keep the new layout</button>
   </div>
 </div>
 <script>
@@ -504,13 +503,13 @@ a.fleet-rail-item{min-height:40px}
 .layout-seg button:hover{color:var(--text-2);background:var(--hover)}
 .layout-seg button.on{background:var(--accent-soft);color:var(--accent-text)}
 .layout-seg + .cols-seg{margin-left:8px}
-.fl-intro{position:fixed;inset:0;z-index:80;background:var(--overlay);display:flex;align-items:center;justify-content:center;padding:16px}
+/* one-time banner at the start of the list (inline, not an overlay) */
+.fl-intro{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0;padding:14px 18px;background:var(--accent-soft);border-bottom:1px solid var(--accent-edge)}
 .fl-intro[hidden]{display:none}
-.fl-intro-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-pop,0 20px 60px rgba(0,0,0,.25));max-width:440px;width:100%;padding:22px 22px 18px}
-.fl-intro-t{font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px;color:var(--text)}
-.fl-intro-box p{margin:0 0 16px;color:var(--text-2);font-size:14px;line-height:1.5}
-.fl-intro-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.fl-intro-note{margin-top:12px;font-size:12px;color:var(--text-faint)}
+.fl-intro-txt{flex:1;min-width:240px}
+.fl-intro-t{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
+.fl-intro-txt p{margin:0;color:var(--text-2);font-size:13px;line-height:1.45}
+.fl-intro-acts{display:flex;gap:8px;flex-wrap:wrap;flex:none}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
