@@ -4746,7 +4746,7 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .dl-card > .dl-lead { grid-area: lead; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dl-lead > .dl-ic { margin-right: 2px; }
 /* power slot: one fixed width for plug and battery alike, so the type tiles line up */
-.dl-lead > .dl-pw { width: 30px; flex: none; display: flex; justify-content: center; }
+.dl-lead > .dl-pw { width: 38px; flex: none; display: flex; justify-content: center; }
 .dl-pw .pv { height: auto; }
 /* battery: the % as small text over a compact glyph; charging / flapping is a
    small mark inside the pack rather than extra width */
@@ -4756,9 +4756,15 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .pw-bat.battery-low .v { color: var(--danger); }
 .pw-bat .gb { position: relative; display: inline-flex; }
 .pw-bat .g-bat { width: 22px; height: 12px; }
-.pw-bat .ov { position: absolute; left: 5px; top: 1.5px; width: 9px; height: 9px; }
-.pw-bat .ov.chg { color: var(--surface); filter: drop-shadow(0 0 .6px var(--ok)); }
-.pw-bat .ov.flap { left: 5.5px; fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; background: var(--surface); border-radius: 2px; }
+/* charging / charger-fault mark right after the percentage. The number box and the
+   mark slot are fixed on every row (the slot is empty when there is no mark), so the
+   power column never changes width and every percentage ends at the same x. */
+.pw-bat .v { display: flex; align-items: center; }
+.pw-bat .pc { width: 27px; text-align: right; }
+.pw-bat .mk-s { width: 11px; padding-left: 1px; display: inline-flex; justify-content: center; }
+.pw-bat .mk { width: 9px; height: 9px; flex: none; }
+.pw-bat .mk.chg { color: var(--ok); }
+.pw-bat .mk.flap { fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .dl-blk[data-m="temp"] { grid-area: tp; }
 .dl-blk[data-m="ram"] { grid-area: rm; }
 .dl-blk[data-m="cycles"] { grid-area: cy; }
