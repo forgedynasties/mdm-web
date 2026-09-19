@@ -8765,6 +8765,10 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
 		"Device":              device,
+		// Same rule as the full page. Missing here, every live refresh fell through to the
+		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment
+		// after the page opened.
+		"ShowBattery":         device.HasBattery() && deviceReportsBattery(device, nil),
 		"Role":                h.role(r), // the mic-gain chip is admin-only
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ChargerFlapRate":     flapRate,
