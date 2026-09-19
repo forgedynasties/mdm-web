@@ -1998,6 +1998,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
+	// Fleet cards layout the viewer picked (Layout toggle on the fleet page).
+	if c, err := r.Cookie("fleet_layout"); err == nil && c.Value == "classic" {
+		data["ClassicCards"] = true
+	}
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
@@ -4714,8 +4718,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
+		// Most devices first; ties keep lineup order; empty ("coming soon") ones last.
 		for _, c := range product.Classes() {
 			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
+		}
+		// (stable insertion sort: "sort" is a query parameter in this handler)
+		for i := 1; i < len(railClasses); i++ {
+			for j := i; j > 0 && railClasses[j].N > railClasses[j-1].N; j-- {
+				railClasses[j], railClasses[j-1] = railClasses[j-1], railClasses[j]
+			}
 		}
 	}
 

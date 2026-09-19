@@ -4905,6 +4905,102 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
   .dl-list.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+/* Classic fleet cards (the pre-redesign layout), for viewers who switch back with the
+   fleet page's Layout toggle. Every rule is scoped to .dl-list.classic so it can't leak
+   into the stat-block rows, and outranks them on the classic markup. */
+.dl-list.classic {display: flex; flex-direction: column;}
+.dl-list.classic .dl-card {display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
+  grid-template-areas: "cb bat id metrics status act";
+  align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
+  background: var(--surface); transition: background var(--dur) var(--ease);}
+.dl-list.classic .dl-card:first-child {border-top: 1px solid var(--border-soft);}
+.dl-list.classic .dl-card:hover {background: var(--hover);}
+.dl-list.classic .dl-card.row-selected {background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent);}
+.dl-list.classic .dl-card > .device-cb {width: 15px; height: 15px; grid-area: cb;}
+.dl-list.classic .dl-card > .dl-cb-spacer {grid-area: cb; width: 0;}
+.dl-list.classic .dl-card > .dl-bat {grid-area: bat;}
+.dl-list.classic .dl-card > .dl-id {grid-area: id;}
+.dl-list.classic .dl-card > .dl-metrics {grid-area: metrics; align-self: start; min-width: 104px;}
+.dl-list.classic .dl-card > .dl-status-col {grid-area: status; align-self: start; min-width: 124px;}
+.dl-list.classic .dl-card > .dl-act {grid-area: act;}
+.dl-list.classic .dl-bat {display: flex; align-items: center; flex: none;}
+.dl-list.classic .dl-chip {display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap;}
+.dl-list.classic .dl-chip .bat-glyph {display: inline-flex;}
+.dl-list.classic .dl-chip .bat-glyph svg {display: block;}
+.dl-list.classic .dl-chip.battery-ok {background: rgba(43, 182, 115, .13); color: #1c7d50;}
+.dl-list.classic .dl-chip.battery-mid {background: rgba(232, 161, 58, .15); color: #9a6512;}
+.dl-list.classic .dl-chip.battery-low {background: rgba(229, 72, 77, .13); color: #b4282d;}
+html[data-theme="dark"] .dl-list.classic .dl-chip.battery-ok {background: rgba(43, 182, 115, .2); color: #5fd49a;}
+html[data-theme="dark"] .dl-list.classic .dl-chip.battery-mid {background: rgba(232, 161, 58, .22); color: #f0b765;}
+html[data-theme="dark"] .dl-list.classic .dl-chip.battery-low {background: rgba(229, 72, 77, .22); color: #f08a8d;}
+.dl-list.classic .dl-id {display: flex; flex-direction: column; gap: 2px; min-width: 0;}
+.dl-list.classic .dl-id-top {display: flex; align-items: center; gap: 6px; min-width: 0;}
+.dl-list.classic .dl-serial {display: inline; font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--text); background: none; padding: 0; border: 0; border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.dl-list.classic .dl-serial:hover {color: var(--accent-text); background: none; text-decoration: underline;}
+.dl-list.classic .dl-kiosk {color: var(--muted); display: inline-flex; flex: none;}
+.dl-list.classic .dl-flap {color: var(--warn); display: inline-flex; flex: none; vertical-align: -1px;}
+.dl-list.classic .dl-hidden-tag {font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: none;
+  color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px;}
+.dl-list.classic .dl-rel {font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.dl-list.classic .dl-onboard {font-size: 10.5px; color: var(--text-faint); white-space: nowrap;}
+.dl-list.classic .dl-product {display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px;
+  background: var(--surface-2, rgba(127,127,127,.14)); color: var(--text-faint);
+  font-family: var(--sans, inherit); font-size: 10px; letter-spacing: .02em; vertical-align: middle;}
+.dl-list.classic .dl-chip.dl-mains {color: var(--muted);}
+.dl-list.classic .dl-chip.dl-tv {color: var(--text);}
+.dl-list.classic .dl-status-col {display: flex; flex-direction: column; gap: 2px; white-space: nowrap;}
+.dl-list.classic .dl-status {font-size: 12.5px; font-weight: 600;}
+.dl-list.classic .dl-status i {display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle;}
+.dl-list.classic .dl-status.on {color: var(--ok);}
+.dl-list.classic .dl-status.on i {background: var(--ok);}
+.dl-list.classic .dl-status.off {color: var(--muted);}
+.dl-list.classic .dl-status.off i {background: var(--text-faint);}
+.dl-list.classic .dl-synced {font-size: 11px; color: var(--text-faint);}
+.dl-list.classic .dl-synced.hidden {display: none;}
+.dl-list.classic .dl-legacy-tag {display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;
+  border-radius: 99px; font-weight: 600; white-space: nowrap; cursor: help;
+  background: rgba(122,128,246,.10); color: #5a4bd0; border: 1px solid transparent;}
+.dl-list.classic .dl-legacy-tag {margin-top: 4px; padding: 1px 7px; font-size: 10px;}
+html[data-theme="dark"] .dl-list.classic .dl-legacy-tag {background: rgba(122,128,246,.2); color: #b3a8f5;}
+.dl-list.classic .dl-metrics {display: flex; flex-direction: column; gap: 2px; white-space: nowrap;}
+.dl-list.classic .dl-m {display: flex; align-items: baseline; gap: 6px; font-size: 12px;}
+.dl-list.classic .dl-m .k {font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); min-width: 30px;}
+.dl-list.classic .dl-m .v {font-weight: 600; font-variant-numeric: tabular-nums;}
+.dl-list.classic .dl-m .v.muted {color: var(--text-faint); font-weight: 500;}
+.dl-list.classic .dl-act {display: flex; align-items: center; gap: 10px; justify-self: end;}
+.dl-list.classic .dl-view {display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  padding: 0; border: 0; border-radius: 8px; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease);}
+.dl-list.classic .dl-view:hover {background: var(--accent-soft); color: var(--accent-text);}
+.dl-list.classic .dl-x {width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer;}
+.dl-list.classic .dl-x:hover {border-color: var(--danger-edge); color: var(--danger);}
+.dl-list.classic .dl-unhide:hover {border-color: var(--accent-edge); color: var(--accent-text);}
+@container (max-width: 680px) {
+  .dl-list.classic .dl-card {grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "cb id  status act"
+      "cb bat status act";
+    gap: 5px 14px;}
+  .dl-list.classic .dl-metrics {display: none;}
+  .dl-list.classic .dl-rel, .dl-list.classic .dl-onboard {display: none;}
+}
+@container (min-width: 640px) {
+  .dl-list.classic.cols-2, .dl-list.classic.cols-3 {display: grid; grid-template-columns: 1fr 1fr;}
+  .dl-list.classic.cols-2 .dl-card, .dl-list.classic.cols-3 .dl-card {grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "cb id  status act"
+      "cb bat status act";
+    gap: 5px 14px;}
+  .dl-list.classic.cols-2 .dl-metrics, .dl-list.classic.cols-3 .dl-metrics {display: none;}
+  .dl-list.classic.cols-2 .dl-rel, .dl-list.classic.cols-2 .dl-onboard, .dl-list.classic.cols-3 .dl-rel, .dl-list.classic.cols-3 .dl-onboard {display: none;}
+  .dl-list.classic.cols-2 .dl-card, .dl-list.classic.cols-3 .dl-card {border-right: 1px solid var(--border-soft);}
+}
+@container (min-width: 930px) {
+  .dl-list.classic.cols-3 {grid-template-columns: 1fr 1fr 1fr;}
+}
+
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */
 .fleet-sortpop { width: 230px; }
 .sortpop { display: flex; flex-direction: column; gap: 2px; }
