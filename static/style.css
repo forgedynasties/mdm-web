@@ -4797,6 +4797,7 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .dl-l1 .dl-status { display: inline-flex; align-items: center; flex: none; }
 .dl-l1 .dl-status i { width: 8px; height: 8px; border-radius: 50%; margin: 0; background: var(--text-faint); }
 .dl-l1 .dl-status.on i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.dl-l1 .dl-status.checkin i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
 .dl-l1 .dl-synced { font-size: 11.5px; color: var(--text-faint); opacity: .8; white-space: nowrap; }
 .dl-l1 .dl-synced.hidden { display: none; }
 .dl-card .dl-l3 { font-family: var(--mono); font-size: 11px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -4960,6 +4961,8 @@ html[data-theme="dark"] .dl-list.classic .dl-chip.battery-low {background: rgba(
 .dl-list.classic .dl-status i {display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle;}
 .dl-list.classic .dl-status.on {color: var(--ok);}
 .dl-list.classic .dl-status.on i {background: var(--ok);}
+.dl-list.classic .dl-status.checkin {color: var(--warn);}
+.dl-list.classic .dl-status.checkin i {background: var(--warn);}
 .dl-list.classic .dl-status.off {color: var(--muted);}
 .dl-list.classic .dl-status.off i {background: var(--text-faint);}
 .dl-list.classic .dl-synced {font-size: 11px; color: var(--text-faint);}

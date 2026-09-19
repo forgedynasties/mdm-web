@@ -721,6 +721,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// isLegacyBuild reports whether a build ID is on the configured legacy (WS-incapable)
 		// firmware list — such devices only HTTP check-in and never hold a live WebSocket.
 		"isLegacyBuild": cfg.IsLegacyBuild,
+		// legacyCheckingIn: a legacy device counts as checking in (yellow dot) while its
+		// last HTTP check-in is within legacyWindowSecs (3 check-in intervals).
+		"legacyCheckingIn": func(t time.Time) bool {
+			return !t.IsZero() && time.Since(t) < time.Duration(3*cfg.CheckinInterval())*time.Second
+		},
+		"legacyWindowSecs": func() int { return 3 * cfg.CheckinInterval() },
 		// extraStr reads one string key out of a device's latest_extra JSON blob.
 		"extraStr": func(extra json.RawMessage, key string) string {
 			var m map[string]any
@@ -12753,6 +12759,51 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 		selProduct = ""
 	}
 
+	// Arriving from the fleet page with a selection (?serials=): an OTA targets one
+	// product of our own firmware, so the selection must be MDM Firmware devices of a
+	// single model — that model is then preselected. Anything else goes back to the
+	// fleet with the reason (covers "select all N matching", which the page can't check).
+	if raw := strings.TrimSpace(r.URL.Query().Get("serials")); raw != "" && r.URL.Query().Get("product") == "" && r.URL.Query().Get("release") == "" {
+		var serials []string
+		for _, sn := range strings.Split(raw, ",") {
+			if sn = strings.TrimSpace(sn); sn != "" {
+				serials = append(serials, sn)
+			}
+		}
+		if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil && len(ids) > 0 {
+			if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
+				models := map[string]bool{}
+				notFirmware := 0
+				for _, d := range devs {
+					if d.IsDPC() {
+						notFirmware++
+						continue
+					}
+					models[d.ProductKey()] = true
+				}
+				var why string
+				switch {
+				case notFirmware > 0:
+					why = fmt.Sprintf("Push update is only for MDM Firmware devices — %d of the selected are MDM DPC / MDM Lite.", notFirmware)
+				case len(models) > 1:
+					var names []string
+					for k := range models {
+						names = append(names, productLabel(k))
+					}
+					sort.Strings(names)
+					why = "Select devices of one model to push an update (selected: " + strings.Join(names, ", ") + ")."
+				}
+				if why != "" {
+					http.Redirect(w, r, "/devices?flash="+url.QueryEscape(why)+"&flash_type=error", http.StatusFound)
+					return
+				}
+				for k := range models {
+					selProduct = k
+				}
+			}
+		}
+	}
+
 	// Which products actually have something to push, so the picker never offers a
 	// dead end. ListDeployableReleases doesn't carry the product, so resolve each.
 	prodOf := map[int]string{}
@@ -12784,6 +12835,9 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 		"PushProducts":        products,
 		"SelectedProduct":     selProduct,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	}
+	if raw := r.URL.Query().Get("serials"); raw != "" {
+		data["PreSerials"] = parseSerialsField([]string{raw})
 	}
 	// Groups and restaurants power the target selector (deploy to a whole group/venue,
 	// mirroring the Actions target picker). resolveEligibleDevices resolves them server-side.
