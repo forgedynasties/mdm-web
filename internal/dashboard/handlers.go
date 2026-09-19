@@ -1406,6 +1406,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"joinLines": func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
 		"classes":    product.Classes,
+		// extraBool reads a boolean from latest_extra (false when absent or not a bool).
+		"extraBool": func(raw []byte, key string) bool {
+			var m map[string]json.RawMessage
+			if json.Unmarshal(raw, &m) != nil {
+				return false
+			}
+			var b bool
+			return json.Unmarshal(m[key], &b) == nil && b
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
@@ -4693,17 +4702,21 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
 	}
-	// Device types rail: every class with at least one active device (stored class,
-	// else the product's catalog class). Unassigned devices aren't listed.
-	railClasses, _, _, _ := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC())
+	// Products rail (roles): stored class, else the product's catalog class.
+	// Every role is listed, in lineup order, even with no devices yet (the lineup is
+	// being brought onto the MDM a role at a time).
+	var railClasses []db.ClassCount
 	{
-		kept := railClasses[:0:0]
-		for _, c := range railClasses {
-			if c.Class != "" {
-				kept = append(kept, c)
+		counts := map[string]int{}
+		if cc, _, _, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
+			for _, c := range cc {
+				counts[c.Class] += c.N
 			}
 		}
-		railClasses = kept
+		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
+		for _, c := range product.Classes() {
+			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
+		}
 	}
 
 	// For a detail view, the active collection's health entry (header + stats).
@@ -14140,6 +14153,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		allActions := []palAction{
 			{Type: "install_apk", Name: "Install app", Desc: "push apps from the library, silently", Payload: "apps"},
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
+			{Type: "app_update", Name: "Update app", Desc: "install a newer version of the MDM Lite app itself", Payload: "apps"},
 			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
@@ -14901,7 +14915,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe",
-			"app_reload", "app_restart", "app_clear_cache", "app_update_check"} {
+			"app_reload", "app_restart", "app_clear_cache", "app_update_check", "app_update"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
@@ -15769,6 +15783,7 @@ var commandRoles = map[string][]string{
 	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
 	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
 	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
+	"app_update":       {"admin", "dev", "operator", "user_manager", "super_op"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
@@ -16110,6 +16125,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Clear web cache"
 	case "app_update_check":
 		return "Check for update"
+	case "app_update":
+		return "Update app"
 	case "logcat":
 		return "Log capture"
 	case "ota":

@@ -404,6 +404,7 @@ a.fleet-rail-item{min-height:40px}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
+.fleet-rail-cls.empty{opacity:.55}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
@@ -446,7 +447,7 @@ a.fleet-rail-item{min-height:40px}
     {{if .RailClasses}}
     <div class="fleet-rail-cap"><span>Products</span></div>
     {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
-    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}" href="/devices?class={{.Class}}">
+    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} empty{{end}}" href="/devices?class={{.Class}}">
       <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span><span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>
     </a>
     {{end}}
