@@ -4734,6 +4734,9 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 .dl-card .dl-l1 .dl-legacy-tag { margin: 0; }
 .dl-card .dl-l2 { display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; }
 .dl-l2 .dl-model { font-size: 12px; color: var(--text-2); }
+/* the product role (Menu board, Self-order kiosk, …) leads the second line */
+.dl-l2 .dl-role { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.dl-l2 .dl-role::after, .dl-l2 .dl-model::after { content: "·"; margin-left: 8px; color: var(--text-faint); font-weight: 400; }
 .dl-l2 .dl-sn { font-family: var(--mono); font-size: 12px; color: var(--text-2); }
 .dl-l2 .dl-buildid { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
 .dl-l2 .dl-agent { font-size: 12px; color: var(--text-faint); }

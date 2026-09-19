@@ -145,7 +145,7 @@ if (!window.__dlRowNav) {
           {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
           {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
         </div>
-        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{.KindLabel}}</span></div>
+        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{with .Class}}<span class="dl-role">{{classLabel .}}</span>{{end}}{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{.KindLabel}}</span></div>
       </div>
     </div>
     {{/* Vitals as labelled blocks, one fixed column each, so values line up down the
