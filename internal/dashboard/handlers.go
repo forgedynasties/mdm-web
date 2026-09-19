@@ -4720,6 +4720,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
 		// Most devices first; ties keep lineup order; empty ("coming soon") ones last.
 		for _, c := range product.Classes() {
+			if c == product.ClassOther && counts[c] == 0 {
+				continue // "Other" is a catch-all, not a product that is coming
+			}
 			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
 		}
 		// (stable insertion sort: "sort" is a query parameter in this handler)
