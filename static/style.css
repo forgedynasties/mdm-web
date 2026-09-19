@@ -4690,28 +4690,59 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cols-seg button.on { background: var(--accent-soft); color: var(--accent-text); }
 .cols-seg button svg { width: 15px; height: 15px; }
 .cols-seg [data-cols="3"] { display: none; }
-.dl-card { display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
-  grid-template-areas: "cb bat id metrics status act";
-  align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
+/* A card is two lines beside a device-type tile: identity + status over vitals,
+   with the worst problem pinned right. Flex, not a per-card grid, so a long
+   model or a Legacy tag never pushes a neighbour's vitals out of line. */
+.dl-card { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
   background: var(--surface); transition: background var(--dur) var(--ease); }
-.dl-card:first-child { border-top: 1px solid var(--border-soft); }
+.dl-card:first-of-type { border-top: 1px solid var(--border-soft); }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
-.dl-card > .device-cb { width: 15px; height: 15px; grid-area: cb; }
-.dl-card > .dl-cb-spacer { grid-area: cb; width: 0; }
-.dl-card > .dl-bat { grid-area: bat; }
-.dl-card > .dl-id { grid-area: id; }
-/* Top-align (not the grid's default center) — .dl-card's align-items:center
-   centers each column on its OWN height, and .dl-metrics (always 2-3 lines)
-   vs .dl-status-col (1 line online, 2 offline with "Last seen") differ, so
-   centering independently put their first lines at different heights: an
-   offline row's RAM/Temp/Cycles rows didn't line up with an online row's. */
-.dl-card > .dl-metrics { grid-area: metrics; align-self: start; min-width: 104px; }
-.dl-card > .dl-status-col { grid-area: status; align-self: start; min-width: 124px; }
-/* Each card is its own grid, so a wider status column (Legacy pill + "Last seen")
-   used to shift that row's vitals left of its neighbours'. Fixed width keeps every
-   row's RAM/TEMP/CYCLES on the same line. */
-.dl-card > .dl-act { grid-area: act; }
+.dl-card > .device-cb { width: 15px; height: 15px; flex: none; margin: 0; }
+.dl-card > .dl-cb-spacer { display: none; }
+.dl-icons { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* device-type tile, tinted per class */
+.dl-ic { width: 38px; height: 38px; border-radius: 10px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.dl-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dl-ic.t7 { background: #fdebe7; color: #c9442d; }
+.dl-ic.kiosk { background: #ecedfd; color: #4f55cc; }
+.dl-ic.dongle { background: #e2f3ef; color: #0f7263; }
+.dl-ic.mpos { background: #fcefd8; color: #98590a; }
+.dl-ic.pos { background: #ece9e4; color: #4a453e; }
+.dl-ic.tablet { background: #e3edfa; color: #285aab; }
+.dl-ic.other { background: #efece7; color: #6b655c; }
+html[data-theme="dark"] .dl-ic.t7 { background: rgba(201,68,45,.2); color: #f0907d; }
+html[data-theme="dark"] .dl-ic.kiosk { background: rgba(79,85,204,.24); color: #a9adf5; }
+html[data-theme="dark"] .dl-ic.dongle { background: rgba(15,114,99,.26); color: #6fd1bf; }
+html[data-theme="dark"] .dl-ic.mpos { background: rgba(152,89,10,.26); color: #f0b765; }
+html[data-theme="dark"] .dl-ic.pos, html[data-theme="dark"] .dl-ic.other { background: rgba(255,255,255,.08); color: var(--text-2); }
+html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: #8fb6f0; }
+
+.dl-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dl-l1, .dl-l2 { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.dl-l1 > .dl-serial { flex: none; }
+.dl-l1 .dl-serial.dl-lead { font-family: inherit; font-size: 14px; font-weight: 650; min-width: 0; }
+.dl-l1 .dl-kiosk { align-self: center; }
+.dl-mdl { font-size: 12.5px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-mdl .dl-sn, .dl-mdl .dl-buildid { font-family: var(--mono); font-size: 11.5px; }
+.dl-right { margin-left: auto; display: inline-flex; align-items: baseline; gap: 8px; flex: none; white-space: nowrap; }
+.dl-right .dl-legacy-tag { margin-top: 0; }
+.dl-right .dl-synced { font-size: 12px; }
+
+.dl-l2 { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dl-v { display: inline-flex; align-items: baseline; gap: 4px; }
+.dl-v + .dl-v::before { content: "·"; color: var(--text-faint); margin-right: 6px; }
+.dl-v .k { color: var(--muted); }
+.dl-agent { font-size: 11.5px; color: var(--text-faint); letter-spacing: .01em; }
+.dl-v .v { font-weight: 600; color: var(--text); }
+.dl-v .v.muted { color: var(--text-faint); font-weight: 500; }
+.dl-v .v.warn, .dl-v .v.battery-mid { color: var(--warn); }
+.dl-v .v.danger, .dl-v .v.battery-low { color: var(--danger); }
+.dl-v .dl-flap { color: var(--warn); font-weight: 600; }
+.dl-sock { width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 2; align-self: center; }
+.dl-issue { margin-left: auto; color: var(--danger); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.dl-issue:empty { display: none; }
 
 /* battery — tinted chip: glyph + % on a level-tinted pill */
 .dl-bat { display: flex; align-items: center; flex: none; }
@@ -4785,7 +4816,7 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 .dl-m .v { font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
-.dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.dl-act { display: flex; align-items: center; gap: 10px; flex: none; }
 .dl-view { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   padding: 0; border: 0; border-radius: 8px; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .dl-view:hover { background: var(--accent-soft); color: var(--accent-text); }
@@ -4797,39 +4828,33 @@ html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); c
 /* Reflow based on the list's own width (handles the narrow inspector pane,
    not just the viewport): stay one line, dropping the secondary info but
    keeping status, serial and battery. */
+/* Compact (narrow pane or multi-column): drop the model line and cycles, and let
+   both lines wrap — status under the name, vitals without separators. */
 @container (max-width: 680px) {
-  .dl-card {
-    grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "cb id  status act"
-      "cb bat status act";
-    gap: 5px 14px;
-  }
-  .dl-metrics { display: none; }
-  .dl-rel, .dl-onboard { display: none; }
+  .dl-rel, [data-m="cycles"] { display: none; }
+  .dl-l1, .dl-l2 { flex-wrap: wrap; row-gap: 2px; column-gap: 12px; }
+  .dl-l1 .dl-right { margin-left: 0; }
+  .dl-v + .dl-v::before { display: none; }
 }
 /* Wide enough for ≥2 columns: offer the control, and lay the cards out in
    their compact form when multi-column. cols-3 falls back to 2 here and only
    becomes 3 once there's room (next query). */
 @container (min-width: 640px) {
   .cols-seg { display: inline-flex; }
-  .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: 1fr 1fr; }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card {
-    grid-template-columns: 18px minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "cb id  status act"
-      "cb bat status act";
-    gap: 5px 14px;
-  }
-  .dl-list.cols-2 .dl-metrics, .dl-list.cols-3 .dl-metrics { display: none; }
-  .dl-list.cols-2 .dl-rel, .dl-list.cols-2 .dl-onboard,
-  .dl-list.cols-3 .dl-rel, .dl-list.cols-3 .dl-onboard { display: none; }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { border-right: 1px solid var(--border-soft); }
+  .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { gap: 12px; border-right: 1px solid var(--border-soft); }
+  .dl-list.cols-2 .dl-rel, .dl-list.cols-3 .dl-rel,
+  .dl-list.cols-2 [data-m="cycles"], .dl-list.cols-3 [data-m="cycles"] { display: none; }
+  .dl-list.cols-2 :is(.dl-l1, .dl-l2), .dl-list.cols-3 :is(.dl-l1, .dl-l2) { flex-wrap: wrap; row-gap: 2px; column-gap: 12px; }
+  .dl-list.cols-2 .dl-right, .dl-list.cols-3 .dl-right { margin-left: 0; }
+  .dl-list.cols-2 .dl-v + .dl-v::before, .dl-list.cols-3 .dl-v + .dl-v::before { display: none; }
+  .dl-list.cols-3 .dl-ic { width: 32px; height: 32px; }
+  .dl-list.cols-3 .dl-ic svg { width: 18px; height: 18px; }
 }
 /* Wide enough for three columns: surface the option and use it. */
 @container (min-width: 930px) {
   .cols-seg [data-cols="3"] { display: inline-flex; }
-  .dl-list.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .dl-list.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */

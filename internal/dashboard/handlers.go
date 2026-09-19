@@ -1288,6 +1288,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"rowClasses": func(dev db.Device) string {
 			return deviceRowClasses(dev)
 		},
+		// deviceIcon: the fleet card's type-icon key for a device's class. The retired
+		// panel class draws as a kiosk; unknown or unset classes get the generic chip.
+		"deviceIcon": func(dev db.Device) string {
+			switch c := dev.Class(); c {
+			case "t7", "kiosk", "tablet", "mpos", "pos", "dongle":
+				return c
+			case "panel":
+				return "kiosk"
+			}
+			return "other"
+		},
 		"colorizeLogcat": func(content string) template.HTML {
 			return colorizeLogcatText(content)
 		},
