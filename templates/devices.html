@@ -190,8 +190,6 @@ if (!window.__dlRowNav) {
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
       {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
@@ -253,13 +251,21 @@ if (!window.__dlRowNav) {
   <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
 {{end}}
 
-{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>{{end}}
+{{/* Product tabs above the roster: stack with the rail's collection and the quick
+     views. Counts follow the current scope (see Devices handler). */}}
+{{define "fleet-product-tabs"}}{{if .RailClasses}}
+      <button type="button" class="ptab{{if not .FilterClass}} on{{end}}" role="tab" aria-selected="{{if .FilterClass}}false{{else}}true{{end}}" onclick="setProductTab('')">All products</button>
+      {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
+{{end}}{{end}}
+
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>{{end}}
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
 <span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
+<div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>
 <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
 
 {{end}}
@@ -506,6 +512,19 @@ a.fleet-rail-item{min-height:40px}
 .fl-intro-t{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
 .fl-intro-txt p{margin:0;color:var(--text-2);font-size:13px;line-height:1.45}
 .fl-intro-acts{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+/* product tabs above the roster */
+.ptabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:0 0 14px;overflow-x:auto;scrollbar-width:none}
+.ptabs:empty{display:none}
+.ptab{display:inline-flex;align-items:center;gap:8px;padding:9px 12px 10px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+.ptab:hover{color:var(--text)}
+.ptab.on{color:var(--text);border-bottom-color:var(--accent)}
+.ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.ptab.on .n{color:var(--accent-text)}
+.ptab-ic{width:20px;height:20px;border-radius:6px;flex:none}
+.ptab-ic svg{width:12px;height:12px}
+/* serial sort, outside the Sort menu */
+.fleet-fbtn.sort-serial.on{border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
+.fleet-fbtn .dir{font-family:var(--mono);font-size:12px;margin-left:2px}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
@@ -548,20 +567,10 @@ a.fleet-rail-item{min-height:40px}
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct) (not .FilterClass)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
-    {{/* Device types: one entry per class that has devices; the type icon doubles as
-         the bullet so the rail matches the fleet rows. */}}
-    {{if .RailClasses}}
-    <div class="fleet-rail-cap"><span>Products</span></div>
-    {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
-    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} rc-soon{{end}}" href="/devices?class={{.Class}}">
-      <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{if .N}}<span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>{{else}}<span class="nm rc-soon-nm">{{classLabel .Class}}<span class="rc-soon-sub">Coming soon</span></span>{{end}}
-    </a>
-    {{end}}
-    {{end}}
 
 
 
@@ -723,6 +732,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
+    <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product">{{template "fleet-product-tabs" .}}</div>
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
 
 
@@ -844,6 +854,11 @@ a.fleet-rail-item{min-height:40px}
     </div>
   </div>
 
+  {{/* ── Serial sort, one click (A→Z, again for Z→A), outside the Sort menu ── */}}
+  <button type="button" class="fleet-fbtn sort-serial" id="sort-serial" aria-pressed="false" onclick="sortBy('serial')" title="Sort by serial (click again to reverse)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7M4 12h7M4 17h7"/><path d="M17 5v14"/><path d="m14 16 3 3 3-3"/></svg>
+    Serial<span class="dir"></span>
+  </button>
   {{/* ── Sort control (replaces the sortable column headers) ── */}}
   <div class="fleet-fwrap" id="sort-wrap">
     <button type="button" class="fleet-fbtn" id="sort-btn" onclick="toggleSort(event)" aria-haspopup="true" aria-expanded="false">
@@ -971,7 +986,9 @@ function scopeRoster(anchor, u) {
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
   else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); setSel('filter-product', ov.product); }
-  else if (u.searchParams.get('class')) { ov.class = u.searchParams.get('class'); setSel('filter-class', ov.class); }
+  // The product tab stacks with the collection: keep it across rail clicks.
+  var curClass = new URLSearchParams(location.search).get('class');
+  if (curClass) { ov.class = curClass; setSel('filter-class', curClass); }
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');
@@ -1030,6 +1047,12 @@ function setFleetLayout(v) {
 function fleetIntroDone() {
   try { localStorage.setItem('fleet-layout-intro', '1'); } catch (_) {}
   var el = document.getElementById('fl-layout-intro'); if (el) el.hidden = true;
+}
+
+// Product tabs: one product at a time; keeps the Filters panel's Product select in sync.
+function setProductTab(cls) {
+  setSel('filter-class', cls);
+  navigateDevices({page: '1', class: cls});
 }
 
 function selectCollection(type, id) {
@@ -1123,6 +1146,12 @@ function sortBy(key) {
 function syncSortUI() {
   var p = new URLSearchParams(location.search);
   var sort = p.get('sort') || 'last_seen', dir = p.get('dir') || 'desc';
+  var sb = document.getElementById('sort-serial');
+  if (sb) {
+    sb.classList.toggle('on', sort === 'serial');
+    sb.setAttribute('aria-pressed', sort === 'serial' ? 'true' : 'false');
+    var sd = sb.querySelector('.dir'); if (sd) sd.textContent = sort === 'serial' ? (dir === 'asc' ? '↑' : '↓') : '';
+  }
   document.querySelectorAll('.sortopt').forEach(function(b) {
     var on = b.dataset.sort === sort;
     b.classList.toggle('on', on);

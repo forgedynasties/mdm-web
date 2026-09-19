@@ -4700,9 +4700,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// A product selected from the rail scopes the roster too — name it by the
 		// product label and count the filtered result, so the heading isn't "All devices".
 		selectedCollection, selectedCount = productLabel(pk), total
-	} else if cl := qv.Get("class"); cl != "" && product.IsClass(cl) {
-		// A device type picked in the rail names the roster the same way.
-		selectedCollection, selectedCount = product.ClassLabel(cl), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
@@ -4719,24 +4716,20 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
 	}
-	// Products rail (roles): stored class, else the product's catalog class.
-	// Every role is listed, in lineup order, even with no devices yet (the lineup is
-	// being brought onto the MDM a role at a time).
+	// Product tabs above the roster: one per product (role) present in the current scope
+	// (collection, search, the Filters panel), counted without the product itself or the
+	// Online/Offline quick views, so the tabs stay put while those change. Most devices
+	// first; products with none here are not shown (the Products page lists them all).
 	var railClasses []db.ClassCount
 	{
-		counts := map[string]int{}
-		if cc, _, _, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
-			for _, c := range cc {
-				counts[c.Class] += c.N
-			}
-		}
-		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
-		// Most devices first; ties keep lineup order; empty ("coming soon") ones last.
+		scope := filter
+		scope.Class, scope.Online, scope.Battery, scope.Kiosk = "", "", "", ""
 		for _, c := range product.Classes() {
-			if c == product.ClassOther && counts[c] == 0 {
-				continue // "Other" is a catch-all, not a product that is coming
+			f := scope
+			f.Class = c
+			if n, err := h.db.CountDevices(r.Context(), f); err == nil && (n > 0 || c == filter.Class) {
+				railClasses = append(railClasses, db.ClassCount{Class: c, N: n})
 			}
-			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
 		}
 		// (stable insertion sort: "sort" is a query parameter in this handler)
 		for i := 1; i < len(railClasses); i++ {
