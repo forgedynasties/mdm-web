@@ -83,10 +83,11 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "products.html", map[string]any{
-		"Title":   "Products",
-		"Ours":    ours,
-		"Stock":   stock,
-		"Classes": product.Classes(),
+		"Title":      "Products",
+		"ActivePage": "products",
+		"Ours":       ours,
+		"Stock":      stock,
+		"Classes":    product.Classes(),
 	})
 }
 
