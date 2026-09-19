@@ -16304,6 +16304,15 @@ type EnrollResult struct {
 // the device's existing site/class/onboarded state unless the profile overrides them.
 func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (EnrollResult, error) {
 	var res EnrollResult
+	// The model's role (Products page) beats the profile's blanket class: one token
+	// often enrolls several kinds of hardware, and a TV box must not become whatever
+	// the profile was made for.
+	class := profile.DeviceClass
+	if product != "" {
+		if role, _ := d.ProductRole(ctx, product); role != "" {
+			class = role
+		}
+	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return res, err
@@ -16329,7 +16338,7 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
 		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at)
 		RETURNING id, (xmax <> 0), onboarded_at`,
-		serial, product, keyHash, profile.ID, profile.DeviceClass, profile.RestaurantID).
+		serial, product, keyHash, profile.ID, class, profile.RestaurantID).
 		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
 	if err != nil {
 		return res, err

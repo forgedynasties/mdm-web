@@ -112,15 +112,6 @@ if (!window.__dlRowNav) {
       {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
-{{/* Product pills under the quick views (moved out of the side rail). The
-     DPC-managed hardware is filtered out of RailProducts server-side for anyone
-     but an admin. */}}
-{{define "fleet-product-pills"}}{{if .RailProducts}}
-      <button type="button" class="fleet-view fleet-prod{{if not .FilterProduct}} on{{end}}" aria-pressed="{{if .FilterProduct}}false{{else}}true{{end}}" onclick="setProduct('')">All products</button>
-      {{range .RailProducts}}<button type="button" class="fleet-view fleet-prod{{if eq .Key $.FilterProduct}} on{{end}}" aria-pressed="{{if eq .Key $.FilterProduct}}true{{else}}false{{end}}" onclick="setProduct('{{.Key}}')">{{.Label}} <span class="n">{{.DeviceCount}}</span></button>{{end}}
-
-      {{if canAdmin .Role}}<a class="fleet-prod-manage" href="/products" title="Rename products">Manage</a>{{end}}
-{{end}}{{end}}
 
 {{/* Collection toolbar next to the roster heading: manage/rename/delete the
      group/restaurant/release currently scoping the roster. Its own template so
@@ -179,7 +170,7 @@ if (!window.__dlRowNav) {
   <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
 {{end}}
 
-{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-pills" .}}</div>{{end}}
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>{{end}}
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
@@ -187,7 +178,7 @@ if (!window.__dlRowNav) {
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
 <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
-<div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-pills" .}}</div>
+
 {{end}}
 
 {{define "device-table"}}
@@ -392,18 +383,6 @@ a.fleet-rail-item{min-height:40px}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */
-/* product row: a quieter second tier — "Product" caption, square-ish chips without
-   borders, and the secondary (periwinkle) accent so it never reads as a status view */
-.fleet-prods{margin-top:-6px;align-items:center;gap:4px}
-.fleet-prods:empty{display:none}
-.fleet-prods::before{content:"Product";font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-right:6px}
-.fleet-view.fleet-prod{min-height:28px;height:28px;padding:0 10px;font-size:12.5px;font-weight:500;border-radius:8px!important;border-color:transparent;background:transparent;color:var(--text-2)}
-.fleet-view.fleet-prod:hover{background:var(--surface2);border-color:transparent}
-.fleet-view.fleet-prod .n{font-size:10.5px}
-.fleet-view.fleet-prod.on{background:var(--accent-2-soft);border-color:transparent;color:var(--accent-2);font-weight:600}
-.fleet-view.fleet-prod.on .n{color:var(--accent-2)}
-.fleet-prod-manage{font-size:12px;color:var(--text-faint);margin-left:6px;text-decoration:none}
-.fleet-prod-manage:hover{color:var(--accent-text)}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
@@ -616,7 +595,6 @@ a.fleet-rail-item{min-height:40px}
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
-    <div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product">{{template "fleet-product-pills" .}}</div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -913,12 +891,6 @@ function clearFilters() {
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
-// Product pills: one product at a time; keeps the popover's Product select in sync.
-function setProduct(key) {
-  setSel('filter-product', key);
-  navigateDevices({page: '1', product: key});
-}
-
 function selectCollection(type, id) {
   var ov = {page: '1', group: '', restaurant: ''};
   if (type === 'group') ov.group = id;
