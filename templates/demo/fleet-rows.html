@@ -1,0 +1,370 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fleet rows · alignment — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.dbar a.back{font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--accent-text)}
+h1{font-size:25px;font-weight:700;letter-spacing:-.02em;margin:0}
+.lede{color:var(--muted);font-size:14px;margin:6px 0 20px;max-width:78ch}
+.sw{display:inline-flex;flex-wrap:wrap;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px}
+.sw button{font:600 13px inherit;font-family:inherit;border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:99px;cursor:pointer}
+.sw button[aria-pressed=true]{background:var(--surface2);color:var(--accent-text)}
+.dbar .sw.theme{margin-left:auto}
+.note{font-size:13px;color:var(--muted);margin:14px 0 10px;max-width:90ch}
+.note b{color:var(--text-2);font-weight:600}
+.opt[hidden]{display:none}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.ptop{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);font-size:13.5px;color:var(--text-2)}
+.cb{width:15px;height:15px;border:1.5px solid var(--rule-2);border-radius:4px;flex:none}
+
+/* shared bits */
+.tile{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+.tile svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tile.t7{background:#fdebe7;color:#c9442d}.tile.kiosk{background:#ecedfd;color:#4f55cc}.tile.dongle{background:#e2f3ef;color:#0f7263}.tile.phone{background:#e4f2e7;color:#1c6f37}
+html[data-theme=dark] .tile.t7{background:rgba(201,68,45,.2);color:#f0907d}
+html[data-theme=dark] .tile.kiosk{background:rgba(79,85,204,.24);color:#a9adf5}
+html[data-theme=dark] .tile.dongle{background:rgba(15,114,99,.26);color:#6fd1bf}
+html[data-theme=dark] .tile.phone{background:rgba(28,111,55,.28);color:#7fd49a}
+.nm{font-weight:600;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sn{font-family:var(--mono);font-size:12px;color:var(--text-2);white-space:nowrap}
+.bd{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);white-space:nowrap}
+.flag{font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--accent-text)}
+.num{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
+.num.warn{color:var(--warn)}.num.danger{color:var(--danger)}.num.dim{color:var(--text-faint);font-weight:500}
+.lbl{color:var(--text-faint);font-size:12px}
+.st{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;white-space:nowrap}
+.st i{width:7px;height:7px;border-radius:50%;flex:none}
+.st.on{color:var(--ok)}.st.on i{background:var(--ok)}
+.st.off{color:var(--warn)}.st.off i{background:var(--warn)}
+.ago{font-size:12px;color:var(--muted);white-space:nowrap}
+.go{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);flex:none}
+.go svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row{cursor:pointer;transition:background .12s}
+.row:hover{background:var(--surface2)}
+.row:hover .go{color:var(--accent-text)}
+.agent{font-size:12.5px;color:var(--text-2)}
+.agent.lite{color:#2a9d8f}.agent.dpc{color:var(--accent-2)}
+html:not([data-theme=dark]) .agent.lite{color:#0f7263}
+
+/* ── A · Table: one header, one line per device, every row the same grid ── */
+.ta{--cols:28px 34px minmax(210px,1.7fr) 92px 132px 84px 64px 64px 148px 30px}
+.ta .hd,.ta .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:14px;padding:0 18px}
+.ta .hd{height:36px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.ta .hd .r,.ta .row .r{text-align:right}
+.ta .row{min-height:56px;border-bottom:1px solid var(--border-soft)}
+.ta .row:last-child{border-bottom:0}
+.ta .id{min-width:0;display:flex;flex-direction:column;gap:1px}
+.ta .id .l2{display:flex;gap:8px;align-items:baseline;min-width:0}
+.pw{display:flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap}
+.pw .g{width:14px;display:flex;justify-content:center;color:var(--text-faint)}
+.pw .g svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.pw .m{color:var(--text-2)}
+.sc{display:flex;flex-direction:column;gap:1px}
+/* temp value + a fixed suffix slot (CPU on TV boxes), so values right-align on the same edge */
+.tv{display:flex;justify-content:flex-end;align-items:baseline;gap:4px}
+.tv .sfx{width:26px;font-size:10px;font-weight:600;letter-spacing:.04em;color:var(--text-faint);text-align:left}
+.ta{--cols:28px 34px minmax(210px,1.7fr) 92px 132px 110px 64px 64px 148px 30px !important}
+
+/* ── B · Stat blocks: identity on the left, labelled blocks in fixed columns ── */
+.tb{--cols:28px 38px minmax(220px,1.6fr) 118px 88px 70px 70px 150px 30px}
+.tb .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:16px;padding:12px 18px;border-bottom:1px solid var(--border-soft)}
+.tb .row:last-child{border-bottom:0}
+.tb .tile{width:38px;height:38px;border-radius:10px}
+.tb .id{min-width:0;display:flex;flex-direction:column;gap:3px}
+.tb .id .l1{display:flex;align-items:center;gap:8px;min-width:0}
+.tb .id .l2{display:flex;align-items:baseline;gap:8px;min-width:0}
+.blk{display:flex;flex-direction:column;gap:2px}
+.blk .k{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.blk .v{font-size:13.5px;white-space:nowrap}
+.blk .v .u{color:var(--text-2);font-weight:500;font-size:12px;margin-left:4px}
+
+/* ── C · Grouped by type: each group shows only the columns its type has ── */
+.gp{margin-bottom:14px}
+.gh{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.gh .tile{width:26px;height:26px;border-radius:7px}.gh .tile svg{width:15px;height:15px}
+.gh b{font-size:13.5px;font-weight:600}
+.gh .c{font-size:12.5px;color:var(--text-faint)}
+.gh .sum{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.gh .sum b{font-weight:600;color:var(--text-2)}
+.tc .hd,.tc .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:14px;padding:0 18px}
+.tc .hd{height:32px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-soft)}
+.tc .row{min-height:48px;border-bottom:1px solid var(--border-soft)}
+.tc .gp .row:last-child{border-bottom:0}
+.tc .r{text-align:right}
+.tc .id{display:flex;align-items:baseline;gap:10px;min-width:0}
+
+/* ── D · Meters: the table with bars, for scanning load at a glance ── */
+.td{--cols:28px 34px minmax(210px,1.6fr) 150px 96px 150px 148px 30px}
+.td .hd,.td .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:16px;padding:0 18px}
+.td .hd{height:36px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.td .row{min-height:56px;border-bottom:1px solid var(--border-soft)}
+.td .row:last-child{border-bottom:0}
+.td .id{min-width:0;display:flex;flex-direction:column;gap:1px}
+.td .id .l2{display:flex;gap:8px;align-items:baseline;min-width:0}
+.mt{display:grid;grid-template-columns:1fr 40px;align-items:center;gap:10px}
+.bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+.bar i.warn{background:var(--warn)}.bar i.danger{background:var(--danger)}.bar i.mains{background:var(--rule-2)}
+.mt .num{text-align:right;font-size:13px}
+.mt .mains{font-size:12.5px;color:var(--text-2);grid-column:1/-1}
+
+/* surprise switch */
+.sw.sp{margin-left:8px;align-items:center}
+.spl{font-size:12px;font-weight:600;color:var(--accent-2);padding:0 8px 0 10px}
+
+/* ── E · sparklines ── */
+.te{--cols:28px 34px minmax(200px,1.4fr) 190px 190px 120px 148px 30px}
+.te .hd,.te .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:16px;padding:0 18px}
+.te .hd{height:36px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.te .row{min-height:58px;border-bottom:1px solid var(--border-soft)}
+.te .row:last-child{border-bottom:0}
+.te .id{min-width:0;display:flex;flex-direction:column;gap:1px}
+.te .id .l2{display:flex;gap:8px;align-items:baseline;min-width:0}
+.spk{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:12px}
+.spk svg{width:120px;height:28px;overflow:visible}
+.spk path.l{fill:none;stroke:var(--text-faint);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.spk path.a{stroke:none;opacity:.14}
+.spk.warn path.l{stroke:var(--warn)}.spk.danger path.l{stroke:var(--danger)}.spk.ok path.l{stroke:var(--ok)}
+.spk.warn path.a{fill:var(--warn)}.spk.danger path.a{fill:var(--danger)}.spk.ok path.a{fill:var(--ok)}
+.spk circle{r:2.6}
+.spk.ok circle{fill:var(--ok)}.spk.warn circle{fill:var(--warn)}.spk.danger circle{fill:var(--danger)}
+.spk .num{font-size:13px}
+
+/* ── F · triage ── */
+.fx h3{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:18px 2px 10px}
+.fx h3 .n{font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text-2);background:var(--surface2);border-radius:99px;padding:1px 9px}
+.fx h3:first-child{margin-top:4px}
+.tf{--cols:28px 38px minmax(200px,1fr) minmax(260px,1.6fr) 150px 30px}
+.tf .row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:16px;padding:13px 18px;border-bottom:1px solid var(--border-soft)}
+.tf .row:last-child{border-bottom:0}
+.tf .tile{width:38px;height:38px;border-radius:10px}
+.tf .id{min-width:0;display:flex;flex-direction:column;gap:2px}
+.tf .id .l2{display:flex;gap:8px;align-items:baseline;min-width:0}
+.why{display:flex;flex-wrap:wrap;gap:6px}
+.why span{font-size:12.5px;font-weight:600;border-radius:7px;padding:3px 9px;white-space:nowrap}
+.why .warn{color:var(--warn);background:var(--warn-bg, rgba(219,163,58,.12))}
+.why .danger{color:var(--danger);background:var(--danger-bg, rgba(180,35,24,.12))}
+.why .info{color:var(--text-2);background:var(--surface2)}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.ht{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 13px;display:grid;grid-template-columns:30px 1fr auto;column-gap:11px;row-gap:6px;align-items:center;cursor:pointer}
+.ht:hover{border-color:var(--accent-edge)}
+.ht .tile{width:30px;height:30px;border-radius:8px}.ht .tile svg{width:17px;height:17px}
+.ht .nm{font-size:13.5px}
+.ht .sn{font-size:11px;color:var(--text-faint)}
+.ht .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);align-self:start;margin-top:6px}
+.ht .vs{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--border-soft);padding-top:7px}
+.ht .vs span{display:flex;flex-direction:column;font-size:12.5px}
+.ht .vs .k{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+
+@media(max-width:1100px){.wrap{overflow-x:auto}}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="k-t7" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M5.5 20h13"/><path d="M9.5 16.5 8.5 20M14.5 16.5l1 3.5"/></symbol>
+  <symbol id="k-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
+  <symbol id="k-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
+  <symbol id="k-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 5h2"/></symbol>
+  <symbol id="k-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></symbol>
+  <symbol id="k-bat" viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></symbol>
+  <symbol id="k-chg" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+  <symbol id="k-go" viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="dbar">
+    <a class="back" href="/demo">← Demos</a>
+    <div class="sw theme" role="group" aria-label="Theme">
+      <button type="button" data-theme="dark" aria-pressed="true">Dark</button>
+      <button type="button" data-theme="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+  <h1>Fleet rows — alignment options</h1>
+  <p class="lede">Same ten devices in each: the T7s and Kiosk 22s from stage, the Pixel 6 and an HK1 dongle on MDM-lite. Every option puts every row on one shared column grid, so serials, temperatures and RAM sit at the same x on every row whatever the name length, tags or power source.</p>
+  <div class="sw" role="group" aria-label="Layout" id="sw">
+    <button type="button" data-v="a" aria-pressed="true">A · Table</button>
+    <button type="button" data-v="b" aria-pressed="false">B · Stat blocks</button>
+    <button type="button" data-v="c" aria-pressed="false">C · Grouped by type</button>
+  </div>
+  <div class="sw sp" role="group" aria-label="Surprise layouts" id="sw2">
+    <span class="spl">Surprise ✦</span>
+    <button type="button" data-v="d" aria-pressed="false">D · Meters</button>
+    <button type="button" data-v="e" aria-pressed="false">E · 24 h sparklines</button>
+    <button type="button" data-v="f" aria-pressed="false">F · Triage first</button>
+  </div>
+
+  <section class="opt" data-v="a">
+    <p class="note"><b>One header, one line per device.</b> Labels live in the header, so cells hold only values. Serial always starts the second line of the device cell; "New" trails it instead of pushing it. Power is a fixed icon slot plus text. Rows without a battery show "—" under Cycles so no column goes ragged.</p>
+    <div class="panel ta"><div class="ptop"><span class="cb"></span>Select all</div><div class="hd"><span></span><span></span><span>Device</span><span>Agent</span><span>Power</span><span class="r" style="padding-right:30px">Temp</span><span class="r">RAM</span><span class="r">Cycles</span><span>Status</span><span></span></div><div id="A"></div></div>
+  </section>
+  <section class="opt" data-v="b" hidden>
+    <p class="note"><b>Labelled stat blocks.</b> Closest to today's card, but each metric is a small label over its value in its own fixed column, and everything is centred vertically, including status and the arrow.</p>
+    <div class="panel tb"><div class="ptop"><span class="cb"></span>Select all</div><div id="B"></div></div>
+  </section>
+  <section class="opt" data-v="c" hidden>
+    <p class="note"><b>Grouped by device type.</b> A mixed fleet has different vitals per type: T7s have a battery and cycles, kiosks and dongles are on mains. Grouping lets each section show only the columns its devices have, with a one-line summary in the group header.</p>
+    <div class="tc" id="C"></div>
+  </section>
+  <section class="opt" data-v="d" hidden>
+    <p class="note"><b>Table with meters.</b> Battery and RAM as bars with the number beside them, so a full or drained device stands out without reading digits. Mains devices show a flat grey bar.</p>
+    <div class="panel td"><div class="ptop"><span class="cb"></span>Select all</div><div class="hd"><span></span><span></span><span>Device</span><span>Battery</span><span>Temp</span><span>RAM</span><span>Status</span><span></span></div><div id="D"></div></div>
+  </section>
+  <section class="opt" data-v="e" hidden>
+    <p class="note"><b>Trend, not just a number.</b> Each row carries the last 24 h of temperature and RAM as a sparkline with today's value on the end, so a kiosk that has been climbing all afternoon reads differently from one that spiked once.</p>
+    <div class="panel te"><div class="ptop"><span class="cb"></span>Select all</div><div class="hd"><span></span><span></span><span>Device</span><span>Temperature · 24 h</span><span>RAM · 24 h</span><span>Power</span><span>Status</span><span></span></div><div id="E"></div></div>
+  </section>
+  <section class="opt" data-v="f" hidden>
+    <p class="note"><b>Triage first.</b> The list splits itself: devices that need someone get a full row that says why, in words. Everything healthy collapses into small tiles underneath, so 30 fine devices take a few lines instead of a scroll.</p>
+    <div id="F"></div>
+  </section>
+</div>
+<script>
+// kind, name, serial, build, agent, batt (null = mains), chg, temp, src, ram, cycles, online, ago, isNew
+const D = [
+  ['t7','T7','2df2f2c2','v2.0.981d','fw',100,true,31.0,'bat',49,0.0,true,'',true],
+  ['t7','T7','15309017','v2.0.981d','fw',52,false,29.9,'bat',49,0.3,true,'',true],
+  ['kiosk','Kiosk 22','K222026091302','GMS-v1.0','fw',null,false,38.8,'bat',49,null,true,'',true],
+  ['t7','T7','2e02f2e5','v2.0.981d','fw',20,false,29.3,'bat',49,0.4,true,'',true],
+  ['kiosk','Kiosk 22','K222026091303','GMS-v1.0','fw',null,false,36.3,'bat',46,null,true,'',true],
+  ['kiosk','Kiosk 22','K222026091301','GMS-v1.0','fw',null,false,42.8,'bat',52,null,true,'',true],
+  ['phone','Google Pixel 6','android-cea946e07ecfdf7c','','lite',64,false,33.1,'bat',80,null,false,'6 min ago',false],
+  ['dongle','Google HK1 RBOX D8','61eb25e75f3afcc','','lite',null,false,58.8,'cpu',29,null,false,'11 h ago',true],
+  ['t7','T7','2df3a011','v2.0.981d','fw',12,false,27.4,'bat',41,1.2,false,'3 h ago',false],
+  ['kiosk','Kiosk 22','K222026091288','GMS-v1.0','fw',null,false,null,'bat',null,null,false,'2 days ago',false],
+].map(r => ({kind:r[0],name:r[1],sn:r[2],build:r[3],agent:r[4],batt:r[5],chg:r[6],temp:r[7],src:r[8],ram:r[9],cyc:r[10],on:r[11],ago:r[12],isNew:r[13]}));
+
+const AG = {fw:['Firmware',''], lite:['MDM-lite','lite'], dpc:['DPC agent','dpc']};
+const tl = d => d.temp == null ? 'dim' : d.src === 'cpu' ? (d.temp >= 85 ? 'danger' : d.temp >= 70 ? 'warn' : '') : (d.temp >= 60 ? 'danger' : d.temp >= 40 ? 'warn' : '');
+const rl = d => d.ram == null ? 'dim' : d.ram >= 80 ? 'danger' : d.ram >= 60 ? 'warn' : '';
+const bl = d => d.batt == null ? '' : d.batt < 20 ? 'danger' : d.batt < 50 ? 'warn' : '';
+const T = d => d.temp == null ? '—' : d.temp.toFixed(1) + '°C';
+const R = d => d.ram == null ? '—' : d.ram + '%';
+const C = d => d.cyc == null ? '—' : d.cyc.toFixed(1);
+const use = id => `<svg><use href="#${id}"/></svg>`;
+const tile = d => `<span class="tile ${d.kind}">${use('k-' + d.kind)}</span>`;
+const agent = d => `<span class="agent ${AG[d.agent][1]}">${AG[d.agent][0]}</span>`;
+const lite = d => d.agent === 'lite';
+const stLbl = d => lite(d) ? (d.on ? 'Reporting' : 'Not reporting') : (d.on ? 'Online' : 'Offline');
+const status = (d, stacked) => {
+  const s = `<span class="st ${d.on ? 'on' : 'off'}"><i></i>${stLbl(d)}</span>`;
+  if (!d.ago) return s;
+  return stacked ? `<span class="sc">${s}<span class="ago" style="padding-left:14px">${d.ago}</span></span>` : `<span class="sc">${s}<span class="ago" style="padding-left:14px">${d.ago}</span></span>`;
+};
+const go = `<span class="go">${use('k-go')}</span>`;
+const cb = `<span class="cb"></span>`;
+const l2 = d => `<span class="l2"><span class="sn">${d.sn}</span>${d.build ? `<span class="bd">${d.build}</span>` : ''}${d.isNew ? '<span class="flag">NEW</span>' : ''}</span>`;
+const power = d => d.batt == null
+  ? `<span class="pw"><span class="g">${use('k-plug')}</span><span class="m">Mains</span></span>`
+  : `<span class="pw"><span class="g">${use(d.chg ? 'k-chg' : 'k-bat')}</span><span class="num ${bl(d)}">${d.batt}%</span>${d.chg ? '<span class="m">charging</span>' : ''}</span>`;
+
+// A
+document.getElementById('A').innerHTML = D.map(d => `<div class="row">${cb}${tile(d)}
+  <span class="id"><span class="nm">${d.name}</span>${l2(d)}</span>${agent(d)}${power(d)}
+  <span class="tv r"><span class="num ${tl(d)}">${T(d)}</span><span class="sfx">${d.src === 'cpu' && d.temp != null ? 'CPU' : ''}</span></span>
+  <span class="num r ${rl(d)}">${R(d)}</span><span class="num r ${d.cyc == null ? 'dim' : ''}">${C(d)}</span>
+  ${status(d)}${go}</div>`).join('');
+
+// B
+const blk = (k, v) => `<span class="blk"><span class="k">${k}</span><span class="v">${v}</span></span>`;
+document.getElementById('B').innerHTML = D.map(d => `<div class="row">${cb}${tile(d)}
+  <span class="id"><span class="l1"><span class="nm">${d.name}</span>${d.isNew ? '<span class="flag">NEW</span>' : ''}</span>
+    <span class="l2"><span class="sn">${d.sn}</span>${d.build ? `<span class="bd">${d.build}</span>` : ''}<span class="bd" style="font-family:inherit">· ${AG[d.agent][0]}</span></span></span>
+  ${blk('Power', d.batt == null ? '<span class="num dim" style="color:var(--text-2);font-weight:500">Mains</span>' : `<span class="num ${bl(d)}">${d.batt}%</span>${d.chg ? '<span class="u">charging</span>' : ''}`)}
+  ${blk(d.src === 'cpu' ? 'CPU' : 'Temp', `<span class="num ${tl(d)}">${T(d)}</span>`)}
+  ${blk('RAM', `<span class="num ${rl(d)}">${R(d)}</span>`)}
+  ${blk('Cycles', `<span class="num ${d.cyc == null ? 'dim' : ''}">${C(d)}</span>`)}
+  ${status(d)}${go}</div>`).join('');
+
+// C
+const groups = [
+  {kind:'t7', title:'T7', cols:'28px 34px minmax(200px,1.6fr) 110px 132px 84px 64px 70px 148px 30px',
+   hd:['','','Device','Agent','Battery','Temp','RAM','Cycles','Status',''], rt:[5,6,7],
+   cells:d => [power(d), `<span class="num r ${tl(d)}">${T(d)}</span>`, `<span class="num r ${rl(d)}">${R(d)}</span>`, `<span class="num r">${C(d)}</span>`]},
+  {kind:'kiosk', title:'Kiosk 22', cols:'28px 34px minmax(200px,1.6fr) 110px 84px 64px 148px 30px',
+   hd:['','','Device','Agent','Temp','RAM','Status',''], rt:[4,5],
+   cells:d => [`<span class="num r ${tl(d)}">${T(d)}</span>`, `<span class="num r ${rl(d)}">${R(d)}</span>`]},
+  {kind:'phone', title:'Phones', cols:'28px 34px minmax(200px,1.6fr) 110px 132px 84px 64px 148px 30px',
+   hd:['','','Device','Agent','Battery','Temp','RAM','Status',''], rt:[5,6],
+   cells:d => [power(d), `<span class="num r ${tl(d)}">${T(d)}</span>`, `<span class="num r ${rl(d)}">${R(d)}</span>`]},
+  {kind:'dongle', title:'TV dongles', cols:'28px 34px minmax(200px,1.6fr) 110px 84px 64px 148px 30px',
+   hd:['','','Device','Agent','CPU','RAM','Status',''], rt:[4,5],
+   cells:d => [`<span class="num r ${tl(d)}">${T(d)}</span>`, `<span class="num r ${rl(d)}">${R(d)}</span>`]},
+];
+document.getElementById('C').innerHTML = groups.map(g => {
+  const ds = D.filter(d => d.kind === g.kind), on = ds.filter(d => d.on).length;
+  const avgT = ds.filter(d => d.temp != null), hot = ds.filter(d => tl(d) === 'warn' || tl(d) === 'danger').length;
+  return `<div class="panel gp" style="--cols:${g.cols}">
+    <div class="gh">${tile({kind:g.kind})}<b>${g.title}</b><span class="c">${ds.length}</span>
+      <span class="sum"><b>${on}</b> ${g.kind === 'phone' || g.kind === 'dongle' ? 'reporting' : 'online'} · ${hot ? `<b style="color:var(--warn)">${hot}</b> running warm` : 'temps normal'}</span></div>
+    <div class="hd">${g.hd.map((h, i) => `<span class="${g.rt.includes(i) ? 'r' : ''}">${h}</span>`).join('')}</div>
+    ${ds.map(d => `<div class="row">${cb}${tile(d)}<span class="id"><span class="nm">${d.name}</span><span class="sn">${d.sn}</span>${d.build ? `<span class="bd">${d.build}</span>` : ''}${d.isNew ? '<span class="flag">NEW</span>' : ''}</span>${agent(d)}${g.cells(d).join('')}${status(d)}${go}</div>`).join('')}
+  </div>`;
+}).join('');
+
+// D
+const meter = (pct, cls) => `<span class="mt"><span class="bar"><i class="${cls}" style="width:${pct}%"></i></span><span class="num ${cls === 'ok' ? '' : cls}">${pct}%</span></span>`;
+document.getElementById('D').innerHTML = D.map(d => `<div class="row">${cb}${tile(d)}
+  <span class="id"><span class="nm">${d.name}${d.agent !== 'fw' ? ` <span class="agent ${AG[d.agent][1]}" style="font-weight:500;margin-left:6px">${AG[d.agent][0]}</span>` : ''}</span>${l2(d)}</span>
+  ${d.batt == null ? `<span class="mt"><span class="bar"><i class="mains" style="width:100%"></i></span><span class="lbl" style="text-align:right">mains</span></span>` : meter(d.batt, bl(d) || 'ok')}
+  <span class="num ${tl(d)}">${T(d)}${d.src === 'cpu' && d.temp != null ? '<span class="lbl"> cpu</span>' : ''}</span>
+  ${d.ram == null ? '<span class="num dim">—</span>' : meter(d.ram, rl(d) === 'dim' ? '' : (rl(d) || 'ok'))}
+  ${status(d)}${go}</div>`).join('');
+
+// E — deterministic fake 24 h series ending at today's value
+const seed = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return () => ((h = (h * 1103515245 + 12345) >>> 0) / 4294967296); };
+const series = (d, end, amp, drift) => { const r = seed(d.sn + amp); const n = 24, out = []; let v = end - drift; for (let i = 0; i < n; i++) { v += drift / n + (r() - .5) * amp; out.push(v); } out[n - 1] = end; return out; };
+const spark = (vals, cls, txt) => {
+  const w = 120, h = 28, lo = Math.min(...vals), hi = Math.max(...vals), sp = (hi - lo) || 1;
+  const pts = vals.map((v, i) => [i * w / (vals.length - 1), h - 3 - (v - lo) / sp * (h - 6)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  const last = pts[pts.length - 1];
+  return `<span class="spk ${cls}"><svg viewBox="0 0 ${w} ${h}"><path class="a" d="${d}L${w} ${h}L0 ${h}Z"/><path class="l" d="${d}"/><circle cx="${last[0]}" cy="${last[1]}"/></svg>${txt}</span>`;
+};
+document.getElementById('E').innerHTML = D.map(d => {
+  const tc = tl(d) || 'ok', rc = rl(d) || 'ok';
+  const t = d.temp == null ? '<span class="num dim">no data</span>' : spark(series(d, d.temp, 1.6, d.kind === 'kiosk' ? 6 : 1.5), tc, `<span class="num ${tl(d)}">${T(d)}</span>`);
+  const r = d.ram == null ? '<span class="num dim">no data</span>' : spark(series(d, d.ram, 5, d.ram >= 80 ? 22 : 3), rc, `<span class="num ${rl(d)}">${R(d)}</span>`);
+  return `<div class="row">${cb}${tile(d)}<span class="id"><span class="nm">${d.name}</span>${l2(d)}</span>${t}${r}${power(d)}${status(d)}${go}</div>`;
+}).join('');
+
+// F — reasons in words
+const why = d => {
+  const w = [];
+  if (!d.on) w.push([lite(d) ? `Not reporting · ${d.ago}` : `Offline · ${d.ago}`, 'warn']);
+  if (d.batt != null && d.batt < 20) w.push([`Battery ${d.batt}%`, 'danger']);
+  else if (d.batt != null && d.batt < 50 && !d.chg) w.push([`Battery ${d.batt}%`, 'warn']);
+  if (tl(d) === 'danger') w.push([`Hot · ${T(d)}`, 'danger']); else if (tl(d) === 'warn') w.push([`Warm · ${T(d)}`, 'warn']);
+  if (rl(d) === 'danger') w.push([`RAM ${d.ram}%`, 'danger']); else if (rl(d) === 'warn') w.push([`RAM ${d.ram}%`, 'warn']);
+  return w;
+};
+const bad = D.filter(d => why(d).length), good = D.filter(d => !why(d).length);
+document.getElementById('F').innerHTML = `<div class="fx">
+  <h3>Needs attention <span class="n">${bad.length}</span></h3>
+  <div class="panel tf">${bad.map(d => `<div class="row">${cb}${tile(d)}<span class="id"><span class="nm">${d.name}</span>${l2(d)}</span>
+    <span class="why">${why(d).map(([t, c]) => `<span class="${c}">${t}</span>`).join('')}</span>${agent(d)}${go}</div>`).join('')}</div>
+  <h3>Healthy <span class="n">${good.length}</span></h3>
+  <div class="hgrid">${good.map(d => `<div class="ht">${tile(d)}<span class="id" style="min-width:0;display:flex;flex-direction:column"><span class="nm">${d.name}</span><span class="sn">${d.sn}</span></span><span class="dot"></span>
+    <span class="vs"><span><span class="k">${d.batt == null ? 'Power' : 'Battery'}</span><span class="num">${d.batt == null ? 'Mains' : d.batt + '%'}</span></span><span><span class="k">${d.src === 'cpu' ? 'CPU' : 'Temp'}</span><span class="num">${T(d)}</span></span><span><span class="k">RAM</span><span class="num">${R(d)}</span></span></span></div>`).join('')}</div>
+</div>`;
+
+// switches (two groups, one selection)
+const sws = document.querySelectorAll('#sw, #sw2');
+const pick = v => {
+  sws.forEach(g => g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === v)));
+  document.querySelectorAll('.opt').forEach(s => s.hidden = s.dataset.v !== v);
+  try { localStorage.setItem('fleet-rows-v', v); } catch (_) {}
+};
+sws.forEach(g => g.addEventListener('click', e => { const b = e.target.closest('button'); if (b) pick(b.dataset.v); }));
+document.querySelector('.sw.theme').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.documentElement.setAttribute('data-theme', b.dataset.theme);
+  document.querySelectorAll('.sw.theme button').forEach(x => x.setAttribute('aria-pressed', x === b));
+});
+try { const v = localStorage.getItem('fleet-rows-v'); if (v && document.querySelector(`.opt[data-v="${v}"]`)) pick(v); } catch (_) {}
+// ?v=b opens a layout directly
+const qv = new URLSearchParams(location.search).get('v'); if (qv && document.querySelector(`.opt[data-v="${qv}"]`)) pick(qv);
+const qt = new URLSearchParams(location.search).get('theme'); if (qt) document.querySelector(`.sw.theme [data-theme="${qt}"]`)?.click();
+</script>
+</body></html>
