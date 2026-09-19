@@ -141,6 +141,8 @@ var commandNeeds = map[string]string{
 	"mic_gain_set":     CapMicGain,
 	"wlc_set":          CapWLC,
 	"remote":           CapScreenCapture,
+	"query":            CapShell, // runs as a shell command on the device
+	"set_kiosk":        CapKiosk, // the Actions page's kiosk card (applyKioskForTargets)
 }
 
 // CommandNeeds returns the capability a command type requires ("" = none).

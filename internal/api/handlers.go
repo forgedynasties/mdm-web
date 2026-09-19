@@ -1874,6 +1874,27 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Capability gate (same as the dashboard): named devices whose agent can't run
+	// this command are dropped and reported, rather than queued to fail.
+	var unsupported []string
+	if body.TargetType == "devices" && len(targetIDs) > 0 {
+		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
+			kept := targetIDs[:0:0]
+			for _, d := range devs {
+				if d.Supports(body.Type) {
+					kept = append(kept, d.ID)
+				} else {
+					unsupported = append(unsupported, d.SerialNumber)
+				}
+			}
+			targetIDs = kept
+			if len(targetIDs) == 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]any{"error": "none of the target devices' agents can run " + body.Type, "unsupported": unsupported})
+				return
+			}
+		}
+	}
+
 	// A reboot during an OTA throws away the download or interrupts the install, so drop
 	// those devices the same way installs drop duplicates. The MDM's own post-OTA reboot
 	// is created directly (see ProcessDueScheduledReboots) and never passes through here.

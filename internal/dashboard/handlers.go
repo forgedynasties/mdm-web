@@ -6133,6 +6133,10 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !device.Supports("remote") || device.IsMDMLite() {
+		http.Error(w, "Remote control isn't available on this device's agent ("+device.KindLabel()+").", http.StatusBadRequest)
+		return
+	}
 
 	h.render(w, r, "remote.html", map[string]any{
 		"Title":  "Remote — " + device.SerialNumber,
@@ -14106,7 +14110,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		allActions := []palAction{
 			{Type: "install_apk", Name: "Install app", Desc: "push apps from the library, silently", Payload: "apps"},
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
-			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none", Cap: "system app"},
+			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
@@ -14831,11 +14835,22 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	dpcCount, _ := h.db.CountDPCDevices(r.Context(), ids)
 
 	// Uninstall is a no-op on devices without the package — count and subtract.
+	// Only among devices that can uninstall at all: the rest are already counted
+	// as unsupported below, and must not be subtracted twice.
 	skipped := 0
 	if cmdType == "uninstall" {
 		if pkg := strings.TrimSpace(r.FormValue("package")); pkg != "" {
-			have, _ := h.db.CountDevicesWithPackage(r.Context(), ids, pkg)
-			skipped = len(devices) - have
+			var capable []uuid.UUID
+			for _, d := range devices {
+				if d.Supports("uninstall") {
+					capable = append(capable, d.ID)
+				}
+			}
+			have := 0
+			if len(capable) > 0 {
+				have, _ = h.db.CountDevicesWithPackage(r.Context(), capable, pkg)
+			}
+			skipped = len(capable) - have
 			if skipped < 0 {
 				skipped = 0
 			}
@@ -14855,7 +14870,8 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupSerials = append(unsupSerials, d.SerialNumber)
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe",
+			"app_reload", "app_restart", "app_clear_cache", "app_update_check"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
@@ -16390,6 +16406,16 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Kiosk only reaches agents that can lock the device (not MDM-lite).
+	if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
+		kept := ids[:0:0]
+		for _, d := range devs {
+			if d.Supports("kiosk_set") {
+				kept = append(kept, d.ID)
+			}
+		}
+		ids = kept
 	}
 	if len(ids) == 0 {
 		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
@@ -20056,6 +20082,12 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmdType), device.ID) {
 		return
 	}
+	// Capability gate, as the bulk Actions path does: never queue a command the
+	// device's agent can't run (e.g. uninstall on MDM-lite, which has no Device Owner).
+	if !device.Supports(cmdType) {
+		http.Error(w, fmt.Sprintf("%s isn't available on this device's agent (%s).", cmdTypeLabel(cmdType), device.KindLabel()), http.StatusBadRequest)
+		return
+	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
@@ -21566,6 +21598,10 @@ func (h *Handler) LogcatLivePage(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if !device.Supports("logcat") {
+		http.Error(w, "Live logs aren't available on this device's agent ("+device.KindLabel()+").", http.StatusBadRequest)
 		return
 	}
 	h.render(w, r, "logcat_live.html", map[string]any{
