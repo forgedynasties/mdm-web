@@ -52,6 +52,7 @@ func (h *Handler) reloadProductNames(ctx context.Context) {
 // Admin only for now.
 func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 	h.reloadProductNames(r.Context())
+	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	rows, err := h.db.ProductOverview(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -88,6 +89,7 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		"Ours":       ours,
 		"Stock":      stock,
 		"Classes":    product.Classes(),
+		"Productions": productions,
 	})
 }
 
