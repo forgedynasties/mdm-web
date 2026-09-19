@@ -1010,6 +1010,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// productLabel: the catalog label, or the real model name for a product the
 		// catalog does not know ("Sunmi D3 PRO", not the wire key "d3_pro").
 		"productLabel": productLabel,
+		"productName":  productName, // admin-set display name for a stock product, "" if none
 		// clFormat makes a changelog line scannable: the lead sentence (up to the
 		// first ". ") becomes a bold headline, the rest stays as body text. Input is
 		// HTML-escaped first, so entries are plain text authored in version.go.
@@ -1634,6 +1635,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	apkStore, apkErr := apkstore.New(context.Background())
 	if apkErr != nil {
 		log.Printf("apkstore init: %v (APK upload disabled)", apkErr)
+	}
+	if d != nil {
+		if m, err := d.ProductNames(context.Background()); err == nil {
+			productNames.Store(m)
+		}
 	}
 
 	return &Handler{
@@ -10595,6 +10601,9 @@ var productLabels atomic.Value // map[string]string
 // productLabel is the template-facing label for a product key: a learned model name
 // when we have one, else the catalog label (which falls back to the key itself).
 func productLabel(key string) string {
+	if n := productName(key); n != "" {
+		return n
+	}
 	if m, ok := productLabels.Load().(map[string]string); ok {
 		if label := m[product.Normalize(key)]; label != "" {
 			return label
@@ -10635,6 +10644,11 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 			p.Label = label
 		}
 		out = append(out, p)
+	}
+	for i := range out {
+		if n := productName(out[i].Key); n != "" {
+			out[i].Label = n
+		}
 	}
 	return out
 }
@@ -21391,6 +21405,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
+	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))
 	mux.HandleFunc("GET /settings/google-usage", h.requireStrictAdmin(h.GoogleUsageJSON))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
@@ -21410,6 +21425,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
+	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.

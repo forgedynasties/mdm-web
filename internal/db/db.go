@@ -1465,6 +1465,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, appFamilySchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, productNamesSchema); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 

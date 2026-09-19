@@ -31,7 +31,7 @@
       <div class="dl-id">
         <div class="dl-l1">
           {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
-               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}
+               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
           <a href="/devices/{{.SerialNumber}}" class="dl-serial dl-lead link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a>
           {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
           {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
@@ -116,6 +116,8 @@ if (!window.__dlRowNav) {
 {{define "fleet-product-pills"}}{{if .RailProducts}}
       <button type="button" class="fleet-view fleet-prod{{if not .FilterProduct}} on{{end}}" aria-pressed="{{if .FilterProduct}}false{{else}}true{{end}}" onclick="setProduct('')">All products</button>
       {{range .RailProducts}}<button type="button" class="fleet-view fleet-prod{{if eq .Key $.FilterProduct}} on{{end}}" aria-pressed="{{if eq .Key $.FilterProduct}}true{{else}}false{{end}}" onclick="setProduct('{{.Key}}')">{{.Label}} <span class="n">{{.DeviceCount}}</span></button>{{end}}
+
+      {{if canAdmin .Role}}<a class="fleet-prod-manage" href="/products" title="Rename products">Manage</a>{{end}}
 {{end}}{{end}}
 
 {{/* Collection toolbar next to the roster heading: manage/rename/delete the
@@ -398,6 +400,8 @@ a.fleet-rail-item{min-height:40px}
 .fleet-view.fleet-prod .n{font-size:10.5px}
 .fleet-view.fleet-prod.on{background:var(--accent-2-soft);border-color:transparent;color:var(--accent-2);font-weight:600}
 .fleet-view.fleet-prod.on .n{color:var(--accent-2)}
+.fleet-prod-manage{font-size:12px;color:var(--text-faint);margin-left:6px;text-decoration:none}
+.fleet-prod-manage:hover{color:var(--accent-text)}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
