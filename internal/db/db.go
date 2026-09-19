@@ -478,9 +478,11 @@ type DeviceFilter struct {
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
 	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
 	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)
+	RAM                 string    // "high" (>=80% used), "warn" (>=60%), or "" (no filter)
+	Temp                string    // "hot" (danger level), "warm" (warn level or above), or "" (no filter)
 	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
-	AgentKind           string    // "firmware" | "dpc" | "" (no filter)
+	AgentKind           string    // "firmware" | "dpc" (DPC agent) | "mdm-lite" | "" (no filter)
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
 	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
@@ -2246,9 +2248,9 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		argN++
 	}
 	if f.AgentKind != "" {
-		wheres = append(wheres, fmt.Sprintf("d.agent_kind = $%d", argN))
-		args = append(args, f.AgentKind)
-		argN++
+		w, a := agentKindWhere(f.AgentKind, &argN)
+		wheres = append(wheres, w)
+		args = append(args, a...)
 	}
 	if f.GroupID != uuid.Nil {
 		joins = append(joins, fmt.Sprintf("JOIN device_groups dg ON dg.device_id = d.id AND dg.group_id = $%d", argN))
@@ -2364,6 +2366,58 @@ func productWhere(key string, argN *int) (string, []interface{}) {
 	return w, []interface{}{key}
 }
 
+// agentKindWhere matches the fleet's Agent filter. MDM-lite devices are stored as
+// dpc with latest_extra.agent_type "mdm-lite", so "dpc" means the DPC agent proper.
+func agentKindWhere(kind string, argN *int) (string, []interface{}) {
+	isLite := "COALESCE(d.latest_extra->>'agent_type', '') = '" + prod.AgentTypeMDMLite + "'"
+	switch kind {
+	case prod.AgentTypeMDMLite:
+		return "d.agent_kind = '" + prod.KindDPC + "' AND " + isLite, nil
+	case prod.KindDPC:
+		return "d.agent_kind = '" + prod.KindDPC + "' AND NOT " + isLite, nil
+	}
+	w := fmt.Sprintf("d.agent_kind = $%d", *argN)
+	*argN++
+	return w, []interface{}{kind}
+}
+
+// SQL forms of the card vitals. Numbers only: a malformed value reads as no value.
+const (
+	ramPctSQL = `(CASE WHEN jsonb_typeof(d.latest_extra->'ram_usage_mb'->'used') = 'number'
+		AND jsonb_typeof(d.latest_extra->'ram_usage_mb'->'total') = 'number'
+		THEN (d.latest_extra->'ram_usage_mb'->>'used')::numeric * 100 / NULLIF((d.latest_extra->'ram_usage_mb'->>'total')::numeric, 0) END)`
+	batteryTempSQL = `(CASE WHEN jsonb_typeof(d.latest_extra->'battery_temp_c') = 'number' THEN (d.latest_extra->>'battery_temp_c')::numeric END)`
+	cpuTempSQL     = `(CASE WHEN jsonb_typeof(d.latest_extra->'cpu_temp_c') = 'number' THEN (d.latest_extra->>'cpu_temp_c')::numeric END)`
+	// tempSQL is the reading the card shows: the battery sensor, else the SoC.
+	tempSQL = "COALESCE(" + batteryTempSQL + ", " + cpuTempSQL + ")"
+)
+
+// Temperature bands, shared with the dashboard's colouring (dashboard.tempLevel).
+const (
+	BatteryTempWarn, BatteryTempDanger = 40, 60
+	CPUTempWarn, CPUTempDanger         = 70, 85
+	RAMWarnPct, RAMDangerPct           = 60, 80
+)
+
+// vitalsWhere is the RAM and temperature filters as an AND-prefixed clause.
+func vitalsWhere(f DeviceFilter) string {
+	var out string
+	switch f.RAM {
+	case "high":
+		out += fmt.Sprintf(" AND %s >= %d", ramPctSQL, RAMDangerPct)
+	case "warn":
+		out += fmt.Sprintf(" AND %s >= %d", ramPctSQL, RAMWarnPct)
+	}
+	bw, bd, cw, cd := BatteryTempWarn, BatteryTempDanger, CPUTempWarn, CPUTempDanger
+	switch f.Temp {
+	case "hot":
+		out += fmt.Sprintf(" AND (%s >= %d OR (%s IS NULL AND %s >= %d))", batteryTempSQL, bd, batteryTempSQL, cpuTempSQL, cd)
+	case "warm":
+		out += fmt.Sprintf(" AND (%s >= %d OR (%s IS NULL AND %s >= %d))", batteryTempSQL, bw, batteryTempSQL, cpuTempSQL, cw)
+	}
+	return out
+}
+
 func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool, limit, offset int) (string, []interface{}) {
 	var args []interface{}
 	argN := 1
@@ -2395,9 +2449,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "d.onboarded_at IS NOT NULL")
 	}
 	if f.AgentKind != "" {
-		wheres = append(wheres, fmt.Sprintf("d.agent_kind = $%d", argN))
-		args = append(args, f.AgentKind)
-		argN++
+		w, a := agentKindWhere(f.AgentKind, &argN)
+		wheres = append(wheres, w)
+		args = append(args, a...)
 	}
 	if f.Class != "" {
 		// Firmware devices rarely store a class; match the product default too.
@@ -2523,6 +2577,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		case "ok":
 			base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 		}
+		base += vitalsWhere(f)
 
 		if dir != "asc" && dir != "desc" {
 			dir = ""
@@ -2555,10 +2610,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 				orderClause = "d.discharge_total_pct DESC"
 			}
 		case "ram":
-			orderClause = `COALESCE(
-				((d.latest_extra->'ram_usage_mb'->>'used')::int * 100) / NULLIF((d.latest_extra->'ram_usage_mb'->>'total')::int, 0),
-				0
-			) `
+			orderClause = "COALESCE(" + ramPctSQL + ", 0) "
 			if dir == "desc" {
 				orderClause += "DESC"
 			} else {
@@ -2566,9 +2618,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			}
 		case "temp":
 			if dir == "desc" {
-				orderClause = "COALESCE((d.latest_extra->>'battery_temp_c')::numeric, 0) DESC"
+				orderClause = "COALESCE(" + tempSQL + ", 0) DESC"
 			} else {
-				orderClause = "COALESCE((d.latest_extra->>'battery_temp_c')::numeric, 0) ASC"
+				orderClause = "COALESCE(" + tempSQL + ", 0) ASC"
 			}
 		case "created_at":
 			if dir == "asc" {
@@ -2614,6 +2666,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	case "ok":
 		base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
 	}
+	base += vitalsWhere(f)
 
 	return base, args
 }

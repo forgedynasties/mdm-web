@@ -3642,7 +3642,7 @@ func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
 		"Page": 1, "TotalPages": 1, "Query": "", "PageSize": 60,
 		"Summary": summary, "Sort": "", "SortDir": "",
 		"FilterRestaurant": "", "FilterGroup": "", "FilterProduction": "", "FilterProduct": "",
-		"FilterStatus": "", "FilterBuild": "", "FilterBattery": "", "FilterKiosk": "",
+		"FilterStatus": "", "FilterBuild": "", "FilterBattery": "", "FilterRAM": "", "FilterTemp": "", "FilterKiosk": "",
 		"FilterCharging": "", "FilterTimezone": "", "FilterKind": "", "FilterClass": "",
 		"FilterOnboarding": "", "FilterLifecycle": "", "FilterHidden": false,
 		"ActiveThresholdSecs": 180, "ActiveThresholdLabel": "3 min",
@@ -4404,6 +4404,8 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Battery:             r.URL.Query().Get("battery"),
 		Kiosk:               r.URL.Query().Get("kiosk"),
 		Charging:            r.URL.Query().Get("charging"),
+		RAM:                 r.URL.Query().Get("ram"),
+		Temp:                r.URL.Query().Get("temp"),
 		Timezone:            r.URL.Query().Get("timezone"),
 		Product:             r.URL.Query().Get("product"),
 		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
@@ -4622,7 +4624,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
+	for _, k := range []string{"status", "production", "build", "battery", "ram", "temp", "kiosk", "charging", "timezone", "kind", "class", "onboarding", "lifecycle"} {
 		if qv.Get(k) != "" {
 			filterCount++
 		}
@@ -4751,6 +4753,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterStatus":         r.URL.Query().Get("status"),
 		"FilterBuild":          r.URL.Query().Get("build"),
 		"FilterBattery":        r.URL.Query().Get("battery"),
+		"FilterRAM":            r.URL.Query().Get("ram"),
+		"FilterTemp":           r.URL.Query().Get("temp"),
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),

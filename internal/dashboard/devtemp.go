@@ -3,6 +3,8 @@ package dashboard
 import (
 	"encoding/json"
 	"fmt"
+
+	"mdm/internal/db"
 )
 
 // Where a device's temperature reading comes from. They run in different ranges, so
@@ -26,23 +28,24 @@ func deviceTempC(raw json.RawMessage) (temp float64, src string, ok bool) {
 }
 
 // tempLevel grades a reading as "ok", "warn" or "danger" (the CSS classes the
-// dashboard uses). Battery: warm from 45 °C, and at or below 0 °C the reading is
-// either a cold-soaked pack or a dead sensor. CPU: an SoC idles around 55–60 °C;
-// warn at 70 °C, where the RK3528 thermal HAL starts severe throttling, danger at 85.
+// dashboard uses), on the bands the fleet's temperature filter shares (db.*Temp*).
+// Battery: warm from 40 °C, and at or below 0 °C the reading is either a
+// cold-soaked pack or a dead sensor. CPU: an SoC idles around 55–60 °C; warn at
+// 70 °C, where the RK3528 thermal HAL starts severe throttling, danger at 85.
 func tempLevel(temp float64, src string) string {
 	if src == tempSrcCPU {
 		switch {
-		case temp >= 85:
+		case temp >= db.CPUTempDanger:
 			return "danger"
-		case temp >= 70:
+		case temp >= db.CPUTempWarn:
 			return "warn"
 		}
 		return "ok"
 	}
 	switch {
-	case temp >= 60:
+	case temp >= db.BatteryTempDanger:
 		return "danger"
-	case temp >= 45:
+	case temp >= db.BatteryTempWarn:
 		return "warn"
 	case temp <= -10:
 		return "danger"

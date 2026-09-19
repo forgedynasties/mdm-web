@@ -32,7 +32,7 @@
         {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
         <span class="dl-mdl" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}{{$model}} · {{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"> · <span class="dl-buildid">{{.BuildID}}</span></span>{{end}}</span>
         <span class="dl-right">
-          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
+          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i>{{$off}}</span>{{end}}
           {{if .IsMDMLite}}<span class="dl-synced" data-always="1" title="Last check-in">{{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="Last seen">{{timeSince .LastSeenAt}}</span>{{end}}
           {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         </span>
@@ -55,6 +55,24 @@
   </div>
   {{end}}
 </div>
+<script>
+// The whole card opens the device (same as its arrow link, so the fleet inspector
+// still catches it); controls inside the card and text selection keep their own
+// behaviour. Registered once — the list is re-rendered by htmx swaps.
+if (!window.__dlRowNav) {
+  window.__dlRowNav = true;
+  document.addEventListener('click', function (e) {
+    var card = e.target.closest && e.target.closest('.dl-card');
+    if (!card || e.target.closest('a, button, input, label, select, form, .dl-legacy-tag')) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length) return;
+    var link = card.querySelector('.dl-view');
+    if (!link) return;
+    if (e.metaKey || e.ctrlKey) { window.open(link.href, '_blank'); return; }
+    link.click();
+  });
+}
+</script>
 {{end}}
 
 {{/* Lean device list — serial + one action button, nothing else. Used in place of
@@ -143,9 +161,9 @@
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else if eq .FilterKind "mdm-lite"}}MDM-lite{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
@@ -155,6 +173,8 @@
   {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
   {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
   {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
+  {{if .FilterRAM}}<span class="fchip"><span class="k">RAM</span> {{if eq .FilterRAM "high"}}High 80%+{{else}}Elevated 60%+{{end}} <button type="button" class="x" onclick="clearOne('filter-ram')" aria-label="Clear RAM">×</button></span>{{end}}
+  {{if .FilterTemp}}<span class="fchip"><span class="k">Temperature</span> {{if eq .FilterTemp "hot"}}Hot{{else}}Warm or hotter{{end}} <button type="button" class="x" onclick="clearOne('filter-temp')" aria-label="Clear temperature">×</button></span>{{end}}
   {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
   {{if .FilterCharging}}<span class="fchip"><span class="k">Charging</span> {{if eq .FilterCharging "yes"}}Charging{{else}}Not charging{{end}} <button type="button" class="x" onclick="clearOne('filter-charging')" aria-label="Clear charging">×</button></span>{{end}}
   {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
@@ -581,6 +601,7 @@ a.fleet-rail-item{min-height:40px}
             <option value="">Any agent</option>
             <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware (our hardware)</option>
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>DPC agent</option>
+            <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM-lite (in-app)</option>
           </select></label>{{end}}
         <label class="fp-field"><span>Device type</span>
           <select id="filter-class" onchange="applyFilters()">
@@ -611,6 +632,18 @@ a.fleet-rail-item{min-height:40px}
             <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
             <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20–49%</option>
             <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
+          </select></label>
+        <label class="fp-field"><span>RAM</span>
+          <select id="filter-ram" onchange="applyFilters()">
+            <option value="">Any RAM</option>
+            <option value="high" {{if eq .FilterRAM "high"}}selected{{end}}>High 80%+</option>
+            <option value="warn" {{if eq .FilterRAM "warn"}}selected{{end}}>Elevated 60%+</option>
+          </select></label>
+        <label class="fp-field"><span>Temperature</span>
+          <select id="filter-temp" onchange="applyFilters()">
+            <option value="">Any temperature</option>
+            <option value="hot" {{if eq .FilterTemp "hot"}}selected{{end}}>Hot (battery 60°C+, CPU 85°C+)</option>
+            <option value="warm" {{if eq .FilterTemp "warm"}}selected{{end}}>Warm or hotter (battery 40°C+, CPU 70°C+)</option>
           </select></label>
         <label class="fp-field"><span>Kiosk</span>
           <select id="filter-kiosk" onchange="applyFilters()">
@@ -695,6 +728,8 @@ function getFilterVals(overrides) {
     status: p.get('status') || '',
     build: p.get('build') || '',
     battery: p.get('battery') || '',
+    ram: p.get('ram') || '',
+    temp: p.get('temp') || '',
     kiosk: p.get('kiosk') || '',
     charging: p.get('charging') || '',
     timezone: p.get('timezone') || '',
@@ -724,6 +759,10 @@ function getFilterVals(overrides) {
   if (fs) vals.status = fs.value;
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
+  var fram = document.getElementById('filter-ram');
+  var ftemp = document.getElementById('filter-temp');
+  if (fram) vals.ram = fram.value;
+  if (ftemp) vals.temp = ftemp.value;
   if (fk) vals.kiosk = fk.value;
   if (fch) vals.charging = fch.value;
   if (ftz) vals.timezone = ftz.value;
@@ -773,9 +812,9 @@ function mdmDevSkeleton() {
 // and inspector stay put. Switching collection resets the search + popover filters.
 function scopeRoster(anchor, u) {
   clearSelectAllMatching();
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -822,9 +861,9 @@ function setHidden(val) {
 function clearFilters() {
   // Clears the popover filters + search + visibility, but keeps the rail
   // collection (group/restaurant) in scope.
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: ''});
+  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
