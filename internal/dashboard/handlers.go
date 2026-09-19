@@ -1415,6 +1415,19 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			var b bool
 			return json.Unmarshal(m[key], &b) == nil && b
 		},
+		// extraSub reads obj.key from latest_extra (e.g. host_app.version_name); "" when absent.
+		"extraSub": func(raw []byte, obj, key string) string {
+			var m map[string]map[string]json.RawMessage
+			if json.Unmarshal(raw, &m) != nil || m[obj] == nil {
+				return ""
+			}
+			v := m[obj][key]
+			var s string
+			if json.Unmarshal(v, &s) == nil {
+				return s
+			}
+			return strings.Trim(string(v), `"`)
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
