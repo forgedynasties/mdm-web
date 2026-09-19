@@ -1,0 +1,190 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fleet products · tabs vs chips — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0}
+.wrap{max-width:1280px;margin:0 auto;padding:24px 24px 80px}
+.dbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.dbar a{font-size:13px;color:var(--muted);text-decoration:none}
+h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:6px 0 4px}
+.lede{color:var(--muted);font-size:14px;margin:0 0 16px;max-width:90ch}
+.sw{display:inline-flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px}
+.sw button{font:inherit;font-size:13px;font-weight:600;border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:99px;cursor:pointer}
+.sw button[aria-pressed=true]{background:var(--surface2);color:var(--accent-text)}
+.ml{margin-left:auto}
+.note{font-size:13px;color:var(--muted);margin:12px 0 16px;max-width:95ch}
+.note b{color:var(--text-2)}
+.lay{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
+/* rail (collections only) */
+.rail{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px}
+.rcap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:12px 8px 6px}
+.ri{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;font-size:13.5px;font-weight:600;color:var(--text-2);cursor:pointer;border:1px solid transparent}
+.ri:hover{background:var(--surface2)}
+.ri.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.ri .ct{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.ri i{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+.ri.on i{background:var(--ok)}
+/* roster */
+.rh{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.rh b{font-size:18px}.rh span{color:var(--muted);font-size:13px}
+/* option 1: product tabs (single choice) */
+.ptabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:14px;overflow-x:auto}
+.ptab{display:inline-flex;align-items:center;gap:8px;padding:10px 12px 11px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.ptab:hover{color:var(--text)}
+.ptab.on{color:var(--text);border-bottom-color:var(--accent)}
+.ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.ptab.on .n{color:var(--accent-text)}
+.ptab .ic{width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center}
+.ptab .ic svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* option 2: product chips (multi choice) */
+.pchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.pchips .cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-right:4px}
+.pchip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+.pchip:hover{border-color:var(--rule-2)}
+.pchip .box{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--rule-2);display:inline-flex;align-items:center;justify-content:center}
+.pchip.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.pchip.on .box{background:var(--accent);border-color:var(--accent)}
+.pchip.on .box::after{content:"";width:6px;height:3px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.pchip .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.pchip.on .n{color:var(--accent-text)}
+.pchip.zero{opacity:.45}
+.pclear{font:inherit;font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer;margin-left:4px}
+.pclear:hover{color:var(--accent-text)}
+/* quick views */
+.qv{display:flex;gap:6px;margin-bottom:12px}
+.qv button{font:inherit;font-size:12.5px;font-weight:600;height:30px;padding:0 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
+.qv button.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.qv .n{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:6px}
+/* list */
+.list{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.row{display:grid;grid-template-columns:34px minmax(0,1fr) 150px;align-items:center;gap:14px;padding:10px 16px;border-top:1px solid var(--border-soft)}
+.row:first-child{border-top:0}
+.row .t{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.row .t svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.row .nm{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
+.row .nm i{width:8px;height:8px;border-radius:50%;background:var(--text-faint)}
+.row .nm i.on{background:var(--ok)}
+.row .sub{font-size:12px;color:var(--text-2)}
+.row .sub .sn{font-family:var(--mono);color:var(--text-faint);margin-left:6px}
+.row .where{font-size:12px;color:var(--muted);text-align:right}
+.more{padding:12px 16px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft)}
+.empty{padding:28px 16px;color:var(--muted);font-size:13.5px;text-align:center}
+.t.t7{background:rgba(201,68,45,.2);color:#f0907d}.t.kiosk{background:rgba(79,85,204,.24);color:#a9adf5}
+.t.dongle{background:rgba(15,114,99,.26);color:#6fd1bf}.t.pos{background:rgba(255,255,255,.08);color:var(--text-2)}
+.t.mpos{background:rgba(152,89,10,.26);color:#f0b765}
+html:not([data-theme=dark]) .t.t7{background:#fdebe7;color:#c9442d}
+html:not([data-theme=dark]) .t.kiosk{background:#ecedfd;color:#4f55cc}
+html:not([data-theme=dark]) .t.dongle{background:#e2f3ef;color:#0f7263}
+html:not([data-theme=dark]) .t.pos{background:#ece9e4;color:#4a453e}
+html:not([data-theme=dark]) .t.mpos{background:#fcefd8;color:#98590a}
+@media(max-width:820px){.lay{grid-template-columns:1fr}}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="k-t7" viewBox="0 0 24 24"><path d="M5.5 19.5V6.6A2.8 2.8 0 0 1 7.9 3.8Q12 3.2 16.1 3.8A2.8 2.8 0 0 1 18.5 6.6v12.9a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M10.5 3.4v1.6h3V3.4"/><rect x="7.8" y="7.2" width="8.4" height="9.8" rx=".6"/><path d="M10.3 18.9h3.4"/><path d="M3.5 22.2h17"/></symbol>
+  <symbol id="k-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
+  <symbol id="k-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
+  <symbol id="k-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
+  <symbol id="k-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="dbar"><a href="/demo">← Demos</a>
+    <div class="sw ml" id="theme"><button data-t="dark" aria-pressed="true">Dark</button><button data-t="light" aria-pressed="false">Light</button></div></div>
+  <h1>Products on the fleet page — tabs or chips</h1>
+  <p class="lede">Products move out of the side rail. The rail keeps the collections (a restaurant, a group, a release) and products become a filter above the list that stacks with them and with Online / Offline. Try it: pick a restaurant, then a product, then Offline. Your live mix is used (147 TSAI, 2 kiosks, 1 menu board, 1 POS, 1 handheld).</p>
+  <div class="sw" id="opt"><button data-o="tabs" aria-pressed="true">1 · Product tabs (one at a time)</button><button data-o="chips" aria-pressed="false">2 · Product chips (pick several)</button></div>
+  <p class="note" id="optnote"></p>
+
+  <div class="lay">
+    <aside class="rail" id="rail"></aside>
+    <section>
+      <div class="rh"><b id="title">All devices</b><span id="count"></span></div>
+      <div id="pf"></div>
+      <div class="qv" id="qv"></div>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+</div>
+<script>
+// Live mix: products per restaurant (lab = not placed).
+const PRODUCTS = [
+  {k:'t7', label:'Tableside AI', icon:'t7'},
+  {k:'kiosk', label:'Self-order kiosk', icon:'kiosk'},
+  {k:'dongle', label:'Menu board', icon:'dongle'},
+  {k:'pos', label:'POS terminal', icon:'pos'},
+  {k:'mpos', label:'Handheld', icon:'mpos'},
+];
+const SITES = [{k:'', label:'All devices'}, {k:'fv', label:'Flights Vegas'}, {k:'hp', label:'Huanchaco Peruvian'}, {k:'lab', label:'Lab / bench'}];
+const MIX = { fv:{t7:20,kiosk:1,dongle:1}, hp:{t7:18,pos:1}, lab:{t7:109,kiosk:1,mpos:1} };
+const MODEL = {t7:'TSAI', kiosk:'Kiosk 22', dongle:'Google HK1 RBOX D8', pos:'Telpo K20', mpos:'SUNMI D3 PRO'};
+let D = [], seed = 7;
+const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+for (const [site, m] of Object.entries(MIX)) for (const [p, n] of Object.entries(m)) for (let i = 0; i < n; i++)
+  D.push({site, p, on: rnd() < (p === 't7' ? .47 : .6), sn: (p === 't7' ? 'AT070AABU' : p.toUpperCase().slice(0,3) + '-') + String(100 + D.length).padStart(5, '0'), ago: Math.ceil(rnd() * 9) + ' h ago'});
+
+const S = { opt: 'tabs', site: '', one: '', many: new Set(), view: 'all' };
+const $ = id => document.getElementById(id);
+const inSite = d => !S.site || d.site === S.site;
+const inProd = d => S.opt === 'tabs' ? (!S.one || d.p === S.one) : (!S.many.size || S.many.has(d.p));
+const inView = d => S.view === 'all' || (S.view === 'on' ? d.on : !d.on);
+const icon = k => `<svg><use href="#k-${k}"/></svg>`;
+
+function render() {
+  // rail: collections only
+  $('rail').innerHTML = `<div class="ri ${S.site === '' ? 'on' : ''}" data-s=""><i></i>All devices<span class="ct">${D.length}</span></div>
+    <div class="rcap">Restaurants</div>` + SITES.slice(1, 3).map(s => `<div class="ri ${S.site === s.k ? 'on' : ''}" data-s="${s.k}"><i></i>${s.label}<span class="ct">${D.filter(d => d.site === s.k).length}</span></div>`).join('') +
+    `<div class="rcap">Groups</div><div class="ri ${S.site === 'lab' ? 'on' : ''}" data-s="lab"><i></i>Lab / bench<span class="ct">${D.filter(d => d.site === 'lab').length}</span></div>`;
+  $('title').textContent = SITES.find(s => s.k === S.site).label;
+
+  // product filter: counts follow the rail scope (not the product choice itself)
+  const scoped = D.filter(inSite);
+  const pc = k => scoped.filter(d => d.p === k).length;
+  if (S.opt === 'tabs') {
+    const tabs = PRODUCTS.filter(p => pc(p.k) > 0);
+    if (S.one && !pc(S.one)) S.one = '';
+    $('pf').innerHTML = `<div class="ptabs"><button class="ptab ${S.one === '' ? 'on' : ''}" data-p="">All products <span class="n">${scoped.length}</span></button>` +
+      tabs.map(p => `<button class="ptab ${S.one === p.k ? 'on' : ''}" data-p="${p.k}"><span class="ic t ${p.icon}">${icon(p.icon)}</span>${p.label} <span class="n">${pc(p.k)}</span></button>`).join('') + `</div>`;
+  } else {
+    $('pf').innerHTML = `<div class="pchips"><span class="cap">Products</span>` +
+      PRODUCTS.map(p => `<button class="pchip ${S.many.has(p.k) ? 'on' : ''} ${pc(p.k) ? '' : 'zero'}" data-m="${p.k}"><span class="box"></span>${p.label} <span class="n">${pc(p.k)}</span></button>`).join('') +
+      (S.many.size ? `<button class="pclear" id="pclear">Clear</button>` : '') + `</div>`;
+  }
+
+  // quick views: counts after site + product
+  const base = scoped.filter(inProd);
+  const on = base.filter(d => d.on).length;
+  $('qv').innerHTML = [['all', 'All', base.length], ['on', 'Online', on], ['off', 'Offline', base.length - on]]
+    .map(([k, l, n]) => `<button class="${S.view === k ? 'on' : ''}" data-v="${k}">${l}<span class="n">${n}</span></button>`).join('');
+
+  const rows = base.filter(inView);
+  $('count').textContent = rows.length + ' device' + (rows.length === 1 ? '' : 's');
+  $('list').innerHTML = rows.length ? rows.slice(0, 10).map(d => {
+    const p = PRODUCTS.find(x => x.k === d.p);
+    return `<div class="row"><span class="t ${p.icon}">${icon(p.icon)}</span>
+      <div><div class="nm">${MODEL[d.p]} <i class="${d.on ? 'on' : ''}"></i>${d.on ? '' : `<span style="font-size:11.5px;color:var(--text-faint);font-weight:400">${d.ago}</span>`}</div>
+      <div class="sub">${p.label}<span class="sn">${d.sn}</span></div></div>
+      <div class="where">${SITES.find(s => s.k === d.site).label}</div></div>`;
+  }).join('') + (rows.length > 10 ? `<div class="more">… and ${rows.length - 10} more</div>` : '')
+    : `<div class="empty">No devices match.</div>`;
+
+  $('optnote').innerHTML = S.opt === 'tabs'
+    ? '<b>Tabs</b> — one product at a time, like mailbox tabs. Only products present in the current restaurant / group show, with their counts. Clean when you think "the menu boards" first.'
+    : '<b>Chips</b> — tick any number of products (e.g. Menu board + Self-order kiosk). Every product is listed; ones with no devices here are dimmed. More flexible, a little busier.';
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-s],[data-p],[data-m],[data-v],[data-o],[data-t],#pclear'); if (!t) return;
+  if (t.dataset.s !== undefined) S.site = t.dataset.s;
+  else if (t.dataset.p !== undefined) S.one = t.dataset.p;
+  else if (t.dataset.m) { S.many.has(t.dataset.m) ? S.many.delete(t.dataset.m) : S.many.add(t.dataset.m); }
+  else if (t.dataset.v) S.view = t.dataset.v;
+  else if (t.id === 'pclear') S.many.clear();
+  else if (t.dataset.o) { S.opt = t.dataset.o; document.querySelectorAll('#opt button').forEach(b => b.setAttribute('aria-pressed', b === t)); }
+  else if (t.dataset.t) { document.documentElement.setAttribute('data-theme', t.dataset.t); document.querySelectorAll('#theme button').forEach(b => b.setAttribute('aria-pressed', b === t)); }
+  render();
+});
+const qo = new URLSearchParams(location.search).get('opt'); if (qo === 'chips') { S.opt = 'chips'; document.querySelectorAll('#opt button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === 'chips')); }
+render();
+</script>
+</body></html>

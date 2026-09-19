@@ -4974,6 +4974,33 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	data["DeviceMapCount"] = locCount
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 
+	// Fleet composition by product role (Menu board, Tableside AI, …), the same axis as
+	// the fleet rail, not by hardware model. Most devices first; unassigned last.
+	if cc, _, _, err := h.db.FleetComposition(ctx, h.access(r).hidesDPC()); err == nil {
+		type compRole struct {
+			Class, Label string
+			Count        int
+		}
+		var roles []compRole
+		unassigned := 0
+		for _, c := range cc {
+			if c.Class == "" {
+				unassigned += c.N
+				continue
+			}
+			roles = append(roles, compRole{c.Class, product.ClassLabel(c.Class), c.N})
+		}
+		for i := 1; i < len(roles); i++ {
+			for j := i; j > 0 && roles[j].Count > roles[j-1].Count; j-- {
+				roles[j], roles[j-1] = roles[j-1], roles[j]
+			}
+		}
+		if unassigned > 0 {
+			roles = append(roles, compRole{"", "Unassigned", unassigned})
+		}
+		data["Products"] = roles
+	}
+
 	// Per-user widget arrangement (hidden / order / preset).
 	for k, v := range h.overviewLayoutData(r) {
 		data[k] = v
@@ -18242,7 +18269,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
 		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail",
-		"fleet-cards", "fleet-rows":
+		"fleet-cards", "fleet-rows", "fleet-products":
 	default:
 		http.NotFound(w, r)
 		return
