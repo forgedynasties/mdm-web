@@ -444,7 +444,7 @@ a.fleet-rail-item{min-height:40px}
     {{/* Device types: one entry per class that has devices; the type icon doubles as
          the bullet so the rail matches the fleet rows. */}}
     {{if .RailClasses}}
-    <div class="fleet-rail-cap"><span>Roles</span></div>
+    <div class="fleet-rail-cap"><span>Products</span></div>
     {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
     <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}" href="/devices?class={{.Class}}">
       <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span><span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>
