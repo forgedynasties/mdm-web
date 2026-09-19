@@ -513,11 +513,13 @@ a.fleet-rail-item{min-height:40px}
 .fl-intro-txt p{margin:0;color:var(--text-2);font-size:13px;line-height:1.45}
 .fl-intro-acts{display:flex;gap:8px;flex-wrap:wrap;flex:none}
 /* product tabs above the roster */
-.ptabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:0 0 14px;overflow-x:auto;scrollbar-width:none}
+.ptabs{display:flex;gap:4px;margin:0 0 12px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;border-bottom:1px solid var(--border-soft)}
 .ptabs:empty{display:none}
-.ptab{display:inline-flex;align-items:center;gap:8px;padding:9px 12px 10px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
-.ptab:hover{color:var(--text)}
-.ptab.on{color:var(--text);border-bottom-color:var(--accent)}
+/* every tab the same weight; the selected one is a filled pill, not bolder text */
+.ptab{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 10px;border-radius:99px;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);background:none;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.ptab:first-child{padding-left:13px}
+.ptab:hover{background:var(--surface2);color:var(--text)}
+.ptab.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 .ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
 .ptab.on .n{color:var(--accent-text)}
 .ptab-ic{width:20px;height:20px;border-radius:6px;flex:none}
