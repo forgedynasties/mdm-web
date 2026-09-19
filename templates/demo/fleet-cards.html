@@ -1,0 +1,312 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fleet cards · device icons — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--border:#e8e2da;--border-soft:#efe9e2;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;--coral:#f9674e;
+  --ok:#157f3c;--ok-dot:#1f9d4f;--warn:#b26a00;--danger:#c0321f;--issue:#b23a24;
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.dbar a.back{font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+h2{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:34px 0 4px}
+.sub{color:var(--muted);font-size:13.5px;margin-bottom:14px;max-width:80ch}
+.cap{font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.switch{display:inline-flex;flex-wrap:wrap;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;margin:2px 0 6px}
+.switch button{font:600 13px var(--font);border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:99px;cursor:pointer}
+.switch button[aria-pressed=true]{background:var(--surface2);color:var(--coral)}
+.opt[hidden]{display:none}
+
+/* device type icon: one tint per type */
+.di{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.di svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.di.t7{background:#fdebe7;color:#c9442d}.di.kiosk{background:#ecedfd;color:#4f55cc}
+.di.dongle{background:#e2f3ef;color:#0f7263}.di.mpos{background:#fcefd8;color:#98590a}
+.di.pos{background:#ece9e4;color:#4a453e}.di.tablet{background:#e3edfa;color:#285aab}
+.di.phone{background:#e4f2e7;color:#1c6f37}.di.other{background:#efece7;color:#6b655c}
+.pill{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.ag-firmware{background:#f1ede7;color:#4a453e}.ag-dpc{background:#eceefe;color:#4449b8}.ag-lite{background:#e2f3ef;color:#0f6557}
+.st{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.st i{width:8px;height:8px;border-radius:99px;background:var(--faint)}
+.st.on{color:var(--ok)}.st.on i{background:var(--ok-dot)}
+.st.off{color:#6b655c}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.danger{color:var(--danger)}.na{color:var(--muted)}
+.issue{color:var(--issue);font-weight:600;font-size:12.5px}
+
+/* legend */
+.types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.type{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.type b{display:block;font-size:14.5px}.type span{font-size:12.5px;color:var(--muted)}
+.vocab{display:flex;gap:36px;flex-wrap:wrap;margin-top:16px;align-items:flex-start}
+.vocab .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:13.5px}
+
+/* A: row cards */
+.rows{display:flex;flex-direction:column;gap:10px}
+.rc{display:flex;align-items:center;gap:18px;padding:13px 18px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.rc .id{width:320px;min-width:0}.rc .id .n{display:flex;align-items:center;gap:8px}
+.rc .id a{font-weight:600;font-size:15px}.rc .id .m{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc .id .m code{font-family:var(--mono);font-size:11.5px}
+.rc .vit{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 10px;border-radius:9px;background:var(--surface2);color:var(--text2)}
+.chip b{font-weight:600}
+.rc .stc{width:170px;display:flex;flex-direction:column;gap:2px}.rc .stc small{font-size:12px;color:var(--muted)}
+.rc .is{width:190px;text-align:right}
+.rc .is .pill{background:#fdebe7;color:var(--issue)}
+
+/* A4 · aligned columns: one grid shared by the header and every row */
+.cols{--g:44px minmax(0,2.3fr) 120px 110px 110px minmax(0,1.3fr) minmax(0,1.5fr) 36px}
+.cols .hd,.cols .cr{display:grid;grid-template-columns:var(--g);column-gap:20px;align-items:center}
+.cols .hd{padding:0 18px 8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cols .hd .num{text-align:left}
+.cols .list{display:flex;flex-direction:column;gap:8px}
+.cols .cr{padding:12px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;transition:border-color .12s,box-shadow .12s}
+.cols .cr:hover{border-color:#d9d1c6;box-shadow:0 1px 3px rgba(28,26,24,.06)}
+.cols .nm{min-width:0}
+.cols .nm a{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cols .nm a:hover{color:var(--coral)}
+.cols .nm small{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cols .met{font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--text)}
+.cols .met small{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:1px}
+.cols .bar{height:3px;border-radius:99px;background:#ece7e0;margin-top:6px;width:72px;overflow:hidden}
+.cols .bar span{display:block;height:100%;border-radius:99px;background:#9a948b}
+.cols .bar.none{visibility:hidden} /* keeps every figure on the same baseline */
+.cols .bar span.warn{background:#d98a14}.cols .bar span.danger{background:#d64530}
+.cols .met.warn{color:var(--warn)}.cols .met.danger{color:var(--danger)}.cols .met.na{color:var(--faint);font-weight:500}
+.cols .stt{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:7px;color:#4a453e}
+.cols .stt i{width:7px;height:7px;border-radius:99px;background:var(--faint);flex:none}
+.cols .stt.on{color:var(--ok)}.cols .stt.on i{background:var(--ok-dot)}
+.cols .stw small{display:block;font-size:12px;color:var(--muted);padding-left:14px;margin-top:1px}
+.cols .iss{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;color:var(--issue);font-weight:500;line-height:1.35;min-width:0}
+.cols .iss svg{width:14px;height:14px;flex:none;margin-top:1px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.open{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;color:var(--faint);flex:none}
+.open:hover{background:var(--surface2);color:var(--text)}
+.open svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* A5 · summary line: two quiet lines per device */
+.sum{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.sum .sr{display:flex;align-items:center;gap:16px;padding:13px 18px;border-top:1px solid var(--border-soft)}
+.sum .sr:first-child{border-top:0}
+.sum .sr:hover{background:#fcfbf9}
+.sum .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.sum .l1,.sum .l2{display:flex;align-items:baseline;gap:12px;min-width:0}
+.sum .l1 a{font-weight:600;font-size:14.5px;white-space:nowrap}
+.sum .l1 a:hover{color:var(--coral)}
+.sum .l1 .mdl{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum .l1 .right{margin-left:auto;display:flex;align-items:baseline;gap:8px;white-space:nowrap;font-size:12.5px;color:var(--muted)}
+.sum .l1 .right b{font-weight:600}
+.sum .l1 .right b.on{color:var(--ok)}.sum .l1 .right b.off{color:#4a453e}
+.sum .l2{font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums}
+.sum .l2 .sep{color:#cfc6ba}
+.sum .l2 b{font-weight:600;color:var(--text)}
+.sum .l2 b.warn{color:var(--warn)}.sum .l2 b.danger{color:var(--danger)}
+.sum .l2 .iss{margin-left:auto;color:var(--issue);font-weight:600;white-space:nowrap}
+
+/* B: tile grid */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.tile{display:flex;flex-direction:column;gap:13px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px}
+.tile .top{display:flex;justify-content:space-between;align-items:flex-start}
+.tile .top .st{font-size:12.5px;padding:4px 10px;border-radius:99px;background:#f1ede7}
+.tile .top .st.on{background:#e6f4ea}
+.tile a{font-weight:600;font-size:15.5px}.tile .m{font-size:12.5px;color:var(--muted)}
+.tile .v3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:10px;border-top:1px solid var(--border-soft)}
+.tile .v3 span{display:block;font-size:11px;color:var(--muted)}.tile .v3 b{font-size:14px}
+.tile .ft{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tile .ft .issue{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* C: compact list */
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.tr{display:grid;grid-template-columns:52px minmax(0,2.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr) 80px 70px minmax(0,1.4fr);align-items:center;padding:8px 16px;border-top:1px solid var(--border-soft);font-size:13.5px}
+.tr.hd{border-top:0;background:var(--surface2);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:10px 16px}
+.tr a{font-weight:600}.tr code{display:block;font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr .di{transform:scale(.85);transform-origin:left center}
+@media(max-width:900px){.types,.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.rc{flex-wrap:wrap}.rc .id{width:100%}}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-t7" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M5.5 20h13"/><path d="M9.5 16.5 8.5 20M14.5 16.5l1 3.5"/></symbol>
+  <symbol id="i-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
+  <symbol id="i-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
+  <symbol id="i-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
+  <symbol id="i-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
+  <symbol id="i-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 5h2"/></symbol>
+  <symbol id="i-other" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
+  <symbol id="i-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Mockup · sample data</span></div>
+  <h1>Fleet cards for a mixed fleet</h1>
+  <p class="lede">T7s, kiosks, TV dongles, handhelds, counter terminals, tablets and phones, on three kinds of agent. A type icon leads every card so the fleet reads at a glance; a few layouts to choose from.</p>
+
+  <div class="cap">Device types</div>
+  <div class="types" id="types" style="margin-top:8px"></div>
+  <div class="vocab">
+    <div><div class="cap">Agent</div><div class="row"><span class="pill ag-firmware">Firmware</span><span class="pill ag-dpc">DPC agent</span><span class="pill ag-lite">MDM-lite</span></div></div>
+    <div><div class="cap">Status</div><div class="row"><span class="st on"><i></i>Online</span><span class="st on"><i></i>Reporting</span><span class="st off"><i></i>Offline</span></div></div>
+    <div style="max-width:420px"><div class="cap">Reads</div><div class="row" style="color:var(--text2)">Online / Offline for firmware and DPC (live connection). Reporting / Not reporting for MDM-lite (check-ins only).</div></div>
+  </div>
+
+  <h2>Layouts</h2>
+  <div class="switch" role="group" aria-label="Layout">
+    <button type="button" data-opt="a" aria-pressed="true">A · Row cards</button>
+    <button type="button" data-opt="a4" aria-pressed="false">A4 · Aligned columns</button>
+    <button type="button" data-opt="a5" aria-pressed="false">A5 · Summary line</button>
+    <button type="button" data-opt="b" aria-pressed="false">B · Tile grid</button>
+    <button type="button" data-opt="c" aria-pressed="false">C · Compact list</button>
+    <button type="button" data-opt="all" aria-pressed="false">All</button>
+  </div>
+
+  <section class="opt" data-opt="a">
+    <h2>A · Row cards</h2>
+    <p class="sub">Today's list, led by the device: the type icon takes the battery chip's place and power joins the vitals, so a mains dongle and a T7 on its pad line up.</p>
+    <div class="rows" id="rows"></div>
+  </section>
+  <section class="opt" data-opt="a4" hidden>
+    <h2>A4 · Aligned columns</h2>
+    <p class="sub">The card keeps its shape, but every value sits in a column that lines up down the list. No chips: plain figures with a thin level bar, colour only when something is off.</p>
+    <div class="cols">
+      <div class="hd"><span></span><span>Device</span><span>Power</span><span>Temp</span><span>Memory</span><span>Status</span><span>Needs attention</span><span></span></div>
+      <div class="list" id="rows-a4"></div>
+    </div>
+  </section>
+  <section class="opt" data-opt="a5" hidden>
+    <h2>A5 · Summary line</h2>
+    <p class="sub">Two quiet lines per device, like an inbox: who and how it is doing on top, the vitals as plain text underneath, the one thing wrong at the end.</p>
+    <div class="sum" id="rows-a5"></div>
+  </section>
+  <section class="opt" data-opt="b" hidden>
+    <h2>B · Tile grid</h2>
+    <p class="sub">Every device a tile: icon and status first, vitals in one row. Suits a restaurant's handful of devices.</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+  <section class="opt" data-opt="c" hidden>
+    <h2>C · Compact list</h2>
+    <p class="sub">One line per device for hundreds of devices; columns line up so a sort by temperature or battery reads down the page.</p>
+    <div class="tbl" id="tbl"></div>
+  </section>
+</div>
+<script>
+(function () {
+  var TYPES = [
+    ['t7', 'T7', 'Our 7" tablet, firmware'], ['kiosk', 'Kiosk', 'Kiosk 18 / 22 / 27'],
+    ['dongle', 'Dongle', 'TV box / HDMI stick'], ['mpos', 'mPOS', 'Handheld with printer'],
+    ['pos', 'POS', 'Counter terminal'], ['tablet', 'Tablet', 'Stock Android tablet'],
+    ['phone', 'Phone', 'Stock Android phone'], ['other', 'Other', 'Anything unclassified']
+  ];
+  // Sample data: the HK1 dongle and the Pixel are the real test devices; the rest are illustrative.
+  var D = [
+    {n:'Front counter', k:'t7', t:'T7', model:'T7', s:'AT070AABU00602', ag:'firmware', st:'Online', seen:'live', batt:80, pw:'80% · on pad', temp:36, ram:48},
+    {n:'Drive-thru screen', k:'kiosk', t:'Kiosk 27', model:'Kiosk 27', s:'KS27B0043', ag:'firmware', st:'Online', seen:'live', mains:1, temp:41, ram:62},
+    {n:'Menu board 1', k:'dongle', t:'Dongle', model:'HK1 RBOX D8', s:'61eb25e75f3afcc', ag:'lite', st:'Reporting', seen:'checked in 20 s ago', mains:1, temp:58, cpu:1, ram:42, issue:'Rooted · adb on network'},
+    {n:'Waiter handheld', k:'mpos', t:'mPOS', model:'SUNMI D3 PRO', s:'D3P2211A07', ag:'dpc', st:'Online', seen:'live', batt:64, pw:'64%', temp:33, ram:55},
+    {n:'Owner phone', k:'phone', t:'Phone', model:'Pixel 6', s:'android-cea946e07ecfdf7c', ag:'lite', st:'Reporting', seen:'checked in 1 min ago', batt:23, pw:'23% · charging', temp:31, ram:74},
+    {n:'Kitchen tablet', k:'tablet', t:'Tablet', model:'Galaxy Tab A8', s:'R9TW30LMQ2', ag:'dpc', st:'Offline', seen:'last seen 3 h ago', batt:12, pw:'12%', issue:'Battery critical'},
+    {n:'Counter POS', k:'pos', t:'POS', model:'Telpo K20', s:'K20A00781', ag:'dpc', st:'Online', seen:'live', mains:1, temp:39, ram:37},
+    {n:'Lobby kiosk', k:'kiosk', t:'Kiosk 22', model:'Kiosk 22', s:'KS22A0118', ag:'firmware', st:'Offline', seen:'last seen 2 days ago', mains:1, issue:'3 crashes this week'}
+  ];
+  var AG = {firmware:'Firmware', dpc:'DPC agent', lite:'MDM-lite'};
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function icon(k){return '<span class="di '+k+'"><svg><use href="#i-'+k+'"/></svg></span>';}
+  function agent(a){return '<span class="pill ag-'+a+'">'+AG[a]+'</span>';}
+  function status(d){var on=d.st!=='Offline'&&d.st!=='Not reporting';return '<span class="st '+(on?'on':'off')+'"><i></i>'+d.st+'</span>';}
+  function tempCls(d){if(d.temp==null)return 'na';var w=d.cpu?70:45,x=d.cpu?85:60;return d.temp>=x?'danger':d.temp>=w?'warn':'ok';}
+  function tempTxt(d){return d.temp==null?'—':d.temp+'°C';}
+  function ramCls(d){return d.ram==null?'na':d.ram>=80?'danger':d.ram>=60?'warn':'ok';}
+  function ramTxt(d){return d.ram==null?'—':d.ram+'%';}
+  function pwrCls(d){return d.mains?'':d.batt<20?'danger':d.batt<50?'warn':'ok';}
+  function pwrTxt(d){return d.mains?'Mains':d.pw;}
+  function battGlyph(d){var w=Math.max(2,Math.round(20*d.batt/100));return '<svg width="18" height="11" viewBox="0 0 30 15"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="'+w+'" height="9" rx="1.5" fill="currentColor"/></svg>';}
+  function pwrGlyph(d){return d.mains?'<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-socket"/></svg>':battGlyph(d);}
+
+  document.getElementById('types').innerHTML = TYPES.map(function(t){
+    return '<div class="type">'+icon(t[0])+'<div><b>'+t[1]+'</b><span>'+t[2]+'</span></div></div>';}).join('');
+
+  document.getElementById('rows').innerHTML = D.map(function(d){
+    return '<div class="rc">'+icon(d.k)+
+      '<div class="id"><div class="n"><a href="#">'+esc(d.n)+'</a>'+agent(d.ag)+'</div><div class="m">'+esc(d.model)+' · <code>'+esc(d.s)+'</code></div></div>'+
+      '<div class="vit"><span class="chip '+pwrCls(d)+'">'+pwrGlyph(d)+'<b>'+esc(pwrTxt(d))+'</b></span>'+
+      '<span class="chip">'+(d.cpu?'CPU':'Temp')+' <b class="'+tempCls(d)+'">'+tempTxt(d)+'</b></span>'+
+      '<span class="chip">RAM <b class="'+ramCls(d)+'">'+ramTxt(d)+'</b></span></div>'+
+      '<div class="stc">'+status(d)+'<small>'+esc(d.seen)+'</small></div>'+
+      '<div class="is">'+(d.issue?'<span class="pill">'+esc(d.issue)+'</span>':'')+'</div></div>';}).join('');
+
+  function isOn(d){return d.st!=='Offline'&&d.st!=='Not reporting';}
+  function seenShort(d){return d.seen.replace(/^(checked in|last seen) /,'');}
+  var OPEN = '<a class="open" href="#" aria-label="Open device"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a>';
+  var WARN = '<svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>';
+  var NOBAR = '<div class="bar none"></div>';
+  function bar(pct, cls){return '<div class="bar"><span class="'+cls+'" style="width:'+Math.max(4,Math.min(100,pct))+'%"></span></div>';}
+
+  document.getElementById('rows-a4').innerHTML = D.map(function(d){
+    var pwr = d.mains
+      ? '<div class="met">Mains<small>no battery</small>'+NOBAR+'</div>'
+      : '<div class="met '+(d.batt<20?'danger':d.batt<50?'warn':'')+'">'+d.batt+'%<small>'+(/charg|pad/.test(d.pw)?'charging':'battery')+'</small>'+bar(d.batt, d.batt<20?'danger':d.batt<50?'warn':'')+'</div>';
+    var tc = tempCls(d);
+    var tmp = d.temp==null ? '<div class="met na">—<small>&nbsp;</small>'+NOBAR+'</div>'
+      : '<div class="met '+(tc==='ok'?'':tc)+'">'+d.temp+'°C<small>'+(d.cpu?'CPU':'battery')+'</small>'+NOBAR+'</div>';
+    var rc = ramCls(d);
+    var ram = d.ram==null ? '<div class="met na">—<small>&nbsp;</small>'+NOBAR+'</div>'
+      : '<div class="met '+(rc==='ok'?'':rc)+'">'+d.ram+'%<small>RAM used</small>'+bar(d.ram, rc==='ok'?'':rc)+'</div>';
+    return '<div class="cr">'+icon(d.k)+
+      '<div class="nm"><a href="#">'+esc(d.n)+'</a><small>'+esc(d.model)+' · '+AG[d.ag]+'</small></div>'+
+      pwr+tmp+ram+
+      '<div class="stw"><div class="stt'+(isOn(d)?' on':'')+'"><i></i>'+d.st+'</div><small>'+esc(seenShort(d))+'</small></div>'+
+      '<div>'+(d.issue?'<div class="iss">'+WARN+'<span>'+esc(d.issue)+'</span></div>':'')+'</div>'+
+      OPEN+'</div>';}).join('');
+
+  document.getElementById('rows-a5').innerHTML = D.map(function(d){
+    var sep = ' <span class="sep">·</span> ';
+    var parts = [];
+    var stale = d.temp==null && d.ram==null;
+    parts.push(d.mains ? 'Mains power' : 'Battery <b class="'+(d.batt<20?'danger':d.batt<50?'warn':'')+'">'+d.batt+'%</b>'+(/charg|pad/.test(d.pw)?' charging':''));
+    if (stale) parts.push('<span style="color:var(--muted)">no recent vitals</span>');
+    else {
+      parts.push((d.cpu?'CPU ':'Temp ')+(d.temp==null?'—':'<b class="'+(tempCls(d)==='ok'?'':tempCls(d))+'">'+d.temp+'°C</b>'));
+      parts.push('RAM '+(d.ram==null?'—':'<b class="'+(ramCls(d)==='ok'?'':ramCls(d))+'">'+d.ram+'%</b>'));
+    }
+    return '<div class="sr">'+icon(d.k)+'<div class="body">'+
+      '<div class="l1"><a href="#">'+esc(d.n)+'</a><span class="mdl">'+esc(d.model)+' · '+AG[d.ag]+'</span>'+
+      '<span class="right"><b class="'+(isOn(d)?'on':'off')+'">'+d.st+'</b>'+esc(seenShort(d))+'</span></div>'+
+      '<div class="l2"><span>'+parts.join(sep)+'</span>'+(d.issue?'<span class="iss">'+esc(d.issue)+'</span>':'')+'</div>'+
+      '</div>'+OPEN+'</div>';}).join('');
+
+  document.getElementById('tiles').innerHTML = D.map(function(d){
+    return '<div class="tile"><div class="top">'+icon(d.k)+status(d)+'</div>'+
+      '<div><a href="#">'+esc(d.n)+'</a><div class="m">'+esc(d.model)+' · '+esc(d.seen.replace(/^(checked in|last seen) /,''))+'</div></div>'+
+      '<div class="v3"><div><span>Power</span><b class="'+pwrCls(d)+'">'+esc(d.mains?'Mains':d.batt+'%')+'</b></div>'+
+      '<div><span>'+(d.cpu?'CPU':'Temp')+'</span><b class="'+tempCls(d)+'">'+tempTxt(d)+'</b></div>'+
+      '<div><span>RAM</span><b class="'+ramCls(d)+'">'+ramTxt(d)+'</b></div></div>'+
+      '<div class="ft">'+agent(d.ag)+(d.issue?'<span class="issue">'+esc(d.issue)+'</span>':'')+'</div></div>';}).join('');
+
+  document.getElementById('tbl').innerHTML =
+    '<div class="tr hd"><span></span><span>Device</span><span>Type</span><span>Agent</span><span>Status</span><span>Power</span><span>Temp</span><span>RAM</span><span>Issues</span></div>'+
+    D.map(function(d){
+      return '<div class="tr">'+icon(d.k)+'<div><a href="#">'+esc(d.n)+'</a><code>'+esc(d.s)+'</code></div>'+
+        '<span>'+esc(d.t)+'</span><span>'+AG[d.ag]+'</span><span>'+status(d)+'</span>'+
+        '<b class="'+pwrCls(d)+'">'+esc(d.mains?'Mains':d.batt+'%')+'</b>'+
+        '<b class="'+tempCls(d)+'">'+tempTxt(d)+(d.cpu&&d.temp!=null?' <small class="na">CPU</small>':'')+'</b>'+
+        '<b class="'+ramCls(d)+'">'+ramTxt(d)+'</b><span class="issue">'+esc(d.issue||'')+'</span></div>';}).join('');
+
+  var btns = document.querySelectorAll('.switch button');
+  function show(opt){
+    btns.forEach(function(b){b.setAttribute('aria-pressed', String(b.dataset.opt===opt));});
+    document.querySelectorAll('section.opt').forEach(function(s){s.hidden = !(opt==='all' || s.dataset.opt===opt);});
+    try{localStorage.setItem('fleet-cards-opt', opt);}catch(e){}
+  }
+  btns.forEach(function(b){b.addEventListener('click', function(){show(b.dataset.opt);});});
+  var saved; try{saved=localStorage.getItem('fleet-cards-opt');}catch(e){}
+  // A remembered option that no longer exists (an earlier demo's) falls back to A.
+  var known = Array.prototype.map.call(btns, function(b){return b.dataset.opt;});
+  show(known.indexOf(saved) >= 0 ? saved : 'a');
+})();
+</script>
+</body></html>

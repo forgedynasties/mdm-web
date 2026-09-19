@@ -18123,7 +18123,8 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
-		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail":
+		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail",
+		"fleet-cards":
 	default:
 		http.NotFound(w, r)
 		return
