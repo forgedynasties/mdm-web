@@ -84,7 +84,9 @@
 .ov3-stack i{display:block;height:100%;min-width:3px}
 .ov3-c1{background:var(--accent)}.ov3-c2{background:var(--accent-2)}.ov3-c3{background:var(--info)}.ov3-c4{background:var(--ok)}.ov3-c5{background:var(--warn)}.ov3-c6{background:var(--rule-2)}
 .ov3-legend{display:flex;flex-wrap:wrap;gap:5px 13px;margin-top:10px;font-size:11.5px;color:var(--muted)}
-.ov3-legend span{display:inline-flex;align-items:center;gap:6px}
+.ov3-legend span,.ov3-legend a.ov3-leg{display:inline-flex;align-items:center;gap:6px}
+.ov3-legend a.ov3-leg{color:inherit;text-decoration:none}
+.ov3-legend a.ov3-leg:hover{color:var(--text)}
 .ov3-legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
 .ov3-legend b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
 .ov3-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-soft)}
@@ -649,7 +651,7 @@
       <div class="big tnum">{{.Summary.Total}}<small>devices</small></div>
       {{if .Products}}
       <div class="ov3-stack">{{range $i, $p := .Products}}<i class="ov3-c{{add $i 1}}" style="flex:{{$p.Count}}" title="{{$p.Label}} · {{$p.Count}}"></i>{{end}}</div>
-      <div class="ov3-legend">{{range $i, $p := .Products}}<span><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></span>{{end}}</div>
+      <div class="ov3-legend">{{range $i, $p := .Products}}{{if $p.Class}}<a href="/devices?class={{$p.Class}}" class="ov3-leg"><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></a>{{else}}<span><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></span>{{end}}{{end}}</div>
       {{end}}
       <div class="ov3-mini">
         <div><b>{{.DeployedCount}}</b>in venues · {{.DeployedPct}}%</div>
