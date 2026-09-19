@@ -4738,7 +4738,9 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 /* vitals: display:contents so each block is a grid column of the card */
 .dl-stats { display: contents; }
 .dl-blk { display: flex; flex-direction: column; gap: 2px; min-width: 0; white-space: nowrap; }
-.dl-card > .dl-pw { grid-area: pw; }
+/* power hugs the type tile: right-aligned in its column, 8px from the tile */
+.dl-card > .dl-pw { grid-area: pw; justify-self: end; margin-right: -8px; }
+.dl-pw .pv { justify-content: flex-end; }
 .dl-pw .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-blk[data-m="temp"] { grid-area: tp; }
 .dl-blk[data-m="ram"] { grid-area: rm; }
