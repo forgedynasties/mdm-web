@@ -6,7 +6,7 @@
 {{define "device-cards"}}
 <div class="dl-list">
   <svg class="dl-icons" width="0" height="0" aria-hidden="true" focusable="false">
-    <symbol id="dk-t7" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M5.5 20h13"/><path d="M9.5 16.5 8.5 20M14.5 16.5l1 3.5"/></symbol>
+    <symbol id="dk-t7" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M18.5 11v2"/></symbol>
     <symbol id="dk-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
     <symbol id="dk-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
     <symbol id="dk-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
@@ -402,6 +402,9 @@ a.fleet-rail-item{min-height:40px}
 .fleet-view.fleet-prod.on .n{color:var(--accent-2)}
 .fleet-prod-manage{font-size:12px;color:var(--text-faint);margin-left:6px;text-decoration:none}
 .fleet-prod-manage:hover{color:var(--accent-text)}
+/* rail: device-type entries use a tiny tinted type icon as their bullet */
+.fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
+.fleet-rail-cls .rc-ic svg{width:13px;height:13px}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
@@ -435,9 +438,20 @@ a.fleet-rail-item{min-height:40px}
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct) (not .FilterClass)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
+
+    {{/* Device types: one entry per class that has devices; the type icon doubles as
+         the bullet so the rail matches the fleet rows. */}}
+    {{if .RailClasses}}
+    <div class="fleet-rail-cap"><span>Device types</span></div>
+    {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
+    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}" href="/devices?class={{.Class}}">
+      <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span><span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>
+    </a>
+    {{end}}
+    {{end}}
 
 
 
@@ -848,6 +862,7 @@ function scopeRoster(anchor, u) {
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
   else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); setSel('filter-product', ov.product); }
+  else if (u.searchParams.get('class')) { ov.class = u.searchParams.get('class'); setSel('filter-class', ov.class); }
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');

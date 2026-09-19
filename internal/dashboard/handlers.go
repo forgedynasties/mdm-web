@@ -4674,6 +4674,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// A product selected from the rail scopes the roster too — name it by the
 		// product label and count the filtered result, so the heading isn't "All devices".
 		selectedCollection, selectedCount = productLabel(pk), total
+	} else if cl := qv.Get("class"); cl != "" && product.IsClass(cl) {
+		// A device type picked in the rail names the roster the same way.
+		selectedCollection, selectedCount = product.ClassLabel(cl), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
@@ -4689,6 +4692,18 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		if n := prodCounts[p.Key]; n > 0 {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
+	}
+	// Device types rail: every class with at least one active device (stored class,
+	// else the product's catalog class). Unassigned devices aren't listed.
+	railClasses, _, _, _ := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC())
+	{
+		kept := railClasses[:0:0]
+		for _, c := range railClasses {
+			if c.Class != "" {
+				kept = append(kept, c)
+			}
+		}
+		railClasses = kept
 	}
 
 	// For a detail view, the active collection's health entry (header + stats).
@@ -4730,6 +4745,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"RailRestaurants":      railRests,
 		"RailReleases":         railRels,
 		"RailProducts":         railProducts,
+		"RailClasses":          railClasses,
 		"FilterRestaurant":     qv.Get("restaurant"),
 		"SelectedCollection":   selectedCollection,
 		"SelectedCount":        selectedCount,
