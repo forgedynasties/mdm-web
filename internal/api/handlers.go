@@ -774,6 +774,19 @@ func isDPCPayload(extra json.RawMessage) bool {
 }
 
 // isMDMLitePayload reports whether a check-in came from the MDM-lite library.
+// mdmLiteForeground reports whether an MDM-lite check-in came from the host app in the
+// foreground (its 30 s loop) rather than the 15-minute background job. A payload
+// without the field counts as foreground (older libraries only checked in from it).
+func mdmLiteForeground(extra json.RawMessage) bool {
+	var probe struct {
+		AppForeground *bool `json:"app_foreground"`
+	}
+	if json.Unmarshal(extra, &probe) != nil || probe.AppForeground == nil {
+		return true
+	}
+	return *probe.AppForeground
+}
+
 func isMDMLitePayload(extra json.RawMessage) bool {
 	var ident struct {
 		AgentType string `json:"agent_type"`
@@ -837,7 +850,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
 	if isMDMLitePayload(req.Extra) {
 		// MDM-lite has no live connection; its check-ins are its presence.
-		h.hub.MarkCheckinPresence(deviceID)
+		h.hub.MarkCheckinPresence(deviceID, mdmLiteForeground(req.Extra))
 	}
 	if isNew {
 		// A device must already exist to open its WS, so over that transport this is
