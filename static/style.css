@@ -4741,7 +4741,20 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
 /* power glyph, type tile and identity as one group right after the checkbox */
 .dl-card > .dl-lead { grid-area: lead; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dl-lead > .dl-ic { margin-right: 2px; }
-.dl-pw .v { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* power slot: one fixed width for plug and battery alike, so the type tiles line up */
+.dl-lead > .dl-pw { width: 30px; flex: none; display: flex; justify-content: center; }
+.dl-pw .pv { height: auto; }
+/* battery: the % as small text over a compact glyph; charging / flapping is a
+   small mark inside the pack rather than extra width */
+.pw-bat { flex-direction: column; align-items: center; gap: 2px; }
+.dl-pw .pw-bat .v { font-size: 10.5px; font-weight: 500; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pw-bat.battery-mid .v { color: var(--warn); }
+.pw-bat.battery-low .v { color: var(--danger); }
+.pw-bat .gb { position: relative; display: inline-flex; }
+.pw-bat .g-bat { width: 22px; height: 12px; }
+.pw-bat .ov { position: absolute; left: 5px; top: 1.5px; width: 9px; height: 9px; }
+.pw-bat .ov.chg { color: var(--surface); filter: drop-shadow(0 0 .6px var(--ok)); }
+.pw-bat .ov.flap { left: 5.5px; fill: none; stroke: var(--warn); stroke-width: 3; stroke-linecap: round; background: var(--surface); border-radius: 2px; }
 .dl-blk[data-m="temp"] { grid-area: tp; }
 .dl-blk[data-m="ram"] { grid-area: rm; }
 .dl-blk[data-m="cycles"] { grid-area: cy; }
