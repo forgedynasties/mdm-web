@@ -32,7 +32,7 @@ var accessActions = []accessAction{
 	{Key: "install_apk", Label: "Install app", Group: "Commands"},
 	{Key: "uninstall", Label: "Uninstall app", Group: "Commands"},
 	{Key: "reboot", Label: "Reboot", Group: "Commands"},
-	{Key: "app_control", Label: "App control (reload, restart, clear cache, update check)", Group: "Commands", Help: "MDM-lite devices: control the menu board app itself."},
+	{Key: "app_control", Label: "App control (reload, restart, clear cache, update check)", Group: "Commands", Help: "MDM Lite devices: control the menu board app itself."},
 	{Key: "query", Label: "Run diagnostic query", Group: "Commands"},
 	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
 	{Key: "kiosk", Label: "Kiosk settings", Group: "Device"},

@@ -14117,10 +14117,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
-			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM-lite"},
-			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM-lite"},
-			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM-lite"},
-			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM-lite"},
+			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM Lite"},
+			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM Lite"},
 		}
 		for _, a := range allActions {
 			switch a.Type {

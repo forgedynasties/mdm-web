@@ -70,7 +70,7 @@
     <div>
       <div class="cc-eyebrow">Fleet · Enroll</div>
       <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> device{{if ne $inboxN 1}}s{{end}} need{{if eq $inboxN 1}}s{{end}} a site{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
-      <div class="cc-sub"><b>{{.Stats.Firmware}}</b> MDM Pro · <b>{{.Stats.DPC}}</b> MDM DPC{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</div>
+      <div class="cc-sub"><b>{{.Stats.Firmware}}</b> MDM Firmware · <b>{{.Stats.DPC}}</b> MDM DPC{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</div>
     </div>
     {{if $canOp}}
     <div class="cc-actions">
@@ -82,7 +82,7 @@
   <div class="cc-kpis en-kpis">
     <a class="cc-kpi" href="#en-inbox-card"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Waiting</span><div class="v{{if gt $inboxN 0}} warn{{end}}" id="en-kpi-inbox">{{$inboxN}}</div><div class="d">need a site or type</div></a>
     <a class="cc-kpi" href="/devices?kind=dpc"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>MDM DPC</span><div class="v">{{.Stats.DPC}}</div><div class="d">outsourced Android devices</div></a>
-    <a class="cc-kpi" href="/devices?kind=firmware"><span class="k"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>MDM Pro</span><div class="v">{{.Stats.Firmware}}</div><div class="d">our hardware, auto-enrolled</div></a>
+    <a class="cc-kpi" href="/devices?kind=firmware"><span class="k"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>MDM Firmware</span><div class="v">{{.Stats.Firmware}}</div><div class="d">our hardware, auto-enrolled</div></a>
     <a class="cc-kpi" href="/devices?lifecycle=retired"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Retired</span><div class="v">{{.Stats.Retired}}</div><div class="d">kept for history</div></a>
   </div>
 
@@ -145,7 +145,7 @@
       <div class="cc-seg" id="en-how-tabs">
         <button type="button" class="on" data-pane="qr">QR provisioning</button>
         <button type="button" data-pane="adb">adb</button>
-        <button type="button" data-pane="fw">MDM Pro devices</button>
+        <button type="button" data-pane="fw">MDM Firmware devices</button>
       </div>
       <div class="en-pane on" data-pane="qr">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Create a profile above</div><div class="t">Device type, site and group are applied to every device that scans it. A profile with a site skips the inbox entirely.</div></div></div>

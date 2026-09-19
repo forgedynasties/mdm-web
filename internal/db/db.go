@@ -156,11 +156,11 @@ func (d Device) ClassLabel() string { return prod.ClassLabel(d.Class()) }
 func (d Device) KindLabel() string {
 	switch {
 	case d.IsMDMLite():
-		return "MDM-lite"
+		return "MDM Lite"
 	case d.IsDPC():
 		return "MDM DPC"
 	}
-	return "MDM Pro" // the system-app client on our own firmware
+	return "MDM Firmware" // the system-app client on our own firmware
 }
 
 // Retired reports whether the device has left the fleet (retired or wiped).

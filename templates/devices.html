@@ -189,7 +189,7 @@ if (!window.__dlRowNav) {
 {{define "device-table"}}
 {{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM-lite{{else}}MDM Pro{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
@@ -617,9 +617,9 @@ a.fleet-rail-item{min-height:40px}
         {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
             <option value="">Any agent</option>
-            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>MDM Pro (our hardware)</option>
+            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>MDM Firmware (our hardware)</option>
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>MDM DPC</option>
-            <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM-lite (in-app)</option>
+            <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
           </select></label>{{end}}
         <label class="fp-field"><span>Device type</span>
           <select id="filter-class" onchange="applyFilters()">
@@ -1891,7 +1891,7 @@ document.addEventListener('keydown', function(e) {
       if (sy) {
         // Heartbeat text: hidden while the WebSocket is live (the Online badge says it all),
         // shown (as "3 min ago") only when the device is offline.
-        // MDM-lite (data-always) has no live connection: its last check-in is always shown.
+        // MDM Lite (data-always) has no live connection: its last check-in is always shown.
         var always = sy.dataset.always === '1';
         sy.textContent = d.time_since;
         sy.className = 'dl-synced' + (d.online && !always ? ' hidden' : '');

@@ -254,7 +254,7 @@
     <div>
       <strong>Ignore MDM DPC check-ins</strong>
       {{if .IgnoreDPCCheckins}}<span class="cc-tag warn">DPC support off</span>{{end}}
-      <div class="muted small">Drop check-ins and telemetry from devices running MDM DPC instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. DPC devices already enrolled keep their history and stop updating until this is switched off. MDM Pro devices are unaffected.</div>
+      <div class="muted small">Drop check-ins and telemetry from devices running MDM DPC instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. DPC devices already enrolled keep their history and stop updating until this is switched off. MDM Firmware devices are unaffected.</div>
     </div>
     {{template "settings-toggle" (dict "Action" "/settings/ignore-dpc/toggle" "On" .IgnoreDPCCheckins)}}
   </div>
