@@ -2980,7 +2980,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
 {{if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-        Install app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
+        Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
     {{if canOperate .Role}}
@@ -3002,7 +3002,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
         <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
-          <input type="hidden" name="type" value="install_apk">
+          {{/* MDM Lite can't install other apps, only update itself (app_update). */}}
+          <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
           <input type="hidden" name="progress_view" value="1">

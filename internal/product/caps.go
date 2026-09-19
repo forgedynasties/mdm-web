@@ -119,6 +119,9 @@ const (
 	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
 	// app, clear its web cache, check for an app update). No Device Owner needed.
 	CapAppControl = "app_control"
+	// CapSelfUpdate: the MDM-lite host app can install a newer version of itself from a
+	// URL (silently when the device allows it to install apps, else via Android's prompt).
+	CapSelfUpdate = "self_update"
 )
 
 // AppControlCommands are the MDM-lite app-control command types, all gated by
@@ -142,6 +145,7 @@ var commandNeeds = map[string]string{
 	"app_restart":      CapAppControl,
 	"app_clear_cache":  CapAppControl,
 	"app_update_check": CapAppControl,
+	"app_update":       CapSelfUpdate,
 	"wipe":             CapWipe,
 	"kiosk_set":        CapKiosk,
 	"managed_config":   CapConfig,

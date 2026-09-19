@@ -595,6 +595,7 @@ window.CMD_PREFILL = {{.Prefill}};
     app_restart: '<path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/>',
     app_clear_cache: '<path d="m7 21-4-4 11-11 4 4z"/><path d="M14 6 18 2l4 4-4 4"/><path d="M11 21h10"/>',
     app_update_check: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    app_update: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/><path d="M11 18.5h2"/>',
     shell: '<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
     query: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
     wipe: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
@@ -609,7 +610,7 @@ window.CMD_PREFILL = {{.Prefill}};
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
     ['Device', ['reboot']],
-    ['App (MDM Lite)', ['app_reload', 'app_restart', 'app_clear_cache', 'app_update_check']],
+    ['App (MDM Lite)', ['app_update', 'app_reload', 'app_restart', 'app_clear_cache', 'app_update_check']],
     ['Diagnostics', ['screenshot', 'query']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
@@ -1050,6 +1051,7 @@ window.CMD_PREFILL = {{.Prefill}};
   function verbFor(a, n) {
     switch (a.t) {
       case 'install_apk': return 'push to ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'app_update': return 'update the app on ' + n + ' device' + (n === 1 ? '' : 's');
       case 'uninstall': return 'remove from ' + n + ' device' + (n === 1 ? '' : 's');
       case 'reboot': return 'restart ' + n + ' device' + (n === 1 ? '' : 's');
       case 'set_kiosk': return 'kiosk config on ' + n + ' device' + (n === 1 ? '' : 's');
