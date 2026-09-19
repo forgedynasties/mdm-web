@@ -38,7 +38,7 @@
           {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
           {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
         </div>
-        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{if .IsMDMLite}}MDM-lite{{else if .IsDPC}}DPC agent{{else}}Firmware{{end}}</span></div>
+        <div class="dl-l2" title="{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}">{{if $nick}}<span class="dl-model">{{$model}}</span>{{end}}<span class="dl-sn">{{.SerialNumber}}</span>{{if not .IsDPC}}<span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span></span>{{end}}<span class="dl-agent">{{.KindLabel}}</span></div>
       </div>
     </div>
     {{/* Vitals as labelled blocks, one fixed column each, so values line up down the
@@ -110,6 +110,14 @@ if (!window.__dlRowNav) {
       {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
+{{/* Product pills under the quick views (moved out of the side rail). The
+     DPC-managed hardware is filtered out of RailProducts server-side for anyone
+     but an admin. */}}
+{{define "fleet-product-pills"}}{{if .RailProducts}}
+      <button type="button" class="fleet-view fleet-prod{{if not .FilterProduct}} on{{end}}" aria-pressed="{{if .FilterProduct}}false{{else}}true{{end}}" onclick="setProduct('')">All products</button>
+      {{range .RailProducts}}<button type="button" class="fleet-view fleet-prod{{if eq .Key $.FilterProduct}} on{{end}}" aria-pressed="{{if eq .Key $.FilterProduct}}true{{else}}false{{end}}" onclick="setProduct('{{.Key}}')">{{.Label}} <span class="n">{{.DeviceCount}}</span></button>{{end}}
+{{end}}{{end}}
+
 {{/* Collection toolbar next to the roster heading: manage/rename/delete the
      group/restaurant/release currently scoping the roster. Its own template so
      the rail-click partial swap (scopeRoster → roster-meta-oob) can re-render it
@@ -159,17 +167,29 @@ if (!window.__dlRowNav) {
      the heading name + count, the collection toolbar and the quick-view pill
      counts. The device list itself is the main swap target
      (#device-table-container). */}}
+{{/* Verdict headline + scope line. Its own template so rail clicks and filter
+     changes (partial swaps) re-render it out-of-band instead of leaving the counts
+     from the first page load. */}}
+{{define "fleet-headline"}}{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
+  <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
+  <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
+{{end}}
+
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-pills" .}}</div>{{end}}
+
 {{define "roster-meta-oob"}}
+<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
 <span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
 <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
+<div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-pills" .}}</div>
 {{end}}
 
 {{define "device-table"}}
 {{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else if eq .FilterKind "mdm-lite"}}MDM-lite{{else}}Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}DPC agent{{else if eq .FilterKind "mdm-lite"}}MDM-lite{{else}}MDM Pro{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterClass}}<span class="fchip"><span class="k">Device type</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
@@ -367,6 +387,10 @@ a.fleet-rail-item{min-height:40px}
 .dl-ktag.ret{background:var(--danger-bg);color:var(--danger)}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
+/* product row: quieter, smaller pills under the quick views */
+.fleet-prods{margin-top:-4px}
+.fleet-prods:empty{display:none}
+.fleet-view.fleet-prod{min-height:32px;font-size:12.5px;padding-top:4px;padding-bottom:4px}
 .fleet-view.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 
 @media(max-width:900px){
@@ -380,13 +404,11 @@ a.fleet-rail-item{min-height:40px}
 </style>
 
 {{/* ── Fleet header: verdict headline + KPI strip ── */}}
-{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
 <div class="fl-wrap">
   <div class="fl-top cc-top">
     <div>
       <div class="cc-eyebrow">Fleet · Devices</div>
-      <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
-      <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
+      <div id="fl-headline">{{template "fleet-headline" .}}</div>
     </div>
     <div class="cc-actions fl-actions">
       {{if canAdmin .Role}}<a class="cc-btn" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
@@ -407,17 +429,6 @@ a.fleet-rail-item{min-height:40px}
     </a>
 
 
-    {{/* Everyone navigates by product; the DPC-managed hardware in this list is
-         filtered out server-side for anyone but an admin. */}}
-    <div class="fleet-rail-cap"><span>Products</span></div>
-    {{range .RailProducts}}
-    <a class="fleet-rail-item{{if eq .Key $.FilterProduct}} on{{end}}" href="/devices?product={{.Key}}">
-      <span class="dot ok"></span><span class="nm">{{.Label}}</span><span class="ct">{{.DeviceCount}}</span>
-    </a>
-    {{end}}
-    {{if not .RailProducts}}
-    <div class="fleet-rail-empty">None reporting</div>
-    {{end}}
 
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="restaurants">
@@ -578,6 +589,7 @@ a.fleet-rail-item{min-height:40px}
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
+    <div class="fleet-views fleet-prods" id="fleet-prods" role="group" aria-label="Product">{{template "fleet-product-pills" .}}</div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -605,7 +617,7 @@ a.fleet-rail-item{min-height:40px}
         {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
             <option value="">Any agent</option>
-            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware (our hardware)</option>
+            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>MDM Pro (our hardware)</option>
             <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>DPC agent</option>
             <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM-lite (in-app)</option>
           </select></label>{{end}}
@@ -873,6 +885,12 @@ function clearFilters() {
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
+// Product pills: one product at a time; keeps the popover's Product select in sync.
+function setProduct(key) {
+  setSel('filter-product', key);
+  navigateDevices({page: '1', product: key});
+}
+
 function selectCollection(type, id) {
   var ov = {page: '1', group: '', restaurant: ''};
   if (type === 'group') ov.group = id;
@@ -1000,7 +1018,7 @@ function syncFilterUI() {
   else if (kiosk === 'disabled') view = 'nokiosk';
   else if (status === 'online') view = 'online';
   else if (status === 'offline') view = 'offline';
-  document.querySelectorAll('.fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
+  document.querySelectorAll('#fleet-views .fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // Filters badge: popover filters only (group/restaurant are the rail's job).
   var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone', 'kind', 'class', 'onboarding', 'lifecycle'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');

@@ -4784,7 +4784,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// boosted full-page navigation — a boosted nav must get the whole page (which
 	// the layout renders as main-only) so <main> is swapped correctly.
 	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
-		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
+		rd := h.withRole(r, data)
+		h.tmpl.ExecuteTemplate(w, "device-table", rd)
+		// Filters and refreshes change the counts too; keep the headline in step.
+		h.tmpl.ExecuteTemplate(w, "fleet-headline-oob", rd)
 		return
 	}
 	h.render(w, r, "devices.html", data)

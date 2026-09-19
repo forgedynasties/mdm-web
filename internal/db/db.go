@@ -154,10 +154,13 @@ func (d Device) ClassLabel() string { return prod.ClassLabel(d.Class()) }
 
 // KindLabel is the display label for the agent kind.
 func (d Device) KindLabel() string {
-	if d.IsDPC() {
+	switch {
+	case d.IsMDMLite():
+		return "MDM-lite"
+	case d.IsDPC():
 		return "DPC agent"
 	}
-	return "Firmware"
+	return "MDM Pro" // the system-app client on our own firmware
 }
 
 // Retired reports whether the device has left the fleet (retired or wiped).
@@ -215,7 +218,23 @@ func (d Device) ProductKey() string {
 
 // Caps returns the hardware capabilities of the device's product. Gate wlc/charging
 // UI and telemetry on these instead of checking whether a telemetry key is present.
-func (d Device) Caps() prod.Caps { return prod.CapsForDevice(d.Product, d.DeviceClass) }
+func (d Device) Caps() prod.Caps {
+	c := prod.CapsForDevice(d.Product, d.DeviceClass)
+	// MDM-lite runs on arbitrary stock hardware whose product key says nothing, and
+	// it sends battery_present only when a pack exists; without it the device is on
+	// mains (TV boxes), not a phone at 0%.
+	if d.IsMDMLite() && !d.batteryPresent() {
+		c.HasBattery, c.HasCharging, c.HasWLC = false, false, false
+	}
+	return c
+}
+
+func (d Device) batteryPresent() bool {
+	var probe struct {
+		BatteryPresent bool `json:"battery_present"`
+	}
+	return json.Unmarshal(d.LatestExtra, &probe) == nil && probe.BatteryPresent
+}
 
 // HasWLC / HasCharging / HasBattery are template-friendly capability shortcuts.
 func (d Device) HasWLC() bool      { return d.Caps().HasWLC }
@@ -225,7 +244,12 @@ func (d Device) HasBattery() bool  { return d.Caps().HasBattery }
 // hasBatteryD is the SQL form of HasBattery for the devices table aliased "d". Every
 // battery-percentage count and filter must AND it in: battery-less devices (kiosks,
 // dongles) still carry a latest_battery_pct, usually 0, and would read as "low".
-var hasBatteryD = prod.BatteryPredicateSQL("d")
+var hasBatteryD = "(" + prod.BatteryPredicateSQL("d") + " AND NOT (" + mdmLiteNoBatterySQL + "))"
+
+// mdmLiteNoBatterySQL is the SQL twin of Caps' MDM-lite rule: an MDM-lite device
+// that has not reported battery_present has no battery.
+const mdmLiteNoBatterySQL = "d.agent_kind = '" + prod.KindDPC + "' AND COALESCE(d.latest_extra->>'agent_type', '') = '" + prod.AgentTypeMDMLite + "'" +
+	" AND COALESCE(d.latest_extra->>'battery_present', '') <> 'true'"
 
 // BatteryCycles converts the lifetime cumulative discharge into equivalent full
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
