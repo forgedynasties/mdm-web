@@ -38,6 +38,7 @@ type Meta struct {
 	Package     string
 	Label       string
 	VersionName string
+	VersionCode int32 // 0 when the manifest has none
 	IconPNGB64  string // base64 PNG launcher icon, "" if none
 }
 
@@ -326,6 +327,24 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 	}
 	defer pkg.Close()
 
+	return metaFrom(pkg)
+}
+
+// ParseFile reads an APK from the local filesystem. Same metadata as Parse, for
+// files this server holds itself (the DPC agent APK) rather than S3 objects — so
+// it works with S3 unconfigured.
+func ParseFile(path string) (*Meta, error) {
+	pkg, err := apk.OpenFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("parse apk: %w", err)
+	}
+	defer pkg.Close()
+	return metaFrom(pkg)
+}
+
+// metaFrom pulls the fields we care about out of an opened APK. Label, version and
+// icon are all best-effort: a package name is the only thing an APK must have.
+func metaFrom(pkg *apk.Apk) (*Meta, error) {
 	m := &Meta{Package: pkg.PackageName()}
 	if m.Package == "" {
 		return nil, errors.New("apk has no package name")
@@ -336,6 +355,9 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 	if mf := pkg.Manifest(); true {
 		if v, err := mf.VersionName.String(); err == nil {
 			m.VersionName = v
+		}
+		if c, err := mf.VersionCode.Int32(); err == nil {
+			m.VersionCode = c
 		}
 	}
 	if icon, err := pkg.Icon(nil); err == nil && icon != nil {

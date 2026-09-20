@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"mdm/internal/db"
+	"mdm/internal/apkstore"
 	"mdm/internal/product"
 )
 
@@ -1353,6 +1355,60 @@ func (h *Handler) agentAPKURL(r *http.Request) string {
 	return h.cfg.AgentAPKURL()
 }
 
+// agentUpdateTarget is the agent build this server is offering: the URL a device
+// downloads it from, what it is, and the digest the agent verifies before replacing
+// itself. ok is false when nothing is hosted, or when the hosted file's version
+// could not be read — without a version code there is no way to tell whether a
+// device is behind, so no update is offered.
+func (h *Handler) agentUpdateTarget(r *http.Request) (url, pkg, version string, code int64, sha256Hex string, ok bool) {
+	if !h.cfg.AgentAPKHosted() {
+		return "", "", "", 0, "", false
+	}
+	pkg, version, code, sha256Hex = h.cfg.AgentAPKHostedBuild()
+	if pkg == "" || code == 0 {
+		return "", "", "", 0, "", false
+	}
+	return h.baseURL(r) + agentAPKRoute, pkg, version, code, sha256Hex, true
+}
+
+// agentUpdatePayload is what an app_update command carries: the package the agent
+// must recognise as itself, the digest it checks the download against, and the
+// version name for the activity log.
+func agentUpdatePayload(pkg, version, sha256Hex string) json.RawMessage {
+	b, _ := json.Marshal(map[string]string{"package": pkg, "version": version, "sha256": sha256Hex})
+	return json.RawMessage(b)
+}
+
+// AgentUpdateState is what the device page needs to word (or hide) the "Update
+// agent" action: whether a newer hosted build exists for this device, and the two
+// versions involved.
+type AgentUpdateState struct {
+	Available bool   // a hosted build, newer than what this device runs
+	Version   string // the hosted build's version name
+	Current   string // what the device last reported ("" = never reported one)
+	Hosted    bool   // an APK is hosted at all (false = nothing uploaded yet)
+}
+
+// agentUpdateFor compares the hosted agent build with what a device reports. Only
+// agents that advertise self_update are offered one; a device that has never
+// reported its version code is treated as behind, since it predates the reporting
+// and any hosted build is newer than it.
+func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState {
+	st := AgentUpdateState{Hosted: h.cfg.AgentAPKHosted()}
+	if d == nil || !d.Supports(product.CapSelfUpdate) {
+		return st
+	}
+	_, _, version, code, _, ok := h.agentUpdateTarget(r)
+	if !ok {
+		return st
+	}
+	st.Version = version
+	st.Current = extraString(d.LatestExtra, "agent_version")
+	cur := extraInt64(d.LatestExtra, "agent_version_code")
+	st.Available = cur < code
+	return st
+}
+
 // AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
 // data/agent — the same data volume as splash images).
 func AgentAPKDir() string {
@@ -1408,33 +1464,108 @@ func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// An APK is a zip: PK. Anything else is a wrong file.
-	if len(data) < 4 || string(data[:2]) != "PK" {
-		h.hxDoneToast(w, r, "/settings", "That is not an APK (zip) file", "error")
+	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename))
+	if err != nil {
+		h.hxDoneToast(w, r, "/settings", "Upload failed: "+err.Error(), "error")
 		return
 	}
-	if err := os.MkdirAll(AgentAPKDir(), 0o755); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
+	built := describeAgentBuild(meta)
+	h.audit(r, "settings.agent_apk_upload", hdr.Filename, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, built))
+	h.hxDoneToast(w, r, "/settings", "Agent APK hosted"+built, "success")
+}
+
+// AgentAPKPublish is the admin-API door onto the same room as the Settings upload:
+// a build machine PUTs the signed APK here (X-API-Key, raw body or multipart) the
+// moment it finishes signing, instead of someone carrying the file to a browser.
+func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
+	var (
+		data []byte
+		name = agentAPKFile
+		err  error
+	)
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err = r.ParseMultipartForm(32 << 20); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "malformed multipart body")
+			return
+		}
+		file, hdr, ferr := r.FormFile("apk")
+		if ferr != nil {
+			writeJSONError(w, http.StatusBadRequest, "no apk file field")
+			return
+		}
+		defer file.Close()
+		name = filepath.Base(hdr.Filename)
+		data, err = io.ReadAll(file)
+	} else {
+		if n := strings.TrimSpace(r.URL.Query().Get("name")); n != "" {
+			name = filepath.Base(n)
+		}
+		data, err = io.ReadAll(r.Body)
+	}
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "could not read body")
 		return
+	}
+	sha, meta, err := h.storeAgentAPK(data, name)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.audit(r, "api.agent_apk_publish", name, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, describeAgentBuild(meta)))
+	resp := map[string]any{"bytes": len(data), "sha256_base64url": sha, "url": h.agentAPKURL(r)}
+	if meta != nil {
+		resp["package"] = meta.Package
+		resp["version_name"] = meta.VersionName
+		resp["version_code"] = meta.VersionCode
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// storeAgentAPK writes the agent APK this server hosts and records what it is. The
+// file lands first, then the config, so a parse failure still leaves a downloadable
+// APK for QR provisioning — it just can't be offered as an update (no version, no
+// way to know who is behind). Returns the base64url digest for the QR extras.
+func (h *Handler) storeAgentAPK(data []byte, filename string) (string, *apkstore.Meta, error) {
+	// An APK is a zip: PK. Anything else is a wrong file.
+	if len(data) < 4 || string(data[:2]) != "PK" {
+		return "", nil, errors.New("that is not an APK (zip) file")
+	}
+	if err := os.MkdirAll(AgentAPKDir(), 0o755); err != nil {
+		return "", nil, err
 	}
 	path := filepath.Join(AgentAPKDir(), agentAPKFile)
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return "", nil, err
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return "", nil, err
 	}
 	sum := sha256.Sum256(data)
 	sha := base64.RawURLEncoding.EncodeToString(sum[:])
-	if err := h.cfg.SetAgentAPKHosted(sha, filepath.Base(hdr.Filename), int64(len(data))); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	if filename == "" {
+		filename = agentAPKFile
 	}
-	h.audit(r, "settings.agent_apk_upload", hdr.Filename, fmt.Sprintf("%d bytes sha256 %s", len(data), sha))
-	h.hxDoneToast(w, r, "/settings", "Agent APK hosted — QR cold-provisioning is on", "success")
+	if err := h.cfg.SetAgentAPKHosted(sha, filename, int64(len(data))); err != nil {
+		return "", nil, err
+	}
+	meta, perr := apkstore.ParseFile(path)
+	if perr != nil {
+		_ = h.cfg.SetAgentAPKHostedBuild("", "", 0, hex.EncodeToString(sum[:]))
+		return sha, nil, nil
+	}
+	_ = h.cfg.SetAgentAPKHostedBuild(meta.Package, meta.VersionName, int64(meta.VersionCode), hex.EncodeToString(sum[:]))
+	return sha, meta, nil
+}
+
+// describeAgentBuild is the "— pkg 0.2.0 (8)" tail shared by the toast and the audit
+// line, or a plain warning when the APK's version could not be read.
+func describeAgentBuild(meta *apkstore.Meta) string {
+	if meta == nil {
+		return " — version unreadable, agent updates stay off"
+	}
+	return fmt.Sprintf(" — %s %s (%d)", meta.Package, meta.VersionName, meta.VersionCode)
 }
 
 // SettingsAgentAPKRemove stops hosting the uploaded APK.

@@ -75,6 +75,14 @@ type Config struct {
 	AgentAPKHostedName string    `json:"agent_apk_hosted_name"`
 	AgentAPKHostedSize int64     `json:"agent_apk_hosted_size"`
 	AgentAPKHostedAt   time.Time `json:"agent_apk_hosted_at"`
+	// Parsed out of the hosted APK at upload: what the agent update actually is.
+	// The version code is what decides whether a device is behind; the hex digest
+	// is what the agent verifies the download against (the base64 one above is for
+	// Android's provisioning extras).
+	AgentAPKHostedPackage     string `json:"agent_apk_hosted_package"`
+	AgentAPKHostedVersion     string `json:"agent_apk_hosted_version"`
+	AgentAPKHostedVersionCode int64  `json:"agent_apk_hosted_version_code"`
+	AgentAPKHostedSHA256Hex   string `json:"agent_apk_hosted_sha256_hex"`
 
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
@@ -964,10 +972,31 @@ func (c *Config) SetAgentAPKHosted(sha, name string, size int64) error {
 		c.AgentAPKHostedAt = time.Now()
 	} else {
 		c.AgentAPKHostedAt = time.Time{}
+		c.AgentAPKHostedPackage, c.AgentAPKHostedVersion = "", ""
+		c.AgentAPKHostedVersionCode, c.AgentAPKHostedSHA256Hex = 0, ""
 	}
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
+}
+
+// SetAgentAPKHostedBuild records what the hosted APK actually is, read from the
+// file itself rather than from whoever uploaded it.
+func (c *Config) SetAgentAPKHostedBuild(pkg, version string, versionCode int64, sha256Hex string) error {
+	c.mu.Lock()
+	c.AgentAPKHostedPackage, c.AgentAPKHostedVersion = pkg, version
+	c.AgentAPKHostedVersionCode, c.AgentAPKHostedSHA256Hex = versionCode, sha256Hex
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// AgentAPKHostedBuild is the hosted agent's package, version name, version code and
+// hex SHA-256. Zero values mean nothing is hosted, or it predates version parsing.
+func (c *Config) AgentAPKHostedBuild() (pkg, version string, versionCode int64, sha256Hex string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AgentAPKHostedPackage, c.AgentAPKHostedVersion, c.AgentAPKHostedVersionCode, c.AgentAPKHostedSHA256Hex
 }
 
 func (c *Config) SetAgentAPK(url, checksum string) error {

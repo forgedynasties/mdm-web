@@ -422,6 +422,12 @@ func main() {
 	// this container has no browser and no memory to spare for one) and posted here.
 	mux.Handle("POST /api/v1/restaurants/{id}/report.pdf",
 		adminAuth(middleware.MaxBytes(32<<20, http.HandlerFunc(dash.ReportPDFUpload))))
+
+	// The DPC agent APK this server hosts: what a factory-reset device downloads
+	// during QR provisioning, and what an "Update agent" command installs. Posting
+	// it here is how a build publishes a new agent without anyone opening Settings.
+	mux.Handle("POST /api/v1/agent-apk",
+		adminAuth(middleware.MaxBytes(128<<20, http.HandlerFunc(dash.AgentAPKPublish))))
 	dash.RegisterRoutes(mux)
 
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.

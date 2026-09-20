@@ -277,6 +277,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_update_check"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Check for update</button></form>
           <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Restart the app on {{.Device.SerialNumber}}? The screen goes blank for a few seconds."><input type="hidden" name="type" value="app_restart"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/></svg>Restart app</button></form>
           {{end}}
+          {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
+          {{/* Agent OTA: the APK is always the build this server hosts, so the form
+               sends no URL — DeviceCommandCreate fills it in and attaches the digest
+               the agent verifies before it replaces itself. */}}
+          <div class="ddc-msep"></div>
+          <div class="ddc-mcap">Agent</div>
+          {{if .AgentUpdate.Available}}
+          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Update the agent on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/></svg>Update agent to {{.AgentUpdate.Version}}</button></form>
+          {{else}}
+          <span class="ddc-mi is-disabled" role="note" title="This device already runs the hosted agent build"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>Agent up to date{{if .AgentUpdate.Current}} ({{.AgentUpdate.Current}}){{end}}</span>
+          {{end}}
+          {{end}}{{end}}{{end}}
           {{if and (supports .Device "wipe") (canAdmin .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>Wipe device</button></form>{{end}}
           <div class="ddc-msep"></div>
           <a class="ddc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>

@@ -32,6 +32,56 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.54.0",
+		Date:    "2026-09-20",
+		Changes: []string{
+			"The DPC agent updates itself. When a newer agent build is hosted, a device running an older one shows “Update agent” on its device page, and the whole DPC fleet can be updated from Actions. The agent checks the download is genuinely a newer build of itself, signed with the same key, before installing — silently, since it is Device Owner — and reports the result once it restarts.",
+			"A new agent build can be published straight from a build machine over the admin API, instead of being uploaded by hand.",
+			"Enrollment QR codes now carry the agent's signing-certificate checksum alongside the file checksum, which is what current Android versions prefer when downloading the agent during setup.",
+			"Screenshots work on DPC devices.",
+			"Devices enrolled with an agent from before this release keep working, but cannot be updated to the current one — they need to be re-enrolled after a factory reset.",
+		},
+	},
+	{
+		Version: "1.53.0",
+		Date:    "2026-09-19",
+		Changes: []string{
+			"MDM-lite devices are first-class. An app carrying the MDM-lite library reports in like any other device, with its power state, what manages it, and the versions of the library, the host app and its WebView on the device page. The app can be reloaded, restarted, have its web cache cleared and be updated remotely, from the device page or Actions. Background check-ins keep a device reporting even when its app is in the background.",
+			"Menu boards have their own device class, so a TV stick is no longer filed as a tablet.",
+			"The Fleet page has been rebuilt: products are tabs above the list, devices are two-line cards with type and power icons and a status dot, ranges can be selected with shift-click, and the filters panel fits properly on smaller screens. A switch lets you go back to the classic layout.",
+			"Every venue can get a weekly report — printable, downloadable as a real PDF, and emailed in the same shape as the page.",
+			"Charts and exports are computed from purpose-built tables, so longer windows draw quickly; charge sessions are counted as sessions rather than flag changes, and site metrics no longer count a flapping device many times over.",
+			"Deploys are faster and confirm what ended up running.",
+			"Fixes: an operator with a base-deny policy saw an empty device list; a confirmed enrollment was reported as failed; latitude and longitude were rounded to about 11 km in the CSV; clicking a date closed the range picker.",
+		},
+	},
+	{
+		Version: "1.52.0",
+		Date:    "2026-09-15",
+		Changes: []string{
+			"Older devices join the same rollout as everyone else. One push now drives both transports, so a release goes out to legacy and current devices together, with a rollout page of its own, an explicit “awaiting reboot” state, and live install progress even for devices with no live connection.",
+			"Releases are easier to steer: new releases start visible to devs and admins only, the release picker is a type-ahead, each release says what it can actually deliver, and re-publishing a build can no longer quietly rewrite the release it belongs to. Releases and OTA packages can also be published over the admin API, so a build machine can do it without a browser.",
+			"A device can be moved to another MDM server from its own page, choosing from the servers configured in Settings.",
+			"Crashes that repeat are folded into a single row with a device count, and there's an Acknowledge all button.",
+			"Battery reporting is honest about the hardware: a charging strip under the battery chart, and no battery UI at all for devices that don't have one.",
+			"Fixes: a restaurant scope pulled in devices it shouldn't have; the headline count went stale mid-rollout; fresh installs failed to migrate on an empty database; the move-server control spilled out of its card; a blank screen when the browser couldn't decode H.264.",
+		},
+	},
+	{
+		Version: "1.51.0",
+		Date:    "2026-09-10",
+		Changes: []string{
+			"Who can do what is now set in one place. A new Access control page shows every policy at a glance, with an editor for the rules, a panel that answers “who can reach this device?”, and rule counts so a policy that does nothing is obvious. Access is enforced everywhere it should be — device pages, group sends, command resends, remote control, shell and OTA all follow the same rules.",
+			"The Actions page has been rebuilt around the target: choose who first, then what. Restaurants, groups and individual devices can be combined in one send and are de-duplicated automatically, devices already covered by a chosen scope drop out of the list, and serials can be pasted in bulk and are validated as they land. Operators get presets for the actions they run most.",
+			"Apps live in a library. The App library page collects every APK, groups variants and versions of the same app under one tile, and accepts new ones by dropping them anywhere on the page. The same picker is used everywhere apps are chosen.",
+			"Actions history is easier to read: multi-app sends appear as one batch, rows carry the app's icon and name, and “by” is its own aligned column. Admin-only actions are hidden behind a toggle that is off by default.",
+			"Deployments record who pushed them, explain update_engine failures in words, and offer Retry on a stalled row or Cancel on a stuck download. The deployment page leads with the release, shows full versus incremental per device, and gathers the reboot settings into one pane.",
+			"People have faces: profile pictures appear in the activity log, actions history and the command palette, and admins can set or remove any user's picture.",
+			"The dashboard now shares the landing page's design language throughout.",
+			"Fixes: an id clash broke every confirmation dialog; Send was refused for admins and devs; a failed or cancelled deployment row blocked the next push; CSV exports and device graphs disagreed about timestamps and timezones.",
+		},
+	},
+	{
 		Version: "1.50.0",
 		Date:    "2026-09-04",
 		Changes: []string{

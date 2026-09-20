@@ -6115,6 +6115,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":               device.SerialNumber,
 		"Device":              device,
 		"IsDPC":               device.IsDPC(),
+		// The hosted agent build vs. the one this device reports, so the menu can
+		// offer an update only when there is actually a newer one to install.
+		"AgentUpdate":         h.agentUpdateFor(r, device),
 		// Which update path this device is on: a build whose client can't apply an
 		// MDM OTA still updates, over the legacy otautil listener.
 		"OTAGate":             h.otaGate.Device(r.Context(), *device),
@@ -8477,6 +8480,28 @@ func extraInt(raw json.RawMessage, key string) string {
 		return ""
 	}
 	return strconv.Itoa(n)
+}
+
+// extraInt64 reads a numeric check-in field as a number rather than a string, for
+// comparisons (agent_version_code). 0 when absent or unparsable — which reads as
+// "older than anything", the safe answer for a device that predates the field.
+func extraInt64(raw json.RawMessage, key string) int64 {
+	if len(raw) == 0 {
+		return 0
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0
+	}
+	v, ok := m[key]
+	if !ok {
+		return 0
+	}
+	var n int64
+	if err := json.Unmarshal(v, &n); err != nil {
+		return 0
+	}
+	return n
 }
 
 // extraBoolAsInt reads a boolean check-in field ("charging") as "1"/"0" rather than
@@ -17254,6 +17279,20 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	case "query":
 		items = []cmdItem{{payload: queryPayload}}
+	case "app_update":
+		// Fleet-wide agent update: every target gets the build this server hosts.
+		// MDM-lite hosts pick their own APK from the app library, so a URL supplied
+		// by the form still wins.
+		if u := strings.TrimSpace(r.FormValue("apk_url")); u != "" {
+			items = []cmdItem{{apkURL: u, payload: buildPayload(cmdType, r)}}
+			break
+		}
+		url, pkg, version, _, sha, ok := h.agentUpdateTarget(r)
+		if !ok {
+			http.Error(w, "No agent APK is hosted — upload one in Settings first.", http.StatusBadRequest)
+			return
+		}
+		items = []cmdItem{{apkURL: url, payload: agentUpdatePayload(pkg, version, sha)}}
 	default:
 		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: buildPayload(cmdType, r)}}
 	}
@@ -20261,6 +20300,17 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload := buildPayload(cmdType, r)
+	// An agent update names no APK: it is always the build this server hosts, so the
+	// console never has to know a URL and can't point a device at the wrong one.
+	if cmdType == "app_update" && apkURL == "" {
+		url, pkg, version, _, sha, ok := h.agentUpdateTarget(r)
+		if !ok {
+			http.Error(w, "No agent APK is hosted — upload one in Settings first.", http.StatusBadRequest)
+			return
+		}
+		apkURL = url
+		payload = agentUpdatePayload(pkg, version, sha)
+	}
 	if cmdType == "install_apk" {
 		// Capture APK size + ETag so the device can verify/resume the download.
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
