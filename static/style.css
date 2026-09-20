@@ -5671,7 +5671,14 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 }
 .dock-more-pop .nbar-mi { display: flex; align-items: center; gap: 10px; }
 .dock-more-pop .nbar-mi .ui-icon, .dock-more-pop .nbar-mi .ui-icon svg { width: 16px; height: 16px; }
-.dock-more-pop .nbar-mi.active { background: var(--accent-soft); color: var(--accent-text); }
+/* The open page is marked in the menu as well as promoted into the dock, so it reads
+   the same in both places. The icon takes the accent too — .nbar-mi paints icons
+   var(--muted) by default, which left the active row looking half-highlighted. */
+.dock-more-pop .nbar-mi.active,
+.dock-more-pop .nbar-mi.active:hover { background: var(--accent-soft); color: var(--accent-text); }
+.dock-more-pop .nbar-mi.active .ui-icon,
+.dock-more-pop .nbar-mi.active .ui-icon svg { color: var(--accent-text); }
+.dock-more-pop .nbar-mi:hover { background: var(--hover); color: var(--text); }
 
 @media (max-width: 640px) {
   .appbar { padding: 10px 14px; gap: 8px; }
