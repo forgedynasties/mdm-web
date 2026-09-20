@@ -1,0 +1,9 @@
+{
+  "name": "mdm-arch-film",
+  "private": true,
+  "type": "module",
+  "description": "Renders the architecture explainer film to MP4, one deterministic frame at a time.",
+  "dependencies": {
+    "playwright": "1.62.0"
+  }
+}

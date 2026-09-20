@@ -67,7 +67,7 @@ if (!window.__dlRowNav) {
 {{define "device-cards-classic"}}
 <div class="dl-list classic">
   {{range .Devices}}
-  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
+  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
     <div class="dl-bat">
@@ -112,7 +112,7 @@ if (!window.__dlRowNav) {
       {{if .HasBattery}}<span class="dl-m" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
     </div>
     <div class="dl-status-col">
-      {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}{{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
+      {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i>{{$on}}</span>{{else if $ci}}<span class="dl-status checkin" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i>Checking in</span>{{else}}<span class="dl-status off" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i>{{$off}}</span>{{end}}{{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy<svg class="ddc-info-ic" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
       {{if .IsMDMLite}}<span class="dl-synced" data-always="1">Last check-in {{timeSince .LastSeenAt}}</span>{{else}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}">Last seen {{timeSince .LastSeenAt}}</span>{{end}}
     </div>
     <div class="dl-act">
@@ -128,7 +128,7 @@ if (!window.__dlRowNav) {
 <div class="dl-list">
   {{range .Devices}}
   {{$kind := deviceIcon .}}
-  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}">
+  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
@@ -139,8 +139,9 @@ if (!window.__dlRowNav) {
         <div class="dl-l1">
           {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
                product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
+          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
           <a href="/devices/{{.SerialNumber}}" class="dl-serial dl-lead link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a>
-          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1"{{end}}><i></i></span>{{end}}<span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
+          <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
           {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
           {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
           {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
@@ -190,8 +191,6 @@ if (!window.__dlRowNav) {
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
       {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
@@ -253,22 +252,29 @@ if (!window.__dlRowNav) {
   <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
 {{end}}
 
-{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>{{end}}
+{{/* Product tabs above the roster: stack with the rail's collection and the quick
+     views. Counts follow the current scope (see Devices handler). */}}
+{{define "fleet-product-tabs"}}{{if .RailClasses}}
+      <button type="button" class="ptab{{if not .FilterClass}} on{{end}}" role="tab" aria-selected="{{if .FilterClass}}false{{else}}true{{end}}" onclick="setProductTab('')">All products</button>
+      {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} zero{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
+{{end}}{{end}}
+
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>{{end}}
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
 <span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
+<div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>
 <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
 
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterClass .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterOnboarding .FilterLifecycle}}
 <div class="fleet-chips">
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterClass}}<span class="fchip"><span class="k">Product</span> {{classLabel .FilterClass}} <button type="button" class="x" onclick="clearOne('filter-class')" aria-label="Clear class">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -307,7 +313,7 @@ if (!window.__dlRowNav) {
         <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
         <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
         <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'install_apk'})" title="Open Actions with Install app and these devices ready; pick the app there"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
-        {{if canOTA .Role}}<button type="button" class="cc-btn sm" onclick="bulkGo('/updates/new')" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
+        {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
       </div>
     </div>
     {{end}}
@@ -493,6 +499,7 @@ a.fleet-rail-item{min-height:40px}
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */
 /* New / Classic card layout switch, and the one-time intro */
+.cc-btn.is-disabled{opacity:.45;cursor:not-allowed}
 .layout-seg{display:inline-flex;margin-left:auto;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .layout-seg button{height:28px;padding:0 11px;border:0;background:var(--surface);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 .layout-seg button+button{border-left:1px solid var(--border)}
@@ -506,6 +513,23 @@ a.fleet-rail-item{min-height:40px}
 .fl-intro-t{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
 .fl-intro-txt p{margin:0;color:var(--text-2);font-size:13px;line-height:1.45}
 .fl-intro-acts{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+/* product tabs above the roster */
+.ptabs{display:flex;gap:4px;margin:0 0 12px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;border-bottom:1px solid var(--border-soft)}
+.ptabs:empty{display:none}
+/* every tab the same weight; the selected one is a filled pill, not bolder text */
+.ptab{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 10px;border-radius:99px;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);background:none;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.ptab:first-child{padding-left:13px}
+.ptab:hover{background:var(--surface2);color:var(--text)}
+.ptab.zero:not(.on){color:var(--text-faint)}
+.ptab.zero:not(.on) .ptab-ic{opacity:.5}
+.ptab.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.ptab.on .n{color:var(--accent-text)}
+.ptab-ic{width:20px;height:20px;border-radius:6px;flex:none}
+.ptab-ic svg{width:12px;height:12px}
+/* serial sort, outside the Sort menu */
+.fleet-fbtn.sort-serial.on{border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
+.fleet-fbtn .dir{font-family:var(--mono);font-size:12px;margin-left:2px}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
@@ -548,20 +572,10 @@ a.fleet-rail-item{min-height:40px}
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct) (not .FilterClass)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
-    {{/* Device types: one entry per class that has devices; the type icon doubles as
-         the bullet so the rail matches the fleet rows. */}}
-    {{if .RailClasses}}
-    <div class="fleet-rail-cap"><span>Products</span></div>
-    {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}
-    <a class="fleet-rail-item fleet-rail-cls{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} rc-soon{{end}}" href="/devices?class={{.Class}}">
-      <span class="rc-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{if .N}}<span class="nm">{{classLabel .Class}}</span><span class="ct">{{.N}}</span>{{else}}<span class="nm rc-soon-nm">{{classLabel .Class}}<span class="rc-soon-sub">Coming soon</span></span>{{end}}
-    </a>
-    {{end}}
-    {{end}}
 
 
 
@@ -723,6 +737,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
+    <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product">{{template "fleet-product-tabs" .}}</div>
     <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
 
 
@@ -844,6 +859,11 @@ a.fleet-rail-item{min-height:40px}
     </div>
   </div>
 
+  {{/* ── Serial sort, one click (A→Z, again for Z→A), outside the Sort menu ── */}}
+  <button type="button" class="fleet-fbtn sort-serial" id="sort-serial" aria-pressed="false" onclick="sortBy('serial')" title="Sort by serial (click again to reverse)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7M4 12h7M4 17h7"/><path d="M17 5v14"/><path d="m14 16 3 3 3-3"/></svg>
+    Serial<span class="dir"></span>
+  </button>
   {{/* ── Sort control (replaces the sortable column headers) ── */}}
   <div class="fleet-fwrap" id="sort-wrap">
     <button type="button" class="fleet-fbtn" id="sort-btn" onclick="toggleSort(event)" aria-haspopup="true" aria-expanded="false">
@@ -971,7 +991,9 @@ function scopeRoster(anchor, u) {
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
   else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); setSel('filter-product', ov.product); }
-  else if (u.searchParams.get('class')) { ov.class = u.searchParams.get('class'); setSel('filter-class', ov.class); }
+  // The product tab stacks with the collection: keep it across rail clicks.
+  var curClass = new URLSearchParams(location.search).get('class');
+  if (curClass) { ov.class = curClass; setSel('filter-class', curClass); }
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');
@@ -1030,6 +1052,12 @@ function setFleetLayout(v) {
 function fleetIntroDone() {
   try { localStorage.setItem('fleet-layout-intro', '1'); } catch (_) {}
   var el = document.getElementById('fl-layout-intro'); if (el) el.hidden = true;
+}
+
+// Product tabs: one product at a time; keeps the Filters panel's Product select in sync.
+function setProductTab(cls) {
+  setSel('filter-class', cls);
+  navigateDevices({page: '1', class: cls});
 }
 
 function selectCollection(type, id) {
@@ -1123,6 +1151,12 @@ function sortBy(key) {
 function syncSortUI() {
   var p = new URLSearchParams(location.search);
   var sort = p.get('sort') || 'last_seen', dir = p.get('dir') || 'desc';
+  var sb = document.getElementById('sort-serial');
+  if (sb) {
+    sb.classList.toggle('on', sort === 'serial');
+    sb.setAttribute('aria-pressed', sort === 'serial' ? 'true' : 'false');
+    var sd = sb.querySelector('.dir'); if (sd) sd.textContent = sort === 'serial' ? (dir === 'asc' ? '↑' : '↓') : '';
+  }
   document.querySelectorAll('.sortopt').forEach(function(b) {
     var on = b.dataset.sort === sort;
     b.classList.toggle('on', on);
@@ -1298,6 +1332,7 @@ function clearSelection() {
 }
 function updateBulkBar() {
   var serials = getSelectedSerials();
+  try { syncPushUpdateBtn(); } catch (_) {}
   var bar = document.getElementById('bulk-bar');
   // Export lives in the page header and only makes sense with a selection.
   var exportBtn = document.getElementById('export-btn');
@@ -1429,6 +1464,34 @@ function bulkExport() {
 }
 
 // Open another page with the selection carried along (?serials=A,B,C plus extras).
+// Push update: our firmware OTA targets one model at a time, so the selection must be
+// MDM Firmware devices of a single model; that model is passed on so the Deploy page
+// opens with it selected. (The server re-checks, e.g. for "select all N matching".)
+function pushUpdateCheck() {
+  var cards = Array.from(document.querySelectorAll('.device-cb:checked')).map(function (cb) { return cb.closest('.dl-card'); }).filter(Boolean);
+  var models = {}, notFw = 0;
+  cards.forEach(function (c) {
+    if (c.dataset.agent !== 'firmware') { notFw++; return; }
+    models[c.dataset.model] = c.dataset.modelLabel || c.dataset.model;
+  });
+  var keys = Object.keys(models);
+  if (notFw) return { ok: false, why: 'Push update is only for MDM Firmware devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' MDM DPC / MDM Lite.' };
+  if (keys.length > 1) return { ok: false, why: 'Select devices of one model to push an update (selected: ' + keys.map(function (k) { return models[k]; }).join(', ') + ').' };
+  return { ok: true, model: keys[0] || '' };
+}
+function pushUpdateSel() {
+  var c = pushUpdateCheck();
+  if (!c.ok) { if (window.showToast) showToast(c.why, 'error'); return; }
+  bulkGo('/updates/new', c.model ? { product: c.model } : {});
+}
+function syncPushUpdateBtn() {
+  var b = document.getElementById('push-update-btn'); if (!b) return;
+  var c = pushUpdateCheck();
+  b.classList.toggle('is-disabled', !c.ok);
+  b.setAttribute('aria-disabled', c.ok ? 'false' : 'true');
+  b.title = c.ok ? 'Open Deploy with these devices pre-ticked' + (c.model ? ' and their model selected' : '') : c.why;
+}
+
 function bulkGo(path, extra) {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
@@ -2070,8 +2133,11 @@ document.addEventListener('keydown', function(e) {
 
       var st = card.querySelector('.dl-status');
       if (st) {
-        var lbl = d.online ? (st.dataset.labelOn || 'Online') : (st.dataset.labelOff || 'Offline');
-        st.className = 'dl-status ' + (d.online ? 'on' : 'off');
+        // Legacy firmware never holds a WebSocket; a recent HTTP check-in shows yellow.
+        var ci = !d.online && st.dataset.legacy === '1' && d.last_seen_iso &&
+          (Date.now() - Date.parse(d.last_seen_iso)) < (+st.dataset.legacyWindow || 180) * 1000;
+        var lbl = d.online ? (st.dataset.labelOn || 'Online') : ci ? 'Checking in' : (st.dataset.labelOff || 'Offline');
+        st.className = 'dl-status ' + (d.online ? 'on' : ci ? 'checkin' : 'off');
         // New layout: a bare dot (label in the tooltip). Classic: dot + label.
         if (st.closest('.dl-l1')) { st.title = lbl; st.setAttribute('aria-label', lbl); st.innerHTML = '<i></i>'; }
         else st.innerHTML = '<i></i>' + lbl;

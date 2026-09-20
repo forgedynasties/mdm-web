@@ -721,6 +721,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// isLegacyBuild reports whether a build ID is on the configured legacy (WS-incapable)
 		// firmware list — such devices only HTTP check-in and never hold a live WebSocket.
 		"isLegacyBuild": cfg.IsLegacyBuild,
+		// legacyCheckingIn: a legacy device counts as checking in (yellow dot) while its
+		// last HTTP check-in is within legacyWindowSecs (3 check-in intervals).
+		"legacyCheckingIn": func(t time.Time) bool {
+			return !t.IsZero() && time.Since(t) < time.Duration(3*cfg.CheckinInterval())*time.Second
+		},
+		"legacyWindowSecs": func() int { return 3 * cfg.CheckinInterval() },
 		// extraStr reads one string key out of a device's latest_extra JSON blob.
 		"extraStr": func(extra json.RawMessage, key string) string {
 			var m map[string]any
@@ -4700,9 +4706,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// A product selected from the rail scopes the roster too — name it by the
 		// product label and count the filtered result, so the heading isn't "All devices".
 		selectedCollection, selectedCount = productLabel(pk), total
-	} else if cl := qv.Get("class"); cl != "" && product.IsClass(cl) {
-		// A device type picked in the rail names the roster the same way.
-		selectedCollection, selectedCount = product.ClassLabel(cl), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
@@ -4719,28 +4722,37 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
 	}
-	// Products rail (roles): stored class, else the product's catalog class.
-	// Every role is listed, in lineup order, even with no devices yet (the lineup is
-	// being brought onto the MDM a role at a time).
+	// Product tabs above the roster: one per product (role) the fleet has, counted in the
+	// current scope (collection, search, the Filters panel) without the product itself or
+	// the Online/Offline quick views, so the tabs stay put while those change. A product
+	// with none in this scope keeps its tab at 0 (so picking a restaurant doesn't make the
+	// others vanish); one the fleet has no devices of at all is not shown. Order is by the
+	// fleet-wide count, so the tabs don't reshuffle as the scope changes.
 	var railClasses []db.ClassCount
 	{
-		counts := map[string]int{}
-		if cc, _, _, err := h.db.FleetComposition(r.Context(), h.access(r).hidesDPC()); err == nil {
-			for _, c := range cc {
-				counts[c.Class] += c.N
-			}
-		}
-		counts[product.ClassKiosk] += counts[product.ClassPanel] // retired panel rows are kiosks
-		// Most devices first; ties keep lineup order; empty ("coming soon") ones last.
+		scope := filter
+		scope.Class, scope.Online, scope.Battery, scope.Kiosk = "", "", "", ""
+		fleet := db.DeviceFilter{Hidden: filter.Hidden, Lifecycle: filter.Lifecycle, OnlyIDs: filter.OnlyIDs}
+		fleetN := map[string]int{}
 		for _, c := range product.Classes() {
-			if c == product.ClassOther && counts[c] == 0 {
-				continue // "Other" is a catch-all, not a product that is coming
+			ff := fleet
+			ff.Class = c
+			total, err := h.db.CountDevices(r.Context(), ff)
+			if err != nil || (total == 0 && c != filter.Class) {
+				continue
 			}
-			railClasses = append(railClasses, db.ClassCount{Class: c, N: counts[c]})
+			f := scope
+			f.Class = c
+			n, err := h.db.CountDevices(r.Context(), f)
+			if err != nil {
+				continue
+			}
+			fleetN[c] = total
+			railClasses = append(railClasses, db.ClassCount{Class: c, N: n})
 		}
 		// (stable insertion sort: "sort" is a query parameter in this handler)
 		for i := 1; i < len(railClasses); i++ {
-			for j := i; j > 0 && railClasses[j].N > railClasses[j-1].N; j-- {
+			for j := i; j > 0 && fleetN[railClasses[j].Class] > fleetN[railClasses[j-1].Class]; j-- {
 				railClasses[j], railClasses[j-1] = railClasses[j-1], railClasses[j]
 			}
 		}
@@ -4973,6 +4985,33 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	data["DeviceLocations"] = locs
 	data["DeviceMapCount"] = locCount
 	data["MapsEmbedKey"] = h.mapsEmbedKey
+
+	// Fleet composition by product role (Menu board, Tableside AI, …), the same axis as
+	// the fleet rail, not by hardware model. Most devices first; unassigned last.
+	if cc, _, _, err := h.db.FleetComposition(ctx, h.access(r).hidesDPC()); err == nil {
+		type compRole struct {
+			Class, Label string
+			Count        int
+		}
+		var roles []compRole
+		unassigned := 0
+		for _, c := range cc {
+			if c.Class == "" {
+				unassigned += c.N
+				continue
+			}
+			roles = append(roles, compRole{c.Class, product.ClassLabel(c.Class), c.N})
+		}
+		for i := 1; i < len(roles); i++ {
+			for j := i; j > 0 && roles[j].Count > roles[j-1].Count; j-- {
+				roles[j], roles[j-1] = roles[j-1], roles[j]
+			}
+		}
+		if unassigned > 0 {
+			roles = append(roles, compRole{"", "Unassigned", unassigned})
+		}
+		data["Products"] = roles
+	}
 
 	// Per-user widget arrangement (hidden / order / preset).
 	for k, v := range h.overviewLayoutData(r) {
@@ -8745,6 +8784,10 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
 		"Device":              device,
+		// Same rule as the full page. Missing here, every live refresh fell through to the
+		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment
+		// after the page opened.
+		"ShowBattery":         device.HasBattery() && deviceReportsBattery(device, nil),
 		"Role":                h.role(r), // the mic-gain chip is admin-only
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ChargerFlapRate":     flapRate,
@@ -12729,6 +12772,51 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 		selProduct = ""
 	}
 
+	// Arriving from the fleet page with a selection (?serials=): an OTA targets one
+	// product of our own firmware, so the selection must be MDM Firmware devices of a
+	// single model — that model is then preselected. Anything else goes back to the
+	// fleet with the reason (covers "select all N matching", which the page can't check).
+	if raw := strings.TrimSpace(r.URL.Query().Get("serials")); raw != "" && r.URL.Query().Get("product") == "" && r.URL.Query().Get("release") == "" {
+		var serials []string
+		for _, sn := range strings.Split(raw, ",") {
+			if sn = strings.TrimSpace(sn); sn != "" {
+				serials = append(serials, sn)
+			}
+		}
+		if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil && len(ids) > 0 {
+			if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
+				models := map[string]bool{}
+				notFirmware := 0
+				for _, d := range devs {
+					if d.IsDPC() {
+						notFirmware++
+						continue
+					}
+					models[d.ProductKey()] = true
+				}
+				var why string
+				switch {
+				case notFirmware > 0:
+					why = fmt.Sprintf("Push update is only for MDM Firmware devices — %d of the selected are MDM DPC / MDM Lite.", notFirmware)
+				case len(models) > 1:
+					var names []string
+					for k := range models {
+						names = append(names, productLabel(k))
+					}
+					sort.Strings(names)
+					why = "Select devices of one model to push an update (selected: " + strings.Join(names, ", ") + ")."
+				}
+				if why != "" {
+					http.Redirect(w, r, "/devices?flash="+url.QueryEscape(why)+"&flash_type=error", http.StatusFound)
+					return
+				}
+				for k := range models {
+					selProduct = k
+				}
+			}
+		}
+	}
+
 	// Which products actually have something to push, so the picker never offers a
 	// dead end. ListDeployableReleases doesn't carry the product, so resolve each.
 	prodOf := map[int]string{}
@@ -12760,6 +12848,9 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 		"PushProducts":        products,
 		"SelectedProduct":     selProduct,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	}
+	if raw := r.URL.Query().Get("serials"); raw != "" {
+		data["PreSerials"] = parseSerialsField([]string{raw})
 	}
 	// Groups and restaurants power the target selector (deploy to a whole group/venue,
 	// mirroring the Actions target picker). resolveEligibleDevices resolves them server-side.
@@ -18242,7 +18333,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
 		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail",
-		"fleet-cards", "fleet-rows":
+		"fleet-cards", "fleet-rows", "fleet-products":
 	default:
 		http.NotFound(w, r)
 		return
