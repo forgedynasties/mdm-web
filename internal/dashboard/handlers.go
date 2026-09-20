@@ -21707,8 +21707,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /clients", h.requireAuth(h.ClientsPage))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
-	// One route per hosted agent slot (DPC, and the firmware client per signing
-	// variant). Unauthenticated on purpose — see AgentAPKDownload.
+	// One route per hosted agent slot (DPC, and the firmware client per tree — the
+	// platform key is the tree's, so one build serves its user and userdebug devices
+	// alike). Unauthenticated on purpose — see AgentAPKDownload.
 	for _, name := range AgentAPKSlots {
 		mux.HandleFunc("GET /agent/"+name, h.AgentAPKDownload)
 	}

@@ -1530,12 +1530,11 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	order := []string{"firmware-qcom", "firmware-gms", "firmware-test-keys", "dpc", "menu-board", "lite-demo"}
+	order := []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board", "lite-demo"}
 	labels := map[string]string{
 		"dpc":                   "DPC agent",
 		"firmware-qcom":         "Firmware client · QCOM (T7, kiosks)",
 		"firmware-gms":          "Firmware client · GMS",
-		"firmware-test-keys":    "Firmware client · userdebug",
 		"menu-board":            "Menu board",
 		"lite-demo":             "MDM Lite demo app",
 	}
@@ -1543,19 +1542,17 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	// signs with its own platform key. That split has to stay — a device only installs
 	// the key it already trusts — but it is not three clients, so it is one rail row
 	// with the trees as variants inside it.
-	firmwareGroup := []string{"firmware-qcom", "firmware-gms", "firmware-test-keys"}
+	firmwareGroup := []string{"firmware-qcom", "firmware-gms"}
 	variants := map[string]string{
-		"firmware-qcom":      "QCOM · v2.1.x",
-		"firmware-gms":       "GMS · v2.0.x",
-		"firmware-test-keys": "userdebug",
+		"firmware-qcom": "QCOM · v2.1.x",
+		"firmware-gms":  "GMS · v2.0.x",
 	}
 	const firmwareLabel = "Firmware client"
-	const firmwareNote = "The system app in our AOSP images. One build per tree: each is signed with that tree's platform key, and a device is only ever offered its own."
+	const firmwareNote = "The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant."
 	notes := map[string]string{
 		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
-		"firmware-qcom":         "Devices on the QCOM tree (v2.1.x). Signed with that tree's platform key — a GMS device cannot install this build.",
-		"firmware-gms":          "Devices on the GMS tree (v2.0.x). Signed with that tree's platform key, which differs from QCOM's.",
-		"firmware-test-keys":    "userdebug builds, whichever tree. Signed with the test platform key.",
+		"firmware-qcom":         "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build.",
+		"firmware-gms":          "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's.",
 		"menu-board":            "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
 		"lite-demo":             "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
 	}
@@ -1744,6 +1741,18 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "clients.html", data)
 }
 
+// knownAgentSlots names the publishable slots, sorted, for the error a build machine
+// gets when it posts to one that does not exist — read off the map so removing a slot
+// cannot leave the message advertising it.
+func knownAgentSlots() []string {
+	out := make([]string, 0, len(AgentAPKSlots))
+	for slot := range AgentAPKSlots {
+		out = append(out, slot)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
 // data/agent — the same data volume as splash images).
 func AgentAPKDir() string {
@@ -1758,30 +1767,36 @@ const agentAPKRoute = "/agent/" + agentAPKFile
 
 // AgentAPKSlots are the agent builds this server can host at once. There is one per
 // thing that has to be signed differently: the DPC agent has its own key, and the
-// firmware client is signed with the platform key of its build variant — user builds
-// with release-keys, userdebug with test-keys. A device is only ever offered the slot
-// matching its own signing keys, because Android rejects anything else.
+// firmware client is signed with the platform key of the tree it was built in — QCOM
+// with 01d88e1a…, GMS with c8a2e9bc…, each covering that tree's user and userdebug
+// builds. A device is only ever offered the slot matching the key it already trusts,
+// because Android rejects anything else.
 var AgentAPKSlots = map[string]string{
 	"dpc":                   agentAPKFile,
 	"firmware-qcom":         "aio-mdm-firmware-qcom.apk",
 	"firmware-gms":          "aio-mdm-firmware-gms.apk",
-	"firmware-test-keys":    "aio-mdm-firmware-test-keys.apk",
-	"firmware-release-keys": "aio-mdm-firmware-release-keys.apk", // retired: see firmwareSlotFor
 	"lite-demo":             "aio-mdm-lite-demo.apk",
 	"menu-board":            "aio-menu-board.apk",
 }
 
 // firmwareSlotFor picks which firmware client a device can install. The key that signs
-// the client belongs to the *tree*, not the build variant: QCOM signs with one platform
+// the client belongs to the *tree* and to nothing else: QCOM signs with one platform
 // certificate and GMS with another, and both ship `user` builds reporting
 // build_tags=release-keys. Pointing them at one "release-keys" APK guarantees that one
 // of the two fleets is handed a build it must reject. Trees are told apart by their
 // build id line — QCOM is v2.1.x, GMS v2.0.x — which is how the OTA console versions
 // them too.
+//
+// The build VARIANT does not come into it. Android.bp asks for certificate: "platform",
+// which resolves to <tree>/build/make/target/product/security/platform.pk8 — a path with
+// no variant in it. Checked against the artifacts: QCOM v2.1.010 (userdebug) and v2.1.017
+// (user) both sign mdm-client with 01d88e1a…, GMS v2.0.98d (userdebug) and its user builds
+// both with c8a2e9bc…. What misc_info's default_system_dev_certificate splits per variant
+// (QCOM user=releasekey, userdebug=testkey) is the OTA *payload* key and the default for
+// modules that name no certificate — neither applies to this APK. An earlier version of
+// this function sent every userdebug device to a "firmware-test-keys" slot, which could
+// only ever hold one tree's build and left those devices with no update offered at all.
 func firmwareSlotFor(buildID, buildType string) string {
-	if strings.Contains(buildType, "userdebug") {
-		return "firmware-test-keys"
-	}
 	switch {
 	case strings.HasPrefix(buildID, "v2.1."):
 		return "firmware-qcom"
@@ -1908,7 +1923,7 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 		slot = "dpc"
 	}
 	if _, ok := AgentAPKSlots[slot]; !ok {
-		writeJSONError(w, http.StatusBadRequest, "unknown slot "+slot+" (dpc, firmware-release-keys, firmware-test-keys)")
+		writeJSONError(w, http.StatusBadRequest, "unknown slot "+slot+" ("+strings.Join(knownAgentSlots(), ", ")+")")
 		return
 	}
 	// Long-form notes travel as a query parameter: the body is the APK itself.
