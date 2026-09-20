@@ -2881,8 +2881,13 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, 50)))
-	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, 50)
+	// The panel shows four of each and expands to the rest in place, so it only needs
+	// a handful — a noisy device has hundreds of events, and fetching fifty of them
+	// with their full stack traces made this fragment tens of seconds and ~90KB, which
+	// reads as "the alerts never load". Everything beyond this goes to the Alerts page.
+	const panelRows = 12
+	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, panelRows)))
+	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)
 	role := h.role(r)
 	canAct := roleCanOperate(role)
 	var alerts []humanAlert

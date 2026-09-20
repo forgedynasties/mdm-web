@@ -46,6 +46,7 @@
 .cl-meta{color:var(--muted);font-size:11.5px;line-height:1.5}
 .cl-chg{color:var(--text-2);font-size:12px;line-height:1.5}
 .cl-empty{background:var(--surface);border:1px dashed var(--border);border-radius:13px;padding:18px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.cl-tbl .cc-btn[disabled]{opacity:.42;cursor:not-allowed;pointer-events:auto}
 .cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
@@ -133,7 +134,13 @@
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
-          {{if and (ne .State "current") $.Selected.Hosted (canOperate $.Role)}}
+          {{if eq .State "unknown"}}
+          {{/* A client that never reported its own version predates client OTA: the
+               build on it has no ClientUpdater to receive app_update, so offering the
+               button would queue a command nothing will ever act on. It needs a
+               firmware OTA to get a client that can update itself. */}}
+          <button type="button" class="cc-btn sm" disabled title="This client reports no version, so it predates client OTA — it can only be updated by a firmware OTA."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
+          {{else if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
           <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0">
             <input type="hidden" name="type" value="app_update">
             <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}}"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>

@@ -59,10 +59,6 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
-    {{/* Screen state, shown only for firmware that reports it — the field the standby
-         metric is built on, so it is worth being able to see directly on the device. */}}
-    {{$scr := extraField .Device.LatestExtra "screen_on"}}{{if and $scr (ne $scr "—")}}<span class="ddc-chip" id="screen-chip" data-on="{{if eq $scr "true"}}1{{else}}0{{end}}" title="Display state, reported each check-in. Standby is powered time with the screen off.">
-      <svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="{{if eq $scr "true"}}#0f6d33{{else}}currentColor{{end}}" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>Screen {{if eq $scr "true"}}on{{else}}off{{end}}</span>{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
 {{end}}
 
@@ -2976,6 +2972,16 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><h3>Software</h3></div>
       <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
+      {{/* The MDM client itself. Shown for every agent kind — firmware, DPC and Lite —
+           because "which client is on it" decides what the device can be told to do.
+           A client that reports no version predates version reporting and cannot be
+           updated over the air; it needs a firmware OTA. */}}
+      {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
+      <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
+        {{if and $cv (ne $cv "—")}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}
+          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}DPC agent{{else}}firmware client{{end}}</span>
+        {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
+      </span></div>
       <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
     </div>
   </div>
@@ -3936,19 +3942,6 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         window.mdmSyncKiosk(d.kiosk_enabled);
       }
 
-      // Screen state: flip the chip in place. The client sends screen_on as a gated key,
-      // so waking a device transmits on its next frame and this updates within a poll
-      // instead of waiting for someone to reload the page.
-      if (typeof d.screen_on === 'boolean') {
-        var _sc = document.getElementById('screen-chip');
-        if (_sc && _sc.getAttribute('data-on') !== (d.screen_on ? '1' : '0')) {
-          _sc.setAttribute('data-on', d.screen_on ? '1' : '0');
-          var _svg = _sc.querySelector('svg');
-          if (_svg) _svg.setAttribute('stroke', d.screen_on ? '#0f6d33' : 'currentColor');
-          _sc.lastChild.textContent = d.screen_on ? 'Screen on' : 'Screen off';
-        }
-      }
-
       // Charging-pad occupancy (wlc_status) also rides the payload — keep the sidebar
       // card's live status dot in sync without a reload.
       if (d.wlc !== undefined && d.wlc !== null && window.mdmSyncPadStatus) {
@@ -4373,7 +4366,7 @@ async function saveNewApp() {
 
 {{define "device-alerts-panel"}}
   {{if .DeviceAlerts}}
-  <div class="da-sec"><span class="ic warn" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--warn-bg);color:var(--warn);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span><span class="st">Active alerts</span><span class="sc">{{len .DeviceAlerts}}</span><span class="line"></span></div>
+  <div class="da-sec"><span class="ic warn" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--warn-bg);color:var(--warn);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span><span class="st">Active alerts</span><span class="sc">{{len .DeviceAlerts}}{{if ge (len .DeviceAlerts) 12}}+{{end}}</span><span class="line"></span></div>
   <div class="da-group" data-da-shown="4">
   {{range $i, $a := .DeviceAlerts}}
   <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
@@ -4385,11 +4378,11 @@ async function saveNewApp() {
     </div>
   </div>
   {{end}}
-  {{if gt (len .DeviceAlerts) 4}}<a class="da-more" href="/alerts?device={{.Device.SerialNumber}}">View all {{len .DeviceAlerts}} alerts →</a>{{end}}
+  {{if gt (len .DeviceAlerts) 4}}<a class="da-more" href="/alerts?device={{.Device.SerialNumber}}">View all alerts →</a>{{end}}
   </div>
   {{end}}
   {{if .DeviceCrashes}}
-  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes · last 7 days</span><span class="sc">{{len .DeviceCrashes}}</span><span class="line"></span></div>
+  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes · last 7 days</span><span class="sc">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
@@ -4401,7 +4394,7 @@ async function saveNewApp() {
     </div>
   </div>
   {{end}}
-  {{if gt (len .DeviceCrashes) 4}}<a class="da-more" href="/alerts?view=crashes&device={{.Device.SerialNumber}}">View all {{len .DeviceCrashes}} crashes →</a>{{end}}
+  {{if gt (len .DeviceCrashes) 4}}<a class="da-more" href="/alerts?view=crashes&device={{.Device.SerialNumber}}">View all crashes →</a>{{end}}
   </div>
   {{end}}
   {{if and (not .DeviceAlerts) (not .DeviceCrashes)}}

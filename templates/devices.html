@@ -259,7 +259,10 @@ if (!window.__dlRowNav) {
       {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} zero{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
 {{end}}{{end}}
 
-{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>{{end}}
+{{/* A filter changes the headline, the product tabs AND the quick-view counts under
+     them — the pills are scoped to the same roster, so they have to ride along or they
+     keep showing the fleet-wide numbers until the page is reloaded. */}}
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div><div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>{{end}}
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>

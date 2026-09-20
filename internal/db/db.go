@@ -2315,6 +2315,15 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		wheres = append(wheres, w)
 		args = append(args, a...)
 	}
+	// The product tabs filter by class, so the quick-view counts under them have to
+	// as well — otherwise picking "Tableside AI" leaves the pills counting the whole
+	// fleet. Same predicate ListDevices uses, including the product-default fallback
+	// for firmware devices that store no class.
+	if f.Class != "" {
+		wheres = append(wheres, fmt.Sprintf("(d.device_class = $%d OR (d.device_class = '' AND d.product = ANY($%d)))", argN, argN+1))
+		args = append(args, f.Class, productKeysForClass(f.Class))
+		argN += 2
+	}
 	_ = activeSecs // retained for signature compatibility; online is now WS-based
 	args = append(args, f.Connected)
 	connArg := argN

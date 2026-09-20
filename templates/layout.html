@@ -582,7 +582,14 @@
       // A previously promoted entry is a clone, not part of the rendered dock.
       var old = dock.querySelector('.js-promoted');
       if (old) old.remove();
-      if (pop) {
+      // The server already renders the active admin entry into the dock for a full
+      // page load. Promoting a second copy on top of it is what showed "Clients"
+      // twice — only clone when the dock does not already carry this destination.
+      var already = false;
+      dock.querySelectorAll('a.nav-link[href]').forEach(function (a) {
+        if (!a.classList.contains('js-promoted') && owns(a.getAttribute('href'), path)) already = true;
+      });
+      if (pop && !already) {
         var hit = null;
         pop.querySelectorAll('a[href]').forEach(function (a) {
           var on = owns(a.getAttribute('href'), path);
