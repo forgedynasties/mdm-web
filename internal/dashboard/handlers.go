@@ -21490,7 +21490,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
-	mux.HandleFunc("GET /agent/skorra-agent.apk", h.AgentAPKDownload)
+	mux.HandleFunc("GET /agent/aio-mdm-dpc.apk", h.AgentAPKDownload)
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)

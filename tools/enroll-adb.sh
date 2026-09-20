@@ -6,7 +6,7 @@
 #
 #   tools/enroll-adb.sh -s https://mdm.dev.aioapp.com -t enr_XXXX            # every connected device
 #   tools/enroll-adb.sh -s https://mdm.dev.aioapp.com -t enr_XXXX -d SERIAL  # one device
-#   tools/enroll-adb.sh ... --apk path/to/skorra-agent.apk                    # else downloaded from the server
+#   tools/enroll-adb.sh ... --apk path/to/aio-mdm-dpc.apk                    # else downloaded from the server
 #
 # Devices must be factory-fresh with NO account added (Device Owner can't be set
 # otherwise) and have USB debugging on. Use a profile with a max-devices limit
@@ -25,12 +25,12 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$SERVER" ] && [ -n "$TOKEN" ] || { echo "need -s SERVER and -t TOKEN (see -h)" >&2; exit 2; }
 command -v adb >/dev/null || { echo "adb not found in PATH" >&2; exit 2; }
-COMPONENT="com.skorra.agent/com.skorra.agent.MdmDeviceAdminReceiver"
+COMPONENT="aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver"
 
 if [ -z "$APK" ]; then
-  APK="$(mktemp -t skorra-agent.XXXXXX.apk)"
-  echo "→ downloading agent from $SERVER/agent/skorra-agent.apk"
-  curl -fsSL -o "$APK" "$SERVER/agent/skorra-agent.apk" || { echo "download failed — is an agent APK hosted in Settings › App library?" >&2; exit 1; }
+  APK="$(mktemp -t aio-mdm-dpc.XXXXXX.apk)"
+  echo "→ downloading agent from $SERVER/agent/aio-mdm-dpc.apk"
+  curl -fsSL -o "$APK" "$SERVER/agent/aio-mdm-dpc.apk" || { echo "download failed — is an agent APK hosted in Settings › App library?" >&2; exit 1; }
 fi
 
 if [ -n "$ONLY" ]; then DEVICES="$ONLY"; else DEVICES="$(adb devices | awk 'NR>1 && $2=="device"{print $1}')"; fi
@@ -55,12 +55,12 @@ for D in $DEVICES; do
   # self-enabled remote input (WRITE_SECURE_SETTINGS). Best-effort: an older agent that does
   # not declare them just stays degraded.
   for p in android.permission.READ_LOGS android.permission.WRITE_SECURE_SETTINGS; do
-    $A shell pm grant com.skorra.agent "$p" >/dev/null 2>&1 || echo "   · $p not granted (agent too old?)"
+    $A shell pm grant aio.app.mdmclient.dpc "$p" >/dev/null 2>&1 || echo "   · $p not granted (agent too old?)"
   done
-  $A shell appops set com.skorra.agent GET_USAGE_STATS allow >/dev/null 2>&1 || true
-  $A shell appops set com.skorra.agent PROJECT_MEDIA allow >/dev/null 2>&1 || true
+  $A shell appops set aio.app.mdmclient.dpc GET_USAGE_STATS allow >/dev/null 2>&1 || true
+  $A shell appops set aio.app.mdmclient.dpc PROJECT_MEDIA allow >/dev/null 2>&1 || true
   since=$($A shell date +'%m-%d %H:%M:%S.000' | tr -d '\r')
-  $A shell am start -W -n com.skorra.agent/.ui.MainActivity --es server_url "$SERVER" --es enroll_token "$TOKEN" >/dev/null 2>&1 || true
+  $A shell am start -W -n aio.app.mdmclient.dpc/.ui.MainActivity --es server_url "$SERVER" --es enroll_token "$TOKEN" >/dev/null 2>&1 || true
   # The agent enrolls in the background and logs "Enrolled — device key issued" once the
   # server accepts the token. Wait for that instead of assuming it: an agent that ignores
   # the extras (too old) or cannot reach the server would otherwise report success here.

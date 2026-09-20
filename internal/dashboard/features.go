@@ -60,8 +60,8 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"ServerURL":      h.baseURL(r),
 		"DeviceKey":      deviceKey,
 		"DeviceKeyMask":  masked,
-		"AdminComponent": "com.skorra.agent/com.skorra.agent.MdmDeviceAdminReceiver",
-		"AgentPackage":   "com.skorra.agent",
+		"AdminComponent": "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
+		"AgentPackage":   "aio.app.mdmclient.dpc",
 		"Profiles":       profiles,
 		"Groups":         groups,
 		"Restaurants":    restaurants,
@@ -195,7 +195,7 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload := map[string]any{
-		"android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME":   "com.skorra.agent/com.skorra.agent.MdmDeviceAdminReceiver",
+		"android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME":   "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
 		"android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true,
 		"android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": map[string]string{
 			"server_url":   h.baseURL(r),
@@ -1355,7 +1355,7 @@ func AgentAPKDir() string {
 	return "data/agent"
 }
 
-const agentAPKFile = "skorra-agent.apk"
+const agentAPKFile = "aio-mdm-dpc.apk"
 const agentAPKRoute = "/agent/" + agentAPKFile
 
 // AgentAPKDownload serves the hosted agent APK. Unauthenticated on purpose: a

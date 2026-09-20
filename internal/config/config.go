@@ -69,7 +69,7 @@ type Config struct {
 	AgentAPKURLVal      string `json:"agent_apk_url"`
 	AgentAPKChecksumVal string `json:"agent_apk_checksum"`
 	// An agent APK uploaded through Settings and served by this server at
-	// /agent/skorra-agent.apk. HostedSHA is the URL-safe base64 SHA-256 of the file
+	// /agent/aio-mdm-dpc.apk. HostedSHA is the URL-safe base64 SHA-256 of the file
 	// (PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM); HostedName/Size/At describe it.
 	AgentAPKHostedSHA  string    `json:"agent_apk_hosted_sha"`
 	AgentAPKHostedName string    `json:"agent_apk_hosted_name"`

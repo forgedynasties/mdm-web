@@ -1824,13 +1824,14 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		body.Type = "install_apk"
 	}
 	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true,
-		"app_reload": true, "app_restart": true, "app_clear_cache": true, "app_update_check": true}
+		"app_reload": true, "app_restart": true, "app_clear_cache": true, "app_update_check": true,
+		"app_update": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
 	}
-	if body.Type == "install_apk" && body.ApkURL == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required for install_apk"})
+	if (body.Type == "install_apk" || body.Type == "app_update") && body.ApkURL == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required for " + body.Type})
 		return
 	}
 	if body.Type == "uninstall" {

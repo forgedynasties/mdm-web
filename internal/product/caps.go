@@ -7,7 +7,7 @@ const (
 	// KindFirmware is our own hardware running the com.aioapp.mdm system-app client:
 	// shared device key, auto-enrolled on first check-in, full platform privileges.
 	KindFirmware = "firmware"
-	// KindDPC is a stock Android device managed by the com.skorra.agent Device-Owner
+	// KindDPC is a stock Android device managed by the aio.app.mdmclient.dpc Device-Owner
 	// agent: explicitly enrolled (profile token → per-device key), capabilities
 	// advertised on check-in. Matches the agent's extra.agent_type value.
 	KindDPC = "dpc"
@@ -119,8 +119,9 @@ const (
 	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
 	// app, clear its web cache, check for an app update). No Device Owner needed.
 	CapAppControl = "app_control"
-	// CapSelfUpdate: the MDM-lite host app can install a newer version of itself from a
-	// URL (silently when the device allows it to install apps, else via Android's prompt).
+	// CapSelfUpdate: the agent can install a newer version of itself from a URL. The DPC
+	// agent does it silently (Device Owner); the MDM-lite host app does it silently only
+	// when the device allows it to install apps, else via Android's prompt.
 	CapSelfUpdate = "self_update"
 )
 

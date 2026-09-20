@@ -139,7 +139,7 @@ td code{white-space:nowrap}
 
   <h2 id="why">0 · Why</h2>
   <p>The server's business logic and every dashboard page were designed for one situation: every device is our own hardware (T7, later Kiosk 18/22/27), runs our firmware plus the <code>com.aioapp.mdm</code> system-app client, authenticates with one shared <code>DEVICE_API_KEY</code>, and "enrolls" itself by checking in for the first time (<code>UpsertCheckin</code> → <code>isNew</code> → <code>notifyDeviceOnboarded</code>). There was no enrollment concept because there was nothing to decide: a serial appeared, it was ours, it was a T7.</p>
-  <p>That is no longer true. The fleet now also contains outsourced Android hardware (kiosks, mPOS, POS terminals) running the Device-Owner DPC agent <code>com.skorra.agent</code>. Those devices:</p>
+  <p>That is no longer true. The fleet now also contains outsourced Android hardware (kiosks, mPOS, POS terminals) running the Device-Owner DPC agent <code>aio.app.mdmclient.dpc</code>. Those devices:</p>
   <ul>
     <li>are heterogeneous: any manufacturer, model, form factor;</li>
     <li>must be explicitly enrolled: profile token or QR → <code>POST /api/v1/enroll</code> → per-device <code>dvk_…</code> key;</li>
@@ -335,7 +335,7 @@ func (d Device) Degraded(cmdType string) bool   // works with limits; UI shows a
 
   <h2 id="open">6 · Open questions and assumptions</h2>
   <ol class="qs">
-    <li><b>DPC agent source: resolved.</b> <code>~/mdm-kiosk/mdm-dpc-agent</code> (<code>main</code>, <code>com.skorra.agent</code>). Facts that shape the plan: <code>product</code> is <code>Build.PRODUCT</code>, a codename and not a form factor, so class must come from the profile (Q2). Telemetry carries manufacturer, model, serial, security posture and location. The agent's status screen shows Device Owner state, serial and connection, with one credential field that accepts <code>enr_…</code> tokens. Remaining ask: an enrollment result state on that screen ("Enrolled · mPOS · Site X") fed by the <code>/enroll</code> response, which today returns only <code>device_key</code>. Extend the response with class, site, group and profile.</li>
+    <li><b>DPC agent source: resolved.</b> <code>~/mdm-kiosk/mdm-dpc-agent</code> (<code>main</code>, <code>aio.app.mdmclient.dpc</code>). Facts that shape the plan: <code>product</code> is <code>Build.PRODUCT</code>, a codename and not a form factor, so class must come from the profile (Q2). Telemetry carries manufacturer, model, serial, security posture and location. The agent's status screen shows Device Owner state, serial and connection, with one credential field that accepts <code>enr_…</code> tokens. Remaining ask: an enrollment result state on that screen ("Enrolled · mPOS · Site X") fed by the <code>/enroll</code> response, which today returns only <code>device_key</code>. Extend the response with class, site, group and profile.</li>
     <li><b>Class for outsourced devices comes from the enrollment profile, not the hardware.</b> Alternative: a model → class mapping table maintained by admins. Profile-first is simpler and matches how batches are rolled out; keep the admin override on the device.</li>
     <li><b>Naming.</b> "Restaurants" is the existing site concept. "Sites" in copy only if non-restaurant customers are expected; routes and DB names unchanged either way.</li>
     <li><b>Firmware device capabilities are static per product</b> until the firmware client reports them. An OTA of a client that sends <code>capabilities</code> is out of scope here.</li>

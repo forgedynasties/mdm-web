@@ -12,7 +12,7 @@ func TestCleanSerialToken(t *testing.T) {
 		"\"AT070AABU00104\",": "AT070AABU00104",
 		"AT070AABU00460;":   "AT070AABU00460",
 		"AT070AABU00056":    "AT070AABU00056",
-		"com.skorra.agent":  "com.skorra.agent",
+		"aio.app.mdmclient.dpc":  "aio.app.mdmclient.dpc",
 		"1.2.3":             "1.2.3",
 		"—AT070AABU00646":   "AT070AABU00646",
 	}
