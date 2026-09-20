@@ -1509,18 +1509,20 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	order := []string{"firmware-release-keys", "firmware-test-keys", "dpc", "menu-board", "lite-demo"}
+	order := []string{"firmware-qcom", "firmware-gms", "firmware-test-keys", "dpc", "menu-board", "lite-demo"}
 	labels := map[string]string{
 		"dpc":                   "DPC agent",
-		"firmware-release-keys": "Firmware client · release-keys",
-		"firmware-test-keys":    "Firmware client · test-keys",
+		"firmware-qcom":         "Firmware client · QCOM (T7, kiosks)",
+		"firmware-gms":          "Firmware client · GMS",
+		"firmware-test-keys":    "Firmware client · userdebug",
 		"menu-board":            "Menu board",
 		"lite-demo":             "MDM Lite demo app",
 	}
 	notes := map[string]string{
 		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
-		"firmware-release-keys": "Our own hardware on a user build. Signed with the release platform key.",
-		"firmware-test-keys":    "Our own hardware on a userdebug build. Signed with the test platform key.",
+		"firmware-qcom":         "Devices on the QCOM tree (v2.1.x). Signed with that tree's platform key — a GMS device cannot install this build.",
+		"firmware-gms":          "Devices on the GMS tree (v2.0.x). Signed with that tree's platform key, which differs from QCOM's.",
+		"firmware-test-keys":    "userdebug builds, whichever tree. Signed with the test platform key.",
 		"menu-board":            "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
 		"lite-demo":             "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
 	}
@@ -1668,10 +1670,32 @@ const agentAPKRoute = "/agent/" + agentAPKFile
 // matching its own signing keys, because Android rejects anything else.
 var AgentAPKSlots = map[string]string{
 	"dpc":                   agentAPKFile,
-	"firmware-release-keys": "aio-mdm-firmware-release-keys.apk",
+	"firmware-qcom":         "aio-mdm-firmware-qcom.apk",
+	"firmware-gms":          "aio-mdm-firmware-gms.apk",
 	"firmware-test-keys":    "aio-mdm-firmware-test-keys.apk",
+	"firmware-release-keys": "aio-mdm-firmware-release-keys.apk", // retired: see firmwareSlotFor
 	"lite-demo":             "aio-mdm-lite-demo.apk",
 	"menu-board":            "aio-menu-board.apk",
+}
+
+// firmwareSlotFor picks which firmware client a device can install. The key that signs
+// the client belongs to the *tree*, not the build variant: QCOM signs with one platform
+// certificate and GMS with another, and both ship `user` builds reporting
+// build_tags=release-keys. Pointing them at one "release-keys" APK guarantees that one
+// of the two fleets is handed a build it must reject. Trees are told apart by their
+// build id line — QCOM is v2.1.x, GMS v2.0.x — which is how the OTA console versions
+// them too.
+func firmwareSlotFor(buildID, buildType string) string {
+	if strings.Contains(buildType, "userdebug") {
+		return "firmware-test-keys"
+	}
+	switch {
+	case strings.HasPrefix(buildID, "v2.1."):
+		return "firmware-qcom"
+	case strings.HasPrefix(buildID, "v2.0."):
+		return "firmware-gms"
+	}
+	return "firmware-qcom"
 }
 
 // liteSlotPackages maps the MDM-lite host apps we ship to their slot. Lite lives inside
@@ -1714,11 +1738,7 @@ func agentSlotFor(d *db.Device) string {
 	if d.IsDPC() {
 		return "dpc"
 	}
-	tags := strings.TrimSpace(extraString(d.LatestExtra, "build_tags"))
-	if tags == "" || tags == "—" || strings.Contains(tags, "release-keys") {
-		return "firmware-release-keys"
-	}
-	return "firmware-test-keys"
+	return firmwareSlotFor(d.BuildID, extraString(d.LatestExtra, "build_type"))
 }
 
 // AgentAPKDownload serves the hosted agent APK. Unauthenticated on purpose: a
