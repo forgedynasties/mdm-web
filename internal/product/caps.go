@@ -4,7 +4,7 @@ import "strings"
 
 // Agent kinds: how a device is managed. Stored on devices.agent_kind.
 const (
-	// KindFirmware is our own hardware running the aio.app.mdmclient.firmware system-app client:
+	// KindFirmware is our own hardware running the com.aioapp.mdm system-app client:
 	// shared device key, auto-enrolled on first check-in, full platform privileges.
 	KindFirmware = "firmware"
 	// KindDPC is a stock Android device managed by the aio.app.mdmclient.dpc Device-Owner
