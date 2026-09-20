@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clients · one firmware entry — options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:28px 22px 80px;max-width:1180px;margin:0 auto}
+.dm-h{font-size:22px;font-weight:600;margin:0 0 6px}
+.dm-sub{color:var(--muted);font-size:13px;line-height:1.6;max-width:86ch;margin:0 0 26px}
+.dm-opt{margin:0 0 40px}
+.dm-t{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;margin:0 0 4px}
+.dm-tag{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:20px;padding:3px 9px;background:var(--surface2);color:var(--muted)}
+.dm-tag.now{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.dm-tag.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-note{font-size:12.5px;color:var(--muted);line-height:1.6;max-width:84ch;margin:0 0 14px}
+.dm-note b{color:var(--text-2)}
+.dm-frame{border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--bg-2,var(--surface2))}
+
+/* the real page's shapes, copied so these read as the actual UI */
+.cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
+.cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px}
+.cl-si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.cl-si.on{background:var(--accent-soft);color:var(--accent-text)}
+.cl-si .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-si .n{font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--text-2);border-radius:20px;padding:1px 7px}
+.cl-si.on .n{background:var(--surface)}
+.cl-si .n.warn{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.cl-scap{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:8px 11px 4px}
+.cl-hd h2{margin:0;font-size:17px;font-weight:600}
+.cl-note{font-size:12.5px;color:var(--muted);margin:4px 0 14px;max-width:74ch;line-height:1.5}
+.cl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.cl-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.cl-card .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.cl-card .v{font-size:21px;font-weight:600;line-height:1.15}
+.cl-card .sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.cl-card .mono{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:4px;word-break:break-all}
+.cl-card.warn .v{color:var(--warn)}
+.cl-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:20px 0 8px}
+.cl-sec .m{margin-left:auto}
+.cl-tbl{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.cl-th,.cl-tr{display:grid;align-items:center;gap:14px;padding:0 15px}
+.cl-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.cl-tr{min-height:46px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-tr:first-of-type{border-top:0}
+.g5{grid-template-columns:minmax(140px,1.3fr) 110px 108px 118px 92px}
+.g6{grid-template-columns:minmax(130px,1.2fr) 108px 104px 104px 110px 92px}
+.gb{grid-template-columns:minmax(150px,1.1fr) 110px minmax(120px,1fr) 78px 78px 96px}
+.cl-sn{font-family:var(--mono);font-size:12px;color:var(--text)}
+.cl-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px}
+.cl-tag.ok{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.cl-tag.behind{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.cl-tag.unk{background:var(--surface2);color:var(--muted)}
+.cl-meta{color:var(--muted);font-size:11.5px}
+.mono{font-family:var(--mono)}
+/* variant switcher (option B) */
+.vseg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:3px;margin-bottom:16px}
+.vseg button{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;font-family:inherit}
+.vseg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.vseg .n{font-size:10px;opacity:.75;margin-left:5px}
+/* builds strip (option C) */
+.bstrip{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-bottom:6px}
+.vchip{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--surface2);color:var(--text-2)}
+.key{font-family:var(--mono);font-size:10.5px;color:var(--text-faint)}
+</style>
+</head>
+<body>
+
+<h1 class="dm-h">Clients · folding the three firmware entries into one</h1>
+<p class="dm-sub">
+  The rail carries <b>Firmware client · QCOM</b>, <b>· GMS</b> and <b>· userdebug</b> as separate entries. They are
+  one client — same package, same source, same version — split only because each is signed with a different platform
+  key, and a device can only install the build signed with the key it already trusts. That split has to survive
+  whatever we do here: it is what stopped a GMS device being handed the QCOM APK. The question is only whether it
+  deserves three rail entries or one entry with the variants inside it. Three options below, each shown with the real
+  data now on stage.
+</p>
+
+<!-- ─────────────────────────────────────────────────────────── A -->
+<section class="dm-opt">
+  <div class="dm-t">A · Three entries <span class="dm-tag now">deployed now</span></div>
+  <p class="dm-note">
+    One rail row per signing key. <b>Good:</b> nothing is ever ambiguous — the entry you open is the exact artifact
+    that gets installed, and publishing is per-entry. <b>Bad:</b> three quarters of the rail is one client, the name
+    is repeated three times, and "how many devices are behind on the firmware client" cannot be read anywhere — you
+    have to open three pages and add up.
+  </p>
+  <div class="dm-frame">
+    <div class="cl-split">
+      <nav class="cl-side">
+        <div class="cl-scap">Clients</div>
+        <a class="cl-si on"><span class="nm">Firmware client · QCOM (T7, kiosks)</span><span class="n">1</span></a>
+        <a class="cl-si"><span class="nm">Firmware client · GMS</span><span class="n">1</span></a>
+        <a class="cl-si"><span class="nm">Firmware client · userdebug</span><span class="n">0</span></a>
+        <a class="cl-si"><span class="nm">DPC agent</span><span class="n warn">1</span></a>
+        <a class="cl-si"><span class="nm">Menu board</span><span class="n">1</span></a>
+        <a class="cl-si"><span class="nm">Lite demo app</span><span class="n">1</span></a>
+      </nav>
+      <div>
+        <div class="cl-hd"><h2>Firmware client · QCOM (T7, kiosks)</h2></div>
+        <div class="cl-note">Devices on the QCOM tree (v2.1.x). Signed with that tree's platform key — a GMS device cannot install this build.</div>
+        <div class="cl-cards">
+          <div class="cl-card"><div class="k">Hosted build</div><div class="v">1.0.4</div><div class="sub">code 37 · 20 Sep 18:39</div><div class="mono">com.aioapp.mdm</div></div>
+          <div class="cl-card"><div class="k">Devices</div><div class="v">1</div><div class="sub">on this client</div></div>
+          <div class="cl-card"><div class="k">On this build</div><div class="v">1</div></div>
+          <div class="cl-card"><div class="k">Behind</div><div class="v">0</div></div>
+        </div>
+        <div class="cl-sec"><span>Devices</span></div>
+        <div class="cl-tbl">
+          <div class="cl-th g5"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+          <div class="cl-tr g5"><span class="cl-sn">AT070AA2600022</span><span>1.0.4</span><span><span class="cl-tag ok">up to date</span></span><span class="cl-meta">just now</span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── B -->
+<section class="dm-opt">
+  <div class="dm-t">B · One entry, variant switcher <span class="dm-tag pick">would pick</span></div>
+  <p class="dm-note">
+    One <b>Firmware client</b> row in the rail, carrying the whole firmware fleet. Inside, a segmented control picks
+    the variant, and everything below it — cards, devices, releases, publish target — is that variant's.
+    <b>Good:</b> the rail says what it is (one client, six devices), the variant is still an explicit choice you can
+    see, and the page below is the page you already know. <b>Bad:</b> one more click to reach a specific tree, and
+    the variant choice is not in the URL unless we put it there (we would: <span class="mono">?slot=firmware-qcom</span>
+    keeps working, so existing links and the publish API are untouched).
+  </p>
+  <div class="dm-frame">
+    <div class="cl-split">
+      <nav class="cl-side">
+        <div class="cl-scap">Clients</div>
+        <a class="cl-si on"><span class="nm">Firmware client</span><span class="n">2</span></a>
+        <a class="cl-si"><span class="nm">DPC agent</span><span class="n warn">1</span></a>
+        <a class="cl-si"><span class="nm">Menu board</span><span class="n">1</span></a>
+        <a class="cl-si"><span class="nm">Lite demo app</span><span class="n">1</span></a>
+      </nav>
+      <div>
+        <div class="cl-hd"><h2>Firmware client</h2></div>
+        <div class="cl-note">The system app in our AOSP images. One build per tree, because each tree signs with its own platform key and a device only installs the key it already trusts.</div>
+        <div class="vseg">
+          <button class="on">QCOM · v2.1.x<span class="n">1</span></button>
+          <button>GMS · v2.0.x<span class="n">1</span></button>
+          <button>userdebug<span class="n">0</span></button>
+        </div>
+        <div class="cl-cards">
+          <div class="cl-card"><div class="k">Hosted build</div><div class="v">1.0.4</div><div class="sub">code 37 · 20 Sep 18:39</div><div class="mono">com.aioapp.mdm</div></div>
+          <div class="cl-card"><div class="k">Signed with</div><div class="v" style="font-size:13px;line-height:1.5">Rockchip</div><div class="key">01d88e1a…7c7a</div></div>
+          <div class="cl-card"><div class="k">Devices</div><div class="v">1</div><div class="sub">on this variant</div></div>
+          <div class="cl-card"><div class="k">Behind</div><div class="v">0</div></div>
+        </div>
+        <div class="cl-sec"><span>Devices</span></div>
+        <div class="cl-tbl">
+          <div class="cl-th g5"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+          <div class="cl-tr g5"><span class="cl-sn">AT070AA2600022</span><span>1.0.4</span><span><span class="cl-tag ok">up to date</span></span><span class="cl-meta">just now</span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── C -->
+<section class="dm-opt">
+  <div class="dm-t">C · One entry, all variants at once</div>
+  <p class="dm-note">
+    One rail row, no switcher. A <b>Builds</b> strip lists the variants as rows — hosted version, signing key, devices,
+    behind — and under it a single device table for the whole firmware fleet with a <b>Build</b> column.
+    <b>Good:</b> the state of every tree is on one screen; "which trees am I behind on" is one glance; updating a
+    mixed set is one button. <b>Bad:</b> the busiest of the three, and the per-variant publish/download links have to
+    live in the strip rows rather than at the bottom of the page. With more trees it grows.
+  </p>
+  <div class="dm-frame">
+    <div class="cl-split">
+      <nav class="cl-side">
+        <div class="cl-scap">Clients</div>
+        <a class="cl-si on"><span class="nm">Firmware client</span><span class="n">2</span></a>
+        <a class="cl-si"><span class="nm">DPC agent</span><span class="n warn">1</span></a>
+        <a class="cl-si"><span class="nm">Menu board</span><span class="n">1</span></a>
+        <a class="cl-si"><span class="nm">Lite demo app</span><span class="n">1</span></a>
+      </nav>
+      <div>
+        <div class="cl-hd"><h2>Firmware client</h2></div>
+        <div class="cl-note">The system app in our AOSP images. One build per tree — each is signed with that tree's platform key, and a device is only ever offered its own.</div>
+        <div class="cl-cards">
+          <div class="cl-card"><div class="k">Devices</div><div class="v">2</div><div class="sub">across 3 variants</div></div>
+          <div class="cl-card"><div class="k">On latest</div><div class="v">2</div></div>
+          <div class="cl-card"><div class="k">Behind</div><div class="v">0</div></div>
+          <div class="cl-card"><div class="k">Newest build</div><div class="v">1.0.4</div><div class="sub">code 37 · all trees</div></div>
+        </div>
+        <div class="cl-sec"><span>Builds</span></div>
+        <div class="bstrip">
+          <div class="cl-th gb"><span>Variant</span><span>Hosted</span><span>Signing key</span><span>Devices</span><span>Behind</span><span></span></div>
+          <div class="cl-tr gb"><span><span class="vchip">QCOM · v2.1.x</span></span><span>1.0.4 <span class="cl-meta">(37)</span></span><span class="key">01d88e1a…7c7a</span><span>1</span><span>0</span><span><a class="cc-btn sm">Releases</a></span></div>
+          <div class="cl-tr gb"><span><span class="vchip">GMS · v2.0.x</span></span><span>1.0.4 <span class="cl-meta">(37)</span></span><span class="key">c8a2e9bc…2ab8</span><span>1</span><span>0</span><span><a class="cc-btn sm">Releases</a></span></div>
+          <div class="cl-tr gb"><span><span class="vchip">userdebug</span></span><span class="cl-meta">none hosted</span><span class="key">—</span><span>0</span><span>0</span><span><a class="cc-btn sm">Releases</a></span></div>
+        </div>
+        <div class="cl-sec"><span>Devices</span></div>
+        <div class="cl-tbl">
+          <div class="cl-th g6"><span>Serial</span><span>Build</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+          <div class="cl-tr g6"><span class="cl-sn">AT070AA2600022</span><span><span class="vchip">QCOM</span></span><span>1.0.4</span><span><span class="cl-tag ok">up to date</span></span><span class="cl-meta">just now</span><span></span></div>
+          <div class="cl-tr g6"><span class="cl-sn">AT070AA2600044</span><span><span class="vchip">GMS</span></span><span>1.0.4</span><span><span class="cl-tag ok">up to date</span></span><span class="cl-meta">just now</span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <div class="dm-t">What I would do</div>
+  <p class="dm-note">
+    <b>B.</b> The rail stops repeating one client's name three times and finally answers "how big is the firmware
+    fleet", while the variant stays a thing you pick on purpose — which matters, because picking wrong is the one
+    mistake this page exists to prevent. C reads better on a day where several trees are behind at once, but that is
+    the rarer day, and it puts the signing key in a table cell where a mis-scan is easy. Either way
+    <span class="mono">?slot=firmware-qcom</span> keeps working and the publish API does not change, so CI and the
+    OTA console need no edits.
+  </p>
+</section>
+
+</body>
+</html>

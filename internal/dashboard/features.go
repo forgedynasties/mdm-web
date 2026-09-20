@@ -1460,9 +1460,21 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 // ── Clients page ──────────────────────────────────────────────────────────────
 
 // ClientSlotView is one hosted agent build and how the fleet stands against it.
+// ClientRailEntry is one row of the clients rail. It is not one-to-one with a slot:
+// the firmware client is signed once per tree and so has a slot per tree, but it is
+// one client and gets one row, with the trees as variants inside it.
+type ClientRailEntry struct {
+	Label    string
+	Slot     string // the slot opening this row lands on
+	Devices  int
+	Behind   int
+	Selected bool
+}
+
 type ClientSlotView struct {
 	Slot     string
 	Label    string
+	Variant  string // short name inside a group ("QCOM · v2.1.x"); empty when ungrouped
 	Note     string // what this slot is for, in words
 	Hosted   bool
 	Build    config.AgentAPKBuild
@@ -1480,6 +1492,11 @@ type ClientSlotView struct {
 	// True while any row is mid-update, so the page can poll itself instead of
 	// leaving someone staring at a button that came straight back.
 	Updating bool
+	// Filled for the selected client when it belongs to a group: the sibling variants,
+	// in rail order, for the switcher above the detail. Empty for an ungrouped client.
+	GroupLabel string
+	GroupNote  string
+	Variants   []*ClientSlotView
 	// The serials "Update all behind" targets, built here rather than joined in the
 	// template — a comma emitted from a loop index breaks the moment the sort changes.
 	BehindSerials string
@@ -1522,6 +1539,18 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		"menu-board":            "Menu board",
 		"lite-demo":             "MDM Lite demo app",
 	}
+	// The firmware client is one client with one build per tree, because each tree
+	// signs with its own platform key. That split has to stay — a device only installs
+	// the key it already trusts — but it is not three clients, so it is one rail row
+	// with the trees as variants inside it.
+	firmwareGroup := []string{"firmware-qcom", "firmware-gms", "firmware-test-keys"}
+	variants := map[string]string{
+		"firmware-qcom":      "QCOM · v2.1.x",
+		"firmware-gms":       "GMS · v2.0.x",
+		"firmware-test-keys": "userdebug",
+	}
+	const firmwareLabel = "Firmware client"
+	const firmwareNote = "The system app in our AOSP images. One build per tree: each is signed with that tree's platform key, and a device is only ever offered its own."
 	notes := map[string]string{
 		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
 		"firmware-qcom":         "Devices on the QCOM tree (v2.1.x). Signed with that tree's platform key — a GMS device cannot install this build.",
@@ -1535,7 +1564,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	counts := map[string]map[int64]*ClientVersionCount{}
 	for _, slot := range order {
 		b, hosted := h.cfg.AgentAPKSlot(slot)
-		v := &ClientSlotView{Slot: slot, Label: labels[slot], Note: notes[slot], Hosted: hosted, Build: b}
+		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b}
 		if hosted {
 			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
 		}
@@ -1585,6 +1614,14 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	views[selected].Selected = true
 	views[selected].History = h.cfg.AgentAPKHistory(selected)
+	if variants[selected] != "" {
+		views[selected].GroupLabel = firmwareLabel
+		views[selected].GroupNote = firmwareNote
+		for _, slot := range firmwareGroup {
+			views[slot].Selected = slot == selected
+			views[selected].Variants = append(views[selected].Variants, views[slot])
+		}
+	}
 
 	// The device rows, for the open client only.
 	sel := views[selected]
@@ -1654,10 +1691,45 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		slots = append(slots, v)
 	}
 
+	// The rail: the firmware variants collapse into one row whose count is the whole
+	// firmware fleet, and which opens on the variant already selected — or, coming in
+	// cold, the one with devices on it rather than an empty tree.
+	var rails []ClientRailEntry
+	fw := ClientRailEntry{Label: firmwareLabel, Slot: firmwareGroup[0]}
+	inGroup := map[string]bool{}
+	for _, slot := range firmwareGroup {
+		inGroup[slot] = true
+		v := views[slot]
+		fw.Devices += v.Devices
+		fw.Behind += v.Behind
+		if v.Selected {
+			fw.Selected, fw.Slot = true, slot
+		}
+	}
+	if !fw.Selected {
+		for _, slot := range firmwareGroup {
+			if views[slot].Devices > 0 {
+				fw.Slot = slot
+				break
+			}
+		}
+	}
+	for _, slot := range order {
+		if inGroup[slot] {
+			if slot == firmwareGroup[0] {
+				rails = append(rails, fw)
+			}
+			continue
+		}
+		v := views[slot]
+		rails = append(rails, ClientRailEntry{Label: v.Label, Slot: slot, Devices: v.Devices, Behind: v.Behind, Selected: v.Selected})
+	}
+
 	data := map[string]any{
 		"Title":      "Clients",
 		"ActivePage": "clients",
 		"Slots":      slots,
+		"Rails":      rails,
 		"Selected":   sel,
 		"ServerURL":  h.baseURL(r),
 	}

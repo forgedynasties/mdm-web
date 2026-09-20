@@ -47,6 +47,12 @@
 .cl-chg{color:var(--text-2);font-size:12px;line-height:1.5}
 .cl-empty{background:var(--surface);border:1px dashed var(--border);border-radius:13px;padding:18px;font-size:12.5px;color:var(--muted);line-height:1.55}
 .cl-tbl .cc-btn[disabled]{opacity:.42;cursor:not-allowed;pointer-events:auto}
+.vseg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:3px;margin-bottom:10px}
+.vseg a{color:var(--muted);font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;text-decoration:none;white-space:nowrap}
+.vseg a:hover{color:var(--text)}
+.vseg a.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.vseg .n{font-size:10px;opacity:.7;margin-left:6px;font-variant-numeric:tabular-nums}
+.cl-vnote{font-size:11.5px;color:var(--text-faint);line-height:1.5;max-width:74ch;margin:0 0 16px}
 .cl-tag.go{background:var(--accent-soft);color:var(--accent-text);display:inline-flex;align-items:center;gap:6px}
 .cl-spin{width:11px;height:11px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:inline-block;animation:cl-sp .7s linear infinite;flex:none;margin-right:5px}
 .cl-tag.go .cl-spin{margin-right:0}
@@ -89,21 +95,36 @@ function clSent(form) {
   void d;
 }
 
-function clPick(a) {
-  var rail = a.closest('.cl-side');
-  if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
-  var d = document.getElementById('cl-detail');
+// A variant switch keeps the heading and the switcher — only the build below them
+// changes — so it marks itself active and skeletons the body, not the whole panel.
+function clVar(a) {
+  var seg = a.closest('.vseg');
+  if (seg) seg.querySelectorAll('a').forEach(function (el) {
+    var on = el === a;
+    el.classList.toggle('on', on);
+    el.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  clSkeleton(document.getElementById('cl-body'));
+}
+
+function clSkeleton(d) {
   if (!d) return;
   var cards = '';
   for (var i = 0; i < 4; i++) cards += '<div class="cl-card"><div class="skel skel-line skel-w60" style="height:9px"></div><div class="skel skel-line skel-w40" style="height:20px"></div></div>';
   var rows = '';
   for (var j = 0; j < 4; j++) rows += '<div class="skel-row" style="padding:12px 15px"><div class="g"><div class="skel skel-line skel-w40"></div></div><div class="skel skel-pill"></div></div>';
-  d.innerHTML =
-    '<div class="cl-hd"><div class="skel skel-line skel-w25" style="height:17px"></div>' +
-    '<div class="skel skel-line skel-w60" style="height:11px"></div></div>' +
-    '<div class="cl-cards">' + cards + '</div>' +
-    '<div class="cl-sec"><span>Devices</span></div>' +
-    '<div class="cl-tbl">' + rows + '</div>';
+  d.innerHTML = '<div class="cl-cards">' + cards + '</div>' +
+    '<div class="cl-sec"><span>Devices</span></div><div class="cl-tbl">' + rows + '</div>';
+}
+
+function clPick(a) {
+  var rail = a && a.closest('.cl-side');
+  if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
+  var d = document.getElementById('cl-detail');
+  if (!d) return;
+  d.innerHTML = '<div class="cl-hd"><div class="skel skel-line skel-w25" style="height:17px"></div>' +
+    '<div class="skel skel-line skel-w60" style="height:11px"></div></div><div id="cl-body"></div>';
+  clSkeleton(document.getElementById('cl-body'));
 }
 </script>
 {{template "footer" .}}
@@ -115,7 +136,7 @@ function clPick(a) {
 {{define "clients-split"}}
   <nav class="cl-side" aria-label="Clients">
     <div class="cl-scap">Clients</div>
-    {{range .Slots}}
+    {{range .Rails}}
     <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}" onclick="clPick(this)"
        hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
        hx-push-url="/clients?slot={{.Slot}}">
@@ -129,10 +150,27 @@ function clPick(a) {
   {{with .Selected}}
   <div id="cl-detail"{{if .Updating}} hx-get="/clients?slot={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-split" hx-swap="innerHTML"{{end}}>
     <div class="cl-hd">
-      <h2>{{.Label}}</h2>
-      <div class="cl-note">{{.Note}}</div>
+      <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
+      <div class="cl-note">{{if .GroupNote}}{{.GroupNote}}{{else}}{{.Note}}{{end}}</div>
     </div>
 
+    {{/* One client, one build per signing key. The variant is an explicit choice
+         because picking the wrong one is the mistake this page exists to prevent —
+         and it stays in the URL, so ?slot=firmware-qcom links and the publish API
+         are unchanged. */}}
+    {{if .Variants}}
+    <div class="vseg" role="tablist" aria-label="Firmware variant">
+      {{range .Variants}}
+      <a class="{{if .Selected}}on{{end}}" role="tab" aria-selected="{{if .Selected}}true{{else}}false{{end}}"
+         href="/clients?slot={{.Slot}}" onclick="clVar(this)"
+         hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
+         hx-push-url="/clients?slot={{.Slot}}">{{.Variant}}<span class="n">{{.Devices}}</span></a>
+      {{end}}
+    </div>
+    <div class="cl-vnote">{{.Note}}</div>
+    {{end}}
+
+    <div id="cl-body">
     <div class="cl-cards">
       <div class="cl-card">
         <div class="k">Hosted build</div>
@@ -220,6 +258,7 @@ function clPick(a) {
     {{end}}
 
     {{if .Hosted}}<div class="cl-sec"><span>Download</span></div><div class="cl-url">{{.URL}}</div>{{end}}
+    </div><!-- /cl-body -->
   </div>
   {{end}}
 {{end}}
