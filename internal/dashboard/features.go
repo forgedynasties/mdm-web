@@ -1398,6 +1398,29 @@ func clientVersionOf(d *db.Device) (name string, code int64) {
 	return name, extraInt64(d.LatestExtra, "agent_version_code")
 }
 
+// clientPackageOf is the app a device says its client is, "" when it does not say.
+// Firmware clients before 1.0.2 reported the *framework's* version by accident — the
+// platform release (15) and SDK (35) — which sailed past every "is it newer?" test and
+// showed a whole fleet as up to date. Comparing packages makes that impossible: a
+// version is only believed when it belongs to the app the slot hosts.
+func clientPackageOf(d *db.Device) string {
+	if d.IsMDMLite() {
+		return extraNested(d.LatestExtra, "host_app", "package")
+	}
+	return extraString(d.LatestExtra, "agent_package")
+}
+
+// versionComparable reports whether a device's reported version can be measured
+// against the hosted build. A device that does not name its package gets the benefit
+// of the doubt (older clients never sent one); one naming a different package does not.
+func versionComparable(d *db.Device, hostedPackage string) bool {
+	pkg := clientPackageOf(d)
+	if pkg == "" || pkg == "—" || hostedPackage == "" {
+		return true
+	}
+	return pkg == hostedPackage
+}
+
 // AgentUpdateState is what the device page needs to word (or hide) the "Update
 // agent" action: whether a newer hosted build exists for this device, and the two
 // versions involved.
@@ -1429,7 +1452,8 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 	st.Version = version
 	current, cur := clientVersionOf(d)
 	st.Current = current
-	st.Available = cur < code
+	_, hostedPkg, _, _, _, _ := h.agentUpdateTarget(r, slot)
+	st.Available = versionComparable(d, hostedPkg) && cur < code
 	return st
 }
 
@@ -1522,7 +1546,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		v.Devices++
 		name, code := clientVersionOf(d)
 		switch {
-		case code == 0:
+		case code == 0 || !versionComparable(d, v.Build.Package):
 			v.Unknown++
 		case v.Hosted && code >= v.Build.VersionCode:
 			v.UpToDate++
@@ -1569,7 +1593,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 			LastSeen: d.LastSeenAt,
 		}
 		switch {
-		case code == 0:
+		case code == 0 || !versionComparable(d, sel.Build.Package):
 			row.State = "unknown"
 		case sel.Hosted && code >= sel.Build.VersionCode:
 			row.State = "current"
