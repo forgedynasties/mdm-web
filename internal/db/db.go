@@ -15774,6 +15774,44 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 
 // ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
 // severity first then newest — the alert feed for that device's Alerts tab.
+// InFlightAgentUpdates reports, per device, the state of an agent update that is
+// still running: 'pending' while it waits to be picked up, then whatever the device
+// last said ('downloading', 'installing'). A client update takes a minute or two and
+// the device says nothing while it works, so without this the Clients page snaps
+// straight back to "behind" and the update looks like it did nothing.
+//
+// Scoped to the last 30 minutes: the same window ExpireStalledInstalls uses, so a
+// command the device never ran stops claiming to be in flight forever.
+func (d *DB) InFlightAgentUpdates(ctx context.Context, deviceIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := map[uuid.UUID]string{}
+	if len(deviceIDs) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (ct.target_id) ct.target_id, COALESCE(cs.status, 'pending')
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
+		WHERE c.type = 'app_update'
+		  AND ct.target_id = ANY($1)
+		  AND c.created_at > NOW() - INTERVAL '30 minutes'
+		  AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+		ORDER BY ct.target_id, c.created_at DESC`, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var st string
+		if err := rows.Scan(&id, &st); err != nil {
+			return nil, err
+		}
+		out[id] = st
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, limit int) ([]Alert, error) {
 	if limit <= 0 {
 		limit = 50

@@ -1477,6 +1477,9 @@ type ClientSlotView struct {
 	Rows     []ClientDeviceRow
 	History  []config.AgentAPKBuild
 	Selected bool
+	// True while any row is mid-update, so the page can poll itself instead of
+	// leaving someone staring at a button that came straight back.
+	Updating bool
 	// The serials "Update all behind" targets, built here rather than joined in the
 	// template — a comma emitted from a loop index breaks the moment the sort changes.
 	BehindSerials string
@@ -1495,7 +1498,8 @@ type ClientDeviceRow struct {
 	Serial   string
 	Version  string // what it reports ("" = never reported one)
 	Code     int64
-	State    string // "current" | "behind" | "unknown"
+	State    string // "current" | "behind" | "unknown" | "updating"
+	Progress string // for "updating": the device's own word (pending/downloading/installing)
 	LastSeen time.Time
 }
 
@@ -1584,6 +1588,13 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 
 	// The device rows, for the open client only.
 	sel := views[selected]
+	selIDs := make([]uuid.UUID, 0, len(devices))
+	for i := range devices {
+		if agentSlotFor(&devices[i]) == selected {
+			selIDs = append(selIDs, devices[i].ID)
+		}
+	}
+	inFlight, _ := h.db.InFlightAgentUpdates(r.Context(), selIDs)
 	for i := range devices {
 		d := &devices[i]
 		if agentSlotFor(d) != selected {
@@ -1604,6 +1615,12 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		default:
 			row.State = "unknown"
 		}
+		// An update in flight outranks "behind": the device IS behind, but saying so
+		// next to an Update button hides the fact that it is already working on it.
+		if st, ok := inFlight[d.ID]; ok && row.State != "current" {
+			row.State, row.Progress = "updating", st
+			sel.Updating = true
+		}
 		sel.Rows = append(sel.Rows, row)
 	}
 	behind := make([]string, 0, len(sel.Rows))
@@ -1613,6 +1630,10 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sel.BehindSerials = strings.Join(behind, ",")
+	// Rows are built for the open client only, so this is the one view whose counts can
+	// account for updates in flight — a device mid-update is no longer something
+	// "Update all behind" should be offering to push to again.
+	sel.Behind = len(behind)
 
 	// Behind first — those are the rows an operator came here to act on — then by serial.
 	rank := map[string]int{"behind": 0, "unknown": 1, "current": 2}

@@ -47,6 +47,11 @@
 .cl-chg{color:var(--text-2);font-size:12px;line-height:1.5}
 .cl-empty{background:var(--surface);border:1px dashed var(--border);border-radius:13px;padding:18px;font-size:12.5px;color:var(--muted);line-height:1.55}
 .cl-tbl .cc-btn[disabled]{opacity:.42;cursor:not-allowed;pointer-events:auto}
+.cl-tag.go{background:var(--accent-soft);color:var(--accent-text);display:inline-flex;align-items:center;gap:6px}
+.cl-spin{width:11px;height:11px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:inline-block;animation:cl-sp .7s linear infinite;flex:none;margin-right:5px}
+.cl-tag.go .cl-spin{margin-right:0}
+@keyframes cl-sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.cl-spin{animation:none}}
 .cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
@@ -69,6 +74,21 @@
 // The rail lives inside the swapped fragment, so without this nothing moves until the
 // response lands and a click reads as a hang. Move the selection and put a skeleton in
 // the detail column straight away; the swap replaces both with the real thing.
+// The command is queued in milliseconds but the install takes a minute or two, and
+// the device says nothing until it starts. Say "Sent" on the button straight away and
+// pull the page again shortly: by then the row carries the real state from the server.
+function clSent(form) {
+  var b = form.querySelector('button[type=submit]');
+  if (b) { b.disabled = true; b.innerHTML = '<span class="cl-spin"></span>Sent'; }
+  var d = document.getElementById('cl-detail');
+  var slot = (new URLSearchParams(location.search)).get('slot') || '';
+  setTimeout(function () {
+    if (window.htmx) htmx.ajax('GET', '/clients?slot=' + encodeURIComponent(slot) + '&partial=1',
+      { target: '#cl-split', swap: 'innerHTML' });
+  }, 1500);
+  void d;
+}
+
 function clPick(a) {
   var rail = a.closest('.cl-side');
   if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
@@ -107,7 +127,7 @@ function clPick(a) {
   </nav>
 
   {{with .Selected}}
-  <div id="cl-detail">
+  <div id="cl-detail"{{if .Updating}} hx-get="/clients?slot={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-split" hx-swap="innerHTML"{{end}}>
     <div class="cl-hd">
       <h2>{{.Label}}</h2>
       <div class="cl-note">{{.Note}}</div>
@@ -133,7 +153,7 @@ function clPick(a) {
     <div class="cl-sec">
       <span>Devices</span>
       {{if and .Behind (canOperate $.Role)}}
-      <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.Behind}} device(s) to {{.Build.Version}}?">
+      <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.Behind}} device(s) to {{.Build.Version}}?" onsubmit="clSent(this)">
         <input type="hidden" name="type" value="app_update">
         <input type="hidden" name="target_type" value="devices">
         <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
@@ -150,20 +170,23 @@ function clPick(a) {
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
         <span>
-          {{if eq .State "current"}}<span class="cl-tag ok">up to date</span>
+          {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
+          {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
           {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
           {{else}}<span class="cl-tag unk">no version</span>{{end}}
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
-          {{if eq .State "unknown"}}
+          {{if eq .State "updating"}}
+          <button type="button" class="cc-btn sm" disabled title="The device has the command and is installing {{$.Selected.Build.Version}}. It restarts itself when it lands."><span class="cl-spin"></span>Updating</button>
+          {{else if eq .State "unknown"}}
           {{/* A client that never reported its own version predates client OTA: the
                build on it has no ClientUpdater to receive app_update, so offering the
                button would queue a command nothing will ever act on. It needs a
                firmware OTA to get a client that can update itself. */}}
           <button type="button" class="cc-btn sm" disabled title="This client reports no version, so it predates client OTA — it can only be updated by a firmware OTA."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           {{else if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
-          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0">
+          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)">
             <input type="hidden" name="type" value="app_update">
             <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}}"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           </form>
