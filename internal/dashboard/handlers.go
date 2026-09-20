@@ -15105,11 +15105,37 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	unsupported := 0
 	var unsupSerials []string
 	unsupportedBy := map[string]int{}
+	// Which agent each target runs, and which of them can run each console action.
+	// The three kinds are counted apart because "DPC" alone is a lie on this page:
+	// MDM Lite is stored as a DPC kind, so a fleet with one of each looked like two
+	// Device Owners. Per-kind support drives the badges on every action card, and the
+	// per-kind split of what cannot run it is what the skip list reads out.
+	kindOf := func(d db.Device) string {
+		switch {
+		case d.IsMDMLite():
+			return "lite"
+		case d.IsDPC():
+			return "dpc"
+		}
+		return "fw"
+	}
+	kindCount := map[string]int{"fw": 0, "dpc": 0, "lite": 0}
+	kindSup := map[string]map[string]int{}
+	type skipRow struct {
+		Serial string `json:"s"`
+		Kind   string `json:"k"`
+	}
+	var unsupRows []skipRow
 	for _, d := range devices {
+		k := kindOf(d)
+		kindCount[k]++
 		if !d.Supports(cmdType) {
 			unsupported++
 			if len(unsupSerials) < 500 {
 				unsupSerials = append(unsupSerials, d.SerialNumber)
+			}
+			if len(unsupRows) < 200 {
+				unsupRows = append(unsupRows, skipRow{Serial: d.SerialNumber, Kind: k})
 			}
 		}
 		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe",
@@ -15118,11 +15144,19 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 			if t == "set_kiosk" {
 				need = "kiosk_set"
 			}
-			if !d.Supports(need) {
+			if kindSup[t] == nil {
+				kindSup[t] = map[string]int{"fw": 0, "dpc": 0, "lite": 0}
+			}
+			if d.Supports(need) {
+				kindSup[t][k]++
+			} else {
 				unsupportedBy[t]++
 			}
 		}
 	}
+	kindJSON, _ := json.Marshal(kindCount)
+	kindSupJSON, _ := json.Marshal(kindSup)
+	skipJSON, _ := json.Marshal(unsupRows)
 	skipped += unsupported
 	unsupJSON, _ := json.Marshal(unsupportedBy)
 
@@ -15204,6 +15238,9 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 		"Unsupported": unsupported,
 		"UnsupJSON":   string(unsupJSON),
 		"UnsupSerials": strings.Join(unsupSerials, ","),
+		"KindJSON":     string(kindJSON),
+		"KindSupJSON":  string(kindSupJSON),
+		"SkipJSON":     string(skipJSON),
 		"LowBattery": lowBatOnline,
 		"Screenshot": cmdType == "screenshot",
 		"Warn":       warn,

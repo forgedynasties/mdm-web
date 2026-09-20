@@ -29,12 +29,31 @@
 /* rail + basket styles: static/css/picker.css (shared with the other pickers) */
 
 /* ── right: capability-aware action grid ── */
-.co-gcap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:14px 2px 8px}
+.co-gcap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:14px 2px 8px;display:flex;align-items:center;gap:8px}
 .co-gcap:first-child{margin-top:0}
 .co-gcap.danger{color:var(--danger)}
 /* auto-fit (not auto-fill): empty tracks collapse, so a group of two cards fills the
    column instead of sitting in the left fifth of it. */
 .co-agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:9px}
+/* Which agents run an action, on every card — FW / DPC / LT, greyed when they cannot. */
+.kd{display:flex;gap:4px;margin-top:6px;align-items:center}
+.kd i{width:15px;height:15px;border-radius:5px;font-style:normal;font-size:8.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;letter-spacing:-.02em}
+.kd i.fw{background:rgba(120,140,255,.18);color:#7a80f6}
+.kd i.dpc{background:rgba(255,150,80,.18);color:#d4762a}
+.kd i.lt{background:rgba(70,190,140,.18);color:#1c9b6a}
+.kd i.no{background:var(--surface2);color:var(--text-faint);opacity:.55}
+.co-mix .dot.kd-fw{background:#7a80f6}.co-mix .dot.kd-dpc{background:#d4762a}.co-mix .dot.kd-lite{background:#1c9b6a}
+.co-act.off{opacity:.38}
+.co-gcap .ln{flex:1;height:1px;background:var(--border-soft)}
+.cov{display:inline-flex;align-items:center;gap:7px}
+.cbar{width:54px;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;display:inline-block}
+.cbar i{display:block;height:100%;background:var(--ok,#1c7d50)}
+.cbar.part i{background:var(--warn,#daa520)}
+/* The devices an action will not reach, named before the send rather than dropped after it. */
+.skip{background:var(--surface2);border:1px dashed var(--border);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--text-2);line-height:1.6;margin-top:11px}
+.skip .skip-l{margin-top:6px}
+.skip .k{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-right:3px;display:inline-block}
+.skip .snote{font-size:11px;color:var(--muted)}
 .co-act{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-3);box-shadow:var(--shadow-sm);padding:12px 13px;cursor:pointer;font-family:inherit;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
 .co-act:hover{border-color:var(--rule-2);transform:translateY(-1px);box-shadow:var(--shadow-md)}
 .co-act .ic{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -610,7 +629,7 @@ window.CMD_PREFILL = {{.Prefill}};
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
     ['Device', ['reboot']],
-    ['App (MDM Lite)', ['app_update', 'app_reload', 'app_restart', 'app_clear_cache', 'app_update_check']],
+    ['Host app', ['app_update', 'app_reload', 'app_restart', 'app_clear_cache', 'app_update_check']],
     ['Diagnostics', ['screenshot', 'query']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
@@ -711,7 +730,7 @@ window.CMD_PREFILL = {{.Prefill}};
   }
   function incompatWhy(a, n) {
     var eff = lastImpact.total || lastImpact.effective;
-    return n + ' of ' + eff + ' can’t run ' + a.n.toLowerCase() + ' on their agent — skipped at send';
+    return n + ' of ' + eff + ' can’t run ' + a.n.toLowerCase() + ' on their agent — named in the grid, not queued';
   }
 
   // ── Rail: scopes ──
@@ -1006,32 +1025,121 @@ window.CMD_PREFILL = {{.Prefill}};
   function renderMix() {
     var m = el('co-mix');
     if (!S.targets.length) { m.innerHTML = ''; el('co-warn').hidden = true; return; }
+    var k = lastImpact.kinds || {};
+    var kindBits = KINDS.filter(function (x) { return (k[x[0]] || 0) > 0; }).map(function (x) {
+      return '<span><span class="dot kd-' + x[0] + '"></span><b>' + k[x[0]] + '</b> ' + esc(x[2].replace('firmware client', 'firmware')) + '</span>';
+    }).join('');
     m.innerHTML =
       '<span><span class="dot" style="background:var(--ok)"></span><b>' + lastImpact.online + '</b> online</span>'
       + '<span><span class="dot" style="background:var(--rule)"></span><b>' + lastImpact.offline + '</b> queued</span>'
-      + '<span><span class="dot" style="background:var(--accent-2)"></span><b>' + lastImpact.dpc + '</b> DPC</span>';
+      + kindBits;
     el('co-warn').hidden = !lastWarn;
     if (lastWarn) el('co-warn-t').textContent = lastWarn;
   }
 
   // ── Action grid ──
+  // ── Agent badges ──
+  // FW / DPC / LT on every card, lit for the agents that can run the action. What a
+  // kind can do is read off the live selection when devices of that kind are in it —
+  // the DPC agent's powers depend on which adb grants are in place, so a fixed table
+  // would be wrong — and falls back to KIND_FALLBACK when none is selected.
+  var KINDS = [['fw', 'FW', 'firmware client'], ['dpc', 'DPC', 'DPC agent'], ['lite', 'LT', 'MDM Lite']];
+  var KIND_FALLBACK = {
+    install_apk: { fw: 1, dpc: 1, lite: 0 }, uninstall: { fw: 1, dpc: 1, lite: 0 },
+    reboot: { fw: 1, dpc: 1, lite: 0 }, screenshot: { fw: 1, dpc: 1, lite: 1 },
+    query: { fw: 1, dpc: 1, lite: 0 }, shell: { fw: 1, dpc: 1, lite: 0 },
+    set_kiosk: { fw: 1, dpc: 1, lite: 0 }, update_splash: { fw: 1, dpc: 0, lite: 0 },
+    wipe: { fw: 0, dpc: 1, lite: 0 }, app_update: { fw: 1, dpc: 1, lite: 1 },
+    app_reload: { fw: 0, dpc: 0, lite: 1 }, app_restart: { fw: 0, dpc: 0, lite: 1 },
+    app_clear_cache: { fw: 0, dpc: 0, lite: 1 }, app_update_check: { fw: 0, dpc: 0, lite: 1 }
+  };
+  function kindRuns(t, k) {
+    var sup = lastImpact.kindSup && lastImpact.kindSup[t];
+    var have = (lastImpact.kinds || {})[k] || 0;
+    if (sup && have) return sup[k] > 0;           // measured against what is selected
+    var fb = KIND_FALLBACK[t];                    // nothing of this kind selected
+    return fb ? !!fb[k] : true;
+  }
+  function kindBadges(t) {
+    return '<span class="kd">' + KINDS.map(function (k) {
+      var runs = kindRuns(t, k[0]);
+      return '<i class="' + (runs ? k[0] : 'no') + '" title="' + esc(k[2]) + (runs ? ' runs this' : ' cannot run this') + '">' + k[1] + '</i>';
+    }).join('') + '</span>';
+  }
+
   function actionCard(a) {
     var n = incompatCount(a);
-    var dim = n > 0;
+    var eff = lastImpact.total || lastImpact.effective;
+    var none = eff > 0 && n >= eff;
     var on = S.action && S.action.t === a.t;
     var danger = a.t === 'wipe';
-    var cls = 'co-act' + (on ? ' on' : '') + (dim ? ' dim' : '') + (danger ? ' danger' : '');
-    var capTag = a.cap ? '<span class="captag' + (a.cap === 'DPC only' ? ' dpc' : '') + '">' + esc(a.cap) + '</span>' : '';
-    var cav = '';
-    if (dim) {
-      var why = incompatWhy(a, n);
-      cav = '<span class="cav' + (n >= lastImpact.effective / 2 ? ' hard' : '') + '"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5h.01"/></svg>' + esc(why) + '</span>';
-    }
+    var cls = 'co-act' + (on ? ' on' : '') + (n > 0 && !none ? ' dim' : '') + (none ? ' off' : '') + (danger ? ' danger' : '');
+    // The count replaces the old sentence: the grid heading already says how much of
+    // the selection an action covers, and the names of the devices it misses are in
+    // the skip list under the selected card, where they can be acted on.
+    var tag = (n > 0 && !none && eff > 0) ? '<span class="captag">' + (eff - n) + ' of ' + eff + '</span>' : '';
     return '<button type="button" class="' + cls + '" data-t="' + a.t + '">'
       + '<span class="ic">' + svg(a.t) + '</span>'
-      + '<span class="nm">' + esc(a.n) + '</span><span class="ds">' + esc(a.d) + '</span>' + capTag + cav + '</button>';
+      + '<span class="nm">' + esc(a.n) + '</span><span class="ds">' + esc(a.d) + '</span>' + tag + kindBadges(a.t) + '</button>';
   }
+
+  // The devices the selected action will not reach, by name. The old page said only
+  // "4 of 7 can't run this" and dropped them silently at send; with three agents in
+  // one fleet that is most mixed selections, so it is worth the row.
+  function skipPanel() {
+    if (!S.action) return '';
+    var rows = lastImpact.skip || [];
+    if (!rows.length) return '';
+    var byKind = {};
+    rows.forEach(function (r) { (byKind[r.k] = byKind[r.k] || []).push(r.s); });
+    var parts = KINDS.filter(function (k) { return byKind[k[0]]; }).map(function (k) {
+      var list = byKind[k[0]];
+      var shown = list.slice(0, 6).map(function (x) { return '<span class="k">' + esc(x) + '</span>'; }).join(' ');
+      if (list.length > 6) shown += ' <span class="snote">+' + (list.length - 6) + ' more</span>';
+      return '<div class="skip-l"><b>' + list.length + ' on ' + esc(k[2]) + '</b> ' + shown + '</div>';
+    }).join('');
+    return '<div class="skip"><b>' + rows.length + ' device' + (rows.length === 1 ? '' : 's') + ' will be skipped</b>'
+      + ' — their agent cannot run ' + esc(S.action.n.toLowerCase()) + ', so nothing is queued for them.' + parts + '</div>';
+  }
+
+  function coverageGroups() {
+    var eff = lastImpact.total || lastImpact.effective;
+    var all = [], some = [], none = [];
+    DS.actions.forEach(function (a) {
+      if (GRID_HIDDEN[a.t]) return;
+      var n = incompatCount(a);
+      if (!eff || n === 0) all.push(a);
+      else if (n >= eff) none.push(a);
+      else some.push(a);
+    });
+    return [all, some, none];
+  }
+
   function renderGrid() {
+    // Nothing selected yet: coverage is unknowable, so keep the familiar
+    // by-purpose grid rather than claiming everything "runs on all 0".
+    if (!lastImpact.total && !lastImpact.effective) { renderGridByPurpose(); return; }
+    var g = coverageGroups(), eff = lastImpact.total || lastImpact.effective;
+    var html = '';
+    if (g[0].length) {
+      html += cap('Runs on all ' + eff, 100, false) + '<div class="co-agrid">' + g[0].map(actionCard).join('') + '</div>';
+    }
+    if (g[1].length) {
+      html += cap('Runs on some', Math.round(100 * (eff - incompatCount(g[1][0])) / eff), true)
+        + '<div class="co-agrid">' + g[1].map(actionCard).join('') + '</div>';
+      if (S.action && incompatCount(S.action) > 0 && incompatCount(S.action) < eff) html += skipPanel();
+    }
+    if (g[2].length) {
+      html += '<div class="co-gcap">Runs on none of this selection · ' + g[2].length + '<span class="ln"></span></div>'
+        + '<div class="co-agrid">' + g[2].map(actionCard).join('') + '</div>';
+    }
+    el('co-grid').innerHTML = html;
+  }
+  function cap(label, pct, part) {
+    return '<div class="co-gcap">' + esc(label)
+      + ' <span class="cov"><span class="cbar' + (part ? ' part' : '') + '"><i style="width:' + pct + '%"></i></span></span><span class="ln"></span></div>';
+  }
+  function renderGridByPurpose() {
     var byType = {};
     DS.actions.forEach(function (a) { byType[a.t] = a; });
     var placed = {};
@@ -1039,11 +1147,11 @@ window.CMD_PREFILL = {{.Prefill}};
     GRID_GROUPS.forEach(function (g) {
       var acts = g[1].filter(function (t) { placed[t] = true; return byType[t]; });
       if (!acts.length) return;
-      html += '<div class="co-gcap' + (g[0] === 'Danger zone' ? ' danger' : '') + '">' + g[0] + '</div><div class="co-agrid">'
+      html += '<div class="co-gcap' + (g[0] === 'Danger zone' ? ' danger' : '') + '">' + g[0] + '<span class="ln"></span></div><div class="co-agrid">'
         + acts.map(function (t) { return actionCard(byType[t]); }).join('') + '</div>';
     });
     var extra = DS.actions.filter(function (a) { return !placed[a.t] && !GRID_HIDDEN[a.t]; });
-    if (extra.length) html += '<div class="co-gcap">Other</div><div class="co-agrid">' + extra.map(actionCard).join('') + '</div>';
+    if (extra.length) html += '<div class="co-gcap">Other<span class="ln"></span></div><div class="co-agrid">' + extra.map(actionCard).join('') + '</div>';
     el('co-grid').innerHTML = html;
   }
 
@@ -1626,6 +1734,7 @@ window.CMD_PREFILL = {{.Prefill}};
     var b = e.target.querySelector('.imp-body');
     if (!b) return;
     var unsupMap = null; try { unsupMap = b.dataset.unsup ? JSON.parse(b.dataset.unsup) : null; } catch (err) { unsupMap = null; }
+    var jparse = function (v, dflt) { try { return v ? JSON.parse(v) : dflt; } catch (err) { return dflt; } };
     lastImpact = {
       effective: parseInt(b.dataset.effective || '0', 10),
       online: parseInt(b.dataset.online || '0', 10),
@@ -1634,6 +1743,12 @@ window.CMD_PREFILL = {{.Prefill}};
       unsupported: parseInt(b.dataset.unsupported || '0', 10),
       unsup: unsupMap,
       unsupSerials: b.dataset.unsupSerials || '',
+      // Per agent kind: how many are selected, how many of each can run each action,
+      // and the devices the selected action would skip. "DPC" on its own conflates the
+      // Device Owner agent with MDM Lite, which is stored as a DPC kind.
+      kinds: jparse(b.dataset.kinds, { fw: 0, dpc: 0, lite: 0 }),
+      kindSup: jparse(b.dataset.kindsup, {}),
+      skip: jparse(b.dataset.skip, []),
       verb: b.dataset.verb || ''
     };
     lastImpact.total = lastImpact.effective + lastImpact.unsupported;
@@ -1790,7 +1905,7 @@ window.CMD_PREFILL = {{.Prefill}};
      data-* (incl. data-dpc for the capability-aware console grid) so the page JS
      can mirror them into the basket and the Send button. */}}
 {{if gt .Total 0}}
-<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-dpc="{{.DPC}}" data-verb="{{cmdLabel .Type}}" data-unsup="{{.UnsupJSON}}" data-unsup-serials="{{.UnsupSerials}}" data-unsupported="{{.Unsupported}}">
+<div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-dpc="{{.DPC}}" data-verb="{{cmdLabel .Type}}" data-unsup="{{.UnsupJSON}}" data-unsup-serials="{{.UnsupSerials}}" data-unsupported="{{.Unsupported}}" data-total="{{.Total}}" data-kinds="{{.KindJSON}}" data-kindsup="{{.KindSupJSON}}" data-skip="{{.SkipJSON}}">
   <span class="imp-n">{{.Effective}}</span><span class="imp-u">device{{if ne .Effective 1}}s{{end}}</span>
   <span class="imp-split">· <b>{{.Online}}</b> online, <b>{{.Offline}}</b> queued{{if gt .Skipped 0}}, <b>{{.Skipped}}</b> skipped{{end}}</span>
   {{if .Warn}}<span class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Warn}}</span>{{end}}

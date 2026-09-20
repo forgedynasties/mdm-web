@@ -1,137 +1,285 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rename "Commands" — concepts · AIO MDM</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Actions · mixed client types — options</title>
 <link rel="stylesheet" href="/static/fonts/fonts.css">
 <link rel="stylesheet" href="/static/style.css">
 <style>
-body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
-.wrap{max-width:1000px;}
-h1{font-size:22px;margin:0 0 4px;}
-.lead{color:var(--muted);font-size:13px;margin:0 0 8px;max-width:760px;line-height:1.55;}
-.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
-.dname{font-weight:700;font-size:15.5px;margin:6px 0 2px;}
-.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:760px;line-height:1.5;}
-.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+body{padding:28px 22px 90px;max-width:1240px;margin:0 auto}
+.dm-h{font-size:22px;font-weight:600;margin:0 0 6px}
+.dm-sub{color:var(--muted);font-size:13px;line-height:1.65;max-width:92ch;margin:0 0 10px}
+.dm-opt{margin:0 0 42px}
+.dm-t{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;margin:0 0 4px}
+.dm-tag{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:20px;padding:3px 9px;background:var(--surface2);color:var(--muted)}
+.dm-tag.now{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.dm-tag.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-note{font-size:12.5px;color:var(--muted);line-height:1.65;max-width:92ch;margin:0 0 14px}
+.dm-note b{color:var(--text-2)}
+.dm-frame{border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--bg-2,var(--surface2))}
 
-/* name shortlist */
-.names{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0 6px;}
-.namecard{border:1px solid var(--border);border-radius:12px;background:#fff;padding:14px 16px;}
-.namecard .n{font-size:15px;font-weight:700;}
-.namecard .why{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5;}
-.navchip{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;margin-top:10px;}
-.navchip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
+/* matrix */
+.mx{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:12.5px;margin:0 0 26px}
+.mx th,.mx td{padding:8px 12px;text-align:left;border-top:1px solid var(--border-soft)}
+.mx thead th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0;font-weight:700}
+.mx td.c{text-align:center;font-weight:700}
+.y{color:var(--ok,#1c7d50)}.n{color:var(--text-faint)}.p{color:var(--warn,#8a5a00)}
+.mx tbody tr:hover{background:var(--surface2)}
 
-/* builder shell (copied from commands.html) */
-.cmd-rail3{display:grid;grid-template-columns:212px 1fr;background:var(--surface,#fff);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden;margin:6px 0 4px;}
-.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
-.cr-head h3{margin:0;font-size:15px;font-weight:650;}
-.cr-rail{border-right:1px solid var(--border-soft);padding:10px;}
-.cr-rail-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint,#9aa0b0);padding:12px 12px 5px;}
-.cr-rail-group:first-child{padding-top:4px;}
-.cr-rail-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
-.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
-.cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
-.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
-.cr-rail-item.on .ic{color:var(--accent);}
-.cr-config{padding:22px 24px;min-width:0;}
-.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
-.cfg-lead{font-size:13px;color:var(--muted);margin:0 0 16px;}
+/* shared console shapes, lifted from the real page */
+.co-main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+.co-rail,.co-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px}
+.co-srch{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--muted)}
+.co-srch svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.co-quick{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0}
+.co-qf{font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:20px;padding:4px 10px}
+.co-qf.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.co-cap{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 6px}
+.co-pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:11.5px;margin:0 5px 5px 0}
+.co-pill .k{font-family:var(--mono);font-size:11px}
+.co-mix{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.co-mix .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.co-gcap{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.co-gcap .ln{flex:1;height:1px;background:var(--border-soft)}
+.co-gcap.danger{color:var(--danger)}
+.co-agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:9px}
+.co-act{position:relative;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 12px;display:flex;flex-direction:column;gap:3px;min-height:76px}
+.co-act .ic{width:19px;height:19px;color:var(--accent)}
+.co-act .ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9}
+.co-act .nm{font-size:12.5px;font-weight:600;color:var(--text)}
+.co-act .ds{font-size:11px;color:var(--muted);line-height:1.45}
+.co-act.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.co-act.dim{opacity:.5}
+.co-act.off{opacity:.38}
+.captag{position:absolute;top:9px;right:10px;font-size:9.5px;font-weight:700;border-radius:5px;padding:1px 6px;background:var(--surface2);color:var(--muted)}
+.captag.dpc{background:var(--accent-soft);color:var(--accent-text)}
+.cav{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--warn,#8a5a00);margin-top:5px}
+.cav svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+/* kind dots (option B) */
+.kd{display:flex;gap:4px;margin-top:6px;align-items:center}
+.kd i{width:15px;height:15px;border-radius:5px;font-style:normal;font-size:8.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;letter-spacing:-.02em}
+.kd i.fw{background:rgba(120,140,255,.18);color:#7a80f6}
+.kd i.dpc{background:rgba(255,150,80,.18);color:#d4762a}
+.kd i.lt{background:rgba(70,190,140,.18);color:#1c9b6a}
+.kd i.no{background:var(--surface2);color:var(--text-faint);opacity:.55}
+/* kind selector (option C) */
+.kseg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:3px;margin-bottom:6px}
+.kseg button{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;font-family:inherit}
+.kseg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.kseg .n{font-size:10px;opacity:.7;margin-left:6px}
+/* coverage (option D) */
+.cov{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--text-faint)}
+.cbar{width:54px;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;display:inline-block}
+.cbar i{display:block;height:100%;background:var(--ok,#1c7d50)}
+.cbar.part i{background:var(--warn,#daa520)}
+.skip{background:var(--surface2);border:1px dashed var(--border);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--text-2);line-height:1.6;margin-top:12px}
+.skip .k{font-family:var(--mono);font-size:11.5px}
+.sendbar{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.sendbar .grow{flex:1}
+.snote{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
 
-/* category launcher (Option C) */
-.cat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 0;}
-.cat{border:1px solid var(--border);border-radius:13px;background:#fff;padding:15px 15px 14px;cursor:pointer;}
-.cat.on{border-color:transparent;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);}
-.cat .ci{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--surface2,#eef0f4);margin-bottom:10px;}
-.cat.on .ci{background:#fff;}
-.cat .ci svg{width:17px;height:17px;fill:none;stroke:var(--accent);stroke-width:1.8;}
-.cat .ct{font-size:13.5px;font-weight:700;}
-.cat .cs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
-.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
-.actchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:600;background:#fff;cursor:pointer;}
-.actchip.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
-.actchip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
-.note{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:10px;padding:11px 13px;margin-top:10px;line-height:1.55;}
-</style></head>
-<body><div class="wrap">
+<h1 class="dm-h">Actions · what a mixed fleet does to the console</h1>
+<p class="dm-sub">
+  The page was built when every device ran the system-app client. It now has to serve three agents with
+  genuinely different powers, and it handles that with one signal: a dimmed card reading
+  <i>“4 of 7 can't run this on their agent — skipped at send”</i>. You cannot see <b>which</b> four, the
+  breakdown chip says only <b>DPC</b> (which counts MDM Lite too, since Lite is stored as a DPC kind), and
+  the grid has a group literally called <b>App (MDM Lite)</b> sitting beside groups named after what the
+  action does. Four options below. Counts are stage's real fleet: 5 firmware, 1 DPC, 1 Lite.
+</p>
 
-<h1>Renaming “Commands” — concepts</h1>
-<p class="lead">The page sends remote actions to devices: install/uninstall apps, screenshot, pull logs, run shell, reboot — and set a boot logo. “Commands” reads as a developer term, and a <b>boot logo</b> (branding, not an imperative) feels homeless in it. Two fixes, shown together: a clearer <b>name</b>, and a <b>grouped</b> builder so every action has an obvious home.</p>
+<table class="mx">
+  <thead><tr><th>Action</th><th>Needs</th><th class="c">Firmware</th><th class="c">DPC agent</th><th class="c">MDM Lite</th></tr></thead>
+  <tbody>
+    <tr><td>Install app</td><td>install_apk</td><td class="c y">yes</td><td class="c y">yes</td><td class="c n">no</td></tr>
+    <tr><td>Uninstall</td><td>uninstall</td><td class="c y">yes</td><td class="c y">yes</td><td class="c n">no</td></tr>
+    <tr><td>Reboot</td><td>reboot</td><td class="c y">yes</td><td class="c y">yes</td><td class="c n">no</td></tr>
+    <tr><td>Screenshot / remote</td><td>screen_capture</td><td class="c y">yes</td><td class="c p">consent</td><td class="c y">yes</td></tr>
+    <tr><td>Shell · Logcat</td><td>shell / logcat</td><td class="c y">yes</td><td class="c p">app uid</td><td class="c n">no</td></tr>
+    <tr><td>Kiosk lock</td><td>kiosk</td><td class="c y">yes</td><td class="c y">yes</td><td class="c n">no</td></tr>
+    <tr><td>Firmware OTA · splash</td><td>ota / update_splash</td><td class="c y">yes</td><td class="c n">no</td><td class="c n">no</td></tr>
+    <tr><td>Wipe</td><td>wipe</td><td class="c n">no</td><td class="c y">yes</td><td class="c n">no</td></tr>
+    <tr><td>Reload · restart · clear cache</td><td>app_control</td><td class="c n">no</td><td class="c n">no</td><td class="c y">yes</td></tr>
+    <tr><td>Update the agent</td><td>self_update</td><td class="c y">yes</td><td class="c y">yes</td><td class="c y">yes</td></tr>
+  </tbody>
+</table>
 
-<!-- ============ NAME SHORTLIST ============ -->
-<div class="eyebrow">Step 1 · the name</div>
-<div class="dname">Shortlist</div>
-<div class="names">
-  <div class="namecard">
-    <div class="n">Actions <span class="rec">recommended</span></div>
-    <div class="why">Plain English, covers everything you can <i>do</i> to a device — installing, rebooting, screenshotting, branding. Mirrors the device page’s “Controls”. Short enough for the nav.</div>
-    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</div>
+<!-- ─────────────────────────────────────────────── A -->
+<section class="dm-opt">
+  <div class="dm-t">A · One grid, dim what doesn't fit <span class="dm-tag now">deployed now</span></div>
+  <p class="dm-note">
+    <b>Good:</b> one selection, one grid, nothing hidden — a reboot across a mixed set is one click.
+    <b>Bad:</b> the skip is a number, not a list; “DPC 1” hides that one of those is really MDM Lite; and
+    <i>App (MDM Lite)</i> is a client name used as a category, so the grid is sorted by two different ideas at once.
+  </p>
+  <div class="dm-frame">
+    <div class="co-main">
+      <div class="co-rail">
+        <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search serial, restaurant, group…</div>
+        <div class="co-quick"><span class="co-qf">Online <b>6</b></span><span class="co-qf">Offline <b>1</b></span><span class="co-qf on">DPC <b>2</b></span><span class="co-qf">In kiosk</span></div>
+        <div class="co-cap">Selected</div>
+        <span class="co-pill"><span class="k">All devices</span></span>
+        <div class="co-mix"><span><span class="dot" style="background:var(--ok)"></span><b>6</b> online</span><span><span class="dot" style="background:var(--rule)"></span><b>1</b> queued</span><span><span class="dot" style="background:var(--accent-2)"></span><b>2</b> DPC</span></div>
+      </div>
+      <div class="co-panel">
+        <div class="co-gcap">Apps<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 20h14"/></svg></span><span class="nm">Install app</span><span class="ds">push an APK from the library</span><span class="cav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>1 of 7 can’t run install app on their agent — skipped at send</span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></span><span class="nm">Uninstall</span><span class="ds">remove a package</span><span class="cav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>1 of 7 can’t run uninstall on their agent — skipped at send</span></button>
+        </div>
+        <div class="co-gcap">App (MDM Lite)<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act dim"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></span><span class="nm">Reload page</span><span class="ds">reload the WebView</span><span class="cav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>6 of 7 can’t run reload page on their agent — skipped at send</span></button>
+          <button class="co-act dim"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/></svg></span><span class="nm">Restart app</span><span class="ds">restart the host app</span><span class="cav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>6 of 7 can’t run restart app on their agent — skipped at send</span></button>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="namecard">
-    <div class="n">Operations</div>
-    <div class="why">More fleet-ops / enterprise tone. Good if you think of these as bulk operations across many devices. Slightly longer; “Ops” as a short form.</div>
-    <div class="navchip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Operations</div>
-  </div>
-  <div class="namecard">
-    <div class="n">Manage</div>
-    <div class="why">Verb-first, friendly. Reads well with the object (“Manage devices”). A touch generic, can blur with Settings.</div>
-    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Manage</div>
-  </div>
-  <div class="namecard">
-    <div class="n">Tasks</div>
-    <div class="why">Honest about the model — actions queue and run on next check-in. But “tasks” can read as a to-do list rather than something you fire now.</div>
-    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tasks</div>
-  </div>
-</div>
+</section>
 
-<!-- ============ A · GROUPED RAIL ============ -->
-<div class="eyebrow">Step 2 · Option A</div>
-<div class="dname">“Actions” with a grouped rail <span class="rec">recommended</span></div>
-<div class="ddesc">Minimal change to the current two-pane builder — the flat list becomes labelled groups. Boot logo now lives under <b>Customization</b>, where it reads naturally.</div>
-<div class="cmd-rail3">
-  <div class="cr-head"><h3>New action</h3></div>
-  <div class="cr-rail">
-    <div class="cr-rail-group">Apps</div>
-    <div class="cr-rail-item on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></span>Uninstall</div>
-    <div class="cr-rail-group">Diagnostics</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell</div>
-    <div class="cr-rail-group">Power</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot</div>
-    <div class="cr-rail-group">Customization</div>
-    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo</div>
+<!-- ─────────────────────────────────────────────── B -->
+<section class="dm-opt">
+  <div class="dm-t">B · Same grid, but every card says which agents run it</div>
+  <p class="dm-note">
+    The smallest change that fixes the honesty problem. The breakdown splits into three real kinds, and each
+    card carries three badges — <b>FW / DPC / LT</b> — lit for the agents that can run it, greyed for the ones
+    that cannot. Groups are renamed to what the action does, so <i>App (MDM Lite)</i> becomes <b>Host app</b>.
+    <b>Good:</b> tiny diff, nothing moves, the matrix is learnable at a glance. <b>Bad:</b> still a count, not
+    a list — you know the kind that will be skipped, not the serials.
+  </p>
+  <div class="dm-frame">
+    <div class="co-main">
+      <div class="co-rail">
+        <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search serial, restaurant, group…</div>
+        <div class="co-quick"><span class="co-qf">Online <b>6</b></span><span class="co-qf">Offline <b>1</b></span><span class="co-qf">In kiosk</span></div>
+        <div class="co-cap">Selected · by agent</div>
+        <div class="co-mix">
+          <span><span class="dot" style="background:#7a80f6"></span><b>5</b> firmware</span>
+          <span><span class="dot" style="background:#d4762a"></span><b>1</b> DPC</span>
+          <span><span class="dot" style="background:#1c9b6a"></span><b>1</b> Lite</span>
+        </div>
+      </div>
+      <div class="co-panel">
+        <div class="co-gcap">Apps<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 20h14"/></svg></span><span class="nm">Install app</span><span class="ds">push an APK from the library</span><span class="kd"><i class="fw">FW</i><i class="dpc">DPC</i><i class="no">LT</i></span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span><span class="nm">Reboot</span><span class="ds">restart the device</span><span class="kd"><i class="fw">FW</i><i class="dpc">DPC</i><i class="no">LT</i></span></button>
+        </div>
+        <div class="co-gcap">Host app<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act dim"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></span><span class="nm">Reload page</span><span class="ds">reload the WebView</span><span class="kd"><i class="no">FW</i><i class="no">DPC</i><i class="lt">LT</i></span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/></svg></span><span class="nm">Update agent</span><span class="ds">install the hosted client build</span><span class="kd"><i class="fw">FW</i><i class="dpc">DPC</i><i class="lt">LT</i></span></button>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="cr-config">
-    <div class="cr-sec-title">Install app</div>
-    <p class="cfg-lead">Choose an APK from the repository and queue it for the next check-in. Pick a target on the right, then Send.</p>
-    <div class="note">The rest of the config form is unchanged — only the rail gained group headers, so “Boot logo” reads as a customization action rather than a loose command.</div>
-  </div>
-</div>
+</section>
 
-<!-- ============ B · CATEGORY LAUNCHER ============ -->
-<div class="eyebrow">Step 2 · Option B</div>
-<div class="dname">“Actions” with a category launcher</div>
-<div class="ddesc">A bolder take: pick a <b>category</b> first (four cards), then the specific action as a chip. Scales better as you add actions and makes the branding/customization split obvious at a glance.</div>
-<div class="cmd-rail3"><div style="grid-column:1/-1;padding:20px 22px;">
-  <div class="cr-sec-title">What do you want to do?</div>
-  <div class="cat-row">
-    <div class="cat on"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div><div class="ct">Apps</div><div class="cs">Install or remove packages</div></div>
-    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="ct">Diagnostics</div><div class="cs">Screenshot, logs, shell</div></div>
-    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/></svg></div><div class="ct">Power</div><div class="cs">Reboot devices</div></div>
-    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></div><div class="ct">Customization</div><div class="cs">Boot logo &amp; branding</div></div>
+<!-- ─────────────────────────────────────────────── C -->
+<section class="dm-opt">
+  <div class="dm-t">C · Pick the agent first, then the action</div>
+  <p class="dm-note">
+    A segmented control above the grid scopes both the selection and the actions to one agent kind, so
+    everything on screen runs on everything selected — no dimming, no skipping, no caveats. <b>Good:</b> the
+    simplest possible promise, and the grid halves in size. <b>Bad:</b> “reboot the whole restaurant” becomes
+    two sends, and it makes the agent split the operator's problem when most of the time it is ours.
+  </p>
+  <div class="dm-frame">
+    <div class="co-main">
+      <div class="co-rail">
+        <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search within firmware devices…</div>
+        <div class="co-cap">Selected</div>
+        <span class="co-pill"><span class="k">All firmware</span></span>
+        <div class="co-mix"><span><span class="dot" style="background:var(--ok)"></span><b>5</b> online</span><span><span class="dot" style="background:var(--rule)"></span><b>0</b> queued</span></div>
+      </div>
+      <div class="co-panel">
+        <div class="kseg"><button class="on">Firmware<span class="n">5</span></button><button>DPC agent<span class="n">1</span></button><button>MDM Lite<span class="n">1</span></button></div>
+        <div class="snote" style="margin-bottom:4px">Every action below runs on all 5 selected devices.</div>
+        <div class="co-gcap">Apps<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 20h14"/></svg></span><span class="nm">Install app</span><span class="ds">push an APK from the library</span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></span><span class="nm">Uninstall</span><span class="ds">remove a package</span></button>
+        </div>
+        <div class="co-gcap">Device<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span><span class="nm">Reboot</span><span class="ds">restart the device</span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8"/></svg></span><span class="nm">Firmware OTA</span><span class="ds">system image — firmware only</span></button>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="chiprow">
-    <span class="actchip on"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/></svg>Install app</span>
-    <span class="actchip"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</span>
+</section>
+
+<!-- ─────────────────────────────────────────────── D -->
+<section class="dm-opt">
+  <div class="dm-t">D · Group by coverage, and name the devices that get skipped <span class="dm-tag pick">would pick</span></div>
+  <p class="dm-note">
+    Keep the one mixed selection, but sort the grid by how much of it an action actually reaches:
+    <b>Runs on all 7</b>, <b>Runs on some</b>, <b>Runs on none</b> (collapsed). Picking a partial action replaces the
+    caveat with the actual list — serials, grouped by why — before you send, and the Send button counts what
+    will really happen. <b>Good:</b> answers the question the current page dodges, keeps mixed selections
+    working, and the ordering means the safe actions are the ones at the top. <b>Bad:</b> the grid re-orders
+    as the selection changes, so muscle memory for a card's position is weaker than in A or B.
+  </p>
+  <div class="dm-frame">
+    <div class="co-main">
+      <div class="co-rail">
+        <div class="co-srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search serial, restaurant, group…</div>
+        <div class="co-cap">Selected · by agent</div>
+        <div class="co-mix">
+          <span><span class="dot" style="background:#7a80f6"></span><b>5</b> firmware</span>
+          <span><span class="dot" style="background:#d4762a"></span><b>1</b> DPC</span>
+          <span><span class="dot" style="background:#1c9b6a"></span><b>1</b> Lite</span>
+        </div>
+      </div>
+      <div class="co-panel">
+        <div class="co-gcap">Runs on all 7 <span class="cov"><span class="cbar"><i style="width:100%"></i></span></span><span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/></svg></span><span class="nm">Update agent</span><span class="ds">install the hosted client build</span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/></svg></span><span class="nm">Screenshot</span><span class="ds">one frame from the screen</span></button>
+        </div>
+
+        <div class="co-gcap">Runs on some <span class="cov"><span class="cbar part"><i style="width:86%"></i></span></span><span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M5 20h14"/></svg></span><span class="nm">Install app</span><span class="ds">push an APK from the library</span><span class="captag">6 of 7</span><span class="kd"><i class="fw">FW</i><i class="dpc">DPC</i><i class="no">LT</i></span></button>
+          <button class="co-act"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span><span class="nm">Reboot</span><span class="ds">restart the device</span><span class="captag">6 of 7</span><span class="kd"><i class="fw">FW</i><i class="dpc">DPC</i><i class="no">LT</i></span></button>
+        </div>
+        <div class="skip">
+          <b>1 device will be skipped</b> — MDM Lite has no Device Owner, so it cannot install packages:
+          <span class="k">61eb25e75f3afcc</span> <span class="snote">(Lite · menu board)</span>
+        </div>
+
+        <div class="co-gcap">Runs on none of this selection · 4 hidden<span class="ln"></span></div>
+        <div class="co-agrid">
+          <button class="co-act off"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></span><span class="nm">Reload page</span><span class="ds">MDM Lite hosts only — none selected</span></button>
+        </div>
+
+        <div class="sendbar">
+          <button class="cc-btn primary">Install app on 6 devices</button>
+          <span class="snote grow">1 skipped · nothing is queued for a device that cannot run it</span>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="note" style="margin-top:16px;">Selecting a category reveals its actions as chips and the matching config form below. “Customization” cleanly contains Boot logo (and anything branding-related you add later, e.g. wallpaper).</div>
-</div></div>
+</section>
 
-<!-- ============ C · alternative: move it out ============ -->
-<div class="eyebrow">Alternative</div>
-<div class="dname">Or: move Boot logo out entirely</div>
-<div class="ddesc">If branding shouldn’t share a page with operational actions at all, Boot logo can move to a small <b>Branding</b> area (its own page, or a card under Settings / the device’s Controls). Then “Actions” stays purely operational. I lean against this — it’s an extra place to look — but it’s on the table.</div>
-<div class="note">Recommendation: <b>rename to “Actions”</b> + <b>Option A (grouped rail)</b>. Lowest-risk, keeps everything one click away, and gives Boot logo an intuitive “Customization” home without a new page.</div>
+<section class="dm-opt">
+  <div class="dm-t">What I would do</div>
+  <p class="dm-note">
+    <b>D, built on B's badges.</b> The real defect is not that the page dims cards — it is that it tells you a
+    number and then silently drops devices at send, and with three agents that now happens on most mixed
+    selections. D turns that into a named list before the send and makes the Send button state the truth;
+    B's per-card badges are the cheap part of it and carry the matrix. C is the tidiest page of the four, but
+    it solves the problem by forbidding the mixed selection rather than handling it, and "reboot this
+    restaurant" is exactly the mixed selection people will want. A stays as the fallback if we would rather
+    not touch the grid ordering at all — in which case take B alone, which is a small diff and still removes
+    the <i>App (MDM Lite)</i> category name.
+  </p>
+</section>
 
-</div></body></html>
+</body>
+</html>
