@@ -1382,6 +1382,22 @@ func agentUpdatePayload(pkg, version, sha256Hex string) json.RawMessage {
 	return json.RawMessage(b)
 }
 
+// clientVersionOf is the build a device is actually running for its slot. For MDM-lite
+// that is the *host app*: the library version says which Lite is embedded, but what a
+// slot hosts and installs is the whole app, so comparing the library version against it
+// would call a device behind a build it is already running.
+func clientVersionOf(d *db.Device) (name string, code int64) {
+	if d.IsMDMLite() {
+		return extraNested(d.LatestExtra, "host_app", "version_name"),
+			extraNestedInt64(d.LatestExtra, "host_app", "version_code")
+	}
+	name = extraString(d.LatestExtra, "agent_version")
+	if name == "—" {
+		name = ""
+	}
+	return name, extraInt64(d.LatestExtra, "agent_version_code")
+}
+
 // AgentUpdateState is what the device page needs to word (or hide) the "Update
 // agent" action: whether a newer hosted build exists for this device, and the two
 // versions involved.
@@ -1411,8 +1427,8 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 		return st
 	}
 	st.Version = version
-	st.Current = extraString(d.LatestExtra, "agent_version")
-	cur := extraInt64(d.LatestExtra, "agent_version_code")
+	current, cur := clientVersionOf(d)
+	st.Current = current
 	st.Available = cur < code
 	return st
 }
@@ -1487,11 +1503,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		v.Devices++
-		code := extraInt64(d.LatestExtra, "agent_version_code")
-		name := extraString(d.LatestExtra, "agent_version")
-		if name == "—" {
-			name = ""
-		}
+		name, code := clientVersionOf(d)
 		switch {
 		case code == 0:
 			v.Unknown++

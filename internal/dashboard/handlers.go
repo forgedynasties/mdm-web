@@ -8504,6 +8504,34 @@ func extraNested(raw json.RawMessage, obj, key string) string {
 	return sv
 }
 
+// extraNestedInt64 reads a number one object deep (extra.host_app.version_code).
+func extraNestedInt64(raw json.RawMessage, obj, key string) int64 {
+	if len(raw) == 0 {
+		return 0
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0
+	}
+	inner, ok := m[obj]
+	if !ok {
+		return 0
+	}
+	var im map[string]json.RawMessage
+	if err := json.Unmarshal(inner, &im); err != nil {
+		return 0
+	}
+	v, ok := im[key]
+	if !ok {
+		return 0
+	}
+	var n int64
+	if err := json.Unmarshal(v, &n); err != nil {
+		return 0
+	}
+	return n
+}
+
 // extraInt64 reads a numeric check-in field as a number rather than a string, for
 // comparisons (agent_version_code). 0 when absent or unparsable — which reads as
 // "older than anything", the safe answer for a device that predates the field.
