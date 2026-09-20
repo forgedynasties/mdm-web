@@ -555,6 +555,58 @@
     });
   })();
 
+  // The dock is outside <main>, and a boosted navigation only swaps <main> — so
+  // nothing re-renders it and its active state (and the admin entry promoted out of
+  // More) stayed on whatever the last full page load produced. Re-derive both from the
+  // URL after every swap and on back/forward.
+  (function () {
+    // Pages that belong to a dock entry without sharing its path.
+    var GROUPS = {
+      '/devices': ['/groups', '/restaurants', '/enrollment'],
+      '/manage': ['/updates-policy', '/network', '/managed-configs', '/compliance', '/geofencing'],
+    };
+    function owns(href, path) {
+      if (href === '/') return path === '/';
+      if (path === href || path.indexOf(href + '/') === 0) return true;
+      var extra = GROUPS[href] || [];
+      for (var i = 0; i < extra.length; i++) {
+        if (path === extra[i] || path.indexOf(extra[i] + '/') === 0) return true;
+      }
+      return false;
+    }
+    function syncNav() {
+      var path = location.pathname;
+      var dock = document.querySelector('nav.dock');
+      var pop = document.getElementById('admin-pop');
+      if (!dock) return;
+      // A previously promoted entry is a clone, not part of the rendered dock.
+      var old = dock.querySelector('.js-promoted');
+      if (old) old.remove();
+      if (pop) {
+        var hit = null;
+        pop.querySelectorAll('a[href]').forEach(function (a) {
+          var on = owns(a.getAttribute('href'), path);
+          a.classList.toggle('active', on);
+          if (on) hit = a;
+        });
+        if (hit) {
+          var clone = hit.cloneNode(true);
+          clone.className = 'nav-link js-dest js-promoted active';
+          var more = document.getElementById('dock-more');
+          dock.insertBefore(clone, more || null);
+          if (window.htmx) htmx.process(clone);
+        }
+      }
+      dock.querySelectorAll('a.nav-link[href]').forEach(function (a) {
+        if (a.classList.contains('js-promoted')) return;
+        a.classList.toggle('active', owns(a.getAttribute('href'), path));
+      });
+    }
+    document.addEventListener('htmx:afterSettle', syncNav);
+    window.addEventListener('popstate', syncNav);
+    syncNav();
+  })();
+
   // Background-warm the other primary dock destinations so clicking between them
   // feels instant. Fires the exact same request htmx's own boosted click would
   // (HX-Request/HX-Boosted headers) at the same URL; the server (see prefetchableTemplates
