@@ -8482,6 +8482,28 @@ func extraInt(raw json.RawMessage, key string) string {
 	return strconv.Itoa(n)
 }
 
+// extraNested reads a field one object deep (extra.host_app.package). "" when any
+// step is missing — a device that never reported it, or an older client.
+func extraNested(raw json.RawMessage, obj, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	inner, ok := m[obj]
+	if !ok {
+		return ""
+	}
+	var im map[string]any
+	if err := json.Unmarshal(inner, &im); err != nil {
+		return ""
+	}
+	sv, _ := im[key].(string)
+	return sv
+}
+
 // extraInt64 reads a numeric check-in field as a number rather than a string, for
 // comparisons (agent_version_code). 0 when absent or unparsable — which reads as
 // "older than anything", the safe answer for a device that predates the field.
@@ -21650,7 +21672,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	mux.HandleFunc("GET /clients", h.requireAuth(h.ClientsPage))
-	post("POST /clients/{slot}/publish", h.requireStrictAdmin(h.ClientsAPKPublish))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
 	// One route per hosted agent slot (DPC, and the firmware client per signing

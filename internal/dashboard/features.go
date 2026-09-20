@@ -1452,16 +1452,20 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	order := []string{"dpc", "firmware-release-keys", "firmware-test-keys"}
+	order := []string{"firmware-release-keys", "firmware-test-keys", "dpc", "menu-board", "lite-demo"}
 	labels := map[string]string{
 		"dpc":                   "DPC agent",
 		"firmware-release-keys": "Firmware client · release-keys",
 		"firmware-test-keys":    "Firmware client · test-keys",
+		"menu-board":            "Menu board",
+		"lite-demo":             "MDM Lite demo app",
 	}
 	notes := map[string]string{
 		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
 		"firmware-release-keys": "Our own hardware on a user build. Signed with the release platform key.",
 		"firmware-test-keys":    "Our own hardware on a userdebug build. Signed with the test platform key.",
+		"menu-board":            "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
+		"lite-demo":             "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
 	}
 
 	views := map[string]*ClientSlotView{}
@@ -1478,11 +1482,6 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 
 	for i := range devices {
 		d := &devices[i]
-		// MDM-lite lives inside someone else's app; its updates come from the app
-		// library, not from a build this server hosts.
-		if d.IsMDMLite() {
-			continue
-		}
 		v := views[agentSlotFor(d)]
 		if v == nil {
 			continue
@@ -1527,41 +1526,8 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Clients",
 		"ActivePage": "clients",
 		"Slots":      slots,
+		"ServerURL":  h.baseURL(r),
 	})
-}
-
-// ClientsAPKPublish hosts a new build for one slot, from the Clients page. Same
-// storage and parsing as the admin API — the page is another door onto it.
-func (h *Handler) ClientsAPKPublish(w http.ResponseWriter, r *http.Request) {
-	slot := r.PathValue("slot")
-	if _, ok := AgentAPKSlots[slot]; !ok {
-		h.hxDoneToast(w, r, "/clients", "Unknown client slot", "error")
-		return
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, 128<<20)
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		h.hxDoneToast(w, r, "/clients", "Upload failed: file too large or malformed", "error")
-		return
-	}
-	file, hdr, err := r.FormFile("apk")
-	if err != nil {
-		h.hxDoneToast(w, r, "/clients", "Choose an APK file first", "error")
-		return
-	}
-	defer file.Close()
-	data, err := io.ReadAll(file)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), slot)
-	if err != nil {
-		h.hxDoneToast(w, r, "/clients", "Upload failed: "+err.Error(), "error")
-		return
-	}
-	built := describeAgentBuild(meta)
-	h.audit(r, "clients.publish", slot, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, built))
-	h.hxDoneToast(w, r, "/clients", AgentAPKSlots[slot]+" hosted"+built, "success")
 }
 
 // AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
@@ -1585,6 +1551,17 @@ var AgentAPKSlots = map[string]string{
 	"dpc":                   agentAPKFile,
 	"firmware-release-keys": "aio-mdm-firmware-release-keys.apk",
 	"firmware-test-keys":    "aio-mdm-firmware-test-keys.apk",
+	"lite-demo":             "aio-mdm-lite-demo.apk",
+	"menu-board":            "aio-menu-board.apk",
+}
+
+// liteSlotPackages maps the MDM-lite host apps we ship to their slot. Lite lives inside
+// someone else's app, so "which build is this device on" is a question about the host:
+// a device reports extra.host_app.package and gets the slot for that app, and nothing
+// else. An app not listed here carries Lite but is not ours to update.
+var liteSlotPackages = map[string]string{
+	"com.aioapp.mdmlite.demo": "lite-demo",
+	"aio.app.menuboards":      "menu-board",
 }
 
 // agentAPKPath is where a slot's APK lives on disk ("" for an unknown slot).
@@ -1603,6 +1580,17 @@ func agentAPKPath(slot string) string {
 func agentSlotFor(d *db.Device) string {
 	if d == nil {
 		return "dpc"
+	}
+	// MDM-lite first: it is stored as a DPC kind, but what updates is the host app.
+	// The suffixed build variants of an app (…​.qa, …​.internal) are the same app.
+	if d.IsMDMLite() {
+		pkg := extraNested(d.LatestExtra, "host_app", "package")
+		for base, slot := range liteSlotPackages {
+			if pkg == base || strings.HasPrefix(pkg, base+".") {
+				return slot
+			}
+		}
+		return "" // Lite inside an app that is not ours: nothing to offer it
 	}
 	if d.IsDPC() {
 		return "dpc"

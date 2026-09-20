@@ -26,8 +26,12 @@
 .cl-vtag.cur{background:var(--ok-bg,var(--surface2));color:var(--text)}
 .cl-up{margin-left:auto;display:flex;gap:8px;align-items:center}
 .cl-url{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);word-break:break-all}
-.cl-pub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.cl-pub input[type=file]{font:inherit;font-size:12.5px;max-width:280px}
+.cl-prov{font-size:12px;color:var(--text-faint)}
+.cl-prov b{font-weight:600;color:var(--text-2)}
+.cl-how{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;margin-top:4px}
+.cl-how h3{margin:0 0 6px;font-size:13.5px;font-weight:600}
+.cl-how p{margin:0 0 10px;font-size:12.5px;color:var(--muted);max-width:76ch}
+.cl-how pre{margin:0;padding:10px 12px;background:var(--surface2);border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
 </style>
 
 <div class="cc-wrap">
@@ -70,21 +74,26 @@
   </div>
   {{end}}
 
+  {{if .Hosted}}
   <div class="cl-foot">
-    {{if .Hosted}}<span class="cl-url">{{.URL}}</span>{{end}}
-    {{if canAdmin $.Role}}
-    <span class="cl-up">
-      <form class="cl-pub" method="POST" action="/clients/{{.Slot}}/publish" enctype="multipart/form-data">
-        <input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required aria-label="APK for {{.Label}}">
-        <button type="submit" class="btn-sm">Publish</button>
-      </form>
-    </span>
-    {{end}}
+    <span class="cl-url">{{.URL}}</span>
+    <span class="cl-up cl-prov">published <b>{{.Build.At.Format "2 Jan 15:04"}}</b>{{if .Build.Name}} · {{.Build.Name}}{{end}}</span>
   </div>
+  {{end}}
 </div>
 {{end}}
 
-<div class="cc-sub" style="margin-top:4px">A build machine can publish the same way: <span class="cl-url">POST /api/v1/agent-apk?slot=&lt;slot&gt;</span> with the admin API key.</div>
+<div class="cl-how">
+  <h3>How a build gets here</h3>
+  <p>Builds are published by CI, not by hand: the agent's pipeline runs its tests, signs the APK
+     with the key for that variant, and posts it to the slot. Publishing an unsigned or untested
+     build is the failure this is meant to prevent, so there is no upload button. The firmware
+     client is published from the build machine, because only it holds the platform keys.</p>
+  <pre>POST {{.ServerURL}}/api/v1/agent-apk?slot=&lt;slot&gt;
+X-API-Key: &lt;admin key&gt;
+Content-Type: application/vnd.android.package-archive
+&lt;the signed APK&gt;</pre>
+</div>
 </div>
 {{template "footer" .}}
 {{end}}
