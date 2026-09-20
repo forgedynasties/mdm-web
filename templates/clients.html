@@ -64,6 +64,28 @@
 {{template "clients-split" .}}
 </div>
 </div>
+
+<script>
+// The rail lives inside the swapped fragment, so without this nothing moves until the
+// response lands and a click reads as a hang. Move the selection and put a skeleton in
+// the detail column straight away; the swap replaces both with the real thing.
+function clPick(a) {
+  var rail = a.closest('.cl-side');
+  if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
+  var d = document.getElementById('cl-detail');
+  if (!d) return;
+  var cards = '';
+  for (var i = 0; i < 4; i++) cards += '<div class="cl-card"><div class="skel skel-line skel-w60" style="height:9px"></div><div class="skel skel-line skel-w40" style="height:20px"></div></div>';
+  var rows = '';
+  for (var j = 0; j < 4; j++) rows += '<div class="skel-row" style="padding:12px 15px"><div class="g"><div class="skel skel-line skel-w40"></div></div><div class="skel skel-pill"></div></div>';
+  d.innerHTML =
+    '<div class="cl-hd"><div class="skel skel-line skel-w25" style="height:17px"></div>' +
+    '<div class="skel skel-line skel-w60" style="height:11px"></div></div>' +
+    '<div class="cl-cards">' + cards + '</div>' +
+    '<div class="cl-sec"><span>Devices</span></div>' +
+    '<div class="cl-tbl">' + rows + '</div>';
+}
+</script>
 {{template "footer" .}}
 {{end}}
 
@@ -74,9 +96,9 @@
   <nav class="cl-side" aria-label="Clients">
     <div class="cl-scap">Clients</div>
     {{range .Slots}}
-    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}"
+    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}" onclick="clPick(this)"
        hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
-       hx-push-url="/clients?slot={{.Slot}}" hx-indicator="#cl-split">
+       hx-push-url="/clients?slot={{.Slot}}">
       <span class="nm">{{.Label}}</span>
       {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
       {{else}}<span class="n">{{.Devices}}</span>{{end}}
@@ -85,7 +107,7 @@
   </nav>
 
   {{with .Selected}}
-  <div>
+  <div id="cl-detail">
     <div class="cl-hd">
       <h2>{{.Label}}</h2>
       <div class="cl-note">{{.Note}}</div>
