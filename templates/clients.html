@@ -59,11 +59,23 @@
   </div>
 </div>
 
-<div class="cl-split">
+<div class="cl-split" id="cl-split">
+{{template "clients-split" .}}
+</div>
+</div>
+{{template "footer" .}}
+{{end}}
+
+{{/* Rail + detail, swapped as one: picking a client re-renders this and nothing else,
+     so the header, dock and scroll position stay put. The rail is inside the fragment
+     because its selected state changes with the detail. */}}
+{{define "clients-split"}}
   <nav class="cl-side" aria-label="Clients">
     <div class="cl-scap">Clients</div>
     {{range .Slots}}
-    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}">
+    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}"
+       hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
+       hx-push-url="/clients?slot={{.Slot}}" hx-indicator="#cl-split">
       <span class="nm">{{.Label}}</span>
       {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
       {{else}}<span class="n">{{.Devices}}</span>{{end}}
@@ -102,7 +114,7 @@
         <input type="hidden" name="type" value="app_update">
         <input type="hidden" name="target_type" value="devices">
         <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
-        <button type="submit" class="btn-sm btn-primary">Update all behind · {{.Behind}}</button>
+        <button type="submit" class="cc-btn sm primary"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update all behind<span class="n">{{.Behind}}</span></button>
       </form>
       {{end}}
     </div>
@@ -124,7 +136,7 @@
           {{if and (ne .State "current") $.Selected.Hosted (canOperate $.Role)}}
           <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0">
             <input type="hidden" name="type" value="app_update">
-            <button type="submit" class="btn-sm">Update</button>
+            <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}}"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           </form>
           {{end}}
         </span>
@@ -158,7 +170,4 @@
     {{if .Hosted}}<div class="cl-sec"><span>Download</span></div><div class="cl-url">{{.URL}}</div>{{end}}
   </div>
   {{end}}
-</div>
-</div>
-{{template "footer" .}}
 {{end}}

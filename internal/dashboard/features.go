@@ -1607,13 +1607,22 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		slots = append(slots, v)
 	}
 
-	h.render(w, r, "clients.html", map[string]any{
+	data := map[string]any{
 		"Title":      "Clients",
 		"ActivePage": "clients",
 		"Slots":      slots,
 		"Selected":   sel,
 		"ServerURL":  h.baseURL(r),
-	})
+	}
+	// Picking a client swaps the rail + detail rather than reloading the page, so the
+	// header, dock and scroll position survive. withRole because the fragment renders
+	// the same role-gated actions the full page does.
+	if r.URL.Query().Get("partial") == "1" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "clients-split", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "clients.html", data)
 }
 
 // AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
