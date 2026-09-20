@@ -1488,6 +1488,24 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 	}
 }
 
+// ExpireStalledOTAs settles OTA rows that stopped acking. Without it a dead download
+// keeps its deployment 'active', and RebootBlockedFor then refuses the reboot that
+// would clear it — the device is stuck until someone cancels the deployment by hand.
+// The window is wider than the install sweep: an OTA package is far larger, and a slow
+// link can legitimately go minutes between percent acks.
+func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
+	const stallMinutes = 30
+	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes)
+	if err != nil {
+		log.Printf("[ota-sweep] ExpireStalledOTAs error: %v", err)
+		return
+	}
+	for _, s := range stalled {
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[ota-sweep] failed stalled OTA device=%s (no progress for %dm)", s.DeviceID, stallMinutes)
+	}
+}
+
 // ExpireOverdueCommands marks non-terminal commands (any type except reboot) that sat
 // 'pending'/'delivered' past their per-type deadline as 'expired', so an undeliverable or
 // never-acted-on command can't sit "in flight" forever. Backstop to the receipt-ack +

@@ -163,6 +163,7 @@ Required: `name, product_code, model_code, batch_month (1â€“12), batch_year (0â€
 ### Commands
 | Method | Path | Purpose |
 |---|---|---|
+| POST | `/api/v1/deployments/{id}/cancel` | Cancel an active deployment (frees devices blocked by it) |
 | GET | `/api/v1/enrollment-profiles` | List enrollment profiles, tokens included |
 | POST | `/api/v1/enrollment-profiles` | Create one and mint its token |
 | GET | `/api/v1/commands` | List commands |

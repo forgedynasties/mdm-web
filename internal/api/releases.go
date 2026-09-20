@@ -225,3 +225,20 @@ func (h *Handler) releaseFromPath(w http.ResponseWriter, r *http.Request) (*db.R
 	rel.Product = p.Key
 	return rel, true
 }
+
+// CancelDeployment stops an active deployment over the admin API. The dashboard has had
+// this since deployments existed; the API had not, and the gap bites exactly when it
+// hurts: a stalled OTA keeps its deployment 'active', RebootBlockedFor then refuses the
+// reboot that would clear the device, and without a browser session there is no way out.
+func (h *Handler) CancelDeployment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid deployment id"})
+		return
+	}
+	if err := h.db.CancelDeployment(r.Context(), id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deployment": id, "status": "canceled"})
+}

@@ -5754,6 +5754,42 @@ type StalledInstall struct {
 // or its terminal ack was lost during the same network outage that stalled the download.
 // Without this the row sits "in flight" forever, because install commands are exempt
 // from the short command TTL. Returns the affected rows so callers can publish updates.
+// ExpireStalledOTAs settles OTA device rows that stopped reporting. An agent that dies
+// mid-download leaves its row at 'downloading' with the percent it last acked, and the
+// deployment stays 'active' forever: RebootBlockedFor then refuses to reboot the device,
+// which is the one action that would clear it, so the only way out is someone noticing
+// and cancelling by hand. This is the same backstop ExpireStalledInstalls gives
+// install_apk — the device is free to be rebooted and re-offered the update.
+//
+// Only rows whose updated_at has not moved for stallMinutes are touched, so a slow but
+// live download (a large package on a poor link acks every few percent) is left alone.
+func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		UPDATE update_devices ud
+		SET status = 'failed', error_code = 'stalled', updated_at = NOW()
+		FROM updates u
+		WHERE ud.update_id = u.id
+		  AND u.status = 'active'
+		  AND ud.status IN ('pending', 'downloading')
+		  AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		RETURNING ud.update_id, ud.device_id
+	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var updateID int
+		var s StalledInstall
+		if err := rows.Scan(&updateID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ExpireStalledInstalls(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
 	rows, err := d.pool.Query(ctx, `
 		UPDATE command_status cs

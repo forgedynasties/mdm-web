@@ -415,6 +415,10 @@ func main() {
 	mux.Handle("GET /api/v1/enrollment-profiles", adminAuth(http.HandlerFunc(apiHandler.ListEnrollmentProfiles)))
 	mux.Handle("POST /api/v1/enrollment-profiles", adminAuth(middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.CreateEnrollmentProfile))))
 
+	// Deployments: cancelling one was dashboard-only, which left a stalled rollout
+	// unclearable without a browser (see internal/api/releases.go).
+	mux.Handle("POST /api/v1/deployments/{id}/cancel", adminAuth(http.HandlerFunc(apiHandler.CancelDeployment)))
+
 	// Commands
 	mux.Handle("GET /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
 	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
@@ -552,6 +556,9 @@ func main() {
 				// connectivity mid-install, terminal ack lost) so they don't sit "in
 				// flight" forever — install commands are exempt from the short TTL. FW-2026-000020
 				runJob(bgCtx, "expire-stalled-installs", time.Minute, apiHandler.ExpireStalledInstalls)
+				// Same, for OTA: a download that stops acking leaves the deployment active
+				// and blocks the reboot that would clear it (RebootBlockedFor).
+				runJob(bgCtx, "expire-stalled-otas", time.Minute, apiHandler.ExpireStalledOTAs)
 				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
 				// devices that are connected now, so an action can't silently never run.
 				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
