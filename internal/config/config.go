@@ -1,13 +1,13 @@
 package config
 
 import (
-	"time"
 	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"mdm/internal/otaconfig"
 )
@@ -45,8 +45,8 @@ type ExtraColumn struct {
 }
 
 type Config struct {
-	ExtraColumns       []ExtraColumn `json:"extra_columns"`
-	LegacyCheckinOn    bool          `json:"legacy_checkin"`
+	ExtraColumns    []ExtraColumn `json:"extra_columns"`
+	LegacyCheckinOn bool          `json:"legacy_checkin"`
 	// Build IDs that identify legacy (WebSocket-incapable) firmware. Devices on these
 	// builds only HTTP check-in, so they never hold a live WS and are shown Offline with a
 	// "Legacy device" tag. Seeded with a default; admins can add/remove via Settings.
@@ -83,6 +83,12 @@ type Config struct {
 	AgentAPKHostedVersion     string `json:"agent_apk_hosted_version"`
 	AgentAPKHostedVersionCode int64  `json:"agent_apk_hosted_version_code"`
 	AgentAPKHostedSHA256Hex   string `json:"agent_apk_hosted_sha256_hex"`
+	// Agent APKs beyond the DPC one, keyed by slot (see dashboard.AgentAPKSlots).
+	// The firmware client is signed with the platform key of its build variant, so
+	// there is one slot per variant and a device is only ever offered the build that
+	// matches its own signing keys. The fields above remain the "dpc" slot, so an
+	// existing config file keeps working untouched.
+	AgentAPKSlotMap map[string]AgentAPKBuild `json:"agent_apk_slots,omitempty"`
 
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
@@ -986,6 +992,62 @@ func (c *Config) SetAgentAPKHostedBuild(pkg, version string, versionCode int64, 
 	c.mu.Lock()
 	c.AgentAPKHostedPackage, c.AgentAPKHostedVersion = pkg, version
 	c.AgentAPKHostedVersionCode, c.AgentAPKHostedSHA256Hex = versionCode, sha256Hex
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// AgentAPKBuild is one hosted agent APK: what it is and what verifies it.
+type AgentAPKBuild struct {
+	SHA         string    `json:"sha"`    // base64url SHA-256 of the file (QR extras)
+	SHA256Hex   string    `json:"sha256"` // hex SHA-256 (what the agent checks)
+	Name        string    `json:"name"`   // original filename, for the operator
+	Size        int64     `json:"size"`
+	At          time.Time `json:"at"`
+	Package     string    `json:"package"`
+	Version     string    `json:"version"`
+	VersionCode int64     `json:"version_code"`
+}
+
+// AgentAPKSlot returns the build hosted in a slot. The "dpc" slot reads the original
+// single-APK fields, so nothing had to be migrated when slots were introduced.
+func (c *Config) AgentAPKSlot(slot string) (AgentAPKBuild, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if slot == "" || slot == "dpc" {
+		if c.AgentAPKHostedSHA == "" {
+			return AgentAPKBuild{}, false
+		}
+		return AgentAPKBuild{
+			SHA: c.AgentAPKHostedSHA, SHA256Hex: c.AgentAPKHostedSHA256Hex,
+			Name: c.AgentAPKHostedName, Size: c.AgentAPKHostedSize, At: c.AgentAPKHostedAt,
+			Package: c.AgentAPKHostedPackage, Version: c.AgentAPKHostedVersion,
+			VersionCode: c.AgentAPKHostedVersionCode,
+		}, true
+	}
+	b, ok := c.AgentAPKSlotMap[slot]
+	return b, ok && b.SHA != ""
+}
+
+// SetAgentAPKSlot records (or, with an empty build, clears) a slot.
+func (c *Config) SetAgentAPKSlot(slot string, b AgentAPKBuild) error {
+	c.mu.Lock()
+	if slot == "" || slot == "dpc" {
+		c.AgentAPKHostedSHA, c.AgentAPKHostedSHA256Hex = b.SHA, b.SHA256Hex
+		c.AgentAPKHostedName, c.AgentAPKHostedSize = b.Name, b.Size
+		c.AgentAPKHostedPackage, c.AgentAPKHostedVersion = b.Package, b.Version
+		c.AgentAPKHostedVersionCode = b.VersionCode
+		c.AgentAPKHostedAt = b.At
+	} else {
+		if c.AgentAPKSlotMap == nil {
+			c.AgentAPKSlotMap = map[string]AgentAPKBuild{}
+		}
+		if b.SHA == "" {
+			delete(c.AgentAPKSlotMap, slot)
+		} else {
+			c.AgentAPKSlotMap[slot] = b
+		}
+	}
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

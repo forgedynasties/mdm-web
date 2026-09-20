@@ -165,6 +165,11 @@ func CommandNeeds(cmdType string) string { return commandNeeds[cmdType] }
 var firmwareBaseCaps = []string{
 	CapKiosk, CapInstallAPK, CapUninstall, CapReboot, CapTelemetry,
 	CapScreenCapture, CapInput, CapLogcat, CapShell, CapOTA, CapUpdateSplash,
+	// The client can install a newer build of itself (ClientUpdater): it holds
+	// INSTALL_PACKAGES and runs as system uid, so no firmware OTA is needed for a
+	// client change. Offered only when a matching build is hosted for the device's
+	// signing variant — see agentUpdateTarget.
+	CapSelfUpdate,
 }
 
 // DefaultCaps is the capability set assumed for a firmware device that has not

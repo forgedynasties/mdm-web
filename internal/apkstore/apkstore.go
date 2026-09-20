@@ -38,7 +38,7 @@ type Meta struct {
 	Package     string
 	Label       string
 	VersionName string
-	VersionCode int32 // 0 when the manifest has none
+	VersionCode int32  // 0 when the manifest has none
 	IconPNGB64  string // base64 PNG launcher icon, "" if none
 }
 

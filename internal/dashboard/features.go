@@ -1,21 +1,22 @@
 package dashboard
 
 import (
-	"path/filepath"
-	"io"
-	"crypto/sha256"
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"regexp"
-	"context"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,8 +25,9 @@ import (
 	"github.com/google/uuid"
 	qrcode "github.com/skip2/go-qrcode"
 
-	"mdm/internal/db"
 	"mdm/internal/apkstore"
+	"mdm/internal/config"
+	"mdm/internal/db"
 	"mdm/internal/product"
 )
 
@@ -1360,15 +1362,16 @@ func (h *Handler) agentAPKURL(r *http.Request) string {
 // itself. ok is false when nothing is hosted, or when the hosted file's version
 // could not be read — without a version code there is no way to tell whether a
 // device is behind, so no update is offered.
-func (h *Handler) agentUpdateTarget(r *http.Request) (url, pkg, version string, code int64, sha256Hex string, ok bool) {
-	if !h.cfg.AgentAPKHosted() {
+func (h *Handler) agentUpdateTarget(r *http.Request, slot string) (url, pkg, version string, code int64, sha256Hex string, ok bool) {
+	b, found := h.cfg.AgentAPKSlot(slot)
+	if !found || b.Package == "" || b.VersionCode == 0 {
 		return "", "", "", 0, "", false
 	}
-	pkg, version, code, sha256Hex = h.cfg.AgentAPKHostedBuild()
-	if pkg == "" || code == 0 {
+	name, known := AgentAPKSlots[slot]
+	if !known {
 		return "", "", "", 0, "", false
 	}
-	return h.baseURL(r) + agentAPKRoute, pkg, version, code, sha256Hex, true
+	return h.baseURL(r) + "/agent/" + name, b.Package, b.Version, b.VersionCode, b.SHA256Hex, true
 }
 
 // agentUpdatePayload is what an app_update command carries: the package the agent
@@ -1398,7 +1401,12 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 	if d == nil || !d.Supports(product.CapSelfUpdate) {
 		return st
 	}
-	_, _, version, code, _, ok := h.agentUpdateTarget(r)
+	slot := agentSlotFor(d)
+	st.Hosted = false
+	if _, hosted := h.cfg.AgentAPKSlot(slot); hosted {
+		st.Hosted = true
+	}
+	_, _, version, code, _, ok := h.agentUpdateTarget(r, slot)
 	if !ok {
 		return st
 	}
@@ -1407,6 +1415,153 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 	cur := extraInt64(d.LatestExtra, "agent_version_code")
 	st.Available = cur < code
 	return st
+}
+
+// ── Clients page ──────────────────────────────────────────────────────────────
+
+// ClientSlotView is one hosted agent build and how the fleet stands against it.
+type ClientSlotView struct {
+	Slot     string
+	Label    string
+	Note     string // what this slot is for, in words
+	Hosted   bool
+	Build    config.AgentAPKBuild
+	URL      string
+	Devices  int // devices this slot applies to
+	UpToDate int
+	Behind   int
+	Unknown  int // never reported a version — an older client, or one that predates reporting
+	Versions []ClientVersionCount
+}
+
+// ClientVersionCount is one version and how many devices run it.
+type ClientVersionCount struct {
+	Version string
+	Code    int64
+	Count   int
+	Current bool
+}
+
+// ClientsPage is client management: which build of which agent each device runs,
+// what this server hosts for it, and how far behind the fleet is. The agent is the
+// thing that makes every other page work, so it gets a page rather than a corner of
+// Settings.
+func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	order := []string{"dpc", "firmware-release-keys", "firmware-test-keys"}
+	labels := map[string]string{
+		"dpc":                   "DPC agent",
+		"firmware-release-keys": "Firmware client · release-keys",
+		"firmware-test-keys":    "Firmware client · test-keys",
+	}
+	notes := map[string]string{
+		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
+		"firmware-release-keys": "Our own hardware on a user build. Signed with the release platform key.",
+		"firmware-test-keys":    "Our own hardware on a userdebug build. Signed with the test platform key.",
+	}
+
+	views := map[string]*ClientSlotView{}
+	counts := map[string]map[int64]*ClientVersionCount{}
+	for _, slot := range order {
+		b, hosted := h.cfg.AgentAPKSlot(slot)
+		v := &ClientSlotView{Slot: slot, Label: labels[slot], Note: notes[slot], Hosted: hosted, Build: b}
+		if hosted {
+			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
+		}
+		views[slot] = v
+		counts[slot] = map[int64]*ClientVersionCount{}
+	}
+
+	for i := range devices {
+		d := &devices[i]
+		// MDM-lite lives inside someone else's app; its updates come from the app
+		// library, not from a build this server hosts.
+		if d.IsMDMLite() {
+			continue
+		}
+		v := views[agentSlotFor(d)]
+		if v == nil {
+			continue
+		}
+		v.Devices++
+		code := extraInt64(d.LatestExtra, "agent_version_code")
+		name := extraString(d.LatestExtra, "agent_version")
+		if name == "—" {
+			name = ""
+		}
+		switch {
+		case code == 0:
+			v.Unknown++
+		case v.Hosted && code >= v.Build.VersionCode:
+			v.UpToDate++
+		case v.Hosted:
+			v.Behind++
+		}
+		if code == 0 && name == "" {
+			continue
+		}
+		c := counts[v.Slot][code]
+		if c == nil {
+			c = &ClientVersionCount{Version: name, Code: code}
+			counts[v.Slot][code] = c
+		}
+		c.Count++
+		c.Current = v.Hosted && code == v.Build.VersionCode
+	}
+
+	var slots []*ClientSlotView
+	for _, slot := range order {
+		v := views[slot]
+		for _, c := range counts[slot] {
+			v.Versions = append(v.Versions, *c)
+		}
+		sort.Slice(v.Versions, func(i, j int) bool { return v.Versions[i].Code > v.Versions[j].Code })
+		slots = append(slots, v)
+	}
+
+	h.render(w, r, "clients.html", map[string]any{
+		"Title":      "Clients",
+		"ActivePage": "clients",
+		"Slots":      slots,
+	})
+}
+
+// ClientsAPKPublish hosts a new build for one slot, from the Clients page. Same
+// storage and parsing as the admin API — the page is another door onto it.
+func (h *Handler) ClientsAPKPublish(w http.ResponseWriter, r *http.Request) {
+	slot := r.PathValue("slot")
+	if _, ok := AgentAPKSlots[slot]; !ok {
+		h.hxDoneToast(w, r, "/clients", "Unknown client slot", "error")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 128<<20)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		h.hxDoneToast(w, r, "/clients", "Upload failed: file too large or malformed", "error")
+		return
+	}
+	file, hdr, err := r.FormFile("apk")
+	if err != nil {
+		h.hxDoneToast(w, r, "/clients", "Choose an APK file first", "error")
+		return
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), slot)
+	if err != nil {
+		h.hxDoneToast(w, r, "/clients", "Upload failed: "+err.Error(), "error")
+		return
+	}
+	built := describeAgentBuild(meta)
+	h.audit(r, "clients.publish", slot, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, built))
+	h.hxDoneToast(w, r, "/clients", AgentAPKSlots[slot]+" hosted"+built, "success")
 }
 
 // AgentAPKDir is where an uploaded agent APK lives (env AGENT_APK_DIR, default
@@ -1421,17 +1576,67 @@ func AgentAPKDir() string {
 const agentAPKFile = "aio-mdm-dpc.apk"
 const agentAPKRoute = "/agent/" + agentAPKFile
 
+// AgentAPKSlots are the agent builds this server can host at once. There is one per
+// thing that has to be signed differently: the DPC agent has its own key, and the
+// firmware client is signed with the platform key of its build variant — user builds
+// with release-keys, userdebug with test-keys. A device is only ever offered the slot
+// matching its own signing keys, because Android rejects anything else.
+var AgentAPKSlots = map[string]string{
+	"dpc":                   agentAPKFile,
+	"firmware-release-keys": "aio-mdm-firmware-release-keys.apk",
+	"firmware-test-keys":    "aio-mdm-firmware-test-keys.apk",
+}
+
+// agentAPKPath is where a slot's APK lives on disk ("" for an unknown slot).
+func agentAPKPath(slot string) string {
+	name, ok := AgentAPKSlots[slot]
+	if !ok {
+		return ""
+	}
+	return filepath.Join(AgentAPKDir(), name)
+}
+
+// agentSlotFor picks the slot a device can actually install: the DPC agent for a DPC
+// device, else the firmware client built with the same platform key as the image on
+// the device. A device that has not reported its build tags is assumed to be a user
+// build, which is what the fleet runs.
+func agentSlotFor(d *db.Device) string {
+	if d == nil {
+		return "dpc"
+	}
+	if d.IsDPC() {
+		return "dpc"
+	}
+	tags := strings.TrimSpace(extraString(d.LatestExtra, "build_tags"))
+	if tags == "" || tags == "—" || strings.Contains(tags, "release-keys") {
+		return "firmware-release-keys"
+	}
+	return "firmware-test-keys"
+}
+
 // AgentAPKDownload serves the hosted agent APK. Unauthenticated on purpose: a
 // factory-reset phone fetches it from the provisioning QR before any account
 // exists. It contains nothing secret — the enrollment token travels in the QR's
 // admin extras, not in the APK.
 func (h *Handler) AgentAPKDownload(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.AgentAPKHosted() {
+	// The file name in the URL names the slot; an unknown name is simply not found.
+	want := path.Base(r.URL.Path)
+	slot := ""
+	for s, name := range AgentAPKSlots {
+		if name == want {
+			slot = s
+			break
+		}
+	}
+	if slot == "" {
 		http.NotFound(w, r)
 		return
 	}
-	path := filepath.Join(AgentAPKDir(), agentAPKFile)
-	f, err := os.Open(path)
+	if _, ok := h.cfg.AgentAPKSlot(slot); !ok {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := os.Open(agentAPKPath(slot))
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -1439,9 +1644,9 @@ func (h *Handler) AgentAPKDownload(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 	st, _ := f.Stat()
 	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+agentAPKFile+`"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+want+`"`)
 	w.Header().Set("Cache-Control", "no-store")
-	http.ServeContent(w, r, agentAPKFile, st.ModTime(), f)
+	http.ServeContent(w, r, want, st.ModTime(), f)
 }
 
 // SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe
@@ -1464,7 +1669,7 @@ func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename))
+	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), "dpc")
 	if err != nil {
 		h.hxDoneToast(w, r, "/settings", "Upload failed: "+err.Error(), "error")
 		return
@@ -1478,9 +1683,17 @@ func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request)
 // a build machine PUTs the signed APK here (X-API-Key, raw body or multipart) the
 // moment it finishes signing, instead of someone carrying the file to a browser.
 func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
+	slot := strings.TrimSpace(r.URL.Query().Get("slot"))
+	if slot == "" {
+		slot = "dpc"
+	}
+	if _, ok := AgentAPKSlots[slot]; !ok {
+		writeJSONError(w, http.StatusBadRequest, "unknown slot "+slot+" (dpc, firmware-release-keys, firmware-test-keys)")
+		return
+	}
 	var (
 		data []byte
-		name = agentAPKFile
+		name = AgentAPKSlots[slot]
 		err  error
 	)
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -1506,13 +1719,14 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "could not read body")
 		return
 	}
-	sha, meta, err := h.storeAgentAPK(data, name)
+	sha, meta, err := h.storeAgentAPK(data, name, slot)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.audit(r, "api.agent_apk_publish", name, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, describeAgentBuild(meta)))
-	resp := map[string]any{"bytes": len(data), "sha256_base64url": sha, "url": h.agentAPKURL(r)}
+	h.audit(r, "api.agent_apk_publish", name, fmt.Sprintf("slot %s, %d bytes sha256 %s%s", slot, len(data), sha, describeAgentBuild(meta)))
+	resp := map[string]any{"bytes": len(data), "sha256_base64url": sha, "slot": slot,
+		"url": h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]}
 	if meta != nil {
 		resp["package"] = meta.Package
 		resp["version_name"] = meta.VersionName
@@ -1526,7 +1740,7 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 // file lands first, then the config, so a parse failure still leaves a downloadable
 // APK for QR provisioning — it just can't be offered as an update (no version, no
 // way to know who is behind). Returns the base64url digest for the QR extras.
-func (h *Handler) storeAgentAPK(data []byte, filename string) (string, *apkstore.Meta, error) {
+func (h *Handler) storeAgentAPK(data []byte, filename, slot string) (string, *apkstore.Meta, error) {
 	// An APK is a zip: PK. Anything else is a wrong file.
 	if len(data) < 4 || string(data[:2]) != "PK" {
 		return "", nil, errors.New("that is not an APK (zip) file")
@@ -1534,28 +1748,36 @@ func (h *Handler) storeAgentAPK(data []byte, filename string) (string, *apkstore
 	if err := os.MkdirAll(AgentAPKDir(), 0o755); err != nil {
 		return "", nil, err
 	}
-	path := filepath.Join(AgentAPKDir(), agentAPKFile)
-	tmp := path + ".tmp"
+	dest := agentAPKPath(slot)
+	if dest == "" {
+		return "", nil, errors.New("unknown agent slot " + slot)
+	}
+	tmp := dest + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return "", nil, err
 	}
-	if err := os.Rename(tmp, path); err != nil {
+	if err := os.Rename(tmp, dest); err != nil {
 		return "", nil, err
 	}
 	sum := sha256.Sum256(data)
 	sha := base64.RawURLEncoding.EncodeToString(sum[:])
 	if filename == "" {
-		filename = agentAPKFile
+		filename = AgentAPKSlots[slot]
 	}
-	if err := h.cfg.SetAgentAPKHosted(sha, filename, int64(len(data))); err != nil {
+	build := config.AgentAPKBuild{
+		SHA: sha, SHA256Hex: hex.EncodeToString(sum[:]),
+		Name: filename, Size: int64(len(data)), At: time.Now(),
+	}
+	meta, perr := apkstore.ParseFile(dest)
+	if perr == nil {
+		build.Package, build.Version, build.VersionCode = meta.Package, meta.VersionName, int64(meta.VersionCode)
+	}
+	if err := h.cfg.SetAgentAPKSlot(slot, build); err != nil {
 		return "", nil, err
 	}
-	meta, perr := apkstore.ParseFile(path)
 	if perr != nil {
-		_ = h.cfg.SetAgentAPKHostedBuild("", "", 0, hex.EncodeToString(sum[:]))
 		return sha, nil, nil
 	}
-	_ = h.cfg.SetAgentAPKHostedBuild(meta.Package, meta.VersionName, int64(meta.VersionCode), hex.EncodeToString(sum[:]))
 	return sha, meta, nil
 }
 

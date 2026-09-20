@@ -1,0 +1,90 @@
+{{define "clients.html"}}
+{{template "header" .}}
+{{/* Clients: which build of which agent the fleet runs, what this server hosts for
+     each one, and how far behind everyone is. One slot per thing that has to be
+     signed differently — the DPC agent has its own key, the firmware client is signed
+     with the platform key of its build variant, and a device is only ever offered the
+     build that matches its own keys. */}}
+<style>
+.cl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden}
+.cl-hd{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border-soft)}
+.cl-hd h2{margin:0;font-size:15px;font-weight:600}
+.cl-note{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:62ch}
+.cl-ver{margin-left:auto;text-align:right;white-space:nowrap}
+.cl-vnum{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.cl-vmeta{font-size:11.5px;color:var(--text-faint);font-family:var(--mono);margin-top:2px}
+.cl-none{font-size:12.5px;color:var(--warn);font-weight:600}
+.cl-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border-soft)}
+.cl-stat{background:var(--surface);padding:14px 18px}
+.cl-n{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.cl-k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-top:4px}
+.cl-n.behind{color:var(--warn)}
+.cl-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border-soft)}
+.cl-vers{display:flex;flex-wrap:wrap;gap:6px}
+.cl-vtag{font-size:11.5px;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
+.cl-vtag b{font-weight:600;color:var(--text)}
+.cl-vtag.cur{background:var(--ok-bg,var(--surface2));color:var(--text)}
+.cl-up{margin-left:auto;display:flex;gap:8px;align-items:center}
+.cl-url{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);word-break:break-all}
+.cl-pub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cl-pub input[type=file]{font:inherit;font-size:12.5px;max-width:280px}
+</style>
+
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Clients</div>
+    <h1 class="cc-h1">Clients</h1>
+    <div class="cc-sub">The MDM client on each device, and the build this server hosts for it. A device is only offered a build signed with the same key as the one it already runs, so the firmware client has a slot per variant. MDM Lite updates from the app library instead and is not listed here.</div>
+  </div>
+</div>
+
+{{range .Slots}}
+<div class="cl-card">
+  <div class="cl-hd">
+    <div>
+      <h2>{{.Label}}</h2>
+      <div class="cl-note">{{.Note}}</div>
+    </div>
+    <div class="cl-ver">
+      {{if .Hosted}}
+        <div class="cl-vnum">{{if .Build.Version}}{{.Build.Version}}{{else}}unknown version{{end}}</div>
+        <div class="cl-vmeta">{{if .Build.VersionCode}}code {{.Build.VersionCode}} · {{end}}{{.Build.Package}}</div>
+      {{else}}
+        <div class="cl-none">Nothing hosted</div>
+        <div class="cl-vmeta">no updates can be offered</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="cl-body">
+    <div class="cl-stat"><div class="cl-n">{{.Devices}}</div><div class="cl-k">Devices</div></div>
+    <div class="cl-stat"><div class="cl-n">{{.UpToDate}}</div><div class="cl-k">On this build</div></div>
+    <div class="cl-stat"><div class="cl-n{{if .Behind}} behind{{end}}">{{.Behind}}</div><div class="cl-k">Behind</div></div>
+    <div class="cl-stat"><div class="cl-n">{{.Unknown}}</div><div class="cl-k">No version reported</div></div>
+  </div>
+
+  {{if .Versions}}
+  <div class="cl-foot">
+    <span class="cl-vers">{{range .Versions}}<span class="cl-vtag{{if .Current}} cur{{end}}">{{if .Version}}{{.Version}}{{else}}unversioned{{end}} <b>{{.Count}}</b></span>{{end}}</span>
+  </div>
+  {{end}}
+
+  <div class="cl-foot">
+    {{if .Hosted}}<span class="cl-url">{{.URL}}</span>{{end}}
+    {{if canAdmin $.Role}}
+    <span class="cl-up">
+      <form class="cl-pub" method="POST" action="/clients/{{.Slot}}/publish" enctype="multipart/form-data">
+        <input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required aria-label="APK for {{.Label}}">
+        <button type="submit" class="btn-sm">Publish</button>
+      </form>
+    </span>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+<div class="cc-sub" style="margin-top:4px">A build machine can publish the same way: <span class="cl-url">POST /api/v1/agent-apk?slot=&lt;slot&gt;</span> with the admin API key.</div>
+</div>
+{{template "footer" .}}
+{{end}}

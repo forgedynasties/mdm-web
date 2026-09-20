@@ -17287,12 +17287,31 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			items = []cmdItem{{apkURL: u, payload: buildPayload(cmdType, r)}}
 			break
 		}
-		url, pkg, version, _, sha, ok := h.agentUpdateTarget(r)
-		if !ok {
-			http.Error(w, "No agent APK is hosted — upload one in Settings first.", http.StatusBadRequest)
+		// Targets can span agent kinds and signing variants, and each may only install
+		// its own build — so this becomes one command per slot actually present in the
+		// target set, rather than one URL for everybody.
+		targets, err := h.db.GetDevicesByIDs(r.Context(), targetIDs)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		items = []cmdItem{{apkURL: url, payload: agentUpdatePayload(pkg, version, sha)}}
+		slots := map[string]bool{}
+		for i := range targets {
+			if targets[i].Supports("app_update") {
+				slots[agentSlotFor(&targets[i])] = true
+			}
+		}
+		for slot := range slots {
+			url, pkg, version, _, sha, ok := h.agentUpdateTarget(r, slot)
+			if !ok {
+				continue
+			}
+			items = append(items, cmdItem{apkURL: url, payload: agentUpdatePayload(pkg, version, sha)})
+		}
+		if len(items) == 0 {
+			http.Error(w, "No agent build is hosted for the targeted devices' agents and signing keys — publish one first.", http.StatusBadRequest)
+			return
+		}
 	default:
 		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: buildPayload(cmdType, r)}}
 	}
@@ -20303,9 +20322,9 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	// An agent update names no APK: it is always the build this server hosts, so the
 	// console never has to know a URL and can't point a device at the wrong one.
 	if cmdType == "app_update" && apkURL == "" {
-		url, pkg, version, _, sha, ok := h.agentUpdateTarget(r)
+		url, pkg, version, _, sha, ok := h.agentUpdateTarget(r, agentSlotFor(device))
 		if !ok {
-			http.Error(w, "No agent APK is hosted — upload one in Settings first.", http.StatusBadRequest)
+			http.Error(w, "No agent build is hosted for this device's agent and signing keys — publish one first.", http.StatusBadRequest)
 			return
 		}
 		apkURL = url
@@ -21629,9 +21648,16 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
+	// Clients: what each device's MDM client is, and the builds hosted for it.
+	mux.HandleFunc("GET /clients", h.requireAuth(h.ClientsPage))
+	post("POST /clients/{slot}/publish", h.requireStrictAdmin(h.ClientsAPKPublish))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
-	mux.HandleFunc("GET /agent/aio-mdm-dpc.apk", h.AgentAPKDownload)
+	// One route per hosted agent slot (DPC, and the firmware client per signing
+	// variant). Unauthenticated on purpose — see AgentAPKDownload.
+	for _, name := range AgentAPKSlots {
+		mux.HandleFunc("GET /agent/"+name, h.AgentAPKDownload)
+	}
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)
