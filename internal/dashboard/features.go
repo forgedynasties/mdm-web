@@ -211,6 +211,13 @@ func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 		sha, _, _, _ := h.cfg.AgentAPKHostedInfo()
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = h.baseURL(r) + agentAPKRoute
 		payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM"] = sha
+		// PACKAGE_CHECKSUM (the file hash) has been deprecated since API 26, and a modern
+		// setup wizard may ignore it. When the signing-certificate checksum is also known,
+		// send it too: Android prefers it and checks the signer instead of the bytes, which
+		// also survives re-hosting the same app signed with the same key.
+		if sum := h.cfg.AgentAPKChecksum(); sum != "" {
+			payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM"] = sum
+		}
 	} else {
 		if apkURL := h.cfg.AgentAPKURL(); apkURL != "" {
 			payload["android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION"] = apkURL
