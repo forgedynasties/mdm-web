@@ -4577,6 +4577,34 @@ func (d *DB) CountDPCDevices(ctx context.Context, ids []uuid.UUID) (int, error) 
 	return n, err
 }
 
+// MDMLiteIDs picks out the targets running MDM Lite. Lite is stored as agent_kind
+// 'dpc' — every non-firmware rule applies to it — and is told apart only by
+// latest_extra.agent_type, which GetDevicesByIDs deliberately does not load: that
+// column is the whole check-in blob, and a fleet-wide action resolves thousands of
+// rows. Asking for the one field keeps Device.IsMDMLite's answer available without
+// dragging the blob along.
+func (d *DB) MDMLiteIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id FROM devices
+		WHERE id = ANY($1) AND NOT hidden AND latest_extra->>'agent_type' = 'mdm-lite'`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
 // GetDeviceIDsInGroups expands a set of group IDs into the distinct device IDs that
 // belong to any of them. Used to target ad-hoc actions (e.g. a fleet log capture)
 // at whole groups while operating on concrete devices.

@@ -15110,9 +15110,10 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	// MDM Lite is stored as a DPC kind, so a fleet with one of each looked like two
 	// Device Owners. Per-kind support drives the badges on every action card, and the
 	// per-kind split of what cannot run it is what the skip list reads out.
+	liteIDs, _ := h.db.MDMLiteIDs(r.Context(), ids)
 	kindOf := func(d db.Device) string {
 		switch {
-		case d.IsMDMLite():
+		case liteIDs[d.ID]:
 			return "lite"
 		case d.IsDPC():
 			return "dpc"
