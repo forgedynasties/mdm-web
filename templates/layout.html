@@ -395,6 +395,7 @@
     <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>
     <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>
     <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
+    {{if or (canAdminOrOperator .Role) (canManageUsers .Role) (eq .Role "admin")}}<button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="true" aria-expanded="false" onclick="navAdmin(event)" data-cmdk-label="More"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>{{end}}
   </nav>
 
   {{/* Everyone gets the same dock: the four pages the job is done in. What only some
@@ -402,13 +403,17 @@
        rail instead, so the main navigation does not change shape per person. The rail
        renders nothing at all for a role with no entries in it. */}}
   {{if or (canAdminOrOperator .Role) (canManageUsers .Role) (eq .Role "admin")}}
-  <nav class="srail" aria-label="Administration">
-    {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}<a href="/updates" class="nav-link js-dest{{if eq .ActivePage "updates"}} active{{end}}" data-cmdk-label="Updates"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Updates</span></a>{{end}}{{end}}
-    {{if canAdminOrOperator .Role}}<a href="/clients" class="nav-link js-dest{{if eq .ActivePage "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
-    {{if ne .Role "owner"}}{{if eq .Role "admin"}}<a href="/manage" class="nav-link js-dest{{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}{{end}}
-    {{if eq .Role "admin"}}<a href="/products" class="nav-link js-dest{{if eq .ActivePage "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}
-    {{if ne .Role "owner"}}{{if canManageUsers .Role}}<a href="/users" class="nav-link js-dest{{if eq .ActivePage "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}{{end}}
-  </nav>
+  {{/* The admin pages hang off one "More" in the dock rather than a second floating
+       rail: one navigation object, and the dock still looks the same for everyone —
+       a role with none of these simply has no More. */}}
+  <div class="nbar-pop nbar-menu dock-more-pop" id="admin-pop" hidden>
+    <div class="nbar-mcap">Administration</div>
+      {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}<a href="/updates" class="nbar-mi js-dest{{if eq .ActivePage "updates"}} active{{end}}" data-cmdk-label="Updates"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Updates</span></a>{{end}}{{end}}
+      {{if canAdminOrOperator .Role}}<a href="/clients" class="nbar-mi js-dest{{if eq .ActivePage "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
+      {{if ne .Role "owner"}}{{if eq .Role "admin"}}<a href="/manage" class="nbar-mi js-dest{{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}{{end}}
+      {{if eq .Role "admin"}}<a href="/products" class="nbar-mi js-dest{{if eq .ActivePage "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}
+      {{if ne .Role "owner"}}{{if canManageUsers .Role}}<a href="/users" class="nbar-mi js-dest{{if eq .ActivePage "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}{{end}}
+  </div>
   {{end}}
   {{end}}
 
@@ -427,7 +432,7 @@
     // its compositing layer, which shows up as a one-frame flicker (blur cuts out
     // then back in) if done while the popup is becoming visible. Doing it once,
     // hidden, before any open avoids that entirely.
-    ['alerts-pop', 'acct-pop'].forEach(function (id) {
+    ['alerts-pop', 'acct-pop', 'admin-pop'].forEach(function (id) {
       var p = document.getElementById(id);
       if (p && p.parentElement !== document.body) document.body.appendChild(p);
     });
@@ -440,9 +445,19 @@
         if (b) {
           var r = b.getBoundingClientRect();
           p.style.position = 'fixed';
-          p.style.top = (r.bottom + 9) + 'px';
-          p.style.left = 'auto';
-          p.style.right = (window.innerWidth - r.right) + 'px';
+          if (p.classList.contains('dock-more-pop')) {
+            // The dock lives at the bottom of the viewport, so its menu opens upward
+            // and is centred on the button rather than right-aligned to it.
+            p.removeAttribute('hidden');
+            var h = p.offsetHeight, w = p.offsetWidth;
+            p.style.top = Math.max(12, r.top - h - 10) + 'px';
+            p.style.right = 'auto';
+            p.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px';
+          } else {
+            p.style.top = (r.bottom + 9) + 'px';
+            p.style.left = 'auto';
+            p.style.right = (window.innerWidth - r.right) + 'px';
+          }
         }
         p.removeAttribute('hidden');
       } else {
@@ -451,6 +466,14 @@
       var b = document.querySelector(btnSel);
       if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
+    window.navAdmin = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      var p = document.getElementById('admin-pop'); if (!p) return;
+      var willOpen = p.hasAttribute('hidden');
+      pop('acct-pop', '.appbar-acct', false);
+      pop('alerts-pop', '#alerts-indicator', false);
+      pop('admin-pop', '#dock-more', willOpen);
+    };
     window.navAcct = function (e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       var willOpen = document.getElementById('acct-pop').hasAttribute('hidden');
@@ -498,6 +521,8 @@
       // wrap and the popup, not just the wrap.
       var aw = document.getElementById('acct-wrap'), ap = document.getElementById('acct-pop');
       if (!(aw && aw.contains(e.target)) && !(ap && ap.contains(e.target))) pop('acct-pop', '.appbar-acct', false);
+      var mb = document.getElementById('dock-more'), mp = document.getElementById('admin-pop');
+      if (!(mb && mb.contains(e.target)) && !(mp && mp.contains(e.target))) pop('admin-pop', '#dock-more', false);
       var lw = document.getElementById('alerts-wrap'), lp = document.getElementById('alerts-pop');
       if (!(lw && lw.contains(e.target)) && !(lp && lp.contains(e.target))) pop('alerts-pop', '#alerts-indicator', false);
     });
@@ -517,6 +542,7 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
+        pop('admin-pop', '#dock-more', false);
         var m = document.getElementById('whatsnew'); if (m && m.classList.contains('modal-open')) navWhatsNew();
       }
     });

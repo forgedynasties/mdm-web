@@ -89,6 +89,10 @@ type Config struct {
 	// matches its own signing keys. The fields above remain the "dpc" slot, so an
 	// existing config file keeps working untouched.
 	AgentAPKSlotMap map[string]AgentAPKBuild `json:"agent_apk_slots,omitempty"`
+	// What has been published to each slot, newest first. The slot map holds only the
+	// build being served; this is the trail behind it, so the Clients page can show a
+	// client's releases rather than a single row.
+	AgentAPKHistoryMap map[string][]AgentAPKBuild `json:"agent_apk_history,omitempty"`
 
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
@@ -1007,6 +1011,10 @@ type AgentAPKBuild struct {
 	Package     string    `json:"package"`
 	Version     string    `json:"version"`
 	VersionCode int64     `json:"version_code"`
+	// What changed in this build, as the publisher described it (CI sends the commit
+	// subject). Shown against the release on the Clients page — a version number on its
+	// own does not tell an operator whether it is worth pushing.
+	Changelog string `json:"changelog,omitempty"`
 }
 
 // AgentAPKSlot returns the build hosted in a slot. The "dpc" slot reads the original
@@ -1018,12 +1026,17 @@ func (c *Config) AgentAPKSlot(slot string) (AgentAPKBuild, bool) {
 		if c.AgentAPKHostedSHA == "" {
 			return AgentAPKBuild{}, false
 		}
-		return AgentAPKBuild{
+		b := AgentAPKBuild{
 			SHA: c.AgentAPKHostedSHA, SHA256Hex: c.AgentAPKHostedSHA256Hex,
 			Name: c.AgentAPKHostedName, Size: c.AgentAPKHostedSize, At: c.AgentAPKHostedAt,
 			Package: c.AgentAPKHostedPackage, Version: c.AgentAPKHostedVersion,
 			VersionCode: c.AgentAPKHostedVersionCode,
-		}, true
+		}
+		// The dpc slot predates the slot map, so its changelog is the newest history entry.
+		if h := c.AgentAPKHistoryMap["dpc"]; len(h) > 0 && h[0].SHA == b.SHA {
+			b.Changelog = h[0].Changelog
+		}
+		return b, true
 	}
 	b, ok := c.AgentAPKSlotMap[slot]
 	return b, ok && b.SHA != ""
@@ -1048,9 +1061,42 @@ func (c *Config) SetAgentAPKSlot(slot string, b AgentAPKBuild) error {
 			c.AgentAPKSlotMap[slot] = b
 		}
 	}
+	// Keep the trail: the same build published twice replaces its entry rather than
+	// stacking duplicates, and the list is capped so config.json cannot grow forever.
+	if b.SHA != "" {
+		if c.AgentAPKHistoryMap == nil {
+			c.AgentAPKHistoryMap = map[string][]AgentAPKBuild{}
+		}
+		key := slot
+		if key == "" {
+			key = "dpc"
+		}
+		hist := make([]AgentAPKBuild, 0, len(c.AgentAPKHistoryMap[key])+1)
+		hist = append(hist, b)
+		for _, old := range c.AgentAPKHistoryMap[key] {
+			if old.SHA == b.SHA {
+				continue
+			}
+			hist = append(hist, old)
+		}
+		if len(hist) > 12 {
+			hist = hist[:12]
+		}
+		c.AgentAPKHistoryMap[key] = hist
+	}
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
+}
+
+// AgentAPKHistory is what has been published to a slot, newest first.
+func (c *Config) AgentAPKHistory(slot string) []AgentAPKBuild {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if slot == "" {
+		slot = "dpc"
+	}
+	return append([]AgentAPKBuild(nil), c.AgentAPKHistoryMap[slot]...)
 }
 
 // AgentAPKHostedBuild is the hosted agent's package, version name, version code and

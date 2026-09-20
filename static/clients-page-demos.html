@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clients page — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1180px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 24px;max-width:880px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:#111;border-radius:6px;padding:3px 8px;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:2px;}
+.now{display:inline-block;font-size:10.5px;font-weight:700;color:#8a5a00;background:#fdf1dc;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:2px;}
+.dname{font-weight:700;font-size:16px;margin:7px 0 3px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:880px;line-height:1.55;}
+.for{font-size:12.5px;margin:12px 0 30px;max-width:880px;line-height:1.6;}
+.for b{color:var(--text);}
+.demo{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg);margin-bottom:6px;}
+.demo-in{padding:18px;}
+
+/* tabs */
+.ctabs{display:flex;gap:4px;border-bottom:1px solid var(--border);padding:0 18px;background:var(--surface);overflow-x:auto;}
+.ctab{padding:11px 13px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;cursor:pointer;}
+.ctab.on{color:var(--text);border-bottom-color:var(--accent,#7a80f6);}
+.ctab .n{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--text-2,#555);border-radius:20px;padding:1px 6px;}
+.ctab.warn .n{background:#fdf1dc;color:#8a5a00;}
+
+/* summary cards */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px;}
+.card .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint,#999);margin-bottom:6px;}
+.card .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;}
+.card .sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.card.warn .v{color:#b8761b;}
+.card.hero{grid-column:span 1;}
+.card .mono{font-family:var(--mono);font-size:11px;color:var(--text-faint,#999);margin-top:4px;word-break:break-all;}
+
+/* table */
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;}
+.tbl .hd,.tbl .tr{display:grid;grid-template-columns:minmax(150px,1.3fr) 110px 120px 130px 92px;align-items:center;gap:14px;padding:0 15px;}
+.tbl .hd{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#999);border-bottom:1px solid var(--border);}
+.tbl .tr{min-height:46px;border-top:1px solid var(--border-soft);font-size:12.5px;}
+.tbl .tr:first-of-type{border-top:0;}
+.tbl .sn{font-family:var(--mono);font-size:12px;}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;}
+.tag.ok{background:#e6f6ee;color:#1c7d50;}
+.tag.behind{background:#fdf1dc;color:#8a5a00;}
+.tag.unk{background:var(--surface2);color:var(--muted);}
+.mini{font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:4px 9px;display:inline-block;}
+.mini.pri{background:var(--accent,#7a80f6);border-color:var(--accent,#7a80f6);color:#fff;}
+
+/* releases */
+.rel{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-top:14px;}
+.rel .rhd{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:700;}
+.rel .rr{display:grid;grid-template-columns:110px 1fr 120px 92px;gap:14px;align-items:center;padding:10px 15px;border-top:1px solid var(--border-soft);font-size:12.5px;}
+.rel .rr:first-of-type{border-top:0;}
+.rel .ver{font-weight:700;}
+.rel .meta{color:var(--muted);font-size:11.5px;}
+.sec{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#999);margin:20px 0 8px;}
+
+/* split layout for option 3 */
+.split{display:grid;grid-template-columns:230px 1fr;gap:0;}
+.side{border-right:1px solid var(--border);background:var(--surface);padding:10px;}
+.side .si{padding:9px 11px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
+.side .si.on{background:var(--accent-soft,#eceafe);color:var(--accent-text,#4a44c7);}
+.side .si .n{font-size:10.5px;background:var(--surface2);border-radius:20px;padding:1px 6px;color:var(--text-2,#555);}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Clients page</h1>
+<p class="lead">Three shapes for the same content: a tab per client, summary cards, the devices
+running it as a table, and the builds that have been published to it. Mock data throughout — the
+real page has five slots (firmware release-keys / test-keys, DPC agent, menu board, Lite demo).</p>
+
+<span class="eyebrow">Option A</span><span class="rec">my pick</span>
+<div class="dname">Tabs across the top, cards then table then releases</div>
+<p class="ddesc">One client at a time. The tab bar carries a count badge, amber when that client has
+devices behind.</p>
+<div class="demo">
+  <div class="ctabs">
+    <div class="ctab on">Firmware · release-keys <span class="n">96</span></div>
+    <div class="ctab warn">Firmware · test-keys <span class="n">4</span></div>
+    <div class="ctab">DPC agent <span class="n">2</span></div>
+    <div class="ctab warn">Menu board <span class="n">11</span></div>
+    <div class="ctab">MDM Lite demo <span class="n">1</span></div>
+  </div>
+  <div class="demo-in">
+    <div class="cards">
+      <div class="card hero"><div class="k">Hosted build</div><div class="v">1.0.0</div><div class="sub">code 1 · published 20 Sep 18:42</div><div class="mono">com.aioapp.mdm</div></div>
+      <div class="card"><div class="k">Devices</div><div class="v">96</div><div class="sub">on this client</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">71</div><div class="sub">74%</div></div>
+      <div class="card warn"><div class="k">Behind</div><div class="v">25</div><div class="sub">18 never reported a version</div></div>
+    </div>
+
+    <div class="sec">Devices</div>
+    <div class="tbl">
+      <div class="hd"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600022</span><span>1.0.0</span><span class="tag ok">up to date</span><span>2 min ago</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600018</span><span>0.9.4</span><span class="tag behind">behind</span><span>6 min ago</span><span class="mini pri">Update</span></div>
+      <div class="tr"><span class="sn">AT070AA2600031</span><span>—</span><span class="tag unk">no version</span><span>1 h ago</span><span class="mini pri">Update</span></div>
+      <div class="tr"><span class="sn">KSK22AA2600004</span><span>1.0.0</span><span class="tag ok">up to date</span><span>just now</span><span></span></div>
+    </div>
+
+    <div class="sec">Releases</div>
+    <div class="rel">
+      <div class="rhd"><span>Published to this client</span><span class="mini">Update all behind · 25</span></div>
+      <div class="rr"><span class="ver">1.0.0</span><span class="meta">mdm-client.apk · releasekey · 3.1 MB</span><span class="meta">20 Sep 18:42</span><span class="tag ok">hosted</span></div>
+      <div class="rr"><span class="ver">0.9.4</span><span class="meta">mdm-client.apk · releasekey · 3.0 MB</span><span class="meta">14 Sep 09:10</span><span class="tag unk">previous</span></div>
+      <div class="rr"><span class="ver">0.9.1</span><span class="meta">mdm-client.apk · releasekey · 3.0 MB</span><span class="meta">02 Sep 16:55</span><span class="tag unk">previous</span></div>
+    </div>
+  </div>
+</div>
+<p class="for"><b>For:</b> the question "is this client current, and who isn't?" is answered in the
+first screen, and each tab is a self-contained job. Scales to more clients — a sixth is another tab.
+<b>Against:</b> comparing two clients means switching tabs, and with five tabs the bar gets busy on
+a narrow window.</p>
+
+<span class="eyebrow">Option B</span><span class="now">close to what is deployed</span>
+<div class="dname">All clients stacked, each expandable</div>
+<p class="ddesc">Every client is a card in one scroll; the devices table opens in place.</p>
+<div class="demo"><div class="demo-in">
+  <div class="cards" style="grid-template-columns:repeat(5,1fr);margin-bottom:10px">
+    <div class="card"><div class="k">Firmware · release</div><div class="v">1.0.0</div><div class="sub">96 devices · 25 behind</div></div>
+    <div class="card"><div class="k">Firmware · test</div><div class="v">—</div><div class="sub">4 devices · none hosted</div></div>
+    <div class="card"><div class="k">DPC agent</div><div class="v">0.2.1</div><div class="sub">2 devices · 0 behind</div></div>
+    <div class="card"><div class="k">Menu board</div><div class="v">—</div><div class="sub">11 devices · none hosted</div></div>
+    <div class="card"><div class="k">Lite demo</div><div class="v">0.1.11</div><div class="sub">1 device · 0 behind</div></div>
+  </div>
+  <div class="rel" style="margin-top:12px">
+    <div class="rhd"><span>Firmware · release-keys — 1.0.0 · 96 devices</span><span class="mini">Collapse</span></div>
+    <div class="rr" style="grid-template-columns:1fr"><div class="tbl" style="border:0">
+      <div class="hd"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600022</span><span>1.0.0</span><span class="tag ok">up to date</span><span>2 min ago</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600018</span><span>0.9.4</span><span class="tag behind">behind</span><span>6 min ago</span><span class="mini pri">Update</span></div>
+    </div></div>
+  </div>
+  <div class="rel" style="margin-top:10px"><div class="rhd"><span>DPC agent — 0.2.1 · 2 devices</span><span class="mini">Expand</span></div></div>
+  <div class="rel" style="margin-top:10px"><div class="rhd"><span>Menu board — nothing hosted · 11 devices</span><span class="mini">Expand</span></div></div>
+</div></div>
+<p class="for"><b>For:</b> the whole estate at a glance, no navigation at all, and it is the smallest
+change from what is on stage now. <b>Against:</b> with devices expanded the page gets very long, and
+the per-client releases list has nowhere comfortable to live.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">Client list on the left, detail on the right</div>
+<p class="ddesc">A sidebar of clients; picking one fills the panel. Same content as A, different
+navigation.</p>
+<div class="demo"><div class="split">
+  <div class="side">
+    <div class="si on">Firmware · release <span class="n">96</span></div>
+    <div class="si">Firmware · test <span class="n">4</span></div>
+    <div class="si">DPC agent <span class="n">2</span></div>
+    <div class="si">Menu board <span class="n">11</span></div>
+    <div class="si">MDM Lite demo <span class="n">1</span></div>
+  </div>
+  <div class="demo-in">
+    <div class="cards" style="grid-template-columns:repeat(3,1fr)">
+      <div class="card hero"><div class="k">Hosted build</div><div class="v">1.0.0</div><div class="sub">code 1 · 20 Sep 18:42</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">71 / 96</div></div>
+      <div class="card warn"><div class="k">Behind</div><div class="v">25</div></div>
+    </div>
+    <div class="sec">Devices</div>
+    <div class="tbl">
+      <div class="hd"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600022</span><span>1.0.0</span><span class="tag ok">up to date</span><span>2 min ago</span><span></span></div>
+      <div class="tr"><span class="sn">AT070AA2600018</span><span>0.9.4</span><span class="tag behind">behind</span><span>6 min ago</span><span class="mini pri">Update</span></div>
+    </div>
+  </div>
+</div></div>
+<p class="for"><b>For:</b> the client list stays visible while you work, which suits five-plus clients
+better than tabs. <b>Against:</b> it spends horizontal space the device table wants, and it is a
+layout no other page in the dashboard uses.</p>
+
+<p class="lead" style="margin-top:4px">I would take <b>A</b>: it matches "tabs for each client", keeps
+the device table full width, and gives the releases list a natural home at the bottom of each tab.
+One thing to decide either way — a releases list needs publish history, which the server does not
+keep yet (it stores only the build currently hosted per slot). That is a small addition: append an
+entry on each publish.</p>
+
+</div></body></html>

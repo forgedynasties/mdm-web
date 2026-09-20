@@ -1,37 +1,53 @@
 {{define "clients.html"}}
 {{template "header" .}}
-{{/* Clients: which build of which agent the fleet runs, what this server hosts for
-     each one, and how far behind everyone is. One slot per thing that has to be
-     signed differently — the DPC agent has its own key, the firmware client is signed
-     with the platform key of its build variant, and a device is only ever offered the
-     build that matches its own keys. */}}
+{{/* Clients: the MDM client each device runs, the build this server hosts for it, and
+     what has been published to it. The client list stays on the left while you work in
+     one of them — there are five and they are picked between constantly. A slot exists
+     per thing that must be signed differently: the DPC agent has its own key, the
+     firmware client is signed with the platform key of its build variant, and the Lite
+     hosts are separate apps. A device is only ever offered its own slot's build. */}}
 <style>
-.cl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden}
-.cl-hd{display:flex;align-items:flex-start;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border-soft)}
-.cl-hd h2{margin:0;font-size:15px;font-weight:600}
-.cl-note{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:62ch}
-.cl-ver{margin-left:auto;text-align:right;white-space:nowrap}
-.cl-vnum{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
-.cl-vmeta{font-size:11.5px;color:var(--text-faint);font-family:var(--mono);margin-top:2px}
-.cl-none{font-size:12.5px;color:var(--warn);font-weight:600}
-.cl-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border-soft)}
-.cl-stat{background:var(--surface);padding:14px 18px}
-.cl-n{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
-.cl-k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-top:4px}
-.cl-n.behind{color:var(--warn)}
-.cl-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border-soft)}
-.cl-vers{display:flex;flex-wrap:wrap;gap:6px}
-.cl-vtag{font-size:11.5px;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
-.cl-vtag b{font-weight:600;color:var(--text)}
-.cl-vtag.cur{background:var(--ok-bg,var(--surface2));color:var(--text)}
-.cl-up{margin-left:auto;display:flex;gap:8px;align-items:center}
-.cl-url{font-family:var(--mono);font-size:11.5px;color:var(--text-faint);word-break:break-all}
-.cl-prov{font-size:12px;color:var(--text-faint)}
-.cl-prov b{font-weight:600;color:var(--text-2)}
-.cl-how{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;margin-top:4px}
-.cl-how h3{margin:0 0 6px;font-size:13.5px;font-weight:600}
-.cl-how p{margin:0 0 10px;font-size:12.5px;color:var(--muted);max-width:76ch}
-.cl-how pre{margin:0;padding:10px 12px;background:var(--surface2);border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+.cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
+.cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}
+.cl-si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.cl-si:hover{background:var(--surface2);color:var(--text)}
+.cl-si.on{background:var(--accent-soft);color:var(--accent-text)}
+.cl-si .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-si .n{font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--text-2);border-radius:20px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.cl-si.on .n{background:var(--surface)}
+.cl-si .n.warn{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.cl-scap{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:8px 11px 4px}
+.cl-hd{margin-bottom:14px}
+.cl-hd h2{margin:0;font-size:17px;font-weight:600}
+.cl-note{font-size:12.5px;color:var(--muted);margin-top:4px;max-width:74ch;line-height:1.5}
+.cl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.cl-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.cl-card .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.cl-card .v{font-size:21px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.cl-card .sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.cl-card .mono{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-top:4px;word-break:break-all}
+.cl-card.warn .v{color:var(--warn)}
+.cl-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:20px 0 8px}
+.cl-sec form{margin:0 0 0 auto}
+.cl-tbl{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.cl-th,.cl-tr{display:grid;grid-template-columns:minmax(150px,1.4fr) 120px 118px 130px 96px;align-items:center;gap:14px;padding:0 15px}
+.cl-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.cl-tr{min-height:46px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-tr:first-of-type{border-top:0}
+.cl-sn{font-family:var(--mono);font-size:12px;color:var(--text)}
+.cl-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px}
+.cl-tag.ok{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.cl-tag.behind{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.cl-tag.unk{background:var(--surface2);color:var(--muted)}
+.cl-rel{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.cl-rr{display:grid;grid-template-columns:120px minmax(0,1fr) 128px 84px;gap:14px;align-items:start;padding:11px 15px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-rr:first-of-type{border-top:0}
+.cl-ver{font-weight:600;font-variant-numeric:tabular-nums}
+.cl-meta{color:var(--muted);font-size:11.5px;line-height:1.5}
+.cl-chg{color:var(--text-2);font-size:12px;line-height:1.5}
+.cl-empty{background:var(--surface);border:1px dashed var(--border);border-radius:13px;padding:18px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
+@media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
 
 <div class="cc-wrap">
@@ -39,60 +55,109 @@
   <div>
     <div class="cc-eyebrow">Fleet · Clients</div>
     <h1 class="cc-h1">Clients</h1>
-    <div class="cc-sub">The MDM client on each device, and the build this server hosts for it. A device is only offered a build signed with the same key as the one it already runs, so the firmware client has a slot per variant. MDM Lite updates from the app library instead and is not listed here.</div>
+    <div class="cc-sub">The MDM client on each device and the build this server hosts for it. A device is only offered a build signed with the same key it already trusts, so the firmware client has one entry per variant. Builds arrive from CI, not by hand.</div>
   </div>
 </div>
 
-{{range .Slots}}
-<div class="cl-card">
-  <div class="cl-hd">
-    <div>
+<div class="cl-split">
+  <nav class="cl-side" aria-label="Clients">
+    <div class="cl-scap">Clients</div>
+    {{range .Slots}}
+    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}">
+      <span class="nm">{{.Label}}</span>
+      {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
+      {{else}}<span class="n">{{.Devices}}</span>{{end}}
+    </a>
+    {{end}}
+  </nav>
+
+  {{with .Selected}}
+  <div>
+    <div class="cl-hd">
       <h2>{{.Label}}</h2>
       <div class="cl-note">{{.Note}}</div>
     </div>
-    <div class="cl-ver">
-      {{if .Hosted}}
-        <div class="cl-vnum">{{if .Build.Version}}{{.Build.Version}}{{else}}unknown version{{end}}</div>
-        <div class="cl-vmeta">{{if .Build.VersionCode}}code {{.Build.VersionCode}} · {{end}}{{.Build.Package}}</div>
-      {{else}}
-        <div class="cl-none">Nothing hosted</div>
-        <div class="cl-vmeta">no updates can be offered</div>
+
+    <div class="cl-cards">
+      <div class="cl-card">
+        <div class="k">Hosted build</div>
+        {{if .Hosted}}
+          <div class="v">{{if .Build.Version}}{{.Build.Version}}{{else}}unknown{{end}}</div>
+          <div class="sub">{{if .Build.VersionCode}}code {{.Build.VersionCode}} · {{end}}{{.Build.At.Format "2 Jan 15:04"}}</div>
+          <div class="mono">{{.Build.Package}}</div>
+        {{else}}
+          <div class="v" style="color:var(--warn)">None</div>
+          <div class="sub">no updates can be offered</div>
+        {{end}}
+      </div>
+      <div class="cl-card"><div class="k">Devices</div><div class="v">{{.Devices}}</div><div class="sub">on this client</div></div>
+      <div class="cl-card"><div class="k">On this build</div><div class="v">{{.UpToDate}}</div></div>
+      <div class="cl-card{{if .Behind}} warn{{end}}"><div class="k">Behind</div><div class="v">{{.Behind}}</div>{{if .Unknown}}<div class="sub">{{.Unknown}} never reported a version</div>{{end}}</div>
+    </div>
+
+    <div class="cl-sec">
+      <span>Devices</span>
+      {{if and .Behind (canOperate $.Role)}}
+      <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.Behind}} device(s) to {{.Build.Version}}?">
+        <input type="hidden" name="type" value="app_update">
+        <input type="hidden" name="target_type" value="devices">
+        <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
+        <button type="submit" class="btn-sm btn-primary">Update all behind · {{.Behind}}</button>
+      </form>
       {{end}}
     </div>
-  </div>
 
-  <div class="cl-body">
-    <div class="cl-stat"><div class="cl-n">{{.Devices}}</div><div class="cl-k">Devices</div></div>
-    <div class="cl-stat"><div class="cl-n">{{.UpToDate}}</div><div class="cl-k">On this build</div></div>
-    <div class="cl-stat"><div class="cl-n{{if .Behind}} behind{{end}}">{{.Behind}}</div><div class="cl-k">Behind</div></div>
-    <div class="cl-stat"><div class="cl-n">{{.Unknown}}</div><div class="cl-k">No version reported</div></div>
-  </div>
+    {{if .Rows}}
+    <div class="cl-tbl">
+      <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      {{range .Rows}}
+      <div class="cl-tr">
+        <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
+        <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+        <span>
+          {{if eq .State "current"}}<span class="cl-tag ok">up to date</span>
+          {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
+          {{else}}<span class="cl-tag unk">no version</span>{{end}}
+        </span>
+        <span class="cl-meta">{{timeSince .LastSeen}}</span>
+        <span>
+          {{if and (ne .State "current") $.Selected.Hosted (canOperate $.Role)}}
+          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0">
+            <input type="hidden" name="type" value="app_update">
+            <button type="submit" class="btn-sm">Update</button>
+          </form>
+          {{end}}
+        </span>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="cl-empty">No devices are running this client yet.</div>
+    {{end}}
 
-  {{if .Versions}}
-  <div class="cl-foot">
-    <span class="cl-vers">{{range .Versions}}<span class="cl-vtag{{if .Current}} cur{{end}}">{{if .Version}}{{.Version}}{{else}}unversioned{{end}} <b>{{.Count}}</b></span>{{end}}</span>
+    <div class="cl-sec"><span>Releases</span></div>
+    {{if .History}}
+    <div class="cl-rel">
+      {{range .History}}
+      <div class="cl-rr">
+        <span class="cl-ver">{{if .Version}}{{.Version}}{{else}}unversioned{{end}}{{if .VersionCode}}<div class="cl-meta">code {{.VersionCode}}</div>{{end}}</span>
+        <span class="cl-chg">{{if .Changelog}}{{.Changelog}}{{else}}<span class="cl-meta">No changelog — the publisher sent none.</span>{{end}}<div class="cl-meta">{{.Name}}</div></span>
+        <span class="cl-meta">{{.At.Format "2 Jan 15:04"}}</span>
+        <span>{{if eq .SHA $.Selected.Build.SHA}}<span class="cl-tag ok">hosted</span>{{else}}<span class="cl-tag unk">previous</span>{{end}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="cl-empty">
+      Nothing has been published to this client yet. CI posts a build with
+      <span class="cl-url">POST {{$.ServerURL}}/api/v1/agent-apk?slot={{.Slot}}&amp;changelog=…</span>
+      — the changelog it sends is what shows here.
+    </div>
+    {{end}}
+
+    {{if .Hosted}}<div class="cl-sec"><span>Download</span></div><div class="cl-url">{{.URL}}</div>{{end}}
   </div>
   {{end}}
-
-  {{if .Hosted}}
-  <div class="cl-foot">
-    <span class="cl-url">{{.URL}}</span>
-    <span class="cl-up cl-prov">published <b>{{.Build.At.Format "2 Jan 15:04"}}</b>{{if .Build.Name}} · {{.Build.Name}}{{end}}</span>
-  </div>
-  {{end}}
-</div>
-{{end}}
-
-<div class="cl-how">
-  <h3>How a build gets here</h3>
-  <p>Builds are published by CI, not by hand: the agent's pipeline runs its tests, signs the APK
-     with the key for that variant, and posts it to the slot. Publishing an unsigned or untested
-     build is the failure this is meant to prevent, so there is no upload button. The firmware
-     client is published from the build machine, because only it holds the platform keys.</p>
-  <pre>POST {{.ServerURL}}/api/v1/agent-apk?slot=&lt;slot&gt;
-X-API-Key: &lt;admin key&gt;
-Content-Type: application/vnd.android.package-archive
-&lt;the signed APK&gt;</pre>
 </div>
 </div>
 {{template "footer" .}}

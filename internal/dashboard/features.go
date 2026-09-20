@@ -1448,6 +1448,14 @@ type ClientSlotView struct {
 	Behind   int
 	Unknown  int // never reported a version — an older client, or one that predates reporting
 	Versions []ClientVersionCount
+	// Filled for the selected client only: the page shows one client's devices and
+	// releases at a time, so there is no reason to build them for the other four.
+	Rows     []ClientDeviceRow
+	History  []config.AgentAPKBuild
+	Selected bool
+	// The serials "Update all behind" targets, built here rather than joined in the
+	// template — a comma emitted from a loop index breaks the moment the sort changes.
+	BehindSerials string
 }
 
 // ClientVersionCount is one version and how many devices run it.
@@ -1456,6 +1464,15 @@ type ClientVersionCount struct {
 	Code    int64
 	Count   int
 	Current bool
+}
+
+// ClientDeviceRow is one device in the selected client's table.
+type ClientDeviceRow struct {
+	Serial   string
+	Version  string // what it reports ("" = never reported one)
+	Code     int64
+	State    string // "current" | "behind" | "unknown"
+	LastSeen time.Time
 }
 
 // ClientsPage is client management: which build of which agent each device runs,
@@ -1524,6 +1541,62 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		c.Current = v.Hosted && code == v.Build.VersionCode
 	}
 
+	// Which client is open. An unknown or missing ?slot lands on the first one that has
+	// devices, so the page opens on something worth looking at rather than an empty tab.
+	selected := r.URL.Query().Get("slot")
+	if _, ok := views[selected]; !ok {
+		selected = order[0]
+		for _, slot := range order {
+			if views[slot].Devices > 0 {
+				selected = slot
+				break
+			}
+		}
+	}
+	views[selected].Selected = true
+	views[selected].History = h.cfg.AgentAPKHistory(selected)
+
+	// The device rows, for the open client only.
+	sel := views[selected]
+	for i := range devices {
+		d := &devices[i]
+		if agentSlotFor(d) != selected {
+			continue
+		}
+		name, code := clientVersionOf(d)
+		row := ClientDeviceRow{
+			Serial: d.SerialNumber, Version: name, Code: code,
+			LastSeen: d.LastSeenAt,
+		}
+		switch {
+		case code == 0:
+			row.State = "unknown"
+		case sel.Hosted && code >= sel.Build.VersionCode:
+			row.State = "current"
+		case sel.Hosted:
+			row.State = "behind"
+		default:
+			row.State = "unknown"
+		}
+		sel.Rows = append(sel.Rows, row)
+	}
+	behind := make([]string, 0, len(sel.Rows))
+	for _, row := range sel.Rows {
+		if row.State == "behind" {
+			behind = append(behind, row.Serial)
+		}
+	}
+	sel.BehindSerials = strings.Join(behind, ",")
+
+	// Behind first — those are the rows an operator came here to act on — then by serial.
+	rank := map[string]int{"behind": 0, "unknown": 1, "current": 2}
+	sort.Slice(sel.Rows, func(i, j int) bool {
+		if rank[sel.Rows[i].State] != rank[sel.Rows[j].State] {
+			return rank[sel.Rows[i].State] < rank[sel.Rows[j].State]
+		}
+		return sel.Rows[i].Serial < sel.Rows[j].Serial
+	})
+
 	var slots []*ClientSlotView
 	for _, slot := range order {
 		v := views[slot]
@@ -1538,6 +1611,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Clients",
 		"ActivePage": "clients",
 		"Slots":      slots,
+		"Selected":   sel,
 		"ServerURL":  h.baseURL(r),
 	})
 }
@@ -1669,7 +1743,7 @@ func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), "dpc")
+	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), "dpc", r.FormValue("changelog"))
 	if err != nil {
 		h.hxDoneToast(w, r, "/settings", "Upload failed: "+err.Error(), "error")
 		return
@@ -1691,6 +1765,8 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "unknown slot "+slot+" (dpc, firmware-release-keys, firmware-test-keys)")
 		return
 	}
+	// Long-form notes travel as a query parameter: the body is the APK itself.
+	changelog := r.URL.Query().Get("changelog")
 	var (
 		data []byte
 		name = AgentAPKSlots[slot]
@@ -1708,6 +1784,9 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		name = filepath.Base(hdr.Filename)
+		if c := r.FormValue("changelog"); c != "" {
+			changelog = c
+		}
 		data, err = io.ReadAll(file)
 	} else {
 		if n := strings.TrimSpace(r.URL.Query().Get("name")); n != "" {
@@ -1719,7 +1798,7 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "could not read body")
 		return
 	}
-	sha, meta, err := h.storeAgentAPK(data, name, slot)
+	sha, meta, err := h.storeAgentAPK(data, name, slot, changelog)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -1740,7 +1819,7 @@ func (h *Handler) AgentAPKPublish(w http.ResponseWriter, r *http.Request) {
 // file lands first, then the config, so a parse failure still leaves a downloadable
 // APK for QR provisioning — it just can't be offered as an update (no version, no
 // way to know who is behind). Returns the base64url digest for the QR extras.
-func (h *Handler) storeAgentAPK(data []byte, filename, slot string) (string, *apkstore.Meta, error) {
+func (h *Handler) storeAgentAPK(data []byte, filename, slot, changelog string) (string, *apkstore.Meta, error) {
 	// An APK is a zip: PK. Anything else is a wrong file.
 	if len(data) < 4 || string(data[:2]) != "PK" {
 		return "", nil, errors.New("that is not an APK (zip) file")
@@ -1767,6 +1846,7 @@ func (h *Handler) storeAgentAPK(data []byte, filename, slot string) (string, *ap
 	build := config.AgentAPKBuild{
 		SHA: sha, SHA256Hex: hex.EncodeToString(sum[:]),
 		Name: filename, Size: int64(len(data)), At: time.Now(),
+		Changelog: strings.TrimSpace(changelog),
 	}
 	meta, perr := apkstore.ParseFile(dest)
 	if perr == nil {

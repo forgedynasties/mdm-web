@@ -5660,44 +5660,18 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock .nav-link.active { background: var(--accent-soft); color: var(--accent-text); }
 .dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
 
-/* Administration rail: the entries only some roles have, kept out of the dock so the
-   dock is identical for everyone. Same glass as the dock, turned on its side and
-   pinned to the right edge. :empty hides it for a role that has none of them. */
-.srail {
-  position: fixed; right: 18px; top: 50%; transform: translateY(-50%); z-index: 44;
-  display: flex; flex-direction: column; gap: 4px; padding: 7px;
-  background: rgba(255, 255, 255, .45);
-  -webkit-backdrop-filter: blur(4px) saturate(180%);
-  backdrop-filter: blur(4px) saturate(180%);
-  will-change: backdrop-filter;
-  border: 1.5px solid rgba(255, 255, 255, .29); border-radius: 18px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, .21), inset 0 1px 0 rgba(255, 255, 255, .5), 0 0 0 1.5px var(--accent-edge);
+/* The dock's "More" opens the admin pages upward. Same menu styling as the top-bar
+   popups (.nbar-pop/.nbar-menu); only the placement differs, handled in layout.html. */
+.dock .nav-link.js-more { background: none; border: 0; font: inherit; cursor: pointer; }
+.dock .nav-link.js-more[aria-expanded="true"] { background: var(--surface2); color: var(--text); }
+.dock-more-pop { z-index: 60; min-width: 196px; }
+.dock-more-pop .nbar-mcap {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 8px 12px 4px;
 }
-.srail:empty { display: none; }
-html[data-theme="dark"] .srail { background: rgba(20, 18, 17, .45); border-color: rgba(255, 255, 255, .12); }
-.srail .nav-link {
-  display: inline-flex; align-items: center; gap: 9px; padding: 9px 13px;
-  border-radius: 11px; font-size: 13px; font-weight: var(--fw-semibold); color: var(--muted);
-  white-space: nowrap;
-}
-.srail .nav-link:hover { background: var(--surface2); color: var(--text); }
-.srail .nav-link.active { background: var(--accent-soft); color: var(--accent-text); }
-.srail .nav-link .ui-icon, .srail .nav-link .ui-icon svg { width: 17px; height: 17px; }
-/* Narrow enough that a right-hand rail would sit over the content: drop the labels and
-   keep the icons, which is still a column of five at most. */
-@media (max-width: 1100px) {
-  .srail { right: 10px; }
-  .srail .nav-link { padding: 9px; }
-  .srail .dock-lbl { display: none; }
-}
-/* On a phone the rail moves above the dock and lies flat, so nothing overlaps. */
-@media (max-width: 640px) {
-  .srail {
-    right: auto; left: 50%; top: auto;
-    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
-    transform: translateX(-50%); flex-direction: row; border-radius: 16px;
-  }
-}
+.dock-more-pop .nbar-mi { display: flex; align-items: center; gap: 10px; }
+.dock-more-pop .nbar-mi .ui-icon, .dock-more-pop .nbar-mi .ui-icon svg { width: 16px; height: 16px; }
+.dock-more-pop .nbar-mi.active { background: var(--accent-soft); color: var(--accent-text); }
 
 @media (max-width: 640px) {
   .appbar { padding: 10px 14px; gap: 8px; }
