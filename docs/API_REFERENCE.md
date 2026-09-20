@@ -163,9 +163,28 @@ Required: `name, product_code, model_code, batch_month (1–12), batch_year (0�
 ### Commands
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/api/v1/enrollment-profiles` | List enrollment profiles, tokens included |
+| POST | `/api/v1/enrollment-profiles` | Create one and mint its token |
 | GET | `/api/v1/commands` | List commands |
 | POST | `/api/v1/commands` | Create + fan out to targets |
 | GET | `/api/v1/commands/{id}` | Command + per-device delivery status |
+
+`POST /enrollment-profiles` request — only `name` is required; the rest is the intent
+every device inheriting this token picks up:
+```json
+{
+  "name": "Menu board · stage",
+  "device_class": "dongle",          // t7|kiosk|dongle|kds|pos|mpos|payment|tablet
+  "restaurant_id": "uuid",           // site the devices are deployed to
+  "group_id": "uuid",
+  "expires_days": 30,
+  "max_enrolls": 5
+}
+```
+Response `201`: `{ "profile": { "id", "name", "token", "active", … } }`. The token is
+minted server-side and never taken from the request. It is what an MDM-lite host app
+bakes into `BuildConfig.MDM_ENROLL_TOKEN` at compile time, which is why this exists as
+an API rather than a dashboard-only form.
 
 `POST /commands` request:
 ```json
