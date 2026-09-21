@@ -3572,6 +3572,32 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   }
   window.setDeviceTab = setDeviceTab;
 
+  // A lazy panel that fails to load used to sit on "Loading…" for ever: the request
+  // is a "once" trigger, so nothing retries it and nothing says what went wrong.
+  // Turn any failed/aborted fetch into a message with a Retry that re-issues it.
+  (function () {
+    function lazyPanelError(e) {
+      var el = e.detail && e.detail.elt; if (!el) return;
+      var panel = el.closest ? el.closest('.dd-panel') : null;
+      if (!panel || !panel.hasAttribute('data-dd-panel')) return;
+      var url = el.getAttribute('hx-get'); if (!url) return;
+      var st = (e.detail.xhr && e.detail.xhr.status) || 0;
+      var why = st ? 'The server answered ' + st + '.' : 'The request did not complete.';
+      var box = el === panel ? panel : el;
+      box.innerHTML = '<div class="muted small" style="padding:26px;text-align:center;">'
+        + 'Couldn\'t load this tab. ' + why
+        + ' <button type="button" class="cc-btn sm" style="margin-left:8px;">Retry</button></div>';
+      var btn = box.querySelector('button');
+      if (btn) btn.addEventListener('click', function () {
+        box.innerHTML = '<div class="muted small" style="padding:26px;text-align:center;">Loading…</div>';
+        window.htmx.ajax('GET', url, { target: box, swap: el === panel ? 'innerHTML' : 'outerHTML' });
+      });
+    }
+    ['htmx:responseError', 'htmx:sendError', 'htmx:timeout', 'htmx:swapError'].forEach(function (evt) {
+      document.body.addEventListener(evt, lazyPanelError);
+    });
+  })();
+
   // On load, honor a ?tab= deep-link (a crash link from the fleet views points at
   // ?tab=alerts), else fall back to the per-device remembered tab. The query param
   // wins so a shared link always lands on the tab it names.

@@ -1056,6 +1056,9 @@ window.CMD_PREFILL = {{.Prefill}};
   function kindBadges(t) {
     return '<span class="kd">' + KINDS.map(function (k) {
       var runs = kindRuns(t, k[0]);
+      // MDM Lite runs a handful of actions; a dead LT pill on every other card is
+      // noise, so it is left off entirely rather than shown struck through.
+      if (!runs && k[0] === 'lite') return '';
       return '<i class="' + (runs ? k[0] : 'no') + '" title="' + esc(k[2]) + (runs ? ' runs this' : ' cannot run this') + '">' + k[1] + '</i>';
     }).join('') + '</span>';
   }

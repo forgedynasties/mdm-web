@@ -2870,6 +2870,34 @@ func (h *Handler) MaintenancePage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "maintenance.html", map[string]any{"Title": "Under maintenance"})
 }
 
+// trimTrace caps one stack trace for an inline card. A tombstone runs to tens of
+// thousands of lines; twelve of them on the device page's Alerts tab came to half a
+// megabyte, and colorizeLogcat turns every line into its own span — enough DOM to
+// leave the tab sitting on "Loading alerts…" long after the response arrived. The
+// head of a trace holds the exception and the frames that matter; the rest is one
+// click away on the Alerts page.
+func trimTrace(trace string) string {
+	const maxLines, maxBytes = 200, 24 * 1024
+	if len(trace) <= maxBytes && strings.Count(trace, "\n") < maxLines {
+		return trace
+	}
+	lines := strings.Split(trace, "\n")
+	kept, n := lines, 0
+	if len(kept) > maxLines {
+		kept, n = kept[:maxLines], len(lines)-maxLines
+	}
+	out := strings.Join(kept, "\n")
+	for len(out) > maxBytes && len(kept) > 1 {
+		kept = kept[:len(kept)*3/4]
+		n = len(lines) - len(kept)
+		out = strings.Join(kept, "\n")
+	}
+	if n > 0 {
+		out += fmt.Sprintf("\n… %d more line(s) — open the Alerts page for the full trace.", n)
+	}
+	return out
+}
+
 // DeviceAlertsPanel renders the device page's Alerts tab body — this device's
 // crash/ANR events (with traces) plus its active alerts — on first open of the
 // tab. Kept out of the page render because a crashy device carries megabytes
@@ -2887,6 +2915,9 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	// reads as "the alerts never load". Everything beyond this goes to the Alerts page.
 	const panelRows = 12
 	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, panelRows)))
+	for i := range crashes {
+		crashes[i].Trace = trimTrace(crashes[i].Trace)
+	}
 	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)
 	role := h.role(r)
 	canAct := roleCanOperate(role)
@@ -2894,6 +2925,7 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	for _, a := range raw {
 		ha := humanizeAlert(a)
 		ha.CanAct = canAct
+		ha.Trace = trimTrace(ha.Trace)
 		alerts = append(alerts, ha)
 	}
 	h.resolveAppIcons(ctx, [][]humanAlert{alerts}, crashes)
