@@ -8654,6 +8654,23 @@ var adminOnlyExportColumns = map[string]bool{
 	"last_seen":  true,
 }
 
+// wlcStateWord spells out a wireless-charging status code for the CSV: the number
+// alone (0/1/2) told nobody anything, and 2 in particular — the pad the device has
+// slipped off — is the one people export for (FW-2026-000052).
+func wlcStateWord(code string) string {
+	switch code {
+	case "0":
+		return "vacant"
+	case "1":
+		return "charging"
+	case "2":
+		return "pad misplaced"
+	case "":
+		return ""
+	}
+	return "unknown (" + code + ")"
+}
+
 func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form", http.StatusBadRequest)
@@ -8683,6 +8700,17 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		if mins, errOff := strconv.Atoi(v); errOff == nil {
 			loc = time.FixedZone("client", mins*60)
 		}
+	}
+	// The window the user typed is always read in their own wall clock (above). What
+	// the CSV *prints* is a separate choice — "my timezone" (the default), UTC, or
+	// Pakistan time — because one timestamp column in a named zone is what people
+	// actually want in the sheet (FW-2026-000052), not three columns to reconcile.
+	outLoc, outZone := loc, "local time"
+	switch r.FormValue("tz") {
+	case "utc":
+		outLoc, outZone = time.UTC, "UTC"
+	case "pkt":
+		outLoc, outZone = time.FixedZone("PKT", 5*3600), "PKT"
 	}
 	start, err := time.ParseInLocation("2006-01-02T15:04", startStr, loc)
 	if err != nil {
@@ -8761,33 +8789,45 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		colSet[c] = true
 	}
 	colOrder := []string{"battery_pct", "battery_temp_c", "charging", "build_id", "wifi", "ip_address",
-		"ram_used_mb", "ram_total_mb", "storage_free_gb", "wlc_status", "timezone", "last_seen"}
+		"ram_used_mb", "ram_total_mb", "storage_free_gb", "wlc_status", "wlc_state", "charging_pad",
+		"timezone", "last_seen", "sample_at"}
 
-	// timestamp is the row's time in the requester's wall clock (with offset),
-	// timestamp_utc the same instant in UTC, and sample_at the moment the check-in
-	// behind the values was recorded — the point you would find on the device graph.
-	header := []string{"serial_number", "timestamp", "timestamp_utc", "sample_at"}
+	// One timestamp column, in the zone the user picked, offset included — the old
+	// timestamp / timestamp_utc / sample_at trio only invited "which one is real?"
+	// (FW-2026-000052). sample_at (the moment of the check-in behind the values, the
+	// point you find on the device graph) is still available as a column.
+	header := []string{"serial_number", "timestamp (" + outZone + ")"}
 	for _, c := range colOrder {
 		if colSet[c] {
 			header = append(header, c)
 		}
 	}
 	cw := csv.NewWriter(w)
+	// Excel splits a .csv on the list separator of the machine's locale, which is ";"
+	// across most of Europe and elsewhere — the whole row then lands in cell A1. The
+	// "sep=" preamble is Excel's own opt-out; it is off by default because it is not
+	// CSV and other tools would read it as a data row.
+	if r.FormValue("excel") == "1" {
+		if _, err := io.WriteString(w, "sep=,\n"); err != nil {
+			return
+		}
+	}
 	if err := cw.Write(header); err != nil {
 		return
 	}
+	// Per-device charging-pad setting, read once: it is configuration, not telemetry,
+	// so it does not ride along on the rows.
+	padOn := map[string]bool{}
+	if colSet["charging_pad"] {
+		if m, padErr := h.db.WlcEnabledBySerial(r.Context(), deviceIDs); padErr == nil {
+			padOn = m
+		}
+	}
 
 	writeRow := func(row db.ExportRow) error {
-		ts := row.Timestamp.In(loc) // both modes: the requester's wall clock, offset included
-		sampleAt := ""
-		if !row.Empty && !row.SampleAt.IsZero() {
-			sampleAt = row.SampleAt.In(loc).Format(time.RFC3339)
-		}
 		rec := []string{
 			row.SerialNumber,
-			ts.Format(time.RFC3339),
-			row.Timestamp.UTC().Format(time.RFC3339),
-			sampleAt,
+			row.Timestamp.In(outLoc).Format(time.RFC3339),
 		}
 		for _, c := range colOrder {
 			if !colSet[c] {
@@ -8819,6 +8859,20 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, extraFloat(row.Extra, "storage_free_gb"))
 			case "wlc_status":
 				rec = append(rec, extraInt(row.Extra, "wlc_status"))
+			case "wlc_state":
+				rec = append(rec, wlcStateWord(extraInt(row.Extra, "wlc_status")))
+			case "charging_pad":
+				if padOn[row.SerialNumber] {
+					rec = append(rec, "enabled")
+				} else {
+					rec = append(rec, "disabled")
+				}
+			case "sample_at":
+				if row.Empty || row.SampleAt.IsZero() {
+					rec = append(rec, "")
+				} else {
+					rec = append(rec, row.SampleAt.In(outLoc).Format(time.RFC3339))
+				}
 			case "timezone":
 				rec = append(rec, extraString(row.Extra, "timezone"))
 			case "last_seen":

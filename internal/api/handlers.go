@@ -173,13 +173,10 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The device just (re)connected — proof that any reboot command it had received
-	// actually rebooted it. Complete those before flushing, so a reboot delivered on the
-	// previous session flips 'delivered' → 'completed' now instead of being falsely
-	// completed at send time (FW-2026-000033).
-	if err := h.db.CompleteDeliveredReboots(r.Context(), device.ID); err != nil {
-		log.Printf("[ws] CompleteDeliveredReboots error for %s: %v", serial, err)
-	}
+	// A reconnect is NOT proof that a reboot happened — a network blip reconnects a
+	// device that never rebooted, and completing here is what made the dashboard claim
+	// a reboot that never ran (FW-2026-000033). The device's first telemetry frame
+	// carries uptime_seconds; settleReboots closes the command off that instead.
 
 	// Flush any commands that were queued while the device was offline.
 	h.flushPendingCommands(r.Context(), device.ID)
@@ -945,6 +942,16 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		}
 	}
 
+	// A delivered reboot completes when this boot started after the command reached the
+	// device — the only evidence that separates "it rebooted" from "it came back on the
+	// same boot" (FW-2026-000033). No uptime in the frame: the command stays delivered
+	// and the queue keeps showing it as outstanding until it expires.
+	if bootedAt, ok := bootTime(req.Extra); ok {
+		if err := h.db.CompleteDeliveredReboots(ctx, deviceID, bootedAt); err != nil {
+			log.Printf("[%s] CompleteDeliveredReboots error: %v", tag, err)
+		}
+	}
+
 	deviceCfg, err := h.db.GetOrCreateDeviceConfig(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -955,14 +962,6 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	if src == sourceHTTP {
 		log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
 			req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
-
-		// A check-in while the device has no live WS is proof it is back after a reboot,
-		// so complete any reboot that was only 'delivered' (FW-2026-000033). Guarded on
-		// the WS being down: a still-connected device hasn't rebooted, so it must not be
-		// completed off a routine keyframe.
-		if !h.hub.IsConnected(deviceID) {
-			_ = h.db.CompleteDeliveredReboots(ctx, deviceID)
-		}
 
 		// Pending commands ride the response for clients that poll instead of holding a
 		// WebSocket: older firmware (when legacy check-in is on) and MDM-lite, which
@@ -1360,17 +1359,27 @@ func (h *Handler) pushRebootFor(ctx context.Context, upd *db.Update, deviceID uu
 // from the check-in extra) started after t. Used to tell "still waiting for the
 // reboot" from "rebooted and came back on the old build".
 func bootedAfter(extra json.RawMessage, t *time.Time) bool {
-	if t == nil || len(extra) == 0 {
+	if t == nil {
 		return false
+	}
+	bootedAt, ok := bootTime(extra) // bootTime already carries the 15s slack
+	return ok && bootedAt.After(*t)
+}
+
+// bootTime is when the device's current boot started: now − uptime_seconds from the
+// check-in extra, with the same 15s slack bootedAfter used, so clock skew and the
+// time the frame spent in flight can't date a boot before the command that caused it.
+func bootTime(extra json.RawMessage) (time.Time, bool) {
+	if len(extra) == 0 {
+		return time.Time{}, false
 	}
 	var m struct {
 		Uptime *float64 `json:"uptime_seconds"`
 	}
 	if json.Unmarshal(extra, &m) != nil || m.Uptime == nil || *m.Uptime < 0 {
-		return false
+		return time.Time{}, false
 	}
-	bootedAt := time.Now().Add(-time.Duration(*m.Uptime * float64(time.Second)))
-	return bootedAt.After(t.Add(15 * time.Second))
+	return time.Now().Add(-time.Duration(*m.Uptime * float64(time.Second))).Add(-15 * time.Second), true
 }
 
 // failSlotSwitch marks a reboot_sent row failed when the device has rebooted but

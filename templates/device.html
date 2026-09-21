@@ -3718,11 +3718,25 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // the pill/toggle optimistically. The pill flips instantly; the real device applies
   // it on its next check-in (and SSE will confirm/settle the state either way).
   var kioskBusy = false;
+  // Kiosk lock is only supported for the AIO app on our firmware: lock another app and
+  // the device does go into kiosk, but it keeps reporting kiosk off, so the dashboard
+  // says "Kiosk off" over a locked device (FW-2026-000025). Warn before that happens.
+  // A hard restriction is available to admins as the kiosk allowlist in
+  // Settings › Devices & Kiosk.
+  window.kioskIsAioApp = function (p) { return /^com\.aioapp(\.|$)/.test((p || '').trim()); };
   window.kioskSubmit = function (enabled) {
     var form = document.getElementById('kiosk-form');
     var val = document.getElementById('kiosk-enabled-val');
     var pkg = document.getElementById('kiosk-pkg-value');
     if (!form || !val) return;
+    var mode0 = document.getElementById('kiosk-mode-sel');
+    if (enabled && pkg && pkg.value && (!mode0 || mode0.value === 'app') && !window.kioskIsAioApp(pkg.value)) {
+      if (!window.confirm('Only the AIO app is fully supported in kiosk mode.\n\n'
+          + pkg.value + ' will be locked on the device, but the device keeps reporting kiosk as off, '
+          + 'so this page will show "Kiosk off" while the device is actually locked.\n\nLock it anyway?')) {
+        return;
+      }
+    }
     val.value = enabled ? '1' : '0';
     // URLSearchParams -> application/x-www-form-urlencoded. Must NOT be FormData:
     // that sends multipart, which the handler's r.ParseForm() does not read, so the
@@ -3802,7 +3816,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       applyBtn.hidden = false;
       applyBtn.textContent = 'Enable kiosk';
       applyBtn.disabled = !hasApp;
-      if (n && !n.classList.contains('err')) kioskNote(hasApp ? '' : (mode === 'browser' ? 'Enter a start URL to enable' : 'Select a locked app to enable'));
+      if (n && !n.classList.contains('err')) {
+        var nonAio = mode === 'app' && pkg && pkg.value && window.kioskIsAioApp && !window.kioskIsAioApp(pkg.value);
+        kioskNote(hasApp ? (nonAio ? 'Only the AIO app reports its kiosk state — this page will show "Kiosk off" while the device is locked' : '')
+                         : (mode === 'browser' ? 'Enter a start URL to enable' : 'Select a locked app to enable'));
+      }
     } else {
       if (offBtn) offBtn.hidden = false;
       if (changed && hasApp) {

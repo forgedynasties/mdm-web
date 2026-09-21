@@ -23,14 +23,39 @@
 
 <form action="/export/csv" method="POST" hx-boost="false" data-no-spinner="true" class="export-form" id="export-form">
   
+{{/* The whole fleet used to be listed the moment the page opened, which reads as
+     "these are already chosen" (FW-2026-000052). The picker is a dropdown now: it
+     opens on click — devices, restaurants and groups — and starts open only when
+     nothing arrived preselected, because then there is nothing else to do here. */}}
 <div class="cc-card" id="ex-picker">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Devices</h3>
     <span class="muted small m">{{.FleetTotal}} in the fleet · <span data-dp-count>0</span> chosen</span>
   </div>
   <div style="padding:14px 16px 16px;">
-    {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Preselect" (joinLines .Serials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+    <button type="button" class="cc-btn" id="ex-picker-toggle" aria-expanded="false" aria-controls="ex-picker-body"
+            onclick="toggleDevicePicker()" style="display:inline-flex;align-items:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      <span id="ex-picker-label">Choose devices</span>
+    </button>
+    <div id="ex-picker-body" hidden style="margin-top:12px;">
+      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Preselect" (joinLines .Serials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+    </div>
   </div>
 </div>
+<script>
+  function toggleDevicePicker(force) {
+    var body = document.getElementById('ex-picker-body');
+    var btn = document.getElementById('ex-picker-toggle');
+    if (!body || !btn) return;
+    var open = typeof force === 'boolean' ? force : body.hidden;
+    body.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.querySelector('svg').style.transform = open ? 'rotate(180deg)' : '';
+    document.getElementById('ex-picker-label').textContent = open ? 'Hide device list' : 'Choose devices';
+  }
+  // Nothing preselected (a bare /export) → open it, that is the only thing to do here.
+  if (!{{len .Serials}}) toggleDevicePicker(true);
+</script>
 
 <input type="hidden" name="tz_offset" id="export-tz-offset" value="">
   <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
@@ -48,6 +73,12 @@
           <label class="form-label" for="export-end">End</label>
           <input type="datetime-local" name="end" class="form-input" id="export-end" onchange="onTimeChange()">
         </div>
+      </div>
+      <div style="margin-top:12px;">
+        <span class="form-label" style="margin-right:8px;">Timestamps in:</span>
+        <label class="checkbox-label" style="margin-right:10px;"><input type="radio" name="tz" value="local" checked> My timezone</label>
+        <label class="checkbox-label" style="margin-right:10px;"><input type="radio" name="tz" value="utc"> UTC</label>
+        <label class="checkbox-label"><input type="radio" name="tz" value="pkt"> Pakistan (UTC+5)</label>
       </div>
       <div style="margin-top:10px;">
         <span class="form-label" style="margin-right:8px;">Quick:</span>
@@ -74,7 +105,7 @@
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
-        By default you get every check-in the device actually sent, at its own timestamp — nothing resampled, nothing repeated. Pick an interval instead to reduce volume: rows then land on fixed marks starting at your chosen start time, each carrying the last value the device reported, so a value repeats for as long as nothing changed. Every row carries <code>timestamp</code> in your local time, <code>timestamp_utc</code>, and <code>sample_at</code>: the moment the check-in behind the values was recorded, which is the point you will find on the device graph.
+        By default you get every check-in the device actually sent, at its own timestamp — nothing resampled, nothing repeated. Pick an interval instead to reduce volume: rows then land on fixed marks starting at your chosen start time, each carrying the last value the device reported, so a value repeats for as long as nothing changed. Every row carries one <code>timestamp</code>, in the timezone chosen above. The moment of the check-in behind the values — the point you will find on the device graph — is available as the <em>Sample time</em> column under Meta.
       </p>
       <div class="dur-btns" id="export-interval-btns">
         <button type="button" class="dur-btn active" data-label="Every check-in" onclick="setSampleInterval(this, 0)">Every check-in</button>
@@ -116,7 +147,9 @@
           <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked onchange="updateColCount()"> Battery %</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked onchange="updateColCount()"> Device Temp (°C)</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="charging" checked onchange="updateColCount()"> Charging (0/1)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked onchange="updateColCount()"> WLC / Charging</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked onchange="updateColCount()"> WLC status (0/1/2)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_state" checked onchange="updateColCount()"> WLC status in words</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="charging_pad" checked onchange="updateColCount()"> Charging pad enabled</label>
         </div>
       </div>
 
@@ -158,6 +191,7 @@
         </div>
         <div class="export-columns" data-group="meta">
           <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked onchange="updateColCount()"> Last Seen</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="sample_at" onchange="updateColCount()"> Sample time (the check-in behind the row)</label>
         </div>
       </div>
       {{end}}
@@ -166,6 +200,10 @@
 
   <div class="export-submit-bar">
     <div class="export-submit-summary">
+      {{/* Excel splits a .csv on the machine's locale list separator, so on a machine
+           set to ";" the whole row lands in one cell. "sep=," is Excel's own opt-out
+           and is off by default: it is not CSV, and other tools read it as data. */}}
+      <label class="checkbox-label" style="display:block;margin-bottom:6px;"><input type="checkbox" name="excel" value="1"> Opening this in Excel (adds a <code>sep=,</code> line)</label>
       <span class="muted small">
         <strong id="summary-devices">{{len .Serials}}</strong> device{{if ne (len .Serials) 1}}s{{end}}
         · <strong id="summary-cols">0</strong> columns
@@ -220,7 +258,7 @@
 <script>
 var COLUMN_PRESETS = {
   common:   ['battery_pct', 'build_id', 'wifi', 'ip_address', 'last_seen'],
-  battery:  ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'last_seen'],
+  battery:  ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'wlc_state', 'charging_pad', 'last_seen'],
   network:  ['wifi', 'ip_address', 'last_seen'],
   system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'timezone', 'last_seen'],
   all:      null,  // sentinel: check everything

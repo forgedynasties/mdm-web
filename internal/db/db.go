@@ -4503,6 +4503,32 @@ func (d *DB) GetDeviceIDsBySerials(ctx context.Context, serials []string) ([]uui
 	return ids, rows.Err()
 }
 
+// WlcEnabledBySerial maps each device's serial to whether its charging pad is
+// enabled. The CSV export needs it per row, and the setting lives in config, not in
+// telemetry, so it is read once up front (FW-2026-000052).
+func (d *DB) WlcEnabledBySerial(ctx context.Context, ids []uuid.UUID) (map[string]bool, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.serial_number, COALESCE(dc.wlc_charging_enabled, TRUE)
+		FROM devices dv
+		LEFT JOIN device_config dc ON dc.device_id = dv.id
+		WHERE dv.id = ANY($1)
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var serial string
+		var on bool
+		if err := rows.Scan(&serial, &on); err != nil {
+			return nil, err
+		}
+		out[serial] = on
+	}
+	return out, rows.Err()
+}
+
 // GetAllDeviceIDs returns the IDs of every registered device.
 func (d *DB) GetAllDeviceIDs(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := d.pool.Query(ctx, `SELECT id FROM devices`)
@@ -5563,15 +5589,18 @@ func (d *DB) MarkCommandsDelivered(ctx context.Context, deviceID uuid.UUID, comm
 	return nil
 }
 
-// CompleteDeliveredReboots marks a device's outstanding reboot commands completed
-// once the device reconnects / checks in again — the reconnection is the proof the
-// reboot actually happened. Reboot is acked 'delivered' when sent (not 'completed'),
-// because a successful WS push only means "queued to the socket", not "device
-// rebooted": a stale/half-open connection, or a device that received the command but
-// never rebooted, previously produced a false 'completed' (FW-2026-000033). Only rows
-// still in 'delivered' move, so a routine reconnect can't resurrect a command that has
-// already reached a terminal state.
-func (d *DB) CompleteDeliveredReboots(ctx context.Context, deviceID uuid.UUID) error {
+// CompleteDeliveredReboots marks a device's outstanding reboot commands completed,
+// but only the ones the device has demonstrably obeyed: bootedAt is when its current
+// boot started (now − uptime_seconds, from the check-in), and a reboot delivered
+// before that boot is one this boot answers.
+//
+// Reboot is acked 'delivered' when sent, never 'completed': a successful WS push only
+// means "queued to the socket". Reconnecting was the old proof, and it was wrong —
+// a network blip reconnects a device that never rebooted, which is the false
+// 'completed' testers kept seeing (FW-2026-000033). Uptime is the only honest
+// evidence. Only rows still in 'delivered' move, so a routine check-in can't
+// resurrect a command that has already reached a terminal state.
+func (d *DB) CompleteDeliveredReboots(ctx context.Context, deviceID uuid.UUID, bootedAt time.Time) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE command_status cs
 		SET status = 'completed', updated_at = NOW()
@@ -5580,7 +5609,8 @@ func (d *DB) CompleteDeliveredReboots(ctx context.Context, deviceID uuid.UUID) e
 		  AND cs.device_id = $1
 		  AND c.type = 'reboot'
 		  AND cs.status = 'delivered'
-	`, deviceID)
+		  AND cs.updated_at < $2
+	`, deviceID, bootedAt)
 	return err
 }
 
