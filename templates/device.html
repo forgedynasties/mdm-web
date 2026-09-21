@@ -3561,7 +3561,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         // Lazy panels (Alerts, History) fetch their content on first open; the
         // "once" in their hx-trigger makes repeat opens a no-op.
         var lazy = p.hasAttribute('hx-get') ? p : p.querySelector(':scope > [hx-trigger^="dd-show"]');
-        if (lazy) window.htmx.trigger(lazy, 'dd-show');
+        if (lazy) { window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
       }
     });
     try { localStorage.setItem(ddTabKey, name); } catch (e) {}
@@ -3596,6 +3596,19 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     ['htmx:responseError', 'htmx:sendError', 'htmx:timeout', 'htmx:swapError'].forEach(function (evt) {
       document.body.addEventListener(evt, lazyPanelError);
     });
+    // A request that never fires at all (a JS error before the trigger, a fetch the
+    // browser drops) leaves the same dead placeholder, and no htmx event ever
+    // arrives to catch. Watch the panel instead: still on the placeholder after 20s
+    // means it failed, whatever the reason.
+    window.watchLazy = function (panel, el) {
+      if (panel.__lazyWatch) return;
+      panel.__lazyWatch = setTimeout(function () {
+        if (!panel.isConnected || !el.isConnected) return;
+        var txt = (panel.textContent || '').trim();
+        if (txt.indexOf('Loading') !== 0) return;
+        lazyPanelError({ detail: { elt: el, xhr: null } });
+      }, 20000);
+    };
   })();
 
   // On load, honor a ?tab= deep-link (a crash link from the fleet views points at
