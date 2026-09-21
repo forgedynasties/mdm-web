@@ -237,7 +237,42 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag cc-tag warn" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
-        {{if .Device.IsMDMLite}}<span class="cc-tag info" tabindex="0" role="note" title="Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection. Actions it cannot run are disabled in the Actions menu.">MDM Lite</span>{{else if .IsDPC}}<span class="cc-tag info" tabindex="0" role="note" title="Managed by the AIO MDM Device-Owner agent on a stock device. Actions the agent cannot run are disabled in the Actions menu.">MDM DPC</span>{{else}}<span class="cc-tag" title="Our hardware running the system-app client">MDM Firmware</span>{{end}}
+        {{/* Client pill: one pill in one place for firmware, DPC and Lite alike, carrying
+             the client version and a dot for "is it the hosted build?". Clicking it opens
+             every client with its hosted version and this client's changelog, so the
+             question is answered without leaving the device. */}}
+        {{with .ClientPill}}
+        <span class="cpill-wrap">
+          <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
+                  title="{{.Title}}" onclick="toggleClientPill(event)">
+            {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
+            <span>{{.Kind}}</span>
+            {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>{{end}}
+            <svg class="cpill-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="cpill-pop" id="cpill-pop" hidden>
+            <h4>Clients</h4>
+            {{$this := .Slot}}
+            {{range .Clients}}
+            <div class="cpill-row{{if .This}} on{{end}}">
+              <span class="nm">{{.Label}}</span>
+              <span class="vv">{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+              {{if .This}}<span class="cc-tag ok">this device</span>{{end}}
+            </div>
+            {{end}}
+            {{if .Changelog}}
+            <div class="cpill-chg">
+              <div class="t">Changelog · {{if .SlotLabel}}{{.SlotLabel}}{{else}}{{.Kind}}{{end}}</div>
+              <ul>{{range .Changelog}}<li><span class="v">{{if .Version}}{{.Version}}{{else}}{{.Name}}{{end}}</span>{{if .Changelog}} — {{.Changelog}}{{end}}</li>{{end}}</ul>
+            </div>
+            {{end}}
+            <div class="cpill-foot">
+              <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
+              <a href="/clients{{if .Slot}}?slot={{.Slot}}{{end}}">Open Clients page →</a>
+            </div>
+          </div>
+        </span>
+        {{end}}
         {{if .Device.Class}}<span class="cc-tag" title="Product">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
@@ -737,6 +772,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 
 
   <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
+  {{/* Readout panel beside the plot (was a sentence in the footer): the values of the
+       ONE check-in nearest the pointer, stacked with their units, plus the battery
+       cycles inside the window on screen. At rest it shows the latest check-in, so the
+       column is never blank. */}}
+  <div class="chart-split">
   <div class="chart-body" id="chart-body">
     <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   {{if .ShowBattery}}
@@ -792,8 +832,16 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   </div>
 
   </div><!-- /chart-body -->
+  <aside class="chart-readout" id="chart-readout" aria-live="polite">
+    <div class="cr-when" id="cr-when">—</div>
+    {{if .ShowBattery}}<div class="cr-row"><span class="k">Battery</span><span class="v" id="cr-batt">—</span><span class="cr-note" id="cr-charge"></span></div>{{end}}
+    <div class="cr-row"><span class="k">Temp</span><span class="v" id="cr-temp">—</span></div>
+    <div class="cr-row"><span class="k">RAM</span><span class="v" id="cr-ram">—</span></div>
+    {{if .ShowBattery}}<div class="cr-row cr-cyc"><span class="k" title="A cycle = charged to 95% or more, then run down to 10% or less. Counted inside the window on screen.">Cycles in view</span><span class="v" id="cr-cycles">—</span></div>{{end}}
+  </aside>
+  </div><!-- /chart-split -->
   <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <span id="chart-footer-text">—</span>
+    <span id="chart-footer-text" hidden></span><span class="wlabel-hint">Hover the graph — values show on the right</span>
     {{/* Visible-window label — subtle, below the graph. A wide custom/shifted range
          lives here so it can never wrap the toolbar. */}}
     <span class="chart-wlabel" id="chart-window-label"></span>
@@ -1608,6 +1656,7 @@ function mdmBootCharts() {
     applyUnifiedData();
     syncMarkerToggle();
     refreshTabVals();
+    updateFooter(null);
   }
 
   // Live per-tab value badges (Design-1 style): show each metric's latest reading on
@@ -1635,7 +1684,31 @@ function mdmBootCharts() {
     return best;
   }
 
+  // Battery cycles inside the window on screen. A cycle is a real excursion — the
+  // pack charged to CYCLE_FULL or above, then later run down to CYCLE_EMPTY or below;
+  // it is counted at the empty crossing. A dip to 35% and back is not a cycle. This is
+  // a different measure from the "Battery cycles" in About, which totals lifetime
+  // discharge ÷ 100 (wear), and the two are not expected to agree.
+  const CYCLE_FULL = 95, CYCLE_EMPTY = 10;
+  function cyclesIn(arr) {
+    if (!arr || !arr.length) return 0;
+    let n = 0, armed = false;
+    for (let i = 0; i < arr.length; i++) {
+      const y = arr[i].y;
+      if (y == null || isNaN(y)) continue;
+      if (y >= CYCLE_FULL) armed = true;
+      else if (armed && y <= CYCLE_EMPTY) { n++; armed = false; }
+    }
+    return n;
+  }
+
+  // The readout panel beside the plot. One check-in — the nearest to the pointer —
+  // not a nearest-per-metric mix (FW-2026-000053), and its own timestamp.
+  function setReadout(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+
   function updateFooter(ms, markerText) {
+    const panel = document.getElementById('chart-readout');
+    if (panel) return updateReadout(ms, markerText);
     const el = document.getElementById('chart-footer-text');
     if (!el) return;
     if (ms == null) { el.textContent = '—'; return; }
@@ -1669,7 +1742,46 @@ function mdmBootCharts() {
     el.textContent = parts.join('  ·  ');
   }
 
-  function setHoverInfo(data) { /* replaced by updateFooter */ }
+  function updateReadout(ms, markerText) {
+    const batt = srcBattery(), temp = srcTemp(), ram = srcRam();
+    // At rest (no pointer) the panel shows the newest check-in in view rather than
+    // going blank — the column is always worth reading.
+    if (ms == null) {
+      const last = (batt && batt.length ? batt : (temp && temp.length ? temp : ram));
+      ms = last && last.length ? last[last.length - 1].x : null;
+      if (ms == null) { setReadout('cr-when', '—'); return; }
+    }
+    const bPt = nearestInArray(batt, ms);
+    const tPt = nearestInArray(temp, ms);
+    const rPt = nearestInArray(ram, ms);
+    // The check-in the panel is describing is the nearest battery reading when there is
+    // one (the line people hover), else whichever series answered.
+    const anchor = bPt || tPt || rPt;
+    let when = anchor ? fmtDate(anchor.x) : fmtDate(ms);
+    if (anchor) {
+      const off = Math.round(Math.abs(anchor.x - ms) / 1000);
+      if (off >= 5) when += '  ±' + (off < 90 ? off + 's' : Math.round(off / 60) + 'm');
+    }
+    setReadout('cr-when', when + (markerText ? '  ·  ' + markerText : ''));
+    setReadout('cr-batt', bPt && bPt.y != null ? bPt.y + '%' : '—');
+    setReadout('cr-temp', tPt && tPt.y != null ? tPt.y.toFixed(1) + '°C' : '—');
+    setReadout('cr-ram', rPt && rPt.y != null ? rPt.y.toFixed(1) + '%' : '—');
+    let note = '';
+    if (bPt) {
+      if (bPt.wlc === 1) note = '⚡ on the pad';
+      else if (bPt.wlc === 2) note = '⚠ pad misplaced';
+      else if (bPt.wlc === 0) note = 'pad vacant';
+      if (srcCharge().length) {
+        const c = chargeAt(anchor ? anchor.x : ms);
+        if (c === true) note = note ? note + ' · charging' : 'charging';
+        else if (c === false) note = note ? note + ' · not charging' : 'not charging';
+      }
+    }
+    setReadout('cr-charge', note);
+    setReadout('cr-cycles', String(cyclesIn(batt)));
+  }
+
+  function setHoverInfo(data) { /* replaced by updateReadout */ }
 
   function syncMarkerToggle() {
     var btn = document.getElementById('toggle-markers-btn');
@@ -3576,6 +3688,35 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     }
   }
   window.setDeviceTab = setDeviceTab;
+
+  // Client pill popover: open on click, close on the next click outside or Escape.
+  // The hero clips its overflow, so the wrapper carries .open for the :has() rule
+  // that lets the panel hang below the card.
+  window.toggleClientPill = function (e) {
+    var btn = e.currentTarget, pop = document.getElementById('cpill-pop');
+    if (!pop) return;
+    var open = pop.hidden;
+    pop.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.closest('.cpill-wrap').classList.toggle('open', open);
+    if (!open) return;
+    setTimeout(function () {
+      function away(ev) {
+        if (ev.target.closest && ev.target.closest('.cpill-wrap')) return;
+        close();
+      }
+      function key(ev) { if (ev.key === 'Escape') { close(); btn.focus(); } }
+      function close() {
+        pop.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        btn.closest('.cpill-wrap').classList.remove('open');
+        document.removeEventListener('click', away);
+        document.removeEventListener('keydown', key);
+      }
+      document.addEventListener('click', away);
+      document.addEventListener('keydown', key);
+    }, 0);
+  };
 
   // A lazy panel that fails to load used to sit on "Loading…" for ever: the request
   // is a "once" trigger, so nothing retries it and nothing says what went wrong.

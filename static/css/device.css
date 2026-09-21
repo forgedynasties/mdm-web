@@ -385,3 +385,67 @@
 .ddc-kv.mdm-move form{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0;}
 .ddc-kv.mdm-move select{flex:1 1 200px;min-width:0;font-size:12.5px;padding:5px 9px;}
 .ddc-kv.mdm-move .muted.small{margin-top:5px;}
+
+/* ── Client pill (device hero) ───────────────────────────────────────────────
+   One pill for firmware / DPC / Lite: kind, client version, and a dot saying
+   whether that is the hosted build. Click opens every client plus this one's
+   changelog, so nobody has to leave the device to answer "which client is this,
+   and is it current?". */
+.cpill-wrap{position:relative;display:inline-flex;}
+.ddc-hero:has(.cpill-wrap.open){overflow:visible}
+.cpill{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:11.5px;font-weight:700;
+  padding:3px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-faint);cursor:pointer;}
+.cpill:hover,.cpill[aria-expanded="true"]{border-color:var(--accent-edge,var(--accent));color:var(--text);}
+.cpill-ver{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:750;color:var(--text);}
+.cpill-sep{width:1px;height:12px;background:var(--border);}
+.cpill-dot{width:6px;height:6px;border-radius:99px;background:#2bb673;}
+.cpill-dot.behind{background:#e8a13a;}
+.cpill-caret{opacity:.55;flex:none;}
+.cpill[aria-expanded="true"] .cpill-caret{transform:rotate(180deg);}
+.cpill-pop{position:absolute;z-index:50;left:0;top:calc(100% + 6px);width:min(430px,92vw);
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-pop,0 16px 46px rgba(20,22,40,.18));overflow:hidden;}
+.cpill-pop h4{margin:0;padding:10px 14px;font-size:11px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-soft);}
+.cpill-row{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:12.5px;
+  border-bottom:1px solid var(--border-soft);}
+.cpill-row .nm{font-weight:700;flex:1;}
+.cpill-row .vv{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--text-faint);}
+.cpill-row.on{background:var(--surface-3,rgba(0,0,0,.03));}
+.cpill-chg{padding:11px 14px;border-top:1px solid var(--border);background:var(--surface-2,rgba(0,0,0,.015));}
+.cpill-chg .t{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-faint);margin-bottom:6px;}
+.cpill-chg ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.6;}
+.cpill-chg li .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:750;color:var(--text);}
+.cpill-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:9px 14px;border-top:1px solid var(--border);font-size:12px;}
+.cpill-foot .vv{color:var(--text-faint);font-weight:650;}
+.cpill-foot a{font-weight:700;color:var(--accent-text,var(--accent));text-decoration:none;}
+
+/* ── Graph readout panel ─────────────────────────────────────────────────────
+   The hover readout is a column beside the plot, not a sentence in the footer:
+   one check-in's values, stacked with units, plus the battery cycles inside the
+   window on screen. Stacks under the plot on a narrow screen. */
+.chart-split{display:flex;align-items:stretch;min-width:0;}
+.chart-split>.chart-body{flex:1;min-width:0;}
+.chart-readout{width:190px;flex:none;border-left:1px solid var(--border);padding:12px 14px;}
+.chart-readout .cr-when{font-size:11.5px;font-weight:700;color:var(--text-faint);
+  font-variant-numeric:tabular-nums;margin-bottom:12px;line-height:1.4;}
+.chart-readout .cr-row{margin-bottom:11px;}
+.chart-readout .cr-row .k{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-faint);}
+.chart-readout .cr-row .v{font-size:17px;font-weight:760;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;}
+.chart-readout .cr-note{display:block;font-size:11px;color:var(--text-faint);font-weight:650;line-height:1.4;}
+.chart-readout .cr-cyc{margin-top:14px;padding-top:11px;border-top:1px solid var(--border-soft);}
+.chart-readout .cr-cyc .v{font-size:15px;}
+.wlabel-hint{font-size:11.5px;color:var(--text-faint);}
+@media(max-width:900px){
+  .chart-split{flex-direction:column;}
+  .chart-readout{width:auto;border-left:0;border-top:1px solid var(--border);
+    display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;padding:10px 14px;}
+  .chart-readout .cr-when{margin:0;width:100%;}
+  .chart-readout .cr-row{margin:0;}
+  .chart-readout .cr-cyc{margin:0;padding:0;border:0;}
+}

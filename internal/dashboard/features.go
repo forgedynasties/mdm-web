@@ -1524,20 +1524,93 @@ type ClientDeviceRow struct {
 // what this server hosts for it, and how far behind the fleet is. The agent is the
 // thing that makes every other page work, so it gets a page rather than a corner of
 // Settings.
+// clientSlotOrder and clientSlotLabels are the client catalogue, shared by the
+// Clients page and the device page's client pill so the two can never drift.
+var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board", "lite-demo"}
+
+var clientSlotLabels = map[string]string{
+	"dpc":           "DPC agent",
+	"firmware-qcom": "Firmware client · QCOM (T7, kiosks)",
+	"firmware-gms":  "Firmware client · GMS",
+	"menu-board":    "Menu board",
+	"lite-demo":     "MDM Lite demo app",
+}
+
+// ClientPillView is the device hero's client pill: which client manages this device,
+// the version it runs, whether that is the hosted build, and — for the popover the
+// pill opens — every client with its hosted version plus this client's changelog.
+// One pill in one place for firmware, DPC and Lite alike.
+type ClientPillView struct {
+	Kind      string // "MDM Firmware" | "MDM DPC" | "MDM Lite"
+	Title     string // the tooltip the old tag carried
+	Version   string // what the device reports ("" = it has never said)
+	Slot      string
+	SlotLabel string
+	Hosted    bool // a build is hosted for this slot at all
+	Latest    string
+	Behind    bool
+	Clients   []ClientPillRow
+	Changelog []config.AgentAPKBuild
+}
+
+// ClientPillRow is one client in the pill's popover.
+type ClientPillRow struct {
+	Slot    string
+	Label   string
+	Version string // hosted version, "" when nothing is hosted for it
+	This    bool   // the client this device runs
+}
+
+// clientPillFor builds the pill for one device. Everything it needs is already on
+// the page's data path: the device's reported version, and the hosted build per slot.
+func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
+	v := ClientPillView{Kind: "MDM Firmware", Title: "Our hardware running the system-app client"}
+	if d == nil {
+		return v
+	}
+	switch {
+	case d.IsMDMLite():
+		v.Kind = "MDM Lite"
+		v.Title = "Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection."
+	case d.IsDPC():
+		v.Kind = "MDM DPC"
+		v.Title = "Managed by the AIO MDM Device-Owner agent on a stock device."
+	}
+	v.Version, _ = clientVersionOf(d)
+	v.Slot = agentSlotFor(d)
+	v.SlotLabel = clientSlotLabels[v.Slot]
+	for _, slot := range clientSlotOrder {
+		row := ClientPillRow{Slot: slot, Label: clientSlotLabels[slot], This: slot == v.Slot}
+		if b, hosted := h.cfg.AgentAPKSlot(slot); hosted {
+			row.Version = b.Version
+		}
+		v.Clients = append(v.Clients, row)
+	}
+	b, hosted := h.cfg.AgentAPKSlot(v.Slot)
+	if !hosted {
+		return v
+	}
+	v.Hosted, v.Latest = true, b.Version
+	// "Behind" is only claimed when the two versions are comparable at all — a client
+	// reporting another package's version would otherwise read as up to date forever.
+	if _, code := clientVersionOf(d); code > 0 && versionComparable(d, b.Package) {
+		v.Behind = code < b.VersionCode
+	}
+	v.Changelog = h.cfg.AgentAPKHistory(v.Slot)
+	if len(v.Changelog) > 4 {
+		v.Changelog = v.Changelog[:4]
+	}
+	return v
+}
+
 func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	order := []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board", "lite-demo"}
-	labels := map[string]string{
-		"dpc":                   "DPC agent",
-		"firmware-qcom":         "Firmware client · QCOM (T7, kiosks)",
-		"firmware-gms":          "Firmware client · GMS",
-		"menu-board":            "Menu board",
-		"lite-demo":             "MDM Lite demo app",
-	}
+	order := clientSlotOrder
+	labels := clientSlotLabels
 	// The firmware client is one client with one build per tree, because each tree
 	// signs with its own platform key. That split has to stay — a device only installs
 	// the key it already trusts — but it is not three clients, so it is one rail row

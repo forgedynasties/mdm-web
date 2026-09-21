@@ -6197,6 +6197,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Apps":                apps,
 		"Families":            devFams,
 		"InstalledPackages":   launchableOnly(installedPkgs),
+		"ClientPill":          h.clientPillFor(device),
 		"KioskApps":           kioskApps,
 		"KioskAllowlistCSV":   strings.Join(h.cfg.KioskAllowlist(), ","),
 		"KioskExtras":         kioskExtras,
