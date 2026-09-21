@@ -146,3 +146,23 @@ func TestAdminOnlyResidueIsExactlyTheExpectedSet(t *testing.T) {
 		}
 	}
 }
+
+// TestInstallShapedTypes pins the install-shaped set. Every site that keys an install's
+// lifecycle on the command type reads it from here, so widening it silently changes which
+// commands get the longer delivery leash, the 'downloading'/'installing' progress acks,
+// and the expiry keyed on last activity — and narrowing it is how a stalled app_update
+// became un-expirable and wedged a device's whole command queue behind it.
+func TestInstallShapedTypes(t *testing.T) {
+	if got, want := InstallShapedSQL(), "('install_apk', 'app_update')"; got != want {
+		t.Errorf("InstallShapedSQL() = %s, want %s", got, want)
+	}
+	for _, typ := range []string{"install_apk", "app_update"} {
+		c, ok := CommandFor(typ)
+		if !ok {
+			t.Fatalf("%q is not in the catalogue", typ)
+		}
+		if !c.InstallShaped {
+			t.Errorf("%q is no longer install-shaped — it downloads and installs an APK, so it follows an install's lifecycle", typ)
+		}
+	}
+}

@@ -1476,8 +1476,8 @@ func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 	}
 }
 
-// ExpireStalledInstalls fails install_apk deliveries whose download or install stopped
-// reporting progress past the stall window. A device that lost connectivity mid-install
+// ExpireStalledInstalls fails install-shaped deliveries (install_apk, app_update) whose
+// download or install stopped reporting progress past the stall window. A device that lost connectivity mid-install
 // (see FW-2026-000020) exhausts its client-side retries and stops reporting — or its
 // terminal ack is lost in the same outage — leaving the delivery stuck "in flight".
 // Install commands are exempt from the short command TTL, so this sweep is their only

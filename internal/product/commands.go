@@ -1,5 +1,7 @@
 package product
 
+import "strings"
+
 // ── Command catalogue ─────────────────────────────────────────────────────────
 //
 // Every command type the MDM can name, described once. Before this, a type lived
@@ -39,6 +41,31 @@ type Command struct {
 	// non-admin, however generous Roles is, so the dashboard test asserts that every
 	// sendable type names a real one.
 	Access string
+	// InstallShaped is whether the type downloads and installs an APK, and so follows an
+	// install's lifecycle rather than a command's: it acks 'downloading'/'installing'
+	// progress, it gets a longer delivery leash, and its expiry is keyed on last activity
+	// instead of creation time. Anything that special-cases install_apk by type must ask
+	// this instead.
+	//
+	// app_update is the same kind of thing as install_apk and was missing from two of
+	// those lists, so a stalled self-update could never expire. That is not merely a row
+	// left showing "installing": a downloading/installing row is a LIVE queue blocker
+	// (GetPendingCommandsForDevice), so the device's entire command queue wedged behind
+	// it — silently, while the device kept checking in.
+	InstallShaped bool
+}
+
+// InstallShapedSQL is the install-shaped types as a SQL list literal, for the hand-written
+// queries that key an install's lifecycle on the command type. Derived from the table
+// above so a new install-shaped type cannot be added to one list and missed by another.
+func InstallShapedSQL() string {
+	var quoted []string
+	for _, c := range commands {
+		if c.InstallShaped {
+			quoted = append(quoted, "'"+c.Type+"'")
+		}
+	}
+	return "(" + strings.Join(quoted, ", ") + ")"
 }
 
 // Role sets, named so the table reads as policy rather than string soup. They are
@@ -60,7 +87,7 @@ var commands = []Command{
 	// Raw shell is limited to admin/dev; operators reach vetted commands through
 	// the device-query catalog instead (the "diagnostic" action on the Actions page).
 	{Type: "screenshot", Cap: CapScreenCapture, Roles: rolesViewer, API: true},
-	{Type: "install_apk", Cap: CapInstallAPK, Roles: rolesOperator, API: true},
+	{Type: "install_apk", Cap: CapInstallAPK, Roles: rolesOperator, API: true, InstallShaped: true},
 	{Type: "uninstall", Cap: CapUninstall, Roles: rolesOperator, API: true},
 	{Type: "reboot", Cap: CapReboot, Roles: rolesOperator, API: true},
 	{Type: "shell", Cap: CapShell, Roles: rolesAdminDev, API: true},
@@ -79,7 +106,7 @@ var commands = []Command{
 	// already hold. Under its own name ("app_update") it matched no access action,
 	// so the policy layer answered "Unknown action" and refused every non-admin a
 	// command the role allowlist and all three device surfaces offer them.
-	{Type: "app_update", Cap: CapSelfUpdate, Roles: rolesOperator, API: true, Access: "install_apk"},
+	{Type: "app_update", Cap: CapSelfUpdate, Roles: rolesOperator, API: true, Access: "install_apk", InstallShaped: true},
 
 	// ── Diagnostics ─────────────────────────────────────────────────────────
 	// A read-only diagnostic whose command text comes only from the admin-curated

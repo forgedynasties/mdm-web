@@ -5255,7 +5255,7 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 						AND cs.status IN ('pending','delivered')
 						AND c.created_at <= NOW() - INTERVAL '%d seconds'
 					THEN 'expired'
-					WHEN c.type = 'install_apk'
+					WHEN c.type IN `+prod.InstallShapedSQL()+`
 						AND cs.status IN ('pending','delivered')
 						AND c.created_at <= NOW() - INTERVAL '%d seconds'
 					THEN 'expired'
@@ -5938,7 +5938,7 @@ func (d *DB) ExpireStalledInstalls(ctx context.Context, stallMinutes int) ([]Sta
 		SET status = 'failed', progress = NULL, updated_at = NOW()
 		FROM commands c
 		WHERE cs.command_id = c.id
-		  AND c.type = 'install_apk'
+		  AND c.type IN `+prod.InstallShapedSQL()+`
 		  AND cs.status IN ('downloading', 'installing')
 		  AND cs.updated_at <= NOW() - make_interval(mins => $1)
 		RETURNING cs.command_id, cs.device_id
@@ -6032,6 +6032,11 @@ func (d *DB) ReconcileInstalledCommands(ctx context.Context, deviceID uuid.UUID)
 				UNION
 				SELECT a.package_name FROM apps a WHERE a.apk_url = c.apk_url AND COALESCE(a.package_name,'') <> ''
 			)
+			-- install_apk only, deliberately — NOT prod.InstallShapedSQL(): this reconciles
+			-- a stalled install by finding the package present on the device, and the
+			-- agent's package is the agent itself, always present. Including app_update
+			-- would settle every stalled self-update as 'installed', including the ones
+			-- where the version never changed. Expiry covers app_update instead.
 			WHERE c.type = 'install_apk'
 			  AND (
 				c.target_type = 'all'
@@ -6138,7 +6143,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         -- while it's actively progressing. This matches ExpireStalledInstalls, which
 		         -- keys the actual write on updated_at (the device page previously disagreed
 		         -- with the sweep and could prompt an operator to cancel a healthy install).
-		         WHEN c.type = 'install_apk'
+		         WHEN c.type IN `+prod.InstallShapedSQL()+`
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
 		              AND COALESCE(cs.updated_at, c.created_at) <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
@@ -6275,7 +6280,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
-		         WHEN c.type = 'install_apk'
+		         WHEN c.type IN `+prod.InstallShapedSQL()+`
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
