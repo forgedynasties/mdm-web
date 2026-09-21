@@ -27,6 +27,7 @@ import (
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/otagate"
+	"mdm/internal/product"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -1850,10 +1851,12 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true,
-		"app_reload": true, "app_restart": true, "app_clear_cache": true, "app_update_check": true,
-		"app_update": true}
-	if !validTypes[body.Type] {
+	// The types a single request can specify completely — the same catalogue the
+	// dashboard's role allowlist comes from (internal/product/commands.go), so the
+	// two can no longer disagree about what exists. A type with no entry is refused
+	// rather than stored half-specified; "query" is dashboard-only because its
+	// payload must come from the vetted query catalog, not from the caller.
+	if !product.APICommandTypes()[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
 	}

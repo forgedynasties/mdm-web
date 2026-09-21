@@ -16097,44 +16097,27 @@ const (
 	cmdAuthzForbidden
 )
 
-// commandRoles is the single source of truth for which dashboard roles may
-// issue (or resend) each command type. A type absent from this map is unknown
-// and is rejected outright — this is what closes the previous default-allow gap
-// where any arbitrary string (including destructive verbs) was accepted,
-// persisted, and dispatched from the lowest-privilege role (GB-01/GB-02). The
-// admin JSON API (internal/api) independently gates the same set behind the
-// admin key. Keep the two lists in sync when adding a command type.
-// Operators carry the everyday action set (screenshot/install/uninstall/reboot) plus
-// their exclusive QA recording elsewhere, so they're listed alongside admin/dev on
-// those types — but never on the admin/dev-only types (shell, ota, update_splash).
-// Raw shell is limited to admin/dev; operators reach vetted commands via the device
-// queries catalog instead (the "diagnostic" action on the Actions page).
-var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "operator", "user_manager", "super_op", "viewer"},
-	"install_apk":   {"admin", "dev", "operator", "user_manager", "super_op"},
-	"uninstall":     {"admin", "dev", "operator", "user_manager", "super_op"},
-	"reboot":        {"admin", "dev", "operator", "user_manager", "super_op"},
-	// MDM-lite app controls: operator-level, like reboot, and far less disruptive.
-	"app_reload":       {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_update":       {"admin", "dev", "operator", "user_manager", "super_op"},
-	"shell":         {"admin", "dev"},
-	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
-	// query_id from the catalog, never user-supplied), so operators may issue it.
-	"query":         {"admin", "dev", "operator", "user_manager", "super_op"},
-	"ota":           {"admin", "dev", "super_op"},
-	"update_splash": {"admin", "dev"},
-	"logcat":        {"admin", "dev"},
-	// Full-device factory reset — DPC-agent devices only, admin-only (most destructive action).
-	"wipe":          {"admin"},
-	// Read-only mic capture gain (TX_DEC0..7 Volume) probe. Admin-only for now: the
-	// field it refreshes is only rendered for admins (see device.html Hardware card).
-	"mic_gain_read": {"admin"},
-	// mic_gain_set (the vendor daemon's TX_DEC enforcement target) is deliberately
-	// absent: mic gain is read-only from the MDM, so the type is refused as unknown.
-}
+// commandRoles is the dashboard's view of the command vocabulary: which roles may
+// issue (or resend) each type, and which types it cannot send at all. It is derived
+// from the command catalogue in internal/product/commands.go, which describes a type
+// once — its roles, the capability a device must advertise, what the admin API
+// accepts, and the access-policy action it is judged by. Those facts used to be four
+// lists that drifted apart; commands_test.go fails when what comes out of the
+// catalogue cannot be enforced here.
+//
+// A type absent from this map is unknown, and unknown is rejected outright — this is
+// what closes the previous default-allow gap where any arbitrary string (including
+// destructive verbs) was accepted, persisted, and dispatched from the lowest-
+// privilege role (GB-01/GB-02).
+var commandRoles = func() map[string][]string {
+	m := map[string][]string{}
+	for _, c := range product.Commands() {
+		if c.Roles != nil {
+			m[c.Type] = c.Roles
+		}
+	}
+	return m
+}()
 
 // ── Roles ────────────────────────────────────────────────────────────────────
 //
@@ -16314,17 +16297,13 @@ func apkURLToIcon(apps []db.App) map[string]string {
 	return m
 }
 
-// policyActionForCommand maps a command type to the access-policy action key.
-// Types outside the operator set (shell, ota, …) map to themselves and are never
-// granted to operators by the role allowlist anyway.
+// policyActionForCommand maps a command type to the access-policy action key it is
+// evaluated against, from the command catalogue (product.Command.Access). Types
+// outside the operator set (shell, ota, …) name an action that is never granted to
+// operators by their role ceiling anyway.
 func policyActionForCommand(cmdType string) string {
-	if cmdType == "set_kiosk" {
-		return "kiosk"
-	}
-	for _, t := range product.AppControlCommands {
-		if cmdType == t {
-			return "app_control"
-		}
+	if c, ok := product.CommandFor(cmdType); ok && c.Access != "" {
+		return c.Access
 	}
 	return cmdType
 }

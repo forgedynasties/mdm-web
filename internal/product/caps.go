@@ -125,43 +125,9 @@ const (
 	CapSelfUpdate = "self_update"
 )
 
-// AppControlCommands are the MDM-lite app-control command types, all gated by
-// CapAppControl and delivered in the check-in response (MDM-lite polls, no socket).
-var AppControlCommands = []string{"app_reload", "app_restart", "app_clear_cache", "app_update_check"}
-
-// commandNeeds maps a command type (the "type" a dashboard form or the admin API
-// sends) to the capability it requires. Types absent from the map need nothing
-// (e.g. "query"). Names line up with the DPC agent's list so its advertised
-// capabilities are used verbatim.
-var commandNeeds = map[string]string{
-	"screenshot":       CapScreenCapture,
-	"install_apk":      CapInstallAPK,
-	"uninstall":        CapUninstall,
-	"reboot":           CapReboot,
-	"shell":            CapShell,
-	"logcat":           CapLogcat,
-	"ota":              CapOTA,
-	"update_splash":    CapUpdateSplash,
-	"app_reload":       CapAppControl,
-	"app_restart":      CapAppControl,
-	"app_clear_cache":  CapAppControl,
-	"app_update_check": CapAppControl,
-	"app_update":       CapSelfUpdate,
-	"wipe":             CapWipe,
-	"kiosk_set":        CapKiosk,
-	"mic_gain_read":    CapMicGain,
-	// mic_gain_set stayed in the map after the type was closed to callers: the device
-	// handles it and the write path is wired, but the dashboard refuses to send it
-	// (commandRoles omits it) so gain is read-only from the MDM. Keeping the entry is
-	// what makes re-enabling a one-line change rather than a re-implementation.
-	"mic_gain_set":     CapMicGain,
-	"remote":           CapScreenCapture,
-	"query":            CapShell, // runs as a shell command on the device
-	"set_kiosk":        CapKiosk, // the Actions page's kiosk card (applyKioskForTargets)
-}
-
-// CommandNeeds returns the capability a command type requires ("" = none).
-func CommandNeeds(cmdType string) string { return commandNeeds[cmdType] }
+// The command types themselves, and the capability each one requires, live in
+// commands.go — one table shared with the dashboard's role allowlist and the admin
+// API's accepted set, so the three cannot drift apart again.
 
 // firmwareBaseCaps is everything the system-app client can do on any of our products.
 var firmwareBaseCaps = []string{
