@@ -293,7 +293,6 @@ select.co-in{flex:0 1 auto;min-width:180px}
         <div class="co-quick" id="co-quick">
           <button type="button" class="co-qf" data-qf="online">Online <span class="n"></span></button>
           <button type="button" class="co-qf" data-qf="offline">Offline <span class="n"></span></button>
-          <button type="button" class="co-qf" data-qf="dpc">DPC <span class="n"></span></button>
           <button type="button" class="co-qf" data-qf="kiosk">In kiosk</button>
         </div>
         <div class="co-r-cap co-r-cap-tabs">Scopes — one click adds all
@@ -629,16 +628,17 @@ window.CMD_PREFILL = {{.Prefill}};
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
     ['Device', ['reboot']],
-    ['Host app', ['app_update', 'app_reload', 'app_restart', 'app_clear_cache', 'app_update_check']],
     ['Diagnostics', ['screenshot', 'query']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
-  var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true };
+  var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true,
+                      app_update: true, app_reload: true, app_restart: true,
+                      app_clear_cache: true, app_update_check: true };
 
   // ── State ──
   var S = { action: null, apps: [], pkgs: [], shell: '', query: null, kiosk: null, splash: '',
             targets: [], refine: { status: '', battery: '', kiosk: '' }, reason: '' };
-  var QF = { online: false, offline: false, dpc: false, kiosk: false };
+  var QF = { online: false, offline: false, kiosk: false };
   var lastImpact = { total: 0, effective: 0, online: 0, offline: 0, dpc: 0, verb: '' };
   var lastWarn = '';
   var armed = false, armTimer = null;
@@ -761,7 +761,7 @@ window.CMD_PREFILL = {{.Prefill}};
 
   // ── Rail: device list (via the /commands/browse-devices partial) ──
   var devCache = {}, devMeta = {}, devLoading = false, devTimer = null;
-  var qfCounts = null; // {online, offline, dpc} from the unfiltered base list
+  var qfCounts = null; // {online, offline} from the unfiltered base list
   function parseRows(html) {
     var doc = new DOMParser().parseFromString(html, 'text/html');
     var out = [];
@@ -795,8 +795,8 @@ window.CMD_PREFILL = {{.Prefill}};
         noteMeta(rows);
         devCache[key] = rows; devLoading = false;
         if (key === '|' && !qfCounts) {
-          qfCounts = { online: 0, offline: 0, dpc: 0 };
-          rows.forEach(function (d) { d.online ? qfCounts.online++ : qfCounts.offline++; if (d.dpc) qfCounts.dpc++; });
+          qfCounts = { online: 0, offline: 0 };
+          rows.forEach(function (d) { d.online ? qfCounts.online++ : qfCounts.offline++; });
           renderQuick();
         }
         renderDevs();
@@ -809,8 +809,6 @@ window.CMD_PREFILL = {{.Prefill}};
       b.classList.toggle('on', !!QF[k]);
       var n = b.querySelector('.n');
       if (n && qfCounts && k !== 'kiosk') n.textContent = qfCounts[k];
-      // No DPC devices in the fleet → the DPC filter has nothing to do; hide it.
-      if (k === 'dpc' && qfCounts) b.hidden = !qfCounts.dpc && !QF.dpc;
     });
   }
   // Pasted serials often carry list decoration ("-AT070…", "• AT070…", "1. AT070…",
@@ -839,7 +837,6 @@ window.CMD_PREFILL = {{.Prefill}};
       if (coveredBy(d.serial)) return false;
       if (QF.online && !d.online) return false;
       if (QF.offline && d.online) return false;
-      if (QF.dpc && !d.dpc) return false;
       return true;
     });
     // Picked devices stay where they are (checked) and are listed again in the
@@ -856,7 +853,6 @@ window.CMD_PREFILL = {{.Prefill}};
       html += '<button type="button" class="co-dev' + (on ? ' on' : '') + (via ? ' via' : '') + '" data-serial="' + esc(d.serial) + '"' + (via ? ' title="Included via ' + esc(via) + '"' : '') + '>'
         + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
         + '<span class="bd"><span class="sn">' + esc(d.serial) + '</span>' + (d.product || d.sub || d.bat ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
-        + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
         + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
     });
     if (!shown.length && !toks) {
@@ -981,7 +977,6 @@ window.CMD_PREFILL = {{.Prefill}};
         html += '<button type="button" class="co-dev on" data-serial="' + esc(t.serial) + '" title="Remove">'
           + '<span class="cb"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg></span>'
           + '<span class="bd"><span class="sn">' + esc(t.serial) + '</span>' + (d.product || d.sub ? '<span class="mt">' + esc([d.dpc && d.model ? d.model : d.product, d.sub, d.bat].filter(Boolean).join(' · ')) + '</span>' : '') + '</span>'
-          + (d.dpc ? '<span class="co-tag">DPC</span>' : '')
           + '<span class="st ' + (d.online ? 'on' : 'off') + '"></span></button>';
       } else {
         var icon = t.kind === 'all' ? 'all' : t.kind === 'restaurant' ? 'place' : 'group';
@@ -1049,9 +1044,7 @@ window.CMD_PREFILL = {{.Prefill}};
     reboot: { fw: 1, dpc: 1, lite: 0 }, screenshot: { fw: 1, dpc: 1, lite: 1 },
     query: { fw: 1, dpc: 1, lite: 0 }, shell: { fw: 1, dpc: 1, lite: 0 },
     set_kiosk: { fw: 1, dpc: 1, lite: 0 }, update_splash: { fw: 1, dpc: 0, lite: 0 },
-    wipe: { fw: 0, dpc: 1, lite: 0 }, app_update: { fw: 1, dpc: 1, lite: 1 },
-    app_reload: { fw: 0, dpc: 0, lite: 1 }, app_restart: { fw: 0, dpc: 0, lite: 1 },
-    app_clear_cache: { fw: 0, dpc: 0, lite: 1 }, app_update_check: { fw: 0, dpc: 0, lite: 1 }
+    wipe: { fw: 0, dpc: 1, lite: 0 }
   };
   function kindRuns(t, k) {
     var sup = lastImpact.kindSup && lastImpact.kindSup[t];

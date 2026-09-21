@@ -14329,11 +14329,12 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	if !isHistPartial {
 		// logcat and ota are deliberately absent: neither is a builder action here —
 		// logcat fans out via logcat_requests (device pages), OTA via the releases
-		// pages — so a POST /commands of either would queue a dead command.
+		// pages — so a POST /commands of either would queue a dead command. The host-app
+		// actions (update, reload, restart, clear cache, update check) are gone too: they
+		// are single-device nudges for the menu board and live on the device page.
 		allActions := []palAction{
 			{Type: "install_apk", Name: "Install app", Desc: "push apps from the library, silently", Payload: "apps"},
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
-			{Type: "app_update", Name: "Update app", Desc: "install a newer version of the MDM Lite app itself", Payload: "apps"},
 			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
@@ -14341,10 +14342,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
-			{Type: "app_reload", Name: "Reload page", Desc: "reload the menu board's web page", Payload: "none", Cap: "MDM Lite"},
-			{Type: "app_restart", Name: "Restart app", Desc: "close and reopen the menu board app", Payload: "none", Cap: "MDM Lite"},
-			{Type: "app_clear_cache", Name: "Clear web cache", Desc: "drop cached pages, then reload", Payload: "none", Cap: "MDM Lite"},
-			{Type: "app_update_check", Name: "Check for update", Desc: "run the app's update check now", Payload: "none", Cap: "MDM Lite"},
 		}
 		for _, a := range allActions {
 			switch a.Type {
@@ -15121,8 +15118,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupRows = append(unsupRows, skipRow{Serial: d.SerialNumber, Kind: k})
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe",
-			"app_reload", "app_restart", "app_clear_cache", "app_update_check", "app_update"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
