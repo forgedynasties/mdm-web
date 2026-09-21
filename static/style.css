@@ -6974,3 +6974,93 @@ html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .
 /* Alerts: the count cards are the view tabs. */
 .cc-kpi.on { box-shadow: 0 0 0 2px var(--accent) inset, var(--shadow-lg); }
 a.cc-kpi { text-decoration: none; color: inherit; }
+
+/* ── Serial-leads cards (fleet_layout=serial) ────────────────────────────────
+   Same grid discipline as the other layouts, so identity, vitals and actions
+   still line up row to row: the serial takes the identity column and the name
+   and model drop to the line beneath it, where they identify the device without
+   competing with the one field a technician reads off the hardware. */
+.dl-serial-list .dl-card {
+  grid-template-columns: 18px 38px 38px minmax(0, 1fr) 124px auto;
+  grid-template-areas: "cb pw ic lead stats act";
+}
+.dl-serial-list .dl-card > .device-cb { grid-area: cb; width: 15px; height: 15px; margin: 0; }
+.dl-serial-list .dl-card > .dl-cb-spacer { grid-area: cb; }
+.dl-serial-list .dl-card > .dl-pw { grid-area: pw; width: 38px; flex: none; display: flex; justify-content: center; }
+.dl-serial-list .dl-card > .dl-ic { grid-area: ic; }
+.dl-serial-list .dl-card > .dl-sc-id { grid-area: lead; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dl-serial-list .dl-card > .dl-stats { grid-area: stats; }
+.dl-serial-list .dl-card > .dl-act { grid-area: act; }
+
+.dl-sc-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-sc-sn { font-family: var(--mono); font-size: 14.5px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+.dl-sc-sn .pre { color: var(--text-faint); font-weight: 500; }
+.dl-sc-sn .tail { color: var(--text); }
+.dl-card:hover .dl-sc-sn .tail { color: var(--accent-text); }
+.dl-sc-l2 { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 12.5px; color: var(--muted); }
+.dl-sc-l2 .sep { color: var(--border); }
+.dl-sc-l2 > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Copy-a-serial, shared by the serial and column layouts. Delegated in JS so it keeps
+   working across htmx re-renders; sits inside the row, which is itself clickable. */
+.dl-copy { display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none;
+  color: var(--text-faint); cursor: pointer; }
+.dl-copy:hover { color: var(--accent-text); background: var(--hover); }
+.dl-copy svg { width: 13px; height: 13px; }
+
+/* ── Serial-column cards (fleet_layout=table) ────────────────────────────────
+   One aligned row per device with the serial in its own tabular-figures column,
+   so a screen of them can be read against a spreadsheet. A list, not a card —
+   meant as a second view rather than the only one. */
+.dl-table .dl-tbl-hd,
+.dl-table .dl-card {
+  display: grid; column-gap: 14px; align-items: center;
+  grid-template-columns: 18px 38px minmax(0, 1.5fr) 215px minmax(0, .9fr) 118px 190px 30px;
+  grid-template-areas: "cb ic name sn model state reads act";
+}
+.dl-table .dl-tbl-hd { padding: 9px 18px; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border-soft); }
+.dl-table .dl-tbl-hd > *:nth-child(1) { grid-area: cb; }
+.dl-table .dl-tbl-hd > *:nth-child(2) { grid-area: ic; }
+.dl-table .dl-tbl-hd > *:nth-child(3) { grid-area: name; }
+.dl-table .dl-tbl-hd > *:nth-child(4) { grid-area: sn; }
+.dl-table .dl-tbl-hd > *:nth-child(5) { grid-area: model; }
+.dl-table .dl-tbl-hd > *:nth-child(6) { grid-area: state; }
+.dl-table .dl-tbl-hd > *:nth-child(7) { grid-area: reads; }
+.dl-table .dl-card > .device-cb { grid-area: cb; width: 15px; height: 15px; margin: 0; }
+.dl-table .dl-card > .dl-cb-spacer { grid-area: cb; }
+.dl-table .dl-card > .dl-ic { grid-area: ic; }
+.dl-table .dl-card > .dl-stats { display: none; }   /* the Reads column carries these */
+.dl-td-name { grid-area: name; min-width: 0; }
+.dl-td-name a { font-weight: 600; }
+.dl-td-name a:hover { color: var(--accent-text); }
+.dl-td-name small { display: block; font-size: 12px; color: var(--muted); }
+.dl-td-sn { grid-area: sn; display: flex; align-items: center; gap: 5px; min-width: 0;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dl-td-sn a:hover { color: var(--accent-text); }
+.dl-td-model { grid-area: model; min-width: 0; font-size: 13px; color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-td-state { grid-area: state; }
+.dl-td-reads { grid-area: reads; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.dl-td-reads .k { display: none; }   /* the header names the column; each cell needs no label */
+.dl-table .dl-card > .dl-view { grid-area: act; }
+.dl-tbl-sort { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: none;
+  font: 600 11px var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+.dl-tbl-sort:hover { color: var(--accent-text); }
+.dl-tbl-sort svg { width: 11px; height: 11px; }
+
+/* Inside the column view the row is already a table: two boxed .link-detail pills on one
+   line read as noise, so the name and the serial drop back to plain text and keep the
+   hover tint only. */
+.dl-table .dl-td-name a.link-detail,
+.dl-table .dl-td-sn a.link-detail { padding: 0; background: none; font-size: 13.5px; }
+.dl-table .dl-td-name a.link-detail:hover,
+.dl-table .dl-td-sn a.link-detail:hover { background: none; color: var(--accent-text); }
+/* Reads sit side by side in one cell rather than stacked — the header names the column. */
+.dl-td-reads { display: flex; align-items: baseline; gap: 8px; }
+.dl-td-reads .dl-blk + .dl-blk::before { content: '·'; margin-right: 8px; color: var(--border); }
+/* The serial is the headline here, not a pill — same reset as the column view. */
+.dl-serial-list .dl-card .dl-sc-sn.link-detail { padding: 0; background: none; font-size: 14.5px; color: var(--text); }
+.dl-serial-list .dl-card .dl-sc-sn.link-detail:hover { background: none; color: var(--text); }

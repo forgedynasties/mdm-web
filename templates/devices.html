@@ -23,7 +23,10 @@
     <symbol id="dk-batx" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor" stroke="none"/><path d="M7 4l9 6M16 4l-9 6" stroke="currentColor" stroke-width="1.5"/></symbol>
     <symbol id="dk-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
   </svg>
-{{if .Classic}}{{template "device-cards-classic" .}}{{else}}{{template "device-cards-new" .}}{{end}}
+{{if eq .Layout "classic"}}{{template "device-cards-classic" .}}
+{{else if eq .Layout "serial"}}{{template "device-cards-serial" .}}
+{{else if eq .Layout "table"}}{{template "device-cards-table" .}}
+{{else}}{{template "device-cards-new" .}}{{end}}
 <script>
 // The whole card opens the device (same as its arrow link, so the fleet inspector
 // still catches it); controls inside the card and text selection keep their own
@@ -119,6 +122,79 @@ if (!window.__dlRowNav) {
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
       <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
     </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{/* Serial-leads cards: the serial is the headline, split into a quiet batch prefix and
+     a bold tail — the last few characters are what gets read out loud, and what differs
+     between two units of the same model. The name and model drop to the line beneath,
+     where they still identify the device without competing with it. */}}
+{{define "device-cards-serial"}}
+<div class="dl-list dl-serial-list">
+  {{range .Devices}}
+  {{$kind := deviceIcon .}}
+  <div class="dl-card dl-sc {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+    {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
+    {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
+    {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
+          <span class="dl-pw" data-m="power"><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw pw-bat {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%{{if $flap}}, charger flapping{{else if and .HasCharging (charging .LatestExtra)}}, charging{{end}}"{{if $flap}} title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"{{else if and .HasCharging (charging .LatestExtra)}} title="Charging"{{end}}><span class="v"><span class="pc">{{.BatteryPct}}%</span><span class="mk-s">{{if $flap}}<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>{{else if and .HasCharging (charging .LatestExtra)}}<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>{{end}}</span></span><span class="gb"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg></span></span>{{else}}<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
+          <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
+    <div class="dl-sc-id">
+      <div class="dl-sc-l1">
+                  {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
+                  {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
+        <a href="/devices/{{.SerialNumber}}" class="dl-sc-sn link-detail" data-full="1" hx-boost="false" title="{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a>
+        <button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+        <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
+      {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
+      {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
+      {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
+      {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
+      </div>
+      <div class="dl-sc-l2">{{if $nick}}<span>{{$nick}}</span><span class="sep">·</span>{{end}}<span>{{$model}}</span><span class="sep">·</span><span class="dl-agent">{{.KindLabel}}</span></div>
+    </div>
+    <div class="dl-stats">
+      <span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-blk" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      {{if and .HasBattery (ne $kind "dongle")}}<span class="dl-blk" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
+    </div>
+    <div class="dl-act">
+      {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
+      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{/* Serial-column cards: the serial gets its own aligned, tabular-figures column so a
+     page of them can be read against a spreadsheet, and the header sorts by it. A list
+     rather than a card — best as a second view, not the only one. */}}
+{{define "device-cards-table"}}
+<div class="dl-list dl-table">
+  <div class="dl-tbl-hd">
+    <span></span><span></span><span>Device</span>
+    <button type="button" class="dl-tbl-sort" onclick="sortBy('serial')" title="Sort by serial number">Serial<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg></button>
+    <span>Model</span><span>State</span><span>Reads</span><span></span>
+  </div>
+  {{range .Devices}}
+  {{$kind := deviceIcon .}}
+  <div class="dl-card dl-tr {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+    {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
+    {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
+    {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
+          <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
+              {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
+    <span class="dl-td-name"><a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" hx-boost="false">{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}</a><small>{{.KindLabel}}</small></span>
+    <span class="dl-td-sn"><a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a><button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>
+    <span class="dl-td-model">{{$model}}</span>
+    <span class="dl-td-state">          {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}</span>
+    <span class="dl-td-reads"><span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+<span class="dl-blk" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span></span>
+    <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open device"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
   </div>
   {{end}}
 </div>
@@ -365,9 +441,11 @@ if (!window.__dlRowNav) {
   {{/* Layout switch: stat-block rows (new) or the classic cards; the choice lives in
        the fleet_layout cookie so the server renders it directly. */}}
   <div class="layout-seg" role="group" aria-label="Card layout">
-    <button type="button" class="{{if not .ClassicCards}}on{{end}}" aria-pressed="{{if .ClassicCards}}false{{else}}true{{end}}" onclick="setFleetLayout('new')" title="New layout">New</button>
-    <button type="button" class="{{if .ClassicCards}}on{{end}}" aria-pressed="{{if .ClassicCards}}true{{else}}false{{end}}" onclick="setFleetLayout('classic')" title="Classic layout">Classic</button>
-  </div>
+      <button type="button" class="{{if eq .FleetLayout "new"}}on{{end}}" aria-pressed="{{if eq .FleetLayout "new"}}true{{else}}false{{end}}" onclick="setFleetLayout('new')" title="New layout — aligned columns">New</button>
+      <button type="button" class="{{if eq .FleetLayout "classic"}}on{{end}}" aria-pressed="{{if eq .FleetLayout "classic"}}true{{else}}false{{end}}" onclick="setFleetLayout('classic')" title="Classic layout — the pre-redesign cards">Classic</button>
+      <button type="button" class="{{if eq .FleetLayout "serial"}}on{{end}}" aria-pressed="{{if eq .FleetLayout "serial"}}true{{else}}false{{end}}" onclick="setFleetLayout('serial')" title="Serial leads — the serial is the card's headline, with copy">Serial</button>
+      <button type="button" class="{{if eq .FleetLayout "table"}}on{{end}}" aria-pressed="{{if eq .FleetLayout "table"}}true{{else}}false{{end}}" onclick="setFleetLayout('table')" title="Serial column — one aligned, sortable row per device">Column</button>
+    </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
     <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
     <button type="button" data-cols="2" onclick="setCols(2)" title="2 columns" aria-label="Two columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="6.5" height="14" rx="1"/><rect x="13.5" y="5" width="6.5" height="14" rx="1"/></svg></button>
@@ -396,7 +474,7 @@ if (!window.__dlRowNav) {
 </script>
 {{end}}
 {{if .Devices}}
-{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards)}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards "Layout" .FleetLayout)}}
 {{else}}
 <div class="dl-list">
   <div class="empty-state" style="padding:40px 20px;">
@@ -1048,7 +1126,7 @@ function clearFilters() {
 // Card layout (New / Classic): a cookie the server reads when rendering the cards, so
 // the choice holds across pages, reloads and live refreshes.
 function setFleetLayout(v) {
-  document.cookie = 'fleet_layout=' + (v === 'classic' ? 'classic' : 'new') + '; path=/; max-age=31536000; samesite=lax';
+  document.cookie = 'fleet_layout=' + v + '; path=/; max-age=31536000; samesite=lax';
   try { localStorage.setItem('fleet-layout-intro', '1'); } catch (_) {}
   location.reload();
 }
@@ -1510,6 +1588,22 @@ function bulkCopySerials() {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { ssCopyFallback(text); done(); });
   else { ssCopyFallback(text); done(); }
 }
+// Copy one serial off the card (the serial-leads and column layouts). Delegated, so it
+// survives the htmx re-renders; capture phase + stopPropagation keeps the row's own
+// click-to-open from firing behind it.
+function fleetCopySerial(btn) {
+  var v = btn.getAttribute('data-copy');
+  if (!v) return;
+  var done = function () { if (window.showToast) showToast('Copied ' + v, 'success'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, function () { ssCopyFallback(v); done(); });
+  else { ssCopyFallback(v); done(); }
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('.dl-copy');
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  fleetCopySerial(b);
+}, true);
 function ssCopyFallback(text) {
   var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
   document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove();

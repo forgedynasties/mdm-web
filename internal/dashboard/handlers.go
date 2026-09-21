@@ -1411,6 +1411,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// joinLines renders a serial list for the shared picker's hidden field.
 		"joinLines": func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
+		// serialHead / serialTail split a serial for the fleet layout that leads with it:
+		// the batch prefix stays quiet and the last few characters — the part support
+		// reads out loud, and the part that differs between two units of the same model —
+		// carry the weight. One rule, so both the card and any future view agree.
+		"serialHead": func(s string) string { return s[:len(s)-serialTailLen(s)] },
+		"serialTail": func(s string) string { return s[len(s)-serialTailLen(s):] },
 		"classes":    product.Classes,
 		// extraBool reads a boolean from latest_extra (false when absent or not a bool).
 		"extraBool": func(raw []byte, key string) bool {
@@ -2017,10 +2023,19 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
-	// Fleet cards layout the viewer picked (Layout toggle on the fleet page).
-	if c, err := r.Cookie("fleet_layout"); err == nil && c.Value == "classic" {
-		data["ClassicCards"] = true
+	// Fleet cards layout the viewer picked (Layout toggle on the fleet page). One cookie
+	// holds the choice and the card list switches on it. An unknown value — an older
+	// cookie, or a hand-edited one — falls back to the new cards rather than rendering
+	// nothing, so ClassicCards stays a bool for the switch and intro that predate this.
+	layout := "new"
+	if c, err := r.Cookie("fleet_layout"); err == nil {
+		switch c.Value {
+		case "classic", "serial", "table":
+			layout = c.Value
+		}
 	}
+	data["FleetLayout"] = layout
+	data["ClassicCards"] = layout == "classic"
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
