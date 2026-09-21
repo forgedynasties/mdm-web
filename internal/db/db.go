@@ -2016,6 +2016,59 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	return out, rows.Err()
 }
 
+// cycleFull / cycleEmpty mirror CYCLE_FULL / CYCLE_EMPTY in templates/device.html. They
+// are the two marks a charge cycle is measured between, and the only readings that change
+// the walk's state.
+const (
+	cycleFull  = 95
+	cycleEmpty = 10
+)
+
+// LastBatteryMarkBefore returns the newest device_samples row strictly before t that
+// crossed either cycle mark. The chart seeds its cycle walk with it.
+//
+// It is deliberately the last *crossing*, not the last reading: a pack charged to full
+// and then allowed to fall to 80% before the window opened is still armed, and the last
+// reading (80) would say otherwise, dropping a cycle whose discharge lands on screen.
+// Whichever mark came most recently decides — a full mark arms the walk, an empty mark
+// clears it — so the returned value is >= cycleFull exactly when a cycle is open.
+func (d *DB) LastBatteryMarkBefore(ctx context.Context, deviceID uuid.UUID, t time.Time) (time.Time, int, bool, error) {
+	var at time.Time
+	var pct int
+	err := d.pool.QueryRow(ctx, `
+		SELECT at, battery_pct FROM device_samples
+		WHERE device_id = $1 AND at < $2
+		  AND (battery_pct >= $3 OR battery_pct <= $4)
+		ORDER BY at DESC LIMIT 1`, deviceID, t, cycleFull, cycleEmpty).Scan(&at, &pct)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, 0, false, nil
+	}
+	if err != nil {
+		return time.Time{}, 0, false, err
+	}
+	return at, pct, true, nil
+}
+
+// LastBatteryMarkCheckin is LastBatteryMarkBefore against the check-in history, for the
+// windows the shaped tables do not cover. Check-ins carry no NULL battery, so unlike the
+// samples query it needs no null guard.
+func (d *DB) LastBatteryMarkCheckin(ctx context.Context, deviceID uuid.UUID, t time.Time) (time.Time, int, bool, error) {
+	var at time.Time
+	var pct int
+	err := d.pool.QueryRow(ctx, `
+		SELECT created_at, battery_pct FROM checkins
+		WHERE device_id = $1 AND created_at < $2
+		  AND (battery_pct >= $3 OR battery_pct <= $4)
+		ORDER BY created_at DESC LIMIT 1`, deviceID, t, cycleFull, cycleEmpty).Scan(&at, &pct)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, 0, false, nil
+	}
+	if err != nil {
+		return time.Time{}, 0, false, err
+	}
+	return at, pct, true, nil
+}
+
 // GetStateTimeline returns the transitions of the given keys inside a window, plus the
 // last transition of each key BEFORE it. That leading row is what makes the series
 // correct at its left edge: a device that went on charge yesterday and has not changed

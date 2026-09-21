@@ -6369,6 +6369,25 @@ func chartCachePut(key string, body []byte) {
 	chartCache[key] = chartCacheEntry{body: body, at: time.Now()}
 }
 
+// batteryAnchorShaped / batteryAnchorCheckins fetch the last battery reading before the
+// chart window, from whichever table is answering this chart. Best-effort: a chart with
+// no anchor is still correct, it just cannot see a cycle that armed off the left edge.
+func (h *Handler) batteryAnchorShaped(ctx context.Context, deviceID uuid.UUID, from time.Time) *batteryAnchor {
+	at, pct, ok, err := h.db.LastBatteryMarkBefore(ctx, deviceID, from)
+	if err != nil || !ok {
+		return nil
+	}
+	return &batteryAnchor{X: at.UnixMilli(), Y: pct}
+}
+
+func (h *Handler) batteryAnchorCheckins(ctx context.Context, deviceID uuid.UUID, from time.Time) *batteryAnchor {
+	at, pct, ok, err := h.db.LastBatteryMarkCheckin(ctx, deviceID, from)
+	if err != nil || !ok {
+		return nil
+	}
+	return &batteryAnchor{X: at.UnixMilli(), Y: pct}
+}
+
 func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -6397,7 +6416,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	// numbers out of it. Falls back for any window they do not yet cover, so this needs
 	// no flag day and no backfill to have finished.
 	if pts, ok := h.shapedChartSeries(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs)); ok {
-		body, err := buildChartBody(device, pts)
+		body, err := buildChartBody(device, pts, h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs)))
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -6465,7 +6484,8 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	if len(battery) > maxPoints {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
-	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge})
+	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge,
+		"battery_before": h.batteryAnchorCheckins(r.Context(), device.ID, time.UnixMilli(fromMs))})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return

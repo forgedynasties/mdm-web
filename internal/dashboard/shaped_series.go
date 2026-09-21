@@ -154,7 +154,15 @@ func shapedChargeRuns(points []shapedPoint, gapMs int64) []chargeRun {
 // series, the same field names and the same decimation as the check-in path: this is a
 // change of source, not of what the chart shows, and the two are diffed against each
 // other on real data before either is trusted.
-func buildChartBody(device *db.Device, pts []shapedPoint) ([]byte, error) {
+// batteryAnchor is the last battery reading BEFORE the chart window, in the chart's own
+// {x,y} shape. The client seeds its cycle walk with it so a cycle whose charge happened
+// off the left edge is still counted and banded (see cyclesIn in device.html).
+type batteryAnchor struct {
+	X int64 `json:"x"`
+	Y int   `json:"y"`
+}
+
+func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor) ([]byte, error) {
 	const maxPoints = 2500
 	type bpt struct {
 		X   int64 `json:"x"`
@@ -199,7 +207,7 @@ func buildChartBody(device *db.Device, pts []shapedPoint) ([]byte, error) {
 	if len(battery) > maxPoints {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
-	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge})
+	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor})
 }
 
 // shapedCoversExport reports whether every selected device's shaped history reaches
