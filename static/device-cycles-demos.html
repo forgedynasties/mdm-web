@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battery cycles under the graph — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1060px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* ---- graph card mock ---- */
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);}
+.gtabs{display:flex;gap:6px;}
+.gtab{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:9px;border:1px solid transparent;color:var(--text-faint);}
+.gtab.on{background:var(--surface-2,var(--surface3,#f2efe9));color:var(--text);border-color:var(--border);}
+.gtab .n{font-weight:800;color:var(--accent-text,var(--accent));margin-left:6px;}
+.gtools{display:flex;gap:5px;}
+.gtool{font-size:12px;font-weight:700;color:var(--text-faint);border:1px solid var(--border);border-radius:8px;padding:4px 10px;}
+.gplot{height:150px;position:relative;background:
+  linear-gradient(180deg,rgba(122,128,246,.14),rgba(122,128,246,.02));}
+.gplot svg{position:absolute;inset:0;width:100%;height:100%;}
+.gfoot{border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;
+  font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.wlabel{font-size:11.5px;color:var(--text-faint);}
+
+/* ---- the bits each option adds ---- */
+.cyc-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--text-faint);
+  background:var(--surface-3,#f3f1ec);border:1px solid var(--border);border-radius:99px;padding:3px 10px;}
+.cyc-chip b{color:var(--text);font-weight:800;}
+html[data-theme="dark"] .cyc-chip{background:rgba(255,255,255,.05);}
+.strip{display:flex;gap:0;border-top:1px solid var(--border);}
+.strip .cell{flex:1;padding:10px 16px;border-right:1px solid var(--border-soft);}
+.strip .cell:last-child{border-right:0;}
+.strip .k{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.strip .v{font-size:16px;font-weight:750;letter-spacing:-.01em;}
+.strip .v small{font-size:11.5px;font-weight:650;color:var(--text-faint);margin-left:4px;}
+.cyc-bar{height:5px;border-radius:99px;background:var(--surface-3,#eceae4);overflow:hidden;margin-top:7px;}
+.cyc-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7a80f6,#f9674e);}
+.inline-row{display:flex;align-items:center;gap:8px;}
+.hint{font-size:11px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div class="themebar">
+  <button id="tl" class="on" onclick="setTheme('light')">Light</button>
+  <button id="td" onclick="setTheme('dark')">Dark</button>
+</div>
+
+<div class="wrap">
+  <h1>Battery cycles under the graph</h1>
+  <p class="lead">
+    FW-2026-000054 asks for the charge cycle to show under the device graph, not only in About.
+    Four placements below, same data in each: lifetime cycles (<b>12.4</b>), lifetime discharge
+    (<b>1243%</b>), and — where an option uses it — cycles inside the window on screen (<b>1.8</b>),
+    which is the number that actually changes as you move the range. The mock graph is static.
+  </p>
+
+  <!-- ══════════════ A ══════════════ -->
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Chip in the footer row <span class="rec">my pick</span></div>
+  <p class="ddesc">
+    One chip on the right of the existing footer, beside the window label. The footer is already
+    the graph's readout line, so nothing new appears on the page and the hover text keeps the
+    whole left side.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">31.0°C</span></span><span class="gtab">RAM<span class="n">51%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot"><svg viewBox="0 0 600 150" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg></div>
+    <div class="gfoot">
+      <span>Sep 21, 11:04  ·  Battery: 86%  ·  ⚡ Wireless charging in use  ·  Temp: 31.0°C  ·  RAM: 51%</span>
+      <span class="inline-row">
+        <span class="cyc-chip" title="Battery cycles used over this device's life">🔋 Cycles <b>12.4</b></span>
+        <span class="wlabel">Last 48 hours</span>
+      </span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Zero extra height. Always visible, on every tab. Matches how the window label already sits there.</div>
+    <div><b>Bad at</b> One number only — no room for lifetime discharge or per-window cycles. On a narrow window it competes with a long hover line.</div>
+  </div>
+
+  <!-- ══════════════ B ══════════════ -->
+  <div class="eyebrow">Option B</div>
+  <div class="dname">Stat strip under the graph</div>
+  <p class="ddesc">
+    A three-cell strip between the plot and the footer: lifetime cycles, lifetime discharge, and
+    cycles used inside the window on screen. The third cell re-reads on every range change, so the
+    strip answers "how hard was this device worked this week?".
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">31.0°C</span></span><span class="gtab">RAM<span class="n">51%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot"><svg viewBox="0 0 600 150" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg></div>
+    <div class="strip">
+      <div class="cell"><span class="k">Battery cycles</span><span class="v">12.4</span><div class="cyc-bar"><i style="width:41%"></i></div></div>
+      <div class="cell"><span class="k">Discharged lifetime</span><span class="v">1243<small>%</small></span></div>
+      <div class="cell"><span class="k">Cycles in this window</span><span class="v">1.8<small>last 48h</small></span></div>
+    </div>
+    <div class="gfoot">
+      <span>Sep 21, 11:04  ·  Battery: 86%  ·  ⚡ Wireless charging in use  ·  Temp: 31.0°C  ·  RAM: 51%</span>
+      <span class="wlabel">Last 48 hours</span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Says the most. The per-window number is the one a tester can act on, and it visibly reacts to the range buttons.</div>
+    <div><b>Bad at</b> ~46px of height on every device page, battery or not. The per-window figure needs a new server-side sum, so it is the biggest of the four to build.</div>
+  </div>
+
+  <!-- ══════════════ C ══════════════ -->
+  <div class="eyebrow">Option C</div>
+  <div class="dname">On the Battery tab, next to the live value</div>
+  <p class="ddesc">
+    The cycles ride on the Battery tab itself, next to the live percentage — so they show only on
+    the tab they belong to and disappear on Temp / RAM.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span> <span class="cyc-chip" style="margin-left:4px">12.4 cyc</span></span><span class="gtab">Temp<span class="n">31.0°C</span></span><span class="gtab">RAM<span class="n">51%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot"><svg viewBox="0 0 600 150" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg></div>
+    <div class="gfoot">
+      <span>Sep 21, 11:04  ·  Battery: 86%  ·  ⚡ Wireless charging in use  ·  Temp: 31.0°C  ·  RAM: 51%</span>
+      <span class="wlabel">Last 48 hours</span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Strongest link between the number and the battery line. No extra height at all.</div>
+    <div><b>Bad at</b> Crowds a tab row that already carries a live value, and it is the first thing to wrap on a phone. Hidden while you are on another tab.</div>
+  </div>
+
+  <!-- ══════════════ D ══════════════ -->
+  <div class="eyebrow">Option D</div>
+  <div class="dname">Second footer line</div>
+  <p class="ddesc">
+    Footer keeps the hover readout on line one and gains a quiet second line for the battery
+    facts. No new card, but more room than a single chip.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">31.0°C</span></span><span class="gtab">RAM<span class="n">51%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot"><svg viewBox="0 0 600 150" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg></div>
+    <div class="gfoot" style="flex-direction:column;align-items:stretch;gap:4px;">
+      <span class="inline-row" style="justify-content:space-between;">
+        <span>Sep 21, 11:04  ·  Battery: 86%  ·  ⚡ Wireless charging in use  ·  Temp: 31.0°C  ·  RAM: 51%</span>
+        <span class="wlabel">Last 48 hours</span>
+      </span>
+      <span class="hint">Battery cycles <b>12.4</b> lifetime  ·  1243% discharged  ·  1.8 cycles in this window</span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Everything B says, in ~18px instead of ~46px, and it stays out of the way of the graph.</div>
+    <div><b>Bad at</b> Reads as fine print — easy to miss, which is how the About row ended up invisible enough to file a ticket about.</div>
+  </div>
+
+  <!-- ══════════════ current ══════════════ -->
+  <div class="eyebrow">Today</div>
+  <div class="dname">About tab → Hardware card <span class="cur">deployed</span></div>
+  <p class="ddesc">Where the number lives right now, two tabs away from the graph.</p>
+  <div class="gcard" style="max-width:420px;">
+    <div class="ghead"><div class="dname" style="margin:0;font-size:14px;">Hardware</div></div>
+    <div style="padding:2px 0;">
+      <div class="strip" style="border:0;">
+        <div class="cell" style="border:0;"><span class="k">Storage free</span><span class="v">55.1<small>GB</small></span></div>
+        <div class="cell" style="border:0;"><span class="k">Battery cycles</span><span class="v">12.4</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-top:34px;">
+    <b>My pick: A</b>, with the per-window number added later if it earns its keep. The ticket asks
+    to see the cycle count by the graph; a chip in the footer does exactly that, costs no height on
+    a page that is already tall, and reads the same value About shows, so the two can never
+    disagree. B is the better answer to the question behind the ticket ("is this pack being worked
+    hard?") — say the word and I will build B instead, it is one extra query.
+  </p>
+</div>
+
+<script>
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tl').classList.toggle('on',t==='light');
+  document.getElementById('td').classList.toggle('on',t==='dark');}
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+</script>
+</body></html>

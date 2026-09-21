@@ -1639,11 +1639,16 @@ function mdmBootCharts() {
     const el = document.getElementById('chart-footer-text');
     if (!el) return;
     if (ms == null) { el.textContent = '—'; return; }
-    const bPt = nearestInArray(allBattery, ms);
-    const tPt = nearestInArray(allTemp, ms);
-    const rPt = nearestInArray(allRam, ms);
+    // Read from the series the graph is actually drawing (srcX()), not the live
+    // arrays: a custom window (7d, 30d, a dragged range) is served by its own fetch,
+    // and reading allBattery there returned the nearest point of the default 48h
+    // window for every hover — the same handful of values wherever you pointed, on
+    // every device (FW-2026-000053).
+    const bPt = nearestInArray(srcBattery(), ms);
+    const tPt = nearestInArray(srcTemp(), ms);
+    const rPt = nearestInArray(srcRam(), ms);
     const parts = [fmtDate(ms)];
-    if (bPt != null) {
+    if (bPt != null && bPt.y != null) {
       // WLC text comes from the raw nearest reading (not the smoothed line), so the
       // label is the exact wireless-charging state recorded at that checkin.
       let s = 'Battery: ' + bPt.y + '%';
@@ -1651,15 +1656,15 @@ function mdmBootCharts() {
       else if (bPt.wlc === 0) s += ' · Wireless pad vacant';
       else if (bPt.wlc === 2) s += ' · ⚠ Wireless pad misplaced — please place it again';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
-      if (allCharge.length) {
+      if (srcCharge().length) {
         const c = chargeAt(ms);
         if (c === true) s += ' · Charging';
         else if (c === false) s += ' · Not charging';
       }
       parts.push(s);
     }
-    if (tPt != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
-    if (rPt != null) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
+    if (tPt != null && tPt.y != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
+    if (rPt != null && rPt.y != null) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
     if (markerText) parts.push(markerText);
     el.textContent = parts.join('  ·  ');
   }
