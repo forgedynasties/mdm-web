@@ -3678,7 +3678,7 @@ func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
 		"Total": 2622, "FleetTotal": 2622, "FilterCount": 0, "InactiveCount": 0,
 		"RailGroups": []any{}, "RailRestaurants": []any{}, "RailReleases": []any{}, "RailProducts": []any{},
 		"Groups": []any{}, "Restaurants": []any{}, "Productions": []any{}, "Builds": []any{}, "Timezones": []any{},
-		"Products": h.fleetProductFilters(r.Context(), "viewer"), "Classes": product.Classes(),
+		"Products": h.productFilters(r.Context()), "Classes": product.Classes(),
 		"SelectedCollection": "All devices", "SelectedCount": 2622,
 		"ActiveRestaurant": nil, "ActiveGroup": nil, "ActiveReleaseID": 0,
 		"View": "", "ViewID": "", "ViewColl": "",
@@ -4722,7 +4722,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		DeviceCount int
 	}
 	var railProducts []railProduct
-	for _, p := range h.fleetProductFilters(r.Context(), h.role(r)) {
+	for _, p := range h.productFilters(r.Context()) {
 		if n := prodCounts[p.Key]; n > 0 {
 			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
 		}
@@ -4823,7 +4823,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Groups":               groups,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
-		"Products":             h.fleetProductFilters(r.Context(), h.role(r)),
+		"Products":             h.productFilters(r.Context()),
 		"Builds":               builds,
 		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
@@ -5373,7 +5373,7 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		Pct   int
 	}
 	var products []productRow
-	for _, p := range h.fleetProductFilters(r.Context(), h.role(r)) {
+	for _, p := range h.productFilters(r.Context()) {
 		if n := prodCounts[p.Key]; n > 0 {
 			pct := 0
 			if summary.Total > 0 {
@@ -10828,24 +10828,6 @@ func (h *Handler) productFilters(ctx context.Context) []product.Product {
 		if n := adminProductName(out[i].Key); n != "" {
 			out[i].Label = n
 		}
-	}
-	return out
-}
-
-// fleetProductFilters is productFilters for the fleet surfaces: DPC-managed hardware
-// (a Sunmi till, a stock Pixel) is an admin's concern, so only an admin sees those
-// entries. Our own products are everyone's.
-func (h *Handler) fleetProductFilters(ctx context.Context, role string) []product.Product {
-	all := h.productFilters(ctx)
-	if role == "admin" {
-		return all
-	}
-	out := all[:0:0]
-	for _, p := range all {
-		if p.Kind == product.KindAndroid {
-			continue
-		}
-		out = append(out, p)
 	}
 	return out
 }
