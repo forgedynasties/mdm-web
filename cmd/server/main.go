@@ -552,9 +552,11 @@ func main() {
 				// Re-issue reboots that were sent but never applied, so an installed-but-
 				// unrebooted device can't keep its deployment 'active' forever.
 				runJob(bgCtx, "redrive-stuck-reboots", time.Minute, apiHandler.RedriveStuckReboots)
-				// Fail install_apk deliveries whose download/install stalled (device lost
-				// connectivity mid-install, terminal ack lost) so they don't sit "in
-				// flight" forever — install commands are exempt from the short TTL. FW-2026-000020
+				// Fail install-shaped deliveries (install_apk, app_update) whose
+				// download/install stalled (device lost connectivity mid-install, terminal
+				// ack lost) so they don't sit "in flight" forever — install commands are
+				// exempt from the short TTL, and an un-expirable one does not just sit
+				// there: it blocks every later command for that device. FW-2026-000020
 				runJob(bgCtx, "expire-stalled-installs", time.Minute, apiHandler.ExpireStalledInstalls)
 				// Same, for OTA: a download that stops acking leaves the deployment active
 				// and blocks the reboot that would clear it (RebootBlockedFor).
