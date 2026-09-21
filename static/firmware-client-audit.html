@@ -1,0 +1,171 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Firmware client — command communication audit</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--border:#e8e2da;--border-soft:#efe9e2;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;--coral:#f9674e;
+  --ok:#157f3c;--ok-bg:#e6f4ea;--warn:#b26a00;--warn-bg:#fdf3e2;--danger:#c0321f;--danger-bg:#fdecea;
+  --info:#3f45a8;--info-bg:#eceefe;--grey-bg:#f1ede7;
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface2);padding:1px 5px;border-radius:5px}
+.wrap{max-width:1080px;margin:0 auto;padding:34px 24px 100px}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+h1{font-size:29px;font-weight:700;letter-spacing:-.02em;margin:4px 0 8px}
+.lede{color:var(--muted);font-size:15px;max-width:74ch;margin-bottom:26px}
+h2{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:38px 0 6px}
+h2 .n{color:var(--faint);font-weight:600;margin-right:8px}
+h3{font-size:15px;font-weight:650;margin:24px 0 4px}
+p{margin-bottom:10px;max-width:82ch}
+.sub{color:var(--muted);font-size:13.5px;margin-bottom:14px;max-width:84ch}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+.card .t{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.card .t b{font-size:15.5px;font-weight:650}
+.card p{margin-bottom:0;font-size:13.8px;color:var(--text2)}
+.card p + p{margin-top:8px}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  border-radius:99px;padding:3px 9px;white-space:nowrap}
+.t-fixed{background:var(--ok-bg);color:var(--ok)}
+.t-open{background:var(--warn-bg);color:var(--warn)}
+.t-clear{background:var(--info-bg);color:var(--info)}
+.t-dead{background:var(--grey-bg);color:#6b655c}
+.t-risk{background:var(--danger-bg);color:var(--danger)}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;font-size:13.5px;margin-bottom:6px}
+th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);background:var(--surface2);padding:10px 14px}
+td{padding:10px 14px;border-top:1px solid var(--border-soft);vertical-align:top}
+td code{background:none;padding:0;color:var(--text)}
+.mono{font-family:var(--mono);font-size:12.3px}
+.dim{color:var(--faint)}
+.note{border-left:3px solid var(--border);padding:2px 0 2px 14px;color:var(--text2);font-size:13.6px;
+  margin:14px 0;max-width:84ch}
+.note.risk{border-color:var(--danger)}
+.note.ok{border-color:var(--ok)}
+.foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);
+  color:var(--faint);font-size:12.5px}
+@media(max-width:820px){table,thead,tbody,tr,td,th{display:block}th{display:none}
+  td{border-top:0;padding:4px 14px}tr{border-top:1px solid var(--border-soft);padding:8px 0}}
+</style></head><body>
+<div class="wrap">
+
+  <div class="eyebrow">AIO MDM · firmware client · September 2026</div>
+  <h1>Command communication audit</h1>
+  <p class="lede">What the firmware client and the server actually say to each other, where that breaks down,
+     and what was changed. Every finding below was read out of the source on both sides — the
+     <i>not a gap</i> section matters as much as the rest, because three things that look like gaps are working as designed.</p>
+
+  <h2><span class="n">01</span>The path a command takes</h2>
+  <p class="sub">Four transports. Only one of them carries commands to a modern firmware device, and that is deliberate.</p>
+  <table>
+    <thead><tr><th>Transport</th><th>Carries</th><th>Cadence</th><th>Commands?</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /api/v1/ws</code></td><td>delta telemetry up, <b>commands down</b></td><td>live</td>
+          <td><b>Yes — the only path for firmware</b></td></tr>
+      <tr><td><code>POST /api/v1/checkin</code></td><td>full snapshot up</td><td>~5 min</td>
+          <td>Only legacy firmware and MDM-lite</td></tr>
+      <tr><td><code>POST /api/v1/commands/{id}/ack</code></td><td>receipt + terminal result</td><td>on event</td><td>device → server</td></tr>
+      <tr><td><code>otautil:8000</code></td><td>legacy OTA polling</td><td>15 min</td><td>pre-agent builds only</td></tr>
+    </tbody>
+  </table>
+  <div class="note">The check-in response does carry a <code>commands[]</code> array, but it is filled only when
+    <code>LegacyCheckin() || isMDMLitePayload()</code> <i>and</i> the device holds no socket. The modern firmware
+    client is excluded from both branches, so it never receives commands that way — and it correctly never reads them.</div>
+
+  <h2><span class="n">02</span>Gaps found and closed</h2>
+
+  <div class="card">
+    <div class="t"><b>The client never told the server it could take an MDM OTA</b><span class="tag t-fixed">fixed</span></div>
+    <p>The server reads <code>extra.ota_supported</code> and prefers that over guessing, and falls back to
+       <code>g.Build(buildID, productKey)</code> — string-matching build-id lines — when it is absent. It was
+       always absent: the firmware client emitted <b>no</b> <code>ota_supported</code> key. So the
+       device-authoritative path existed and never once ran.</p>
+    <p>Now reported from <code>ro.build.ab_update</code>, which is the honest precondition: the OTA path hands the
+       package to <code>UpdateEngine</code>, and that only exists on a seamless-update device.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b>A reported capability list replaced the defaults outright</b><span class="tag t-risk">fleet-wide risk</span><span class="tag t-fixed">fixed</span></div>
+    <p><code>CapSet()</code> returned an advertised list <i>instead of</i> the product defaults. One capability missing
+       from a client's list — a bug, or a build older than the capability — would silently withdraw that command from
+       every firmware device at once, and the first symptom would be a button that stopped working on a rollout.</p>
+    <p>Firmware now <b>merges</b>: defaults first, advertised capabilities on top, so a report can only ever add.
+       Stock devices keep the replacing behaviour — they have no defaults to merge with, and the DPC agent lists what
+       it can do precisely because the server cannot know.</p>
+    <p class="dim">Cost, accepted deliberately: a firmware build can no longer use reporting to <i>drop</i> a capability it
+       genuinely lacks. That belongs in <code>DefaultCaps</code>, keyed by product or build line, where it is reviewable.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b>Three command types that nothing could ever send</b><span class="tag t-dead">removed</span></div>
+    <p><code>managed_config</code> and <code>wlc_set</code> sat in <code>commandNeeds</code> with no creator anywhere in the
+       server — their capabilities (<code>config</code>, <code>wlc</code>) gate nothing. <code>ping</code>,
+       <code>checkin_now</code> and <code>get_app_inventory</code> held 5-minute expiry deadlines for command rows that
+       were never created (<code>checkin_now</code> today is a bare WS frame, not a command).</p>
+    <p>The client still handled <code>get_app_inventory</code> — an orphan in both directions. Its inventory now rides
+       every check-in as <code>installed_apps</code>, so the handler is gone too.</p>
+  </div>
+
+  <h2><span class="n">03</span>Investigated, and <i>not</i> a gap</h2>
+  <p class="sub">Recorded so nobody re-opens them. Each of these looked like a hole and is working as designed.</p>
+
+  <div class="card">
+    <div class="t"><b>The receipt ack already exists — both halves</b><span class="tag t-clear">no change</span></div>
+    <p>The server's own comment names the gap: <i>"the durable fix is a client receipt-ack so 'delivered' means the
+       device has it rather than we enqueued it."</i> That fix shipped. <code>MarkCommandReceived</code>, the
+       <code>received</code> status on both the WS and HTTP ack paths, and <code>received_at IS NULL</code> in the
+       redrive sweep are all present — and the client sends it first thing in
+       <code>handleIncomingCommand</code>, <b>even for duplicates</b>, before the idempotency check. The 90-second
+       redrive sweep is a backstop, not the mechanism.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b>Firmware gets no commands on the check-in response</b><span class="tag t-clear">no change</span></div>
+    <p>Not a missing feature: the server gates that array to legacy firmware and MDM-lite, and only when the device
+       holds no socket. The modern client is deliberately excluded. A device that cannot hold a WebSocket is not
+       silently queued for — it is a real availability question, but it is a design decision, not an oversight.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b>An unknown command type fails cleanly</b><span class="tag t-clear">no change</span></div>
+    <p>The dispatcher's <code>default</code> acks <code>failed: "unknown type: X"</code> rather than dropping the frame.
+       An older client handed a newer command reports why instead of leaving the server waiting for a terminal state.</p>
+  </div>
+
+  <h2><span class="n">04</span>Still open</h2>
+
+  <div class="card">
+    <div class="t"><b>Three allowlists that must agree, and nothing makes them</b><span class="tag t-open">open</span></div>
+    <p>The dashboard (<code>commandRoles</code>), the admin API (<code>validTypes</code>) and the access policy
+       catalogue (<code>accessActions</code>) each decide separately what may be sent. Verified divergence: the
+       dashboard can send <code>query</code> and <code>logcat</code>; the admin API rejects both as
+       <code>invalid type</code>. Defensible scoping — but undocumented, and a fourth type added to one list will not
+       appear in the others.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b><code>mic_gain_set</code> is built and blocked at the same time</b><span class="tag t-open">decision</span></div>
+    <p>The client handles it, the server has a payload builder and merges its output into telemetry, and the only thing
+       stopping it is the role allowlist — whose comment reads <i>"mic gain is read-only from the MDM"</i>. Kept blocked.
+       The entry and the branches stay so that enabling it remains a one-line change rather than a re-implementation.</p>
+  </div>
+
+  <div class="card">
+    <div class="t"><b>The ack vocabulary is install-shaped</b><span class="tag t-open">open</span></div>
+    <p><code>downloading | installing | installed | failed | completed</code> describes an install. For <code>shell</code>,
+       <code>reboot</code>, <code>screenshot</code> and <code>update_splash</code> everything collapses to
+       completed/failed, and <code>progress</code> means nothing. The server cannot distinguish <i>acknowledged</i>
+       from <i>done</i> for those types. Low harm, but it caps what the UI can honestly show.</p>
+  </div>
+
+  <div class="foot">
+    Read from <span class="mono">aio-mdm-client</span> and <span class="mono">aio-mdm-web</span> source, September 2026.
+    Server changes: dead types removed, <span class="mono">CapSet</span> merges for firmware.
+    Client changes: <span class="mono">ota_supported</span> reported, orphan handler removed.
+  </div>
+</div>
+</body></html>

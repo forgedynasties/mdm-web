@@ -149,10 +149,12 @@ var commandNeeds = map[string]string{
 	"app_update":       CapSelfUpdate,
 	"wipe":             CapWipe,
 	"kiosk_set":        CapKiosk,
-	"managed_config":   CapConfig,
 	"mic_gain_read":    CapMicGain,
+	// mic_gain_set stayed in the map after the type was closed to callers: the device
+	// handles it and the write path is wired, but the dashboard refuses to send it
+	// (commandRoles omits it) so gain is read-only from the MDM. Keeping the entry is
+	// what makes re-enabling a one-line change rather than a re-implementation.
 	"mic_gain_set":     CapMicGain,
-	"wlc_set":          CapWLC,
 	"remote":           CapScreenCapture,
 	"query":            CapShell, // runs as a shell command on the device
 	"set_kiosk":        CapKiosk, // the Actions page's kiosk card (applyKioskForTargets)

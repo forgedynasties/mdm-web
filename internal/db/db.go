@@ -175,14 +175,36 @@ func (d Device) NeedsOnboarding() bool { return d.OnboardedAt == nil && !d.Retir
 // CapSet is the effective capability set: what the agent advertised, or the product
 // defaults for a firmware device that never reported one. Template-friendly (a
 // missing key indexes to false).
+//
+// For a firmware device the advertised list is MERGED onto the defaults rather than
+// replacing them. Replacement is the dangerous direction: the defaults are a known-good
+// baseline from the catalog, so a capability missing from a client's list — a bug, or a
+// build older than the capability — would silently withdraw that command from every
+// firmware device at once, and the first symptom would be a button that no longer works
+// on a fleet-wide rollout. Merging means a report can only ever add.
+//
+// A stock device is the opposite case and keeps the replacing behaviour: it has no
+// defaults to merge with (DefaultCaps returns nil for non-firmware products), so what it
+// advertises is the whole truth about it. Nothing advertises capabilities there except
+// the DPC agent, which lists what it can do precisely because the server cannot know.
+//
+// The cost of merging is that a firmware build can no longer use this to drop a
+// capability it genuinely lacks. That is deliberate: which capabilities a firmware image
+// has is a property of the image, so it belongs in DefaultCaps keyed by product (or the
+// build line), where it is reviewable, not in per-device reporting where a single bad
+// build decides it for the fleet.
 func (d Device) CapSet() map[string]bool {
-	if len(d.Capabilities) > 0 {
+	if d.IsDPC() {
+		if len(d.Capabilities) == 0 {
+			return map[string]bool{}
+		}
 		return prod.CapSet(d.Capabilities)
 	}
-	if d.IsDPC() {
-		return map[string]bool{}
+	out := prod.CapSet(prod.DefaultCaps(d.Product))
+	for _, c := range d.Capabilities {
+		out[c] = true
 	}
-	return prod.CapSet(prod.DefaultCaps(d.Product))
+	return out
 }
 
 // Supports reports whether the device can run a command type (see prod.CommandNeeds).
@@ -5955,7 +5977,7 @@ func (d *DB) ExpireOverdueCommands(ctx context.Context) ([]StalledInstall, error
 		  AND cs.status IN ('pending', 'delivered')
 		  AND c.type <> 'reboot'
 		  AND c.created_at <= NOW() - CASE
-				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory', 'mic_gain_read', 'mic_gain_set')
+				WHEN c.type IN ('shell', 'screenshot', 'query', 'mic_gain_read', 'mic_gain_set')
 					THEN INTERVAL '5 minutes'
 				ELSE INTERVAL '24 hours'
 			END
