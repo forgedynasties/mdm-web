@@ -163,11 +163,11 @@ func (h *Handler) accessFor(ctx context.Context, role, username string) *access 
 // unrestricted: nothing is ever filtered for this user. Only super admin.
 func (a *access) unrestricted() bool { return a.role == "admin" }
 
-// hidesDPC: DPC-managed (outsourced) devices are visible to admin and super_op
-// only. Every other role neither sees nor acts on them, on any page. Without this a
-// super op couldn't delegate over a scope holding DPC devices: their own filtered
-// scope drops them, so the grant's coverage check refuses.
-func (a *access) hidesDPC() bool { return a.role != "admin" && a.role != "super_op" }
+// hidesDPC: DPC-managed (outsourced) devices used to be admin/super-op only, which
+// left every other role seeing just our own firmware hardware. They are ordinary fleet
+// devices now — every role sees them and the access policy alone decides what may be
+// done to them — so nothing is hidden on agent grounds any more.
+func (a *access) hidesDPC() bool { return false }
 
 // isDPC reports whether the device runs the DPC agent (from the per-request scope map).
 func (a *access) isDPC(dev uuid.UUID) bool {

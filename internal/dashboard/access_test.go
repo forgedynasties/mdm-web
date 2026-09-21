@@ -180,31 +180,22 @@ func TestRoleCeilings(t *testing.T) {
 	}
 }
 
-// TestVisibleIDsDPCOnlyFilterKeepsOthers pins the fix for an operator seeing an empty
-// device list. Two independent reasons can put a user on the filter path — the access
-// policy, and DPC devices being hidden from non-admins — and each must filter on its
-// own criterion. Applying the view policy merely because DPC hiding was in play meant
-// an operator with a base-deny policy and no hide flag, who is supposed to see every
-// device with its actions disabled, saw nothing at all.
-func TestVisibleIDsDPCOnlyFilterKeepsOthers(t *testing.T) {
+// TestVisibleIDsDPCNotHidden pins that a DPC-managed device is an ordinary fleet
+// device: it is no longer removed from a non-admin's list, and a policy that hides
+// nothing still hides nothing.
+func TestVisibleIDsDPCNotHidden(t *testing.T) {
 	// One DPC device among the four; the operator's policy denies by default but has
-	// no hide flag, so the policy must not remove anything.
+	// no hide flag, so nothing may be removed.
 	a := newAccess("operator", db.AccessPolicy{Base: "deny"})
 	sc := fixtureScopes()
 	sc[d2] = db.DeviceScope{RestaurantID: sc[d2].RestaurantID, Groups: sc[d2].Groups, DPC: true}
 	a.scopes = sc
 
-	ids := a.visibleIDs()
-	if ids == nil {
-		t.Fatal("a DPC device is present, so the list must be filtered")
+	if ids := a.visibleIDs(); ids != nil {
+		t.Fatalf("nothing hides these devices, want an unfiltered list, got %d ids", len(ids))
 	}
-	if len(ids) != 3 {
-		t.Fatalf("operator sees %d devices, want 3 (all but the DPC one)", len(ids))
-	}
-	for _, id := range ids {
-		if id == d2 {
-			t.Error("the DPC device was not hidden from the operator")
-		}
+	if a.canDevice("view", d2) != a.canDevice("view", d1) {
+		t.Error("the DPC device must be judged like any other, not hidden for being DPC")
 	}
 	// The policy still must not hide anything by itself.
 	if a.hidesDevices() {
