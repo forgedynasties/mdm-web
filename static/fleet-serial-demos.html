@@ -1,0 +1,393 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fleet cards · the serial number — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--border:#e8e2da;--border-soft:#efe9e2;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;--coral:#f9674e;
+  --ok:#157f3c;--ok-dot:#1f9d4f;--warn:#b26a00;--danger:#c0321f;--issue:#b23a24;
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.45;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.dbar a.back{font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:74ch}
+h2{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:34px 0 4px}
+h2 .badge{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  border-radius:99px;padding:3px 9px;margin-left:9px;vertical-align:2px;
+  background:#f1ede7;color:#6b655c}
+h2 .badge.now{background:#eceefe;color:#4449b8}h2 .badge.pick{background:#e6f4ea;color:#157f3c}
+.sub{color:var(--muted);font-size:13.5px;margin-bottom:14px;max-width:84ch}
+.sub b{color:var(--text2);font-weight:600}
+.cap{font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.switch{display:inline-flex;flex-wrap:wrap;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;margin:2px 0 6px}
+.switch button{font:600 13px var(--font);border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:99px;cursor:pointer}
+.switch button[aria-pressed=true]{background:var(--surface2);color:var(--coral)}
+.opt[hidden]{display:none}
+.pill{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.ag-firmware{background:#f1ede7;color:#4a453e}.ag-dpc{background:#eceefe;color:#4449b8}.ag-lite{background:#e2f3ef;color:#0f6557}
+.st{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}
+.st i{width:8px;height:8px;border-radius:99px;background:var(--faint)}
+.st.on{color:var(--ok)}.st.on i{background:var(--ok-dot)}
+.st.off{color:#6b655c}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.danger{color:var(--danger)}.na{color:var(--muted)}
+.issue{color:var(--issue);font-weight:600;font-size:12.5px}
+.di{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.di svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.di.t7{background:#fdebe7;color:#c9442d}.di.kiosk{background:#ecedfd;color:#4f55cc}
+.di.dongle{background:#e2f3ef;color:#0f7263}.di.mpos{background:#fcefd8;color:#98590a}
+.di.pos{background:#ece9e4;color:#4a453e}.di.tablet{background:#e3edfa;color:#285aab}
+.di.phone{background:#e4f2e7;color:#1c6f37}.di.other{background:#efece7;color:#6b655c}
+
+/* the jobs the serial actually does — the bar every option is judged against */
+.jobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:8px}
+.job{padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.job b{display:block;font-size:13.5px;margin-bottom:2px}
+.job span{font-size:12.5px;color:var(--muted)}
+
+/* the copy affordance every option shares */
+.cpy{border:0;background:none;padding:0;cursor:pointer;color:var(--faint);
+  display:inline-flex;align-items:center;border-radius:6px}
+.cpy:hover{color:var(--coral)}
+.cpy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.cpy.done{color:var(--ok)}
+
+/* ── baseline: what ships today ───────────────────────────────────────── */
+.today{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;
+  display:flex;align-items:center;gap:16px;max-width:760px}
+.today .id{min-width:0}
+.today .n{display:flex;align-items:center;gap:8px}
+.today .n a{font-weight:600;font-size:15px}
+.today .m{font-size:12.5px;color:var(--muted);margin-top:1px}
+.today .m code{font-family:var(--mono);font-size:11.5px;color:var(--text2)}
+.today .plain{font-weight:600;font-size:14.5px}
+.today .note{font-size:12px;color:var(--faint);margin-top:10px}
+.todaywrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+
+/* ── A · asset tag ────────────────────────────────────────────────────── */
+.tagrow{display:flex;align-items:center;gap:16px;padding:13px 18px;background:var(--surface);
+  border:1px solid var(--border);border-radius:14px}
+.tagrow .body{min-width:0;flex:1}
+.tagrow .l1{display:flex;align-items:center;gap:8px}
+.tagrow .l1 a{font-weight:600;font-size:15px}
+.tagrow .l1 a:hover{color:var(--coral)}
+.tagrow .l2{font-size:12.5px;color:var(--muted);margin-top:1px}
+.tagrow .vit{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 10px;border-radius:9px;background:var(--surface2);color:var(--text2)}
+.chip b{font-weight:600}
+.tagrow+.tagrow,.brow+.brow,.crow+.crow{margin-top:10px}
+.asset{display:inline-flex;align-items:center;gap:10px;padding:7px 11px;border:1px dashed #d3cabd;
+  border-radius:8px;background:#fdfcf8;flex:none;cursor:pointer}
+.asset:hover{border-color:var(--coral);background:#fffaf8}
+.asset .bars{width:34px;height:20px;flex:none;border-radius:2px;opacity:.62;
+  background:repeating-linear-gradient(90deg,var(--text) 0 1px,transparent 1px 3px,
+    var(--text) 3px 5px,transparent 5px 7px,var(--text) 7px 10px,transparent 10px 12px)}
+.asset .sn{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.05em;white-space:nowrap}
+
+/* ── B · serial leads ─────────────────────────────────────────────────── */
+.brow{display:flex;align-items:center;gap:18px;padding:12px 18px;background:var(--surface);
+  border:1px solid var(--border);border-radius:14px}
+.brow .body{flex:1;min-width:0}
+.serialbig{font-family:var(--mono);font-size:16px;font-weight:600;letter-spacing:.01em;
+  display:inline-flex;align-items:center;gap:9px}
+.serialbig .pre{color:var(--faint);font-weight:500}
+.serialbig .tail{color:var(--text)}
+.brow:hover .serialbig .tail{color:var(--coral)}
+.brow .b2{display:flex;align-items:baseline;gap:9px;margin-top:2px;font-size:12.5px;color:var(--muted);min-width:0}
+.brow .b2 .sep{color:#d5cdc2}
+.brow .vit{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+.find{font-size:12px;font-weight:600;color:var(--coral);opacity:0;transition:opacity .12s;white-space:nowrap}
+.brow:hover .find{opacity:1}
+
+/* ── C · chip stays, actions appear ───────────────────────────────────── */
+.crow{display:flex;align-items:center;gap:16px;padding:13px 18px;background:var(--surface);
+  border:1px solid var(--border);border-radius:14px}
+.crow .body{flex:1;min-width:0}
+.crow .n{display:flex;align-items:center;gap:8px}
+.crow .n a{font-weight:600;font-size:15px}
+.snchip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;
+  font-weight:600;letter-spacing:.03em;padding:3px 7px 3px 8px;border-radius:7px;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border-soft)}
+.snchip .act{display:inline-flex;gap:6px;align-items:center;padding-left:6px;
+  border-left:1px solid var(--border);opacity:0;transition:opacity .12s}
+.crow:hover .snchip .act{opacity:1}
+.snchip .act button{border:0;background:none;padding:0;cursor:pointer;color:var(--faint);display:flex}
+.snchip .act button:hover{color:var(--coral)}
+.snchip .act svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── D · serial column ────────────────────────────────────────────────── */
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.dtr{display:grid;grid-template-columns:44px minmax(0,1.5fr) 210px minmax(0,1fr) minmax(0,1.3fr) 150px 34px;
+  align-items:center;column-gap:16px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:13.5px}
+.dtr.hd{border-top:0;background:var(--surface2);font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);padding:9px 16px}
+.dtr .sort{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--text2);border:0;background:none;
+  font:600 11px var(--font);letter-spacing:.06em;text-transform:uppercase;padding:0}
+.dtr .sort svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.dtr .di{width:32px;height:32px;border-radius:9px}.dtr .di svg{width:18px;height:18px}
+.dtr .nm a{font-weight:600}.dtr .nm small{display:block;font-size:12px;color:var(--muted)}
+.sncol{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:7px}
+.dtr .vit{font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums}
+.dtr .vit b{font-weight:600}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;gap:7px;font:600 12.5px var(--font);color:var(--text2);
+  background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 11px;cursor:pointer}
+.btn:hover{border-color:#d9d1c6;color:var(--text)}
+.btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.on{border-color:var(--coral);color:var(--coral)}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);background:#1c1a18;color:#fff;
+  font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;opacity:0;pointer-events:none;
+  transition:opacity .16s,transform .16s;z-index:9}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:1000px){.jobs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tagrow,.brow,.crow{flex-wrap:wrap}.brow .find{opacity:1}}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-t7" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M5.5 20h13"/><path d="M9.5 16.5 8.5 20M14.5 16.5l1 3.5"/></symbol>
+  <symbol id="i-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
+  <symbol id="i-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
+  <symbol id="i-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
+  <symbol id="i-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
+  <symbol id="i-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 5h2"/></symbol>
+  <symbol id="i-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/">← Back to dashboard</a><span class="tag">Mockup · sample data</span></div>
+  <h1>The serial number on the fleet card</h1>
+  <p class="lede">Today the serial is the card's link text, or a quiet mono line under the name when the device is named. It is the one field on the card that matches something physical — the sticker on the device — and the one field support, inventory and the CSV export all key on. Four ways to make it earn its place.</p>
+
+  <div class="cap">What the serial has to do</div>
+  <div class="jobs">
+    <div class="job"><b>Match the sticker</b><span>A technician holding the device must find its row without reading anything else.</span></div>
+    <div class="job"><b>Be quotable</b><span>Support reads it aloud, or a customer pastes it into chat. Copy has to be one click.</span></div>
+    <div class="job"><b>Be searchable</b><span>Paste a serial, get the device — no name, no model, no guessing the page.</span></div>
+    <div class="job"><b>Reconcile</b><span>A column of serials compared against an inventory sheet, by eye.</span></div>
+  </div>
+
+  <h2>Arrangements</h2>
+  <div class="switch" role="group" aria-label="Arrangement">
+    <button type="button" data-opt="today" aria-pressed="false">Today</button>
+    <button type="button" data-opt="a" aria-pressed="true">A · Asset tag</button>
+    <button type="button" data-opt="b" aria-pressed="false">B · Serial leads</button>
+    <button type="button" data-opt="c" aria-pressed="false">C · Chip with actions</button>
+    <button type="button" data-opt="d" aria-pressed="false">D · Serial column</button>
+    <button type="button" data-opt="all" aria-pressed="false">All</button>
+  </div>
+
+  <section class="opt" data-opt="today" hidden>
+    <h2>Today <span class="badge now">Deployed</span></h2>
+    <p class="sub">The serial is either the whole link (<b>a</b>) or a quiet mono line under a name (<b>b</b>). Both are read-only: nothing on the card lets you take the value with you.</p>
+    <div class="todaywrap">
+      <div class="today"><div class="di t7"><svg><use href="#i-t7"/></svg></div>
+        <div class="id"><div class="n"><a class="plain" href="#">AT070AABU00281</a><span class="pill ag-firmware">Firmware</span></div>
+        <div class="m">T7 · Front counter · Online</div></div></div>
+      <div class="today"><div class="di dongle"><svg><use href="#i-dongle"/></svg></div>
+        <div class="id"><div class="n"><a href="#">Menu board 1</a><span class="pill ag-lite">MDM-lite</span></div>
+        <div class="m">HK1 RBOX D8 · <code>61eb25e75f3afcc</code> · Reporting</div></div></div>
+    </div>
+    <p class="note">On the named card the serial is 11 px mono in the muted colour — the quietest thing in the row, though it is the most stable identifier there.</p>
+  </section>
+
+  <section class="opt" data-opt="a">
+    <h2>A · Asset tag <span class="badge pick">My pick</span></h2>
+    <p class="sub"><b>Good at:</b> matching the physical device. A dashed label with barcode bars, mono and letterspaced, reads as the sticker on the hardware — the card and the thing in your hand become the same object. Copy is the whole label. <b>Bad at:</b> width. The label is fixed-width and takes ~180 px, so it wants a card wide enough for name · label · vitals, and it is odd on a phone. The barcode is decoration — it encodes nothing.</p>
+    <div id="mount-a"></div>
+  </section>
+
+  <section class="opt" data-opt="b" hidden>
+    <h2>B · Serial leads</h2>
+    <p class="sub"><b>Good at:</b> quoting. The serial is the headline, in mono, split into the quiet batch prefix and a bold distinctive tail — <b>AT070AABU</b>00281 — so two similar devices are told apart by the last five characters, which is what people actually read out. The name and model drop to a quiet second line. <b>Bad at:</b> it demotes the name, so a fleet that is <em>named</em> well (Front counter, Drive-thru) loses its most human handle. Also all rows now look alike at a glance, since the leading text is uniform-length mono.</p>
+    <div id="mount-b"></div>
+  </section>
+
+  <section class="opt" data-opt="c" hidden>
+    <h2>C · Chip with actions</h2>
+    <p class="sub"><b>Good at:</b> costing nothing. The card keeps today's hierarchy — name leads, vitals right — and the serial becomes a small mono chip that carries its own actions: copy, and open. It is additive, so nothing anyone relies on today moves. <b>Bad at:</b> it is the least of the four as a <em>value</em> change — the serial is still visually quiet, so the sticker-matching and reconciliation jobs stay undone. Its actions are hover-only, so touch devices see a chip with no buttons.</p>
+    <div id="mount-c"></div>
+  </section>
+
+  <section class="opt" data-opt="d" hidden>
+    <h2>D · Serial column</h2>
+    <p class="sub"><b>Good at:</b> reconciling. The serial gets its own aligned, tabular-figures column, so a page of serials lines up digit-for-digit against a spreadsheet, and the header sorts by it. Copy on hover, plus copy-the-selection in the toolbar. <b>Bad at:</b> it is a list, not a card — the type icon and vitals shrink, so it reads less like a fleet and more like an inventory report. Best as a <em>second view</em> on the fleet page (a toggle beside the layout switch), not as the only card.</p>
+    <div class="toolbar">
+      <button class="btn" id="copy-all"><svg><use href="#i-copy"/></svg>Copy all serials</button>
+      <button class="btn" id="sort-btn"><svg><use href="#i-sort"/></svg>Sort by serial</button>
+      <span style="font-size:12.5px;color:var(--muted)">8 devices</span>
+    </div>
+    <div class="tbl" id="dtbl"></div>
+  </section>
+
+  <section class="opt" data-opt="all" hidden>
+    <h2>All arrangements</h2>
+    <p class="sub">A · Asset tag, then B · Serial leads, then C · Chip with actions, then D · Serial column — the same fleet through each.</p>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+  var TABLES = {a:'tagrow', b:'brow', c:'crow'};
+
+  // Sample data. The T7 serial is the real device from live; the rest are illustrative.
+  var D = [
+    {n:'Front counter', k:'t7', model:'T7', s:'AT070AABU00281', ag:'firmware', st:'Online', on:1, vit:['80% on pad','36°C','RAM 48%'], batt:80},
+    {n:'Menu board 1', k:'dongle', model:'HK1 RBOX D8', s:'61eb25e75f3afcc', ag:'lite', st:'Reporting', on:1, vit:['Mains','58°C','RAM 42%'], warn:'58°C'},
+    {n:'Drive-thru screen', k:'kiosk', model:'Kiosk 27', s:'KS27B0043', ag:'firmware', st:'Online', on:1, vit:['Mains','41°C','RAM 62%']},
+    {n:'Waiter handheld', k:'mpos', model:'SUNMI D3 PRO', s:'D3P2211A07', ag:'dpc', st:'Online', on:1, vit:['64%','33°C','RAM 55%'], batt:64},
+    {n:'Owner phone', k:'phone', model:'Pixel 6', s:'android-cea946e07ecfdf7c', ag:'lite', st:'Reporting', on:1, vit:['23% charging','31°C','RAM 74%'], batt:23},
+    {n:'Kitchen tablet', k:'tablet', model:'Galaxy Tab A8', s:'R9TW30LMQ2', ag:'dpc', st:'Offline', on:0, vit:['Battery 12%','RAM —'], bad:'12%'},
+    {n:'Counter POS', k:'pos', model:'Telpo K20', s:'K20A00781', ag:'dpc', st:'Online', on:1, vit:['Mains','39°C','RAM 37%']},
+    {n:'Lobby kiosk', k:'kiosk', model:'Kiosk 22', s:'KS22A0118', ag:'firmware', st:'Offline', on:0, vit:['Mains','RAM —']}
+  ];
+  var AG = {firmware:'Firmware', dpc:'DPC agent', lite:'MDM-lite'};
+
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function icon(k){return '<span class="di '+k+'"><svg><use href="#i-'+k+'"/></svg></span>';}
+  function agent(a){return '<span class="pill ag-'+a+'">'+AG[a]+'</span>';}
+  function status(d){return '<span class="st '+(d.on?'on':'off')+'"><i></i>'+d.st+'</span>';}
+  function vit(d){return '<div class="vit">'+d.vit.map(function(v){
+    var c = d.warn===v?' warn' : d.bad===v?' danger' : '';
+    return '<span class="chip'+c+'">'+esc(v)+'</span>';}).join('')+'</div>';}
+  function copyBtn(sz, px){
+    var size = px ? ' width="'+px+'" height="'+px+'"' : '';
+    return '<button class="cpy" data-copy="'+esc(sz)+'" title="Copy serial number" aria-label="Copy serial number">'+
+      '<svg'+size+'><use href="#i-copy"/></svg></button>';
+  }
+
+  // Serial split: a quiet batch prefix, then a bold distinctive tail. Keep the last 5
+  // characters (or 6 for the long ANDROID_ID form) as the part people read aloud.
+  function split(s){
+    var tailLen = s.length > 12 ? 6 : 5;
+    var cut = Math.max(0, s.length - tailLen);
+    return '<span class="pre">'+esc(s.slice(0, cut))+'</span><span class="tail">'+esc(s.slice(cut))+'</span>';
+  }
+
+  function rowA(d){
+    return '<div class="tagrow">'+icon(d.k)+
+      '<div class="body"><div class="l1"><a href="#">'+esc(d.n)+'</a>'+agent(d.ag)+status(d)+'</div>'+
+      '<div class="l2">'+esc(d.model)+' · '+(d.on?'live':'last seen 3 h ago')+'</div></div>'+
+      '<span class="asset" role="button" tabindex="0" data-copy="'+esc(d.s)+'" title="Copy serial number">'+
+      '<span class="bars"></span><span class="sn">'+esc(d.s)+'</span>'+
+      '<svg class="cpy-ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><use href="#i-copy"/></svg></span>'+
+      vit(d)+'</div>';
+  }
+  function rowB(d){
+    return '<div class="brow">'+icon(d.k)+
+      '<div class="body"><span class="serialbig">'+split(d.s)+copyBtn(d.s)+'</span>'+
+      '<div class="b2"><span>'+esc(d.n)+'</span><span class="sep">·</span><span>'+esc(d.model)+'</span>'+
+      '<span class="sep">·</span>'+agent(d.ag)+'<span class="sep">·</span>'+status(d)+'</div></div>'+
+      vit(d)+'<span class="find">Find device →</span></div>';
+  }
+  function rowC(d){
+    return '<div class="crow">'+icon(d.k)+
+      '<div class="body"><div class="n"><a href="#">'+esc(d.n)+'</a>'+agent(d.ag)+status(d)+'</div>'+
+      '<div style="margin-top:4px"><span class="snchip">'+esc(d.s)+
+      '<span class="act"><button data-copy="'+esc(d.s)+'" title="Copy serial" aria-label="Copy serial"><svg><use href="#i-copy"/></svg></button>'+
+      '<button data-goto="'+esc(d.s)+'" title="Search fleet for this serial" aria-label="Search fleet"><svg><use href="#i-search"/></svg></button></span></span></div></div>'+
+      vit(d)+'</div>';
+  }
+
+  function mount(){
+    var a=document.getElementById('mount-a'), b=document.getElementById('mount-b'), c=document.getElementById('mount-c');
+    if(a) a.innerHTML = D.map(rowA).join('');
+    if(b) b.innerHTML = D.map(rowB).join('');
+    if(c) c.innerHTML = D.map(rowC).join('');
+  }
+
+  // D · the serial column, with a working sort so the reconciliation case is visible.
+  var sorted = false;
+  function drawTable(){
+    var rows = D.slice().sort(function(x,y){ return sorted ? x.s.localeCompare(y.s) : 0; });
+    var hd = '<div class="dtr hd"><span></span><span>Device</span>'+
+      '<button class="sort" id="th-sn">Serial <svg><use href="#i-sort"/></svg></button>'+
+      '<span>Model</span><span>State</span><span>Reads</span><span></span></div>';
+    var body = rows.map(function(d){
+      return '<div class="dtr">'+icon(d.k)+
+        '<span class="nm"><a href="#">'+esc(d.n)+'</a><small>'+agent(d.ag)+'</small></span>'+
+        '<span class="sncol">'+esc(d.s)+copyBtn(d.s,12)+'</span>'+
+        '<span style="font-size:13px;color:var(--text2)">'+esc(d.model)+'</span>'+
+        '<span>'+status(d)+'</span>'+
+        '<span class="vit">'+d.vit.map(function(v){return '<b>'+esc(v)+'</b>';}).join(' · ')+'</span>'+
+        '<a class="open" href="#" title="Open device"><svg viewBox="0 0 24 24"><use href="#i-open"/></svg></a></div>';
+    }).join('');
+    document.getElementById('dtbl').innerHTML = hd + body;
+    document.getElementById('th-sn').onclick = function(){ sorted = !sorted; drawTable(); };
+    document.getElementById('dtbl').addEventListener('click', function(e){
+      var t = e.target.closest('[data-copy]'); if (t) { copy(t.getAttribute('data-copy')); e.preventDefault(); }
+    }, true);
+  }
+
+  function copy(text){
+    var done = function(){ toast('Copied ' + text); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function(){ fallback(text, done); });
+    } else { fallback(text, done); }
+  }
+  function fallback(text, done){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('Copy blocked by the browser'); }
+    document.body.removeChild(ta);
+  }
+  var tt;
+  function toast(msg){
+    var el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(tt); tt = setTimeout(function(){ el.classList.remove('show'); }, 1600);
+  }
+
+  document.addEventListener('click', function(e){
+    var c = e.target.closest('[data-copy]');
+    if (c) { copy(c.getAttribute('data-copy')); return; }
+    var g = e.target.closest('[data-goto]');
+    if (g) { toast('Would search the fleet for ' + g.getAttribute('data-goto')); return; }
+  });
+  document.addEventListener('keydown', function(e){
+    var t = e.target.closest && e.target.closest('.asset');
+    if (t && (e.key === 'Enter' || e.key === ' ')) { copy(t.getAttribute('data-copy')); e.preventDefault(); }
+  });
+
+  var ca = document.getElementById('copy-all');
+  if (ca) ca.onclick = function(){ copy(D.map(function(d){return d.s;}).join('\n')); };
+  var sb = document.getElementById('sort-btn');
+  if (sb) sb.onclick = function(){ sorted = !sorted; this.classList.toggle('on', sorted); drawTable(); };
+
+  var secs = [].slice.call(document.querySelectorAll('.opt'));
+  var all = document.querySelector('.opt[data-opt=all]');
+  function buildAll(){
+    all.innerHTML = '<h2>All arrangements</h2><p class="sub">A · Asset tag, B · Serial leads, C · Chip with actions, D · Serial column — the same fleet through each.</p>'+
+      '<h3 style="font-size:15px;margin:22px 0 8px">A · Asset tag</h3><div class="rows-a"></div>'+
+      '<h3 style="font-size:15px;margin:22px 0 8px">B · Serial leads</h3><div class="rows-b"></div>'+
+      '<h3 style="font-size:15px;margin:22px 0 8px">C · Chip with actions</h3><div class="rows-c"></div>';
+    all.querySelector('.rows-a').innerHTML = D.map(rowA).join('');
+    all.querySelector('.rows-b').innerHTML = D.map(rowB).join('');
+    all.querySelector('.rows-c').innerHTML = D.map(rowC).join('');
+  }
+  function show(opt){
+    secs.forEach(function(s){ s.hidden = !(opt === 'all' ? s.dataset.opt === 'all' : s.dataset.opt === opt); });
+    [].forEach.call(document.querySelectorAll('.switch button'), function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.opt === opt));});
+  }
+  [].forEach.call(document.querySelectorAll('.switch button'), function(b){
+    b.onclick = function(){ if (b.dataset.opt === 'all' && !all.dataset.built) { buildAll(); all.dataset.built = '1'; } show(b.dataset.opt); };
+  });
+
+  mount();
+  drawTable();
+})();
+</script></body></html>
