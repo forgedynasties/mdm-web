@@ -1173,10 +1173,12 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		h.hub.PublishCommandUpdate(body.CommandID)
 		return
 	}
-	// Interim install progress ('downloading'/'installing') updates status + percent
+	// Interim progress ('downloading'/'installing' with a percent, or 'running' for a
+	// command that has started but reports nothing until it finishes) updates status
 	// without finalizing; a separate path from the terminal ack so the dashboard can
-	// show "Downloading 45%" / "Installing…" live.
-	if body.Status == "downloading" || body.Status == "installing" {
+	// show "Downloading 45%" / "Installing…" / "running" live. It also refreshes the
+	// row's updated_at, which is what keeps a long shell off the 5-minute expiry sweep.
+	if body.Status == "downloading" || body.Status == "installing" || body.Status == "running" {
 		if err := h.db.SetCommandProgress(ctx, body.CommandID, deviceID, body.Status, body.Progress); err != nil {
 			log.Printf("[ws-ack] SetCommandProgress error: %v", err)
 			return
@@ -2071,9 +2073,9 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
-	interim := body.Status == "downloading" || body.Status == "installing"
+	interim := body.Status == "downloading" || body.Status == "installing" || body.Status == "running"
 	if !interim && body.Status != "received" && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be received, downloading, installing, installed, failed, or completed"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be received, downloading, installing, running, installed, failed, or completed"})
 		return
 	}
 

@@ -19,7 +19,7 @@
 {{define "command-deliveries"}}
 {{$cmd := .Command}}
 {{$hasPending := false}}
-{{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing")}}{{$hasPending = true}}{{end}}{{end}}
+{{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing") (eq .Status "running")}}{{$hasPending = true}}{{end}}{{end}}
 {{$doneWord := "Done"}}{{if eq $cmd.Type "install_apk"}}{{$doneWord = "Installed"}}{{else if eq $cmd.Type "uninstall"}}{{$doneWord = "Uninstalled"}}{{else if eq $cmd.Type "screenshot"}}{{$doneWord = "Captured"}}{{else if eq $cmd.Type "reboot"}}{{$doneWord = "Rebooted"}}{{end}}
 {{$runWord := "In flight"}}{{if eq $cmd.Type "install_apk"}}{{$runWord = "Installing"}}{{end}}
 <div id="deliveries-card" data-diff-guard data-morph
@@ -76,8 +76,8 @@
     </div>
 
     {{/* In flight: reached the device and working */}}
-    <div class="ad-col info"><h2>{{$runWord}} <b>{{$k := 0}}{{range .Deliveries}}{{if and .Online (or (eq .Status "downloading") (eq .Status "installing") (eq .Status "delivered"))}}{{$k = add $k 1}}{{end}}{{end}}{{$k}}</b></h2>
-      {{$n := 0}}{{range .Deliveries}}{{if and .Online (or (eq .Status "downloading") (eq .Status "installing") (eq .Status "delivered"))}}{{$n = add $n 1}}
+    <div class="ad-col info"><h2>{{$runWord}} <b>{{$k := 0}}{{range .Deliveries}}{{if and .Online (or (eq .Status "downloading") (eq .Status "installing") (eq .Status "running") (eq .Status "delivered"))}}{{$k = add $k 1}}{{end}}{{end}}{{$k}}</b></h2>
+      {{$n := 0}}{{range .Deliveries}}{{if and .Online (or (eq .Status "downloading") (eq .Status "installing") (eq .Status "running") (eq .Status "delivered"))}}{{$n = add $n 1}}
       <div class="ad-chip info">
         <div class="t"><a class="nm" href="/devices/{{.SerialNumber}}">{{$nick := index $.Nicknames .DeviceID}}{{if $nick}}{{$nick}}{{else}}{{.SerialNumber}}{{end}}</a><span class="w">{{if and (eq .Status "downloading") .Progress}}{{.Progress}}%{{else}}{{cmdStatusLabel .Status .Online}}{{end}}</span></div>
         {{if $nick}}<div class="sn">{{.SerialNumber}}</div>{{end}}
@@ -88,8 +88,8 @@
     </div>
 
     {{/* Waiting: queued, device offline */}}
-    <div class="ad-col mute"><h2>Waiting <b>{{$k := 0}}{{range .Deliveries}}{{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing"))}}{{$k = add $k 1}}{{else if and .Online (eq .Status "pending")}}{{$k = add $k 1}}{{end}}{{end}}{{$k}}</b></h2>
-      {{$n := 0}}{{range .Deliveries}}{{if or (and (not .Online) (or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing"))) (and .Online (eq .Status "pending"))}}{{$n = add $n 1}}
+    <div class="ad-col mute"><h2>Waiting <b>{{$k := 0}}{{range .Deliveries}}{{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing") (eq .Status "running"))}}{{$k = add $k 1}}{{else if and .Online (eq .Status "pending")}}{{$k = add $k 1}}{{end}}{{end}}{{$k}}</b></h2>
+      {{$n := 0}}{{range .Deliveries}}{{if or (and (not .Online) (or (eq .Status "pending") (eq .Status "delivered") (eq .Status "downloading") (eq .Status "installing") (eq .Status "running"))) (and .Online (eq .Status "pending"))}}{{$n = add $n 1}}
       <div class="ad-chip mute">
         <div class="t"><a class="nm" href="/devices/{{.SerialNumber}}">{{$nick := index $.Nicknames .DeviceID}}{{if $nick}}{{$nick}}{{else}}{{.SerialNumber}}{{end}}</a><span class="w">{{if .Online}}queued{{else}}offline <span class="reltime" data-ts="{{.LastSeenAt.Unix}}"></span>{{end}}</span></div>
         {{if $nick}}<div class="sn">{{.SerialNumber}}</div>{{end}}
