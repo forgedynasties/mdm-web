@@ -577,16 +577,27 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{/* Enrollment — how this device got here and where it is in its lifecycle.
        Same card for both kinds: firmware devices are "auto-enrolled" with the
        fleet key, DPC devices carry a per-device key from a profile. */}}
-  {{if canAdmin .Role}}<div class="ddc-card" id="enrollment-card">
+  {{if canAdmin .Role}}<div class="ddc-card en-card" id="enrollment-card">
     <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
-    <div class="ddc-kv"><span class="k">Managed by</span><span class="v">{{if .Device.IsMDMLite}}MDM Lite {{with extraField .Device.LatestExtra "agent_version"}}{{if ne . "—"}}<span class="mono">{{.}}</span> {{end}}{{end}}<span class="muted small">in app, no device owner</span>{{else}}{{.Device.KindLabel}} {{with extraField .Device.LatestExtra "agent_version"}}{{if ne . "—"}}<span class="mono">{{.}}</span> {{end}}{{end}}{{if .IsDPC}}<span class="muted small">Device Owner</span>{{else}}<span class="muted small">system app</span>{{end}}{{end}}</span></div>
+
+    {{/* Summary line: what manages this device, before any row is read. */}}
+    <div class="en-hero">
+      <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
+      {{with extraField .Device.LatestExtra "agent_version"}}{{if ne . "—"}}<span class="mono en-hero-v">{{.}}</span>{{end}}{{end}}
+      <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
+    </div>
+
+    <div class="en-grp">Identity</div>
     {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
     {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Credential</span><span class="v">{{if .IsDPC}}Per-device key{{else}}Fleet device key{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
+
+    <div class="en-grp">Settings</div>
     <div class="ddc-kv"><span class="k">Product</span><span class="v">{{if canAdminOrOperator .Role}}
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/class" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;margin:0">
-        <select name="device_class" class="en-sel" style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)" onchange="this.form.submit()">
+        <select name="device_class" class="en-sel" onchange="this.form.submit()">
           <option value="" {{if not .Device.DeviceClass}}selected{{end}}>{{if .Device.Class}}{{.Device.ClassLabel}} (product default){{else}}— not set —{{end}}</option>
           {{range .Classes}}<option value="{{.}}" {{if eq . $.Device.DeviceClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
         </select>
@@ -595,35 +606,47 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-kv"><span class="k">Onboarding</span><span class="v">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/onboard" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0">
         <input type="hidden" name="from" value="/devices/{{.Device.SerialNumber}}">
-        {{if not .Device.DeployedEffective}}<select name="restaurant_id" style="font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)"><option value="">Site…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>{{end}}
+        {{if not .Device.DeployedEffective}}<select name="restaurant_id" class="en-sel"><option value="">Site…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>{{end}}
         <button type="submit" class="cc-btn primary sm"{{if not (canAdminOrOperator .Role)}} disabled{{end}}>Mark onboarded</button>
       </form></span></div>
     {{end}}
+
+    {{/* Everything that changes where this device lives, or ends its life, in one
+         band — so a factory wipe can never again read like a preference sitting in
+         the same kind of row as the product class. */}}
+    <div class="en-danger">
+      <div class="en-danger-t">Careful</div>
+      <div class="en-danger-btns">
+        {{if and (canAdmin .Role) (not .IsDPC)}}<button type="button" class="cc-btn sm" onclick="document.getElementById('move-server-dlg').showModal()">Move to another server…</button>{{end}}
+        {{if .Device.Retired}}
+        <form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm">Back to the fleet</button></form>
+        {{else}}
+        <form method="POST" action="/devices/{{.Device.SerialNumber}}/retire" hx-boost="false" style="margin:0" onsubmit="return confirm('Retire {{.Device.SerialNumber}}? It leaves lists, alerts and policy coverage but keeps its history. A later check-in brings it back.')"><button type="submit" class="cc-btn sm">Retire</button></form>
+        {{end}}
+        {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm en-wipe">Factory wipe</button></form>{{end}}
+      </div>
+      <div class="en-danger-note">Retiring keeps the history. A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
+    </div>
+
     {{if and (canAdmin .Role) (not .IsDPC)}}
     {{/* Move a device between MDM servers: the firmware client reads
          persist.sys.mdm.url at startup, so this writes the property and reboots into
          it. After that the device reports THERE, not here — hence admin-only and a
          confirm that says so. */}}
-    <div class="ddc-kv mdm-move"><span class="k">MDM server</span><span class="v">
+    <dialog id="move-server-dlg" class="en-dlg">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/move-server" hx-boost="false"
             onsubmit="return confirm('Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.')">
+        <h4>Move {{.Device.SerialNumber}} to another MDM</h4>
+        <p class="muted small">The device reboots into the new server and stops checking in here. Servers are set in <a href="/settings#devices">Settings</a>.</p>
         <select name="server_url" class="form-input" required>
           {{range .MDMServers}}<option value="{{.}}">{{.}}{{if eq . $.ThisServer}} (this server){{end}}</option>{{end}}
         </select>
-        <button type="submit" class="cc-btn sm">Move &amp; reboot</button>
+        <div class="en-dlg-btns">
+          <button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="cc-btn primary sm">Move &amp; reboot</button>
+        </div>
       </form>
-      <div class="muted small">Sets <code>persist.sys.mdm.url</code>, then reboots. Servers are set in <a href="/settings#devices">Settings</a>.</div>
-    </span></div>
-    {{end}}
-    {{if canAdmin .Role}}
-    <div class="ddc-kv"><span class="k">Lifecycle</span><span class="v" style="display:inline-flex;gap:6px;flex-wrap:wrap">
-      {{if .Device.Retired}}
-      <form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm">Back to the fleet</button></form>
-      {{else}}
-      <form method="POST" action="/devices/{{.Device.SerialNumber}}/retire" hx-boost="false" style="margin:0" onsubmit="return confirm('Retire {{.Device.SerialNumber}}? It leaves lists, alerts and policy coverage but keeps its history. A later check-in brings it back.')"><button type="submit" class="cc-btn sm">Retire</button></form>
-      {{end}}
-      {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm" style="color:var(--danger)">Factory wipe</button></form>{{end}}
-    </span></div>
+    </dialog>
     {{end}}
   </div>{{end}}
   {{/* Charging pad — one widget combining the live occupancy status and the
