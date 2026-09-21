@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enrollment pane — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.col{max-width:400px;}
+
+/* card + rows, close to the real .ddc-card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;}
+.ct{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border-soft);}
+.ct h3{margin:0;font-size:13px;font-weight:750;letter-spacing:-.01em;flex:1;}
+.ic{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--surface-3,#f2efe9);color:var(--text-faint);}
+html[data-theme="dark"] .ic{background:rgba(255,255,255,.06);}
+.ic svg{width:12px;height:12px;}
+.kv{display:flex;gap:10px;justify-content:space-between;align-items:baseline;padding:8px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
+.kv:last-child{border-bottom:0;}
+.kv .k{color:var(--text-faint);font-weight:650;white-space:nowrap;}
+.kv .v{text-align:right;font-weight:650;}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;}
+.muted{color:var(--text-faint);font-weight:600;}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:750;padding:2px 8px;border-radius:7px;border:1px solid var(--border);color:var(--text-faint);}
+.tag.ok{border-color:#9fd9bd;color:#1c7d50;background:#eefaf4;}
+.tag.warn{border-color:#e6c48a;color:#9a6a12;background:#fdf6e8;}
+html[data-theme="dark"] .tag.ok{background:rgba(43,182,115,.14);color:#5fd49a;border-color:rgba(43,182,115,.4);}
+html[data-theme="dark"] .tag.warn{background:rgba(232,161,58,.16);color:#e8b45c;border-color:rgba(232,161,58,.4);}
+.btn{font:inherit;font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;}
+.btn.prim{background:var(--accent);border-color:transparent;color:#fff;}
+.btn.dngr{color:var(--danger,#d94f3d);border-color:rgba(217,79,61,.35);}
+.sel{font:inherit;font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);}
+.sub{font-size:11.5px;color:var(--text-faint);padding:0 14px 10px;line-height:1.5;}
+.grp{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);
+  padding:9px 14px 5px;background:var(--surface-2,rgba(0,0,0,.015));border-bottom:1px solid var(--border-soft);}
+html[data-theme="dark"] .grp{background:rgba(255,255,255,.03);}
+.foot{display:flex;gap:7px;align-items:center;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.foot .sp{flex:1;}
+.danger{border-top:1px solid rgba(217,79,61,.3);background:rgba(217,79,61,.05);padding:10px 14px;}
+.danger .t{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--danger,#d94f3d);margin-bottom:7px;}
+.hero-line{display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid var(--border-soft);}
+.hero-line .big{font-size:14.5px;font-weight:750;letter-spacing:-.01em;}
+/* timeline */
+.tl{padding:10px 14px 4px;}
+.tl .i{display:flex;gap:10px;padding-bottom:12px;position:relative;}
+.tl .i:before{content:"";position:absolute;left:5px;top:14px;bottom:0;width:1px;background:var(--border);}
+.tl .i:last-child:before{display:none;}
+.tl .dot{width:11px;height:11px;border-radius:99px;border:2px solid var(--surface);background:#7a80f6;margin-top:3px;flex:none;box-shadow:0 0 0 1px var(--border);}
+.tl .dot.done{background:#2bb673;}
+.tl .dot.idle{background:var(--border);}
+.tl .tx{font-size:12.5px;line-height:1.45;}
+.tl .tx .w{display:block;font-size:11px;color:var(--text-faint);font-weight:650;}
+details.more>summary{list-style:none;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-faint);padding:9px 14px;border-top:1px solid var(--border-soft);}
+details.more>summary::-webkit-details-marker{display:none}
+details.more[open]>summary{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="themebar">
+  <button id="tl" class="on" onclick="setTheme('light')">Light</button>
+  <button id="td" onclick="setTheme('dark')">Dark</button>
+</div>
+
+<div class="wrap">
+  <h1>Enrollment pane on the device page</h1>
+  <p class="lead">
+    Today the card is one flat list that mixes three unrelated things: <b>facts</b> (how this
+    device is managed, when it first appeared, which credential it holds), <b>settings</b> (its
+    product class), and <b>actions that change or end its life</b> (move to another MDM server and
+    reboot, retire, factory wipe) — all as identical rows, with the wipe button the same size and
+    weight as everything else. Four re-cuts below, same data in each. Admin view; the card is
+    admin-only.
+  </p>
+
+  <!-- today -->
+  <div class="eyebrow">Today</div>
+  <div class="dname">One flat key/value list <span class="cur">deployed</span></div>
+  <div class="col">
+    <div class="card">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3><span class="tag ok">active</span></div>
+      <div class="kv"><span class="k">Managed by</span><span class="v">Firmware client <span class="mono">1.0.3</span> <span class="muted">system app</span></span></div>
+      <div class="kv"><span class="k">First seen</span><span class="v">Sep 17, 2026</span></div>
+      <div class="kv"><span class="k">Credential</span><span class="v">Fleet device key</span></div>
+      <div class="kv"><span class="k">Product</span><span class="v"><select class="sel"><option>Tableside AI (product default)</option></select></span></div>
+      <div class="kv"><span class="k">MDM server</span><span class="v"><select class="sel"><option>https://mdm.dev.aioapp.com</option></select> <button class="btn">Move &amp; reboot</button></span></div>
+      <div class="sub">Sets <code>persist.sys.mdm.url</code>, then reboots. Servers are set in Settings.</div>
+      <div class="kv"><span class="k">Lifecycle</span><span class="v"><button class="btn">Retire</button> <button class="btn dngr">Factory wipe</button></span></div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Everything is in one place, nothing is hidden.</div>
+    <div><b>Bad at</b> No hierarchy — a wipe reads like a preference. Right column is a jumble of text, selects and buttons. The server note dangles between rows. Nothing says what state the device is in beyond one small tag.</div>
+  </div>
+
+  <!-- A -->
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Facts, settings, danger — in that order <span class="rec">my pick</span></div>
+  <p class="ddesc">
+    Same card, cut into three labelled bands: read-only facts at the top, the one setting in the
+    middle, and the life-ending actions in a tinted danger band at the bottom. A summary line
+    opens the card so the state is legible before any row is read.
+  </p>
+  <div class="col">
+    <div class="card">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3><span class="tag ok">active</span></div>
+      <div class="hero-line"><span class="big">Firmware client</span><span class="mono muted">1.0.3</span><span class="tag">system app</span></div>
+      <div class="grp">Identity</div>
+      <div class="kv"><span class="k">First seen</span><span class="v">Sep 17, 2026 <span class="muted">· 4 days ago</span></span></div>
+      <div class="kv"><span class="k">Credential</span><span class="v">Fleet device key</span></div>
+      <div class="kv"><span class="k">Server</span><span class="v mono">mdm.dev.aioapp.com</span></div>
+      <div class="grp">Settings</div>
+      <div class="kv"><span class="k">Product</span><span class="v"><select class="sel"><option>Tableside AI (product default)</option></select></span></div>
+      <div class="danger">
+        <div class="t">Careful</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
+          <button class="btn">Move to another server…</button>
+          <button class="btn">Retire</button>
+          <button class="btn dngr">Factory wipe</button>
+        </div>
+        <div class="sub" style="padding:8px 0 0;">Moving writes <code>persist.sys.mdm.url</code> and reboots — the device then reports there, not here.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Reads top to bottom as "what this is → what you can set → what you can break". The wipe stops looking like a setting. Server picker becomes a dialog, so the note stops dangling.</div>
+    <div><b>Bad at</b> Slightly taller. Move-server becomes one extra click behind a dialog.</div>
+  </div>
+
+  <!-- B -->
+  <div class="eyebrow">Option B</div>
+  <div class="dname">Two cards: Enrollment, and Device lifecycle</div>
+  <p class="ddesc">Facts stay in Enrollment. Everything that acts on the device moves to its own card below it, which can then say plainly what each action does.</p>
+  <div class="col">
+    <div class="card" style="margin-bottom:12px;">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3><span class="tag ok">active</span></div>
+      <div class="kv"><span class="k">Managed by</span><span class="v">Firmware client <span class="mono">1.0.3</span></span></div>
+      <div class="kv"><span class="k">First seen</span><span class="v">Sep 17, 2026</span></div>
+      <div class="kv"><span class="k">Credential</span><span class="v">Fleet device key</span></div>
+      <div class="kv"><span class="k">Product</span><span class="v"><select class="sel"><option>Tableside AI</option></select></span></div>
+    </div>
+    <div class="card">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/></svg></span><h3>Device lifecycle</h3></div>
+      <div class="kv"><span class="k"><b style="color:var(--text)">Move to another MDM</b><br><span class="muted">reports there after a reboot</span></span><span class="v"><button class="btn">Move…</button></span></div>
+      <div class="kv"><span class="k"><b style="color:var(--text)">Retire</b><br><span class="muted">leaves lists and alerts, keeps history</span></span><span class="v"><button class="btn">Retire</button></span></div>
+      <div class="kv"><span class="k"><b style="color:var(--danger,#d94f3d)">Factory wipe</b><br><span class="muted">erases the device, cannot be undone</span></span><span class="v"><button class="btn dngr">Wipe…</button></span></div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Every action gets a one-line explanation instead of a tooltip or a confirm nobody reads. Impossible to mistake for settings.</div>
+    <div><b>Bad at</b> Two cards in a sidebar that already has several; pushes the Charging pad and Notes cards further down.</div>
+  </div>
+
+  <!-- C -->
+  <div class="eyebrow">Option C</div>
+  <div class="dname">Enrollment as a history</div>
+  <p class="ddesc">
+    The card answers "how did this device get here" as a timeline — first check-in, onboarding,
+    key rotations, retirement — with the standing facts folded underneath and actions in the
+    header menu.
+  </p>
+  <div class="col">
+    <div class="card">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3><button class="btn" style="padding:2px 8px">⋯</button></div>
+      <div class="tl">
+        <div class="i"><span class="dot done"></span><span class="tx">First check-in <span class="w">Sep 17, 2026 · auto-enrolled with the fleet key</span></span></div>
+        <div class="i"><span class="dot done"></span><span class="tx">Onboarded to <b>Lab</b> <span class="w">Sep 17, 2026 · by ali@aioapp.com</span></span></div>
+        <div class="i"><span class="dot"></span><span class="tx">Key rotated <span class="w">Sep 19, 2026 · factory reset, re-enrolled</span></span></div>
+        <div class="i"><span class="dot idle"></span><span class="tx">Retired <span class="w">not yet</span></span></div>
+      </div>
+      <details class="more"><summary>Details</summary>
+        <div class="kv"><span class="k">Managed by</span><span class="v">Firmware client <span class="mono">1.0.3</span></span></div>
+        <div class="kv"><span class="k">Credential</span><span class="v">Fleet device key</span></div>
+        <div class="kv"><span class="k">Product</span><span class="v"><select class="sel"><option>Tableside AI</option></select></span></div>
+      </details>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Tells a story — genuinely useful for a device that was reset, re-enrolled or moved between servers, which is when anyone opens this card.</div>
+    <div><b>Bad at</b> The facts people check most often end up behind a disclosure. Needs enrollment events we do not all store yet (onboarding actor, per-move records), so it is the most work.</div>
+  </div>
+
+  <!-- D -->
+  <div class="eyebrow">Option D</div>
+  <div class="dname">Compact: two columns of facts, actions in the footer</div>
+  <p class="ddesc">Half the height. Facts pair up two to a line, the product class is an inline chip that becomes a select when clicked, and the three actions sit in one footer row with wipe pushed to the far right.</p>
+  <div class="col">
+    <div class="card">
+      <div class="ct"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3><span class="tag ok">active</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;">
+        <div class="kv" style="border-right:1px solid var(--border-soft);"><span class="k">Client</span><span class="v">FW <span class="mono">1.0.3</span></span></div>
+        <div class="kv"><span class="k">Key</span><span class="v">Fleet</span></div>
+        <div class="kv" style="border-right:1px solid var(--border-soft);"><span class="k">First seen</span><span class="v">Sep 17</span></div>
+        <div class="kv"><span class="k">Product</span><span class="v"><span class="tag">Tableside AI ✎</span></span></div>
+      </div>
+      <div class="foot">
+        <button class="btn">Move…</button><button class="btn">Retire</button><span class="sp"></span><button class="btn dngr">Wipe</button>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Shortest by far — the sidebar stops being a scroll. Abbreviations are fine for people who look at this daily.</div>
+    <div><b>Bad at</b> "FW / Fleet" needs you to already know the vocabulary; a wipe button in a footer row is still one careless click from a reset device, even with the confirm.</div>
+  </div>
+
+  <p class="lead" style="margin-top:38px;">
+    <b>My pick: A.</b> It keeps one card and every row you have now, but orders them by what they
+    do to the device, and the danger band means the wipe can never again read like a preference.
+    B is the better teacher if you want each action explained on the page; C is the one worth
+    building later, once we store enrollment events properly — it answers the question this card
+    is usually opened for.
+  </p>
+</div>
+
+<script>
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tl').classList.toggle('on',t==='light');
+  document.getElementById('td').classList.toggle('on',t==='dark');}
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+</script>
+</body></html>

@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graph readout & battery cycles — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+h2.sec{font-size:18px;margin:56px 0 4px;letter-spacing:-.01em;padding-top:18px;border-top:1px solid var(--border);}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:38px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* graph card mock */
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);}
+.gtabs{display:flex;gap:6px;}
+.gtab{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:9px;border:1px solid transparent;color:var(--text-faint);}
+.gtab.on{background:var(--surface-3,#f2efe9);color:var(--text);border-color:var(--border);}
+.gtab .n{font-weight:800;color:var(--accent-text,var(--accent));margin-left:6px;}
+html[data-theme="dark"] .gtab.on{background:rgba(255,255,255,.06);}
+.gtools{display:flex;gap:5px;}
+.gtool{font-size:12px;font-weight:700;color:var(--text-faint);border:1px solid var(--border);border-radius:8px;padding:4px 10px;}
+.gplot{height:170px;position:relative;}
+.gplot svg{position:absolute;inset:0;width:100%;height:100%;}
+.cross{position:absolute;top:0;bottom:0;width:1px;background:var(--accent);opacity:.55;}
+.dotpt{position:absolute;width:9px;height:9px;border-radius:99px;background:var(--accent);border:2px solid var(--surface);transform:translate(-50%,-50%);}
+.gfoot{border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;
+  font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.wlabel{font-size:11.5px;color:var(--text-faint);}
+
+/* readout variants */
+.kv{display:inline-flex;align-items:baseline;gap:5px;}
+.kv .k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.kv .v{font-size:13px;font-weight:750;color:var(--text);}
+.kvs{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;}
+.stamp{font-size:12px;font-weight:700;color:var(--text);}
+.ago{font-size:11px;color:var(--text-faint);margin-left:6px;}
+.tip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 34px rgba(20,22,40,.18);
+  padding:9px 11px;font-size:12px;min-width:186px;}
+.tip .t{font-size:11px;font-weight:800;color:var(--text-faint);margin-bottom:6px;letter-spacing:.03em;}
+.tip .r{display:flex;justify-content:space-between;gap:14px;padding:2px 0;}
+.tip .r b{font-weight:750;}
+.tip .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
+.chips{position:absolute;top:10px;right:12px;display:flex;gap:6px;}
+.chip{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:11.5px;font-weight:750;}
+.chip small{color:var(--text-faint);font-weight:700;margin-right:4px;}
+.side{display:flex;}
+.side .plotcol{flex:1;position:relative;}
+.side .panel{width:192px;border-left:1px solid var(--border);padding:12px 14px;}
+.side .panel .row{margin-bottom:11px;}
+.side .panel .k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);display:block;}
+.side .panel .v{font-size:17px;font-weight:760;letter-spacing:-.01em;}
+.side .panel .v small{font-size:11.5px;color:var(--text-faint);font-weight:650;margin-left:3px;}
+
+/* cycles bits */
+.cyc-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--text-faint);
+  background:var(--surface-3,#f3f1ec);border:1px solid var(--border);border-radius:99px;padding:3px 10px;}
+.cyc-chip b{color:var(--text);font-weight:800;}
+html[data-theme="dark"] .cyc-chip{background:rgba(255,255,255,.05);}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--text-faint);padding:8px 16px;border-top:1px solid var(--border-soft);}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px;}
+table.def{border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+table.def td{padding:3px 14px 3px 0;color:var(--text-faint);}
+table.def td b{color:var(--text);}
+.warn{border:1px solid #e6c48a;background:#fdf6e8;color:#7a5a12;border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.6;max-width:850px;margin-top:14px;}
+html[data-theme="dark"] .warn{background:rgba(232,161,58,.13);border-color:rgba(232,161,58,.4);color:#e8b45c;}
+</style>
+</head>
+<body>
+<div class="themebar">
+  <button id="tl" class="on" onclick="setTheme('light')">Light</button>
+  <button id="td" onclick="setTheme('dark')">Dark</button>
+</div>
+
+<div class="wrap">
+  <h1>Graph readout &amp; battery cycles</h1>
+  <p class="lead">
+    Two things in one page. <b>Part 1</b> — the strip under the graph: it should read one
+    check-in, the nearest one to the pointer, and it should look like something. <b>Part 2</b> —
+    showing cycles on the graph, where a cycle means <i>charged to about full, then run down to
+    about empty</i>, not our lifetime discharge÷100 estimate. Graphs are static mocks; the
+    numbers are made up but shaped like a real T7 day.
+  </p>
+
+  <h2 class="sec">Part 1 · The hover readout</h2>
+
+  <div class="eyebrow">Today</div>
+  <div class="dname">One long sentence in a footer bar <span class="cur">deployed</span></div>
+  <p class="ddesc">
+    Each metric is looked up <i>independently</i> — nearest battery point, nearest temp point,
+    nearest RAM point — so the line can mix three different check-ins and still print one
+    timestamp. Values run together in prose, and the row is empty-looking when a metric has no
+    reading nearby.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">55.5°C</span></span><span class="gtab">RAM<span class="n">26.9%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+      <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+    </div>
+    <div class="gfoot"><span>Sep 21 09:14 AM · Temp: 55.5°C · RAM: 26.9%</span><span class="wlabel">Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Cheap, one line, never moves.</div>
+    <div><b>Bad at</b> Mixes check-ins; prose runs together; no units alignment; battery silently absent; looks like a status bar, not a readout.</div>
+  </div>
+
+  <!-- A -->
+  <div class="eyebrow">Option A</div>
+  <div class="dname">One check-in, labelled columns <span class="rec">my pick</span></div>
+  <p class="ddesc">
+    The strip stays where it is but reads <b>one</b> check-in — the nearest to the pointer — and
+    prints its values as labelled columns with units. The time carries how far the pointer is from
+    it (<i>±12s</i>), so a sparse window is honest instead of silently snapping. A metric the
+    device did not report in that check-in shows "—".
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">55.5°C</span></span><span class="gtab">RAM<span class="n">26.9%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+      <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+    </div>
+    <div class="gfoot">
+      <span class="kvs">
+        <span class="stamp">Sep 21, 09:14:07<span class="ago">±12s</span></span>
+        <span class="kv"><span class="k">Battery</span><span class="v">86%</span></span>
+        <span class="kv"><span class="k">Charge</span><span class="v">⚡ pad</span></span>
+        <span class="kv"><span class="k">Temp</span><span class="v">55.5°C</span></span>
+        <span class="kv"><span class="k">RAM</span><span class="v">26.9%</span></span>
+      </span>
+      <span class="wlabel">Last 48 hours</span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Exactly what was asked: one check-in, its own values. Columns align as you sweep, so numbers stop jumping around. No new page furniture.</div>
+    <div><b>Bad at</b> Still a bar at the bottom — your eye travels from the cursor to it. Four columns is about the limit before it wraps on a laptop.</div>
+  </div>
+
+  <!-- B -->
+  <div class="eyebrow">Option B</div>
+  <div class="dname">Tooltip at the cursor, footer keeps only the window</div>
+  <p class="ddesc">
+    The readout follows the pointer as a small card next to the point, coloured per series, with
+    the check-in's time as its heading. The footer shrinks back to the window label.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">55.5°C</span></span><span class="gtab">RAM<span class="n">26.9%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+      <div class="cross" style="left:46%"></div><div class="dotpt" style="left:46%;top:56%"></div>
+      <div class="tip" style="left:49%;top:14px;">
+        <div class="t">Sep 21, 09:14:07 <span style="font-weight:600">±12s</span></div>
+        <div class="r"><span><span class="sw" style="background:#7a80f6"></span>Battery</span><b>86%</b></div>
+        <div class="r"><span><span class="sw" style="background:#e8a13a"></span>Charging</span><b>⚡ pad</b></div>
+        <div class="r"><span><span class="sw" style="background:#f9674e"></span>Temp</span><b>55.5°C</b></div>
+        <div class="r"><span><span class="sw" style="background:#2bb673"></span>RAM</span><b>26.9%</b></div>
+      </div>
+    </div>
+    <div class="gfoot"><span class="wlabel">Hover the graph for a reading</span><span class="wlabel">Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Values arrive where you are looking; room for more rows; the conventional chart behaviour people expect.</div>
+    <div><b>Bad at</b> Covers part of the line it describes, needs flip-at-edge handling, and is awkward on touch. Nothing is shown when you are not hovering.</div>
+  </div>
+
+  <!-- C -->
+  <div class="eyebrow">Option C</div>
+  <div class="dname">Chips docked inside the plot</div>
+  <p class="ddesc">
+    Values live top-right of the plot as chips. They show the latest reading at rest and the
+    hovered check-in while you sweep, so the corner always answers "what is this device doing".
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">55.5°C</span></span><span class="gtab">RAM<span class="n">26.9%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+      <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      <div class="chips">
+        <span class="chip"><small>09:14</small>86%</span>
+        <span class="chip"><small>temp</small>55.5°C</span>
+        <span class="chip"><small>ram</small>26.9%</span>
+      </div>
+    </div>
+    <div class="gfoot"><span class="wlabel">Sep 21, 09:14:07 · nearest check-in</span><span class="wlabel">Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> No wasted row, readable at a glance, works without hovering at all.</div>
+    <div><b>Bad at</b> Sits on top of the plot area (a spike can hide behind it), and small chips are tight for "⚡ pad misplaced" style text.</div>
+  </div>
+
+  <!-- D -->
+  <div class="eyebrow">Option D</div>
+  <div class="dname">Readout panel beside the graph</div>
+  <p class="ddesc">
+    A fixed column to the right of the plot: the hovered check-in's values stacked big, plus room
+    for the cycle figures from Part 2. The footer disappears entirely.
+  </p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp<span class="n">55.5°C</span></span><span class="gtab">RAM<span class="n">26.9%</span></span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="side">
+      <div class="plotcol">
+        <div class="gplot">
+          <svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 40 L60 52 L120 34 L180 70 L240 58 L300 96 L360 74 L420 110 L480 88 L540 120 L600 100" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+          <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="row"><span class="k">Sep 21, 09:14:07</span></div>
+        <div class="row"><span class="k">Battery</span><span class="v">86<small>%</small></span></div>
+        <div class="row"><span class="k">Temp</span><span class="v">55.5<small>°C</small></span></div>
+        <div class="row"><span class="k">RAM</span><span class="v">26.9<small>%</small></span></div>
+        <div class="row"><span class="k">Cycles in view</span><span class="v">1<small>full</small></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Most legible of the four; one obvious home for cycles and anything added later.</div>
+    <div><b>Bad at</b> Eats ~190px of chart width — the thing people actually came for — and needs a different layout on a phone.</div>
+  </div>
+
+  <h2 class="sec">Part 2 · Cycles on the graph</h2>
+  <p class="lead">
+    A cycle here is a <b>real excursion</b>: the pack reaches about full, then is run down to about
+    empty. Two thresholds and a rule, all tunable:
+  </p>
+  <table class="def">
+    <tr><td>Full mark</td><td><b>≥ 95%</b> (a device that tops out at 97% still counts)</td></tr>
+    <tr><td>Empty mark</td><td><b>≤ 10%</b></td></tr>
+    <tr><td>Counted when</td><td>the pack crosses the full mark and <b>later</b> crosses the empty mark — the cycle lands at the empty crossing</td></tr>
+    <tr><td>Partial</td><td>full → 35% → charged again = <b>not</b> a cycle; shown as a faint arc, not counted</td></tr>
+  </table>
+  <p class="ddesc" style="margin-top:12px;">
+    This is a different number from the <b>Battery cycles</b> in About, which is lifetime discharge
+    ÷ 100 (every 1% drop, added up — "equivalent full cycles"). The two will not agree and should
+    not: one counts real full-depth excursions, the other totals wear. Both are worth having, and
+    the demos below label them separately.
+  </p>
+
+  <!-- 1 -->
+  <div class="eyebrow">Option 1</div>
+  <div class="dname">Cycle ticks under the battery line <span class="rec">my pick</span></div>
+  <p class="ddesc">A small mark on the axis at every completed cycle, with a count chip in the footer. The graph gains four marks a week, not a new lane.</p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool on">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none">
+        <path d="M0 20 L40 130 L70 22 L120 140 L150 18 L210 145 L250 20 L320 138 L360 24 L430 142 L470 20 L540 120 L600 60" fill="none" stroke="#7a80f6" stroke-width="2"/>
+      </svg>
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none" style="overflow:visible">
+        <g stroke="#f9674e" stroke-width="2"><path d="M40 160 L40 170"/><path d="M120 160 L120 170"/><path d="M210 160 L210 170"/><path d="M320 160 L320 170"/><path d="M430 160 L430 170"/></g>
+      </svg>
+    </div>
+    <div class="gfoot">
+      <span class="kvs"><span class="stamp">Sep 18, 14:02:11<span class="ago">±8s</span></span>
+        <span class="kv"><span class="k">Battery</span><span class="v">9%</span></span>
+        <span class="kv"><span class="k">Charge</span><span class="v">not charging</span></span></span>
+      <span style="display:inline-flex;gap:8px;align-items:center;">
+        <span class="cyc-chip" title="Full-depth cycles completed in the window on screen">🔋 <b>5</b> cycles in view</span>
+        <span class="wlabel">Last 7 days</span>
+      </span>
+    </div>
+    <div class="legend"><span><i style="background:#f9674e"></i>Cycle completed (fell to ≤10% after a ≥95% charge)</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Cheap on ink, exact about <i>when</i>, and the count answers "how hard is this pack worked?" for the window you are looking at.</div>
+    <div><b>Bad at</b> A tick is easy to miss on a 30-day window where they bunch up.</div>
+  </div>
+
+  <!-- 2 -->
+  <div class="eyebrow">Option 2</div>
+  <div class="dname">Shaded cycle bands</div>
+  <p class="ddesc">Each completed cycle shades the span from its full mark to its empty mark, alternating light and lighter, the way the build bands already work.</p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool on">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none">
+        <g>
+          <rect x="70" y="0" width="50" height="170" fill="#7a80f6" opacity=".09"/>
+          <rect x="150" y="0" width="60" height="170" fill="#7a80f6" opacity=".14"/>
+          <rect x="250" y="0" width="70" height="170" fill="#7a80f6" opacity=".09"/>
+          <rect x="360" y="0" width="70" height="170" fill="#7a80f6" opacity=".14"/>
+        </g>
+        <path d="M0 20 L40 130 L70 22 L120 140 L150 18 L210 145 L250 20 L320 138 L360 24 L430 142 L470 20 L540 120 L600 60" fill="none" stroke="#7a80f6" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="gfoot"><span class="kvs"><span class="stamp">Sep 18, 14:02:11</span><span class="kv"><span class="k">Battery</span><span class="v">9%</span></span></span>
+      <span class="cyc-chip">🔋 <b>5</b> cycles in view</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> You see the <i>shape</i> of a cycle, not just its end. Reads well on a wide window.</div>
+    <div><b>Bad at</b> Competes with the build bands and the charging strip for the same background; three kinds of shading is one too many.</div>
+  </div>
+
+  <!-- 3 -->
+  <div class="eyebrow">Option 3</div>
+  <div class="dname">Numbers only — no marks on the plot</div>
+  <p class="ddesc">Nothing is drawn. The footer carries both figures side by side, so the difference between them is visible and explainable.</p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool on">7d</span><span class="gtool">30d</span></div>
+    </div>
+    <div class="gplot"><svg viewBox="0 0 600 170" preserveAspectRatio="none"><path d="M0 20 L40 130 L70 22 L120 140 L150 18 L210 145 L250 20 L320 138 L360 24 L430 142 L470 20 L540 120 L600 60" fill="none" stroke="#7a80f6" stroke-width="2"/></svg></div>
+    <div class="gfoot">
+      <span class="kvs">
+        <span class="kv"><span class="k">Cycles in view</span><span class="v">5</span></span>
+        <span class="kv"><span class="k">Full cycles, lifetime</span><span class="v">84</span></span>
+        <span class="kv"><span class="k">Equivalent cycles (wear)</span><span class="v">12.4</span></span>
+      </span>
+      <span class="wlabel">Last 7 days</span>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Zero visual risk, and it is the honest place to show both definitions next to each other.</div>
+    <div><b>Bad at</b> Does not answer "when", which is half of what a graph is for.</div>
+  </div>
+
+  <!-- 4 -->
+  <div class="eyebrow">Option 4</div>
+  <div class="dname">Cumulative cycle step line, second axis</div>
+  <p class="ddesc">A stepped line climbing by one at every completed cycle, on its own right-hand axis — the wear curve for the window.</p>
+  <div class="gcard">
+    <div class="ghead">
+      <div class="gtabs"><span class="gtab on">Battery<span class="n">86%</span></span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div>
+      <div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span><span class="gtool on">30d</span></div>
+    </div>
+    <div class="gplot">
+      <svg viewBox="0 0 600 170" preserveAspectRatio="none">
+        <path d="M0 20 L40 130 L70 22 L120 140 L150 18 L210 145 L250 20 L320 138 L360 24 L430 142 L470 20 L540 120 L600 60" fill="none" stroke="#7a80f6" stroke-width="2" opacity=".5"/>
+        <path d="M0 160 L40 160 L40 135 L120 135 L120 110 L210 110 L210 85 L320 85 L320 60 L430 60 L430 35 L600 35" fill="none" stroke="#f9674e" stroke-width="2" stroke-dasharray="0"/>
+      </svg>
+    </div>
+    <div class="gfoot"><span class="kvs"><span class="kv"><span class="k">Cycles this month</span><span class="v">5</span></span></span><span class="wlabel">Last 30 days</span></div>
+    <div class="legend"><span><i style="background:#7a80f6;opacity:.5"></i>Battery %</span><span><i style="background:#f9674e"></i>Cycles, cumulative (right axis)</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Trend at a glance over 30 days — a pack being cycled harder than its neighbours stands out.</div>
+    <div><b>Bad at</b> A second axis on a chart that already carries WLC colouring, build markers, command markers and a charge strip. Heaviest of the four.</div>
+  </div>
+
+  <div class="warn">
+    <b>One thing to decide with it:</b> no device reports a cycle count today — I checked every
+    telemetry field on stage, there is no <code>cycle_count</code>. So these counts are computed
+    server-side from the battery history we already store, which means they work retroactively on
+    existing data and cost nothing on the device. If you would rather have the pack's own counter
+    (what the fuel gauge reports), that is a firmware-client change first — and it would be a third
+    number next to these two.
+  </div>
+
+  <p class="lead" style="margin-top:34px;">
+    <b>My picks: A + 1.</b> A does what you asked — one check-in, its own values, in columns that
+    do not jump — without moving the readout away from where it lives now. 1 adds cycles as a
+    handful of marks plus a count for the window on screen, and leaves the plot alone. If you want
+    the readout to stop being a bar at all, B is the one to pick, and it pairs fine with 1.
+  </p>
+</div>
+
+<script>
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tl').classList.toggle('on',t==='light');
+  document.getElementById('td').classList.toggle('on',t==='dark');}
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+</script>
+</body></html>

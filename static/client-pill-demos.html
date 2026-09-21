@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Client pill on the device hero — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:840px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:840px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* ---- hero mock ---- */
+.hero{background:linear-gradient(120deg,rgba(122,128,246,.10),rgba(249,103,78,.07));border:1px solid var(--border);
+  border-radius:16px;padding:16px 18px;position:relative;}
+.hero .eyerow{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-text,var(--accent));margin-bottom:6px;}
+.hrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.hname{font-size:22px;font-weight:760;letter-spacing:-.02em;margin:0;}
+.hser{font-size:20px;font-weight:700;color:var(--text-faint);letter-spacing:-.01em;}
+.sub{font-size:12.5px;color:var(--text-faint);margin-top:7px;}
+.cc-tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:8px;
+  border:1px solid var(--border);color:var(--text-faint);background:var(--surface);}
+.cc-tag.info{border-color:var(--accent-edge,var(--border));color:var(--accent-text,var(--accent));}
+.cc-tag.ok{border-color:#9fd9bd;color:#1c7d50;background:#eefaf4;}
+html[data-theme="dark"] .cc-tag.ok{background:rgba(43,182,115,.14);color:#5fd49a;border-color:rgba(43,182,115,.4);}
+.cc-tag.warn{border-color:#e6c48a;color:#9a6a12;background:#fdf6e8;}
+html[data-theme="dark"] .cc-tag.warn{background:rgba(232,161,58,.16);color:#e8b45c;border-color:rgba(232,161,58,.4);}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:750;padding:3px 10px;border-radius:99px;
+  background:#eefaf4;color:#1c7d50;border:1px solid #9fd9bd;}
+html[data-theme="dark"] .status{background:rgba(43,182,115,.14);color:#5fd49a;border-color:rgba(43,182,115,.4);}
+.status i{width:7px;height:7px;border-radius:99px;background:currentColor;display:inline-block;}
+
+/* the pill itself */
+.cpill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:8px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text-faint);cursor:pointer;}
+.cpill:hover{border-color:var(--accent-edge,var(--accent));color:var(--text);}
+.cpill .ver{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;font-weight:750;color:var(--text);}
+.cpill .sep{width:1px;height:12px;background:var(--border);}
+.cpill .dot{width:6px;height:6px;border-radius:99px;background:#2bb673;}
+.cpill .dot.behind{background:#e8a13a;}
+.cpill .caret{opacity:.55;}
+
+/* popover */
+.pop{position:absolute;z-index:40;left:18px;top:calc(100% - 6px);width:430px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;box-shadow:0 16px 46px rgba(20,22,40,.18);overflow:hidden;}
+.pop h4{margin:0;padding:10px 14px;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-faint);border-bottom:1px solid var(--border-soft);}
+.crow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
+.crow:last-of-type{border-bottom:0;}
+.crow.on{background:var(--surface-3,#f4f2ed);}
+html[data-theme="dark"] .crow.on{background:rgba(255,255,255,.05);}
+.crow .nm{font-weight:700;flex:1;}
+.crow .vv{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--text-faint);}
+.chg{padding:11px 14px;border-top:1px solid var(--border);background:var(--surface-2,rgba(0,0,0,.015));}
+.chg .t{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+.chg ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.65;}
+.chg li span.v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:750;color:var(--text);}
+.popfoot{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-top:1px solid var(--border);font-size:12px;}
+.popfoot a{font-weight:700;color:var(--accent-text,var(--accent));text-decoration:none;}
+.spacer{height:250px;}
+.note{font-size:12px;color:var(--text-faint);margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="themebar">
+  <button id="tl" class="on" onclick="setTheme('light')">Light</button>
+  <button id="td" onclick="setTheme('dark')">Dark</button>
+</div>
+
+<div class="wrap">
+  <h1>Client pill on the device hero</h1>
+  <p class="lead">
+    One pill in one place for every device — firmware, DPC or Lite — carrying the client
+    <b>version</b>, and opening the client list plus its changelog on click. Four shapes below.
+    The hero mock is a T7 on the firmware client; the small row under each option shows the
+    same pill as it reads for a DPC device and for a menu board on Lite.
+  </p>
+
+  <!-- ══ today ══ -->
+  <div class="eyebrow">Today</div>
+  <div class="dname">Type only, no version, not clickable <span class="cur">deployed</span></div>
+  <p class="ddesc">The pill already sits in the same slot for all three kinds — but it is a dead label: no version, no link, and the version is two clicks away in About › Managed by.</p>
+  <div class="hero">
+    <div class="eyerow">Fleet · Devices · Lab</div>
+    <div class="hrow">
+      <h2 class="hname">TSAI</h2><span class="hser">2df2f2c2</span>
+      <span class="status"><i></i>Online</span>
+      <span class="cc-tag">v2.0.981d</span>
+      <span class="cc-tag">MDM Firmware</span>
+      <span class="cc-tag">Tableside AI</span>
+    </div>
+    <div class="sub">v2.0.981d · Onboarded Sep 17, 2026 · Battery <b>100%</b></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Consistent position already.</div>
+    <div><b>Bad at</b> Says nothing an operator can act on. "Which client build is this device on, and is it current?" needs the About tab, then the Clients page.</div>
+  </div>
+
+  <!-- ══ A ══ -->
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Pill + version, click opens a popover <span class="rec">my pick</span></div>
+  <p class="ddesc">
+    <code>MDM Firmware · 1.0.3</code> with a freshness dot. Click opens a popover right there:
+    every client with its hosted version, this device's row marked, the current build's changelog,
+    and a link to the Clients page. Nothing leaves the device page for a look.
+  </p>
+  <div class="hero">
+    <div class="eyerow">Fleet · Devices · Lab</div>
+    <div class="hrow">
+      <h2 class="hname">TSAI</h2><span class="hser">2df2f2c2</span>
+      <span class="status"><i></i>Online</span>
+      <span class="cc-tag">v2.0.981d</span>
+      <button class="cpill" onclick="togglePop(event)" aria-expanded="false">
+        <span class="dot" title="On the current build"></span>MDM Firmware<span class="sep"></span><span class="ver">1.0.3</span>
+        <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <span class="cc-tag">Tableside AI</span>
+    </div>
+    <div class="sub">v2.0.981d · Onboarded Sep 17, 2026 · Battery <b>100%</b></div>
+    <div class="pop" id="popA">
+      <h4>Clients</h4>
+      <div class="crow on"><span class="nm">Firmware client · QCOM</span><span class="vv">1.0.3</span><span class="cc-tag ok">this device</span></div>
+      <div class="crow"><span class="nm">Firmware client · GMS</span><span class="vv">1.0.2</span></div>
+      <div class="crow"><span class="nm">DPC agent</span><span class="vv">0.9.4</span></div>
+      <div class="crow"><span class="nm">Menu board (MDM Lite)</span><span class="vv">0.1.8</span></div>
+      <div class="crow"><span class="nm">MDM Lite demo app</span><span class="vv">0.1.8</span></div>
+      <div class="chg">
+        <div class="t">Changelog · firmware client</div>
+        <ul>
+          <li><span class="v">1.0.3</span> — client updates itself as an APK; kiosk exit TOTP window widened</li>
+          <li><span class="v">1.0.2</span> — logcat pull retries on a dropped socket</li>
+          <li><span class="v">1.0.1</span> — rotate option removed on kiosk 22/27</li>
+        </ul>
+      </div>
+      <div class="popfoot"><span class="vv">Up to date</span><a href="#">Open Clients page →</a></div>
+    </div>
+  </div>
+  <div class="hrow" style="margin-top:14px;">
+    <button class="cpill"><span class="dot behind"></span>MDM DPC<span class="sep"></span><span class="ver">0.9.1</span><svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button class="cpill"><span class="dot"></span>MDM Lite<span class="sep"></span><span class="ver">0.1.8</span><svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
+    <span class="note">amber dot = this device is behind the hosted build</span>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Answers version + "is it current?" at a glance, and the changelog without losing the device. One pattern for all three client kinds.</div>
+    <div><b>Bad at</b> A popover to build and dismiss-handle; the widest of the four in the tag row.</div>
+  </div>
+  <div class="spacer"></div>
+
+  <!-- ══ B ══ -->
+  <div class="eyebrow">Option B</div>
+  <div class="dname">Pill + version, click navigates to Clients</div>
+  <p class="ddesc">Same pill, but the click is a plain link to <code>/clients?slot=firmware-qcom</code> — the page that already lists every client, its versions and its build history.</p>
+  <div class="hero">
+    <div class="eyerow">Fleet · Devices · Lab</div>
+    <div class="hrow">
+      <h2 class="hname">TSAI</h2><span class="hser">2df2f2c2</span>
+      <span class="status"><i></i>Online</span>
+      <span class="cc-tag">v2.0.981d</span>
+      <a class="cpill" href="#"><span class="dot"></span>MDM Firmware<span class="sep"></span><span class="ver">1.0.3</span>
+        <svg class="caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+      <span class="cc-tag">Tableside AI</span>
+    </div>
+    <div class="sub">v2.0.981d · Onboarded Sep 17, 2026 · Battery <b>100%</b></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Almost nothing to build — the destination exists and is already the source of truth. No dismiss logic, works on a phone.</div>
+    <div><b>Bad at</b> Takes you off the device to read one changelog line, and back again.</div>
+  </div>
+
+  <!-- ══ C ══ -->
+  <div class="eyebrow">Option C</div>
+  <div class="dname">Two pills: type, then version</div>
+  <p class="ddesc">The kind stays a plain label; the version becomes its own small pill next to it, and only the version pill is clickable.</p>
+  <div class="hero">
+    <div class="eyerow">Fleet · Devices · Lab</div>
+    <div class="hrow">
+      <h2 class="hname">TSAI</h2><span class="hser">2df2f2c2</span>
+      <span class="status"><i></i>Online</span>
+      <span class="cc-tag">v2.0.981d</span>
+      <span class="cc-tag">MDM Firmware</span>
+      <a class="cpill" href="#"><span class="ver">client 1.0.3</span></a>
+      <span class="cc-tag">Tableside AI</span>
+    </div>
+    <div class="sub">v2.0.981d · Onboarded Sep 17, 2026 · Battery <b>100%</b></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Keeps the kind label exactly as people know it; the version reads as a separate fact.</div>
+    <div><b>Bad at</b> Two chips for one idea in a row that already carries build, class and status — the hero gets busy, and "v2.0.981d" (firmware build) next to "client 1.0.3" invites confusion.</div>
+  </div>
+
+  <!-- ══ D ══ -->
+  <div class="eyebrow">Option D</div>
+  <div class="dname">Pill + version, with an update call-out when behind</div>
+  <p class="ddesc">A on quiet days; when the device is behind the hosted build the pill turns amber and says so, and the popover leads with Update.</p>
+  <div class="hero">
+    <div class="eyerow">Fleet · Devices · Lab</div>
+    <div class="hrow">
+      <h2 class="hname">Menu board</h2><span class="hser">61eb25e7</span>
+      <span class="status"><i></i>Reporting</span>
+      <button class="cpill" style="border-color:#e6c48a;color:#9a6a12;background:#fdf6e8;" onclick="togglePop(event)">
+        <span class="dot behind"></span>MDM Lite<span class="sep"></span><span class="ver" style="color:inherit">0.1.5</span>
+        <span style="font-weight:750">· 0.1.8 available</span>
+      </button>
+      <span class="cc-tag">Menu board</span>
+    </div>
+    <div class="sub">Onboarded Sep 12, 2026 · aio.app.menuboards 3.4.1</div>
+    <div class="pop" id="popD">
+      <h4>MDM Lite · this device is behind</h4>
+      <div class="crow on"><span class="nm">On this device</span><span class="vv">0.1.5</span><span class="cc-tag warn">3 behind</span></div>
+      <div class="crow"><span class="nm">Hosted build</span><span class="vv">0.1.8</span><span class="cc-tag ok">current</span></div>
+      <div class="chg">
+        <div class="t">What is in 0.1.8</div>
+        <ul>
+          <li><span class="v">0.1.8</span> — app-control commands ride the check-in response</li>
+          <li><span class="v">0.1.7</span> — silent self-update</li>
+          <li><span class="v">0.1.6</span> — serial migrates off android-&lt;id&gt; when the hardware serial appears</li>
+        </ul>
+      </div>
+      <div class="popfoot"><span class="vv">Menu board app</span><a href="#">Open Clients page →</a></div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Turns the pill into the nudge that gets clients updated — the reason to want the version there at all.</div>
+    <div><b>Bad at</b> Amber in the hero competes with real device warnings (legacy, retired, pad faulty); noisy across a fleet that is routinely a build behind.</div>
+  </div>
+
+  <p class="lead" style="margin-top:38px;">
+    <b>My pick: A</b>, with D's amber dot but not its amber pill — the dot already says "behind"
+    without shouting, and the popover can lead with Update when it applies. A keeps you on the
+    device page, which is where the question gets asked. If you want the smallest change, B is
+    half a day and the Clients page already does the rest.
+  </p>
+  <p class="note">
+    Data behind it, all of which exists today: the client version comes from the device's reported
+    <code>agent_version</code> (what About › Managed by shows), the hosted version and its
+    changelog from each client slot on the Clients page.
+  </p>
+</div>
+
+<script>
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tl').classList.toggle('on',t==='light');
+  document.getElementById('td').classList.toggle('on',t==='dark');}
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+function togglePop(e){var pop=e.currentTarget.closest('.hero').querySelector('.pop');
+  if(pop) pop.style.display = pop.style.display==='none' ? '' : 'none';}
+</script>
+</body></html>
