@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graph readout panel — styling options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* graph card mock */
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);}
+.gtabs{display:flex;gap:6px;}
+.gtab{font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:9px;border:1px solid transparent;color:var(--text-faint);}
+.gtab.on{background:var(--surface-3,#f2efe9);color:var(--text);border-color:var(--border);}
+html[data-theme="dark"] .gtab.on{background:rgba(255,255,255,.06);}
+.gtools{display:flex;gap:5px;}
+.gtool{font-size:12px;font-weight:700;color:var(--text-faint);border:1px solid var(--border);border-radius:8px;padding:4px 10px;}
+.split{display:flex;align-items:stretch;}
+.plotcol{flex:1;min-width:0;position:relative;}
+.gplot{height:196px;position:relative;}
+.gplot svg{position:absolute;inset:0;width:100%;height:100%;}
+.cross{position:absolute;top:0;bottom:0;width:1px;background:var(--accent);opacity:.5;}
+.dotpt{position:absolute;width:9px;height:9px;border-radius:99px;background:var(--accent);border:2px solid var(--surface);transform:translate(-50%,-50%);}
+.gfoot{border-top:1px solid var(--border);padding:7px 16px;font-size:11.5px;color:var(--text-faint);display:flex;justify-content:space-between;}
+.ro{width:196px;flex:none;border-left:1px solid var(--border);padding:12px 14px;}
+.ic{width:15px;height:15px;flex:none;stroke-width:1.7;}
+
+/* ── shared readout atoms, restyled per option ── */
+.when{font-size:11px;color:var(--text-faint);font-variant-numeric:tabular-nums;margin-bottom:12px;line-height:1.45;font-weight:500;}
+.when .pm{opacity:.75;}
+
+/* A — light weights, leading icon, value in normal weight */
+.A .row{display:flex;align-items:center;gap:9px;margin-bottom:13px;}
+.A .ico{color:var(--text-faint);opacity:.85;}
+.A .txt{min-width:0;}
+.A .k{display:block;font-size:10.5px;color:var(--text-faint);font-weight:600;letter-spacing:.02em;line-height:1.3;}
+.A .v{font-size:16px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+.A .v small{font-size:11px;color:var(--text-faint);margin-left:2px;font-weight:500;}
+.A .note{font-size:11px;color:var(--text-faint);font-weight:500;}
+.A .cyc{margin-top:15px;padding-top:12px;border-top:1px solid var(--border-soft);}
+
+/* B — icon + label on one line, number right-aligned */
+.B .row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-soft);}
+.B .row:last-of-type{border-bottom:0;}
+.B .ico{color:var(--text-faint);opacity:.8;}
+.B .k{flex:1;font-size:11.5px;color:var(--text-faint);font-weight:500;}
+.B .v{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;}
+.B .note{font-size:11px;color:var(--text-faint);font-weight:500;padding:4px 0 0 23px;}
+
+/* C — coloured icon per series, hairline weights */
+.C .row{display:flex;align-items:flex-start;gap:9px;margin-bottom:14px;}
+.C .ico{opacity:1;}
+.C .k{display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);font-weight:600;}
+.C .v{font-size:18px;font-weight:400;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.25;}
+.C .v small{font-size:11px;color:var(--text-faint);font-weight:500;}
+.C .note{font-size:11px;color:var(--text-faint);font-weight:500;}
+.C .cyc{margin-top:16px;padding-top:12px;border-top:1px solid var(--border-soft);}
+
+/* D — compact chips, no stacking */
+.D .chip{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid var(--border);border-radius:9px;
+  margin-bottom:7px;background:var(--surface-2,rgba(0,0,0,.012));}
+html[data-theme="dark"] .D .chip{background:rgba(255,255,255,.03);}
+.D .ico{color:var(--text-faint);}
+.D .k{font-size:11px;color:var(--text-faint);font-weight:500;flex:1;}
+.D .v{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;}
+.D .note{font-size:11px;color:var(--text-faint);font-weight:500;margin:-2px 0 8px 2px;}
+
+/* current, for comparison */
+.now .cr-when{font-size:11.5px;font-weight:700;color:var(--text-faint);margin-bottom:12px;}
+.now .row{margin-bottom:11px;}
+.now .k{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.now .v{font-size:17px;font-weight:760;letter-spacing:-.01em;}
+.now .note{display:block;font-size:11px;color:var(--text-faint);font-weight:650;}
+.now .cyc{margin-top:14px;padding-top:11px;border-top:1px solid var(--border-soft);}
+</style>
+</head>
+<body>
+<div class="themebar">
+  <button id="tl" class="on" onclick="setTheme('light')">Light</button>
+  <button id="td" onclick="setTheme('dark')">Dark</button>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="i-batt"><rect x="2" y="7" width="16" height="10" rx="2.5"/><path d="M20 10.5v3"/></g>
+  <g id="i-temp"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4.5 4.5 0 1 1-4 0z"/></g>
+  <g id="i-ram"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 17v3M12 17v3M17 17v3"/></g>
+  <g id="i-cyc"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v5h-5"/></g>
+  <g id="i-clock"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></g>
+  <g id="i-bolt"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></g>
+</defs></svg>
+
+<div class="wrap">
+  <h1>Readout panel — how it should look</h1>
+  <p class="lead">
+    Same panel, same numbers, four typographic treatments with icons. The complaint about what is
+    deployed is fair: every label is uppercase 800-weight, the values are 760, so the column
+    shouts at you and nothing sits above anything else. Each option below drops the weight, adds a
+    glyph per row, and picks a different way to line the numbers up. Panel width, content and
+    behaviour are unchanged — this is styling only.
+  </p>
+
+  <!-- NOW -->
+  <div class="eyebrow">Today</div>
+  <div class="dname">What is on stage now <span class="cur">deployed</span></div>
+  <div class="gcard">
+    <div class="ghead"><div class="gtabs"><span class="gtab on">Battery</span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div><div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span></div></div>
+    <div class="split">
+      <div class="plotcol"><div class="gplot">
+        <svg viewBox="0 0 600 196" preserveAspectRatio="none"><path d="M0 30 L60 60 L120 44 L180 88 L240 70 L300 120 L360 96 L420 140 L480 110 L540 156 L600 128" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+        <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      </div></div>
+      <div class="ro now">
+        <div class="cr-when">Sep 21, 09:14:07 ±12s</div>
+        <div class="row"><span class="k">Battery</span><span class="v">86%</span><span class="note">⚡ on the pad · charging</span></div>
+        <div class="row"><span class="k">Temp</span><span class="v">55.5°C</span></div>
+        <div class="row"><span class="k">RAM</span><span class="v">26.9%</span></div>
+        <div class="row cyc"><span class="k">Cycles in view</span><span class="v">2</span></div>
+      </div>
+    </div>
+    <div class="gfoot"><span>Hover the graph — values show on the right</span><span>Last 48 hours</span></div>
+  </div>
+
+  <!-- A -->
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Quiet labels, icon per row, medium-weight numbers <span class="rec">my pick</span></div>
+  <p class="ddesc">
+    Labels drop to sentence case at 10.5px/600 and stop shouting; values go from 760 to
+    <b>500</b> at 16px with the unit in small grey — the number reads as data, not as a headline.
+    A line icon sits left of each pair, so the column scans by shape.
+  </p>
+  <div class="gcard">
+    <div class="ghead"><div class="gtabs"><span class="gtab on">Battery</span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div><div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span></div></div>
+    <div class="split">
+      <div class="plotcol"><div class="gplot">
+        <svg viewBox="0 0 600 196" preserveAspectRatio="none"><path d="M0 30 L60 60 L120 44 L180 88 L240 70 L300 120 L360 96 L420 140 L480 110 L540 156 L600 128" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+        <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      </div></div>
+      <div class="ro A">
+        <div class="when">Sep 21, 09:14:07 <span class="pm">±12s</span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-batt"/></svg>
+          <span class="txt"><span class="k">Battery</span><span class="v">86<small>%</small></span><span class="note">⚡ on the pad · charging</span></span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-temp"/></svg>
+          <span class="txt"><span class="k">Temp</span><span class="v">55.5<small>°C</small></span></span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-ram"/></svg>
+          <span class="txt"><span class="k">RAM</span><span class="v">26.9<small>%</small></span></span></div>
+        <div class="row cyc"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-cyc"/></svg>
+          <span class="txt"><span class="k">Cycles in view</span><span class="v">2</span></span></div>
+      </div>
+    </div>
+    <div class="gfoot"><span>Hover the graph — values show on the right</span><span>Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Calmest of the four while keeping the numbers big enough to read across the desk. Icons carry the meaning so the labels can afford to be quiet.</div>
+    <div><b>Bad at</b> Values are left-aligned under their labels, so digits shift a pixel or two as they change width.</div>
+  </div>
+
+  <!-- B -->
+  <div class="eyebrow">Option B</div>
+  <div class="dname">One line per metric, numbers right-aligned on hairlines</div>
+  <p class="ddesc">Icon, label, number — all on one row, separated by hairline rules, numbers flush right so they never move as they change. Half the height of A.</p>
+  <div class="gcard">
+    <div class="ghead"><div class="gtabs"><span class="gtab on">Battery</span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div><div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span></div></div>
+    <div class="split">
+      <div class="plotcol"><div class="gplot">
+        <svg viewBox="0 0 600 196" preserveAspectRatio="none"><path d="M0 30 L60 60 L120 44 L180 88 L240 70 L300 120 L360 96 L420 140 L480 110 L540 156 L600 128" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+        <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      </div></div>
+      <div class="ro B">
+        <div class="when">Sep 21, 09:14:07 <span class="pm">±12s</span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-batt"/></svg><span class="k">Battery</span><span class="v">86%</span></div>
+        <div class="note">⚡ on the pad · charging</div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-temp"/></svg><span class="k">Temp</span><span class="v">55.5°C</span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-ram"/></svg><span class="k">RAM</span><span class="v">26.9%</span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-cyc"/></svg><span class="k">Cycles</span><span class="v">2</span></div>
+      </div>
+    </div>
+    <div class="gfoot"><span>Hover the graph — values show on the right</span><span>Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Nothing jumps: fixed rows, flush-right digits. Compact enough that the panel could narrow to ~165px and give the plot back some width.</div>
+    <div><b>Bad at</b> Numbers are small (13.5px) — this is a readout you lean in for. The charge note has to hang under its row.</div>
+  </div>
+
+  <!-- C -->
+  <div class="eyebrow">Option C</div>
+  <div class="dname">Series-coloured icons, light numerals</div>
+  <p class="ddesc">Each icon takes its series colour from the chart — battery indigo, temp red, RAM green — so the panel and the lines are obviously the same thing. Numbers at 18px but weight 400.</p>
+  <div class="gcard">
+    <div class="ghead"><div class="gtabs"><span class="gtab on">Battery</span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div><div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span></div></div>
+    <div class="split">
+      <div class="plotcol"><div class="gplot">
+        <svg viewBox="0 0 600 196" preserveAspectRatio="none"><path d="M0 30 L60 60 L120 44 L180 88 L240 70 L300 120 L360 96 L420 140 L480 110 L540 156 L600 128" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+        <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      </div></div>
+      <div class="ro C">
+        <div class="when"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="vertical-align:-3px;margin-right:5px;opacity:.7"><use href="#i-clock"/></svg>Sep 21, 09:14:07 <span class="pm">±12s</span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="#7a80f6"><use href="#i-batt"/></svg>
+          <span><span class="k">Battery</span><span class="v">86<small>%</small></span><span class="note">⚡ on the pad · charging</span></span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="#f9674e"><use href="#i-temp"/></svg>
+          <span><span class="k">Temp</span><span class="v">55.5<small>°C</small></span></span></div>
+        <div class="row"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="#2bb673"><use href="#i-ram"/></svg>
+          <span><span class="k">RAM</span><span class="v">26.9<small>%</small></span></span></div>
+        <div class="row cyc"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="#e8a13a"><use href="#i-cyc"/></svg>
+          <span><span class="k">Cycles in view</span><span class="v">2</span></span></div>
+      </div>
+    </div>
+    <div class="gfoot"><span>Hover the graph — values show on the right</span><span>Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Ties panel to plot by colour, so on the All tab you know instantly which number belongs to which line. Lightest numerals of the four.</div>
+    <div><b>Bad at</b> Four accent colours in a 196px column, next to a chart that already colours the battery line by pad state — the most visual noise of the four.</div>
+  </div>
+
+  <!-- D -->
+  <div class="eyebrow">Option D</div>
+  <div class="dname">Boxed chips</div>
+  <p class="ddesc">Each metric in its own soft chip: icon, label, number. Deliberately quiet, no big numerals at all.</p>
+  <div class="gcard">
+    <div class="ghead"><div class="gtabs"><span class="gtab on">Battery</span><span class="gtab">Temp</span><span class="gtab">RAM</span><span class="gtab">All</span></div><div class="gtools"><span class="gtool">48h</span><span class="gtool">7d</span></div></div>
+    <div class="split">
+      <div class="plotcol"><div class="gplot">
+        <svg viewBox="0 0 600 196" preserveAspectRatio="none"><path d="M0 30 L60 60 L120 44 L180 88 L240 70 L300 120 L360 96 L420 140 L480 110 L540 156 L600 128" fill="none" stroke="#7a80f6" stroke-width="2"/></svg>
+        <div class="cross" style="left:50%"></div><div class="dotpt" style="left:50%;top:56%"></div>
+      </div></div>
+      <div class="ro D">
+        <div class="when">Sep 21, 09:14:07 <span class="pm">±12s</span></div>
+        <div class="chip"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-batt"/></svg><span class="k">Battery</span><span class="v">86%</span></div>
+        <div class="note">⚡ on the pad · charging</div>
+        <div class="chip"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-temp"/></svg><span class="k">Temp</span><span class="v">55.5°C</span></div>
+        <div class="chip"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-ram"/></svg><span class="k">RAM</span><span class="v">26.9%</span></div>
+        <div class="chip"><svg class="ic ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-cyc"/></svg><span class="k">Cycles</span><span class="v">2</span></div>
+      </div>
+    </div>
+    <div class="gfoot"><span>Hover the graph — values show on the right</span><span>Last 48 hours</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b> Matches the chips used elsewhere on the device page; quietest of the four.</div>
+    <div><b>Bad at</b> Four boxes inside a box inside a card — borders on borders, and the numbers are the smallest here.</div>
+  </div>
+
+  <p class="lead" style="margin-top:38px;">
+    <b>My pick: A</b>, and if the digits shifting bothers you, A with B's flush-right numbers is a
+    two-line change. C is worth it only if the All tab is where you spend time. Whichever you pick,
+    the timestamp line loses its bold and the uppercase labels go — that part is the actual fix.
+  </p>
+</div>
+
+<script>
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('tl').classList.toggle('on',t==='light');
+  document.getElementById('td').classList.toggle('on',t==='dark');}
+setTheme(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+</script>
+</body></html>
