@@ -237,42 +237,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag cc-tag warn" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
-        {{/* Client pill: one pill in one place for firmware, DPC and Lite alike, carrying
-             the client version and a dot for "is it the hosted build?". Clicking it opens
-             every client with its hosted version and this client's changelog, so the
-             question is answered without leaving the device. */}}
-        {{with .ClientPill}}
-        <span class="cpill-wrap">
-          <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
-                  title="{{.Title}}" onclick="toggleClientPill(event)">
-            {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
-            <span>{{.Kind}}</span>
-            {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>{{end}}
-            <svg class="cpill-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="cpill-pop" id="cpill-pop" hidden>
-            <h4>Clients</h4>
-            {{$this := .Slot}}
-            {{range .Clients}}
-            <div class="cpill-row{{if .This}} on{{end}}">
-              <span class="nm">{{.Label}}</span>
-              <span class="vv">{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
-              {{if .This}}<span class="cc-tag ok">this device</span>{{end}}
-            </div>
-            {{end}}
-            {{if .Changelog}}
-            <div class="cpill-chg">
-              <div class="t">Changelog · {{if .SlotLabel}}{{.SlotLabel}}{{else}}{{.Kind}}{{end}}</div>
-              <ul>{{range .Changelog}}<li><span class="v">{{if .Version}}{{.Version}}{{else}}{{.Name}}{{end}}</span>{{if .Changelog}} — {{.Changelog}}{{end}}</li>{{end}}</ul>
-            </div>
-            {{end}}
-            <div class="cpill-foot">
-              <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
-              <a href="/clients{{if .Slot}}?slot={{.Slot}}{{end}}">Open Clients page →</a>
-            </div>
-          </div>
-        </span>
-        {{end}}
         {{if .Device.Class}}<span class="cc-tag" title="Product">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
@@ -344,6 +308,42 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
   </style>
   <div class="ddc-vitals ddc-vitals--ribbon">
+    {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
+         client kind alike. Carries the client version and a dot for "is it the hosted
+         build?"; clicking it opens every client with its hosted version and this
+         client's changelog, so the question is answered without leaving the device. */}}
+    {{with .ClientPill}}
+    <span class="cpill-wrap">
+      <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
+              title="{{.Title}}" onclick="toggleClientPill(event)">
+        {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
+        <span>{{.Kind}}</span>
+        {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>{{end}}
+        <svg class="cpill-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="cpill-pop" id="cpill-pop" hidden>
+        <h4>Clients</h4>
+        {{$this := .Slot}}
+        {{range .Clients}}
+        <div class="cpill-row{{if .This}} on{{end}}">
+          <span class="nm">{{.Label}}</span>
+          <span class="vv">{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+          {{if .This}}<span class="cc-tag ok">this device</span>{{end}}
+        </div>
+        {{end}}
+        {{if .Changelog}}
+        <div class="cpill-chg">
+          <div class="t">Changelog · {{if .SlotLabel}}{{.SlotLabel}}{{else}}{{.Kind}}{{end}}</div>
+          <ul>{{range .Changelog}}<li><span class="v">{{if .Version}}{{.Version}}{{else}}{{.Name}}{{end}}</span>{{if .Changelog}} — {{.Changelog}}{{end}}</li>{{end}}</ul>
+        </div>
+        {{end}}
+        <div class="cpill-foot">
+          <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
+          <a href="/clients{{if .Slot}}?slot={{.Slot}}{{end}}">Open Clients page →</a>
+        </div>
+      </div>
+    </span>
+    {{end}}
     <span class="ddc-vitals-live" id="device-vitals-live" data-diff-guard data-morph style="display:contents"
           hx-get="/devices/{{.Device.SerialNumber}}/vitals" hx-select="unset"
           hx-trigger="device-updated from:body, every 300s"
