@@ -11,3 +11,7 @@ __pycache__/
 # Weekly report renderer (tools/report-pdf): deps and rendered output
 tools/report-pdf/node_modules/
 tools/report-pdf/out/
+
+# The firmware-client audit is a working report, not a product asset — kept out of the
+# repo and served from the running container only.
+static/firmware-client-audit.html
