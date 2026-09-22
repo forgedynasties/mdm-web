@@ -92,3 +92,33 @@ func TestFrameworkVersionReported(t *testing.T) {
 		}
 	}
 }
+
+// A device reporting to another MDM cannot be updated from here, however far behind it
+// looks. It gets its own group and never lands in the set "Update all behind" targets —
+// queueing an install for a device that collects from another server is how the Clients
+// page fills up with commands that sit at "sent to device" until they expire.
+func TestGroupClientRowsElsewhere(t *testing.T) {
+	now := time.Now()
+	rows := []ClientDeviceRow{
+		{Serial: "here-behind", State: "behind", LastSeen: now},
+		{Serial: "gone-behind", State: "behind", LastSeen: now, Elsewhere: "stage"},
+		{Serial: "gone-current", State: "current", LastSeen: now, Elsewhere: "stage"},
+	}
+	groups := groupClientRows(rows, "1.2.0", now)
+	byKey := map[string]ClientDeviceGroup{}
+	for _, g := range groups {
+		byKey[g.Key] = g
+	}
+	if got := len(byKey["behind"].Rows); got != 1 || byKey["behind"].Rows[0].Serial != "here-behind" {
+		t.Errorf("behind group should hold only the reachable device, got %v", byKey["behind"].Rows)
+	}
+	el, ok := byKey["elsewhere"]
+	if !ok || len(el.Rows) != 2 {
+		t.Fatalf("both devices on another MDM belong in the elsewhere group, got %+v", el)
+	}
+	// Custody outranks version: the up-to-date one is grouped by where it is, not by
+	// what it runs, because neither fact is actionable from this server.
+	if _, current := byKey["current"]; current {
+		t.Error("a device on another MDM should not also appear as up to date here")
+	}
+}

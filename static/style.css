@@ -7020,6 +7020,20 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 }
 @media (hover: hover) and (prefers-reduced-motion: reduce) { .dl-copy { transition: none; } }
 .dl-copy:hover { color: var(--accent-text); background: var(--hover); }
+/* "on stage": the device is reporting to another MDM. Deliberately not red — this is
+   not a fault, it is a device doing exactly what it was told to do somewhere else. */
+/* Device page: the banner saying this device reports to another MDM. Informational,
+   not an error — a moved device is working, just not here. */
+.dd-custody { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; color: var(--text-2); }
+.dd-custody strong { font-size: 13px; color: var(--text); }
+.dd-custody span { flex: 1; min-width: 220px; line-height: 1.5; }
+.dd-custody a { color: var(--accent-text); font-weight: 600; text-decoration: none; }
+.dd-custody a:hover { text-decoration: underline; }
+.dd-custody.suspect { border-style: dashed; }
+.dl-elsewhere { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  border-radius: 6px; padding: 1px 6px; background: var(--surface2); color: var(--muted); }
 .dl-copy svg { width: 13px; height: 13px; }
 
 /* ── Serial-column cards (fleet_layout=table) ────────────────────────────────

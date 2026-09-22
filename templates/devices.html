@@ -149,6 +149,8 @@ if (!window.__dlRowNav) {
         <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
       {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
       {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
+      {{$cu := ""}}{{if $.Custody}}{{with index $.Custody .ID}}{{$cu = .Server}}{{end}}{{end}}
+      {{if $cu}}<span class="dl-elsewhere" title="This device reports to {{$cu}}. It is not offline — it was pointed at another MDM, so it checks in there.">on {{$cu}}</span>{{end}}
       {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
       </div>
@@ -397,7 +399,7 @@ if (!window.__dlRowNav) {
 </script>
 {{end}}
 {{if .Devices}}
-{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards "Layout" .FleetLayout)}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Custody" .Custody "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards "Layout" .FleetLayout)}}
 {{else}}
 <div class="dl-list">
   <div class="empty-state" style="padding:40px 20px;">

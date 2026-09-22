@@ -14,6 +14,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -1452,6 +1453,9 @@ type AgentUpdateState struct {
 	Version   string // the hosted build's version name
 	Current   string // what the device last reported ("" = never reported one)
 	Hosted    bool   // an APK is hosted at all (false = nothing uploaded yet)
+	// Elsewhere names the MDM the device reports to, when that is not this one. The
+	// action is hidden rather than disabled: it is not "not yet", it is "not here".
+	Elsewhere string
 }
 
 // agentUpdateFor compares the hosted agent build with what a device reports. Only
@@ -1477,6 +1481,11 @@ func (h *Handler) agentUpdateFor(r *http.Request, d *db.Device) AgentUpdateState
 	st.Current = current
 	_, hostedPkg, _, _, _, _ := h.agentUpdateTarget(r, slot)
 	st.Available = versionComparable(d, hostedPkg) && cur < code
+	// A device reporting to another MDM downloads its client from that server. Offering
+	// the button here queues an install the device will never come back for.
+	if c, err := h.db.DeviceCustody(r.Context(), d.ID); err == nil && c.Elsewhere() {
+		st.Available, st.Elsewhere = false, c.Server
+	}
 	return st
 }
 
@@ -1555,6 +1564,9 @@ type ClientDeviceRow struct {
 	// The client sent the framework's version instead of its own (the pre-1.0.2 bug).
 	// Version is blanked when this is set: "15" was never a client version.
 	Misreported bool
+	// Elsewhere: the device is reporting to another MDM, so this server cannot update
+	// it however far behind it is. Carries the peer's name for the row to say where.
+	Elsewhere string
 	// Dormant devices have not checked in for clientDormantAfter. They are still
 	// listed, but folded away: most of them are retired or boxed hardware, and left
 	// inline they outnumber the rows an operator came to act on.
@@ -1596,13 +1608,21 @@ func groupClientRows(rows []ClientDeviceRow, hosted string, now time.Time) []Cli
 		{Key: "behind", Label: "Behind", Why: behindWhy},
 		{Key: "unknown", Label: "Never reported a version",
 			Why: "needs a firmware OTA — the client on them predates client OTA"},
+		{Key: "elsewhere", Label: "On another MDM",
+			Why: "reporting to another server — it collects its updates there, not here"},
 		{Key: "current", Label: "Up to date", Why: currentWhy},
 	}
-	at := map[string]int{"behind": 0, "updating": 0, "unknown": 1, "current": 2}
+	at := map[string]int{"behind": 0, "updating": 0, "unknown": 1, "current": 3}
 	for _, row := range rows {
 		i, ok := at[row.State]
 		if !ok {
 			i = 1
+		}
+		// Custody outranks version: a device on another server is not ours to update,
+		// whatever version it last told us about. Grouping it anywhere else would put
+		// an Update button on a device that cannot receive one.
+		if row.Elsewhere != "" {
+			i = 2
 		}
 		if now.Sub(row.LastSeen) > clientDormantAfter {
 			row.Dormant = true
@@ -1783,6 +1803,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		case v.Hosted:
 			v.Behind++
 		}
+		_ = name
 		if code == 0 && name == "" {
 			continue
 		}
@@ -1827,6 +1848,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	inFlight, _ := h.db.InFlightAgentUpdates(r.Context(), selIDs)
+	custody, _ := h.db.DeviceCustodyMap(r.Context(), selIDs)
 	for i := range devices {
 		d := &devices[i]
 		if agentSlotFor(d) != selected {
@@ -1839,6 +1861,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		if frameworkVersionReported(name, clientPackageOf(d)) {
 			row.Version, row.Misreported = "", true
+		}
+		if c, ok := custody[d.ID]; ok && c.Elsewhere() {
+			row.Elsewhere = c.Server
 		}
 		switch {
 		case code == 0 || !versionComparable(d, sel.Build.Package):
@@ -1860,7 +1885,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	behind := make([]string, 0, len(sel.Rows))
 	for _, row := range sel.Rows {
-		if row.State == "behind" {
+		// "Update all behind" targets devices this server can actually deliver to.
+		// One reporting elsewhere is behind on paper and unreachable in fact.
+		if row.State == "behind" && row.Elsewhere == "" {
 			behind = append(behind, row.Serial)
 		}
 	}
@@ -2525,4 +2552,32 @@ func serialTailLen(s string) int {
 		return len(s)
 	}
 	return 3
+}
+
+// peerNameForURL turns the URL an operator picked in "Move & reboot" into the name of
+// the peer it belongs to, so the device page says "stage" rather than a bare host. An
+// address that is not a configured peer keeps its host as the label: a device can be
+// sent somewhere this server has no relationship with, and that has to be sayable too.
+func peerNameForURL(cfg *config.Config, target string) string {
+	want := strings.TrimRight(strings.TrimSpace(target), "/")
+	for _, p := range cfg.Peers(false) {
+		if strings.TrimRight(strings.TrimSpace(p.URL), "/") == want ||
+			strings.TrimRight(strings.TrimSpace(p.DashboardURL), "/") == want {
+			return p.Name
+		}
+	}
+	if u, err := url.Parse(want); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return want
+}
+
+// deviceCustodyOrEmpty is the template-facing form: an error reading custody must not
+// take the device page down with it — the page's job is the device, and "we don't know
+// where it is" is the same as "it is ours until something says otherwise".
+func deviceCustodyOrEmpty(c db.Custody, err error) db.Custody {
+	if err != nil {
+		return db.Custody{}
+	}
+	return c
 }

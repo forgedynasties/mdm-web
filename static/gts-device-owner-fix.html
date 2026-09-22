@@ -1,0 +1,320 @@
+<meta charset="utf-8">
+<title>GTS Device Owner Fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+  :root{
+    --ground:#f6f4f0;
+    --surface:#fffdfa;
+    --ink:#1b1a18;
+    --ink-soft:#55524c;
+    --ink-faint:#7d7a73;
+    --rule:#e3ded4;
+    --rule-soft:#efeae1;
+    --accent:#1f5c8b;
+    --accent-soft:#e7eff6;
+    --pass:#2c6a4d;
+    --pass-soft:#e7f0ea;
+    --fail:#9a3a2c;
+    --fail-soft:#f7e9e6;
+    --code-bg:#f2efe9;
+    --shadow:0 1px 2px rgba(27,26,24,.05);
+    --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#16181b; --surface:#1e2125; --ink:#e9e7e2; --ink-soft:#a8a49c; --ink-faint:#8b877f;
+      --rule:#2d3136; --rule-soft:#24282c; --accent:#6fa8d6; --accent-soft:#1d2b36;
+      --pass:#7cc29e; --pass-soft:#17281f; --fail:#e59283; --fail-soft:#2c1c19;
+      --code-bg:#1a1d21; --shadow:none;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#16181b; --surface:#1e2125; --ink:#e9e7e2; --ink-soft:#a8a49c; --ink-faint:#8b877f;
+    --rule:#2d3136; --rule-soft:#24282c; --accent:#6fa8d6; --accent-soft:#1d2b36;
+    --pass:#7cc29e; --pass-soft:#17281f; --fail:#e59283; --fail-soft:#2c1c19;
+    --code-bg:#1a1d21; --shadow:none;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground); color:var(--ink); font-family:var(--sans);
+    font-size:16px; line-height:1.6; padding-inline:20px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin-inline:auto;padding-block:40px 72px;display:flex;flex-direction:column;gap:42px}
+  a{color:var(--accent)}
+  code,kbd,samp{font-family:var(--mono);font-size:.9em}
+  p code,li code,td code{background:var(--code-bg);padding:.1em .35em;border-radius:3px;border:1px solid var(--rule-soft)}
+
+  .masthead{display:flex;flex-direction:column;gap:18px;border-bottom:2px solid var(--ink);padding-bottom:24px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,6vw,44px);line-height:1.08;letter-spacing:-.015em;margin:0;text-wrap:balance}
+  .standfirst{font-size:18px;color:var(--ink-soft);max-width:64ch;margin:0}
+
+  .summary{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+  .summary h2{font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:.02em;margin:0}
+  .summary p{font-size:15px;margin:0}
+  .tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:2px}
+  .tally div{border:1px solid var(--rule);border-radius:5px;padding:10px 12px;background:var(--ground)}
+  .tally b{display:block;font-family:var(--mono);font-size:20px;font-weight:600;line-height:1.2}
+  .tally span{font-size:12.5px;color:var(--ink-soft)}
+
+  section{display:flex;flex-direction:column;gap:16px}
+  .eyebrow{display:flex;align-items:baseline;gap:12px;border-top:1px solid var(--rule);padding-top:14px}
+  .eyebrow .num{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.08em}
+  .eyebrow .label{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  h2{font-family:var(--serif);font-weight:600;font-size:clamp(21px,3.4vw,27px);line-height:1.2;letter-spacing:-.01em;margin:0;text-wrap:balance}
+  h3{font-family:var(--sans);font-size:15px;font-weight:600;margin:6px 0 0}
+  p{margin:0;max-width:70ch}
+  ul,ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;max-width:70ch}
+  li>ul,li>ol{margin-top:6px}
+
+  .scroll{overflow-x:auto;max-width:100%}
+  pre{margin:0;background:var(--code-bg);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;font-family:var(--mono);font-size:13px;line-height:1.55;color:var(--ink);white-space:pre;max-width:100%}
+  pre .c{color:var(--ink-faint)}
+  pre .bad{color:var(--fail)}
+  pre .good{color:var(--pass)}
+  .cite{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft)}
+
+  table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+  caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);padding-bottom:8px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  thead th{font-weight:600;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--ink)}
+  tbody tr:last-child td{border-bottom:none}
+  td.mono,th.mono{font-family:var(--mono);font-size:12.5px}
+  ul.ids{margin:0;padding-left:18px;gap:3px;max-width:none}
+  ul.ids li{font-family:var(--mono);font-size:12.5px}
+
+  .pill{display:inline-block;font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;padding:1px 7px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+  .pill.pass{background:var(--pass-soft);color:var(--pass);border-color:var(--pass)}
+  .pill.fail{background:var(--fail-soft);color:var(--fail);border-color:var(--fail)}
+  .pill.open{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+  .note{font-size:14px;color:var(--ink-soft);max-width:70ch}
+  footer{border-top:1px solid var(--rule);padding-top:18px;font-size:13.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:8px}
+  @media (max-width:520px){ .wrap{padding-block:28px 56px;gap:34px} pre{font-size:12px} }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="kicker">MDM firmware client · GTS certification · T7</div>
+    <h1>GTS Device Owner Fix</h1>
+    <p class="standfirst">Every T7 was un-certifiable, because the MDM client made itself the device’s Device Owner and an active admin on every boot — registrations only the app itself may remove. One client change removes them: no Device Owner, and an admin only while a device is in kiosk mode.</p>
+  </header>
+
+  <div class="summary">
+    <h2>Brief summary</h2>
+    <p>The firmware client claimed <strong>Device Owner + active admin at every service start</strong> — so, every boot — and Google’s GTS harness cannot take either away from a non-test-only app. That broke three things: the device-policy tests (10 failures), whole module parameterizations (device-owner removal aborts the module), and multiuser tests (a provisioned owner leaves the <code>no_add_user</code> restriction set).</p>
+    <p>Kiosk mode never needed Device Owner either — lock task is authorised by the package allowlist the <em>admin</em> writes. So the client now <strong>never claims Device Owner</strong>, claims the admin only while kiosk mode is applied, releases it when kiosk mode goes off, and hands back any ownership it finds on startup — so field units clean themselves with no wipe. Verified on the T7: two of the three groups now pass outright; the third is structurally impossible but its ten 14_r2 methods are absent from the 13_r2 suite, so they could not be re-executed here.</p>
+    <div class="tally">
+      <div><b>14</b><span>passed · device-policy module, 0 failed <span class="pill open">indirect</span></span></div>
+      <div><b>1</b><span>passed · multiuser module, 0 failed <span class="pill pass">pass</span></span></div>
+      <div><b>4</b><span>passed · restricted-profile tests, 0 failed <span class="pill pass">pass</span></span></div>
+      <div><b>0</b><span>device owners or admins left on the device <span class="pill pass">clean</span></span></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="eyebrow"><span class="num">01</span><span class="label">Before → now</span></div>
+    <h2>What failed, and where it stands</h2>
+    <div class="scroll"><table>
+      <caption>Archived run: GTS 14_r2 (15985168), 2026-09-12, device 2df7f2c3 · Verification: GTS 13_r2 (13854079), T7 AT070AA2600022, client 1.1.0</caption>
+      <thead><tr><th>Before (14_r2)</th><th>Failure recorded</th><th>Now (13_r2)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">GtsDevicePolicyTestCases<br>10 tests, both ABIs</td>
+          <td class="mono bad">java.lang.SecurityException: Attempt to remove non-test admin ComponentInfo{com.aioapp.mdm/com.aioapp.mdm.MdmAdminReceiver} 0</td>
+          <td><span class="pill pass">14 passed</span> <span class="mono">0 failed</span><br><span class="note">66 tests total — 45 were assumption failures (the 13_r2 tests themselves bail on this platform, e.g. “Sdk version must be between 30 and 32”), 7 ignored. Exception text occurs 0× in the run. <span class="pill open">indirect</span> — 13_r2 lacks the five methods that failed, so those ten did not execute.</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GtsPermissionMultiuserTestCases<br>[run-on-clone-profile]</td>
+          <td class="mono bad">HarnessRuntimeException[SHELL_COMMAND_ERROR|520100|DEPENDENCY_ISSUE]: Error removing device owner.<br>Command was 'dpm remove-active-admin --user 0 com.aioapp.mdm/com.aioapp.mdm.MdmAdminReceiver'</td>
+          <td><span class="pill pass">1 passed</span> <span class="mono">0 failed</span><br><span class="note">Module ran all 6 parameterizations to completion (ATS session <code>success</code>); of its 3 test entries, 2 assumed themselves out.</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GtsPermissionMultiuserTestCases<br>[run-on-secondary-user]</td>
+          <td class="mono bad">IllegalStateException: Failed to create user:<br>Error: android.os.ServiceSpecificException: Cannot add user: no_add_user is enabled. (code 1)</td>
+          <td><span class="pill pass">completed</span><br><span class="note">Same invocation; its preparer created the user this time — that creation is what failed before.</span></td>
+        </tr>
+        <tr>
+          <td class="mono">GtsGmscoreHostTestCases<br>4 tests (RestrictedProfileHostTest)</td>
+          <td class="mono bad">Error: android.os.ServiceSpecificException: Cannot add user: no_add_user is enabled. (code 1)</td>
+          <td><span class="pill pass">4 passed</span> <span class="mono">0 failed</span><br><span class="note">Both methods ran to completion; restricted profiles created on the device.</span></td>
+        </tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">02</span><span class="label">Failure detail</span></div>
+    <h2>The three MDM-caused failures, in full</h2>
+
+    <h3>A · Active admin — 10 tests, 1 module</h3>
+    <p>Module <code>GtsDevicePolicyTestCases</code>, arm64-v8a and armeabi-v7a. Before its device-policy tests, the harness force-removes non-test admins; with <code>com.aioapp.mdm</code> holding one, the removal throws and the test fails.</p>
+    <ul class="ids">
+      <li>android.devicepolicy.gts.ManagedProfileProvisioningCrossProfileAppsTest#newlyProvisionedManagedProfile_requiredCrossProfileAppsArePresent</li>
+      <li>android.devicepolicy.gts.ManagedProfileProvisioningCrossProfileAppsTest#newlyProvisionedManagedProfile_unknownCrossProfileAppsAreNotPresent</li>
+      <li>android.devicepolicy.gts.ManagedProvisioningRequiredAppsTest#newlyProvisionedFullyManagedDevice_hasRequiredApps</li>
+      <li>android.devicepolicy.gts.ManagedProvisioningRequiredAppsTest#newlyProvisionedManagedProfile_hasRequiredApps</li>
+      <li>android.devicepolicy.gts.WorkProfileTest#quietMode_profileStopped</li>
+      <li class="note">the module report also carries …ManagedProvisioningRequiredAppsTest#newlyProvisionedManagedProfile_NoNonAllowListedInstallerApps</li>
+    </ul>
+    <div class="scroll"><pre><span class="bad">java.lang.SecurityException: Attempt to remove non-test admin
+    ComponentInfo{com.aioapp.mdm/com.aioapp.mdm.MdmAdminReceiver} 0</span></pre></div>
+
+    <h3>B · Device owner — module abort</h3>
+    <p>Module <code>GtsPermissionMultiuserTestCases</code>. The harness tries to clear the device owner before provisioning its own; our package owned the device, so the whole module parameterization aborted with <em>no per-test results at all</em>:</p>
+    <div class="scroll"><pre><span class="bad">com.android.tradefed.error.HarnessRuntimeException[SHELL_COMMAND_ERROR|520100|DEPENDENCY_ISSUE]:
+  Error removing device owner.
+  Command was 'dpm remove-active-admin --user 0 com.aioapp.mdm/com.aioapp.mdm.MdmAdminReceiver',
+  output was 'Exception occurred while executing 'remove-active-admin':
+  java.lang.SecurityException: Attempt to remove non-test admin
+    ComponentInfo{com.aioapp.mdm/com.aioapp.mdm.MdmAdminReceiver} 0'</span></pre></div>
+
+    <h3>C · <code>no_add_user</code> — 4 tests + 1 module parameterization</h3>
+    <p>Two places: <code>GtsGmscoreHostTestCases</code> (<code>RestrictedProfileHostTest#testHasRestrictedProfiles</code>, <code>#testUserIsRestricted</code>) and <code>GtsPermissionMultiuserTestCases[run-on-secondary-user]</code>, whose preparer creates a user before the tests run.</p>
+    <div class="scroll"><pre><span class="bad">android.os.ServiceSpecificException: Cannot add user: no_add_user is enabled. (code 1)
+  at com.android.tradefed.device.TestDevice.createUser(TestDevice.java:2077)
+  at com.android.tradefed.targetprep.RunOnSecondaryUserTargetPreparer.createSecondaryUser(…:165)</span></pre></div>
+    <p class="note">The restriction was not set by the client — it is applied by device-owner <em>provisioning</em> (ManagedProvisioning <code>DisallowAddUserTask</code> / <code>provisionFullyManagedDevice</code> → <code>disallowAddUser()</code>) and is cleared only when the owner is cleared. So it was a symptom of the same root cause, not a second bug: releasing the Device Owner released it too.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">03</span><span class="label">Root cause</span></div>
+    <h2>Claimed on every boot, and only the app could give it back</h2>
+    <div class="scroll"><pre><span class="c">// MdmService.java:285 — called from onCreate(), so on every service start</span>
+ensureDeviceOwner();
+
+<span class="c">// MdmService.java:501-519</span>
+dpm.setActiveAdmin(adminComponent, true);
+dpm.setDeviceOwner(adminComponent, android.os.UserHandle.USER_SYSTEM);</pre></div>
+    <p><code>BootReceiver</code> starts that service on <code>BOOT_COMPLETED</code> / <code>LOCKED_BOOT_COMPLETED</code>. The admin component has no <code>android:testOnly</code>, and <code>res/xml/device_admin.xml</code> is an empty <code>&lt;uses-policies /&gt;</code> — the app requested no admin policies at all; it only needed to <em>be</em> an admin.</p>
+    <div class="scroll"><table>
+      <caption>Why no operator command could clear it (stock AOSP framework in this tree)</caption>
+      <thead><tr><th>Attempt</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">dpm remove-active-admin …</td><td><code>dpm</code> is <code>cmd device_policy</code>; the command calls <code>forceRemoveActiveAdmin</code>, which throws <code>SecurityException("Attempt to remove non-test admin …")</code> for any admin without <code>FLAG_TEST_ONLY</code>. No root / shell / <code>--user</code> escape — the archived failure above <em>is</em> that command.</td></tr>
+        <tr><td class="mono">pm uninstall com.aioapp.mdm</td><td>Refused with <code>Failure [DELETE_FAILED_DEVICE_POLICY_MANAGER]</code> while any admin or owner record exists; and it is a <code>/system/priv-app</code> system app regardless.</td></tr>
+        <tr><td class="mono">pm clear-user-restrictions</td><td>Subcommand does not exist in this tree — only <code>pm set-user-restriction</code> / <code>get-user-restriction</code>.</td></tr>
+        <tr><td class="mono">factory reset</td><td>Does not help: the client re-claimed on the first boot, before user setup completes — the only window in which <code>setDeviceOwner</code> is accepted at all.</td></tr>
+      </tbody>
+    </table></div>
+    <p>The two APIs that can clear it are self-only by design: <code>clearDeviceOwner()</code> requires the caller to <em>be</em> the owner package, and <code>removeActiveAdmin()</code> is allowed for the component’s owning package (and silently refuses while it is still the owner). That constraint is why this had to be a client fix.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">04</span><span class="label">Key finding</span></div>
+    <h2>Kiosk never needed Device Owner</h2>
+    <p>The client’s only use of <code>DevicePolicyManager</code> is entering kiosk mode (lock task), and three citations from this tree’s framework show ownership was incidental:</p>
+    <ul>
+      <li><strong>Lock task is authorised by the package allowlist.</strong> <span class="cite">LockTaskController.getLockTaskAuth()</span> → <code>LOCK_TASK_AUTH_ALLOWLISTED</code> when the package is in the list written by <code>setLockTaskPackages</code>; and <code>startLockTaskMode(task, isSystemCaller=false, …)</code> picks <code>LOCK_TASK_MODE_LOCKED</code> (nav bar hidden). Only <code>startSystemLockTaskMode()</code> — the screen-pinning entry — is pinned, matching the client’s own earlier finding.</li>
+      <li><strong>The policy calls need an active admin, not an owner.</strong> <span class="cite">enforceCanCallLockTaskLocked()</span> requires <code>MANAGE_DEVICE_POLICY_LOCK_TASK</code> <em>or</em> an active admin owned by the caller; both <code>setLockTaskPackages</code> and <code>setLockTaskFeatures</code> go through it.</li>
+      <li><strong>An admin can be claimed at any age; an owner cannot.</strong> <span class="cite">setActiveAdmin()</span> checks only <code>MANAGE_DEVICE_ADMINS</code> + cross-user. <span class="cite">setDeviceOwner()</span> is refused once <code>USER_SETUP_COMPLETE</code> is set (<code>STATUS_USER_SETUP_COMPLETED</code>) — which also rules out “claim ownership only when the server puts the device into kiosk mode”.</li>
+    </ul>
+    <p>And clearing the owner clears the restrictions the framework attached to it (<span class="cite">clearDeviceOwnerLocked() → clearDeviceOwnerUserRestriction()</span>) — including <code>DISALLOW_ADD_USER</code>. That is why group C failed for free.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">05</span><span class="label">The fix</span></div>
+    <h2>How it was fixed</h2>
+    <p>Four moves in the client, all of them in the app because Android only lets the owning package release these registrations:</p>
+    <ol>
+      <li><strong>Stop claiming Device Owner.</strong> The <code>setDeviceOwner</code> call is gone — the app never takes the role again. (Four lines deleted, one call added in its place.)</li>
+      <li><strong>Claim the admin on demand.</strong> The admin is registered inside <code>KioskManager.apply()</code>, immediately before the lock-task policy is written — so it exists only while kiosk mode is actually being applied.</li>
+      <li><strong>Give the admin back when kiosk mode goes off.</strong> Clear the allowlist, stop lock task, then unregister the admin: the device returns to the state a GTS run needs without anyone touching it.</li>
+      <li><strong>Self-heal on startup.</strong> <code>releaseDeviceOwnerIfAny()</code> clears ownership if the app holds it; <code>releaseAdminIfUnused()</code> returns the admin when no kiosk-mode config exists. Units already in the field therefore clean themselves on their next boot — no wipe, no visit, no operator command.</li>
+    </ol>
+    <div class="scroll"><pre><span class="c">// before — MdmService, on every service start (i.e. every boot)</span>
+dpm.setActiveAdmin(adminComponent, true);
+dpm.setDeviceOwner(adminComponent, UserHandle.USER_SYSTEM);   <span class="bad">// owned the device, permanently</span>
+
+<span class="c">// after — MdmService, on every service start</span>
+if (dpm.isDeviceOwnerApp(getPackageName())) dpm.clearDeviceOwnerApp(getPackageName());
+KioskManager.releaseAdminIfUnused(this, dpm, adminComponent);  <span class="good">// kiosk mode off -> hand it back</span>
+
+<span class="c">// and — KioskManager.apply(), only when kiosk mode is being applied</span>
+ensureAdmin(dpm, admin);                                       <span class="good">// claim it here, on demand</span>
+dpm.setLockTaskPackages(admin, new String[]{pkg, ctx.getPackageName()});</pre></div>
+    <p>The invariant that falls out of those four moves: <em>an active admin exists on this device if and only if kiosk mode is enabled for it.</em> Kiosk mode still works because lock task needs the package allowlist and an active admin to write it — not ownership.</p>
+    <div class="scroll"><table>
+      <caption>aio-mdm-client 1.0.4 → 1.1.0 (code 37 → 38) · commit 5e8ba9f on main</caption>
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">MdmService.java</td><td><code>ensureDeviceOwner()</code> replaced by <code>releaseDeviceOwnerIfAny()</code> — if the client holds Device Owner, it clears it (<code>clearDeviceOwnerApp</code>, legal only for the owner package) and logs the outcome. Runs at service start, so an in-service unit hands ownership back on its next boot: no wipe, no visit, no operator action.</td></tr>
+        <tr><td class="mono">MdmService.java</td><td>Added <code>KioskManager.releaseAdminIfUnused()</code> at start: with no saved kiosk-mode config, or kiosk mode off in it, the admin is given back — self-healing for units upgrading from 1.0.4.</td></tr>
+        <tr><td class="mono">KioskManager.java</td><td>Claims the admin on demand, right before lock-task policy is written; releases it when kiosk mode is switched off; every lock-task clear goes through a guarded helper so a released admin is never called through.</td></tr>
+        <tr><td class="mono">AndroidManifest.xml</td><td>Version bump only.</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Not changed:</strong> the server (it already never puts an unassigned device into kiosk mode — per-device <code>kiosk_enabled</code> defaults false), the AOSP tree, the framework, <code>PRODUCT_PACKAGES</code>, and kiosk-mode behaviour itself: same locked screen, hidden nav bar, same long-press-Back exit gesture — SystemUI gates that on <code>LOCK_TASK_MODE_LOCKED</code>, not ownership.</p>
+    <p class="note">Rejected alternatives: marking the admin <code>testOnly</code> so the harness could strip it (would also let any <code>adb shell</code> strip kiosk mode, and leaves the state problem in the shipping build); a cert-only image without the client (certifies a build that is not the shipping one).</p>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">06</span><span class="label">Evidence</span></div>
+    <h2>Device state and run results</h2>
+    <div class="scroll"><table>
+      <caption>T7 AT070AA2600022 — before the client update / after ~800 GTS tests</caption>
+      <thead><tr><th>Check</th><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">cmd device_policy list-owners</td><td class="mono">User 0: admin=com.aioapp.mdm/.MdmAdminReceiver,DeviceOwner,Affiliated</td><td class="mono">no owners</td></tr>
+        <tr><td class="mono">active admins</td><td class="mono">com.aioapp.mdm/.MdmAdminReceiver</td><td class="mono">none</td></tr>
+        <tr><td class="mono">no_add_user</td><td class="mono">true</td><td class="mono">false</td></tr>
+        <tr><td class="mono">no_add_managed_profile</td><td class="mono">true</td><td class="mono">false</td></tr>
+        <tr><td class="mono">no_add_clone_profile</td><td class="mono">true</td><td class="mono">false</td></tr>
+        <tr><td class="mono">no_add_private_profile</td><td class="mono">true</td><td class="mono">false</td></tr>
+        <tr><td class="mono">pm create-user</td><td class="mono">fails (no_add_user)</td><td class="mono">succeeds; user removed again</td></tr>
+        <tr><td class="mono">client version</td><td class="mono">1.0.4 (37)</td><td class="mono">1.1.0 (38)</td></tr>
+      </tbody>
+    </table></div>
+    <p>Logcat across the update:</p>
+    <div class="scroll"><pre><span class="good">I MdmService: released Device Owner — kiosk runs on the active admin alone</span>
+<span class="good">I KioskManager: released active admin (kiosk off)</span>
+<span class="good">I MdmService: MdmClient v1.1.0 (38) product=t7 battery=true charging=true wlc=true</span>
+<span class="c">… on the next config push (kiosk off):</span>
+<span class="good">I KioskManager: Kiosk disabled (stillLocked=false)</span></pre></div>
+    <div class="scroll"><table>
+      <caption>Runs on the T7 with GTS 13_r2 — the only suite installed on this host</caption>
+      <thead><tr><th>Run</th><th>Command</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">GtsDevicePolicyTestCases</td><td class="mono">run gts -s … --module GtsDevicePolicyTestCases --abi arm64-v8a</td><td><span class="pill pass">14 passed</span> <span class="mono">0 failed</span> · 66 total · 5 parameterizations</td></tr>
+        <tr><td class="mono">GtsPermissionMultiuserTestCases</td><td class="mono">run gts -s … --module GtsPermissionMultiuserTestCases</td><td><span class="pill pass">1 passed</span> <span class="mono">0 failed</span> · 6 parameterizations · session <code>success</code></td></tr>
+        <tr><td class="mono">GtsGmscoreHostTestCases</td><td class="mono">run gts -s … --module GtsGmscoreHostTestCases</td><td><span class="pill fail">509 passed · 25 failed</span> <span class="mono">698 total</span><br><span class="note">all 25 failures are <code>DigitalKey*</code> — service-account gated (EDI/APE), not MDM. 154 assumption failures, 10 ignored.</span></td></tr>
+        <tr><td class="mono">RestrictedProfileHostTest</td><td class="mono">run gts -s … --module GtsGmscoreHostTestCases --test …RestrictedProfileHostTest</td><td><span class="pill pass">4 passed</span> <span class="mono">0 failed</span><br><span class="note">logs: <code>pm create-user --profileOf 0 --restricted … Success: created user id 24…27</code></span></td></tr>
+      </tbody>
+    </table></div>
+    <h3>Reproducing it</h3>
+    <div class="scroll"><pre><span class="c"># the suite console takes EOF on stdin and quits, killing the invocation — run it in a pty</span>
+tmux new -d -s gts -c ~/testing
+
+<span class="c"># one module at a time; the console parks at its prompt afterwards, so send it an `exit`</span>
+<span class="c"># before chaining a second run in the same pane</span>
+~/testing/gts run gts -s AT070AA2600022 --module GtsDevicePolicyTestCases --abi arm64-v8a
+~/testing/gts run gts -s AT070AA2600022 --module GtsPermissionMultiuserTestCases
+~/testing/gts run gts -s AT070AA2600022 --module GtsGmscoreHostTestCases
+
+<span class="c"># pre-flight: asserts the state those modules need, without running the suite</span>
+~/testing/cert-ready.sh -s AT070AA2600022</pre></div>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="num">07</span><span class="label">Still open</span></div>
+    <h2>What this does not close</h2>
+    <ul>
+      <li><strong>The image still ships the old client.</strong> The fix reached the test unit as an APK self-update; the AOSP tree’s submodule pointer still pins <span class="cite">c2e72d3</span> (1.0.4). A factory reset wipes <code>/data</code>, so the first boot would re-claim Device Owner. Before a certification run: push the client repo (done — <span class="cite">5e8ba9f</span>), bump <code>qssi/packages/apps/mdm-client</code>, rebuild qssi, flash.</li>
+      <li><strong>Kiosk mode on the new client is untested.</strong> The release path is proven end-to-end; the claim path (admin claimed when kiosk mode is enabled → <code>LOCK_TASK_MODE_LOCKED</code>) rests on the framework citations, not a run. One kiosk-mode toggle on a lab unit closes it.</li>
+      <li><strong>The ten 14_r2 tests are indirect only</strong> — 13_r2’s module lacks those five methods. Re-running them needs the 14_r2 suite.</li>
+      <li><strong>The rest of the GTS failures are not MDM and remain:</strong> EDI / unrecognized service account (133 tests — needs <code>APE_API_KEY</code> and an initial EDI report via <code>gts run gts --module GtsEdiHostTestCases</code>), device network/DNS (33), vendor SELinux exemptions for <code>qlog</code>/<code>qlog_app</code>/<code>dumpstate</code> (5 × 2), <code>ro.board.first_api_level=33</code> (2), GMS D2d backup-transport whitelist (2), GmsCore update owner (2).</li>
+      <li><strong>Vendor-image question:</strong> the flagged <code>qlog</code> SELinux policy is not compiled by a build from the current tree state, and the D2d whitelist entry <em>is</em> present in <code>/product/etc/sysconfig/google.xml</code> on the built images — so parts of the archived report may come from a different vendor image. Worth confirming which image was tested before chasing those four causes.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <div><strong>Repos.</strong> Fix: <span class="cite">aio-mdm-client</span> commit <span class="cite">5e8ba9f</span> on <span class="cite">main</span> (forgedynasties/mdm-client-firmware). Tree: <span class="cite">~/A15/QCOM6125_A15_T7_new</span> — client submodule at <span class="cite">qssi/packages/apps/mdm-client</span>, included from <span class="cite">qssi/vendor/partner_gms/products/gms.mk</span>, installed to <span class="cite">/system/priv-app/mdm-client</span>.</div>
+    <div><strong>Raw material.</strong> Archive, module reports and the triage page: <span class="cite">~/testing/mdm-testing/</span> (<span class="cite">20260915_reports.zip</span>). Verification logs: <span class="cite">/tmp/gts-mdm-13r2-devicepolicy.log</span>, <span class="cite">/tmp/gts-multiuser.log</span>, <span class="cite">/tmp/gts-gmscore.log</span>, <span class="cite">/tmp/gts-rp3.log</span>.</div>
+  </footer>
+
+</div>

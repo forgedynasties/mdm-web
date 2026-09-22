@@ -281,14 +281,17 @@ function clPick(a) {
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
-          {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
+          {{if .Elsewhere}}<span class="cl-tag unk" title="This device reports to {{.Elsewhere}}. It takes its client from that server, so nothing can be installed on it from here.">on {{.Elsewhere}}</span>
+          {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
           {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
           {{else}}<span class="cl-tag unk">no version</span>{{end}}
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
-          {{if eq .State "updating"}}
+          {{if .Elsewhere}}
+          {{/* Nothing to offer: the device collects its client from the other server. */}}
+          {{else if eq .State "updating"}}
           <button type="button" class="cc-btn sm" disabled title="The device has the command and is installing {{$.Selected.Build.Version}}. It restarts itself when it lands."><span class="cl-spin"></span>Updating</button>
           {{else if eq .State "unknown"}}
           {{/* A client that never reported its own version predates client OTA: the
@@ -317,14 +320,15 @@ function clPick(a) {
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
-          {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
+          {{if .Elsewhere}}<span class="cl-tag unk" title="This device reports to {{.Elsewhere}}. It takes its client from that server, so nothing can be installed on it from here.">on {{.Elsewhere}}</span>
+          {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
           {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
           {{else}}<span class="cl-tag unk">no version</span>{{end}}
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
-          {{if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
+          {{if and (eq .State "behind") (not .Elsewhere) $.Selected.Hosted (canOperate $.Role)}}
           <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)">
             <input type="hidden" name="type" value="app_update">
             <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}} — it has not checked in for a while, so the command waits until it does"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>

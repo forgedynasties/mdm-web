@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"log"
 	"os"
@@ -157,6 +158,19 @@ type Config struct {
 	// dropdown behind "Move & reboot", which sets persist.sys.mdm.url). Empty means
 	// the built-in defaults below.
 	MDMServersVal []string `json:"mdm_servers,omitempty"`
+	// PeersVal are the other MDM servers this one talks to. A device moves between
+	// servers by having persist.sys.mdm.url changed — from its device page, by hand
+	// over adb, or by flashing an image that already carries the property — and the
+	// server it left cannot tell that from an outage on its own. Peers close that
+	// gap: whoever the device arrives at says so, and both sides can be asked.
+	//
+	// The peer key is NOT the admin key. The admin key drives a fleet (commands,
+	// OTA, APK publishing); a peer key opens three endpoints that can only report
+	// where a device was last seen. A peer is a neighbour, not an operator.
+	PeersVal []Peer `json:"peers,omitempty"`
+	// SelfNameVal is what this server calls itself when it announces to a peer
+	// ("live", "stage"). Empty reads as "mdm", which is only ever a label.
+	SelfNameVal string `json:"self_name,omitempty"`
 	// LegacyOTAModeVal decides who answers the legacy otautil routes on the legacy
 	// OTA port: "mdm" (this server, from its own deployments) or "passthrough"
 	// (forwarded verbatim to the old ota-server container). "" = mdm.
@@ -567,6 +581,82 @@ func (c *Config) MDMServers() []string {
 	out := make([]string, len(c.MDMServersVal))
 	copy(out, c.MDMServersVal)
 	return out
+}
+
+// Peer is one neighbouring MDM: what to call it, where its API is, the dashboard URL
+// an operator is sent to when a device is over there, and the key for both directions
+// (we send it as X-Peer-Key; we accept it on our own peer endpoints).
+type Peer struct {
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	DashboardURL string `json:"dashboard_url,omitempty"`
+	Key          string `json:"key"`
+	Enabled      bool   `json:"enabled"`
+}
+
+// Peers returns the configured neighbours (enabled ones only when enabledOnly).
+func (c *Config) Peers(enabledOnly bool) []Peer {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make([]Peer, 0, len(c.PeersVal))
+	for _, p := range c.PeersVal {
+		if enabledOnly && !p.Enabled {
+			continue
+		}
+		if strings.TrimSpace(p.URL) == "" || strings.TrimSpace(p.Key) == "" {
+			continue // half-configured is not a peer; it is a silent failure waiting
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// PeerByKey identifies the caller of a peer endpoint by the key it presented. The
+// comparison is constant-time: this is an authentication check, and a timing oracle
+// over a shared secret is worth more to an attacker than the endpoint itself.
+func (c *Config) PeerByKey(key string) (Peer, bool) {
+	if strings.TrimSpace(key) == "" {
+		return Peer{}, false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, p := range c.PeersVal {
+		if !p.Enabled || p.Key == "" {
+			continue
+		}
+		if subtle.ConstantTimeCompare([]byte(p.Key), []byte(key)) == 1 {
+			return p, true
+		}
+	}
+	return Peer{}, false
+}
+
+// SetPeers replaces the peer list.
+func (c *Config) SetPeers(peers []Peer) error {
+	c.mu.Lock()
+	c.PeersVal = peers
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// SelfName is what this server calls itself to a peer.
+func (c *Config) SelfName() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if n := strings.TrimSpace(c.SelfNameVal); n != "" {
+		return n
+	}
+	return "mdm"
+}
+
+// SetSelfName names this server for peer announcements.
+func (c *Config) SetSelfName(name string) error {
+	c.mu.Lock()
+	c.SelfNameVal = strings.TrimSpace(name)
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 // SetMDMServers replaces that list; an empty list restores the defaults.

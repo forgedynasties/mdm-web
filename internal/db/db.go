@@ -1504,7 +1504,7 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 // when nil (omitted from a delta) the prior value is carried forward. RETURNING the resolved
 // extra + battery makes the checkins history row a full snapshot regardless of frame type
 // (windowed alerts + daily rollups read checkins.extra).
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool, product string) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool, product string) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, arrival bool, err error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
@@ -1538,7 +1538,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, 0, false, err
+		return uuid.Nil, 0, false, false, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -1551,7 +1551,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
 			ON CONFLICT DO NOTHING
 		`, serial, buildID); err != nil {
-			return uuid.Nil, 0, false, err
+			return uuid.Nil, 0, false, false, err
 		}
 		// A new build can carry a different app set — a re-flash wipes the lot. The
 		// client only re-sends its app list when ITS OWN hash changes, so a wiped device
@@ -1561,7 +1561,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			UPDATE devices SET packages_hash = ''
 			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
 		`, serial, buildID); err != nil {
-			return uuid.Nil, 0, false, err
+			return uuid.Nil, 0, false, false, err
 		}
 	}
 
@@ -1569,9 +1569,16 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// value simply being reported again. One indexed read on a small table; no row yet
 	// for a device enrolling now, which reads as "everything it sends is new".
 	var prevExtra json.RawMessage
-	if err := tx.QueryRow(ctx, `SELECT latest_extra FROM devices WHERE serial_number = $1`, serial).Scan(&prevExtra); err != nil && err != pgx.ErrNoRows {
-		return uuid.Nil, 0, false, err
+	var prevSeen *time.Time
+	var prevCustody string
+	if err := tx.QueryRow(ctx, `SELECT latest_extra, last_seen_at, custody_server FROM devices WHERE serial_number = $1`,
+		serial).Scan(&prevExtra, &prevSeen, &prevCustody); err != nil && err != pgx.ErrNoRows {
+		return uuid.Nil, 0, false, false, err
 	}
+	// An arrival is worth telling our peers about: a device we have never seen, one we
+	// believed was on another server, or one silent long enough that another server may
+	// well have had it. An ordinary check-in is none of those, so announcements stay rare.
+	arrival = prevSeen == nil || prevCustody != "" || time.Since(*prevSeen) >= CustodyArrivalGap
 
 	extraExpr := "EXCLUDED.latest_extra"
 	if mergeExtra {
@@ -1614,11 +1621,19 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    enrollment_status  = CASE WHEN devices.enrollment_status IN ('retired', 'wiped')
 			                              THEN CASE WHEN devices.enrolled_via IS NULL THEN 'auto' ELSE 'enrolled' END
 			                              ELSE devices.enrollment_status END,
-			    latest_extra       = %s
+			    latest_extra       = %s,
+			    -- Hearing from a device settles where it is: here. Custody clears on the
+			    -- same statement that records the check-in, so there is no window where a
+			    -- device is both talking to us and filed as living somewhere else.
+			    custody_server     = '',
+			    custody_url        = '',
+			    custody_seen_at    = NULL,
+			    custody_source     = '',
+			    custody_set_at     = NULL
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
 	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
 	if err != nil {
-		return uuid.Nil, 0, false, err
+		return uuid.Nil, 0, false, false, err
 	}
 
 	// crash_events is a bulky per-crash trace list (hundreds of KB) the client resends
@@ -1676,7 +1691,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		)
 	`, deviceID, battery, buildID, merged, sample)
 	if err != nil {
-		return uuid.Nil, 0, false, err
+		return uuid.Nil, 0, false, false, err
 	}
 	stored := ct.RowsAffected() > 0
 
@@ -1700,7 +1715,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		}
 	}
 
-	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
+	return deviceID, pollIntervalMs, isNew, arrival, tx.Commit(ctx)
 }
 
 // stateKeys are the fields stored as transitions: they describe a state that holds,
@@ -5067,6 +5082,16 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 	}
 
 	for _, tid := range targetIDs {
+		// A device reporting to another MDM cannot collect a command from this one, so
+		// queueing it produces a row that sits at "sent to device" until the stalled
+		// sweep expires it — noise that hides the commands that are really in flight.
+		// Group and restaurant targets are resolved at delivery and filtered there.
+		if targetType == "devices" {
+			var elsewhere bool
+			if err := tx.QueryRow(ctx, `SELECT custody_server <> '' FROM devices WHERE id = $1`, tid).Scan(&elsewhere); err == nil && elsewhere {
+				continue
+			}
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO command_targets (command_id, target_id) VALUES ($1, $2)
 		`, cmd.ID, tid); err != nil {
@@ -10501,6 +10526,8 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64, c
 			SELECT id, serial_number, last_seen_at, COALESCE(latest_extra->>'timezone', '')
 			FROM devices
 			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+			  -- Not offline: reporting to another MDM. See internal/db/custody.go.
+			  AND custody_server = ''
 			  AND id <> ALL($2::uuid[])`, mins, connected)
 		if err != nil {
 			return nil, "critical", err
@@ -10778,6 +10805,10 @@ const recentReportingCutoff = "15 minutes"
 const offlineHitsQuery = `
 	SELECT d.id, d.serial_number, d.last_seen_at FROM devices d
 	WHERE NOT d.hidden AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+	  -- A device reporting to another MDM is silent here by design, not by fault. It
+	  -- is not offline, and paging someone about it is how a real outage gets lost in
+	  -- the noise of devices that were deliberately moved. See internal/db/custody.go.
+	  AND d.custody_server = ''
 	  -- A device with a live WebSocket is NOT offline, even if its last_seen_at has
 	  -- gone stale — this keeps the alert consistent with the dashboard's WS-based
 	  -- online indicator instead of paging a still-connected device. $3 is the set of
@@ -12873,6 +12904,41 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrollment_status TEXT NOT NULL DEF
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_rotated_at TIMESTAMPTZ;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ;
+-- Custody: which MDM a device currently reports to. A device is moved between servers
+-- by pointing persist.sys.mdm.url somewhere else — from the device page, by hand over
+-- adb, or by flashing an image whose build.prop already carries the property — and the
+-- server it left has no way to tell that from an outage. These columns hold the answer,
+-- and are cleared the moment the device checks in here again.
+--   custody_server   the peer's name ('' = ours)
+--   custody_url      the peer's base URL, for the link out
+--   custody_seen_at  the peer's last_seen for it; what makes this a fact, not a guess
+--   custody_source   how we learned: move | peer | sweep | client
+--   custody_set_at   when this server recorded it
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_server TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_seen_at TIMESTAMPTZ;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_source TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_set_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_devices_custody ON devices(custody_server) WHERE custody_server <> '';
+
+-- The peer outbox: an arrival is announced to every peer, and the announcement has to
+-- survive the peer being down, a deploy, or the process dying mid-send. Rows are
+-- claimed by the worker loop, retried with backoff, and dropped once delivered.
+CREATE TABLE IF NOT EXISTS peer_outbox (
+    id              BIGSERIAL PRIMARY KEY,
+    peer            TEXT NOT NULL,
+    serial          TEXT NOT NULL,
+    payload         JSONB NOT NULL,
+    attempts        INT NOT NULL DEFAULT 0,
+    last_error      TEXT NOT NULL DEFAULT '',
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_peer_outbox_due ON peer_outbox(next_attempt_at);
+-- One pending announcement per (peer, serial): a device that checks in twice while the
+-- peer is unreachable should not queue the same news twice.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_outbox_unique ON peer_outbox(peer, serial);
+
 CREATE INDEX IF NOT EXISTS idx_devices_agent_kind ON devices(agent_kind);
 CREATE INDEX IF NOT EXISTS idx_devices_onboarding ON devices(enrolled_at) WHERE onboarded_at IS NULL;
 

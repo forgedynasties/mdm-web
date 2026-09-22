@@ -581,6 +581,15 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{if canAdmin .Role}}<div class="ddc-card en-card" id="enrollment-card">
     <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h3>Enrollment</h3>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
 
+    {{with .Custody}}{{if .Server}}
+    {{/* The device is not here. Said plainly and at the top, because every action on
+         this page is about a device this server can reach, and this one it cannot. */}}
+    <div class="dd-custody{{if .Suspect}} suspect{{end}}">
+      <strong>{{if .Suspect}}Moving to {{.Server}}{{else}}Reporting to {{.Server}}{{end}}</strong>
+      <span>{{if .Suspect}}The move was issued from here; nothing has confirmed it arrived yet. Until it does, silence from this device is expected.{{else}}Last seen there {{timeSince .SeenAt}}. It is not offline — commands and client updates come from that server now.{{end}}</span>
+      {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">Open on {{.Server}} ↗</a>{{end}}
+    </div>
+    {{end}}{{end}}
     {{/* Summary line: what manages this device, before any row is read. */}}
     <div class="en-hero">
       <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>

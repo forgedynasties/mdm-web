@@ -4837,9 +4837,14 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	if nicknames == nil {
 		nicknames = map[uuid.UUID]string{}
 	}
+	// Which of these devices are reporting to another MDM. One query for the page, the
+	// same shape as Online: a device that moved is silent here for a reason, and a
+	// fleet list that calls that "offline" sends someone to look for working hardware.
+	custody, _ := h.db.DeviceCustodyMap(r.Context(), nickIDs)
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
+		"Custody":              custody,
 		"Nicknames":            nicknames,
 		"Flapping":             flapping,
 		"Total":                total,
@@ -6171,6 +6176,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
 		"AgentUpdate":         h.agentUpdateFor(r, device),
+		"Custody":             deviceCustodyOrEmpty(h.db.DeviceCustody(r.Context(), device.ID)),
 		// Which update path this device is on: a build whose client can't apply an
 		// MDM OTA still updates, over the legacy otautil listener.
 		"OTAGate":             h.otaGate.Device(r.Context(), *device),
@@ -20710,6 +20716,14 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), rebootCmd, "devices", []uuid.UUID{device.ID})
+	// Record where we sent it. This is a suspicion, not a sighting — the device has
+	// not arrived anywhere yet, and may never (a bad URL, a device that never comes
+	// back up). It is marked source "move" and carries no seen-at, so the page can say
+	// "moving to stage" rather than claiming it is there. A peer announcement or the
+	// reconciliation sweep is what turns this into a fact.
+	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, peerNameForURL(h.cfg, target), target, time.Time{}, "move"); err != nil {
+		log.Printf("[device] record move custody for %s: %v", serial, err)
+	}
 	h.audit(r, "device.move_server", serial, target)
 	h.hxDoneToast(w, r, "/devices/"+serial, serial+" is moving to "+target+" · it reboots now and reports there", "success")
 }

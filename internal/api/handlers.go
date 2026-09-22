@@ -27,6 +27,7 @@ import (
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/otagate"
+	"mdm/internal/peers"
 	"mdm/internal/product"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
@@ -73,6 +74,7 @@ type Handler struct {
 	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
 	logs        *logstream.Manager // live logcat, used to follow legacy installs (legacy_watch.go)
 	otaGate     *otagate.Gate      // which builds can take an MDM OTA (the rest go legacy)
+	peers       *peers.Service     // tells neighbouring MDMs when a device turns up here
 
 	// One telemetry-request loop per device, so a reconnect replaces its loop instead
 	// of adding one. Guarded by its own mutex: Connect runs on every WS upgrade.
@@ -88,8 +90,12 @@ type telemetryLoop struct {
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), peers: peers.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}}
 }
+
+// Peers is the peer client half, so main can run its outbox and sweep loops against
+// the same instance the check-in path announces through.
+func (h *Handler) Peers() *peers.Service { return h.peers }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
 // queries derive online/offline from real presence rather than check-in recency.
@@ -841,9 +847,16 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	// A WS frame is a delta → merge it. Product is usually empty on deltas, and
 	// UpsertCheckin keeps the previously learned value then.
 	merge := src == sourceWS
-	deviceID, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, merge, req.Product)
+	deviceID, _, isNew, arrival, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, merge, req.Product)
 	if err != nil {
 		return nil, err
+	}
+	// A device that has just appeared here may well have left another MDM to do it —
+	// moved from a device page, by hand over adb, or by an image whose build.prop
+	// already pointed here. Whoever it left cannot tell that from an outage, so we say
+	// so. Queued, never sent inline: a peer being slow must not slow a check-in.
+	if arrival && h.peers != nil {
+		h.peers.AnnounceArrival(ctx, req.SerialNumber, req.BuildID, req.Product)
 	}
 	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
 	if isMDMLitePayload(req.Extra) {
