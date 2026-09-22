@@ -59,6 +59,22 @@
 @keyframes cl-sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.cl-spin{animation:none}}
 .cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
+.cl-split-bar{height:5px;border-radius:4px;background:var(--surface2);overflow:hidden;display:flex;margin-bottom:9px}
+.cl-split-bar i{display:block;height:100%}
+.cl-split-bar i.ok,.cl-legend i.ok{background:var(--ok,#1c7d50)}
+.cl-split-bar i.behind,.cl-legend i.behind{background:var(--warn,#c98a12)}
+.cl-split-bar i.unk,.cl-legend i.unk{background:var(--text-faint);opacity:.45}
+.cl-legend{display:flex;gap:15px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.cl-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px}
+.cl-grp{display:flex;align-items:center;gap:9px;padding:8px 15px;background:var(--surface2);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--border)}
+.cl-grp:first-child{border-top:0}
+.cl-grp .n{font-size:10.5px;background:var(--surface);border-radius:20px;padding:1px 7px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.cl-grp .cl-meta{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
+.cl-grp.dim{opacity:.7}
+.cl-fold{margin-left:auto;background:none;border:0;color:var(--muted);font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;padding:2px 4px}
+.cl-fold:hover{color:var(--text)}
+.cl-tr.dim{opacity:.6}
+.cl-tr.hidden{display:none}
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
 
@@ -77,6 +93,15 @@
 </div>
 
 <script>
+// Dormant rows start folded; the header button is the only thing that reveals them.
+function clFold(btn, key) {
+  var open = btn.getAttribute('aria-expanded') === 'true';
+  document.querySelectorAll('[data-dormant="' + key + '"]').forEach(function (row) {
+    row.classList.toggle('hidden', open);
+  });
+  btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+  btn.textContent = open ? 'Show' : 'Hide';
+}
 // The rail lives inside the swapped fragment, so without this nothing moves until the
 // response lands and a click reads as a hang. Move the selection and put a skeleton in
 // the detail column straight away; the swap replaces both with the real thing.
@@ -201,9 +226,22 @@ function clPick(a) {
     </div>
 
     {{if .Rows}}
+    {{$total := len .Rows}}
+    <div class="cl-split-bar" title="{{.Behind}} behind · {{.Unknown}} never reported a version · {{.UpToDate}} up to date">
+      {{if .Behind}}<i class="behind" style="width:{{pct .Behind $total}}%"></i>{{end}}
+      {{if .Unknown}}<i class="unk" style="width:{{pct .Unknown $total}}%"></i>{{end}}
+      {{if .UpToDate}}<i class="ok" style="width:{{pct .UpToDate $total}}%"></i>{{end}}
+    </div>
+    <div class="cl-legend">
+      <span><i class="behind"></i>{{.Behind}} behind</span>
+      <span><i class="unk"></i>{{.Unknown}} never reported a version</span>
+      <span><i class="ok"></i>{{.UpToDate}} up to date</span>
+    </div>
     <div class="cl-tbl">
       <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
-      {{range .Rows}}
+      {{range $g := .Groups}}
+      <div class="cl-grp"><span>{{$g.Label}}</span><span class="n">{{add (len $g.Rows) (len $g.Dormant)}}</span><span class="cl-meta">{{$g.Why}}</span></div>
+      {{range $g.Rows}}
       <div class="cl-tr">
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
@@ -231,6 +269,36 @@ function clPick(a) {
           {{end}}
         </span>
       </div>
+      {{end}}
+      {{if $g.Dormant}}
+      {{/* Long-unseen devices are still listed — most are retired or boxed hardware,
+           and inline they outnumber the rows worth acting on three to one. */}}
+      <div class="cl-grp dim" data-fold="{{$g.Key}}">
+        <span>Not seen in 14 days</span><span class="n">{{len $g.Dormant}}</span>
+        <button type="button" class="cl-fold" aria-expanded="false" onclick="clFold(this,'{{$g.Key}}')">Show</button>
+      </div>
+      {{range $g.Dormant}}
+      <div class="cl-tr dim hidden" data-dormant="{{$g.Key}}">
+        <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
+        <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+        <span>
+          {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
+          {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
+          {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
+          {{else}}<span class="cl-tag unk">no version</span>{{end}}
+        </span>
+        <span class="cl-meta">{{timeSince .LastSeen}}</span>
+        <span>
+          {{if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
+          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)">
+            <input type="hidden" name="type" value="app_update">
+            <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}} — it has not checked in for a while, so the command waits until it does"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
+          </form>
+          {{end}}
+        </span>
+      </div>
+      {{end}}
+      {{end}}
       {{end}}
     </div>
     {{else}}

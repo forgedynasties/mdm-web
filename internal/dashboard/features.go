@@ -1488,6 +1488,7 @@ type ClientSlotView struct {
 	// Filled for the selected client only: the page shows one client's devices and
 	// releases at a time, so there is no reason to build them for the other four.
 	Rows     []ClientDeviceRow
+	Groups   []ClientDeviceGroup
 	History  []config.AgentAPKBuild
 	Selected bool
 	// True while any row is mid-update, so the page can poll itself instead of
@@ -1519,6 +1520,70 @@ type ClientDeviceRow struct {
 	State    string // "current" | "behind" | "unknown" | "updating"
 	Progress string // for "updating": the device's own word (pending/downloading/installing)
 	LastSeen time.Time
+	// Dormant devices have not checked in for clientDormantAfter. They are still
+	// listed, but folded away: most of them are retired or boxed hardware, and left
+	// inline they outnumber the rows an operator came to act on.
+	Dormant bool
+}
+
+// clientDormantAfter is how long a device can go unseen before its row folds away in
+// the devices list. Two weeks: longer than a closed-over-the-holidays restaurant, far
+// shorter than the 60-90 day gaps the never-reported group is full of.
+const clientDormantAfter = 14 * 24 * time.Hour
+
+// ClientDeviceGroup is one labelled block of the devices table: the rows, what the
+// group is called, and why its devices are in it. Grouping is the whole point — a flat
+// list sorts the actionable rows to the top and then buries them under everything that
+// cannot be acted on at all.
+type ClientDeviceGroup struct {
+	Key     string // behind | unknown | current
+	Label   string
+	Why     string // what an operator can do about this group, in words
+	Rows    []ClientDeviceRow
+	Dormant []ClientDeviceRow // unseen for clientDormantAfter, folded behind a count
+}
+
+// groupClientRows splits the devices table into the three blocks the page is actually
+// about — what can be updated now, what cannot be updated from here at all, and what is
+// already done — and folds each block's long-unseen devices away behind a count. A
+// device mid-update stays with "behind": it is behind, it is just already being dealt
+// with. Empty groups are dropped rather than rendered as a header over nothing.
+func groupClientRows(rows []ClientDeviceRow, hosted string, now time.Time) []ClientDeviceGroup {
+	behindWhy := "can install " + hosted + " now"
+	if hosted == "" {
+		behindWhy = "nothing is hosted for this client yet"
+	}
+	currentWhy := "on " + hosted
+	if hosted == "" {
+		currentWhy = "on the newest build seen"
+	}
+	defs := []ClientDeviceGroup{
+		{Key: "behind", Label: "Behind", Why: behindWhy},
+		{Key: "unknown", Label: "Never reported a version",
+			Why: "needs a firmware OTA — the client on them predates client OTA"},
+		{Key: "current", Label: "Up to date", Why: currentWhy},
+	}
+	at := map[string]int{"behind": 0, "updating": 0, "unknown": 1, "current": 2}
+	for _, row := range rows {
+		i, ok := at[row.State]
+		if !ok {
+			i = 1
+		}
+		if now.Sub(row.LastSeen) > clientDormantAfter {
+			row.Dormant = true
+			defs[i].Dormant = append(defs[i].Dormant, row)
+			continue
+		}
+		defs[i].Rows = append(defs[i].Rows, row)
+	}
+	out := make([]ClientDeviceGroup, 0, len(defs))
+	for _, g := range defs {
+		if len(g.Rows) == 0 && len(g.Dormant) == 0 {
+			continue
+		}
+		out = append(out, g)
+	}
+	return out
 }
 
 // ClientsPage is client management: which build of which agent each device runs,
@@ -1751,6 +1816,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		return sel.Rows[i].Serial < sel.Rows[j].Serial
 	})
+	sel.Groups = groupClientRows(sel.Rows, sel.Build.Version, time.Now())
 
 	var slots []*ClientSlotView
 	for _, slot := range order {
