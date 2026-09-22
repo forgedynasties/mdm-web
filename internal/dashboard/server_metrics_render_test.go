@@ -41,6 +41,7 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 		`"requests"`, `"checkins"`, `"ws"`, `"goroutines"`, `"heap_mb"`, `"sys_mb"`,
 		`"db_used"`, `"db_total"`, `"db_waiting"`,
 		`"route"`, `"calls"`, `"p50_ms"`, `"p95_ms"`, `"errors"`,
+		`"db"`, `"size_mb"`, `"cache_hit_pct"`, `"conn_active"`, `"conn_max"`, `"longest_query_sec"`, `"tables"`,
 		`"commands_pending"`, `"deployments_live"`, `"ota_in_flight"`, `"shell_sessions"`,
 		`"peer_outbox"`, `"devices_total"`, `"devices_online"`, `"devices_elsewhere"`, `"alerts_open"`,
 	} {

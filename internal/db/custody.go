@@ -321,3 +321,92 @@ func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deployments
 	`).Scan(&commandsPending, &deploymentsLive, &otaInFlight, &peerOutbox, &devicesTotal, &devicesElsewhere, &alertsOpen)
 	return
 }
+
+// ── Server page: database vitals ──────────────────────────────────────────────
+
+// PGStats is what Postgres says about itself: size, cache behaviour, who is connected
+// and what the biggest tables are. Read on a timer well above the page's refresh rate
+// (see the cache in the dashboard handler) because these read catalog views and, for
+// the table sizes, hit the filesystem — cheap once a minute, not cheap every two
+// seconds with several operators watching.
+type PGStats struct {
+	SizeMB          float64     `json:"size_mb"`
+	CacheHitPct     float64     `json:"cache_hit_pct"`
+	Commits         int64       `json:"commits"`
+	Rollbacks       int64       `json:"rollbacks"`
+	Deadlocks       int64       `json:"deadlocks"`
+	TempFiles       int64       `json:"temp_files"`
+	ConnActive      int         `json:"conn_active"`
+	ConnIdle        int         `json:"conn_idle"`
+	ConnIdleTx      int         `json:"conn_idle_tx"`
+	ConnTotal       int         `json:"conn_total"`
+	ConnMax         int         `json:"conn_max"`
+	LongestQuerySec float64     `json:"longest_query_sec"`
+	Tables          []TableStat `json:"tables"`
+}
+
+// TableStat is one table's footprint. Rows are the planner's estimate (reltuples), not
+// a COUNT(*): an exact count of a check-in table with millions of rows would be the
+// most expensive thing on the page by a wide margin, and the estimate answers the
+// question being asked — is this table growing?
+type TableStat struct {
+	Name    string  `json:"name"`
+	SizeMB  float64 `json:"size_mb"`
+	Rows    int64   `json:"rows"`
+	DeadPct float64 `json:"dead_pct"` // dead tuples as a share — bloat, i.e. vacuum pressure
+}
+
+// ServerPGStats gathers the database vitals in two queries.
+func (d *DB) ServerPGStats(ctx context.Context) (PGStats, error) {
+	var s PGStats
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+		  pg_database_size(current_database()) / 1048576.0,
+		  COALESCE((SELECT CASE WHEN blks_hit + blks_read = 0 THEN 100
+		                        ELSE blks_hit * 100.0 / (blks_hit + blks_read) END
+		              FROM pg_stat_database WHERE datname = current_database()), 100),
+		  COALESCE((SELECT xact_commit   FROM pg_stat_database WHERE datname = current_database()), 0),
+		  COALESCE((SELECT xact_rollback FROM pg_stat_database WHERE datname = current_database()), 0),
+		  COALESCE((SELECT deadlocks     FROM pg_stat_database WHERE datname = current_database()), 0),
+		  COALESCE((SELECT temp_files    FROM pg_stat_database WHERE datname = current_database()), 0),
+		  (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active'),
+		  (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'idle'),
+		  (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'idle in transaction'),
+		  (SELECT COUNT(*) FROM pg_stat_activity),
+		  COALESCE((SELECT setting::int FROM pg_settings WHERE name = 'max_connections'), 0),
+		  -- The oldest query still running, ignoring this one. A number that climbs
+		  -- here is the shape of a lock wait or a runaway report.
+		  COALESCE((SELECT EXTRACT(EPOCH FROM (NOW() - MIN(query_start)))
+		              FROM pg_stat_activity
+		             WHERE state = 'active' AND pid <> pg_backend_pid()), 0)
+	`).Scan(&s.SizeMB, &s.CacheHitPct, &s.Commits, &s.Rollbacks, &s.Deadlocks, &s.TempFiles,
+		&s.ConnActive, &s.ConnIdle, &s.ConnIdleTx, &s.ConnTotal, &s.ConnMax, &s.LongestQuerySec)
+	if err != nil {
+		return s, err
+	}
+
+	rows, err := d.pool.Query(ctx, `
+		SELECT c.relname,
+		       pg_total_relation_size(c.oid) / 1048576.0,
+		       GREATEST(c.reltuples, 0)::bigint,
+		       CASE WHEN COALESCE(st.n_live_tup, 0) + COALESCE(st.n_dead_tup, 0) = 0 THEN 0
+		            ELSE COALESCE(st.n_dead_tup, 0) * 100.0 / (COALESCE(st.n_live_tup, 0) + COALESCE(st.n_dead_tup, 0)) END
+		  FROM pg_class c
+		  JOIN pg_namespace n ON n.oid = c.relnamespace
+		  LEFT JOIN pg_stat_user_tables st ON st.relid = c.oid
+		 WHERE c.relkind = 'r' AND n.nspname = 'public'
+		 ORDER BY pg_total_relation_size(c.oid) DESC
+		 LIMIT 8`)
+	if err != nil {
+		return s, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t TableStat
+		if err := rows.Scan(&t.Name, &t.SizeMB, &t.Rows, &t.DeadPct); err != nil {
+			return s, err
+		}
+		s.Tables = append(s.Tables, t)
+	}
+	return s, rows.Err()
+}

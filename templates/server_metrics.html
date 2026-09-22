@@ -46,6 +46,12 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
 .sv-feed .warn{color:var(--warn)}
 .sv-feed .bad{color:var(--bad,#b3261e)}
 .sv-empty{font-size:12.5px;color:var(--muted);padding:6px 0}
+.sv-dbgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.sv-dbs{background:var(--surface2);border-radius:10px;padding:9px 11px}
+.sv-dbs .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.sv-dbs .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.sv-dbs .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.sv-dbs.warn .v{color:var(--warn)}
 .sv-pause{font-size:11px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;margin-left:auto}
 .sv-pause:hover{color:var(--text)}
 </style>
@@ -66,6 +72,9 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
   <div>
     <div class="sv-sec"><span>Work in flight</span></div>
     <div class="sv-card" id="sv-queues"></div>
+
+    <div class="sv-sec"><span>Database</span><span class="live" style="font-weight:500" id="sv-db-age"></span></div>
+    <div class="sv-card" id="sv-db"></div>
 
     <div class="sv-sec"><span>Slowest routes</span></div>
     <div class="sv-card">
@@ -126,6 +135,13 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
       '<span class="sv-bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></span>' +
       '<span class="sv-num">' + n + '</span></div>';
   }
+  // One database stat: a label, a value and a line saying what it means. The "why it
+  // matters" line is the point — a cache-hit percentage means nothing to someone who
+  // has not memorised what a good one looks like.
+  function dbstat(k, v, sub, cls) {
+    return '<div class="sv-dbs ' + (cls || '') + '"><div class="k">' + k + '</div>' +
+      '<div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
+  }
   function esc(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
@@ -162,6 +178,31 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
       bar('Remote screen sessions', q.shell_sessions, 4) +
       bar('Peer outbox', q.peer_outbox, 20, q.peer_outbox ? 'warn' : 'ok') +
       bar('Open alerts', q.alerts_open, Math.max(q.devices_total, 1), 'warn');
+
+    var d = p.db || {};
+    var hit = d.cache_hit_pct || 0;
+    var conn = (d.conn_total || 0) + (d.conn_max ? ' / ' + d.conn_max : '');
+    document.getElementById('sv-db').innerHTML =
+      '<div class="sv-dbgrid">' +
+        dbstat('Size', fmt(d.size_mb, 0) + ' MB', (d.tables || []).length + ' tables') +
+        dbstat('Cache hit', fmt(hit, 1) + '%', hit < 95 ? 'reads are going to disk' : 'served from memory',
+               hit < 95 ? 'warn' : '') +
+        dbstat('Connections', conn, (d.conn_active || 0) + ' active · ' + (d.conn_idle || 0) + ' idle' +
+               (d.conn_idle_tx ? ' · ' + d.conn_idle_tx + ' idle in txn' : ''),
+               d.conn_idle_tx > 0 ? 'warn' : '') +
+        dbstat('Longest query', fmt(d.longest_query_sec, 1) + 's', 'running right now',
+               d.longest_query_sec > 30 ? 'warn' : '') +
+        dbstat('Rollbacks', String(d.rollbacks || 0), (d.deadlocks || 0) + ' deadlocks · ' + (d.temp_files || 0) + ' temp files',
+               d.deadlocks > 0 ? 'warn' : '') +
+      '</div>' +
+      '<table class="sv-tbl" style="margin-top:10px"><thead><tr><th>Table</th><th class="n">Size</th><th class="n">Rows</th><th class="n">Dead</th></tr></thead><tbody>' +
+      ((d.tables || []).map(function (t) {
+        return '<tr><td class="rt">' + esc(t.name) + '</td>' +
+          '<td class="n">' + fmt(t.size_mb, 1) + ' MB</td>' +
+          '<td class="n">' + (t.rows >= 1000000 ? fmt(t.rows / 1000000, 1) + 'M' : t.rows >= 1000 ? fmt(t.rows / 1000, 0) + 'k' : t.rows) + '</td>' +
+          '<td class="n' + (t.dead_pct > 20 ? ' slow' : '') + '">' + fmt(t.dead_pct, 0) + '%</td></tr>';
+      }).join('') || '<tr><td colspan="4" class="sv-empty">No table stats yet.</td></tr>') +
+      '</tbody></table>';
 
     document.querySelector('#sv-routes tbody').innerHTML = (s.routes || []).length
       ? s.routes.map(function (r) {

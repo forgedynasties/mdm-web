@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sync"
 	"time"
 
+	"mdm/internal/db"
 	"mdm/internal/metrics"
 )
 
@@ -44,17 +46,46 @@ func (h *Handler) serverQueues(r *http.Request) serverQueues {
 	return q
 }
 
-// serverPayload is one frame: the collector's snapshot plus the queue counts.
+// serverPayload is one frame: the collector's snapshot plus the queue counts and the
+// database's own vitals.
 type serverPayload struct {
 	Snapshot metrics.Snapshot `json:"snapshot"`
 	Queues   serverQueues     `json:"queues"`
+	DB       db.PGStats       `json:"db"`
 	Now      time.Time        `json:"now"`
+}
+
+// Postgres vitals read catalog views and, for the table sizes, the filesystem. Cheap
+// once a minute; not cheap on every two-second tick with several operators watching,
+// which is why they are cached and shared rather than fetched per frame.
+var (
+	pgMu     sync.Mutex
+	pgCached db.PGStats
+	pgAt     time.Time
+)
+
+const pgStatsTTL = 30 * time.Second
+
+func (h *Handler) pgStats(r *http.Request) db.PGStats {
+	pgMu.Lock()
+	defer pgMu.Unlock()
+	if time.Since(pgAt) < pgStatsTTL {
+		return pgCached
+	}
+	s, err := h.db.ServerPGStats(r.Context())
+	if err != nil {
+		// Keep showing the last good read rather than blanking the block: a failed
+		// catalog query is not a reason to imply the database has no stats.
+		return pgCached
+	}
+	pgCached, pgAt = s, time.Now()
+	return pgCached
 }
 
 // ServerPage renders the shell. The numbers arrive over the stream immediately after,
 // so the first paint is never a page of zeroes waiting for a poll.
 func (h *Handler) ServerPage(w http.ResponseWriter, r *http.Request) {
-	payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), Now: time.Now()}
+	payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), DB: h.pgStats(r), Now: time.Now()}
 	b, _ := json.Marshal(payload)
 	h.render(w, r, "server_metrics.html", map[string]any{
 		"Title":      "Server",
@@ -88,7 +119,7 @@ func (h *Handler) ServerEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-t.C:
-			payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), Now: time.Now()}
+			payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), DB: h.pgStats(r), Now: time.Now()}
 			b, err := json.Marshal(payload)
 			if err != nil {
 				continue
