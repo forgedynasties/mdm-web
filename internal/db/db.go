@@ -4331,7 +4331,13 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 		devs AS (
 			SELECT d.restaurant_id,
 				COUNT(*) AS device_count,
-				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[])) AS offline_count,
+				-- Offline means "not connected and not accounted for". A device that is
+				-- reporting to another MDM is neither: it is somewhere else, doing fine,
+				-- and counting it as an outage penalises a venue for a move someone
+				-- made on purpose. See internal/db/custody.go.
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[]) AND d.custody_server = '') AS offline_count,
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[]) AND d.custody_server = ''
+				                   AND d.last_seen_at < NOW() - INTERVAL '14 days') AS dormant_count,
 				COUNT(*) AS deployed_count  -- every device in a restaurant is deployed
 			FROM devices d
 			WHERE NOT d.hidden AND d.restaurant_id IS NOT NULL
@@ -4347,7 +4353,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 			GROUP BY d.restaurant_id
 		)
 		SELECT r.id, r.name,
-			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0),
+			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0), COALESCE(devs.dormant_count, 0),
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
 			recent.charging_avg, recent.temp_max, hottest.hot_serial, COALESCE(recent.builds, 0),
@@ -4366,7 +4372,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 	var out []GroupHealth
 	for rows.Next() {
 		var g GroupHealth
-		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount,
+		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount, &g.DormantCount,
 			&g.OpenCritical, &g.OpenWarning, &g.BatteryAvg, &g.BatteryDelta,
 			&g.ChargingAvg, &g.TempMax, &g.TempMaxSerial, &g.DistinctBuilds, &g.Deployed, &g.DeployedCount); err != nil {
 			return nil, err
@@ -8905,6 +8911,12 @@ type GroupHealth struct {
 	Name           string    `json:"name"`
 	DeviceCount    int       `json:"device_count"`
 	OfflineCount   int       `json:"offline_count"`
+	// DormantCount are devices that have not been heard from in over two weeks. They
+	// are offline, but they are not today's outage: a device dark since last month is
+	// an inventory question (where is it? was it returned? is it on a shelf?), and
+	// scoring a venue as failing every day for the same absent hardware buries the
+	// venue that actually lost a device this morning.
+	DormantCount   int       `json:"dormant_count"`
 	OpenCritical   int       `json:"open_critical"`
 	OpenWarning    int       `json:"open_warning"`
 	BatteryAvg     *float64  `json:"battery_avg"`     // recent avg daily peak battery (overnight fullness)
@@ -8924,22 +8936,40 @@ type GroupHealth struct {
 // poor charging, battery decline, overheating, and firmware fragmentation.
 func (g *GroupHealth) computeScore() {
 	score := 100
-	if g.DeviceCount > 0 {
-		score -= int(float64(g.OfflineCount) / float64(g.DeviceCount) * 40) // up to -40 if all offline
+	if g.DeviceCount == 0 {
+		g.Score, g.ScoreClass = 100, "ok"
+		return
 	}
-	score -= g.OpenCritical * 15
-	score -= g.OpenWarning * 4
+	dev := float64(g.DeviceCount)
+	// Every penalty is a SHARE of the venue, not a raw count, and every one is capped.
+	// Flat per-alert penalties were the bug that made this useless: at -15 a critical
+	// and -4 a warning, seven open alerts zeroed a venue whatever else was true, and a
+	// score that is 0 for a fleet that is mostly fine tells nobody anything. A venue
+	// where one device in nine is offline and a couple of alerts are open is a normal
+	// Tuesday — it should read in the seventies, not fail.
+	// Only devices that went quiet recently: see DormantCount.
+	recentlyOffline := g.OfflineCount - g.DormantCount
+	if recentlyOffline < 0 {
+		recentlyOffline = 0
+	}
+	score -= capPenalty(float64(recentlyOffline)/dev*30, 30)
+	// Dormant hardware is worth a nudge, not a failing grade.
+	score -= capPenalty(float64(g.DormantCount)/dev*10, 6)
+	score -= capPenalty(float64(g.OpenCritical)/dev*40, 25)
+	score -= capPenalty(float64(g.OpenWarning)/dev*15, 10)
 	if g.ChargingAvg != nil && *g.ChargingAvg < 0.3 {
-		score -= 15
+		score -= 10
 	}
 	if g.BatteryDelta != nil && *g.BatteryDelta < -10 {
-		score -= 15
+		score -= 10
 	}
 	if g.TempMax != nil && *g.TempMax >= 45 {
-		score -= 15
+		score -= 10
 	}
 	if g.DistinctBuilds > 1 {
-		score -= (g.DistinctBuilds - 1) * 5
+		// Fragmentation is worth noticing and never worth a failing grade on its own:
+		// a fleet mid-rollout legitimately runs several builds for days.
+		score -= capPenalty(float64(g.DistinctBuilds-1)*4, 8)
 	}
 	if score < 0 {
 		score = 0
@@ -8949,13 +8979,27 @@ func (g *GroupHealth) computeScore() {
 	}
 	g.Score = score
 	switch {
-	case score >= 80:
+	case score >= 75:
 		g.ScoreClass = "ok"
-	case score >= 50:
+	case score >= 45:
 		g.ScoreClass = "warn"
 	default:
 		g.ScoreClass = "danger"
 	}
+}
+
+// capPenalty rounds a penalty and holds it to a ceiling, so no single dimension can
+// sink a score by itself. Kept here rather than inlined because health_explain.go
+// mirrors these numbers exactly, and the two drifting apart is how a score stops
+// matching the reasons shown underneath it.
+func capPenalty(v, max float64) int {
+	if v > max {
+		v = max
+	}
+	if v < 0 {
+		return 0
+	}
+	return int(v + 0.5)
 }
 
 // GetGroupHealth returns a health scorecard per group, worst score first. activeSecs is
@@ -8986,7 +9030,13 @@ func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]Group
 		devs AS (
 			SELECT dg.group_id,
 				COUNT(*) AS device_count,
-				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[])) AS offline_count,
+				-- Offline means "not connected and not accounted for". A device that is
+				-- reporting to another MDM is neither: it is somewhere else, doing fine,
+				-- and counting it as an outage penalises a venue for a move someone
+				-- made on purpose. See internal/db/custody.go.
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[]) AND d.custody_server = '') AS offline_count,
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[]) AND d.custody_server = ''
+				                   AND d.last_seen_at < NOW() - INTERVAL '14 days') AS dormant_count,
 				COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL) AS deployed_count
 			FROM device_groups dg
 			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
@@ -9003,7 +9053,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]Group
 			GROUP BY dg.group_id
 		)
 		SELECT g.id, g.name,
-			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0),
+			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0), COALESCE(devs.dormant_count, 0),
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
 			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0),
@@ -9022,7 +9072,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]Group
 	var out []GroupHealth
 	for rows.Next() {
 		var g GroupHealth
-		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount,
+		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount, &g.DormantCount,
 			&g.OpenCritical, &g.OpenWarning, &g.BatteryAvg, &g.BatteryDelta,
 			&g.ChargingAvg, &g.TempMax, &g.DistinctBuilds, &g.Deployed, &g.DeployedCount); err != nil {
 			return nil, err
