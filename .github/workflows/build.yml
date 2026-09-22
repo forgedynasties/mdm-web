@@ -1,17 +1,21 @@
-# Build, test and publish an image for every commit on main.
+# Build, test and publish an image.
 #
 # Why this exists: the box that runs the MDM is a t2.medium sharing 4GB with several
 # other stacks, and compiling the server there needs ~2GB and both vCPUs. Doing that on
 # a deploy wedged the instance hard enough to need a reboot, three times in one day. The
 # compiler now runs on a GitHub runner and the box only ever pulls an image.
 #
+# NOT triggered by pushes to main. deploy.yml builds and publishes the image itself when
+# ECR has nothing for the commit being deployed, so a push-triggered build here was a
+# second compile of the same code — most of them for commits nobody deployed. Pull
+# requests still build and test (that is the gate on the code), and this can be run by
+# hand to warm ECR for a commit before deploying it.
+#
 # This workflow deliberately stops at "image published". Deploying is a separate, manual
 # workflow (deploy.yml) so a push can never restart live by itself.
 name: Build
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -49,8 +53,9 @@ jobs:
 
   image:
     name: Publish image to ECR
-    # Only for real commits on main — a pull request gets the build and test above, but
-    # must not publish an image anybody could deploy.
+    # A pull request gets the build and test above but must not publish an image
+    # anybody could deploy. A manual run does publish: that is what it is for — warming
+    # ECR for a commit so its deploy does not have to compile first.
     if: github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
