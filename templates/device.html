@@ -885,7 +885,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .ShowBattery}}
     <div class="cr-row cr-cyc">
       <svg class="cr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v5h-5"/></svg>
-      <span class="cr-txt"><span class="k" title="Lifetime battery wear as of the point you are hovering: total percent discharged ÷ 100, the same measure as the Battery cycles figure in About. Rolled up per day, so it steps rather than sliding. Devices with no rolled-up history yet fall back to counting full 95%→10% cycles inside the window.">Cycles to here</span><span class="v" id="cr-cycles">—</span></span>
+      <span class="cr-txt"><span class="k" title="Lifetime battery wear as of the point you are hovering: total percent discharged ÷ 100, the same measure as the Battery cycles figure in About. Whole days come from the daily rollup; the current day is measured off the battery line, so it moves with the pointer. Devices with no rolled-up history yet fall back to counting full 95%→10% cycles inside the window.">Cycles to here</span><span class="v" id="cr-cycles">—</span></span>
     </div>
     {{end}}
   </aside>
@@ -1793,18 +1793,48 @@ function mdmBootCharts() {
   // finally answer the same question. Empty when the device has no rolled-up days yet.
   var CYCLE_SERIES = Array.isArray(CYCLE_SERIES_RAW) ? CYCLE_SERIES_RAW : [];
 
-  // Cycles this pack had done by the hovered moment. A step lookup, not an
-  // interpolation: the underlying number is a day's total, and pretending to know where
-  // inside the day it landed would be invention.
-  function lifetimeCyclesAt(ms) {
-    if (!CYCLE_SERIES.length || ms == null) return null;
-    if (ms < CYCLE_SERIES[0][0]) return 0;
-    var lo = 0, hi = CYCLE_SERIES.length - 1, best = 0;
+  // Index of the last rolled-up day at or before ms, or -1 before the series starts.
+  function cycleDayIndex(ms) {
+    if (!CYCLE_SERIES.length || ms == null || ms < CYCLE_SERIES[0][0]) return -1;
+    var lo = 0, hi = CYCLE_SERIES.length - 1, best = -1;
     while (lo <= hi) {
       var mid = (lo + hi) >> 1;
       if (CYCLE_SERIES[mid][0] <= ms) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
     }
-    return CYCLE_SERIES[best][1] / 100;
+    return best;
+  }
+
+  // Cycles this pack had done by the hovered moment.
+  //
+  // The rolled-up series is per DAY, so on its own the readout sat still for hours and
+  // then jumped — useless for reading a graph whose x axis is hours. So the day total is
+  // only the floor: whole days before the hovered one come from the rollup, and the part
+  // of the current day that has already happened is measured off the battery line
+  // itself, by summing its downward steps. That moves with the pointer at the same
+  // resolution as the battery readout beside it, and still lands on the lifetime number
+  // the Battery cycles card shows.
+  function lifetimeCyclesAt(ms, batt) {
+    if (!CYCLE_SERIES.length || ms == null) return null;
+    var i = cycleDayIndex(ms);
+    if (i < 0) return 0;
+    // Whole days strictly before the hovered day.
+    var base = i > 0 ? CYCLE_SERIES[i - 1][1] : 0;
+    var dayStart = CYCLE_SERIES[i][0];
+    // Discharge inside the hovered day, as far as the pointer. Only the plotted series
+    // is available, so a window that opens mid-day misses the hours before it — the
+    // number can only be short, never inflated, and it is exact once the day is in view.
+    var within = 0;
+    if (batt && batt.length) {
+      for (var k = 1; k < batt.length; k++) {
+        var x = batt[k].x;
+        if (x <= dayStart) continue;
+        if (x > ms) break;
+        var prev = batt[k - 1].y, cur = batt[k].y;
+        if (prev == null || cur == null || isNaN(prev) || isNaN(cur)) continue;
+        if (cur < prev) within += prev - cur;
+      }
+    }
+    return (base + within) / 100;
   }
 
   // The window-local fallback: completed 95%→10% excursions up to the hovered point,
@@ -1907,8 +1937,8 @@ function mdmBootCharts() {
     // the line walks up towards it instead of reporting a window-local count that reads
     // 0 on a pack with fourteen cycles behind it.
     var at = anchor ? anchor.x : ms;
-    var life = lifetimeCyclesAt(at);
-    if (life != null) setReadout('cr-cycles', life.toFixed(1));
+    var life = lifetimeCyclesAt(at, batt);
+    if (life != null) setReadout('cr-cycles', life.toFixed(2));
     else setReadout('cr-cycles', String(cyclesUpTo(batt, cycleAnchor(), at)));
   }
 
