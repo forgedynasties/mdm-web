@@ -885,7 +885,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .ShowBattery}}
     <div class="cr-row cr-cyc">
       <svg class="cr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v5h-5"/></svg>
-      <span class="cr-txt"><span class="k" title="A cycle = charged to 95% or more, then run down to 10% or less. A cycle counts when its discharge lands in the window on screen, even if it charged before the window opened.">Cycles in view</span><span class="v" id="cr-cycles">—</span></span>
+      <span class="cr-txt"><span class="k" title="A cycle = charged to 95% or more, then run down to 10% or less. Counted from the start of the window up to the point you are hovering; at rest, the whole window. A cycle counts when its discharge lands in the window, even if it charged before the window opened.">Cycles to here</span><span class="v" id="cr-cycles">—</span></span>
     </div>
     {{end}}
   </aside>
@@ -1740,7 +1740,6 @@ function mdmBootCharts() {
   // a different measure from the "Battery cycles" in About, which totals lifetime
   // discharge ÷ 100 (wear), and the two are not expected to agree.
   const CYCLE_FULL = 95, CYCLE_EMPTY = 10;
-  const CYCLE_BAND_A = 'rgba(249,103,78,0.05)', CYCLE_BAND_B = 'rgba(249,103,78,0.09)';
 
   // The battery reading just before the window, which arms the walk below. Without it a
   // pack charged to full before the window opened never arms, so its discharge inside the
@@ -1761,24 +1760,22 @@ function mdmBootCharts() {
     return n;
   }
 
-  // The same walk keeping each completed cycle's span, for the shaded bands. A cycle that
-  // armed before the window opened starts at the window edge rather than at a point that
-  // is not on screen.
-  function cycleSpans(arr, carry, windowFrom) {
-    const out = [];
-    if (!arr || !arr.length) return out;
-    let armed = carry != null && !isNaN(carry) && carry >= CYCLE_FULL;
-    let from = armed ? windowFrom : null;
+  // The same walk, stopped at the point under the pointer: how many cycles had
+  // completed by the moment being hovered. Counting to a point rather than shading the
+  // spans keeps the plot itself clean — the bands tinted most of a week's background
+  // and made the battery line harder to read than the thing they were annotating.
+  function cyclesUpTo(arr, carry, ms) {
+    if (!arr || !arr.length) return 0;
+    if (ms == null) return cyclesIn(arr, carry);
+    let n = 0, armed = carry != null && !isNaN(carry) && carry >= CYCLE_FULL;
     for (let i = 0; i < arr.length; i++) {
+      if (arr[i].x > ms) break;
       const y = arr[i].y;
       if (y == null || isNaN(y)) continue;
-      if (y >= CYCLE_FULL) { if (!armed) { armed = true; from = arr[i].x; } }
-      else if (armed && y <= CYCLE_EMPTY) {
-        if (from != null && arr[i].x > from) out.push([from, arr[i].x]);
-        armed = false; from = null;
-      }
+      if (y >= CYCLE_FULL) armed = true;
+      else if (armed && y <= CYCLE_EMPTY) { n++; armed = false; }
     }
-    return out;
+    return n;
   }
 
   // The readout panel beside the plot. One check-in — the nearest to the pointer —
@@ -1862,7 +1859,11 @@ function mdmBootCharts() {
       }
     }
     setReadout('cr-charge', note);
-    setReadout('cr-cycles', String(cyclesIn(batt, cycleAnchor())));
+    // Cycles counted from the start of the window up to the point under the pointer,
+    // so dragging along the line reads out how the count accumulated rather than
+    // repeating one total for the whole window. At rest the pointer is the newest
+    // reading, which makes the resting value the full-window count it always was.
+    setReadout('cr-cycles', String(cyclesUpTo(batt, cycleAnchor(), anchor ? anchor.x : ms)));
   }
 
   function setHoverInfo(data) { /* replaced by updateReadout */ }
@@ -2202,22 +2203,6 @@ function mdmBootCharts() {
       const ca = chart.chartArea; if (!ca) return;
       const ctx = chart.ctx, scales = chart.scales;
       ctx.save();
-      // Completed charge cycles, shaded from their full mark to their empty mark and
-      // alternating tint so two cycles in a row stay tellable apart. Battery chart only:
-      // on the all-metrics chart it would fight the charging strip for the same
-      // background. Drawn before the threshold bands so those read on top.
-      if (chart._cycleBands) {
-        const xs = scales.x;
-        if (xs && xs.min != null) {
-          cycleSpans(srcBattery(), cycleAnchor(), xs.min).forEach(function (s, i) {
-            const x1 = Math.max(ca.left, xs.getPixelForValue(s[0]));
-            const x2 = Math.min(ca.right, xs.getPixelForValue(s[1]));
-            if (x2 <= x1) return;
-            ctx.fillStyle = i % 2 ? CYCLE_BAND_B : CYCLE_BAND_A;
-            ctx.fillRect(x1, ca.top, x2 - x1, ca.bottom - ca.top);
-          });
-        }
-      }
       const bands = bandsFor(chart);
       if (!bands || !bands.length) { ctx.restore(); return; }
       bands.forEach(function (b) {
@@ -2308,7 +2293,6 @@ function mdmBootCharts() {
   batteryChart._commandMarkers = commandMarkers;
   batteryChart._buildMarkers = buildMarkers;
   batteryChart._accent = 'battery';
-  batteryChart._cycleBands = true;
   {{end}}
 
   // Temperature chart
