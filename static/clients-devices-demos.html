@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIO MDM — Clients devices list demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* ── copied from templates/clients.html so this renders like the real page ── */
+.cl-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:20px 0 8px}
+.cl-sec form{margin:0 0 0 auto}
+.cl-tbl{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.cl-th,.cl-tr{display:grid;grid-template-columns:minmax(150px,1.4fr) 120px 118px 130px 96px;align-items:center;gap:14px;padding:0 15px}
+.cl-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.cl-tr{min-height:46px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-tr:first-of-type{border-top:0}
+.cl-sn{font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none}
+.cl-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px}
+.cl-tag.ok{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.cl-tag.behind{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.cl-tag.unk{background:var(--surface2);color:var(--muted)}
+.cl-rel{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
+.cl-rr{display:grid;grid-template-columns:120px minmax(0,1fr) 128px 84px;gap:14px;align-items:start;padding:11px 15px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-rr:first-of-type{border-top:0}
+.cl-ver{font-weight:600;font-variant-numeric:tabular-nums}
+.cl-meta{color:var(--muted);font-size:11.5px;line-height:1.5}
+.cl-chg{color:var(--text-2);font-size:12px;line-height:1.5}
+.cl-empty{background:var(--surface);border:1px dashed var(--border);border-radius:13px;padding:18px;font-size:12.5px;color:var(--muted);line-height:1.55}
+.cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
+
+/* ── demo chrome ── */
+body{background:var(--bg)}
+.dm-wrap{max-width:1080px;margin:0 auto;padding:30px 16px 90px}
+.dm-h1{font-size:23px;font-weight:650;margin:0 0 6px;letter-spacing:-.01em}
+.dm-lede{font-size:13px;color:var(--muted);line-height:1.6;max-width:78ch;margin:0 0 8px}
+.dm-opt{margin:34px 0 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 18px 22px;box-shadow:var(--shadow-sm)}
+.dm-opt > h2{font-size:15px;font-weight:650;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dm-badge{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 8px}
+.dm-badge.live{background:var(--surface2);color:var(--muted)}
+.dm-badge.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-why{font-size:12.5px;color:var(--text-2);line-height:1.6;margin:8px 0 16px;max-width:82ch}
+.dm-why b{color:var(--text)}
+.dm-stage{background:var(--bg);border:1px solid var(--border-soft);border-radius:13px;padding:16px}
+.dm-note{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:14px}
+.dm-note div{font-size:12px;line-height:1.55;color:var(--text-2);background:var(--surface2);border-radius:10px;padding:10px 12px}
+.dm-note b{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.dm-rule{border:0;border-top:1px solid var(--border);margin:46px 0 0}
+.dm-sec-h{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:34px 0 0}
+
+/* bits the options introduce */
+.dv-chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.dv-chip{font-size:11.5px;font-weight:650;border-radius:9px;padding:5px 11px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+.dv-chip .n{font-variant-numeric:tabular-nums;opacity:.75;margin-left:6px;font-size:10.5px}
+.dv-chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
+.dv-chip.warn.on{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.dv-search{margin-left:auto;font-size:12px;padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);min-width:190px;font-family:var(--mono)}
+.dv-grp{display:flex;align-items:center;gap:9px;padding:8px 15px;background:var(--surface2);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--border)}
+.dv-grp:first-child{border-top:0}
+.dv-grp .n{font-size:10.5px;background:var(--surface);border-radius:20px;padding:1px 7px;color:var(--text-2)}
+.dv-grp .cl-meta{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
+.dv-fold{margin-left:auto;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600;cursor:pointer;background:none;border:0}
+.dv-stale{opacity:.55}
+.dv-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;margin-right:7px;vertical-align:middle}
+.dv-dot.on{background:var(--ok,#1c7d50)}
+.dv-dot.off{background:var(--text-faint)}
+.dv-two{display:grid;grid-template-columns:minmax(150px,1.5fr) 150px 130px 96px;gap:14px;align-items:center;padding:9px 15px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.dv-two:first-of-type{border-top:0}
+.dv-sub{font-size:11px;color:var(--text-faint);margin-top:2px}
+.dv-bar{height:5px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:12px;display:flex}
+.dv-bar i{display:block;height:100%}
+.dv-bar i.ok{background:var(--ok,#1c7d50)}
+.dv-bar i.behind{background:var(--warn,#c98a12)}
+.dv-bar i.unk{background:var(--text-faint);opacity:.45}
+.dv-legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap}
+.dv-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px}
+.cl-rr.act{grid-template-columns:120px minmax(0,1fr) 120px 74px 150px}
+.cl-rr .cl-acts{display:flex;gap:6px;justify-content:flex-end}
+.cl-kebab{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:14px;line-height:1;padding:4px 8px;cursor:pointer}
+@media(max-width:900px){.cl-th{display:none}.cl-tr,.dv-two{grid-template-columns:1fr auto;row-gap:6px}}
+</style>
+</head>
+<body>
+<div class="dm-wrap">
+
+  <h1 class="dm-h1">Clients → devices list</h1>
+  <p class="dm-lede">
+    Four ways to render the <b>Devices</b> table on the Clients page, mocked with the real
+    firmware-qcom roster (36 devices: 9 behind, 27 that never reported a version, none up to
+    date). Below them, two placements for the <b>download / rollback</b> actions the new
+    per-digest APK archive makes possible. Pick one from each group.
+  </p>
+  <p class="dm-lede">
+    The problem in all of this: the list is 36 flat rows sorted behind-first, more than two
+    thirds of them <span class="cl-tag unk">no version</span> rows that cannot be acted on at
+    all, and a third of those have not been seen in over a month. The rows worth acting on are
+    outnumbered 3:1 by rows that exist only to be scrolled past.
+  </p>
+
+  <div class="dm-sec-h">Group 1 — the devices table</div>
+
+  <!-- ── A ─────────────────────────────────────────────────────────── -->
+  <section class="dm-opt">
+    <h2>A · Flat table <span class="dm-badge live">deployed today</span></h2>
+    <div class="dm-why">
+      What is on the page now: one row per device, sorted behind → unknown → current, then by
+      serial. Every row is always visible.
+    </div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Devices</span>
+        <form><button type="button" class="cc-btn sm primary">Update all behind <span class="n">9</span></button></form>
+      </div>
+      <div class="cl-tbl">
+        <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+        <div class="cl-tr"><a class="cl-sn">2dfcf2ba</a><span>1.0.0</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">1d ago</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AA2600022</a><span>15</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">1d ago</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00231</a><span>15</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">just now</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">113827c2</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">3m ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AA2600021</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">64d ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AA2600029</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">8d ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00857</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">85d ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn cl-meta">…29 more rows</a><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> Nothing hidden; one scan sees the whole client population; no state to get wrong.</div>
+      <div><b>Bad at</b> 27 of 36 rows carry a disabled button. A device seen 85 days ago sits between two live ones. No way to find one serial without Ctrl-F.</div>
+    </div>
+  </section>
+
+  <!-- ── B ─────────────────────────────────────────────────────────── -->
+  <section class="dm-opt">
+    <h2>B · Grouped by state, dormant collapsed <span class="dm-badge pick">my pick</span></h2>
+    <div class="dm-why">
+      Same rows, three labelled groups in action order — <b>Behind</b>, <b>Never reported a
+      version</b>, <b>Up to date</b> — and inside the unknown group, devices unseen for over 14
+      days fold away behind a count. A summary bar up top shows the split at a glance.
+    </div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Devices</span>
+        <form><button type="button" class="cc-btn sm primary">Update all behind <span class="n">9</span></button></form>
+      </div>
+      <div class="dv-bar"><i class="behind" style="width:25%"></i><i class="unk" style="width:75%"></i></div>
+      <div class="dv-legend">
+        <span><i class="cl-tag behind" style="background:var(--warn,#c98a12)"></i>9 behind</span>
+        <span><i style="background:var(--text-faint);opacity:.45"></i>27 no version</span>
+        <span><i style="background:var(--ok,#1c7d50)"></i>0 up to date</span>
+      </div>
+      <div class="cl-tbl">
+        <div class="dv-grp"><span>Behind</span><span class="n">9</span><span class="cl-meta">can install 1.2.0 now</span></div>
+        <div class="cl-tr"><a class="cl-sn">2dfcf2ba</a><span>1.0.0</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">1d ago</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00231</a><span>15</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">just now</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00280</a><span>15</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">just now</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="dv-grp"><span>Never reported a version</span><span class="n">27</span><span class="cl-meta">needs a firmware OTA — client predates client OTA</span></div>
+        <div class="cl-tr"><a class="cl-sn">113827c2</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">3m ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00646</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">14h ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AA2600029</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">8d ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="dv-grp dv-stale"><span>Not seen in 14 days</span><span class="n">18</span><button class="dv-fold">Show</button></div>
+        <div class="dv-grp"><span>Up to date</span><span class="n">0</span><span class="cl-meta">on 1.2.0</span></div>
+      </div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> The actionable 9 are never more than a screen away. The group header says <i>why</i> a group can't be updated, so the disabled button stops being a mystery. Dormant devices stay reachable but stop padding the list.</div>
+      <div><b>Bad at</b> One more concept (14-day dormancy) to explain. A device that wakes up moves group on refresh.</div>
+    </div>
+  </section>
+
+  <!-- ── C ─────────────────────────────────────────────────────────── -->
+  <section class="dm-opt">
+    <h2>C · Filter chips + serial search</h2>
+    <div class="dm-why">
+      The flat table stays exactly as it is; a chip row above it filters client-side, and a
+      search box matches on serial. Nothing is hidden by default — you choose what to narrow to.
+    </div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Devices</span>
+        <form><button type="button" class="cc-btn sm primary">Update all behind <span class="n">9</span></button></form>
+      </div>
+      <div class="dv-chips">
+        <button class="dv-chip on">All <span class="n">36</span></button>
+        <button class="dv-chip warn">Behind <span class="n">9</span></button>
+        <button class="dv-chip">No version <span class="n">27</span></button>
+        <button class="dv-chip">Up to date <span class="n">0</span></button>
+        <button class="dv-chip">Seen this week <span class="n">12</span></button>
+        <input class="dv-search" placeholder="serial…" value="">
+      </div>
+      <div class="cl-tbl">
+        <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+        <div class="cl-tr"><a class="cl-sn">2dfcf2ba</a><span>1.0.0</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">1d ago</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AABU00064</a><span>15</span><span><span class="cl-tag behind">behind</span></span><span class="cl-meta">4m ago</span><span><button class="cc-btn sm">Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">113827c2</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">3m ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn">AT070AA2600045</a><span>—</span><span><span class="cl-tag unk">no version</span></span><span class="cl-meta">81d ago</span><span><button class="cc-btn sm" disabled>Update</button></span></div>
+        <div class="cl-tr"><a class="cl-sn cl-meta">…32 more rows</a><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> Finding one device by serial, which today means Ctrl-F. Cheap: no change to the row markup, filtering is a few lines of JS on classes already in the DOM.</div>
+      <div><b>Bad at</b> Defaults to the same wall of rows — it only helps the operator who thinks to click a chip. Chip state does not survive the HTMX swap unless it goes in the URL.</div>
+    </div>
+  </section>
+
+  <!-- ── D ─────────────────────────────────────────────────────────── -->
+  <section class="dm-opt">
+    <h2>D · Two-line rows, liveness first</h2>
+    <div class="dm-why">
+      Denser rows that lead with a connection dot and fold version + state into one cell, with
+      last-seen as the second line under the serial. Stale devices dim rather than move.
+    </div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Devices</span>
+        <form><button type="button" class="cc-btn sm primary">Update all behind <span class="n">9</span></button></form>
+      </div>
+      <div class="cl-tbl">
+        <div class="dv-two">
+          <div><span class="dv-dot on"></span><a class="cl-sn">AT070AABU00231</a><div class="dv-sub">online · TSAI · Sunset Blvd</div></div>
+          <div>1.0.0 <span class="cl-tag behind">behind</span><div class="dv-sub">hosted 1.2.0</div></div>
+          <div class="cl-meta">just now</div>
+          <div style="text-align:right"><button class="cc-btn sm">Update</button></div>
+        </div>
+        <div class="dv-two">
+          <div><span class="dv-dot on"></span><a class="cl-sn">2dfcf2ba</a><div class="dv-sub">online · TSAI · unassigned</div></div>
+          <div>1.0.0 <span class="cl-tag behind">behind</span><div class="dv-sub">hosted 1.2.0</div></div>
+          <div class="cl-meta">1d ago</div>
+          <div style="text-align:right"><button class="cc-btn sm">Update</button></div>
+        </div>
+        <div class="dv-two">
+          <div><span class="dv-dot off"></span><a class="cl-sn">113827c2</a><div class="dv-sub">offline · TSAI · Mission St</div></div>
+          <div>— <span class="cl-tag unk">no version</span><div class="dv-sub">needs firmware OTA</div></div>
+          <div class="cl-meta">3m ago</div>
+          <div style="text-align:right"><button class="cc-btn sm" disabled>Update</button></div>
+        </div>
+        <div class="dv-two dv-stale">
+          <div><span class="dv-dot off"></span><a class="cl-sn">AT070AABU00857</a><div class="dv-sub">offline · TSAI · Pier 39</div></div>
+          <div>— <span class="cl-tag unk">no version</span><div class="dv-sub">needs firmware OTA</div></div>
+          <div class="cl-meta">85d ago</div>
+          <div style="text-align:right"><button class="cc-btn sm" disabled>Update</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> Says where a device is and whether it is reachable — the two things you want before pushing an install. "hosted 1.2.0" under the version removes the mental diff.</div>
+      <div><b>Bad at</b> Taller rows, so fewer fit; restaurant/liveness are not in the query the page runs today, so it costs a join. Still 36 rows.</div>
+    </div>
+  </section>
+
+  <hr class="dm-rule">
+  <div class="dm-sec-h">Group 2 — release rows, now that old builds are downloadable</div>
+  <p class="dm-lede" style="margin-top:10px">
+    The server now keeps every published APK under its own digest
+    (<span class="cl-url">data/agent/archive/&lt;slot&gt;/&lt;sha256&gt;.apk</span>), so the
+    <b>Releases</b> list can offer each past build as a download, and rolling back is a pointer
+    flip instead of an AOSP rebuild. Two ways to put that on the row.
+  </p>
+
+  <section class="dm-opt">
+    <h2>E · Explicit buttons on the row <span class="dm-badge pick">my pick</span></h2>
+    <div class="dm-why">Download and Roll back sit on each previous build. The hosted row shows neither — it is already what devices get.</div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Releases</span></div>
+      <div class="cl-rel">
+        <div class="cl-rr act">
+          <span class="cl-ver">1.2.0<div class="cl-meta">code 40</div></span>
+          <span class="cl-chg">client 1.2.0 (code 40): ack 'running' while a shell runs; an update at the current build settles as completed<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:58</span>
+          <span><span class="cl-tag ok">hosted</span></span>
+          <span class="cl-acts"><button class="cc-btn sm">Download</button></span>
+        </div>
+        <div class="cl-rr act">
+          <span class="cl-ver">1.1.1<div class="cl-meta">code 39</div></span>
+          <span class="cl-chg">client 1.1.1 (code 39): report ota_supported from ro.build.ab_update; drop get_app_inventory<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:52</span>
+          <span><span class="cl-tag unk">previous</span></span>
+          <span class="cl-acts"><button class="cc-btn sm">Download</button><button class="cc-btn sm">Roll back</button></span>
+        </div>
+        <div class="cl-rr act">
+          <span class="cl-ver">1.1.0<div class="cl-meta">code 38</div></span>
+          <span class="cl-chg">client 1.1.0: hold the active admin only while kiosked, never Device Owner<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:49</span>
+          <span><span class="cl-tag unk">previous</span></span>
+          <span class="cl-acts"><button class="cc-btn sm">Download</button><button class="cc-btn sm">Roll back</button></span>
+        </div>
+        <div class="cl-rr act">
+          <span class="cl-ver">1.0.4<div class="cl-meta">code 37</div></span>
+          <span class="cl-chg">client 1.0.4: restart the service after a self-update, or the client never comes back<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:44</span>
+          <span><span class="cl-tag unk">previous</span></span>
+          <span class="cl-acts"><button class="cc-btn sm">Download</button><button class="cc-btn sm">Roll back</button></span>
+        </div>
+        <div class="cl-rr act dv-stale">
+          <span class="cl-ver">1.0.3<div class="cl-meta">code 36</div></span>
+          <span class="cl-chg">client 1.0.3 (code 36): clear the framework version a buggy client compares against<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">19 Sep 11:02</span>
+          <span><span class="cl-tag unk">previous</span></span>
+          <span class="cl-acts"><span class="cl-meta">published before the archive — bytes gone</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> The capability is visible without hunting. The last row is honest about builds published before the archive existed, which is most of the history on day one.</div>
+      <div><b>Bad at</b> Two buttons per row is busy, and "Roll back" one click from a live fleet wants a confirm (it has one — hx-confirm naming the version).</div>
+    </div>
+  </section>
+
+  <section class="dm-opt">
+    <h2>F · Kebab menu per row</h2>
+    <div class="dm-why">The row keeps its current four columns; actions hide behind a ⋯ menu at the end.</div>
+    <div class="dm-stage">
+      <div class="cl-sec"><span>Releases</span></div>
+      <div class="cl-rel">
+        <div class="cl-rr act">
+          <span class="cl-ver">1.2.0<div class="cl-meta">code 40</div></span>
+          <span class="cl-chg">client 1.2.0 (code 40): ack 'running' while a shell runs<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:58</span>
+          <span><span class="cl-tag ok">hosted</span></span>
+          <span class="cl-acts"><button class="cl-kebab">⋯</button></span>
+        </div>
+        <div class="cl-rr act">
+          <span class="cl-ver">1.1.1<div class="cl-meta">code 39</div></span>
+          <span class="cl-chg">client 1.1.1 (code 39): report ota_supported from ro.build.ab_update<div class="cl-meta">mdm-client.apk</div></span>
+          <span class="cl-meta">22 Sep 15:52</span>
+          <span><span class="cl-tag unk">previous</span></span>
+          <span class="cl-acts"><button class="cl-kebab">⋯</button></span>
+        </div>
+      </div>
+      <div class="cl-empty" style="margin-top:10px">Menu contents: <b>Download APK</b> · <b>Copy SHA-256</b> · <b>Roll back to this build</b></div>
+    </div>
+    <div class="dm-note">
+      <div><b>Good at</b> Quietest row; room for more actions later (copy digest, copy install command) without redesigning.</div>
+      <div><b>Bad at</b> Hides a feature nobody knows exists yet. Needs menu JS the Clients page does not have.</div>
+    </div>
+  </section>
+
+  <hr class="dm-rule">
+  <p class="dm-lede" style="margin-top:22px">
+    <b>My pick: B + E.</b> B because the Clients page exists to answer "what do I need to push,
+    and to what?" — grouping puts the 9 actionable devices first and gives the other 27 a reason
+    instead of a greyed-out button; the 14-day fold is what keeps a list that only grows from
+    becoming unreadable. E because rollback is new and worth showing plainly: the first time
+    anyone needs it will be during an incident, which is the worst moment to go looking in a
+    menu. C is a good companion to B later — chips and search are additive — but on its own it
+    leaves the default view exactly as crowded as it is now.
+  </p>
+
+</div>
+</body>
+</html>
