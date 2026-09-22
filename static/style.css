@@ -5752,9 +5752,12 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
    (This was 1024px, which hid them on ordinary laptop windows — the width where
    they are most wanted.) */
 .dock .nav-link.js-freq {
-  padding: 10px 12px; font-size: 12.5px; font-weight: var(--fw-semibold);
-  color: var(--text-faint); max-width: 140px;
+  padding: 10px 13px; gap: 7px; font-size: 12.5px; font-weight: var(--fw-semibold);
+  color: var(--text-faint); max-width: 156px;
 }
+/* A shade smaller than the four fixed links' 17px — same reason as the type:
+   these are a shortcut, not a promotion to the same rank. */
+.dock .nav-link.js-freq .ui-icon, .dock .nav-link.js-freq .ui-icon svg { width: 15px; height: 15px; }
 .dock .nav-link.js-freq .dock-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dock .nav-link.js-freq:hover { background: var(--surface2); color: var(--text); }
 .dock .nav-link.js-freq.active { background: var(--accent-soft); color: var(--accent-text); }

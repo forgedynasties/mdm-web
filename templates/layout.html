@@ -479,46 +479,46 @@
 
       <div class="nav-dir-sec">
         <div class="t">Fleet</div>
-        <a class="js-dest{{if eq .ActivePath "/devices"}} on{{end}}" href="/devices" data-cmdk-sec="Fleet" data-cmdk-label="Devices">Devices</a>
-        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>
-        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
-        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
-        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
-        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
+        <a class="js-dest{{if eq .ActivePath "/devices"}} on{{end}}" href="/devices" data-ic="grid" data-cmdk-sec="Fleet" data-cmdk-label="Devices">Devices</a>
+        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-ic="building" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>
+        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
+        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
+        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
+        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Deploy</div>
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-cmdk-sec="Deploy" data-cmdk-label="Updates">Updates</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-cmdk-sec="Deploy" data-cmdk-label="Releases">Releases</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-cmdk-sec="Deploy" data-cmdk-label="Clients">Clients</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-cmdk-sec="Deploy" data-cmdk-label="Packages">Packages</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-cmdk-sec="Deploy" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-ic="download" data-cmdk-sec="Deploy" data-cmdk-label="Updates">Updates</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Deploy" data-cmdk-label="Releases">Releases</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="phone" data-cmdk-sec="Deploy" data-cmdk-label="Clients">Clients</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-ic="layers" data-cmdk-sec="Deploy" data-cmdk-label="Packages">Packages</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-ic="image" data-cmdk-sec="Deploy" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Control</div>
-        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
-        {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-cmdk-sec="Control" data-cmdk-label="Policies">Policies</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-cmdk-sec="Control" data-cmdk-label="Update policy">Update policy</a>
-        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-cmdk-sec="Control" data-cmdk-label="Compliance">Compliance</a>
-        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-cmdk-sec="Control" data-cmdk-label="Geofencing">Geofencing</a>
-        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-cmdk-sec="Control" data-cmdk-label="Network">Network</a>
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-cmdk-sec="Control" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
+        {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="grid" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Policies">Policies</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Update policy">Update policy</a>
+        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance">Compliance</a>
+        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-ic="pin" data-cmdk-sec="Control" data-cmdk-label="Geofencing">Geofencing</a>
+        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-ic="wifi" data-cmdk-sec="Control" data-cmdk-label="Network">Network</a>
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-ic="sliders" data-cmdk-sec="Control" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Admin</div>
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-cmdk-sec="Admin" data-cmdk-label="Users">Users</a>{{end}}
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-cmdk-sec="Admin" data-cmdk-label="Access rules">Access rules</a>{{end}}
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-cmdk-sec="Admin" data-cmdk-label="Activity log">Activity log</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-cmdk-sec="Admin" data-cmdk-label="Products">Products</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-cmdk-sec="Admin" data-cmdk-label="Server">Server</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-cmdk-sec="Admin" data-cmdk-label="Settings">Settings</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-cmdk-sec="Admin" data-cmdk-label="Setup">Setup</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-cmdk-sec="Admin" data-cmdk-label="Export">Export</a>
-        <a class="js-dest" href="/reports/alerts-by-restaurant" data-cmdk-sec="Admin" data-cmdk-label="Alert report">Alert report</a>
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="Admin" data-cmdk-label="Users">Users</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="Admin" data-cmdk-label="Access rules">Access rules</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="Admin" data-cmdk-label="Activity log">Activity log</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-ic="monitor" data-cmdk-sec="Admin" data-cmdk-label="Products">Products</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="Admin" data-cmdk-label="Server">Server</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-ic="gear" data-cmdk-sec="Admin" data-cmdk-label="Settings">Settings</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-ic="sliders" data-cmdk-sec="Admin" data-cmdk-label="Setup">Setup</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-ic="download" data-cmdk-sec="Admin" data-cmdk-label="Export">Export</a>
+        <a class="js-dest" href="/reports/alerts-by-restaurant" data-ic="bell" data-cmdk-sec="Admin" data-cmdk-label="Alert report">Alert report</a>
       </div>
 
     </div>
@@ -696,6 +696,42 @@
     // place twice. And the label and href are resolved through #page-index —
     // which carries the server's role guards — so a path this role cannot open
     // renders nothing, whatever the history says.
+    // ── Icons for the injected dock links ─────────────────────────────────────
+    // The page index is text-only (it was never meant to be seen), so the links
+    // this file injects into the dock — the three shortcuts and the promoted
+    // admin page — have no icon to clone. Each index entry carries a data-ic key
+    // instead, and the shapes live here once rather than as 28 inline SVGs in
+    // markup that ships on every request.
+    var DOCK_ICONS = {
+      grid:     '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      building: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M10 21v-6h4v6"/>',
+      layers:   '<path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+      pin:      '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+      pulse:    '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+      phone:    '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10.5 18.5h3"/>',
+      download: '<path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/>',
+      tag:      '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.4"/>',
+      image:    '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-4-4 3"/>',
+      clock:    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      lock:     '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+      shield:   '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+      wifi:     '<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M12 19.5h.01"/>',
+      sliders:  '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/>',
+      users:    '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
+      monitor:  '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+      server:   '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/>',
+      gear:     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8z"/>',
+      bell:     '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'
+    };
+    // The generic fallback is a plain page, so a new index entry that forgets its
+    // data-ic still renders something rather than a bare label in an icon dock.
+    DOCK_ICONS._ = '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h4"/>';
+    function dockIcon(src) {
+      var d = DOCK_ICONS[src.getAttribute('data-ic')] || DOCK_ICONS._;
+      return '<span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg></span>';
+    }
+
     var FREQ_PATHS = (function () {
       try { return JSON.parse(document.getElementById('dock-frequent').textContent) || []; }
       catch (e) { return []; }
@@ -729,7 +765,7 @@
         var label = (src.getAttribute('data-cmdk-label') || src.textContent).trim();
         a.setAttribute('data-cmdk-label', label);
         a.title = label + ' — one of your most-visited pages';
-        a.innerHTML = '<span class="dock-lbl">' + label + '</span>';
+        a.innerHTML = dockIcon(src) + '<span class="dock-lbl">' + label + '</span>';
         dock.insertBefore(a, more || null);
         if (window.htmx) htmx.process(a);
       });
@@ -762,8 +798,9 @@
           var clone = hit.cloneNode(true);
           clone.className = 'nav-link js-dest js-promoted active';
           // Index entries are text-only (they were never meant to be seen), so
-          // wrap the label the way a real dock link carries one.
-          clone.innerHTML = '<span class="dock-lbl">' + (hit.getAttribute('data-cmdk-label') || hit.textContent).trim() + '</span>';
+          // rebuild the link the way a real dock entry is built: icon + label.
+          clone.innerHTML = dockIcon(hit) +
+            '<span class="dock-lbl">' + (hit.getAttribute('data-cmdk-label') || hit.textContent).trim() + '</span>';
           clone.setAttribute('data-cmdk-label', hit.getAttribute('data-cmdk-label') || '');
           var more = document.getElementById('dock-more');
           dock.insertBefore(clone, more || null);
