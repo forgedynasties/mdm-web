@@ -5741,6 +5741,27 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 /* The dock's "More" opens the command palette (pages mode), not a menu. */
 .dock .nav-link.js-more { background: none; border: 0; font: inherit; cursor: pointer; }
 
+/* ── Your three ────────────────────────────────────────────────────────────────
+   The three pages this browser opens most, injected before More (syncFrequent in
+   layout.html). They are deliberately quieter than the four fixed links: no icon,
+   smaller text, and a hairline separating "what everyone gets" from "what you
+   built up". They are a shortcut, not a promotion to the same rank.
+
+   Hidden below 1024px. The dock is centre-floating and already drops its labels
+   at 719px; seven links plus More does not fit a tablet, and the palette is one
+   tap away on those widths anyway. */
+.dock .nav-link.js-freq {
+  padding: 10px 12px; font-size: 12.5px; font-weight: var(--fw-semibold);
+  color: var(--text-faint); max-width: 140px;
+}
+.dock .nav-link.js-freq .dock-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock .nav-link.js-freq:hover { background: var(--surface2); color: var(--text); }
+.dock .nav-link.js-freq.active { background: var(--accent-soft); color: var(--accent-text); }
+/* One hairline before the run, not between each (the class is set in JS — the
+   run is not the first child of the dock, so :first-of-type cannot find it). */
+.dock .nav-link.js-freq.js-freq-first { box-shadow: -1px 0 0 var(--border); margin-left: 5px; padding-left: 15px; }
+@media (max-width: 1024px) { .dock .nav-link.js-freq { display: none; } }
+
 /* ── "More" ────────────────────────────────────────────────────────────────────
    More does not open a menu. It opens the command palette in pages mode — the
    same object ⌘K opens, scoped to navigation.

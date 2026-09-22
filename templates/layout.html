@@ -633,6 +633,66 @@
     });
   })();
 
+  // ── Where this browser has been ──────────────────────────────────────────────
+  // One store, two readers: the palette's empty state wants the most RECENT pages,
+  // the dock wants the most FREQUENT ones. Both are per-browser and never leave it
+  // — this is a navigation convenience, not analytics, and it is deliberately not
+  // sent to the server or tied to the account.
+  //
+  // It lives here, before the dock sync below, because that runs immediately on
+  // parse and needs mdmTopPages; the palette (further down the document) reads the
+  // same store at open time.
+  (function () {
+    var RECENT_KEY = 'mdm-recent-pages', FREQ_KEY = 'mdm-page-freq';
+    // A page has to be visited this many times before it can claim a dock slot.
+    // Without a floor the dock reshuffles on someone's first afternoon, which is
+    // worse than not personalising at all: the one thing navigation must be is
+    // predictable.
+    var FREQ_MIN = 3;
+    function read(k, dflt) {
+      try { return JSON.parse(localStorage.getItem(k) || dflt) || JSON.parse(dflt); }
+      catch (e) { return JSON.parse(dflt); }
+    }
+    window.mdmRecentPages = function () { return read(RECENT_KEY, '[]'); };
+
+    window.mdmNoteVisit = function (url, label) {
+      if (!url || url === '/') return;
+      try {
+        var list = window.mdmRecentPages().filter(function (r) { return r.url !== url; });
+        list.unshift({ url: url, label: label });
+        localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
+
+        var freq = read(FREQ_KEY, '{}');
+        freq[url] = (freq[url] || 0) + 1;
+        // Halve every count when the busiest page gets far enough ahead. This is a
+        // cheap decay: without it the dock would be frozen by whatever someone did
+        // in their first month, and a job change would never show up in it.
+        if (freq[url] >= 200) {
+          Object.keys(freq).forEach(function (k) {
+            freq[k] = Math.floor(freq[k] / 2);
+            if (freq[k] < 1) delete freq[k];
+          });
+        }
+        localStorage.setItem(FREQ_KEY, JSON.stringify(freq));
+      } catch (e) {}
+    };
+
+    // The n most-visited URLs, busiest first, skipping anything in `exclude`
+    // (the dock's own fixed links) and anything below the floor.
+    window.mdmTopPages = function (n, exclude) {
+      var freq = read(FREQ_KEY, '{}'), skip = {};
+      (exclude || []).forEach(function (u) { skip[u] = true; });
+      return Object.keys(freq)
+        .filter(function (u) { return !skip[u] && freq[u] >= FREQ_MIN; })
+        .sort(function (a, b) { return freq[b] - freq[a] || (a < b ? -1 : 1); })
+        .slice(0, n);
+    };
+
+    // A full page load never reaches the boosted-navigation handler that records
+    // visits, so record this one here.
+    window.mdmNoteVisit(location.pathname, (document.title || '').split(' \u2014 ')[0].trim());
+  })();
+
   // The dock is outside <main>, and a boosted navigation only swaps <main> — so
   // nothing re-renders it and its active state (and the admin entry promoted out of
   // More) stayed on whatever the last full page load produced. Re-derive both from the
@@ -652,6 +712,46 @@
       }
       return false;
     }
+    // ── Your three ────────────────────────────────────────────────────────────
+    // The dock's four are the four everyone needs. These are the three THIS
+    // browser actually keeps opening, pulled from the visit counts above and
+    // rendered just before More.
+    //
+    // Three constraints make it stay predictable rather than becoming a slot
+    // machine: a page must clear FREQ_MIN visits before it can appear; the four
+    // fixed destinations are excluded so nothing is ever duplicated; and the
+    // label and href come from #page-index, so a page the viewer's role cannot
+    // open can never be rendered even if it is sitting in their local counts.
+    var FIXED = ['/', '/devices', '/commands', '/alerts'];
+    function syncFrequent(dock, path) {
+      dock.querySelectorAll('.js-freq').forEach(function (el) { el.remove(); });
+      if (!window.mdmTopPages) return;
+      var index = document.getElementById('page-index');
+      if (!index) return;
+      var byUrl = {};
+      index.querySelectorAll('a[href]').forEach(function (a) { byUrl[a.getAttribute('href')] = a; });
+      // Exclude the page already promoted into the dock for the current route,
+      // or it would appear twice.
+      var promoted = dock.querySelector('.js-promoted');
+      var exclude = FIXED.concat(promoted ? [promoted.getAttribute('href')] : []);
+      var more = document.getElementById('dock-more'), first = true;
+      window.mdmTopPages(3, exclude).forEach(function (url) {
+        var src = byUrl[url];
+        if (!src) return;                       // not reachable by this role
+        var a = document.createElement('a');
+        a.className = 'nav-link js-dest js-freq' + (first ? ' js-freq-first' : '')
+          + (owns(url, path) ? ' active' : '');
+        first = false;
+        a.href = url;
+        var label = (src.getAttribute('data-cmdk-label') || src.textContent).trim();
+        a.setAttribute('data-cmdk-label', label);
+        a.title = label + ' — one of your most-visited pages';
+        a.innerHTML = '<span class="dock-lbl">' + label + '</span>';
+        dock.insertBefore(a, more || null);
+        if (window.htmx) htmx.process(a);
+      });
+    }
+
     function syncNav() {
       var path = location.pathname;
       var dock = document.querySelector('nav.dock');
@@ -691,6 +791,10 @@
         if (a.classList.contains('js-promoted')) return;
         a.classList.toggle('active', owns(a.getAttribute('href'), path));
       });
+      // After the promotion, so the two can never render the same destination.
+      // Guarded: localStorage throws outright in some privacy modes, and a dock
+      // convenience must never be able to break the dock.
+      try { syncFrequent(dock, path); } catch (e) {}
     }
     document.addEventListener('htmx:afterSettle', syncNav);
     window.addEventListener('popstate', syncNav);
@@ -2072,31 +2176,11 @@
       });
     }
 
-    // ── Recently visited pages ────────────────────────────────────────────────
-    // The empty palette is a guess about where you are going; the best available
-    // guess is where you have been. Kept per browser, newest first, capped at six.
-    var RECENT_KEY = 'mdm-recent-pages';
-    function recentPages() {
-      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch (e) { return []; }
-    }
-    window.mdmNoteVisit = function (url, label) {
-      if (!url || url === '/' ) return;
-      try {
-        var list = recentPages().filter(function (r) { return r.url !== url; });
-        list.unshift({ url: url, label: label });
-        localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
-      } catch (e) {}
-    }
-    // A full page load (not a boosted swap) never reaches the route handler that
-    // records visits, so record this one here.
-    try {
-      window.mdmNoteVisit(location.pathname, (document.title || '').split(' \u2014 ')[0].trim());
-    } catch (e) {}
     // Resolve stored URLs back to live index entries, so a page the viewer's role
     // can no longer reach silently drops out of their recents.
     function recentDests() {
       var byUrl = {}; dests.forEach(function (d) { byUrl[d.url] = d; });
-      return recentPages().map(function (r) { return byUrl[r.url]; })
+      return (window.mdmRecentPages ? window.mdmRecentPages() : []).map(function (r) { return byUrl[r.url]; })
         .filter(function (d) { return d && d.url !== location.pathname; });
     }
 
