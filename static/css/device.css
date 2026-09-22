@@ -432,17 +432,36 @@
 /* Half the width it was: four short values and a timestamp never needed 190px, and the
    plot is the thing worth the room. */
 .chart-readout{width:96px;flex:none;border-left:1px solid var(--border);padding:12px 10px;}
+/* ── Fixed geometry ───────────────────────────────────────────────────────────
+   Nothing in this column may change height while the pointer moves. It is 96px
+   wide, so every variable-length string in it rewraps as you drag along the
+   plot, and the rows below jump. Three things vary:
+
+     cr-when   the timestamp, plus an optional "±2m" tolerance and an optional
+               "· <marker>" when the pointer is near a build/alert marker — one,
+               two or three lines depending on where you are. Two are reserved
+               (the normal maximum); a marker name past that clips rather than
+               pushing the rows below it down.
+     cr-note   "" / "charging" / "not charging" — zero, one or two lines
+     .v        "9 %" and "100 %" are not the same width at 14.5px
+
+   Each gets a reserved box sized for its worst case, so the panel's height is a
+   constant and only the text inside it changes. */
 .chart-readout .cr-when{font-size:11px;font-weight:500;color:var(--text-faint);
-  font-variant-numeric:tabular-nums;margin-bottom:12px;line-height:1.45;}
+  font-variant-numeric:tabular-nums;margin-bottom:12px;line-height:1.45;
+  height:calc(2 * 1.45em);overflow:hidden;}
 .chart-readout .cr-row{display:flex;align-items:flex-start;gap:7px;margin-bottom:12px;}
 .chart-readout .cr-ic{width:15px;height:15px;flex:none;color:var(--text-faint);opacity:.85;margin-top:3px;}
 .chart-readout .cr-txt{min-width:0;}
 .chart-readout .cr-row .k{display:block;font-size:10.5px;font-weight:600;letter-spacing:.02em;
   color:var(--text-faint);line-height:1.3;}
 .chart-readout .cr-row .v{font-size:14.5px;font-weight:500;letter-spacing:-.01em;
-  font-variant-numeric:tabular-nums;}
+  font-variant-numeric:tabular-nums;white-space:nowrap;}
 .chart-readout .cr-row .v small{font-size:11px;color:var(--text-faint);font-weight:500;margin-left:2px;}
-.chart-readout .cr-note{display:block;font-size:11px;color:var(--text-faint);font-weight:500;line-height:1.4;}
+/* Two lines reserved: "not charging" wraps at this width, and the row must not
+   shrink back when the note is empty. */
+.chart-readout .cr-note{display:block;font-size:11px;color:var(--text-faint);font-weight:500;line-height:1.4;
+  height:calc(2 * 1.4em);overflow:hidden;}
 .chart-readout .cr-cyc{margin-top:15px;padding-top:12px;border-top:1px solid var(--border-soft);}
 .chart-readout .cr-cyc .v{font-size:15px;}
 .wlabel-hint{font-size:11.5px;color:var(--text-faint);}
@@ -450,8 +469,11 @@
   .chart-split{flex-direction:column;}
   .chart-readout{width:auto;border-left:0;border-top:1px solid var(--border);
     display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;padding:10px 14px;}
-  .chart-readout .cr-when{margin:0;width:100%;}
+  .chart-readout .cr-when{margin:0;width:100%;height:auto;overflow:visible;}
   .chart-readout .cr-row{margin:0;}
+  /* Stacked, the panel is a wrapping row with room to spare — nothing rewraps as
+     the pointer moves, so the reserved boxes above are just dead space here. */
+  .chart-readout .cr-note{height:auto;overflow:visible;}
   .chart-readout .cr-cyc{margin:0;padding:0;border:0;}
 }
 
