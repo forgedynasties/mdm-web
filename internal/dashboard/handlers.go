@@ -2027,15 +2027,13 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	role := h.role(r)
 	data["Role"] = role
 	// Fleet cards layout the viewer picked (Layout toggle on the fleet page). One cookie
-	// holds the choice and the card list switches on it. An unknown value — an older
-	// cookie, or a hand-edited one — falls back to the new cards rather than rendering
-	// nothing, so ClassicCards stays a bool for the switch and intro that predate this.
-	layout := "new"
-	if c, err := r.Cookie("fleet_layout"); err == nil {
-		switch c.Value {
-		case "classic", "serial", "table":
-			layout = c.Value
-		}
+	// holds the choice and the card list switches on it. Two layouts remain: the
+	// serial-led cards (shown as "New") and the classic ones. Anything else — the
+	// retired "new" and "table" values still sitting in year-old cookies, or a
+	// hand-edited one — falls through to serial rather than rendering nothing.
+	layout := "serial"
+	if c, err := r.Cookie("fleet_layout"); err == nil && c.Value == "classic" {
+		layout = "classic"
 	}
 	data["FleetLayout"] = layout
 	data["ClassicCards"] = layout == "classic"

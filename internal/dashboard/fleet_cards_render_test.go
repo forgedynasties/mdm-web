@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// The four fleet layouts are chosen by a cookie and rendered server-side, so a bad call
+// The two fleet layouts are chosen by a cookie and rendered server-side, so a bad call
 // inside one of them fails at render time — after the deploy, on a page someone is
 // looking at. This renders every layout with a synthetic device and asserts the parts
 // that are the whole point of the serial layouts.
@@ -68,7 +68,9 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 		LatestExtra:  json.RawMessage(`{}`),
 	}
 
-	for _, layout := range []string{"classic", "new", "serial", "table"} {
+	// Anything that is not "classic" renders the serial cards, including the retired
+	// "new" and "table" values still sitting in older cookies.
+	for _, layout := range []string{"classic", "serial", "new", "table"} {
 		var buf bytes.Buffer
 		data := map[string]any{
 			"Devices":            []db.Device{dev},
@@ -84,14 +86,14 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 		if !strings.Contains(out, "AT070AABU00281") {
 			t.Errorf("layout %q did not render the serial", layout)
 		}
-		// The two serial layouts exist to make the number takeable, so the copy control
-		// is not decoration — its absence is the feature missing.
-		if layout == "serial" || layout == "table" {
+		// The serial cards exist to make the number takeable, so the copy control is
+		// not decoration — its absence is the feature missing.
+		if layout != "classic" {
 			if !strings.Contains(out, `class="dl-copy"`) {
 				t.Errorf("layout %q renders no copy control", layout)
 			}
 		}
-		if layout == "serial" {
+		if layout != "classic" {
 			// The tail is the last three characters: the split rule is shared with the
 			// browser demo, and a hardware serial of this shape keeps its batch letter.
 			if !strings.Contains(out, `<span class="tail">281</span>`) {
