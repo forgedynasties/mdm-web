@@ -737,7 +737,7 @@
       catch (e) { return []; }
     })();
     function syncFrequent(dock, path) {
-      dock.querySelectorAll('.js-freq').forEach(function (el) { el.remove(); });
+      dock.querySelectorAll('.js-freq, .dock-sep').forEach(function (el) { el.remove(); });
       if (!FREQ_PATHS.length) return;
       var index = document.getElementById('page-index');
       if (!index) return;
@@ -757,10 +757,15 @@
         var src = byUrl[url];
         if (!src) return;
         shown++;
+        if (first) {
+          var sep = document.createElement('span');
+          sep.className = 'dock-sep';
+          sep.setAttribute('aria-hidden', 'true');
+          dock.insertBefore(sep, more || null);
+          first = false;
+        }
         var a = document.createElement('a');
-        a.className = 'nav-link js-dest js-freq' + (first ? ' js-freq-first' : '')
-          + (owns(url, path) ? ' active' : '');
-        first = false;
+        a.className = 'nav-link js-dest js-freq' + (owns(url, path) ? ' active' : '');
         a.href = url;
         var label = (src.getAttribute('data-cmdk-label') || src.textContent).trim();
         a.setAttribute('data-cmdk-label', label);

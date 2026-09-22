@@ -5751,20 +5751,32 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
    719px; eight items do not fit a phone, and the palette is one tap away there.
    (This was 1024px, which hid them on ordinary laptop windows — the width where
    they are most wanted.) */
+/* flex:none and nowrap: the dock is a flex row, and with eight items these were
+   the ones that shrank — "Users" rendered as "Use…". A shortcut whose name is cut
+   off is not a shortcut, so they always take their full width and the dock gets
+   wider instead. When there is no room for that, they are hidden entirely (below). */
 .dock .nav-link.js-freq {
+  flex: none; white-space: nowrap;
   padding: 10px 13px; gap: 7px; font-size: 12.5px; font-weight: var(--fw-semibold);
-  color: var(--text-faint); max-width: 156px;
+  color: var(--text-faint);
 }
 /* A shade smaller than the four fixed links' 17px — same reason as the type:
    these are a shortcut, not a promotion to the same rank. */
 .dock .nav-link.js-freq .ui-icon, .dock .nav-link.js-freq .ui-icon svg { width: 15px; height: 15px; }
-.dock .nav-link.js-freq .dock-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dock .nav-link.js-freq:hover { background: var(--surface2); color: var(--text); }
 .dock .nav-link.js-freq.active { background: var(--accent-soft); color: var(--accent-text); }
-/* One hairline before the run, not between each (the class is set in JS — the
-   run is not the first child of the dock, so :first-of-type cannot find it). */
-.dock .nav-link.js-freq.js-freq-first { box-shadow: -1px 0 0 var(--border); margin-left: 5px; padding-left: 15px; }
-@media (max-width: 860px) { .dock .nav-link.js-freq { display: none; } }
+
+/* One divider before the run, marking "what everyone gets" from "what you built
+   up". It is its own element rather than a box-shadow on the first link: a shadow
+   follows that link's 11px border-radius and drew a curved edge that read as a
+   box around the group. */
+.dock .dock-sep { flex: none; width: 1px; align-self: stretch; margin: 5px 5px; background: var(--border); }
+
+/* Eight items with full labels need roughly 900px. Below that the dock would
+   either overflow or start truncating again, and the palette is a click away. */
+@media (max-width: 1000px) {
+  .dock .nav-link.js-freq, .dock .dock-sep { display: none; }
+}
 
 /* ── "More" ────────────────────────────────────────────────────────────────────
    More does not open a menu. It opens the command palette in pages mode — the
