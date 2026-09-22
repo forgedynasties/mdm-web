@@ -885,7 +885,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .ShowBattery}}
     <div class="cr-row cr-cyc">
       <svg class="cr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v5h-5"/></svg>
-      <span class="cr-txt"><span class="k" title="A cycle = charged to 95% or more, then run down to 10% or less. Counted from the start of the window up to the point you are hovering; at rest, the whole window. A cycle counts when its discharge lands in the window, even if it charged before the window opened.">Cycles to here</span><span class="v" id="cr-cycles">—</span></span>
+      <span class="cr-txt"><span class="k" title="Lifetime battery wear as of the point you are hovering: total percent discharged ÷ 100, the same measure as the Battery cycles figure in About. Rolled up per day, so it steps rather than sliding. Devices with no rolled-up history yet fall back to counting full 95%→10% cycles inside the window.">Cycles to here</span><span class="v" id="cr-cycles">—</span></span>
     </div>
     {{end}}
   </aside>
@@ -996,6 +996,10 @@ function mdmBootCharts() {
   // server-side from every check-in before the battery series is thinned, so a charger
   // flip is placed where it happened. c is null where the device sent no "charging".
   let allCharge = {{if and .ShowBattery .Device.HasCharging}}{{.ChartCharge}} || []{{else}}[]{{end}};
+  // Lifetime battery wear by day, for the "Cycles to here" readout. See
+  // DeviceDischargeSeries: it is the series behind the Battery cycles card, so the two
+  // finally answer the same question.
+  const CYCLE_SERIES_RAW = {{.CycleSeries}};
   let allBattery = [{{if .ShowBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
   {{/* Temp/RAM stay out of the initial page HTML unless the visit is a deep link
        to that metric (?focus=temp/ram, which needs the data immediately to find
@@ -1547,7 +1551,31 @@ function mdmBootCharts() {
   // left blank, the same place the battery line breaks.
   const CHARGE_STRIP_H = 6, CHARGE_STRIP_GAP = 5;
   const CHARGE_ON = '#00b894', CHARGE_OFF = 'rgba(122,127,154,0.22)';
-  function chargeSpans(runs) {
+  // Sub-minute flips are the charger's noise, not the device's behaviour: a pad losing
+  // contact for one check-in, or a charger negotiating. Drawn literally they slice the
+  // strip into slivers that read as a fault. Runs shorter than this are absorbed into
+  // whatever surrounds them; anything a person would call an event survives.
+  const CHARGE_NOISE_MS = 120000;
+  function despeckleCharge(runs) {
+    if (runs.length < 3) return runs;
+    const out = [runs[0]];
+    for (let i = 1; i < runs.length; i++) {
+      const r = runs[i], prev = out[out.length - 1], next = runs[i + 1];
+      const brief = r.to - r.from < CHARGE_NOISE_MS;
+      // Only absorbed when both neighbours agree with each other — a short run between
+      // two different states is a real transition, and flattening it would invent one.
+      if (brief && next && prev.c === next.c && r.c !== prev.c) {
+        prev.to = next.to;
+        i++; // the neighbour just got merged in
+        continue;
+      }
+      if (prev.c === r.c) { prev.to = r.to; continue; }
+      out.push({ from: r.from, to: r.to, c: r.c });
+    }
+    return out;
+  }
+  function chargeSpans(rawRuns) {
+    const runs = despeckleCharge(rawRuns);
     const out = [];
     for (let i = 0; i < runs.length; i++) {
       const r = runs[i], prev = runs[i - 1], next = runs[i + 1];
@@ -1760,10 +1788,27 @@ function mdmBootCharts() {
     return n;
   }
 
-  // The same walk, stopped at the point under the pointer: how many cycles had
-  // completed by the moment being hovered. Counting to a point rather than shading the
-  // spans keeps the plot itself clean — the bands tinted most of a week's background
-  // and made the battery line harder to read than the thing they were annotating.
+  // Lifetime wear by day: [[epochMs, cumulativeDischargePct], …]. This is the series
+  // behind the "Battery cycles" card (discharge ÷ 100), so the graph and the card
+  // finally answer the same question. Empty when the device has no rolled-up days yet.
+  var CYCLE_SERIES = Array.isArray(CYCLE_SERIES_RAW) ? CYCLE_SERIES_RAW : [];
+
+  // Cycles this pack had done by the hovered moment. A step lookup, not an
+  // interpolation: the underlying number is a day's total, and pretending to know where
+  // inside the day it landed would be invention.
+  function lifetimeCyclesAt(ms) {
+    if (!CYCLE_SERIES.length || ms == null) return null;
+    if (ms < CYCLE_SERIES[0][0]) return 0;
+    var lo = 0, hi = CYCLE_SERIES.length - 1, best = 0;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (CYCLE_SERIES[mid][0] <= ms) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    return CYCLE_SERIES[best][1] / 100;
+  }
+
+  // The window-local fallback: completed 95%→10% excursions up to the hovered point,
+  // used only when there is no rolled-up wear history to read.
   function cyclesUpTo(arr, carry, ms) {
     if (!arr || !arr.length) return 0;
     if (ms == null) return cyclesIn(arr, carry);
@@ -1847,23 +1892,24 @@ function mdmBootCharts() {
     if (bPt && bPt.y != null) setReadout('cr-batt', String(bPt.y), '%'); else setReadout('cr-batt', '—');
     if (tPt && tPt.y != null) setReadout('cr-temp', tPt.y.toFixed(1), '°C'); else setReadout('cr-temp', '—');
     if (rPt && rPt.y != null) setReadout('cr-ram', rPt.y.toFixed(1), '%'); else setReadout('cr-ram', '—');
+    // Charging only. The pad state (placed / vacant / misplaced) is already the colour
+    // of the battery line and the strip underneath it; repeating it here spent the
+    // panel's narrowest line on something the plot says better.
     let note = '';
-    if (bPt) {
-      if (bPt.wlc === 1) note = '⚡ on the pad';
-      else if (bPt.wlc === 2) note = '⚠ pad misplaced';
-      else if (bPt.wlc === 0) note = 'pad vacant';
-      if (srcCharge().length) {
-        const c = chargeAt(anchor ? anchor.x : ms);
-        if (c === true) note = note ? note + ' · charging' : 'charging';
-        else if (c === false) note = note ? note + ' · not charging' : 'not charging';
-      }
+    if (bPt && srcCharge().length) {
+      const c = chargeAt(anchor ? anchor.x : ms);
+      if (c === true) note = 'charging';
+      else if (c === false) note = 'not charging';
     }
     setReadout('cr-charge', note);
-    // Cycles counted from the start of the window up to the point under the pointer,
-    // so dragging along the line reads out how the count accumulated rather than
-    // repeating one total for the whole window. At rest the pointer is the newest
-    // reading, which makes the resting value the full-window count it always was.
-    setReadout('cr-cycles', String(cyclesUpTo(batt, cycleAnchor(), anchor ? anchor.x : ms)));
+    // Cycles this pack had done by the hovered moment, counted from the start of its
+    // life — the number the "Battery cycles" card shows, so dragging the pointer along
+    // the line walks up towards it instead of reporting a window-local count that reads
+    // 0 on a pack with fourteen cycles behind it.
+    var at = anchor ? anchor.x : ms;
+    var life = lifetimeCyclesAt(at);
+    if (life != null) setReadout('cr-cycles', life.toFixed(1));
+    else setReadout('cr-cycles', String(cyclesUpTo(batt, cycleAnchor(), at)));
   }
 
   function setHoverInfo(data) { /* replaced by updateReadout */ }

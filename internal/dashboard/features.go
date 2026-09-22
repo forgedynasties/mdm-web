@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"math"
@@ -1686,19 +1687,19 @@ var clientSlotLabels = map[string]string{
 // pill opens — every client with its hosted version plus this client's changelog.
 // One pill in one place for firmware, DPC and Lite alike.
 type ClientPillView struct {
-	Kind      string // "MDM Firmware" | "MDM DPC" | "MDM Lite"
-	Title     string // the tooltip the old tag carried
-	Version   string // what the device reports ("" = it has never said)
+	Kind    string // "MDM Firmware" | "MDM DPC" | "MDM Lite"
+	Title   string // the tooltip the old tag carried
+	Version string // what the device reports ("" = it has never said)
 	// Set when the device reported the framework's version rather than its own; the
 	// pill shows the reason instead of the number.
 	Misreported bool
-	Slot      string
-	SlotLabel string
-	Hosted    bool // a build is hosted for this slot at all
-	Latest    string
-	Behind    bool
-	Clients   []ClientPillRow
-	Changelog []config.AgentAPKBuild
+	Slot        string
+	SlotLabel   string
+	Hosted      bool // a build is hosted for this slot at all
+	Latest      string
+	Behind      bool
+	Clients     []ClientPillRow
+	Changelog   []config.AgentAPKBuild
 }
 
 // ClientPillRow is one client in the pill's popover.
@@ -1774,11 +1775,11 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	const firmwareLabel = "Firmware client"
 	const firmwareNote = "The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant."
 	notes := map[string]string{
-		"dpc":                   "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
-		"firmware-qcom":         "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build.",
-		"firmware-gms":          "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's.",
-		"menu-board":            "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
-		"lite-demo":             "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
+		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
+		"firmware-qcom": "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build.",
+		"firmware-gms":  "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's.",
+		"menu-board":    "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
+		"lite-demo":     "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
 	}
 
 	views := map[string]*ClientSlotView{}
@@ -2012,11 +2013,11 @@ const agentAPKRoute = "/agent/" + agentAPKFile
 // builds. A device is only ever offered the slot matching the key it already trusts,
 // because Android rejects anything else.
 var AgentAPKSlots = map[string]string{
-	"dpc":                   agentAPKFile,
-	"firmware-qcom":         "aio-mdm-firmware-qcom.apk",
-	"firmware-gms":          "aio-mdm-firmware-gms.apk",
-	"lite-demo":             "aio-mdm-lite-demo.apk",
-	"menu-board":            "aio-menu-board.apk",
+	"dpc":           agentAPKFile,
+	"firmware-qcom": "aio-mdm-firmware-qcom.apk",
+	"firmware-gms":  "aio-mdm-firmware-gms.apk",
+	"lite-demo":     "aio-mdm-lite-demo.apk",
+	"menu-board":    "aio-menu-board.apk",
 }
 
 // firmwareSlotFor picks which firmware client a device can install. The key that signs
@@ -2591,4 +2592,24 @@ func deviceCustodyOrEmpty(c db.Custody, err error) db.Custody {
 		return db.Custody{}
 	}
 	return c
+}
+
+// dischargeSeriesJSON renders the lifetime-wear series for the device page. An error
+// yields an empty array rather than failing the page: the graph falls back to counting
+// the excursions it can see, which is what it did before this existed.
+func dischargeSeriesJSON(pts []db.DischargePoint, err error) template.JS {
+	if err != nil || len(pts) == 0 {
+		return template.JS("[]")
+	}
+	// [[epochMillis, cumulativePercent], …] — two numbers a day keeps a year of
+	// history well under the size of one chart frame.
+	out := make([][2]int64, 0, len(pts))
+	for _, p := range pts {
+		out = append(out, [2]int64{p.Day.UnixMilli(), p.Cum})
+	}
+	b, jerr := json.Marshal(out)
+	if jerr != nil {
+		return template.JS("[]")
+	}
+	return template.JS(b)
 }

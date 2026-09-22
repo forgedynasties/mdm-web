@@ -410,3 +410,43 @@ func (d *DB) ServerPGStats(ctx context.Context) (PGStats, error) {
 	}
 	return s, rows.Err()
 }
+
+// DischargePoint is one day's cumulative battery wear for a device: how many percent of
+// pack capacity it had discharged, in total, by the end of that day.
+type DischargePoint struct {
+	Day time.Time `json:"d"`
+	Cum int64     `json:"c"`
+}
+
+// DeviceDischargeSeries is lifetime wear over time, so the battery graph can answer
+// "how many cycles had this pack done by this point?" — the same measure as the
+// "Battery cycles" figure on the device page (discharge ÷ 100), not the count of
+// 95%→10% excursions visible in the plotted window. The two were never the same number,
+// and a readout that says 0 next to a card that says 14 is the graph's fault, not the
+// operator's.
+//
+// Daily granularity because that is where the data lives: per-day discharge is rolled
+// up in device_daily_stats, and per-check-in deltas are too noisy to sum into a
+// trustworthy total.
+func (d *DB) DeviceDischargeSeries(ctx context.Context, deviceID uuid.UUID) ([]DischargePoint, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT day,
+		       SUM(COALESCE(discharge_pct, GREATEST(0, battery_max - battery_min)))
+		           OVER (ORDER BY day)::bigint AS cum
+		  FROM device_daily_stats
+		 WHERE device_id = $1 AND battery_max IS NOT NULL AND battery_min IS NOT NULL
+		 ORDER BY day`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DischargePoint
+	for rows.Next() {
+		var p DischargePoint
+		if err := rows.Scan(&p.Day, &p.Cum); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}

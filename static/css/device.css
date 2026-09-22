@@ -429,15 +429,17 @@
    window on screen. Stacks under the plot on a narrow screen. */
 .chart-split{display:flex;align-items:stretch;min-width:0;}
 .chart-split>.chart-body{flex:1;min-width:0;}
-.chart-readout{width:190px;flex:none;border-left:1px solid var(--border);padding:12px 14px;}
+/* Half the width it was: four short values and a timestamp never needed 190px, and the
+   plot is the thing worth the room. */
+.chart-readout{width:96px;flex:none;border-left:1px solid var(--border);padding:12px 10px;}
 .chart-readout .cr-when{font-size:11px;font-weight:500;color:var(--text-faint);
   font-variant-numeric:tabular-nums;margin-bottom:12px;line-height:1.45;}
-.chart-readout .cr-row{display:flex;align-items:flex-start;gap:9px;margin-bottom:13px;}
+.chart-readout .cr-row{display:flex;align-items:flex-start;gap:7px;margin-bottom:12px;}
 .chart-readout .cr-ic{width:15px;height:15px;flex:none;color:var(--text-faint);opacity:.85;margin-top:3px;}
 .chart-readout .cr-txt{min-width:0;}
 .chart-readout .cr-row .k{display:block;font-size:10.5px;font-weight:600;letter-spacing:.02em;
   color:var(--text-faint);line-height:1.3;}
-.chart-readout .cr-row .v{font-size:16px;font-weight:500;letter-spacing:-.01em;
+.chart-readout .cr-row .v{font-size:14.5px;font-weight:500;letter-spacing:-.01em;
   font-variant-numeric:tabular-nums;}
 .chart-readout .cr-row .v small{font-size:11px;color:var(--text-faint);font-weight:500;margin-left:2px;}
 .chart-readout .cr-note{display:block;font-size:11px;color:var(--text-faint);font-weight:500;line-height:1.4;}
