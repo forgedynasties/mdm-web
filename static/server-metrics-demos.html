@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIO MDM — Server metrics demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg)}
+.dm-wrap{max-width:1120px;margin:0 auto;padding:30px 16px 90px}
+.dm-h1{font-size:23px;font-weight:650;margin:0 0 6px;letter-spacing:-.01em}
+.dm-lede{font-size:13px;color:var(--muted);line-height:1.6;max-width:80ch;margin:0 0 10px}
+.dm-opt{margin:32px 0 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 18px 22px;box-shadow:var(--shadow-sm)}
+.dm-opt>h2{font-size:15px;font-weight:650;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dm-badge{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 8px}
+.dm-badge.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-badge.new{background:var(--surface2);color:var(--muted)}
+.dm-why{font-size:12.5px;color:var(--text-2);line-height:1.6;margin:8px 0 16px;max-width:84ch}
+.dm-stage{background:var(--bg);border:1px solid var(--border-soft);border-radius:13px;padding:16px}
+.dm-note{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:14px}
+.dm-note div{font-size:12px;line-height:1.55;color:var(--text-2);background:var(--surface2);border-radius:10px;padding:10px 12px}
+.dm-note b{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.dm-sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:36px 0 0}
+hr.dm-rule{border:0;border-top:1px solid var(--border);margin:44px 0 0}
+
+/* mock widgets */
+.mx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.mx-tile{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.mx-tile .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.mx-tile .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.mx-tile .s{font-size:11.5px;color:var(--muted);margin-top:4px}
+.mx-tile.warn .v{color:var(--warn,#c98a12)}
+.mx-tile.ok .v{color:var(--ok,#1c7d50)}
+.mx-spark{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:9px}
+.mx-spark i{flex:1;background:var(--accent-soft);border-radius:2px 2px 0 0;display:block}
+.mx-spark i.hi{background:var(--accent,#d0503c)}
+.mx-row{display:grid;grid-template-columns:150px minmax(0,1fr) 78px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.mx-row:first-child{border-top:0}
+.mx-bar{height:7px;border-radius:4px;background:var(--surface2);overflow:hidden}
+.mx-bar i{display:block;height:100%;background:var(--accent,#d0503c);border-radius:4px}
+.mx-bar i.ok{background:var(--ok,#1c7d50)}
+.mx-bar i.warn{background:var(--warn,#c98a12)}
+.mx-num{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-2)}
+.mx-strip{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 14px;font-size:12px}
+.mx-strip b{font-variant-numeric:tabular-nums;font-weight:650;color:var(--text)}
+.mx-strip span{color:var(--muted)}
+.mx-dot{width:7px;height:7px;border-radius:50%;background:var(--ok,#1c7d50);display:inline-block;margin-right:6px}
+.mx-feed{font-family:var(--mono);font-size:11.5px;line-height:1.9;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:10px 13px;max-height:190px;overflow:hidden}
+.mx-feed .t{color:var(--text-faint)}
+.mx-feed .ok{color:var(--ok,#1c7d50)}
+.mx-feed .wa{color:var(--warn,#c98a12)}
+.mx-chart{height:120px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:10px;display:flex;align-items:flex-end;gap:3px}
+.mx-chart i{flex:1;display:block;border-radius:2px 2px 0 0;background:var(--accent-soft)}
+.mx-chart i.b{background:var(--accent,#d0503c)}
+.mx-legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.mx-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px}
+table.mx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+table.mx-tbl th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:0 10px 7px 0;font-weight:700}
+table.mx-tbl td{padding:7px 10px 7px 0;border-top:1px solid var(--border-soft);font-variant-numeric:tabular-nums}
+table.mx-tbl td.nm{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+</style>
+</head>
+<body>
+<div class="dm-wrap">
+
+<h1 class="dm-h1">Server metrics — what to show and where</h1>
+<p class="dm-lede">
+  A live view of what the MDM itself is doing: load, throughput, and where the time goes.
+  Everything mocked below is measurable from what the server already holds — the WebSocket
+  hub knows its connections, the pgx pool reports its own stats, the Go runtime reports
+  goroutines, heap and GC, and the request path can be counted with a middleware wrapper.
+  Nothing here needs Prometheus or a second process.
+</p>
+<p class="dm-lede">
+  Four options, from a strip that hides in the existing header to a full page. Pick one —
+  and note the last section, which is about what "live" should mean.
+</p>
+
+<div class="dm-sec">Group 1 — where the metrics live</div>
+
+<section class="dm-opt">
+  <h2>A · A live strip on the existing Health page <span class="dm-badge new">smallest</span></h2>
+  <div class="dm-why">Six numbers in one row, refreshed over the SSE stream the dashboard already opens. No new page, no nav entry.</div>
+  <div class="dm-stage">
+    <div class="mx-strip">
+      <span><span class="mx-dot"></span><b>healthy</b></span>
+      <span>uptime <b>6d 04h</b></span>
+      <span>WS <b>31</b></span>
+      <span>check-ins <b>42</b>/min</span>
+      <span>p95 <b>84 ms</b></span>
+      <span>DB pool <b>6/25</b></span>
+      <span>heap <b>212 MB</b></span>
+      <span>goroutines <b>487</b></span>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Free to build and free to look at — it sits where you already go when something feels wrong. Enough to answer "is the server itself the problem?"</div>
+    <div><b>Bad at</b> No history, so you cannot see that p95 tripled an hour ago. One bad row and you still have nowhere to click.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>B · A Server page: tiles, sparklines, and the work queues <span class="dm-badge pick">my pick</span></h2>
+  <div class="dm-why">
+    A page of its own under the side rail. Tiles for the live numbers, each with a one-hour
+    sparkline so a number has a shape, then the queues that actually explain load: check-ins,
+    commands in flight, OTA downloads, alert evaluation, and the peer outbox.
+  </div>
+  <div class="dm-stage">
+    <div class="mx-grid">
+      <div class="mx-tile ok"><div class="k">Requests</div><div class="v">57<span style="font-size:13px;color:var(--muted)">/s</span></div><div class="s">p50 12 ms · p95 84 ms</div>
+        <div class="mx-spark"><i style="height:30%"></i><i style="height:45%"></i><i style="height:38%"></i><i style="height:60%"></i><i style="height:52%"></i><i class="hi" style="height:88%"></i><i style="height:64%"></i><i style="height:57%"></i><i style="height:49%"></i><i style="height:62%"></i></div>
+      </div>
+      <div class="mx-tile"><div class="k">WebSockets</div><div class="v">31</div><div class="s">of 36 devices · 2 reconnects/h</div>
+        <div class="mx-spark"><i style="height:70%"></i><i style="height:72%"></i><i style="height:69%"></i><i style="height:74%"></i><i style="height:71%"></i><i style="height:70%"></i><i style="height:73%"></i><i style="height:75%"></i><i style="height:74%"></i><i style="height:76%"></i></div>
+      </div>
+      <div class="mx-tile"><div class="k">Check-ins</div><div class="v">42<span style="font-size:13px;color:var(--muted)">/min</span></div><div class="s">1.9 MB/min ingested</div>
+        <div class="mx-spark"><i style="height:52%"></i><i style="height:58%"></i><i style="height:61%"></i><i style="height:55%"></i><i style="height:60%"></i><i style="height:57%"></i><i style="height:63%"></i><i style="height:59%"></i><i style="height:66%"></i><i style="height:62%"></i></div>
+      </div>
+      <div class="mx-tile warn"><div class="k">DB pool</div><div class="v">6<span style="font-size:13px;color:var(--muted)">/25</span></div><div class="s">1 waiting · acquire p95 31 ms</div>
+        <div class="mx-spark"><i style="height:22%"></i><i style="height:28%"></i><i style="height:25%"></i><i style="height:41%"></i><i style="height:35%"></i><i class="hi" style="height:72%"></i><i style="height:44%"></i><i style="height:30%"></i><i style="height:27%"></i><i style="height:24%"></i></div>
+      </div>
+      <div class="mx-tile"><div class="k">Memory</div><div class="v">212<span style="font-size:13px;color:var(--muted)"> MB</span></div><div class="s">heap 148 MB · GC 0.4%/min</div>
+        <div class="mx-spark"><i style="height:40%"></i><i style="height:44%"></i><i style="height:47%"></i><i style="height:43%"></i><i style="height:49%"></i><i style="height:52%"></i><i style="height:48%"></i><i style="height:51%"></i><i style="height:55%"></i><i style="height:50%"></i></div>
+      </div>
+      <div class="mx-tile"><div class="k">Goroutines</div><div class="v">487</div><div class="s">31 WS · 12 loops · 9 shells</div>
+        <div class="mx-spark"><i style="height:60%"></i><i style="height:62%"></i><i style="height:59%"></i><i style="height:64%"></i><i style="height:61%"></i><i style="height:63%"></i><i style="height:66%"></i><i style="height:62%"></i><i style="height:65%"></i><i style="height:64%"></i></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px" class="mx-tile">
+      <div class="k" style="margin-bottom:10px">Work in flight</div>
+      <div class="mx-row"><span>Commands pending</span><span class="mx-bar"><i style="width:22%"></i></span><span class="mx-num">14</span></div>
+      <div class="mx-row"><span>Deployments active</span><span class="mx-bar"><i class="ok" style="width:9%"></i></span><span class="mx-num">1</span></div>
+      <div class="mx-row"><span>OTA downloads</span><span class="mx-bar"><i class="warn" style="width:64%"></i></span><span class="mx-num">6</span></div>
+      <div class="mx-row"><span>Shell / screen sessions</span><span class="mx-bar"><i style="width:12%"></i></span><span class="mx-num">2</span></div>
+      <div class="mx-row"><span>Peer outbox</span><span class="mx-bar"><i class="ok" style="width:3%"></i></span><span class="mx-num">0</span></div>
+      <div class="mx-row"><span>Alert evaluation</span><span class="mx-bar"><i class="ok" style="width:18%"></i></span><span class="mx-num">310 ms</span></div>
+    </div>
+
+    <div style="margin-top:16px" class="mx-tile">
+      <div class="k" style="margin-bottom:8px">Slowest routes · last hour</div>
+      <table class="mx-tbl">
+        <tr><th>Route</th><th>Calls</th><th>p50</th><th>p95</th><th>Errors</th></tr>
+        <tr><td class="nm">POST /api/v1/checkin</td><td>2,481</td><td>11 ms</td><td>96 ms</td><td>0</td></tr>
+        <tr><td class="nm">GET /devices</td><td>318</td><td>140 ms</td><td>612 ms</td><td>0</td></tr>
+        <tr><td class="nm">GET /events/devices</td><td>64</td><td>—</td><td>—</td><td>0</td></tr>
+        <tr><td class="nm">POST /api/v1/ota/progress</td><td>1,105</td><td>7 ms</td><td>22 ms</td><td>2</td></tr>
+        <tr><td class="nm">GET /reports/alerts-by-restaurant</td><td>209</td><td>38 ms</td><td>150 ms</td><td>0</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Answers the three questions that matter in an incident: is it busy, is it slow, and what is it busy with. Route table turns "the dashboard feels slow" into a line you can act on.</div>
+    <div><b>Bad at</b> Needs a metrics middleware and an in-memory ring buffer for the sparklines — real work, maybe half a day. Nothing survives a restart unless it is persisted.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>C · One big chart, everything else underneath</h2>
+  <div class="dm-why">A single stacked request-rate chart over 6 hours as the page's headline, with tiles demoted below it. Reads like a monitoring tool.</div>
+  <div class="dm-stage">
+    <div class="mx-chart">
+      <i style="height:38%"></i><i style="height:42%"></i><i style="height:35%"></i><i style="height:48%"></i><i style="height:52%"></i><i class="b" style="height:78%"></i><i class="b" style="height:88%"></i><i style="height:61%"></i><i style="height:55%"></i><i style="height:49%"></i><i style="height:53%"></i><i style="height:58%"></i><i style="height:62%"></i><i style="height:57%"></i><i style="height:51%"></i><i style="height:46%"></i><i style="height:44%"></i><i style="height:48%"></i><i style="height:52%"></i><i style="height:50%"></i>
+    </div>
+    <div class="mx-legend"><span><i style="background:var(--accent-soft)"></i>device API</span><span><i style="background:var(--accent,#d0503c)"></i>dashboard</span><span>peak 04:10 — an OTA deployment to 22 devices</span></div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Shape over time is what tells you something changed; a spike lines up with what caused it.</div>
+    <div><b>Bad at</b> One chart answers one question. Everything else gets pushed below the fold, and the chart is the most work of anything here.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>D · A live event feed</h2>
+  <div class="dm-why">Not numbers — the actual work, streaming. Every check-in, command, OTA chunk and peer call as it happens, filtered.</div>
+  <div class="dm-stage">
+    <div class="mx-feed">
+      <div><span class="t">12:04:41</span> checkin <span class="ok">AT070AABU00231</span> 1.2.2 · 38 ms</div>
+      <div><span class="t">12:04:41</span> ws connect AT070AABU00875 · 31 live</div>
+      <div><span class="t">12:04:40</span> command <span class="wa">app_update</span> → 4 devices queued</div>
+      <div><span class="t">12:04:39</span> ota progress AT070AA2600037 · 62%</div>
+      <div><span class="t">12:04:38</span> peer announce → stage · AT070AABU00064</div>
+      <div><span class="t">12:04:37</span> checkin AT070AABU00280 1.0.0 · 12 ms</div>
+      <div><span class="t">12:04:36</span> alert <span class="wa">offline</span> AT070AA2600045</div>
+      <div><span class="t">12:04:35</span> checkin 113827c2 — · 9 ms</div>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Unbeatable when you are debugging one device or watching a rollout land. You see causes, not aggregates.</div>
+    <div><b>Bad at</b> Useless for "is the server healthy?" — it scrolls too fast to read and says nothing about trend. A companion to B, not a replacement.</div>
+  </div>
+</section>
+
+<hr class="dm-rule">
+<div class="dm-sec">Group 2 — how live is live</div>
+
+<section class="dm-opt">
+  <h2>E · Push over the existing SSE stream, 2-second tick <span class="dm-badge pick">my pick</span></h2>
+  <div class="dm-why">The dashboard already holds an event stream open. Metrics ride it as one more event type, so there is no polling and no second connection. Sparkline history comes from a ring buffer in the server (one hour at 10-second resolution is ~360 points per series, kilobytes).</div>
+  <div class="dm-note">
+    <div><b>Good at</b> No new transport, no new dependency, and the numbers move while you watch — which is the whole point of asking for live.</div>
+    <div><b>Bad at</b> History dies with the process. Fine for "what is happening now", not for "what happened on Tuesday".</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>F · Persist a metrics row per minute</h2>
+  <div class="dm-why">Same collection, written to a table and trimmed on the housekeeping loop. Survives restarts and deploys; lets the page show yesterday.</div>
+  <div class="dm-note">
+    <div><b>Good at</b> Post-mortems. "The box wedged at 3am" becomes answerable.</div>
+    <div><b>Bad at</b> Writes to the same Postgres the metrics are measuring, on a t2.medium that is already tight. Worth doing only for a handful of series, not everything on the page.</div>
+  </div>
+</section>
+
+<hr class="dm-rule">
+<p class="dm-lede" style="margin-top:22px">
+  <b>My pick: B + E, with a slice of F.</b> B because the queues section is the part no
+  external monitoring tool would give you — it knows what an OTA deployment or a peer outbox
+  is. E because it is free: the stream is already open. And a narrow F — say six series at
+  one row per minute, kept 14 days — so a slow morning can be looked at after the fact
+  without turning the MDM into a time-series database. D is worth adding later as a tab
+  inside B, since it shares the same event stream.
+</p>
+
+</div>
+</body>
+</html>

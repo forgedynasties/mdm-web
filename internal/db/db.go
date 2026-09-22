@@ -8952,24 +8952,26 @@ func (g *GroupHealth) computeScore() {
 	if recentlyOffline < 0 {
 		recentlyOffline = 0
 	}
-	score -= capPenalty(float64(recentlyOffline)/dev*30, 30)
+	score -= capPenalty(float64(recentlyOffline)/dev*25, 25)
 	// Dormant hardware is worth a nudge, not a failing grade.
-	score -= capPenalty(float64(g.DormantCount)/dev*10, 6)
-	score -= capPenalty(float64(g.OpenCritical)/dev*40, 25)
-	score -= capPenalty(float64(g.OpenWarning)/dev*15, 10)
+	score -= capPenalty(float64(g.DormantCount)/dev*8, 4)
+	score -= capPenalty(float64(g.OpenCritical)/dev*30, 18)
+	score -= capPenalty(float64(g.OpenWarning)/dev*10, 6)
+	// The environmental checks describe a venue that needs a habit changed, not one
+	// that is failing to serve customers. They nudge; they do not decide the grade.
 	if g.ChargingAvg != nil && *g.ChargingAvg < 0.3 {
-		score -= 10
+		score -= 6
 	}
 	if g.BatteryDelta != nil && *g.BatteryDelta < -10 {
-		score -= 10
+		score -= 6
 	}
 	if g.TempMax != nil && *g.TempMax >= 45 {
-		score -= 10
+		score -= 6
 	}
 	if g.DistinctBuilds > 1 {
 		// Fragmentation is worth noticing and never worth a failing grade on its own:
 		// a fleet mid-rollout legitimately runs several builds for days.
-		score -= capPenalty(float64(g.DistinctBuilds-1)*4, 8)
+		score -= capPenalty(float64(g.DistinctBuilds-1)*3, 6)
 	}
 	if score < 0 {
 		score = 0
@@ -8979,9 +8981,9 @@ func (g *GroupHealth) computeScore() {
 	}
 	g.Score = score
 	switch {
-	case score >= 75:
+	case score >= 70:
 		g.ScoreClass = "ok"
-	case score >= 45:
+	case score >= 40:
 		g.ScoreClass = "warn"
 	default:
 		g.ScoreClass = "danger"
@@ -16045,11 +16047,19 @@ func (d *DB) InFlightAgentUpdates(ctx context.Context, deviceIDs []uuid.UUID) (m
 		SELECT DISTINCT ON (ct.target_id) ct.target_id, COALESCE(cs.status, 'pending')
 		FROM commands c
 		JOIN command_targets ct ON ct.command_id = c.id
+		JOIN devices d ON d.id = ct.target_id
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
 		WHERE c.type = 'app_update'
 		  AND ct.target_id = ANY($1)
 		  AND c.created_at > NOW() - INTERVAL '30 minutes'
 		  AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+		  -- A command is only "in flight" if the device could have taken it. One that
+		  -- has not checked in since the command was created has not seen it: showing
+		  -- an update in progress on a device that has been silent for a day is how a
+		  -- moved (or dead) device reads as busy, and the operator waits for nothing.
+		  AND (COALESCE(cs.status, 'pending') <> 'pending' OR d.last_seen_at > c.created_at)
+		  -- And a device reporting to another MDM will never collect it at all.
+		  AND d.custody_server = ''
 		ORDER BY ct.target_id, c.created_at DESC`, deviceIDs)
 	if err != nil {
 		return nil, err

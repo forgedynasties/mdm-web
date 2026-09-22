@@ -81,29 +81,29 @@ func explainFleetHealth(groups []db.GroupHealth, crashes map[uuid.UUID]int) []he
 		// Recent outages and long-dormant hardware are different problems with
 		// different fixes, so they are separate reasons carrying separate weights.
 		if recent := g.OfflineCount - g.DormantCount; recent > 0 {
-			pen := capPen(float64(recent)/float64(g.DeviceCount)*30, 30)
+			pen := capPen(float64(recent)/float64(g.DeviceCount)*25, 25)
 			add(g, pen, fmt.Sprintf("%d of %d devices offline", recent, g.DeviceCount),
 				"Check power and Wi-Fi on site; send Reboot from Actions once they are back.", site+"?status=offline", "bad")
 		}
 		if g.DormantCount > 0 {
-			add(g, capPen(float64(g.DormantCount)/float64(g.DeviceCount)*10, 6),
+			add(g, capPen(float64(g.DormantCount)/float64(g.DeviceCount)*8, 4),
 				fmt.Sprintf("%d device%s not seen in over two weeks", g.DormantCount, plural(g.DormantCount)),
 				"Find out where they went: returned, on a shelf, or moved to another MDM. Retire the ones that are gone for good.", site+"?status=offline", "warn")
 		}
 		if g.OpenCritical > 0 {
-			add(g, capPen(float64(g.OpenCritical)/float64(g.DeviceCount)*40, 25), fmt.Sprintf("%d critical alert%s open", g.OpenCritical, plural(g.OpenCritical)),
+			add(g, capPen(float64(g.OpenCritical)/float64(g.DeviceCount)*30, 18), fmt.Sprintf("%d critical alert%s open", g.OpenCritical, plural(g.OpenCritical)),
 				"Open the alert; it says what to do. Resolve it when done.", "/alerts?status=open", "bad")
 		}
 		if g.OpenWarning > 0 {
-			add(g, capPen(float64(g.OpenWarning)/float64(g.DeviceCount)*15, 10), fmt.Sprintf("%d warning%s open", g.OpenWarning, plural(g.OpenWarning)),
+			add(g, capPen(float64(g.OpenWarning)/float64(g.DeviceCount)*10, 6), fmt.Sprintf("%d warning%s open", g.OpenWarning, plural(g.OpenWarning)),
 				"Work through the warnings or resolve the ones that no longer apply.", "/alerts?status=open", "warn")
 		}
 		if g.ChargingAvg != nil && *g.ChargingAvg < 0.3 {
-			add(g, 10, fmt.Sprintf("devices on charge only %d%% of the time", int(*g.ChargingAvg*100+0.5)),
+			add(g, 6, fmt.Sprintf("devices on charge only %d%% of the time", int(*g.ChargingAvg*100+0.5)),
 				"Stations are off their pads most of the day. Ask the site to dock them between services.", site, "warn")
 		}
 		if g.BatteryDelta != nil && *g.BatteryDelta < -10 {
-			add(g, 10, fmt.Sprintf("overnight battery peak down %d points vs last week", int(-*g.BatteryDelta+0.5)),
+			add(g, 6, fmt.Sprintf("overnight battery peak down %d points vs last week", int(-*g.BatteryDelta+0.5)),
 				"Batteries are not filling overnight. Check pads and cables; a unit may need a new battery.", site, "warn")
 		}
 		if g.TempMax != nil && *g.TempMax >= 45 {
@@ -113,10 +113,10 @@ func explainFleetHealth(groups []db.GroupHealth, crashes map[uuid.UUID]int) []he
 				what = fmt.Sprintf("%s peaked at %.0f°C", *g.TempMaxSerial, *g.TempMax)
 				href = "/devices/" + *g.TempMaxSerial
 			}
-			add(g, 10, what, "Move it out of direct sun or away from the kitchen pass; make sure the pad vents are clear.", href, "warn")
+			add(g, 6, what, "Move it out of direct sun or away from the kitchen pass; make sure the pad vents are clear.", href, "warn")
 		}
 		if g.DistinctBuilds > 1 {
-			add(g, capPen(float64(g.DistinctBuilds-1)*4, 8), fmt.Sprintf("%d different builds in one venue", g.DistinctBuilds),
+			add(g, capPen(float64(g.DistinctBuilds-1)*3, 6), fmt.Sprintf("%d different builds in one venue", g.DistinctBuilds),
 				"Bring the stragglers up to the venue's build from Updates.", "/updates", "warn")
 		}
 		if c := crashes[g.GroupID]; c > 0 {

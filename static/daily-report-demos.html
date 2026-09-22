@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIO MDM — Daily Report demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg)}
+.dm-wrap{max-width:1000px;margin:0 auto;padding:30px 16px 90px}
+.dm-h1{font-size:23px;font-weight:650;margin:0 0 6px;letter-spacing:-.01em}
+.dm-lede{font-size:13px;color:var(--muted);line-height:1.6;max-width:80ch;margin:0 0 10px}
+.dm-opt{margin:32px 0 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 18px 22px;box-shadow:var(--shadow-sm)}
+.dm-opt>h2{font-size:15px;font-weight:650;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dm-badge{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 8px}
+.dm-badge.live{background:var(--surface2);color:var(--muted)}
+.dm-badge.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-why{font-size:12.5px;color:var(--text-2);line-height:1.6;margin:8px 0 16px;max-width:84ch}
+.dm-stage{background:var(--bg);border:1px solid var(--border-soft);border-radius:13px;padding:16px}
+.dm-note{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:14px}
+.dm-note div{font-size:12px;line-height:1.55;color:var(--text-2);background:var(--surface2);border-radius:10px;padding:10px 12px}
+.dm-note b{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.dm-count{font-size:11px;color:var(--text-faint);margin-top:10px;font-variant-numeric:tabular-nums}
+
+/* report mocks */
+.rp{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.rp-hd{display:flex;align-items:center;gap:9px;padding:12px 15px;border-bottom:1px solid var(--border);font-size:13px;font-weight:650}
+.rp-hd .sub{font-size:11.5px;font-weight:500;color:var(--muted)}
+.rp-hd .stamp{margin-left:auto;font-size:11px;color:var(--text-faint)}
+.rp-b{padding:14px 15px}
+.rp-lede{font-size:13.5px;line-height:1.6;color:var(--text);margin:0 0 12px}
+.rp-p{font-size:12.5px;line-height:1.65;color:var(--text-2);margin:0 0 10px}
+.rp-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0}
+.rp-tile{background:var(--surface2);border-radius:10px;padding:9px 11px}
+.rp-tile .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.rp-tile .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.rp-iss{border-top:1px solid var(--border-soft);padding:10px 0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;font-size:12.5px}
+.rp-iss .sev{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:6px;padding:2px 7px;align-self:start}
+.rp-iss .sev.warn{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
+.rp-iss .sev.crit{background:var(--bad-bg,#fdeaea);color:var(--bad,#b3261e)}
+.rp-iss .do{color:var(--muted);display:block;margin-top:3px}
+.rp-good{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.rp-good span{font-size:11px;background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50);border-radius:20px;padding:2px 9px;font-weight:600}
+.rp-line{display:flex;align-items:center;gap:10px;font-size:13px;padding:11px 15px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.rp-line .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.rp-line .dot.ok{background:var(--ok,#1c7d50)}
+.rp-line .dot.watch{background:var(--warn,#c98a12)}
+.rp-line .more{margin-left:auto;font-size:11.5px;color:var(--muted);font-weight:600}
+.rp-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.rp-two{grid-template-columns:1fr}}
+.rp-col h4{margin:0 0 7px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.rp-col li{font-size:12.5px;line-height:1.55;color:var(--text-2);margin-bottom:6px}
+.rp-col ul{margin:0;padding-left:16px}
+</style>
+</head>
+<body>
+<div class="dm-wrap">
+
+<h1 class="dm-h1">Daily Report — shorter</h1>
+<p class="dm-lede">
+  The report already comes back structured: a status, a one-line headline, a few metrics,
+  a list of issues (each with a detail and an action) and a list of things that look fine.
+  The card then renders nearly all of it, plus a per-restaurant alert breakdown — which is
+  how a "brief" ends up longer than the page it sits on.
+</p>
+<p class="dm-lede">
+  Four ways to cut it. Nothing here needs a different model or a new prompt: each option is
+  a decision about which of those fields the card shows, and when.
+</p>
+
+<section class="dm-opt">
+  <h2>A · What is on the page today <span class="dm-badge live">deployed</span></h2>
+  <div class="dm-why">Headline, full prose, metric tiles, every issue with detail and action, the "looking fine" chips, and the per-restaurant alert table underneath.</div>
+  <div class="dm-stage">
+    <div class="rp">
+      <div class="rp-hd">Daily Report <span class="sub">your fleet briefing</span><span class="stamp">updated 12:04</span></div>
+      <div class="rp-b">
+        <p class="rp-lede">The fleet is broadly stable, with two venues worth keeping an eye on after a week of mixed charging behaviour and one unit running hot through the afternoon service.</p>
+        <p class="rp-p">Across 36 units, charging coverage averaged 71% of the day, down four points on last week, with the decline concentrated at Sunset Blvd where three tablets spent most of the afternoon off their pads. Overnight battery peaks held at 94% fleet-wide, which suggests the pads themselves are working and the gap is handling rather than hardware.</p>
+        <p class="rp-p">Thermals were unremarkable other than AT070AABU00231, which peaked at 47°C during the lunch period and stayed above 44°C for just over an hour. Memory pressure remained well within limits everywhere, peaking at 61% on the busiest kiosk.</p>
+        <div class="rp-tiles">
+          <div class="rp-tile"><div class="k">Charging</div><div class="v">71%</div></div>
+          <div class="rp-tile"><div class="k">Battery peak</div><div class="v">94%</div></div>
+          <div class="rp-tile"><div class="k">Hottest</div><div class="v">47°C</div></div>
+          <div class="rp-tile"><div class="k">Peak RAM</div><div class="v">61%</div></div>
+        </div>
+        <div class="rp-iss"><span class="sev warn">Warn</span><div><b>Sunset Blvd</b> — three units charged for under 30% of the day, down from 68% last week.<span class="do">Ask the site to dock tablets between services; check pad 2, which shows no contact events at all.</span></div></div>
+        <div class="rp-iss"><span class="sev warn">Warn</span><div><b>AT070AABU00231</b> — peaked at 47°C and held above 44°C for 68 minutes.<span class="do">Move it off the pass or clear the vents on its pad.</span></div></div>
+        <div class="rp-good"><span>Overnight charging</span><span>Memory</span><span>Crash rate</span><span>Storage</span><span>Connectivity</span></div>
+        <div style="margin-top:14px;border-top:1px solid var(--border-soft);padding-top:10px;font-size:12px;color:var(--muted)">Open alerts by restaurant — Sunset Blvd 4 · Mission St 2 · Pier 39 1 · Downtown 0 …</div>
+      </div>
+    </div>
+    <div class="dm-count">≈ 210 words before the alert table.</div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Nothing is hidden, and the prose carries nuance a tile cannot.</div>
+    <div><b>Bad at</b> It is the largest thing on the page and it repeats what the KPI strip, Sites widget and Alerts page already say. Long enough that the two real issues are read last.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>B · One line, expandable <span class="dm-badge pick">my pick</span></h2>
+  <div class="dm-why">
+    Collapsed by default to the status dot, the headline, and a count. Everything else is one
+    click away. The report stops competing with the page and becomes what it claims to be —
+    a glance that tells you whether to read further.
+  </div>
+  <div class="dm-stage">
+    <div class="rp-line"><span class="dot watch"></span><span>Two venues worth watching — charging at Sunset Blvd, one unit running hot.</span><span class="more">2 issues · 12:04 ▾</span></div>
+    <div style="height:10px"></div>
+    <div class="rp-line" style="align-items:flex-start;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;width:100%"><span class="dot watch"></span><span>Two venues worth watching — charging at Sunset Blvd, one unit running hot.</span><span class="more">expanded ▴</span></div>
+      <div class="rp-iss" style="border-top:0;padding-top:2px"><span class="sev warn">Warn</span><div><b>Sunset Blvd</b> — three units charged under 30% of the day.<span class="do">Ask the site to dock between services; pad 2 shows no contact.</span></div></div>
+      <div class="rp-iss"><span class="sev warn">Warn</span><div><b>AT070AABU00231</b> — 47°C peak, 68 min above 44°C.<span class="do">Move it off the pass; clear the pad vents.</span></div></div>
+    </div>
+    <div class="dm-count">Collapsed: 14 words. Expanded: ≈ 50.</div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Respects the reader on a normal day — most days the answer is "nothing to do", and that should take one second to learn. Issues keep their action line, which is the only part anyone acts on.</div>
+    <div><b>Bad at</b> The prose paragraphs disappear; whatever nuance was in them has to survive in the issue details or it is lost.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>C · Two columns: what to do / what is fine</h2>
+  <div class="dm-why">Keeps everything, drops the prose. Actions on the left, reassurance on the right, metrics as a strip. Same information, a third of the height.</div>
+  <div class="dm-stage">
+    <div class="rp">
+      <div class="rp-hd">Daily Report<span class="stamp">12:04</span></div>
+      <div class="rp-b">
+        <p class="rp-lede">Two venues worth watching.</p>
+        <div class="rp-two">
+          <div class="rp-col"><h4>Worth doing</h4><ul>
+            <li><b>Sunset Blvd</b> — three units under 30% charged. Dock between services; pad 2 shows no contact.</li>
+            <li><b>AT070AABU00231</b> — 47°C peak. Move it off the pass.</li>
+          </ul></div>
+          <div class="rp-col"><h4>Looking fine</h4><ul>
+            <li>Overnight battery 94%</li>
+            <li>Memory peak 61%</li>
+            <li>No crashes this week</li>
+            <li>Storage healthy fleet-wide</li>
+          </ul></div>
+        </div>
+        <div class="rp-tiles" style="margin-bottom:0">
+          <div class="rp-tile"><div class="k">Charging</div><div class="v">71%</div></div>
+          <div class="rp-tile"><div class="k">Battery</div><div class="v">94%</div></div>
+          <div class="rp-tile"><div class="k">Hottest</div><div class="v">47°C</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="dm-count">≈ 60 words.</div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> Scannable, and the "fine" column is genuinely useful — it says what was checked, so silence reads as checked rather than skipped.</div>
+    <div><b>Bad at</b> Still a block on the page every day, even when there is nothing in the left column.</div>
+  </div>
+</section>
+
+<section class="dm-opt">
+  <h2>D · Issues only, nothing when clean</h2>
+  <div class="dm-why">The card renders only when there is something to act on. A good day shows a single quiet line in the header instead of a card.</div>
+  <div class="dm-stage">
+    <div class="rp-line"><span class="dot ok"></span><span>Nothing to act on — checked charging, battery, heat, memory, storage and crashes at 12:04.</span></div>
+    <div style="height:10px"></div>
+    <div class="rp">
+      <div class="rp-b" style="padding-top:12px">
+        <div class="rp-iss" style="border-top:0"><span class="sev crit">Critical</span><div><b>Mission St</b> — two units offline through lunch service.<span class="do">Check power and Wi-Fi; reboot from Actions when back.</span></div></div>
+        <div class="rp-iss"><span class="sev warn">Warn</span><div><b>AT070AABU00231</b> — 47°C peak.<span class="do">Move it off the pass.</span></div></div>
+      </div>
+    </div>
+    <div class="dm-count">Clean day: 16 words, no card.</div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b> The strongest signal of all — a card appearing means something happened. Zero cost on quiet days.</div>
+    <div><b>Bad at</b> People stop trusting what they cannot see; the one-line "what was checked" is doing a lot of work to prevent that. Also hides slow drifts that are not yet issues.</div>
+  </div>
+</section>
+
+<p class="dm-lede" style="margin-top:30px">
+  <b>My pick: B, with D's quiet-day line.</b> Collapsed to one sentence and a count, expanding
+  to the issues with their actions — and on a day with no issues, the line reads "nothing to
+  act on" and names what was checked, so brevity never reads as the report having failed.
+  C is the better choice if you want the report to stay a fixed, readable block rather than
+  something that changes size day to day; say the word and I will build that instead.
+  All four drop the per-restaurant alert table — it duplicates the Alerts page, and it is the
+  single biggest thing on the card today.
+</p>
+
+</div>
+</body>
+</html>
