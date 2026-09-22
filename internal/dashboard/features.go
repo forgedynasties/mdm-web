@@ -2454,15 +2454,13 @@ func (h *Handler) deviceSetLifecycle(w http.ResponseWriter, r *http.Request, sta
 	h.hxDoneToast(w, r, "/devices/"+serial, toast, "success")
 }
 
-// serialTailLen is how many trailing characters of a serial identify it when read out:
-// five for a hardware serial, six for the longer android-<ANDROID_ID> form. A serial
-// shorter than that cannot be split, so the whole thing is the tail.
+// serialTailLen is how many trailing characters of a serial carry the highlight on a
+// device card. Three: the digits that actually differ between two devices on a shelf,
+// and the ones people read out to each other. A serial shorter than that cannot be
+// split, so the whole thing is the tail.
 func serialTailLen(s string) int {
-	if len(s) > 12 {
-		return 6
-	}
-	if len(s) < 5 {
+	if len(s) < 3 {
 		return len(s)
 	}
-	return 5
+	return 3
 }

@@ -6992,7 +6992,11 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 .dl-serial-list .dl-card > .dl-stats { grid-area: stats; }
 .dl-serial-list .dl-card > .dl-act { grid-area: act; }
 
-.dl-sc-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* The gap is per-sibling rather than a flex gap: the status dot reads as part of the
+   serial, so those two sit together and everything after keeps the old 8px. */
+.dl-sc-l1 { display: flex; align-items: center; gap: 0; min-width: 0; }
+.dl-sc-l1 > * + * { margin-left: 8px; }
+.dl-sc-l1 .dl-status + .dl-sc-sn { margin-left: 0; }
 .dl-sc-sn { font-family: var(--mono); font-size: 14.5px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
 .dl-sc-sn .pre { color: var(--text-faint); font-weight: 500; }
 .dl-sc-sn .tail { color: var(--text); }
@@ -7006,6 +7010,15 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 .dl-copy { display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: none;
   color: var(--text-faint); cursor: pointer; }
+/* The copy button only appears on the card under the pointer. Hidden with opacity, not
+   display, so revealing it never reflows the row; and only where hover exists, since a
+   touch device would otherwise have no way to bring it back. Keyboard focus shows it
+   too, or tabbing would land on something invisible. */
+@media (hover: hover) {
+  .dl-copy { opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+  .dl-card:hover .dl-copy, .dl-copy:focus-visible { opacity: 1; pointer-events: auto; }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) { .dl-copy { transition: none; } }
 .dl-copy:hover { color: var(--accent-text); background: var(--hover); }
 .dl-copy svg { width: 13px; height: 13px; }
 

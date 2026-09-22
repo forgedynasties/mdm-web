@@ -92,12 +92,12 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 			}
 		}
 		if layout == "serial" {
-			// 14 chars > 12, so the tail is six: the split rule is shared with the
+			// The tail is the last three characters: the split rule is shared with the
 			// browser demo, and a hardware serial of this shape keeps its batch letter.
-			if !strings.Contains(out, `<span class="tail">U00281</span>`) {
+			if !strings.Contains(out, `<span class="tail">281</span>`) {
 				t.Errorf("layout %q did not split the serial's tail", layout)
 			}
-			if !strings.Contains(out, `<span class="pre">AT070AAB</span>`) {
+			if !strings.Contains(out, `<span class="pre">AT070AABU00</span>`) {
 				t.Errorf("layout %q did not split the serial's prefix", layout)
 			}
 		}
