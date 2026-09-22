@@ -320,7 +320,7 @@
 {{/* hx-boost: AJAX-navigate the whole app with no full-page reload. Only <main>
      is swapped (hx-select/target/swap), preserving the dock and footer scripts.
      Downloads, the export form and cross-origin links opt out with hx-boost="false". */}}
-<body class="has-dock" hx-boost="true" hx-target="main" hx-swap="outerHTML"{{if .Use24Hour}} data-time24="1"{{end}}>
+<body class="has-dock" hx-boost="true" hx-target="main" hx-swap="outerHTML"{{if .Use24Hour}} data-time24="1"{{end}}{{if .CurrentUser}} data-user="{{.CurrentUser}}"{{end}}>
   <a href="#main" class="skip-link">Skip to content</a>
   <div id="htmx-progress"></div>
   {{/* Global chrome: a slim top bar (brand + search + alerts + account) and a
@@ -468,6 +468,12 @@
        side, exactly as before. data-cmdk-sec carries the section so a result can
        say where it lives and the empty state can offer them as browse rows.
        hidden keeps it out of the tab order; querySelectorAll still sees it. */}}
+  {{/* The dock's three shortcuts, decided by the server from this person's own
+       page-view history. A JSON island rather than rendered links because the
+       labels and the role guards both live in #page-index below — the dock
+       resolves these paths through it, so a path this role cannot open renders
+       nothing at all. */}}
+  <script type="application/json" id="dock-frequent">{{if .FrequentPathsJSON}}{{.FrequentPathsJSON}}{{else}}[]{{end}}</script>
   <div id="page-index" hidden>
     <div class="nav-dir-grid">
 
@@ -633,67 +639,31 @@
     });
   })();
 
-  // ── Where this browser has been ──────────────────────────────────────────────
-  // One store, two readers: the palette's empty state wants the most RECENT pages,
-  // the dock wants the most FREQUENT ones. Both are per-browser and never leave it
-  // — this is a navigation convenience, not analytics, and it is deliberately not
-  // sent to the server or tied to the account.
+  // ── Recently visited pages ───────────────────────────────────────────────────
+  // Only the palette's empty state uses this, and only as a hint, so per-browser
+  // is fine. It is namespaced by account: two people on one browser must not read
+  // each other's history back out of the palette.
   //
-  // It lives here, before the dock sync below, because that runs immediately on
-  // parse and needs mdmTopPages; the palette (further down the document) reads the
-  // same store at open time.
+  // The dock's three shortcuts are NOT this. They come from the server, computed
+  // per account from the page-view audit — see #dock-frequent above and
+  // frequentPaths() in handlers.go. A browser-local counter was the first attempt
+  // and it was wrong twice over: localStorage is per browser, not per account, so
+  // two users sharing a machine shared one dock; and a fresh browser had no
+  // history at all, so the feature showed nothing on the day it shipped.
   (function () {
-    var RECENT_KEY = 'mdm-recent-pages', FREQ_KEY = 'mdm-page-freq';
-    // A page has to be visited this many times before it can claim a dock slot.
-    // This was 3, on the theory that a floor keeps the dock from reshuffling on
-    // someone's first afternoon. In practice it meant the feature looked broken:
-    // a fresh browser has no counts, the four fixed links are excluded, and so
-    // nothing appeared at all until you had opened the same page three times.
-    // One visit is the floor now — the ordering is still by count, so the three
-    // settle onto the real favourites within a day and the slots are never empty
-    // for someone who has been anywhere.
-    var FREQ_MIN = 1;
-    function read(k, dflt) {
-      try { return JSON.parse(localStorage.getItem(k) || dflt) || JSON.parse(dflt); }
-      catch (e) { return JSON.parse(dflt); }
-    }
-    window.mdmRecentPages = function () { return read(RECENT_KEY, '[]'); };
-
+    var who = document.body.getAttribute('data-user') || '-';
+    var RECENT_KEY = 'mdm-recent-pages:' + who;
+    window.mdmRecentPages = function () {
+      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch (e) { return []; }
+    };
     window.mdmNoteVisit = function (url, label) {
       if (!url || url === '/') return;
       try {
         var list = window.mdmRecentPages().filter(function (r) { return r.url !== url; });
         list.unshift({ url: url, label: label });
         localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
-
-        var freq = read(FREQ_KEY, '{}');
-        freq[url] = (freq[url] || 0) + 1;
-        // Halve every count when the busiest page gets far enough ahead. This is a
-        // cheap decay: without it the dock would be frozen by whatever someone did
-        // in their first month, and a job change would never show up in it.
-        if (freq[url] >= 200) {
-          Object.keys(freq).forEach(function (k) {
-            freq[k] = Math.floor(freq[k] / 2);
-            if (freq[k] < 1) delete freq[k];
-          });
-        }
-        localStorage.setItem(FREQ_KEY, JSON.stringify(freq));
       } catch (e) {}
     };
-
-    // The n most-visited URLs, busiest first, skipping anything in `exclude`
-    // (the dock's own fixed links) and anything below the floor.
-    window.mdmTopPages = function (n, exclude) {
-      var freq = read(FREQ_KEY, '{}'), skip = {};
-      (exclude || []).forEach(function (u) { skip[u] = true; });
-      return Object.keys(freq)
-        .filter(function (u) { return !skip[u] && freq[u] >= FREQ_MIN; })
-        .sort(function (a, b) { return freq[b] - freq[a] || (a < b ? -1 : 1); })
-        .slice(0, n);
-    };
-
-    // A full page load never reaches the boosted-navigation handler that records
-    // visits, so record this one here.
     window.mdmNoteVisit(location.pathname, (document.title || '').split(' \u2014 ')[0].trim());
   })();
 
@@ -718,18 +688,21 @@
     }
     // ── Your three ────────────────────────────────────────────────────────────
     // The dock's four are the four everyone needs. These are the three THIS
-    // browser actually keeps opening, pulled from the visit counts above and
-    // rendered just before More.
+    // ACCOUNT opens most, computed server-side from the page-view audit and
+    // handed over in #dock-frequent, rendered just before More.
     //
-    // Three constraints make it stay predictable rather than becoming a slot
-    // machine: a page must clear FREQ_MIN visits before it can appear; the four
-    // fixed destinations are excluded so nothing is ever duplicated; and the
-    // label and href come from #page-index, so a page the viewer's role cannot
-    // open can never be rendered even if it is sitting in their local counts.
-    var FIXED = ['/', '/devices', '/commands', '/alerts'];
+    // Two things keep it from being a slot machine. The four fixed destinations
+    // and the currently-promoted page are excluded, so the dock never shows one
+    // place twice. And the label and href are resolved through #page-index —
+    // which carries the server's role guards — so a path this role cannot open
+    // renders nothing, whatever the history says.
+    var FREQ_PATHS = (function () {
+      try { return JSON.parse(document.getElementById('dock-frequent').textContent) || []; }
+      catch (e) { return []; }
+    })();
     function syncFrequent(dock, path) {
       dock.querySelectorAll('.js-freq').forEach(function (el) { el.remove(); });
-      if (!window.mdmTopPages) return;
+      if (!FREQ_PATHS.length) return;
       var index = document.getElementById('page-index');
       if (!index) return;
       var byUrl = {};
@@ -737,11 +710,17 @@
       // Exclude the page already promoted into the dock for the current route,
       // or it would appear twice.
       var promoted = dock.querySelector('.js-promoted');
-      var exclude = FIXED.concat(promoted ? [promoted.getAttribute('href')] : []);
-      var more = document.getElementById('dock-more'), first = true;
-      window.mdmTopPages(3, exclude).forEach(function (url) {
+      var promotedHref = promoted ? promoted.getAttribute('href') : null;
+      var more = document.getElementById('dock-more'), first = true, shown = 0;
+      FREQ_PATHS.forEach(function (url) {
+        // The server sends ten candidates; take the first three that survive.
+        // A path drops out here when it is a detail page rather than a navigation
+        // destination (no page-index entry), or when this role cannot open it.
+        if (shown >= 3) return;
+        if (url === promotedHref) return;
         var src = byUrl[url];
-        if (!src) return;                       // not reachable by this role
+        if (!src) return;
+        shown++;
         var a = document.createElement('a');
         a.className = 'nav-link js-dest js-freq' + (first ? ' js-freq-first' : '')
           + (owns(url, path) ? ' active' : '');

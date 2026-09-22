@@ -2065,6 +2065,16 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// "More" page directory lists those routes individually and has to highlight
 	// the exact one you are on, so it matches on the path instead.
 	data["ActivePath"] = path
+	// The dock's three shortcuts: the pages this person opens most, from the page-view
+	// audit the dashboard already writes. Cached per user for a few minutes — the dock
+	// is rendered on every navigation and these habits move over days, not seconds.
+	if role != "" && role != "owner" {
+		if b, err := json.Marshal(h.frequentPaths(r)); err == nil {
+			// template.JS so it lands as raw JSON inside the script tag rather than
+			// as an escaped string the page would have to unwrap twice.
+			data["FrequentPathsJSON"] = template.JS(b)
+		}
+	}
 	switch {
 	case strings.HasPrefix(path, "/fleet-health"):
 		data["ActivePage"] = "health"
@@ -2142,6 +2152,53 @@ var recentViews sync.Map // "user|path" -> time.Time
 // PageViewAction. Only real navigations count: a GET that renders a full page
 // template (a boosted nav or a hard load), not htmx partials or polls. Written
 // asynchronously so the page is never slowed by it.
+// frequentPaths backs the dock's three personal shortcuts. It is deliberately a
+// cached read: a miss costs one indexed GROUP BY, a hit costs nothing, and the
+// answer changing five minutes late is not something anyone can perceive.
+//
+// The four fixed dock destinations are excluded here so the dock can never show a
+// page twice. Whether the viewer may actually OPEN one of these is decided in the
+// template, not here — the page index carries the role guards, and the dock
+// resolves these paths through it, so a path the role cannot reach renders nothing.
+var (
+	freqMu    sync.Mutex
+	freqCache = map[string]freqEntry{}
+)
+
+type freqEntry struct {
+	at    time.Time
+	paths []string
+}
+
+const freqTTL = 5 * time.Minute
+
+func (h *Handler) frequentPaths(r *http.Request) []string {
+	user := h.currentUsername(r)
+	if user == "" {
+		return nil
+	}
+	freqMu.Lock()
+	if e, ok := freqCache[user]; ok && time.Since(e.at) < freqTTL {
+		freqMu.Unlock()
+		return e.paths
+	}
+	freqMu.Unlock()
+
+	// Ten candidates, not three. Plenty of people's most-opened paths are device
+	// or release detail pages (/devices/AT070AABU00044), which are not navigation
+	// destinations and have no entry in the page index — the dock drops those when
+	// it resolves them, and asking for exactly three would leave empty slots.
+	paths, err := h.db.TopPagesForUser(r.Context(), user, 30*24*time.Hour, 10,
+		[]string{"/", "/devices", "/commands", "/alerts"})
+	if err != nil {
+		return nil
+	}
+	freqMu.Lock()
+	freqCache[user] = freqEntry{at: time.Now(), paths: paths}
+	freqMu.Unlock()
+	return paths
+}
+
 func (h *Handler) logPageView(r *http.Request, name string, data map[string]any) {
 	if r.Method != http.MethodGet || !strings.HasSuffix(name, ".html") || pageViewSkip[name] {
 		return

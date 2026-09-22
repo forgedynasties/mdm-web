@@ -11917,6 +11917,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+-- The dock asks "which pages does this person open most" on every page load, which
+-- is a filter on actor + action before it counts. Without this it is a scan of the
+-- whole audit log, and that table only grows.
+CREATE INDEX IF NOT EXISTS idx_audit_actor_action ON audit_log(actor, action, created_at DESC);
 
 -- Which device an action was performed on, when it was performed on one. The target
 -- column cannot answer this: it holds a serial for some actions, a comma-joined list
@@ -17147,4 +17151,46 @@ func (d *DB) SaveFleetView(ctx context.Context, userID uuid.UUID, name, query st
 func (d *DB) DeleteFleetView(ctx context.Context, userID, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM fleet_views WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
+}
+
+
+// TopPagesForUser returns the paths this person opens most, busiest first.
+//
+// The source is the page-view audit the dashboard already writes on every
+// navigation (logPageView), which makes this per-user and per-account rather than
+// per-browser: the same three shortcuts follow you to another machine, and two
+// people sharing a browser do not share a dock.
+//
+// `exclude` drops the paths already fixed in the dock, so nothing is offered
+// twice. The window keeps it a picture of current habits rather than of whatever
+// someone did when they joined.
+func (d *DB) TopPagesForUser(ctx context.Context, actor string, window time.Duration, limit int, exclude []string) ([]string, error) {
+	if actor == "" {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT target
+		FROM audit_log
+		WHERE actor = $1
+		  AND action = $2
+		  AND created_at > NOW() - $3::interval
+		  AND target <> ''
+		  AND NOT (target = ANY($4))
+		GROUP BY target
+		ORDER BY COUNT(*) DESC, target
+		LIMIT $5
+	`, actor, PageViewAction, window.String(), exclude, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }

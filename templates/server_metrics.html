@@ -54,6 +54,40 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
 .sv-dbs.warn .v{color:var(--warn)}
 .sv-pause{font-size:11px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;margin-left:auto}
 .sv-pause:hover{color:var(--text)}
+
+/* ── The hour ─────────────────────────────────────────────────────────────── */
+/* Tiles double as the chart's legend: a swatch in the corner, and the ones that
+   are switched off go quiet rather than disappearing. */
+.sv-tile{position:relative;cursor:pointer;user-select:none;transition:border-color .15s,opacity .15s}
+.sv-tile:hover{border-color:var(--rule-2)}
+.sv-tile:focus-visible{outline:none;box-shadow:var(--ring)}
+.sv-tile .sw{position:absolute;top:13px;right:13px;width:9px;height:9px;border-radius:3px}
+.sv-tile.off{opacity:.62}
+.sv-tile.off .sw{background:var(--surface-3) !important}
+.sv-chart-card{margin-top:12px;padding:12px 14px 10px}
+.sv-chead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sv-chead .t{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.sv-chead .hint{font-size:11px;color:var(--text-faint)}
+.sv-rng{display:flex;gap:4px;margin-left:auto}
+.sv-rng button{border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:3px 9px;
+  font:inherit;font-size:11px;font-weight:650;color:var(--text-faint);cursor:pointer}
+.sv-rng button:hover{border-color:var(--rule-2);color:var(--text-2)}
+.sv-rng button.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.sv-chart-wrap{position:relative;height:200px}
+.sv-chart-wrap svg{width:100%;height:200px;display:block;overflow:visible}
+.sv-chart-wrap .ln{fill:none;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.sv-chart-wrap .gl{stroke:var(--chart-grid);stroke-width:1}
+.sv-chart-wrap .dot{stroke:var(--surface);stroke-width:2}
+.sv-cross{position:absolute;top:0;bottom:0;width:1px;background:var(--rule-2);pointer-events:none}
+/* Fixed height: the readout must not resize the card as the pointer moves. */
+.sv-read{display:flex;align-items:center;gap:16px;flex-wrap:wrap;height:22px;overflow:hidden;
+  margin-top:6px;font-size:11.5px;color:var(--text-faint);font-variant-numeric:tabular-nums}
+.sv-read .rt{font-family:var(--mono);color:var(--muted)}
+.sv-read .rv{display:inline-flex;align-items:center;gap:5px;color:var(--text-2)}
+.sv-read .rv i{width:7px;height:7px;border-radius:2px;display:inline-block}
+.sv-read .rv b{font-weight:650;color:var(--text)}
+.sv-empty-chart{font-size:12px;color:var(--text-faint);padding:70px 0;text-align:center}
+@media(max-width:640px){.sv-chart-wrap,.sv-chart-wrap svg{height:150px}}
 </style>
 
 <div class="cc-wrap">
@@ -67,6 +101,35 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
 
 <div class="sv-sec"><span>Load</span><span class="live" id="sv-live"><i></i><span id="sv-live-t">connecting…</span></span></div>
 <div class="sv-grid" id="sv-tiles"></div>
+
+{{/* ── The hour ──────────────────────────────────────────────────────────────
+     The collector keeps 360 samples at 10s — a full hour — and streams all of
+     them in every frame. Until this chart existed the page drew the last 36 of
+     them as tile sparklines and discarded the rest, so "requests are at 12/s"
+     was visible but "requests have been climbing for twenty minutes" was not.
+
+     The tiles above are this chart's legend: click one to add or remove its
+     line. Each series is drawn against its OWN range, because requests/s, heap
+     MB and goroutine counts share no scale — so there is deliberately no y-axis
+     to misread. The numbers come back on hover, where every active series
+     reports its real value at the moment under the pointer. */}}
+<div class="sv-card sv-chart-card">
+  <div class="sv-chead">
+    <span class="t">The hour</span>
+    <span class="hint" id="sv-ch-hint">Click a tile above to add or remove a line</span>
+    <span class="sv-rng" role="group" aria-label="Time range">
+      <button type="button" data-r="60" class="on">60m</button>
+      <button type="button" data-r="15">15m</button>
+      <button type="button" data-r="5">5m</button>
+    </span>
+  </div>
+  <div class="sv-chart-wrap" id="sv-chart-wrap">
+    <svg id="sv-chart" viewBox="0 0 1000 200" preserveAspectRatio="none" role="img"
+         aria-label="Server load over the selected range"></svg>
+    <div class="sv-cross" id="sv-cross" hidden></div>
+  </div>
+  <div class="sv-read" id="sv-read"></div>
+</div>
 
 <div class="sv-two" style="margin-top:6px">
   <div>
@@ -115,19 +178,153 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
     if (h) return h + 'h ' + String(m).padStart(2, '0') + 'm';
     return m + 'm';
   }
-  // A sparkline is drawn against its own maximum: these series have wildly different
-  // units, and the shape is the point, not the absolute height.
-  function spark(series, pick) {
-    var vals = series.map(pick), max = Math.max.apply(null, vals.concat([0.0001]));
-    return '<div class="sv-spark">' + vals.slice(-36).map(function (v, i, a) {
-      var h = Math.max(3, Math.round(v / max * 100));
-      return '<i class="' + (i === a.length - 1 ? 'hi' : '') + '" style="height:' + h + '%"></i>';
-    }).join('') + '</div>';
+  // ── The hour ───────────────────────────────────────────────────────────────
+  // One chart, the tiles above as its legend. Every series is drawn against its
+  // OWN min/max: requests/s, heap MB and goroutine counts share no scale, and a
+  // single y-axis across them would be a number that means nothing. So there is
+  // no y-axis at all — the chart is for shape, and the exact values come back on
+  // hover, where each active line reports what it actually was at that moment.
+  var SERIES = [
+    { key: 'requests',   label: 'Requests',   unit: '/s',   dp: 1, color: 'var(--accent)',        pick: function (x) { return x.requests; } },
+    { key: 'checkins',   label: 'Check-ins',  unit: '/min', dp: 0, color: 'var(--accent-2)',      pick: function (x) { return x.checkins; } },
+    { key: 'ws',         label: 'WebSockets', unit: '',     dp: 0, color: 'var(--chart-ram)',     pick: function (x) { return x.ws; } },
+    { key: 'db_used',    label: 'DB pool',    unit: '',     dp: 0, color: 'var(--chart-battery)', pick: function (x) { return x.db_used; } },
+    { key: 'heap_mb',    label: 'Heap',       unit: ' MB',  dp: 0, color: 'var(--chart-temp)',    pick: function (x) { return x.heap_mb; } },
+    { key: 'goroutines', label: 'Goroutines', unit: '',     dp: 0, color: 'var(--info)',          pick: function (x) { return x.goroutines; } }
+  ];
+  var SERIES_BY_KEY = {};
+  SERIES.forEach(function (x) { SERIES_BY_KEY[x.key] = x; });
+
+  // Which lines are on, and how far back — remembered per browser, because this is
+  // a page people leave open and come back to.
+  var CH_KEY = 'mdm-server-chart';
+  var chartOn = { requests: true, checkins: true, db_used: true }, chartRange = 60;
+  try {
+    var saved = JSON.parse(localStorage.getItem(CH_KEY) || 'null');
+    if (saved && saved.on) { chartOn = saved.on; chartRange = saved.range || 60; }
+  } catch (e) {}
+  function saveChartPrefs() {
+    try { localStorage.setItem(CH_KEY, JSON.stringify({ on: chartOn, range: chartRange })); } catch (e) {}
   }
-  function tile(k, v, unit, sub, cls, spk) {
-    return '<div class="sv-tile ' + (cls || '') + '"><div class="k">' + k + '</div>' +
+
+  var chartSeries = [];   // the last frame's samples, for the hover readout
+  var chartGeom = null;   // { x0, x1, n } so a pointer position maps back to a sample
+
+  function drawChart(series) {
+    chartSeries = series || [];
+    var svg = document.getElementById('sv-chart');
+    if (!svg) return;
+    // The series is 10s samples; the range buttons are minutes.
+    var take = Math.min(chartSeries.length, Math.round(chartRange * 6));
+    var data = chartSeries.slice(-take);
+    var on = SERIES.filter(function (x) { return chartOn[x.key]; });
+    if (data.length < 2 || !on.length) {
+      svg.innerHTML = '';
+      document.getElementById('sv-chart-wrap').classList.toggle('empty', true);
+      document.getElementById('sv-read').innerHTML = '<span class="rt">' +
+        (on.length ? 'Collecting — the first points appear within a minute.' : 'No series selected.') + '</span>';
+      chartGeom = null;
+      return;
+    }
+    document.getElementById('sv-chart-wrap').classList.remove('empty');
+    var W = 1000, H = 200, padY = 10, x0 = 0, x1 = W;
+    var out = [];
+    for (var g = 0; g <= 3; g++) {
+      var gy = padY + g * ((H - padY * 2) / 3);
+      out.push('<line class="gl" x1="0" y1="' + gy + '" x2="' + W + '" y2="' + gy + '"/>');
+    }
+    on.forEach(function (ser) {
+      var vals = data.map(ser.pick), lo = Infinity, hi = -Infinity;
+      vals.forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; });
+      // A flat line sits in the middle of its band rather than on the floor, so
+      // "nothing is happening" does not look like "this dropped to zero".
+      if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+      var span = hi - lo;
+      var d = vals.map(function (v, i) {
+        var x = x0 + (i / (vals.length - 1)) * (x1 - x0);
+        var y = H - padY - ((v - lo) / span) * (H - padY * 2);
+        return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+      }).join(' ');
+      out.push('<path class="ln" stroke="' + ser.color + '" d="' + d + '"/>');
+      ser._lo = lo; ser._hi = hi;   // kept for the hover dots
+    });
+    svg.innerHTML = out.join('');
+    chartGeom = { x0: x0, x1: x1, W: W, H: H, padY: padY, data: data, on: on };
+    if (hoverIdx == null) readoutLatest();
+  }
+
+  // ── Hover: the y-axis this chart deliberately does not have ────────────────
+  var hoverIdx = null;
+  function readoutAt(i) {
+    if (!chartGeom) return;
+    var d = chartGeom.data[i]; if (!d) return;
+    var when = new Date(d.at).toLocaleTimeString();
+    document.getElementById('sv-read').innerHTML =
+      '<span class="rt">' + when + '</span>' +
+      chartGeom.on.map(function (ser) {
+        return '<span class="rv"><i style="background:' + ser.color + '"></i>' + ser.label +
+          ' <b>' + fmt(ser.pick(d), ser.dp) + ser.unit + '</b></span>';
+      }).join('');
+  }
+  function readoutLatest() {
+    if (!chartGeom || !chartGeom.data.length) return;
+    readoutAt(chartGeom.data.length - 1);
+  }
+  (function () {
+    var wrap = document.getElementById('sv-chart-wrap'), cross = document.getElementById('sv-cross');
+    if (!wrap) return;
+    wrap.addEventListener('mousemove', function (e) {
+      if (!chartGeom) return;
+      var r = wrap.getBoundingClientRect();
+      var f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      hoverIdx = Math.round(f * (chartGeom.data.length - 1));
+      cross.hidden = false;
+      cross.style.left = (f * r.width).toFixed(1) + 'px';
+      readoutAt(hoverIdx);
+    });
+    wrap.addEventListener('mouseleave', function () {
+      hoverIdx = null; cross.hidden = true; readoutLatest();
+    });
+  })();
+
+  // Tiles are the legend. Delegated, because the tile row is rebuilt from
+  // scratch on every frame.
+  document.getElementById('sv-tiles').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-series]'); if (!t) return;
+    var k = t.getAttribute('data-series');
+    chartOn[k] = !chartOn[k]; saveChartPrefs();
+    if (last) render(last);
+  });
+  document.getElementById('sv-tiles').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var t = e.target.closest('[data-series]'); if (!t) return;
+    e.preventDefault(); t.click();
+  });
+  document.querySelectorAll('.sv-rng button').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('.sv-rng button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      chartRange = +b.getAttribute('data-r'); saveChartPrefs();
+      if (last) drawChart(last.snapshot.series || []);
+    };
+  });
+  // Restore the saved range onto the buttons.
+  document.querySelectorAll('.sv-rng button').forEach(function (b) {
+    b.classList.toggle('on', +b.getAttribute('data-r') === chartRange);
+  });
+  // A tile is also this series' legend entry: the swatch shows its colour, and
+  // clicking anywhere on it adds or removes the line. The 36-point sparkline that
+  // used to sit here is gone — the chart below draws all 360 samples, so the
+  // sparkline was the same data at a tenth of the resolution and twice the height.
+  function tile(k, v, unit, sub, cls, key) {
+    var ser = key ? SERIES_BY_KEY[key] : null, on = ser && chartOn[key];
+    return '<div class="sv-tile ' + (cls || '') + (ser && !on ? ' off' : '') + '"' +
+      (ser ? ' data-series="' + key + '" role="switch" tabindex="0" aria-checked="' + (on ? 'true' : 'false') +
+             '" aria-label="' + k + ' — show on the chart"' : '') + '>' +
+      (ser ? '<span class="sw" style="background:' + ser.color + '"></span>' : '') +
+      '<div class="k">' + k + '</div>' +
       '<div class="v">' + v + (unit ? '<small>' + unit + '</small>' : '') + '</div>' +
-      '<div class="s">' + (sub || '') + '</div>' + (spk || '') + '</div>';
+      '<div class="s">' + (sub || '') + '</div></div>';
   }
   function bar(label, n, of, cls) {
     var pct = of > 0 ? Math.min(100, Math.round(n / of * 100)) : (n > 0 ? 100 : 0);
@@ -158,18 +355,20 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
 
     document.getElementById('sv-tiles').innerHTML =
       tile('Requests', fmt(l.requests, 1), '/s', 'peak p95 ' + fmt(p95) + ' ms · ' + s.req_total + ' total',
-        '', spark(series, function (x) { return x.requests; })) +
+        '', 'requests') +
       tile('Check-ins', fmt(l.checkins), '/min', s.checkin_total + ' since boot',
-        '', spark(series, function (x) { return x.checkins; })) +
+        '', 'checkins') +
       tile('WebSockets', fmt(l.ws), '', q.devices_online + ' of ' + q.devices_total + ' devices' +
         (q.devices_elsewhere ? ' · ' + q.devices_elsewhere + ' on another MDM' : ''),
-        '', spark(series, function (x) { return x.ws; })) +
+        '', 'ws') +
       tile('DB pool', fmt(l.db_used), '/' + fmt(l.db_total), (l.db_waiting || 0) + ' waits since boot',
-        poolCls, spark(series, function (x) { return x.db_used; })) +
+        poolCls, 'db_used') +
       tile('Heap', fmt(l.heap_mb), ' MB', 'process ' + fmt(l.sys_mb) + ' MB',
-        '', spark(series, function (x) { return x.heap_mb; })) +
+        '', 'heap_mb') +
       tile('Goroutines', fmt(l.goroutines), '', 'uptime ' + dur(s.uptime_sec),
-        l.goroutines > 5000 ? 'warn' : '', spark(series, function (x) { return x.goroutines; }));
+        l.goroutines > 5000 ? 'warn' : '', 'goroutines');
+
+    drawChart(series);
 
     document.getElementById('sv-queues').innerHTML =
       bar('Commands awaiting a device', q.commands_pending, Math.max(q.devices_total, 1)) +
