@@ -21837,6 +21837,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	mux.HandleFunc("GET /clients", h.requireAuth(h.ClientsPage))
+	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
+	// say how hard the box is working, which is not a customer-facing fact.
+	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))
+	mux.HandleFunc("GET /events/server", h.requireAdminOrOperator(h.ServerEvents))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
 	// One route per hosted agent slot (DPC, and the firmware client per tree — the

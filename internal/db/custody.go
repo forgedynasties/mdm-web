@@ -298,3 +298,26 @@ func (d *DB) CancelPendingForCustody(ctx context.Context, deviceID uuid.UUID) (i
 	}
 	return tag.RowsAffected(), nil
 }
+
+// ServerWorkCounts is the Server page's "work in flight" block in one round trip. One
+// query rather than seven: it runs every two seconds for every operator with the page
+// open, and seven round trips each tick is exactly the kind of self-inflicted load a
+// metrics page should not add.
+func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deploymentsLive, otaInFlight, peerOutbox, devicesTotal, devicesElsewhere, alertsOpen int) {
+	_ = d.pool.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM command_targets ct
+		     JOIN commands c ON c.id = ct.command_id
+		    WHERE c.created_at > NOW() - INTERVAL '24 hours'
+		      AND NOT EXISTS (SELECT 1 FROM command_status cs
+		                       WHERE cs.command_id = ct.command_id AND cs.device_id = ct.target_id
+		                         AND cs.status IN ('completed', 'failed', 'expired'))),
+		  (SELECT COUNT(*) FROM deployments WHERE status = 'active'),
+		  (SELECT COUNT(*) FROM updates WHERE status IN ('downloading', 'installing')),
+		  (SELECT COUNT(*) FROM peer_outbox),
+		  (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')),
+		  (SELECT COUNT(*) FROM devices WHERE custody_server <> ''),
+		  (SELECT COUNT(*) FROM alerts WHERE status <> 'resolved')
+	`).Scan(&commandsPending, &deploymentsLive, &otaInFlight, &peerOutbox, &devicesTotal, &devicesElsewhere, &alertsOpen)
+	return
+}

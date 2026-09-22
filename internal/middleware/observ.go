@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"mdm/internal/metrics"
 )
 
 // Request/error counters surfaced at /debug/vars for aggregate rate & error visibility
@@ -71,6 +73,14 @@ func AccessLog(next http.Handler) http.Handler {
 		metricRequests.Add(1)
 		if lw.status >= 500 {
 			metricErrors.Add(1)
+		}
+		// Feed the in-process collector behind the Server page. This middleware already
+		// wraps every route, so instrumenting here means no handler has to remember to
+		// do it — and a route added later is measured the day it is added. A hijacked
+		// connection (WS upgrade) is skipped: its "duration" is the life of the socket,
+		// which would swamp every percentile on the page.
+		if lw.wrote {
+			metrics.Default.Observe(r.Method, r.URL.Path, lw.status, dur)
 		}
 		// wrote==false means the handler hijacked the connection (a WS upgrade), so
 		// skip it; bound the slow window below 60s so a live SSE stream isn't logged.

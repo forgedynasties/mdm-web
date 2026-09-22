@@ -24,6 +24,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
+	"mdm/internal/metrics"
 	"mdm/internal/middleware"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
@@ -455,6 +456,25 @@ func main() {
 
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.
 	bgCtx, bgCancel := context.WithCancel(context.Background())
+
+	// One metrics sample every 10s: request rate, check-in rate, live sockets, pool
+	// pressure and Go's own memory. Cheap (a ReadMemStats and a pool Stat), bounded
+	// (an hour of points in a ring), and never written to Postgres — the database is
+	// one of the things being measured.
+	safego("metrics-sample", func() {
+		t := time.NewTicker(metrics.SampleEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				ps := database.PoolStats()
+				metrics.Default.SampleNow(len(hub.ConnectedIDs()),
+					int32(ps["acquired_conns"]), int32(ps["max_conns"]), ps["empty_acquire_count"])
+			}
+		}
+	})
 
 	// Peer traffic: the outbox delivers arrival announcements, the sweep asks peers
 	// about devices we have stopped hearing from. The sweep is what makes this

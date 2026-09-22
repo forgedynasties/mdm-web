@@ -1,0 +1,203 @@
+{{define "server_metrics.html"}}
+{{template "header" .}}
+{{/* Server: what this MDM is doing right now. Everything on the page comes from one SSE
+     frame every two seconds — the in-process collector's snapshot (internal/metrics)
+     plus the work-queue counts. Nothing is persisted: history is an hour-long ring in
+     memory, which is the trade this page makes deliberately (see the package comment).
+     The queues block is the part a generic host monitor could not give us — it knows
+     what a deployment, an OTA download and a peer outbox are. */}}
+<style>
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px}
+.sv-tile{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-tile .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.sv-tile .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.sv-tile .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:2px}
+.sv-tile .s{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:17px}
+.sv-tile.warn .v{color:var(--warn)}
+.sv-tile.bad .v{color:var(--bad,#b3261e)}
+.sv-spark{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:9px}
+.sv-spark i{flex:1;min-width:1px;background:var(--accent-soft);border-radius:2px 2px 0 0;display:block}
+.sv-spark i.hi{background:var(--accent)}
+.sv-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:22px 0 9px}
+.sv-sec .live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted)}
+.sv-sec .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+.sv-sec .live.stale i{background:var(--text-faint)}
+.sv-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:940px){.sv-two{grid-template-columns:1fr}}
+.sv-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-row{display:grid;grid-template-columns:minmax(0,1fr) 92px 62px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.sv-row:first-of-type{border-top:0}
+.sv-bar{height:7px;border-radius:4px;background:var(--surface2);overflow:hidden}
+.sv-bar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .3s ease}
+.sv-bar i.ok{background:var(--ok)}
+.sv-bar i.warn{background:var(--warn)}
+.sv-num{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-2);font-weight:600}
+table.sv-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+table.sv-tbl th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:0 8px 7px 0;font-weight:700}
+table.sv-tbl th.n,table.sv-tbl td.n{text-align:right}
+table.sv-tbl td{padding:6px 8px 6px 0;border-top:1px solid var(--border-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.sv-tbl td.rt{font-family:var(--mono);font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+table.sv-tbl td.slow{color:var(--warn);font-weight:600}
+.sv-feed{font-family:var(--mono);font-size:11.5px;line-height:1.85;color:var(--text-2);max-height:330px;overflow:auto}
+.sv-feed div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-feed .t{color:var(--text-faint)}
+.sv-feed .k{display:inline-block;min-width:62px;color:var(--text-faint)}
+.sv-feed .ok{color:var(--ok)}
+.sv-feed .warn{color:var(--warn)}
+.sv-feed .bad{color:var(--bad,#b3261e)}
+.sv-empty{font-size:12.5px;color:var(--muted);padding:6px 0}
+.sv-pause{font-size:11px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;margin-left:auto}
+.sv-pause:hover{color:var(--text)}
+</style>
+
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Server</div>
+    <h1 class="cc-h1">Server</h1>
+    <div class="cc-sub">What this MDM is doing right now: what is arriving, how long it takes, what is queued, and what just happened. Measured in-process and kept in memory for an hour — it answers "what is happening now", not "what happened on Tuesday".</div>
+  </div>
+</div>
+
+<div class="sv-sec"><span>Load</span><span class="live" id="sv-live"><i></i><span id="sv-live-t">connecting…</span></span></div>
+<div class="sv-grid" id="sv-tiles"></div>
+
+<div class="sv-two" style="margin-top:6px">
+  <div>
+    <div class="sv-sec"><span>Work in flight</span></div>
+    <div class="sv-card" id="sv-queues"></div>
+
+    <div class="sv-sec"><span>Slowest routes</span></div>
+    <div class="sv-card">
+      <table class="sv-tbl" id="sv-routes">
+        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n">Err</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="sv-sec"><span>Live feed</span><button type="button" class="sv-pause" id="sv-pause" onclick="svTogglePause()">Pause</button></div>
+    <div class="sv-card"><div class="sv-feed" id="sv-feed"></div></div>
+  </div>
+</div>
+</div>
+
+<script type="application/json" id="sv-initial">{{.Initial}}</script>
+<script>
+(function () {
+  var paused = false;
+  var last = null;
+
+  window.svTogglePause = function () {
+    paused = !paused;
+    document.getElementById('sv-pause').textContent = paused ? 'Resume' : 'Pause';
+    if (!paused && last) render(last);
+  };
+
+  function fmt(n, digits) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return Number(n).toFixed(digits === undefined ? 0 : digits);
+  }
+  function dur(sec) {
+    if (!sec) return '—';
+    var d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+    if (d) return d + 'd ' + String(h).padStart(2, '0') + 'h';
+    if (h) return h + 'h ' + String(m).padStart(2, '0') + 'm';
+    return m + 'm';
+  }
+  // A sparkline is drawn against its own maximum: these series have wildly different
+  // units, and the shape is the point, not the absolute height.
+  function spark(series, pick) {
+    var vals = series.map(pick), max = Math.max.apply(null, vals.concat([0.0001]));
+    return '<div class="sv-spark">' + vals.slice(-36).map(function (v, i, a) {
+      var h = Math.max(3, Math.round(v / max * 100));
+      return '<i class="' + (i === a.length - 1 ? 'hi' : '') + '" style="height:' + h + '%"></i>';
+    }).join('') + '</div>';
+  }
+  function tile(k, v, unit, sub, cls, spk) {
+    return '<div class="sv-tile ' + (cls || '') + '"><div class="k">' + k + '</div>' +
+      '<div class="v">' + v + (unit ? '<small>' + unit + '</small>' : '') + '</div>' +
+      '<div class="s">' + (sub || '') + '</div>' + (spk || '') + '</div>';
+  }
+  function bar(label, n, of, cls) {
+    var pct = of > 0 ? Math.min(100, Math.round(n / of * 100)) : (n > 0 ? 100 : 0);
+    return '<div class="sv-row"><span>' + label + '</span>' +
+      '<span class="sv-bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></span>' +
+      '<span class="sv-num">' + n + '</span></div>';
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+
+  function render(p) {
+    last = p;
+    if (paused) return;
+    var s = p.snapshot, l = s.latest || {}, q = p.queues, series = s.series || [];
+
+    var poolCls = l.db_total && l.db_used / l.db_total > 0.7 ? 'warn' : '';
+    var p95 = (s.routes || []).reduce(function (m, r) { return Math.max(m, r.p95_ms); }, 0);
+
+    document.getElementById('sv-tiles').innerHTML =
+      tile('Requests', fmt(l.requests, 1), '/s', 'peak p95 ' + fmt(p95) + ' ms · ' + s.req_total + ' total',
+        '', spark(series, function (x) { return x.requests; })) +
+      tile('Check-ins', fmt(l.checkins), '/min', s.checkin_total + ' since boot',
+        '', spark(series, function (x) { return x.checkins; })) +
+      tile('WebSockets', fmt(l.ws), '', q.devices_online + ' of ' + q.devices_total + ' devices' +
+        (q.devices_elsewhere ? ' · ' + q.devices_elsewhere + ' on another MDM' : ''),
+        '', spark(series, function (x) { return x.ws; })) +
+      tile('DB pool', fmt(l.db_used), '/' + fmt(l.db_total), (l.db_waiting || 0) + ' waits since boot',
+        poolCls, spark(series, function (x) { return x.db_used; })) +
+      tile('Heap', fmt(l.heap_mb), ' MB', 'process ' + fmt(l.sys_mb) + ' MB',
+        '', spark(series, function (x) { return x.heap_mb; })) +
+      tile('Goroutines', fmt(l.goroutines), '', 'uptime ' + dur(s.uptime_sec),
+        l.goroutines > 5000 ? 'warn' : '', spark(series, function (x) { return x.goroutines; }));
+
+    document.getElementById('sv-queues').innerHTML =
+      bar('Commands awaiting a device', q.commands_pending, Math.max(q.devices_total, 1)) +
+      bar('Deployments active', q.deployments_live, 3, 'ok') +
+      bar('OTA downloads in flight', q.ota_in_flight, Math.max(q.devices_total, 1), 'warn') +
+      bar('Remote screen sessions', q.shell_sessions, 4) +
+      bar('Peer outbox', q.peer_outbox, 20, q.peer_outbox ? 'warn' : 'ok') +
+      bar('Open alerts', q.alerts_open, Math.max(q.devices_total, 1), 'warn');
+
+    document.querySelector('#sv-routes tbody').innerHTML = (s.routes || []).length
+      ? s.routes.map(function (r) {
+          return '<tr><td class="rt" title="' + esc(r.route) + '">' + esc(r.route) + '</td>' +
+            '<td class="n">' + r.calls + '</td>' +
+            '<td class="n">' + fmt(r.p50_ms) + '</td>' +
+            '<td class="n' + (r.p95_ms > 500 ? ' slow' : '') + '">' + fmt(r.p95_ms) + '</td>' +
+            '<td class="n">' + (r.errors || 0) + '</td></tr>';
+        }).join('')
+      : '<tr><td colspan="5" class="sv-empty">No requests measured yet.</td></tr>';
+
+    document.getElementById('sv-feed').innerHTML = (s.events || []).length
+      ? s.events.map(function (e) {
+          var t = new Date(e.at).toLocaleTimeString();
+          return '<div><span class="t">' + t + '</span> <span class="k">' + esc(e.kind) + '</span> ' +
+            '<span class="' + esc(e.class || '') + '">' + esc(e.text) + '</span></div>';
+        }).join('')
+      : '<div class="sv-empty">Nothing yet — the feed fills as devices check in and commands are issued.</div>';
+
+    var live = document.getElementById('sv-live');
+    live.classList.remove('stale');
+    document.getElementById('sv-live-t').textContent = 'live · ' + new Date(p.now).toLocaleTimeString();
+  }
+
+  try { render(JSON.parse(document.getElementById('sv-initial').textContent)); } catch (_) {}
+
+  var es = new EventSource('/events/server');
+  es.addEventListener('metrics', function (e) {
+    try { render(JSON.parse(e.data)); } catch (_) {}
+  });
+  es.onerror = function () {
+    var live = document.getElementById('sv-live');
+    live.classList.add('stale');
+    document.getElementById('sv-live-t').textContent = 'reconnecting…';
+  };
+})();
+</script>
+{{template "footer" .}}
+{{end}}

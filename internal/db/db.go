@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mdm/internal/metrics"
 	prod "mdm/internal/product"
 )
 
@@ -5105,7 +5106,11 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		}
 	}
 
-	return &cmd, tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	metrics.Default.Emit("command", "warn", cmdType+" → "+targetType+" ("+strconv.Itoa(len(targetIDs))+")")
+	return &cmd, nil
 }
 
 func (d *DB) DeleteCommand(ctx context.Context, id uuid.UUID) error {

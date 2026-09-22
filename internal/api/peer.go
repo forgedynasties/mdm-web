@@ -177,3 +177,14 @@ func peerLink(p config.Peer) string {
 	}
 	return strings.TrimRight(p.URL, "/")
 }
+
+// firstNonEmpty is the small helper the feed lines use to avoid printing an empty
+// field as a gap in the middle of a sentence.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}

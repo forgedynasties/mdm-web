@@ -31,10 +31,10 @@ const (
 
 // Event is one thing the server did, for the live feed.
 type Event struct {
-	At   time.Time `json:"at"`
-	Kind string    `json:"kind"`  // checkin | ws | command | ota | peer | alert | deploy
-	Text string    `json:"text"`  // already-rendered, short
-	Class string   `json:"class"` // "" | ok | warn | bad
+	At    time.Time `json:"at"`
+	Kind  string    `json:"kind"`  // checkin | ws | command | ota | peer | alert | deploy
+	Text  string    `json:"text"`  // already-rendered, short
+	Class string    `json:"class"` // "" | ok | warn | bad
 }
 
 // RouteStat is one route's traffic over the life of the process.
@@ -49,9 +49,9 @@ type RouteStat struct {
 // Sample is one point in the sampled series.
 type Sample struct {
 	At         time.Time `json:"at"`
-	Requests   float64   `json:"requests"`   // per second since the last sample
-	Checkins   float64   `json:"checkins"`   // per minute
-	WS         int       `json:"ws"`         // live device WebSockets
+	Requests   float64   `json:"requests"` // per second since the last sample
+	Checkins   float64   `json:"checkins"` // per minute
+	WS         int       `json:"ws"`       // live device WebSockets
 	Goroutines int       `json:"goroutines"`
 	HeapMB     float64   `json:"heap_mb"`
 	SysMB      float64   `json:"sys_mb"`

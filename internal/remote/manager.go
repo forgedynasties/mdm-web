@@ -221,3 +221,13 @@ var ErrSessionNotActive = fmtError("no remote session for this device")
 type fmtError string
 
 func (e fmtError) Error() string { return string(e) }
+
+// SessionCount is how many remote-screen sessions are open right now, for the Server
+// page's "work in flight" block. A screen session is the most expensive thing this
+// server does per device — it relays every frame — so it is worth showing next to the
+// request rate rather than leaving someone to wonder why load doubled.
+func (m *Manager) SessionCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sessions)
+}

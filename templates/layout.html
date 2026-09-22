@@ -417,6 +417,7 @@
     <div class="nbar-mcap">Administration</div>
     {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}{{template "nav-updates" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
     {{if canAdminOrOperator .Role}}{{template "nav-clients" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
+    {{if canAdminOrOperator .Role}}{{template "nav-server" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
     {{if ne .Role "owner"}}{{if eq .Role "admin"}}{{template "nav-manage" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
     {{if eq .Role "admin"}}{{template "nav-products" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
     {{if ne .Role "owner"}}{{if canManageUsers .Role}}{{template "nav-users" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
@@ -2510,6 +2511,8 @@
 {{end}}
 
 {{define "nav-updates"}}<a href="/updates" class="{{.cls}}{{if eq .active "updates"}} active{{end}}" data-cmdk-label="Updates"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Updates</span></a>{{end}}
+{{define "nav-server"}}<a href="/server" class="{{.cls}}{{if eq .active "server"}} active{{end}}" data-cmdk-label="Server"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/></svg></span><span class="nav-t">Server</span></a>{{end}}
+
 {{define "nav-clients"}}<a href="/clients" class="{{.cls}}{{if eq .active "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
 {{define "nav-manage"}}<a href="/manage" class="{{.cls}}{{if or (eq .active "manage") (eq .active "updates-policy") (eq .active "network") (eq .active "managed-configs") (eq .active "compliance") (eq .active "geofencing")}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}
 {{define "nav-products"}}<a href="/products" class="{{.cls}}{{if eq .active "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}

@@ -26,6 +26,7 @@ import (
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
+	"mdm/internal/metrics"
 	"mdm/internal/otagate"
 	"mdm/internal/peers"
 	"mdm/internal/product"
@@ -856,8 +857,11 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	// already pointed here. Whoever it left cannot tell that from an outage, so we say
 	// so. Queued, never sent inline: a peer being slow must not slow a check-in.
 	if arrival && h.peers != nil {
+		metrics.Default.Emit("peer", "ok", "arrival announced for "+req.SerialNumber)
 		h.peers.AnnounceArrival(ctx, req.SerialNumber, req.BuildID, req.Product)
 	}
+	metrics.Default.Checkin()
+	metrics.Default.Emit("checkin", "", req.SerialNumber+" "+firstNonEmpty(req.BuildID, "—"))
 	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
 	if isMDMLitePayload(req.Extra) {
 		// MDM-lite has no live connection; its check-ins are its presence.
