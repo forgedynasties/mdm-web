@@ -36,11 +36,11 @@
     <div class="auth2-side">
       <div class="auth2-form-wrap">
         {{if .Sent}}
-        <div class="auth2-title">Check your inbox</div>
+        <h1 class="auth2-title">Check your inbox</h1>
         <div class="auth2-subtitle">We sent a verification link to {{.Email}}.</div>
         <div class="auth2-alt" style="margin-top:26px;"><a href="/login">Back to sign in</a></div>
         {{else}}
-        <div class="auth2-title">Create your account</div>
+        <h1 class="auth2-title">Create your account</h1>
         <div class="auth2-subtitle">Sign up for the MDM dashboard</div>
 
         {{if .Error}}

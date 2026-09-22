@@ -15,8 +15,8 @@
 .cp-bar{height:8px;border-radius:6px;background:#eef0f5;overflow:hidden;margin-top:12px}
 .cp-bar i{display:block;height:100%;background:linear-gradient(90deg,#12a150,#3fbf6b)}
 .cp-card{background:var(--surface,#fff);border:1px solid var(--border,#e6e8ef);border-radius:14px;overflow:hidden;margin-bottom:18px}
-.cp-card h3{font-size:15px;font-weight:650;margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft,#eef0f5)}
-.cp-card h3 .n{font-weight:600;font-size:12.5px;color:var(--muted,#889);margin-left:6px}
+.cp-card h3,.cp-card h2{font-size:15px;font-weight:650;margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft,#eef0f5)}
+.cp-card h3 .n,.cp-card h2 .n{font-weight:600;font-size:12.5px;color:var(--muted,#889);margin-left:6px}
 .cp-table{width:100%;border-collapse:collapse;font-size:13.5px}
 .cp-table th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#889);font-weight:600;padding:10px 18px;border-bottom:1px solid var(--border-soft,#eef0f5)}
 .cp-table td{padding:12px 18px;border-bottom:1px solid var(--border-soft,#f2f3f8)}
@@ -74,7 +74,7 @@
 
   {{if .NoRules}}
   <div class="cp-card">
-    <h3>Get started<span class="n">no rules yet — nothing is being enforced</span></h3>
+    <h2>Get started<span class="n">no rules yet — nothing is being enforced</span></h2>
     <div class="cp-suggest">
       <div class="cp-sug">
         <b>Require a screen lock</b>
@@ -114,7 +114,7 @@
   {{end}}
 
   <div class="cp-card">
-    <h3>Rules<span class="n">{{.Enabled}} of {{len .Rules}} enabled</span></h3>
+    <h2>Rules<span class="n">{{.Enabled}} of {{len .Rules}} enabled</span></h2>
     {{range .Rules}}
     <div class="cp-rule{{if not .Enabled}} off{{end}}">
       <span class="lbl">{{.Label}}</span>
@@ -193,7 +193,7 @@
   </div>
 
   <div class="cp-card" id="cp-devices">
-    <h3>Devices<span style="float:right;font-weight:400;"><button type="button" class="cc-btn sm" data-copy-serials="#cp-devices" title="Copy every serial in this table, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button></span></h3>
+    <h2>Devices<span style="float:right;font-weight:400;"><button type="button" class="cc-btn sm" data-copy-serials="#cp-devices" title="Copy every serial in this table, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button></span></h2>
     <div class="cp-scroll">
       <table class="cp-table">
         <thead><tr><th>Device</th><th>Status</th><th>OS build</th><th>Battery</th><th>Compliance</th><th>Issues</th>{{if eq .Role "admin"}}<th></th>{{end}}</tr></thead>

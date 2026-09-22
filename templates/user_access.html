@@ -8,7 +8,7 @@
 .ua-h1 .ubub{width:38px;height:38px;font-size:16px}
 .ua-card{margin-bottom:14px}
 .ua-card .cc-ch{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid var(--border-soft)}
-.ua-card .cc-ch h3{margin:0;font-size:13.5px;font-weight:700}
+.ua-card .cc-ch h3,.ua-card .cc-ch h2{margin:0;font-size:13.5px;font-weight:700}
 .ua-card .cc-ch .m{margin-left:auto;font-size:11.5px;color:var(--muted)}
 .ua-card .cc-ch .ic{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
 .ua-card .cc-ch .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -144,7 +144,7 @@
   {{if eq .User.Role "admin"}}
   <div class="cc-grid ua-grid"><div>
       <div class="cc-card ua-card" id="ua-account">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h3>Account</h3><span class="m mono">{{.User.Username}}</span></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h2>Account</h2><span class="m mono">{{.User.Username}}</span></div>
         <div class="ua-acct">
           <div class="ua-acct-av">
             <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
@@ -194,7 +194,7 @@
   <div class="cc-grid ua-grid">
     <div>
       <div class="cc-card ua-card" id="ua-account">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h3>Account</h3><span class="m mono">{{.User.Username}}</span></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h2>Account</h2><span class="m mono">{{.User.Username}}</span></div>
         <div class="ua-acct">
           <div class="ua-acct-av">
             <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
@@ -240,7 +240,7 @@
       </div>
       {{if .HasBase}}
       <div class="cc-card ua-card">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg></span><h3>Starting point</h3><span class="m" id="ua-base-state">saved</span></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg></span><h2>Starting point</h2><span class="m" id="ua-base-state">saved</span></div>
         <form class="ua-pad" id="ua-base" hx-boost="false" action="/users/{{.User.ID}}/access/base" method="POST" onsubmit="return false">
           <div class="ua-tiles">
             <label class="ua-tile"><input type="radio" name="base" value="allow"{{if ne .Policy.Base "deny"}} checked{{end}}><b>Everything, then exclude</b><span>Starts with all {{.RoleLower}} powers on every device. Add <b style="display:inline">deny</b> rules to carve things out.</span></label>
@@ -252,7 +252,7 @@
       {{end}}
 
       <div class="cc-card ua-card" id="ua-rules">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Rules</h3><span class="m">{{.Live}} active{{if .ExpiredCount}} · {{.ExpiredCount}} expired{{end}}</span></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h2>Rules</h2><span class="m">{{.Live}} active{{if .ExpiredCount}} · {{.ExpiredCount}} expired{{end}}</span></div>
         {{if not .Grants}}
         <div class="ua-empty"><b>No rules yet.</b><br>{{index .Summary 0}}<br>Add a rule to say what {{.User.DisplayName}} may do and where.</div>
         {{else}}
@@ -291,7 +291,7 @@
       </div>
 
       <div class="cc-card ua-card ua-drawer" id="ua-drawer" hidden>
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><h3 id="ua-dtitle">New rule</h3><button type="button" class="cc-btn sm" style="margin-left:auto" onclick="uaClose()">Close</button></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><h2 id="ua-dtitle">New rule</h2><button type="button" class="cc-btn sm" style="margin-left:auto" onclick="uaClose()">Close</button></div>
         <form id="ua-form" hx-boost="false" onsubmit="return uaSubmit(event)">
           <input type="hidden" name="_gid" id="ua-gid" value="">
           <div class="ua-step">
@@ -356,11 +356,11 @@
 
     <div class="ua-side">
       <div class="cc-card ua-card" style="margin:0">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h3>In plain words</h3></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h2>In plain words</h2></div>
         <div class="ua-pad"><ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul></div>
       </div>
       <div class="cc-card ua-card" style="margin:0">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><h3>Check a device</h3><span class="m">what would they see?</span></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><h2>Check a device</h2><span class="m">what would they see?</span></div>
         <div class="ua-pad">
           <div class="ua-search"><input type="text" class="form-input" id="ua-cq" placeholder="Type a serial number…" autocomplete="off"><div class="ua-dd" id="ua-cdd" hidden></div></div>
           <div class="ua-dev" id="ua-cdev"></div>

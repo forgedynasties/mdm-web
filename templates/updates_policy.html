@@ -15,7 +15,7 @@
 .up-mode .b{font-weight:650;font-size:13.5px}
 .up-mode .t{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}
 .up-sec{margin-top:16px}
-.up-sec h3{font-size:13px;font-weight:700;margin:0 0 8px}
+.up-sec h3,.up-sec h2{font-size:13px;font-weight:700;margin:0 0 8px}
 .up-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .up-row label{font-size:12.5px;color:var(--muted)}
 .up-row input{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
@@ -49,7 +49,7 @@
       </div>
 
       <div class="up-sec" id="up-window" style="display:none">
-        <h3>Daily install window (device local time)</h3>
+        <h2>Daily install window (device local time)</h2>
         <div class="up-row">
           <label>From <input type="time" name="window_start" value="{{.WindowStart}}"></label>
           <label>to <input type="time" name="window_end" value="{{.WindowEnd}}"></label>
@@ -57,7 +57,7 @@
       </div>
 
       <div class="up-sec" id="up-freezes" style="display:none">
-        <h3>Freeze periods <span style="color:var(--text-faint);font-weight:500">(no updates at all; max 90 days each, ≥60 days apart)</span></h3>
+        <h2>Freeze periods <span style="color:var(--text-faint);font-weight:500">(no updates at all; max 90 days each, ≥60 days apart)</span></h2>
         <div id="up-freeze-list">
           {{range .Freezes}}
           <div class="up-freeze-row">

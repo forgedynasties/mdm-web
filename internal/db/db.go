@@ -55,6 +55,10 @@ type Device struct {
 	// RestaurantName is joined for display. A device is "deployed" iff it has a restaurant.
 	RestaurantID   *uuid.UUID `json:"restaurant_id,omitempty"`
 	RestaurantName string     `json:"restaurant_name,omitempty"`
+	// Nickname is the operator-given name for this device (device_nicknames). It is
+	// only populated by the search queries, which match on it — everywhere else the
+	// dashboard loads nicknames in one batch via GetNicknames.
+	Nickname string `json:"nickname,omitempty"`
 	// DeployedEffective is true when the device is live in a restaurant (RestaurantID set);
 	// false = lab/bench unit. There is no separate deployed flag — assignment is the signal.
 	DeployedEffective bool `json:"deployed_effective"`
@@ -2368,9 +2372,9 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		wheres = append(wheres, "NOT d.hidden")
 	}
 	if f.Search != "" {
-		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
-		args = append(args, "%"+f.Search+"%")
-		argN++
+		w, a := deviceSearchWhere(f.Search, &argN)
+		wheres = append(wheres, w)
+		args = append(args, a...)
 	}
 	if f.AgentKind != "" {
 		w, a := agentKindWhere(f.AgentKind, &argN)
@@ -2502,6 +2506,23 @@ func productWhere(key string, argN *int) (string, []interface{}) {
 
 // agentKindWhere matches the fleet's Agent filter. MDM-lite devices are stored as
 // dpc with latest_extra.agent_type "mdm-lite", so "dpc" means the DPC agent proper.
+// deviceSearchWhere is the fleet search predicate. Operators know a device by the
+// name on the ticket ("front counter kiosk", "Downtown"), not by its serial, so the
+// one search box matches the serial, the device's nickname, the venue it is placed
+// in and any group it belongs to. The name matches are EXISTS subqueries rather than
+// joins so a device in three matching groups still returns one row, and so the
+// caller's join list (and its argument numbering) is untouched.
+func deviceSearchWhere(search string, argN *int) (string, []interface{}) {
+	n := *argN
+	*argN++
+	return fmt.Sprintf(`(d.serial_number ILIKE $%[1]d
+		   OR EXISTS (SELECT 1 FROM device_nicknames dns WHERE dns.device_id = d.id AND dns.name ILIKE $%[1]d)
+		   OR EXISTS (SELECT 1 FROM restaurants rs WHERE rs.id = d.restaurant_id AND rs.name ILIKE $%[1]d)
+		   OR EXISTS (SELECT 1 FROM device_groups dgs JOIN groups gs ON gs.id = dgs.group_id
+		              WHERE dgs.device_id = d.id AND gs.name ILIKE $%[1]d))`, n),
+		[]interface{}{"%" + search + "%"}
+}
+
 func agentKindWhere(kind string, argN *int) (string, []interface{}) {
 	isLite := "COALESCE(d.latest_extra->>'agent_type', '') = '" + prod.AgentTypeMDMLite + "'"
 	switch kind {
@@ -2600,9 +2621,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		argN++
 	}
 	if f.Search != "" {
-		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
-		args = append(args, "%"+f.Search+"%")
-		argN++
+		w, a := deviceSearchWhere(f.Search, &argN)
+		wheres = append(wheres, w)
+		args = append(args, a...)
 	}
 
 	if f.GroupID != uuid.Nil {
@@ -4531,6 +4552,9 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, connected [
 func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int) ([]Device, error) {
 	// Fuzzy serial match: the typed characters must appear in order anywhere in the
 	// serial (subsequence), so "at866" or "a070b86" both find "AT070AABU00866".
+	// The device's nickname is matched too, as a plain contiguous substring — a name
+	// someone typed ("front counter") is not a code to be fuzzed, and subsequence
+	// matching over free text matches almost everything.
 	// Results are ranked so an exact serial, then a contiguous substring, sort above
 	// scattered subsequence hits; shorter serials break ties. %/_/\ in the query are
 	// escaped so they're matched literally rather than acting as ILIKE wildcards.
@@ -4552,14 +4576,18 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			d.latest_extra AS latest_extra
+			d.latest_extra AS latest_extra,
+			COALESCE(dn.name, '')
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-		WHERE d.serial_number ILIKE $1 AND NOT d.hidden
+		LEFT JOIN device_nicknames dn ON dn.device_id = d.id
+		WHERE (d.serial_number ILIKE $1 OR dn.name ILIKE $3) AND NOT d.hidden
 		ORDER BY
 			CASE WHEN lower(d.serial_number) = lower($2) THEN 0
-			     WHEN d.serial_number ILIKE $3 THEN 1
-			     ELSE 2 END,
+			     WHEN lower(COALESCE(dn.name, '')) = lower($2) THEN 1
+			     WHEN d.serial_number ILIKE $3 THEN 2
+			     WHEN dn.name ILIKE $3 THEN 3
+			     ELSE 4 END,
 			length(d.serial_number),
 			d.serial_number
 		LIMIT $4
@@ -4572,7 +4600,7 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Nickname); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -13163,6 +13191,21 @@ BEGIN
 END
 $checkin_parts$;
 
+-- Saved fleet views. The Fleet page has fifteen filter dimensions plus a sort;
+-- the combination an operator rebuilds every morning had to be rebuilt every
+-- morning, or bookmarked as a URL nobody else could discover. A view is just
+-- that query string with a name on it. Per-user: sharing is a later decision,
+-- and a shared-by-default list fills with other people's experiments.
+CREATE TABLE IF NOT EXISTS fleet_views (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    query      TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_fleet_views_user ON fleet_views(user_id, created_at);
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -17058,4 +17101,50 @@ func (d *DB) FleetProducts(ctx context.Context) ([]ProductCount, error) {
 		out = append(out, pc)
 	}
 	return out, rows.Err()
+}
+
+// ── Saved fleet views ─────────────────────────────────────────────────────────
+// A view is the Fleet page's query string with a name on it, owned by one user.
+// See the fleet_views table in migrationSQL for why it is not shared.
+
+type FleetView struct {
+	ID    uuid.UUID
+	Name  string
+	Query string
+}
+
+func (d *DB) ListFleetViews(ctx context.Context, userID uuid.UUID) ([]FleetView, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, name, query FROM fleet_views WHERE user_id = $1 ORDER BY created_at
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetView
+	for rows.Next() {
+		var v FleetView
+		if err := rows.Scan(&v.ID, &v.Name, &v.Query); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// SaveFleetView upserts by (user, name): saving twice under the same name updates
+// the filters rather than rejecting the save or leaving two identical-looking pills.
+func (d *DB) SaveFleetView(ctx context.Context, userID uuid.UUID, name, query string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO fleet_views (user_id, name, query) VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, name) DO UPDATE SET query = EXCLUDED.query
+	`, userID, name, query)
+	return err
+}
+
+// DeleteFleetView is scoped to the owner, so an id guessed from elsewhere cannot
+// remove another person's view.
+func (d *DB) DeleteFleetView(ctx context.Context, userID, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM fleet_views WHERE id = $1 AND user_id = $2`, id, userID)
+	return err
 }

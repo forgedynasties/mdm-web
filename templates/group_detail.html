@@ -41,7 +41,7 @@
 {{define "group-devices-modal"}}
 {{if canAdminOrOperator .Role}}
 <div class="card" id="devices" style="margin-bottom:16px;scroll-margin-top:16px;">
-  <div class="card-header"><h3>Add devices</h3></div>
+  <div class="card-header"><h2>Add devices</h2></div>
   <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;"
         onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
     {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "ExcludeGroup" .Group.ID "Prompt" "Search serial, restaurant, group — or paste serials")}}
@@ -131,7 +131,7 @@ function dpAddSubmit(e, gid) {
 {{/* Members list — refreshed in place (see #group-members) after add/remove. */}}
 {{define "group-members"}}
   <div class="card-header">
-    <h3>Members{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h3>
+    <h2>Members{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h2>
   </div>
   {{if not .Devices}}
   <div class="empty-state">

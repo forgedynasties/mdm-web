@@ -28,7 +28,7 @@
      opens on click — devices, restaurants and groups — and starts open only when
      nothing arrived preselected, because then there is nothing else to do here. */}}
 <div class="cc-card" id="ex-picker">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Devices</h3>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h2>Devices</h2>
     <span class="muted small m">{{.FleetTotal}} in the fleet · <span data-dp-count>0</span> chosen</span>
   </div>
   <div style="padding:14px 16px 16px;">
@@ -61,7 +61,7 @@
   <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
 
   <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><h3>Time range</h3><span class="m" id="range-summary">Last 48 hours</span>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><h2>Time range</h2><span class="m" id="range-summary">Last 48 hours</span>
     </div>
     <div style="padding:16px 20px;">
       <div class="export-time-row">
@@ -101,7 +101,7 @@
   <input type="hidden" name="cycles" id="export-cycles" value="0">
 
   <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h3>Sampling interval</h3><span class="m" id="interval-summary">Every check-in</span>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h2>Sampling interval</h2><span class="m" id="interval-summary">Every check-in</span>
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
@@ -123,7 +123,7 @@
   </div>
 
   <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h3>Columns</h3><span class="m"><span id="col-count">0</span> selected</span>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h2>Columns</h2><span class="m"><span id="col-count">0</span> selected</span>
     </div>
     <div style="padding:16px 20px;">
       <div class="export-presets">
@@ -230,7 +230,7 @@
 </style>
 
 <div class="cc-card" style="margin-top:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><h3>Fleet reports</h3><span class="m">one-click CSV, whole fleet</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><h2>Fleet reports</h2><span class="m">one-click CSV, whole fleet</span></div>
   <div class="rp-grid">
     <a class="rp-card" href="/export/report/inventory.csv" download hx-boost="false">
       <span class="rp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg></span>

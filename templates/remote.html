@@ -232,7 +232,7 @@ body:has(#rc-console) .dock { display: none; }
 }
 .rc-placeholder .rc-ph-icon { width: 44px; height: 44px; opacity: .7; }
 .rc-placeholder .rc-ph-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.rc-placeholder h3 { color: #fff; margin: 0; font-size: 15px; }
+.rc-placeholder h3, .rc-placeholder h2 { color: #fff; margin: 0; font-size: 15px; }
 .rc-placeholder p { margin: 0; }
 .rc-placeholder .rc-ph-btn {
   font: inherit;
@@ -410,6 +410,9 @@ body:has(#rc-console) .dock { display: none; }
 </style>
 
 <div id="rc-console">
+  {{/* The console's own name lives in the back link, which reads as navigation,
+       not as a heading — so the page had none. */}}
+  <h1 class="sr-only">Remote control — {{.Serial}}</h1>
   <div class="rc-bar">
     <a href="/devices/{{.Serial}}" class="rc-back" title="Back to device">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -440,7 +443,7 @@ body:has(#rc-console) .dock { display: none; }
           <div id="rc-placeholder" class="rc-placeholder">
             {{if .Online}}
             <div class="rc-spinner"></div>
-            <h3>Starting screen mirror</h3>
+            <h2>Starting screen mirror</h2>
             <div class="rc-steps" id="rc-steps">
               <span class="on" data-step="1"><i></i>Opening secure channel</span>
               <span data-step="2"><i></i>Waking the device screen</span>
@@ -448,7 +451,7 @@ body:has(#rc-console) .dock { display: none; }
             </div>
             {{else}}
             <div class="rc-ph-icon"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M4 4l16 16" stroke="#f87171"/></svg></div>
-            <h3>Device is offline</h3>
+            <h2>Device is offline</h2>
             <p>It has to be checked in over the live link before a session can start.{{with .Device}} Last seen <span class="js-local-time" data-utc="{{.LastSeenAt.UTC.Format "2006-01-02T15:04:05Z07:00"}}" data-format="short">{{.LastSeenAt.UTC.Format "2006-01-02T15:04:05Z07:00"}}</span>.{{end}}</p>
             <button class="rc-ph-btn" type="button" onclick="location.reload()">Try again</button>
             {{end}}
@@ -751,7 +754,7 @@ body:has(#rc-console) .dock { display: none; }
     var screen = $('rc-screen');
     screen.innerHTML = '<div class="rc-placeholder" id="rc-placeholder">' +
       (spinning ? '<div class="rc-spinner"></div>' : '<div class="rc-ph-icon"><svg viewBox="0 0 24 24"><path d="M1 1l22 22"/><path d="M16.7 11.1a6 6 0 0 0-1.8-1.2M5 12.6a10 10 0 0 1 5.1-2.5M2 8.8a15 15 0 0 1 4.2-2.5M9 16l3-3 3 3"/></svg></div>') +
-      '<h3>' + title + '</h3><p>' + body + '</p>' +
+      '<h2>' + title + '</h2><p>' + body + '</p>' +
       (spinning ? '' : '<div class="rc-ph-row"><button class="rc-ph-btn" type="button" onclick="location.reload()">Start a new session</button><a class="rc-ph-btn" href="/devices/' + encodeURIComponent(serial) + '">Back to device</a></div>') +
       '</div>';
   }

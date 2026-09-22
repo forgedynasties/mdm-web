@@ -47,7 +47,7 @@
     {{if canOperate .Role}}<a href="/productions/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create production</a>{{end}}
   </div>
   {{else}}
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Production runs</h3><span class="m">{{$total}} run{{if ne $total 1}}s{{end}}</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h2>Production runs</h2><span class="m">{{$total}} run{{if ne $total 1}}s{{end}}</span></div>
   <div class="cc-cb-scroll">
   <table class="cc-table">
     <thead>

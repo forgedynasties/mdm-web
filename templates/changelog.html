@@ -35,7 +35,7 @@
     <div class="cl-entry">
       <span class="cl-dot{{if eq .Version $.Version}} cur{{end}}"><svg viewBox="0 0 24 24">{{if eq .Version $.Version}}<path d="M5 13l4 4L19 7"/>{{else}}<path d="M13 2 3 14h7l-1 8 10-12h-7z"/>{{end}}</svg></span>
       <div class="cc-card">
-        <div class="cc-ch"><h3>v{{.Version}}</h3>{{if eq .Version $.Version}}<span class="cc-pill ok">current</span>{{end}}<span class="m">{{.Date}}</span></div>
+        <div class="cc-ch"><h2>v{{.Version}}</h2>{{if eq .Version $.Version}}<span class="cc-pill ok">current</span>{{end}}<span class="m">{{.Date}}</span></div>
         <div class="cc-cb" style="padding-top:0;padding-bottom:0">{{template "cl-media" .Media}}</div>
         <ul class="cl-changes">
           {{range .Changes}}<li>{{clFormat .}}</li>{{end}}

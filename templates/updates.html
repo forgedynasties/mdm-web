@@ -137,7 +137,7 @@
   <div class="cc-card">
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 11 3.8A2 2 0 0 0 9.6 3.2H4a1 1 0 0 0-1 1v5.6a2 2 0 0 0 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l4.6-4.6a2 2 0 0 0 0-2.8Z"/><path d="M7.5 7.5h.01"/></svg></span>
-      <h3>Releases</h3>
+      <h2>Releases</h2>
       {{if and (canSeeDev .Role) (gt .DevCount 0)}}
       <label class="uh-devtog m" title="Releases still marked dev — folded away by default">
         <input type="checkbox" id="uh-dev-toggle" onchange="uhDevToggle(this.checked)"> Show {{.DevCount}} dev
@@ -174,7 +174,7 @@
   <div class="cc-card">
     <div class="cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-      <h3>Rollouts</h3>
+      <h2>Rollouts</h2>
       <span class="m">newest first</span>
     </div>
     {{range .Rollouts}}

@@ -147,7 +147,7 @@
 
   {{if not .Restaurant}}
   <div class="card">
-    <div class="card-header"><h3>Deploy devices</h3><span class="muted small">optional · a device lives at one venue, so adding moves it here</span></div>
+    <div class="card-header"><h2>Deploy devices</h2><span class="muted small">optional · a device lives at one venue, so adding moves it here</span></div>
     <div style="padding:14px 20px 0;">
       {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}
     

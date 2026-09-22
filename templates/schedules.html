@@ -60,7 +60,7 @@
 .sch-cronx{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:8px;background:var(--surface);border:1px solid var(--border-soft);border-radius:6px;padding:1px 7px;}
 </style>
 <div class="card cc-card" style="margin-bottom:16px;">
-  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><h3>New schedule</h3></div>
+  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><h2>New schedule</h2></div>
   <form action="/schedules" method="POST" id="sch-form" onsubmit="return schSync()" style="padding:16px 20px;">
     {{if .Recipes}}
     <div class="sch-grid">
@@ -142,7 +142,7 @@
 {{end}}
 
 <div class="card cc-card">
-  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Schedules</h3><span class="m">{{len .Schedules}}</span></div>
+  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Schedules</h2><span class="m">{{len .Schedules}}</span></div>
     {{if not .Schedules}}
     <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b>No schedules yet</b>Pick a recipe and a schedule above to run an action automatically.</div></div>
     {{else}}

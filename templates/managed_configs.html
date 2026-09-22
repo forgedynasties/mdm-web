@@ -9,7 +9,7 @@
 .mc-back{font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none}
 .mc-back:hover{text-decoration:underline}
 .mc-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
-.mc-card h3{font-size:15px;font-weight:650;margin:0 0 4px}
+.mc-card h3,.mc-card h2{font-size:15px;font-weight:650;margin:0 0 4px}
 .mc-card .lead{color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:12px}
 .mc-entry{border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;margin-bottom:10px}
 .mc-entry-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
@@ -35,7 +35,7 @@
   </div>
 
   <div class="mc-card">
-    <h3>Configured apps</h3>
+    <h2>Configured apps</h2>
     <div class="lead">Every device receives these at its next config sync. Only apps that read managed configurations (RestrictionsManager) pick them up — others ignore them silently.</div>
     {{if .Rows}}
       {{range .Rows}}
@@ -60,7 +60,7 @@
 
   {{if eq .Role "admin"}}
   <div class="mc-card">
-    <h3>Add or replace a configuration</h3>
+    <h2>Add or replace a configuration</h2>
     <div class="lead">Adding a package that is already configured replaces its entry. The restrictions must be a JSON object of key/value pairs the app documents.</div>
     <form class="mc-form" method="POST" action="/setup/managed-configs">
       <label for="mc-package">App package</label>

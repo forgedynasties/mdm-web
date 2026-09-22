@@ -14,7 +14,9 @@
 
 <style>
 .bl-wrap{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;}
-.bl-drop{border:1.5px dashed var(--border);border-radius:12px;padding:26px;text-align:center;cursor:pointer;color:var(--muted);transition:border-color .15s,background .15s;}
+.bl-drop{display:block;width:100%;font:inherit;background:none;border:1.5px dashed var(--border);border-radius:12px;padding:26px;text-align:center;cursor:pointer;color:var(--muted);transition:border-color .15s,background .15s;}
+.bl-drop:focus-visible{outline:none;box-shadow:var(--ring);border-color:var(--accent-edge);}
+.bl-drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text);}
 .bl-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
 .bl-drop .bl-dt{font-size:13px;margin-top:8px;}
 .bl-preview{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:var(--muted);}
@@ -33,7 +35,7 @@
 <div class="bl-wrap">
 
   <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h3>Current boot logo</h3></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h2>Current boot logo</h2></div>
     <div style="padding:14px 16px;">
       {{if .Last}}
       <div class="bl-status">
@@ -56,15 +58,18 @@
 
   <form action="/commands" method="POST" enctype="multipart/form-data" class="cc-card" id="bl-form">
     <input type="hidden" name="type" value="update_splash">
-    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><h3>Apply a new boot logo</h3></div>
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span><h2>Apply a new boot logo</h2></div>
     <div style="padding:14px 16px;">
 
       <label class="muted small" style="text-transform:uppercase;letter-spacing:.04em;">Splash image</label>
-      <div class="bl-drop" onclick="document.getElementById('bl-file').click()">
+      {{/* A <button>, not a <div>: the file input is display:none (so out of the tab
+           order), and the div that opened it could not be focused either — which
+           left no keyboard path to uploading a splash image at all. */}}
+      <button type="button" class="bl-drop" id="bl-drop" onclick="document.getElementById('bl-file').click()">
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg>
         <div class="bl-dt" id="bl-dt">Drop a splash image, or click to choose</div>
         <div class="muted small">BMP passes through · PNG/JPEG converts to 24-bit BMP · match the panel (e.g. 720×1280)</div>
-      </div>
+      </button>
       <input type="file" name="splash_file" id="bl-file" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="blFile(this)" style="display:none;">
       <div class="bl-preview" id="bl-preview" style="display:none;"><span class="th" id="bl-th">img</span><span id="bl-pm"></span></div>
       <input type="url" name="splash_url" id="bl-url" class="bl-field mono" placeholder="…or paste a splash.img URL (https://…/splash.img)">
@@ -120,6 +125,28 @@ function blFile(input){
   } else { th.textContent='img'; }
   pv.style.display='';
 }
+
+// The zone was labelled "Drop a splash image" but nothing listened for a drop —
+// only the click opened the picker. Wire the drop for real, and hand the file to
+// the same input so validation and submit are unchanged.
+(function(){
+  var zone=document.getElementById('bl-drop'), input=document.getElementById('bl-file');
+  if(!zone||!input) return;
+  ['dragenter','dragover'].forEach(function(ev){
+    zone.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();zone.classList.add('over');});
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    zone.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();zone.classList.remove('over');});
+  });
+  zone.addEventListener('drop',function(e){
+    var files=e.dataTransfer&&e.dataTransfer.files;
+    if(!files||!files.length) return;
+    // DataTransfer is assignable to a file input in every browser we target; it
+    // keeps one code path for picked and dropped files.
+    try{ input.files=files; }catch(err){ return; }
+    blFile(input);
+  });
+})();
 </script>
 
 {{template "footer" .}}

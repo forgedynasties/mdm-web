@@ -2060,6 +2060,11 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 
 	path := r.URL.Path
+	// ActivePage is deliberately coarse — several routes share one dock entry
+	// (/packages and /export both read as "devices", /releases as "updates"). The
+	// "More" page directory lists those routes individually and has to highlight
+	// the exact one you are on, so it matches on the path instead.
+	data["ActivePath"] = path
 	switch {
 	case strings.HasPrefix(path, "/fleet-health"):
 		data["ActivePage"] = "health"
@@ -4901,6 +4906,17 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 		"MapsEmbedKey":         h.mapsEmbedKey,
 	}
+
+	// Saved views: the current query string, named. Also hand the template the
+	// live query so it can mark the pill that matches what is on screen, and so
+	// "Save this view" has something to save.
+	if sess, ok := h.currentSession(r); ok && sess.UserID != nil {
+		if views, err := h.db.ListFleetViews(r.Context(), *sess.UserID); err == nil {
+			data["SavedViews"] = views
+		}
+		data["CanSaveView"] = true
+	}
+	data["CurrentQuery"] = r.URL.RawQuery
 
 	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
 	// device list is the main swap target, and the heading + quick-view counts ride
@@ -10350,13 +10366,77 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 	if wantJSON {
 		out := make([]map[string]string, 0, len(devices))
 		for _, d := range devices {
-			out = append(out, map[string]string{"serial": d.SerialNumber, "build": d.BuildID})
+			// A device that matched on its nickname leads with that name — the serial
+			// moves to the subtitle, because the name is what the person typed.
+			e := map[string]string{"serial": d.SerialNumber, "build": d.BuildID}
+			if d.Nickname != "" {
+				e["nickname"] = d.Nickname
+			}
+			out = append(out, e)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(out)
 		return
 	}
 	h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": query, "Devices": devices})
+}
+
+// ── Saved fleet views ─────────────────────────────────────────────────────────
+
+// FleetViewSave names the Fleet page's current query string. Every signed-in role
+// may save one: a view reads nothing a viewer could not already see by setting the
+// filters by hand — it only remembers which ones.
+func (h *Handler) FleetViewSave(w http.ResponseWriter, r *http.Request) {
+	sess, ok := h.currentSession(r)
+	if !ok || sess.UserID == nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		h.hxDoneToast(w, r, "/devices", "Give the view a name.", "error")
+		return
+	}
+	if len(name) > 40 {
+		name = name[:40]
+	}
+	// Store the query only — never a full URL. The value is echoed back into an
+	// href, and a saved "//evil.example" would otherwise navigate off-site.
+	q := strings.TrimSpace(r.FormValue("query"))
+	q = strings.TrimPrefix(q, "?")
+	if parsed, err := url.ParseQuery(q); err == nil {
+		q = parsed.Encode()
+	} else {
+		q = ""
+	}
+	if err := h.db.SaveFleetView(r.Context(), *sess.UserID, name, q); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	dest := "/devices"
+	if q != "" {
+		dest += "?" + q
+	}
+	h.hxDoneToast(w, r, dest, "Saved view “"+name+"”.", "success")
+}
+
+func (h *Handler) FleetViewDelete(w http.ResponseWriter, r *http.Request) {
+	sess, ok := h.currentSession(r)
+	if !ok || sess.UserID == nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid view ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteFleetView(r.Context(), *sess.UserID, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hxDone(w, r, "/devices", "fleet-views-changed")
 }
 
 func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
@@ -21648,6 +21728,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// device), so it is restricted to admins only.
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemote)))
 	mux.HandleFunc("GET /devices/{serial}/remote/token", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemoteToken)))
+	post("POST /devices/views", h.requireAuth(h.FleetViewSave))
+	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
 	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))

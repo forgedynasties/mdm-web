@@ -7,7 +7,7 @@
 .nw-head h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
 .nw-head .sub{color:var(--muted);font-size:14px;margin-top:4px}
 .nw-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px}
-.nw-card h3{font-size:15px;font-weight:650;margin:0 0 4px}
+.nw-card h3,.nw-card h2{font-size:15px;font-weight:650;margin:0 0 4px}
 .nw-card .lead{color:var(--muted);font-size:13px;line-height:1.5;margin-bottom:12px}
 .nw-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
 .nw-table th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
@@ -41,7 +41,7 @@
   </div>
 
   <div class="nw-card">
-    <h3>Wi-Fi networks</h3>
+    <h2>Wi-Fi networks</h2>
     <div class="lead">Networks the agent adds to every device. Re-adding an SSID replaces its entry.</div>
     {{if .Wifis}}
     <table class="nw-table">
@@ -83,7 +83,7 @@
   </div>
 
   <div class="nw-card">
-    <h3>CA certificates</h3>
+    <h2>CA certificates</h2>
     <div class="lead">Certificates the agent installs into every device's trusted credential store — for TLS-intercepting proxies or private PKI.</div>
     {{if .CACerts}}
     <table class="nw-table">
@@ -120,7 +120,7 @@
   </div>
 
   <div class="nw-card">
-    <h3>Always-on VPN</h3>
+    <h2>Always-on VPN</h2>
     <div class="lead">The agent forces this VPN app always-on on every device. The app itself must already be installed (e.g. deployed via Apps).</div>
     {{if eq .Role "admin"}}
     <form method="POST" action="/network/vpn">

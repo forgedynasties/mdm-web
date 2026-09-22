@@ -83,7 +83,7 @@
 <div class="cc-card">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-    <h3>Deployments</h3>
+    <h2>Deployments</h2>
     <span class="m">{{len .Deployments}} {{if .FilterProduct}}{{productLabel .FilterProduct}} {{end}}deployment{{if ne (len .Deployments) 1}}s{{end}} · newest first</span>
   </div>
   {{range .Deployments}}

@@ -1,3 +1,35 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   COMPONENT + BREAKPOINT CONVENTIONS  (read this before adding a class)
+
+   The token layer below is in good shape — contrast ratios are documented next
+   to the values and almost nothing in templates/ hardcodes a colour. The drift
+   is one level up, in components and breakpoints, and it is frozen here rather
+   than rewritten: a blind migration of live layout rules is a worse risk than
+   the inconsistency it removes. Pages convert as they are next touched.
+
+   ── One vocabulary per job. Use these; do not add a fourth. ──
+     card    .cc-card                  (NOT a new .xx-card — there are 29 already)
+     button  .cc-btn [.primary|.danger|.sm]   (NOT .btn-*, which is frozen)
+     badge   .cc-tag [.ok|.warn|.bad|.info]   (NOT .pill / .chip / .tag)
+   The frozen spellings still work and still ship; nothing new should use them.
+
+   ── Breakpoint scale. Three values, and a reason to pick each. ──
+     720px   phone      — the dock restacks, multi-column grids become one
+     1024px  tablet     — side rails fold, wide tables scroll in their card
+     1280px  desktop-   — only for genuinely wide layouts (maps, the fleet grid)
+   There are currently 22 distinct max-widths in this file and in the per-page
+   <style> blocks (480, 560, 600, 640, 680, 700, 719, 720, 760, 800, 820, 860,
+   900, 920, 940, 980, 1000, 1024, 1040, 1100, 1180, 1280). 640-vs-680-vs-719-
+   vs-720 are four different answers to "is this a phone". New rules use the
+   scale above; an existing rule moves onto it when its page is edited and the
+   result can actually be looked at.
+
+   ── Page structure ──
+   One <h1> per page (the page's name, not a card title), <h2> for each
+   top-level section, <h3> only for something inside an <h2>. Card titles are
+   <h2>: see .cc-ch h2 below.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
 /* ── Reset & Base ─────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -308,6 +340,12 @@ a:hover { color: var(--accent-h); }
   position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
 }
+
+/* <main tabindex="-1"> is focused by script after every boosted navigation (and by
+   the skip link). That focus is a starting point for the tab order, not a control
+   the user chose, so it must not paint a focus ring — :focus-visible on the same
+   element still does, for the keyboard-driven case. */
+main[tabindex="-1"]:focus { outline: none; }
 
 /* Skip-to-content link: off-screen until focused, then pinned top-left (WCAG 2.4.1).
    With a persistent appbar + nav dock, this lets keyboard users jump straight to <main>. */
@@ -895,7 +933,7 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
 }
-.card-header h3 { font-size: 15px; font-weight: 600; }
+.card-header h3, .card-header h2 { font-size: 15px; font-weight: 600; }
 .card-header-actions {
   display: inline-flex;
   align-items: center;
@@ -1177,7 +1215,7 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 .auth2-side { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 40px; }
 @media (max-width: 860px) { .auth2-side { padding: 32px 24px 40px; } }
 .auth2-form-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 400px; width: 100%; margin: 0 auto; }
-.auth2-title { font-size: 26px; font-weight: 750; letter-spacing: -.01em; color: var(--text); }
+.auth2-title { font-size: 26px; font-weight: 750; letter-spacing: -.01em; color: var(--text); margin: 0; }
 .auth2-subtitle { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
 .auth2-form { display: flex; flex-direction: column; gap: 14px; margin-top: 26px; }
 .auth2-field { display: flex; flex-direction: column; gap: 6px; }
@@ -3377,8 +3415,18 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
   .danger-zone { flex-direction: column; }
   .target-pills { flex-wrap: wrap; }
   .modal-box { max-height: 92vh; }
-  .table thead th:nth-child(4),
-  .table tbody td:nth-child(4) { display: none; }
+  /* Phones used to DELETE the fourth column of every .table — "Last seen" on the
+     device table, something different on each of the others, with no indication
+     anything had been removed. A technician standing in front of a device is
+     exactly the phone case, and "last seen" is exactly what they came for.
+     Every column stays; the table scrolls sideways inside its own card instead,
+     which is already how wide tables behave at the tablet breakpoint below. */
+  .card:has(> .table), .card:has(> table),
+  .ovx-card:has(> .table), .ovx-card:has(> table),
+  .cc-card:has(> .table), .cc-card:has(> table) {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .table { min-width: 460px; }
 }
 
 /* ── New Command Builder ──────────────────────────────────── */
@@ -4031,7 +4079,7 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 .ovx-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--ovx-r);
   box-shadow: var(--shadow-sm); overflow: hidden; }
 .ovx-ch { display: flex; align-items: center; justify-content: space-between; padding: 16px var(--ovx-pad) 0; }
-.ovx-ch h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
+.ovx-ch h3, .ovx-ch h2 { font-size: 14.5px; font-weight: 600; margin: 0; }
 .ovx-ch a, .ovx-tag { font-size: 12px; font-weight: 600; color: var(--muted); }
 .ovx-ch a:hover { color: var(--ovx-green); }
 .ovx-tag { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--text-faint); }
@@ -4468,6 +4516,36 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 .fleet-view .n { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
 .fleet-view.on { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent-text); }
 .fleet-view.on .n { color: var(--accent-text); }
+
+/* ── Saved fleet views ─────────────────────────────────────────────────────────
+   The row under the built-in quick views: filter sets this person named and kept.
+   Same pill language as .fleet-view so the two rows read as one system, one step
+   quieter because these are personal rather than product-defined. */
+.fleet-saved { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin: -4px 0 14px; }
+.fs-cap { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); margin-right: 2px; }
+.fs-view { display: inline-flex; align-items: center; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); overflow: hidden; }
+.fs-view > a { padding: 4px 4px 4px 12px; font-size: 12.5px; font-weight: 600;
+  color: var(--text-2); text-decoration: none; }
+.fs-view:hover { border-color: var(--rule-2); }
+.fs-view > .x { border: 0; background: none; cursor: pointer; font: inherit; font-size: 15px;
+  line-height: 1; color: var(--text-faint); padding: 3px 9px 4px 5px; }
+.fs-view > .x:hover { color: var(--danger); }
+.fs-view.on { background: var(--accent-soft); border-color: var(--accent-edge); }
+.fs-view.on > a { color: var(--accent-text); }
+.fs-none { font-size: 12.3px; color: var(--text-faint); }
+.fs-add { border: 1px dashed var(--rule); background: none; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-faint); padding: 4px 12px; }
+.fs-add:hover { color: var(--accent-text); border-color: var(--accent-edge); }
+.fs-naming { display: inline-flex; align-items: center; gap: 4px; }
+.fs-naming input { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--accent-edge); background: var(--surface); color: var(--text); width: 170px; }
+.fs-naming input:focus-visible { outline: none; box-shadow: var(--ring); }
+.fs-naming .ok { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+  font: inherit; font-size: 12.5px; font-weight: 650; padding: 5px 13px; cursor: pointer; }
+.fs-naming .no { border: 0; background: none; color: var(--text-faint); font-size: 16px;
+  line-height: 1; padding: 3px 6px; cursor: pointer; }
 
 .fleet-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
   position: relative; z-index: 40; }
@@ -5680,6 +5758,31 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock-more-pop .nbar-mi.active .ui-icon svg { color: var(--accent-text); }
 .dock-more-pop .nbar-mi:hover { background: var(--hover); color: var(--text); }
 
+/* ── "More" page directory ─────────────────────────────────────────────────────
+   The dock's More menu is the only way into about forty pages, so it is a
+   sectioned directory rather than a list: four groups, scannable in one look.
+   Text-only entries — icons at this count are noise, not wayfinding. */
+.nav-dir { min-width: 0; width: min(560px, calc(100vw - 24px)); padding-bottom: 10px; }
+.nav-dir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; padding: 2px 6px 0; }
+.nav-dir-sec { padding: 6px 6px 8px; border-radius: 9px; }
+.nav-dir-sec > .t {
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 0 6px; margin-bottom: 3px;
+}
+.nav-dir-sec > a {
+  display: block; padding: 5px 8px; border-radius: 7px; text-decoration: none;
+  color: var(--text-2); font-size: 12.8px; font-weight: 550; line-height: 1.35;
+}
+.nav-dir-sec > a:hover { background: var(--hover); color: var(--text); }
+.nav-dir-sec > a:focus-visible { outline: none; box-shadow: var(--ring); }
+.nav-dir-sec > a.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+/* Phones: one column, and the menu may need to scroll rather than run off-screen.
+   The positioning script clamps the top edge to 12px, so cap the height here. */
+@media (max-width: 719px) {
+  .nav-dir-grid { grid-template-columns: 1fr; }
+  .nav-dir { max-height: calc(100vh - 120px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+}
+
 @media (max-width: 640px) {
   .appbar { padding: 10px 14px; gap: 8px; }
   .appbar-brand { font-size: 22px; }
@@ -6256,8 +6359,36 @@ html[data-theme="dark"] .composer { background: var(--surface2); }
 .ubub img{width:100%;height:100%;object-fit:cover;display:block;opacity:.92;}
 .ad-by{display:inline-flex;align-items:center;gap:6px;}
 /* role-locked: visible but unusable for the viewer's role (see layout.html guard) */
+/* ── Role-locked controls ──────────────────────────────────────────────────────
+   A control the viewer's role cannot use. It stays on the page (so people can see
+   what the product does, and what to ask for) but must READ as locked.
+
+   It used to be opacity:.45, which put the label around 2:1 against the card —
+   under the 4.5:1 floor, and indistinguishable from this app's own pending and
+   disabled states. The meaning now sits in a padlock and a muted-but-legible
+   colour instead of in transparency. aria-disabled and the spoken reason are
+   stamped on by the guard in layout.html. */
 .role-locked,.role-locked *{cursor:not-allowed !important}
-.role-locked{opacity:.45 !important;filter:saturate(.5);pointer-events:auto}
+.role-locked{
+  opacity:1 !important;filter:none;pointer-events:auto;
+  color:var(--muted) !important;
+  background:var(--surface2) !important;
+  border-color:var(--border) !important;
+  box-shadow:none !important;
+}
+.role-locked svg,.role-locked .ui-icon{opacity:.7}
+/* The padlock is a generated glyph so no call site has to add markup for it. */
+.role-locked::after{
+  content:'';display:inline-block;flex:none;width:11px;height:11px;margin-left:6px;
+  vertical-align:-1px;background-color:currentColor;opacity:.85;
+  -webkit-mask:var(--lock-mask) center/11px 11px no-repeat;mask:var(--lock-mask) center/11px 11px no-repeat;
+}
+:root{
+  --lock-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10.5' width='16' height='10.5' rx='2.5'/%3E%3Cpath d='M7.5 10.5V7a4.5 4.5 0 0 1 9 0v3.5'/%3E%3C/svg%3E");
+}
+/* Locked table rows / cards are not inline controls — no glyph, just the wash. */
+tr.role-locked::after,.role-locked.no-lock-glyph::after{content:none}
+.role-locked:focus-visible{outline:none;box-shadow:var(--ring)}
 #role-lock-toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,12px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:opacity .18s,transform .18s;z-index:3000;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.25)}
 #role-lock-toast.show{opacity:1;transform:translate(-50%,0)}
 .ht-auto{font-size:12px;color:var(--text-faint);flex:none;white-space:nowrap;font-style:italic;}
@@ -6833,7 +6964,7 @@ body .cc-eyebrow, body .ov3-eyebrow { font-weight: 500; letter-spacing: .12em; c
 body .cc-sub, body .ov3-sub { font-size: 14px; }
 body .cc-big, body .ov3-big { font-weight: 300; letter-spacing: -.04em; }
 body .cc-kpi .v, body .ov3-kpi .v { font-weight: 300; font-size: 30px; letter-spacing: -.04em; }
-body .cc-ch h3, body .cc-ch h2, .card-header h3 { font-weight: 500; }
+body .cc-ch h3, body .cc-ch h2, .card-header h3, .card-header h2 { font-weight: 500; }
 .auth2-title { font-weight: 300; font-size: 32px; letter-spacing: -.035em; }
 .brand-aio, .brand-hub { font-weight: 500; }
 

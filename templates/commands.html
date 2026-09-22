@@ -1831,7 +1831,7 @@ window.CMD_PREFILL = {{.Prefill}};
     <div class="lookup-row">
       <div>
         <div class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></div>
-        <div class="muted small">{{if .BuildID}}{{.BuildID}} · {{end}}{{timeSince .LastSeenAt}}</div>
+        <div class="muted small">{{if .Nickname}}{{.Nickname}} · {{end}}{{if .BuildID}}{{.BuildID}} · {{end}}{{timeSince .LastSeenAt}}</div>
       </div>
       <button type="button" class="btn-outline" onclick="pickCommandSerial('{{.SerialNumber}}')">Add</button>
     </div>

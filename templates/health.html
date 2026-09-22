@@ -94,7 +94,7 @@
     <div class="cc-col">
 
       <div class="cc-card">
-        <div class="cc-ch"><span class="ic{{if eq .Attention 0}} ok{{else}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Needs action — worst first</h3>{{if gt .Attention 0}}<span class="m">{{.Attention}} of {{len .Groups}} restaurants</span>{{end}}</div>
+        <div class="cc-ch"><span class="ic{{if eq .Attention 0}} ok{{else}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h2>Needs action — worst first</h2>{{if gt .Attention 0}}<span class="m">{{.Attention}} of {{len .Groups}} restaurants</span>{{end}}</div>
 
         {{if not .Groups}}
         <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg></span><div><b>No restaurants yet</b>Create restaurants and the health scorecard ranks them here.</div></div>
@@ -124,7 +124,7 @@
 
       {{if .Groups}}
       <div class="cc-card">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h3>What's dragging the score</h3></div>
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h2>What's dragging the score</h2></div>
         <div class="fh-drow"><div class="fh-drow-top"><span class="n">Connectivity</span><span class="v">{{.OfflineDevices}} offline</span></div><div class="cc-meter"><i class="warn" style="width:{{pct .OfflineDevices .TotalDevices}}%"></i></div></div>
         <div class="fh-drow"><div class="fh-drow-top"><span class="n">Battery</span><span class="v">{{.LowBattery}} under 20%</span></div><div class="cc-meter"><i class="warn" style="width:{{pct .LowBattery .TotalDevices}}%"></i></div></div>
         <div class="fh-drow"><div class="fh-drow-top"><span class="n">Overheating</span><span class="v">{{.HotCount}} over threshold</span></div><div class="cc-meter"><i class="bad" style="width:{{pct .HotCount .TotalDevices}}%"></i></div></div>
@@ -137,7 +137,7 @@
 
     <div class="cc-col">
       <div class="cc-card">
-        <div class="cc-ch"><span class="ic{{if not .Crashes24h}} ok{{else}} danger{{end}}"><svg viewBox="0 0 24 24">{{if .Crashes24h}}<path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/>{{else}}<path d="M5 13l4 4L19 7"/>{{end}}</svg></span><h3>Crashes · last 24h</h3>{{if .Crashes24h}}<span class="m">{{.Crashes24h}} event{{if ne .Crashes24h 1}}s{{end}}</span>{{end}}</div>
+        <div class="cc-ch"><span class="ic{{if not .Crashes24h}} ok{{else}} danger{{end}}"><svg viewBox="0 0 24 24">{{if .Crashes24h}}<path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/>{{else}}<path d="M5 13l4 4L19 7"/>{{end}}</svg></span><h2>Crashes · last 24h</h2>{{if .Crashes24h}}<span class="m">{{.Crashes24h}} event{{if ne .Crashes24h 1}}s{{end}}</span>{{end}}</div>
         {{if .CrashList}}
         {{range .CrashList}}
         <a class="cc-row" href="/devices/{{.Serial}}?tab=alerts">

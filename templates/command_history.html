@@ -175,7 +175,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 
 <div class="card cc-card">
   <div class="card-header cc-ch">
-    <h3>{{.Heading}} <span class="muted small" style="font-weight:500;">· {{.Total}}</span></h3>
+    <h2>{{.Heading}} <span class="muted small" style="font-weight:500;">· {{.Total}}</span></h2>
     <div class="right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
       <div style="position:relative;display:flex;align-items:center;">

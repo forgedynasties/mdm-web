@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard UX audit — findings &amp; proposed fixes · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 10px;max-width:860px;line-height:1.65;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:46px 0 10px;}
+h2.fh{font-size:17px;font-weight:750;margin:0 0 3px;letter-spacing:-.01em;}
+h2.fh .sev{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;
+  padding:2px 8px;vertical-align:3px;margin-right:9px;}
+.sev.p1{background:var(--danger-bg);color:var(--danger);}
+.sev.p2{background:var(--warn-bg);color:var(--warn);}
+.sev.p3{background:var(--info-bg);color:var(--info);}
+h3.sh{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:0 0 9px;}
+p.d{color:var(--text-2);font-size:13.3px;line-height:1.65;margin:0 0 12px;max-width:860px;}
+p.d b{font-weight:700;color:var(--text);}
+.ev{font-family:var(--mono);font-size:11.8px;line-height:1.7;color:var(--text-faint);background:var(--surface2);
+  border:1px solid var(--border-soft);border-radius:9px;padding:10px 13px;margin:0 0 16px;max-width:860px;overflow-x:auto;}
+.ev b{color:var(--danger);font-weight:700;}
+.ev .f{color:var(--text-2);}
+
+/* two-up before/after */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0 0 10px;align-items:start;}
+@media(max-width:880px){.ba{grid-template-columns:1fr;}}
+.pane{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 14px 15px;box-shadow:var(--shadow-sm);}
+.pane.now{border-style:dashed;}
+.pane .pt{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin:0 0 10px;display:flex;
+  align-items:center;gap:7px;}
+.pane.now .pt{color:var(--danger);}
+.pane.fix .pt{color:var(--ok);}
+.pane .pn{color:var(--text-faint);font-size:12.2px;line-height:1.55;margin:11px 0 0;padding-top:10px;border-top:1px solid var(--border-soft);}
+.verdict{background:var(--accent-soft);border:1px solid var(--accent-edge);border-radius:11px;padding:11px 14px;
+  font-size:13px;line-height:1.6;color:var(--text-2);margin:2px 0 4px;max-width:860px;}
+.verdict b{color:var(--accent-text);}
+
+/* ── mock primitives ─────────────────────────────────────────────── */
+.mk{font-size:12.5px;}
+.mk-bar{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:9px;padding:7px 10px;color:var(--text-faint);}
+.mk-bar svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex:none;}
+.mk-bar kbd{margin-left:auto;font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:4px;
+  padding:1px 5px;background:var(--surface);}
+.mk-res{border:1px solid var(--border);border-radius:9px;margin-top:8px;overflow:hidden;background:var(--surface);}
+.mk-grp{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);
+  padding:7px 11px 4px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.mk-row{display:flex;align-items:center;gap:9px;padding:7px 11px;border-bottom:1px solid var(--border-soft);}
+.mk-row:last-child{border-bottom:0;}
+.mk-row.sel{background:var(--accent-soft);}
+.mk-row .nm{font-weight:650;color:var(--text);}
+.mk-row .sub{color:var(--text-faint);font-size:11.5px;margin-left:auto;font-family:var(--mono);}
+.mk-empty{padding:16px 11px;text-align:center;color:var(--text-faint);font-size:12px;}
+.dotm{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none;}
+.dotm.off{background:var(--rule-2);}
+
+/* page directory mock */
+.dirg{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.dirs{border:1px solid var(--border-soft);border-radius:9px;padding:8px 10px;background:var(--surface2);}
+.dirs .t{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:5px;}
+.dirs a{display:block;color:var(--text-2);text-decoration:none;font-size:12.2px;padding:2px 0;}
+.dirs a:hover{color:var(--accent-text);}
+.dirs a .o{font-size:9.5px;font-weight:800;color:var(--warn);background:var(--warn-bg);border-radius:4px;padding:0 4px;margin-left:5px;}
+
+/* outline tree */
+.tree{font-family:var(--mono);font-size:11.8px;line-height:1.85;color:var(--text-2);}
+.tree .bad{color:var(--danger);font-weight:700;}
+.tree .good{color:var(--ok);font-weight:700;}
+.tree .ind1{padding-left:18px;}.tree .ind2{padding-left:36px;}
+
+/* saved views */
+.svrow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.svp{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;border:1px solid var(--border);
+  border-radius:99px;padding:5px 11px;background:var(--surface);color:var(--text-2);}
+.svp.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text);}
+.svp .n{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);}
+.svp.add{border-style:dashed;color:var(--text-faint);}
+
+/* phone frame */
+.phone{width:210px;margin:0 auto;border:1px solid var(--rule);border-radius:16px;background:var(--surface);
+  padding:9px 8px;box-shadow:var(--shadow-sm);}
+.ph-h{display:flex;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);
+  border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:4px;}
+.ph-h span{flex:1;}
+.ph-r{display:flex;font-size:11px;color:var(--text-2);padding:5px 0;border-bottom:1px solid var(--border-soft);}
+.ph-r span{flex:1;}
+.ph-card{border:1px solid var(--border-soft);border-radius:9px;padding:7px 9px;margin-bottom:6px;background:var(--surface2);}
+.ph-card .s{font-family:var(--mono);font-size:11px;font-weight:650;color:var(--text);}
+.ph-card .m{display:flex;gap:9px;font-size:10.5px;color:var(--text-faint);margin-top:3px;}
+.gone{color:var(--danger);font-size:10px;font-style:italic;}
+
+/* locked control */
+.lockdemo{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.lk-old{opacity:.45;filter:saturate(.5);}
+.lk-new{color:var(--text-faint);border-color:var(--border);background:var(--surface2);}
+.lk-new svg{opacity:.8;}
+.tip{margin-top:9px;font-size:11.5px;color:var(--text-faint);background:var(--surface2);border:1px solid var(--border-soft);
+  border-radius:8px;padding:7px 10px;}
+
+/* summary table */
+table.sum{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;margin:14px 0 4px;}
+table.sum th{text-align:left;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-faint);background:var(--surface2);padding:9px 12px;}
+table.sum td{padding:9px 12px;border-top:1px solid var(--border-soft);font-size:12.8px;vertical-align:top;color:var(--text-2);}
+table.sum td a{color:var(--accent-text);text-decoration:none;font-weight:650;}
+table.sum td.c{white-space:nowrap;}
+
+/* theme switch */
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);
+  border:1px solid var(--border);border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.shipped{background:var(--ok-bg);border:1px solid var(--ok);border-radius:11px;padding:11px 14px;
+  font-size:12.8px;line-height:1.65;color:var(--text-2);margin:10px 0 4px;max-width:860px;}
+.shipped b.h{color:var(--ok);font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;
+  display:block;margin-bottom:4px;}
+.shipped code{font-family:var(--mono);font-size:11.6px;background:var(--surface2);padding:1px 4px;border-radius:4px;}
+.corr{background:var(--warn-bg);border:1px solid var(--warn);border-radius:11px;padding:11px 14px;
+  font-size:12.8px;line-height:1.65;color:var(--text-2);margin:10px 0 4px;max-width:860px;}
+.corr b.h{color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;
+  display:block;margin-bottom:4px;}
+.foot{margin-top:52px;padding-top:14px;border-top:1px solid var(--border);color:var(--text-faint);font-size:12.2px;line-height:1.7;}
+</style></head>
+<body>
+<div class="themebar"><button id="th-l" class="on" onclick="setTheme('light')">☀ Light</button><button id="th-d" onclick="setTheme('dark')">☾ Dark</button></div>
+<div class="wrap">
+
+<h1>Dashboard UX audit</h1>
+<p class="lead">Ten findings across the MDM dashboard, each with the evidence that produced it and a mocked
+fix in the real theme. Read from templates, <code>style.css</code> and the route table — not from a live
+session, so anything behaviour-dependent is called out as such. Severity is by <b>operator cost</b>:
+P1 blocks or slows the daily job, P2 makes it harder than it should be, P3 is drift that will keep
+generating P1s if left alone.</p>
+<div class="verdict" style="max-width:860px;margin-top:14px;"><b>Status: findings 1–7 are implemented.</b>
+Each one below now carries a <span class="sev p3" style="vertical-align:1px;">Shipped</span> note saying
+what actually landed and where it differs from the mock. Two findings — 7 and 10 — changed on contact with
+the code; both corrections are written up in place rather than quietly dropped. Findings 8–10 are a
+documented rule (top of <code>style.css</code>, and the dashboard section of <code>CLAUDE.md</code>) rather
+than a migration, for the reason given there.</div>
+
+<table class="sum">
+<tr><th class="c">#</th><th class="c">Sev</th><th>Finding</th><th>Fix in one line</th></tr>
+<tr><td class="c">1</td><td class="c"><span class="sev p1">P1</span></td><td>Search matches serial numbers only</td><td>Match nickname, venue, group, model; group the results</td></tr>
+<tr><td class="c">2</td><td class="c"><span class="sev p1">P1</span></td><td>Focus never moves after a boosted navigation</td><td>Focus <code>&lt;main&gt;</code> + announce the new page</td></tr>
+<tr><td class="c">3</td><td class="c"><span class="sev p1">P1</span></td><td>45 pages, 4 in the dock; several have one way in</td><td>A real page directory behind “More”</td></tr>
+<tr><td class="c">4</td><td class="c"><span class="sev p2">P2</span></td><td>No <code>&lt;h2&gt;</code> anywhere; home page has no <code>&lt;h1&gt;</code></td><td>One h1 per page, h2 per card</td></tr>
+<tr><td class="c">5</td><td class="c"><span class="sev p2">P2</span></td><td><code>role-locked</code> controls are dimmed but not disabled</td><td>Lock glyph, <code>aria-disabled</code>, live-region reason</td></tr>
+<tr><td class="c">6</td><td class="c"><span class="sev p2">P2</span></td><td>15 fleet filters, no way to save a view</td><td>Named views pinned above the roster</td></tr>
+<tr><td class="c">7</td><td class="c"><span class="sev p2">P2</span></td><td>Phone layout deletes table columns silently</td><td>Every column kept; the table scrolls in its card</td></tr>
+<tr><td class="c">8</td><td class="c"><span class="sev p3">P3</span></td><td>Three parallel component vocabularies</td><td>Collapse to one card / button / badge</td></tr>
+<tr><td class="c">9</td><td class="c"><span class="sev p3">P3</span></td><td>16 distinct breakpoints</td><td>Three tokens</td></tr>
+<tr><td class="c">10</td><td class="c"><span class="sev p3">P3</span></td><td><s>9 of 79 templates have an empty state</s> — <b>withdrawn, I miscounted</b></td><td>Nothing to fix; one real keyboard trap found instead</td></tr>
+</table>
+
+<!-- ─────────────────────────────────────────────────────────────── 1 -->
+<div class="eyebrow">Finding 1 · Fleet &amp; palette</div>
+<h2 class="fh"><span class="sev p1">P1</span>Search only matches serial numbers</h2>
+<p class="d">Every search path in the product ends at a serial-number <code>ILIKE</code>. The fleet box says
+“Search serial…”, ⌘K says “type a device serial”. But <b>the schema already stores the names people
+actually use</b> — <code>device_nicknames</code>, restaurants, groups — and none of them are searchable.
+An operator holding a ticket that says “the front-counter kiosk at Downtown is dark” has no path from
+that sentence to that device without first looking the serial up somewhere else.</p>
+<div class="ev"><span class="f">internal/db/db.go:2371,2603,3855,4558</span>  →  <b>d.serial_number ILIKE $n</b>   (the only device predicate)
+<span class="f">internal/dashboard/handlers.go:10344</span>  →  h.db.<b>SearchDevicesBySerial</b>(ctx, query, 8)
+<span class="f">internal/db/db.go:1033–1063</span>  →  table <b>device_nicknames</b> exists, is never joined into search
+<span class="f">templates/devices.html:754</span>  →  placeholder=<b>"Search serial…"</b></div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today</div>
+    <div class="mk">
+      <div class="mk-bar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>downtown kiosk</span><kbd>⌘K</kbd></div>
+      <div class="mk-res"><div class="mk-empty">No devices match “downtown kiosk”.</div></div>
+    </div>
+    <p class="pn">The device exists, is named that, and sits in a venue called Downtown. The query still
+    returns nothing, because none of those three fields is in the <code>WHERE</code>.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="mk">
+      <div class="mk-bar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>downtown kiosk</span><kbd>⌘K</kbd></div>
+      <div class="mk-res">
+        <div class="mk-grp">Devices · 2</div>
+        <div class="mk-row sel"><span class="dotm"></span><span class="nm">Front counter kiosk</span><span class="sub">K22-0194 · Downtown</span></div>
+        <div class="mk-row"><span class="dotm off"></span><span class="nm">Drive-thru kiosk</span><span class="sub">K18-0077 · Downtown</span></div>
+        <div class="mk-grp">Venues · 1</div>
+        <div class="mk-row"><span class="nm">Downtown</span><span class="sub">14 devices</span></div>
+        <div class="mk-grp">Pages</div>
+        <div class="mk-row"><span class="nm">Fleet map</span><span class="sub">/map</span></div>
+      </div>
+    </div>
+    <p class="pn">One predicate set across serial, nickname, venue, group and model label; results grouped by
+    kind so a venue hit and a device hit never compete for the same row. Exact-serial keeps rank 1, so the
+    existing “paste a serial, hit Enter” habit is untouched.</p></div>
+</div>
+<div class="verdict"><b>Do this one first.</b> It is a single query change plus a result-grouping template,
+and it removes the most common reason an operator leaves the dashboard to look something up elsewhere.</div>
+<div class="shipped"><b class="h">Shipped</b>
+<code>deviceSearchWhere()</code> in <code>internal/db/db.go</code> replaces the bare
+<code>d.serial_number ILIKE</code> in both fleet queries: it now matches the serial, the device's
+nickname, the venue it sits in and any group it belongs to. The name matches are <code>EXISTS</code>
+subqueries, not joins, so a device in three matching groups still returns one row and the callers'
+argument numbering is untouched. <code>SearchDevicesBySerial</code> (the ⌘K palette and the action
+builder's device lookup) matches nicknames too and returns them, ranked exact-name and exact-serial
+first; a device found by name leads with the name and drops the serial to the subtitle. Both
+placeholders now say what they actually search.
+<br><br><b>Narrower than the mock in one way:</b> venues, groups and people were already indexed in
+⌘K by <code>CmdkIndex</code> — the mock showed that as new, and it was not. What was genuinely missing
+everywhere, and is the part that landed, is the nickname.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 2 -->
+<div class="eyebrow">Finding 2 · Global navigation</div>
+<h2 class="fh"><span class="sev p1">P1</span>Focus never moves after a page navigation</h2>
+<p class="d">The whole app is <code>hx-boost</code>ed: a click swaps <code>&lt;main&gt;</code> and nothing else.
+The plumbing for that is careful — retargeting guards, stream teardown, a title swap so the browser tab
+updates. What it never does is <b>move focus</b>. <code>&lt;main tabindex="-1"&gt;</code> is there and ready;
+nothing ever calls <code>.focus()</code> on it. So after every navigation a keyboard user is still parked
+on the dock link they just pressed, and tabbing forward walks the dock again instead of entering the new
+page. A screen reader announces nothing at all — the title changed, but no live region carries it.
+The “Skip to content” link at the top of the document is dead for the same reason.</p>
+<div class="ev"><span class="f">templates/layout.html:15–20</span>  →  boosted swap returns <b>&lt;main id="main" tabindex="-1"&gt;</b>
+<span class="f">templates/layout.html</span>  →  <b>no focus() on any htmx:afterSwap / afterSettle handler</b>
+<span class="f">templates/layout.html:290</span>  →  &lt;a href="#main" class="skip-link"&gt;  (target is never focused)
+<span class="f">aria-live in the whole tree</span>  →  10 regions, <b>none announce a route change</b></div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today</div>
+    <div class="mk">
+      <div class="mk-bar" style="justify-content:center;gap:16px;background:var(--surface);">
+        <span>Overview</span><span style="color:var(--accent-text);font-weight:700;box-shadow:var(--ring);border-radius:6px;padding:1px 6px;">Fleet</span><span>Actions</span><span>Alerts</span>
+      </div>
+      <div style="margin-top:9px;border:1px dashed var(--rule);border-radius:9px;padding:20px 12px;text-align:center;color:var(--text-faint);font-size:12px;">
+        Fleet page loaded<br><span style="font-size:11px;">focus still on the dock · nothing announced</span>
+      </div>
+      <div class="tip">Next <b>Tab</b> → “Actions”, not the page. Screen reader: silence.</div>
+    </div>
+    <p class="pn">A sighted mouse user never notices. Everyone else navigates the dock in a loop.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="mk">
+      <div class="mk-bar" style="justify-content:center;gap:16px;background:var(--surface);">
+        <span>Overview</span><span style="color:var(--accent-text);font-weight:700;">Fleet</span><span>Actions</span><span>Alerts</span>
+      </div>
+      <div style="margin-top:9px;border:1px solid var(--accent-edge);box-shadow:var(--ring);border-radius:9px;padding:20px 12px;text-align:center;color:var(--text-2);font-size:12px;">
+        <b>Fleet</b><br><span style="font-size:11px;color:var(--text-faint);">focus moved here · 428 devices</span>
+      </div>
+      <div class="tip">Announced: “Fleet, 428 devices”. Next <b>Tab</b> → the search box.</div>
+    </div>
+    <p class="pn">On <code>htmx:afterSettle</code> for a boosted <code>&lt;main&gt;</code> swap: focus main,
+    scroll to top, and write the new page name into a visually-hidden <code>role="status"</code>. Roughly
+    eight lines, next to the teardown handler that already fires on the same event. Also makes the skip
+    link work for the first time.</p></div>
+</div>
+<div class="shipped"><b class="h">Shipped</b>
+An <code>htmx:afterSettle</code> handler in <code>layout.html</code>, next to the teardown that already
+listens on that event: for a boosted swap of <code>&lt;main&gt;</code> it focuses main, scrolls to top,
+and writes the page name into a new <code>#route-announcer</code> — a <code>role="status"</code> live
+region beside the toast stack. The name is <code>document.title</code> minus the brand suffix, cleared
+and re-set on the next frame so a reader re-announces an identical string.
+<code>main[tabindex="-1"]:focus</code> gets <code>outline:none</code> in <code>style.css</code>, because
+that focus is a tab-order starting point, not a control the user chose. The skip link works now as a
+side effect.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 3 -->
+<div class="eyebrow">Finding 3 · Information architecture</div>
+<h2 class="fh"><span class="sev p1">P1</span>45 pages behind a 4-item dock, and some have one way in</h2>
+<p class="d">The dock shows Overview / Fleet / Actions / Alerts, plus a “More” menu holding six admin
+destinations. The route table has <b>about 45 human-facing pages</b>. The deliberate part of this is good —
+one dock shape for every role, the admin page you are on gets promoted into the dock so you can see where
+you are. The problem is the rest: counting <code>href</code>s across the template tree, several pages are
+reachable from exactly one link, and <code>/packages</code> links only to itself.</p>
+<div class="ev">inbound href counts across templates/:
+  <b>/packages       0</b>  (self-links only)      /activity    1  (layout More)
+  <b>/setup          0</b>                          /schedules   1  (commands.html)
+  <b>/managed-configs 0</b>                          /export      1  (overview.html)
+  /boot-logo      1  (settings.html)        /compliance  1  /geofencing 1  /network 1
+<span class="f">source: grep -ro 'href="&lt;path&gt;"' templates/ | wc -l</span></div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today — “More”</div>
+    <div class="mk">
+      <div class="mk-res">
+        <div class="mk-grp">Administration</div>
+        <div class="mk-row"><span class="nm">Updates</span></div>
+        <div class="mk-row"><span class="nm">Clients</span></div>
+        <div class="mk-row"><span class="nm">Server</span></div>
+        <div class="mk-row"><span class="nm">Policies</span></div>
+        <div class="mk-row"><span class="nm">Products</span></div>
+        <div class="mk-row"><span class="nm">Users</span></div>
+      </div>
+      <div class="tip">Six of ~45. The other ~39 are found by memory, by URL, or not at all.</div>
+    </div>
+    <p class="pn">Flat, unlabelled, and silently role-filtered — two admins with different roles see
+    different lists and neither can tell what the other can see.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed — page directory</div>
+    <div class="mk">
+      <div class="dirg">
+        <div class="dirs"><div class="t">Fleet</div><a href="#">Devices</a><a href="#">Venues</a><a href="#">Groups</a><a href="#">Map</a><a href="#">Enrollment</a><a href="#">Fleet health</a></div>
+        <div class="dirs"><div class="t">Deploy</div><a href="#">Updates</a><a href="#">Releases</a><a href="#">Rollouts</a><a href="#">Clients</a><a href="#">Packages <span class="o">orphan</span></a></div>
+        <div class="dirs"><div class="t">Control</div><a href="#">Actions</a><a href="#">Schedules <span class="o">orphan</span></a><a href="#">Policies</a><a href="#">Apps</a><a href="#">Managed configs <span class="o">orphan</span></a></div>
+        <div class="dirs"><div class="t">Admin</div><a href="#">Users</a><a href="#">Access</a><a href="#">Products</a><a href="#">Server</a><a href="#">Settings</a><a href="#">Export</a></div>
+      </div>
+      <div class="tip">Same menu, sectioned, complete. Entries a role cannot use stay visible and locked
+      (see finding 5) rather than vanishing.</div>
+    </div>
+    <p class="pn">One template listing every page in four groups, rendered both as the “More” panel and as
+    a <code>/pages</code> route the palette can fall through to. The orphan tags here are the audit’s;
+    they would not ship — they mark what needs a home before this lands.</p></div>
+</div>
+<div class="verdict">The orphans are the actionable half. <b>Decide per page: promote it, fold it into a
+neighbour, or delete it.</b> Three pages with zero inbound links are either unfinished or dead, and the
+directory is the forcing function that makes someone say which.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 4 -->
+<div class="eyebrow">Finding 4 · Document structure</div>
+<h2 class="fh"><span class="sev p2">P2</span>No h2 exists anywhere; the home page has no h1</h2>
+<p class="d">Across all 79 templates there is <b>not a single <code>&lt;h2&gt;</code></b>. Pages go from
+<code>h1</code> straight to a dozen <code>h3</code>s, and fourteen templates — including
+<code>overview.html</code>, the page every operator lands on — have no <code>h1</code> at all. Heading
+navigation is how a screen-reader user skims a dense page; here it produces a flat list of card titles
+with no page name above them.</p>
+<div class="ev">templates/overview.html   h1=<b>0</b>  h2=<b>0</b>  h3=10     <span class="f">← the landing page</span>
+templates/device.html     h1=2  h2=<b>0</b>  h3=12
+templates/devices.html    h1=1  h2=<b>0</b>  h3=0
+no &lt;h1&gt; at all: overview, login, profile, map, remote, signup, install_progress, … <b>(14 files)</b></div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today — overview.html outline</div>
+    <div class="tree">
+<span class="bad">(no h1)</span><br>
+<span class="ind1">h3 Onboarding</span><br>
+<span class="ind1">h3 Sites</span><br>
+<span class="ind1">h3 Fleet map</span><br>
+<span class="ind1">h3 Fleet activity</span><br>
+<span class="ind1">h3 Rollouts</span><br>
+<span class="ind1">h3 Release adoption</span><br>
+<span class="ind1">h3 Fleet vitals</span><br>
+<span class="ind1">h3 Power &amp; usage</span>
+    </div>
+    <p class="pn">Ten sibling h3s under nothing. “Where am I?” has no answer in the heading tree — only in
+    the <code>&lt;title&gt;</code>, which a heading-list shortcut does not read.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="tree">
+<span class="good">h1 Overview</span> <span style="color:var(--text-faint)">— 428 devices · 12 venues</span><br>
+<span class="ind1 good">h2 Needs attention</span><br>
+<span class="ind2">h3 Onboarding</span><br>
+<span class="ind2">h3 Rollouts</span><br>
+<span class="ind1 good">h2 Fleet</span><br>
+<span class="ind2">h3 Sites</span> · <span class="ind2" style="padding:0">h3 Fleet map</span><br>
+<span class="ind2">h3 Fleet activity</span><br>
+<span class="ind1 good">h2 Health</span><br>
+<span class="ind2">h3 Fleet vitals</span> · h3 Power &amp; usage
+    </div>
+    <p class="pn">The h2 layer is not new markup for its own sake — the overview cards already cluster into
+    these three groups visually. Promoting that grouping into headings costs three elements and makes the
+    page skimmable by shortcut as well as by eye.</p></div>
+<div class="shipped"><b class="h">Shipped, and wider than the mock</b>
+<code>&lt;h2&gt;</code> now exists: 156 of them, across 43 templates. Every full page that had an
+<code>h1</code> and a run of <code>h3</code>s with nothing in between had its section titles promoted a
+level — after every CSS rule that styled an <code>h3</code> card title was given the <code>h2</code>
+form too, so the change is invisible on screen and shows up only in the heading outline. Fragments keep
+<code>h3</code>: they render inside a card whose title is now <code>h2</code>, which is correct.
+<br><br>Every full page has an <code>&lt;h1&gt;</code>. The overview's headline sentence, the map's, the
+profile name and the two auth titles were <code>&lt;div&gt;</code>s carrying heading styles and became
+real headings (with explicit <code>margin</code>, so nothing moved); the remote console, whose only name
+lived inside a back link, got a visually-hidden one.
+<br><br><b>Not done as mocked:</b> the mock grouped the overview's ten cards under three invented
+<code>h2</code>s. The overview is a user-reorderable widget grid — a fixed group structure would fight
+the layout engine and go stale the moment someone drags a card. The cards <i>are</i> the page's
+top-level sections, so they became <code>h2</code> directly under the page <code>h1</code>.</div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 5 -->
+<div class="eyebrow">Finding 5 · Permissions</div>
+<h2 class="fh"><span class="sev p2">P2</span>Locked controls look broken rather than locked</h2>
+<p class="d">The <code>role-locked</code> pattern — render a control your role cannot use, dim it, swallow
+the click, toast the reason — is a good call. Showing people what the product can do beats hiding it. The
+<b>execution</b> has three gaps: <code>opacity:.45</code> puts the label under roughly 2:1 contrast, so for
+some people the control is not readable at all; there is no <code>aria-disabled</code>, so a screen reader
+announces a perfectly ordinary enabled button; and the explanation toast is a bare div with no
+<code>aria-live</code>, so the one piece of feedback is invisible to the people most likely to need it.
+28 controls use it.</p>
+<div class="ev"><span class="f">static/style.css:6260</span>  .role-locked{<b>opacity:.45</b> !important;filter:saturate(.5);pointer-events:auto}
+<span class="f">static/style.css:6261</span>  #role-lock-toast{...}   <b>no aria-live, no role="status"</b>
+<span class="f">templates/*.html</span>        aria-disabled used <b>2</b> times in the whole tree; role-locked used <b>28</b>
+<span class="f">templates/layout.html:812</span>  click guard preventDefaults — the link keeps its href and tab position</div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today</div>
+    <div class="lockdemo">
+      <span class="cc-btn primary lk-old">Remote Control</span>
+      <span class="cc-btn lk-old">Send action</span>
+    </div>
+    <div class="tip">Reads as “the page hasn’t finished loading”. Click → an unannounced toast, bottom
+    centre, 2.6s. Tab still lands on it; the reader says “Remote Control, link”.</div>
+    <p class="pn">Dimming alone is ambiguous — it is also how this app renders pending and disabled states.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="lockdemo">
+      <span class="cc-btn lk-new"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Remote Control</span>
+      <span class="cc-btn lk-new"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Send action</span>
+    </div>
+    <div class="tip">Padlock carries the meaning; label stays at full contrast. On hover <i>or focus</i>:
+    “Needs a remote-control rule — ask an access admin.” Toast gets <code>role="status"</code>.</div>
+    <p class="pn">Keep the element focusable — a locked control you cannot reach is a locked control you
+    cannot ask about — but mark it <code>aria-disabled="true"</code> so the state is spoken, and let the
+    reason appear on focus, not only on a click that goes nowhere.</p></div>
+</div>
+<div class="shipped"><b class="h">Shipped</b>
+<code>.role-locked</code> drops <code>opacity:.45</code> for a muted-but-legible colour plus a padlock
+drawn as a CSS mask, so no call site needs new markup (<code>tr</code>s, and anything marked
+<code>.no-lock-glyph</code>, get the wash without the glyph). The guard in <code>layout.html</code> now
+stamps <code>aria-disabled="true"</code> and a <code>title</code> carrying the reason onto every
+<code>.role-locked</code> on load and after each htmx swap — one place, rather than 28 call sites having
+to remember. The reason toast became a <code>role="status"</code> live region, and it fires on focus and
+on Enter/Space, not only on a click that gets swallowed.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 6 -->
+<div class="eyebrow">Finding 6 · Fleet</div>
+<h2 class="fh"><span class="sev p2">P2</span>Fifteen filters, and no way to keep one</h2>
+<p class="d">The fleet page offers fifteen filter dimensions — status, agent kind, class, model, production,
+release, battery, RAM, temperature, kiosk, charging, timezone, onboarding, lifecycle, visibility — plus a
+sort menu and a serial sort. The applied set renders as removable chips, which is right. But there is
+<b>no saved view</b>: the combination an operator rebuilds every morning has to be rebuilt every morning,
+or pasted from a bookmarked URL that nobody else on the team can discover.</p>
+<div class="ev"><span class="f">templates/devices.html:763–862</span>  <b>15</b> &lt;select&gt; filters in one popover
+<span class="f">templates/devices.html:282–298</span>  applied filters render as chips + “Clear all”  <span class="f">✓ good</span>
+<span class="f">templates/devices.html</span>          grep 'saved.view|preset' → <b>no matches</b>
+state lives in the query string only — shareable by copy-paste, not nameable, not discoverable</div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today</div>
+    <div class="mk">
+      <div class="svrow">
+        <span class="svp">Filters <span class="n">3</span></span><span class="svp">Sort: Last seen</span>
+        <span class="svp" style="border-style:dashed;color:var(--text-faint);">Search serial…</span>
+      </div>
+      <div class="svrow" style="margin-top:9px;">
+        <span class="svp on">Battery <span class="n">Critical &lt;20%</span> ×</span>
+        <span class="svp on">Status <span class="n">Offline</span> ×</span>
+        <span class="svp on">Venue <span class="n">Downtown</span> ×</span>
+      </div>
+      <div class="tip">Four clicks through a popover to get here. Tomorrow: four clicks again.</div>
+    </div>
+    <p class="pn">The chips do the hard part already — they prove the app knows the exact shape of the
+    current view. It just never offers to remember it.</p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="mk">
+      <div class="svrow">
+        <span class="svp on">Dead on arrival <span class="n">7</span></span>
+        <span class="svp">Needs a site <span class="n">12</span></span>
+        <span class="svp">Hot kiosks <span class="n">3</span></span>
+        <span class="svp">All devices <span class="n">428</span></span>
+        <span class="svp add">+ Save this view</span>
+      </div>
+      <div class="svrow" style="margin-top:9px;">
+        <span class="svp on">Battery <span class="n">Critical &lt;20%</span> ×</span>
+        <span class="svp on">Status <span class="n">Offline</span> ×</span>
+        <span class="svp on">Venue <span class="n">Downtown</span> ×</span>
+      </div>
+      <div class="tip">Counts refresh with the roster, so the row doubles as a triage dashboard —
+      “Dead on arrival: 7” is the morning’s work, visible before any clicking.</div>
+    </div>
+    <p class="pn">A view is just the query string plus a name. Per-user to start; a “share with the team”
+    flag later if it earns one. The existing quick-view pills are the same idea already half-built —
+    this generalises them instead of adding a parallel control.</p></div>
+</div>
+<div class="shipped"><b class="h">Shipped</b>
+A <code>fleet_views</code> table (user, name, query; unique on user+name, so re-saving a name updates it
+rather than leaving two identical-looking pills), plus <code>POST /devices/views</code> and
+<code>POST /devices/views/{id}/delete</code>, both scoped to the owner so an id from elsewhere cannot
+delete someone else's view. The saved query is re-parsed and re-encoded on the way in and stored without
+its <code>?</code> — the value is echoed into an <code>href</code>, and a saved
+<code>//evil.example</code> would otherwise navigate off-site. The row sits under the built-in quick
+views in the same pill language, one step quieter, and the pill matching the current query string is
+highlighted. “+ Save this view” becomes an inline name field rather than opening a dialog: naming a
+filter set is a one-word decision.
+<br><br><b>Not shipped:</b> the live counts on each pill that the mock showed. Each is its own filtered
+count query on a page that already runs several — worth doing, worth measuring first.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 7 -->
+<div class="eyebrow">Finding 7 · Mobile</div>
+<h2 class="fh"><span class="sev p2">P2</span>The phone layout deletes columns instead of reflowing</h2>
+<p class="d">On a phone, wide tables drop columns with <code>display:none</code>. The column is not
+collapsed, summarised or moved — it is gone, with nothing saying so. A technician standing in front of a
+device, which is exactly the phone use case, gets a quieter table and no way to know what was removed.
+The rest of the mobile work is genuinely careful: the dock restacks, drops its labels under 719px, and
+<code>body.has-dock</code> pads the container so content clears it. This one rule is out of step with that.</p>
+<div class="ev"><span class="f">static/style.css:3380</span>  .table thead th:nth-child(4),
+<span class="f">static/style.css:3381</span>  .table tbody td:nth-child(4) { <b>display:none</b> }   <span class="f">← no affordance, no disclosure</span>
+<span class="f">static/style.css:5689</span>  .dock { left:12px; right:12px; ... }        <span class="f">✓ dock handled well</span>
+<span class="f">static/style.css:5698</span>  .dock .dock-lbl { display:none }            <span class="f">✓ icons keep aria-labels</span></div>
+<div class="ba">
+  <div class="pane now"><div class="pt">● Today</div>
+    <div class="phone">
+      <div class="ph-h"><span>Serial</span><span>Seen</span><span>Batt</span></div>
+      <div class="ph-r"><span>K22-0194</span><span>2m</span><span>18%</span></div>
+      <div class="ph-r"><span>K22-0207</span><span>4h</span><span>92%</span></div>
+      <div class="ph-r"><span>T7-1183</span><span>2m</span><span>44%</span></div>
+    </div>
+    <p class="pn" style="text-align:center;"><span class="gone">Column 4 (Venue) removed — nothing indicates it existed</span></p></div>
+  <div class="pane fix"><div class="pt">✓ Proposed</div>
+    <div class="phone">
+      <div class="ph-card"><div class="s">K22-0194 · Front counter</div><div class="m"><span>Downtown</span><span>2m ago</span><span style="color:var(--danger);font-weight:700;">18%</span></div></div>
+      <div class="ph-card"><div class="s">K22-0207 · Drive-thru</div><div class="m"><span>Downtown</span><span>4h ago</span><span>92%</span></div></div>
+      <div class="ph-card"><div class="s">T7-1183 · Server tablet</div><div class="m"><span>Airport</span><span>2m ago</span><span>44%</span></div></div>
+    </div>
+    <p class="pn" style="text-align:center;">Every field survives; the row becomes a card and the column
+    header becomes the field's position. Same data, one breakpoint rule, and it scales to the columns
+    the table will grow later.</p></div>
+</div>
+<div class="corr"><b class="h">Correction — the fix is not the one mocked</b>
+A card-per-row reflow needs each cell to carry its column name (a <code>data-label</code>), and
+<code>.table</code> is shared by the products, setup, production-detail and device-summary tables — the
+markup change would have to land on all four, and none of them is the phone-critical surface. The fleet
+roster, which <i>is</i>, was never this table: it is already a card list (<code>.dl-*</code>).</div>
+<div class="shipped"><b class="h">Shipped</b>
+The <code>display:none</code> rule is gone — no column is deleted on any table at any width. Instead the
+card holding a wide table scrolls sideways under 640px, which is already how this codebase handles wide
+tables one breakpoint up, with <code>.table{min-width:460px}</code> so the scroll actually engages.
+Every column survives, no markup changed, and the affordance is the one the page already uses elsewhere.
+The card-per-row reflow stays the better answer for the device table specifically, and wants the
+<code>data-label</code> pass to be worth doing properly.</div>
+
+<!-- ─────────────────────────────────────────────────────────────── 8-10 -->
+<div class="eyebrow">Findings 8–10 · Drift</div>
+<h2 class="fh"><span class="sev p3">P3</span>Three component vocabularies, sixteen breakpoints, nine empty states</h2>
+<p class="d">None of these hurt an operator today. They are why the P1s and P2s above took the shape they
+did, and left alone they will keep producing more. Worth saying plainly: the <b>token layer is in good
+shape</b> — contrast ratios are documented inline next to the values, and only 15 hardcoded hex colours
+survive across all templates. The drift is one level up, in components.</p>
+<div class="ev"><b>8 · vocabularies</b>
+  buttons    <b>cc-btn 243</b>  ·  btn/btn-primary/btn-outline/btn-sm <b>115</b>   two systems, same job
+  badges     cc-tag 100  ·  pill 88  ·  chip 37  ·  tag 25            four systems
+  cards      <b>29</b> distinct *card* classes in style.css (.cc-card .dd-card .ddc-card .ovx-card …)
+  css        style.css <b>7108</b> lines  +  <b>3670</b> lines of per-page &lt;style&gt; in 62 templates
+             +  <b>1048</b> inline style= attributes
+
+<b>9 · breakpoints</b>
+  max-width values in use: 640 680 719 720 760 820 860 900 920 980 1000 1024 1100   <b>(16 distinct)</b>
+  640 vs 680 vs 719 vs 720 are four different answers to "is this a phone"
+
+<b>10 · empty states</b>
+  .empty-state appears in <b>9</b> of <b>79</b> templates. The other 70 render a blank region
+  on zero rows — indistinguishable from a failed load.
+
+<b>also</b>  ~30 non-demo &lt;div&gt;/&lt;span&gt; carry onclick with no role and no tabindex</div>
+<div class="corr"><b class="h">Correction — finding 10 was wrong, and so was the “also”</b>
+<b>The empty-state count was bad.</b> I grepped for the <code>.empty-state</code> class and called the
+other 70 templates unhandled. They are not: 69 of 79 use <code>{{range}}…{{else}}</code> or the lighter
+<code>.empty</code> class. Exactly three templates have a <code>range</code> with no empty handling at
+all, and all three are right as they are — <code>updates_policy.html</code>'s freeze list, for instance,
+sits directly above its own “+ Add freeze period” button, so empty explains itself. <b>Finding 10 is
+withdrawn.</b> No shared partial was added; there was nothing to add it for.
+<br><br><b>The “keyboard-unreachable” line was also wrong.</b> 28 of those ~30 are modal backdrops —
+click-outside-to-close, with Escape already wired. A backdrop is not a control. Reading the two that were
+left turned up one genuine trap, below.</div>
+<div class="shipped"><b class="h">Shipped — the one real find in this section</b>
+The boot-logo splash uploader (<code>/boot-logo</code>) was a <code>&lt;div onclick&gt;</code> opening a
+<code>display:none</code> file input. The div could not be focused and the input was out of the tab
+order, so <b>there was no keyboard path to uploading a splash image at all</b> — a complete block on that
+page's only job, not a papercut. It is now a real <code>&lt;button&gt;</code> with a focus ring. While
+reading it: the zone said “Drop a splash image” and <b>nothing listened for a drop</b> — no
+<code>dragover</code>, no <code>drop</code>, anywhere in the file. That is wired now too, into the same
+input so validation and submit are unchanged.</div>
+<div class="shipped"><b class="h">Shipped as a rule, deliberately not as a migration</b>
+The winners are frozen in writing: <code>.cc-card</code>, <code>.cc-btn</code>, <code>.cc-tag</code>, a
+720 / 1024 / 1280 breakpoint scale, and the heading rule from finding 4 — in a block at the top of
+<code>style.css</code> where the next person writing a class will hit it, and in the dashboard section of
+<code>CLAUDE.md</code>. The frozen spellings keep working; nothing new should use them, and a page
+converts when it is next touched for another reason.
+<br><br><b>The breakpoints were not rewritten, on purpose.</b> Counting the per-page
+<code>&lt;style&gt;</code> blocks as well as <code>style.css</code>, there are <b>22</b> distinct
+max-widths, not the 16 reported above — that figure only looked at <code>style.css</code>, so this one
+was understated rather than overstated. Collapsing 22 live layout rules onto three values changes what
+happens at specific viewport widths on pages I cannot open in a browser from here. That is a worse risk
+than the inconsistency it removes, and it is the kind of change that should be made a page at a time by
+someone looking at the result.</div>
+
+<div class="eyebrow">What is left</div>
+<p class="d">Findings 1–7 are in. Finding 10 is withdrawn. What these fixes did <i>not</i> settle:</p>
+<p class="d"><b>1. Three pages are now reachable that may not deserve to be.</b> <code>/packages</code>,
+<code>/setup</code> and <code>/setup/managed-configs</code> had no inbound link anywhere. The directory
+gives them one, which answers “can I find it” and not “should it exist”. Someone who knows the product
+should say: promote, fold into a neighbour, or delete.
+<b>2. The 22 breakpoints.</b> Frozen, not fixed — per page, in a browser.
+<b>3. Card-per-row on phones</b> for the device table, once the <code>data-label</code> pass is worth
+doing properly.
+<b>4. Live counts on saved-view pills</b>, after someone measures what another few filtered counts cost
+on a page that already runs several.
+<b>5. The whole live-session half of the audit</b>, which a file read cannot reach at all: perceived
+latency, WebSocket reconnection, the remote-screen and shell surfaces, and real task timings with real
+operators. That needs a session recording, not a grep.</p>
+
+<p class="foot"><b>On the two corrections.</b> Finding 10 (empty states) was a bad grep — I matched one
+class name and reported the absence of the pattern rather than the absence of the behaviour. Finding 9
+(breakpoints) was undercounted for the same reason: I searched one file when the rules live in two
+places. Both are recorded above rather than quietly deleted, because an audit that only shows the
+findings that survived is not one you can calibrate.<br><br>
+Method: static read of <code>templates/</code> (79 files, 28,964 lines),
+<code>static/style.css</code> (7,108 lines) and the route table in
+<code>internal/dashboard/handlers.go</code>. Counts are reproducible with the greps shown in each evidence
+block. Not covered: anything that needs a running session — perceived latency, WebSocket reconnection
+behaviour, the remote-screen and shell surfaces, and real task timings with operators. Those want a
+session recording, not a file read.<br>
+Mocks are static; the theme switch top-right renders every one in both themes.</p>
+
+</div>
+<script>
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('th-l').classList.toggle('on',t==='light');
+  document.getElementById('th-d').classList.toggle('on',t==='dark');
+}
+setTheme('light');
+</script>
+</body></html>

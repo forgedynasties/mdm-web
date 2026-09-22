@@ -191,6 +191,37 @@
     // Belt-and-suspenders: also on a hard unload.
     window.addEventListener('pagehide', mdmTeardownPage);
 
+    // ── Focus and announce the new page ───────────────────────────────────────
+    // A boosted navigation replaces <main> but leaves focus wherever the click
+    // left it — on the dock link that was pressed. Tabbing from there walks the
+    // dock again instead of entering the page just loaded, and a screen reader
+    // hears nothing at all: the <title> swap is silent, and no live region
+    // carries the route. Both are fixed here, on the same event the teardown
+    // above already uses.
+    //
+    // <main tabindex="-1"> is focusable by script but not by Tab, so moving
+    // focus to it does not add a stop to the tab order; the next Tab continues
+    // from the top of the page content. This is also what finally makes the
+    // "Skip to content" link work — its target had never been focused before.
+    document.addEventListener('htmx:afterSettle', function (e) {
+      var d = e.detail; if (!d || !d.boosted) return;
+      var t = d.target; if (!t || t.tagName !== 'MAIN') return;
+      var main = document.getElementById('main') || document.querySelector('main');
+      if (!main) return;
+      try { main.focus({ preventScroll: true }); } catch (e2) { try { main.focus(); } catch (e3) {} }
+      window.scrollTo(0, 0);
+      // Announce the page name. document.title is "<Page> — <Brand>"; the brand
+      // is the same on every page, so announcing it each time is noise.
+      var an = document.getElementById('route-announcer');
+      if (an) {
+        var name = (document.title || '').split(' — ')[0].trim();
+        // Re-assigning the same string does not re-announce in some readers, so
+        // clear first and set on the next frame.
+        an.textContent = '';
+        requestAnimationFrame(function () { an.textContent = name || 'Page loaded'; });
+      }
+    });
+
     // ── Instant, page-shaped skeleton on navigation ────────────────────────────
     // The moment a boosted page navigation starts, clone the skeleton <template>
     // that matches the destination into <main>, so the page appears instantly in
@@ -296,7 +327,7 @@
     <div class="appbar-right">
       {{if ne .Role "owner"}}<button type="button" class="ovx-search topbar-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices and pages" aria-keyshortcuts="Meta+K Control+K">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <span>Search devices…</span>
+        <span>Search devices, venues…</span>
         <kbd>⌘K</kbd>
       </button>{{end}}
 
@@ -402,25 +433,73 @@
     {{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}}{{template "nav-manage" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "products"}}{{template "nav-products" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
-    {{if or (canAdminOrOperator .Role) (canManageUsers .Role) (eq .Role "admin")}}<button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="true" aria-expanded="false" onclick="navAdmin(event)" data-cmdk-label="More"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>{{end}}
+    {{/* Every non-owner role has entries in the directory now (Fleet and several
+         Control pages are open to all), so More is no longer admin-only. */}}
+    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="true" aria-expanded="false" onclick="navAdmin(event)" data-cmdk-label="More"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>
   </nav>
 
-  {{/* Everyone gets the same dock: the four pages the job is done in. What only some
-       roles can reach — policies, updates, users, products, clients — lives in this
-       rail instead, so the main navigation does not change shape per person. The rail
-       renders nothing at all for a role with no entries in it. */}}
-  {{if or (canAdminOrOperator .Role) (canManageUsers .Role) (eq .Role "admin")}}
-  {{/* The admin pages hang off one "More" in the dock rather than a second floating
-       rail: one navigation object, and the dock still looks the same for everyone —
-       a role with none of these simply has no More. */}}
-  <div class="nbar-pop nbar-menu dock-more-pop" id="admin-pop" hidden>
-    <div class="nbar-mcap">Administration</div>
-    {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}{{template "nav-updates" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
-    {{if canAdminOrOperator .Role}}{{template "nav-clients" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
-    {{if canAdminOrOperator .Role}}{{template "nav-server" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
-    {{if ne .Role "owner"}}{{if eq .Role "admin"}}{{template "nav-manage" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
-    {{if eq .Role "admin"}}{{template "nav-products" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}
-    {{if ne .Role "owner"}}{{if canManageUsers .Role}}{{template "nav-users" (dict "cls" "nbar-mi js-dest" "active" .ActivePage)}}{{end}}{{end}}
+  {{/* Everyone gets the same dock: the four pages the job is done in. Everything
+       else — about forty pages — lives behind this one "More", as a sectioned
+       directory rather than a flat list.
+
+       It is a directory and not a short menu on purpose. Before this, six admin
+       pages were listed here and the rest were reachable only from a single link
+       buried on one other page, or from nothing at all: /packages linked only to
+       itself, /setup and /setup/managed-configs had no inbound link anywhere in
+       the tree. A page nobody can find is a page nobody maintains.
+
+       Entries a role cannot open are simply not rendered — the server guards are
+       the source of truth and each {{if}} below mirrors the one on its route. */}}
+  {{if ne .Role "owner"}}
+  <div class="nbar-pop nbar-menu dock-more-pop nav-dir" id="admin-pop" hidden>
+    <div class="nbar-mcap">All pages</div>
+    <div class="nav-dir-grid">
+
+      <div class="nav-dir-sec">
+        <div class="t">Fleet</div>
+        <a class="js-dest{{if eq .ActivePath "/devices"}} on{{end}}" href="/devices" data-cmdk-label="Devices">Devices</a>
+        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-cmdk-label="Venues">Venues</a>
+        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-cmdk-label="Groups">Groups</a>
+        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-cmdk-label="Fleet map">Fleet map</a>
+        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-cmdk-label="Fleet health">Fleet health</a>
+        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-cmdk-label="Enrollment">Enrollment</a>
+      </div>
+
+      <div class="nav-dir-sec">
+        <div class="t">Deploy</div>
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-cmdk-label="Updates">Updates</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-cmdk-label="Releases">Releases</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-cmdk-label="Clients">Clients</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-cmdk-label="Packages">Packages</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
+      </div>
+
+      <div class="nav-dir-sec">
+        <div class="t">Control</div>
+        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-cmdk-label="Schedules">Schedules</a>
+        {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-cmdk-label="App library">App library</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-cmdk-label="Policies">Policies</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-cmdk-label="Update policy">Update policy</a>
+        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-cmdk-label="Compliance">Compliance</a>
+        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-cmdk-label="Geofencing">Geofencing</a>
+        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-cmdk-label="Network">Network</a>
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
+      </div>
+
+      <div class="nav-dir-sec">
+        <div class="t">Admin</div>
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-cmdk-label="Users">Users</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-cmdk-label="Access rules">Access rules</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-cmdk-label="Activity log">Activity log</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-cmdk-label="Products">Products</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-cmdk-label="Server">Server</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-cmdk-label="Settings">Settings</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-cmdk-label="Setup">Setup</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-cmdk-label="Export">Export</a>
+        <a class="js-dest" href="/reports/alerts-by-restaurant" data-cmdk-label="Alert report">Alert report</a>
+      </div>
+
+    </div>
   </div>
   {{end}}
   {{end}}
@@ -653,12 +732,16 @@
   })();
   </script>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+  {{/* Route announcer: a boosted navigation swaps <main> without a page load, so
+       nothing tells a screen reader the page changed. The focus handler below
+       writes the new page name here. */}}
+  <div id="route-announcer" class="sr-only" role="status" aria-live="polite"></div>
   <div id="cmdk" class="cmdk-backdrop" hidden>
     <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Search and commands">
       <div class="cmdk-input-row">
         <span class="ui-icon ui-icon-sm cmdk-input-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
         <input id="cmdk-input" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
-               placeholder="Jump to a page, or type a device serial…" aria-label="Search pages and devices"
+               placeholder="Jump to a page, or find a device by name or serial…" aria-label="Search pages and devices"
                role="combobox" aria-controls="cmdk-list" aria-expanded="true" aria-autocomplete="list">
         <kbd class="cmdk-esc">esc</kbd>
       </div>
@@ -806,18 +889,73 @@
   document.body.addEventListener('htmx:historyRestore', function () { mdmSyncDockActive(); });
   window.addEventListener('popstate', function () { setTimeout(function () { mdmSyncDockActive(); }, 0); });
 
-  // Role-locked controls: swallow the click (capture phase, so inline handlers and
-  // form submits never run) and say which role unlocks it.
+  // ── Role-locked controls ────────────────────────────────────────────────────
+  // A control the viewer's role can't use is still rendered, so people can see
+  // what the product does and know what to ask for. Three things have to be true
+  // for that to be honest rather than just broken-looking:
+  //
+  //   1. it must read as locked, not as still-loading (see .role-locked in
+  //      style.css: a padlock and muted colour, not a blanket opacity);
+  //   2. it must ANNOUNCE as locked — aria-disabled, stamped here so every
+  //      current and future .role-locked gets it from one place rather than 28
+  //      call sites having to remember;
+  //   3. the reason must be reachable without clicking, because the click is
+  //      exactly what we swallow. It appears on focus as well as on click, and
+  //      the toast is a live region so it is spoken, not just drawn.
+  function mdmLockReason(el) {
+    var need = el.getAttribute('data-role-need') || 'operator';
+    return el.getAttribute('data-lock-msg') ||
+      (/rule/.test(need)
+        ? 'Needs a ' + need + ' — ask an access admin to add one for you.'
+        : 'Needs the ' + need + ' role — ask an admin to raise your access.');
+  }
+  function mdmShowLockReason(el) {
+    var t = document.getElementById('role-lock-toast');
+    if (!t) {
+      t = document.createElement('div'); t.id = 'role-lock-toast';
+      t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite');
+      document.body.appendChild(t);
+    }
+    t.textContent = mdmLockReason(el);
+    t.classList.add('show'); clearTimeout(t._h);
+    t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+  // Mark up whatever is on the page now, and whatever htmx swaps in later.
+  function mdmStampLocks(root) {
+    var scope = (root && root.querySelectorAll) ? root : document;
+    scope.querySelectorAll('.role-locked').forEach(function (el) {
+      if (el.getAttribute('aria-disabled') === 'true') return;
+      el.setAttribute('aria-disabled', 'true');
+      // The reason is the accessible description; without it the padlock is the
+      // only clue and a reader gets "dimmed" with no way to find out why.
+      if (!el.hasAttribute('title')) el.setAttribute('title', mdmLockReason(el));
+    });
+  }
+  mdmStampLocks(document);
+  document.body.addEventListener('htmx:afterSettle', function (e) {
+    mdmStampLocks(e.detail && e.detail.target);
+  });
+  // Swallow the click in the capture phase, so inline handlers and form submits
+  // never run, and say which role unlocks it.
   document.addEventListener('click', function (e) {
     var el = e.target && e.target.closest ? e.target.closest('.role-locked') : null;
     if (!el) return;
     e.preventDefault(); e.stopPropagation();
-    var need = el.getAttribute('data-role-need') || 'operator';
-    var t = document.getElementById('role-lock-toast');
-    if (!t) { t = document.createElement('div'); t.id = 'role-lock-toast'; document.body.appendChild(t); }
-    t.textContent = el.getAttribute('data-lock-msg') || (/rule/.test(need) ? 'Needs a ' + need + ' — ask an access admin to add one for you.' : 'Needs the ' + need + ' role — ask an admin to raise your access.');
-    t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
+    mdmShowLockReason(el);
   }, true);
+  // Keyboard: Enter/Space would otherwise fire the control, and tabbing onto it
+  // gave no hint at all that it was locked.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    var el = e.target && e.target.closest ? e.target.closest('.role-locked') : null;
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    mdmShowLockReason(el);
+  }, true);
+  document.addEventListener('focusin', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('.role-locked') : null;
+    if (el) mdmShowLockReason(el);
+  });
   // Theme toggle: flip html[data-theme], persist, and notify listeners
   // (e.g. charts) so they can recolor without a reload.
   function toggleTheme() {
@@ -1999,7 +2137,11 @@
           items = matchEntries(q).slice();
           if (devs && devs.length) {
             devs.forEach(function (d) {
-              items.push({ label: d.serial, sub: d.build || '', url: '/devices/' + encodeURIComponent(d.serial), type: 'device' });
+              items.push({
+                label: d.nickname || d.serial,
+                sub: d.nickname ? (d.serial + (d.build ? ' · ' + d.build : '')) : (d.build || ''),
+                url: '/devices/' + encodeURIComponent(d.serial), type: 'device'
+              });
             });
           } else {
             items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device', placeholder: true, q: q });

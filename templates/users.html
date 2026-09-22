@@ -64,7 +64,7 @@
 
   {{if .Orphans}}
   <div class="cc-card" style="margin-bottom:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></span><h3>Unlinked activity</h3><span class="m">{{len .Orphans}} former username{{if ne (len .Orphans) 1}}s{{end}}</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></span><h2>Unlinked activity</h2><span class="m">{{len .Orphans}} former username{{if ne (len .Orphans) 1}}s{{end}}</span></div>
     <div class="muted small" style="padding:10px 17px 4px;">Actions recorded under usernames that no longer have an account. Merge each into the person's current account so Activity and history show one name.</div>
     {{range .Orphans}}
     <form method="POST" action="/users/merge" hx-boost="true" class="uu-row" hx-confirm="Merge all activity by “{{.Username}}” into the selected user? This rewrites {{.Rows}} record{{if ne .Rows 1}}s{{end}} and cannot be undone.">
@@ -87,7 +87,7 @@
   {{end}}
 
   <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Team</h3><span class="m">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Team</h2><span class="m">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
 
     <div class="uu-filters">
       <input type="search" class="form-input" id="uf-q" placeholder="Search name, username or email…" aria-label="Search users">
@@ -128,7 +128,7 @@
 <div id="add-user-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:440px;">
     <div class="card-header">
-      <h3>Add user</h3>
+      <h2>Add user</h2>
       <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('add-user-modal').classList.remove('modal-open')">&times;</button>
     </div>
     <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">

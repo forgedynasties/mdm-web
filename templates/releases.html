@@ -309,7 +309,7 @@ document.addEventListener('keydown', function (e) {
 <div class="cc-card" style="margin-top:12px;border-color:var(--accent);">
   <div class="cc-ch">
     <span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-    <h3>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h3>
+    <h2>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h2>
     {{/* hx-target/hx-swap explicitly override the ancestor #ota-progress-live's
          hx-target="this" hx-swap="innerHTML" (there for ITS OWN polling) — without
          this the link inherits those and tries to swap the whole destination page

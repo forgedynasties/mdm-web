@@ -157,7 +157,7 @@
   <!-- ── General — dashboard defaults, sessions ── -->
   <section class="settings-tab active" data-tab="general">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h3>Dashboard</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Dashboard</h2></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
     <div class="form-group">
       <label for="set-page-size">Devices per page</label>
@@ -193,7 +193,7 @@
   </form>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Sessions</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Sessions</h2></div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
     <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
@@ -217,7 +217,7 @@
   <!-- ── Devices — check-in, compatibility, boot logo, kiosk allowlist ── -->
   <section class="settings-tab" data-tab="devices">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h3>Checkin Interval</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h2>Checkin Interval</h2></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
     <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
@@ -229,7 +229,7 @@
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21c4-3 7-6 7-10a7 7 0 0 0-14 0c0 4 3 7 7 10Z" transform="rotate(180 12 12)"/><path d="M9 10l3-4 3 4M12 6v8"/></svg></span><h3>Wireless charging (WLC)</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21c4-3 7-6 7-10a7 7 0 0 0-14 0c0 4 3 7 7 10Z" transform="rotate(180 12 12)"/><path d="M9 10l3-4 3 4M12 6v8"/></svg></span><h2>Wireless charging (WLC)</h2></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:8px;">Products whose hardware has a wireless-charging guest pad. Pad status, the charging-pad card and pad alerts only apply to devices of these products — one product key per line (devices with no product count as <code>t7</code>).</div>
     <form action="/settings/wlc-products" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:420px;">
@@ -241,7 +241,7 @@
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><h3>Compatibility</h3></div>
+  <div class="cc-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><h2>Compatibility</h2></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
     <div>
       <strong>Legacy Checkin Actions</strong>
@@ -277,7 +277,7 @@
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h3>Boot logo</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h2>Boot logo</h2></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
       <strong>Custom boot logo</strong>
@@ -287,7 +287,7 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></span><h3>Legacy OTA server</h3><span class="muted small m">{{if .LegacyOTAPort}}port {{.LegacyOTAPort}}{{else}}listener off{{end}}</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></span><h2>Legacy OTA server</h2><span class="muted small m">{{if .LegacyOTAPort}}port {{.LegacyOTAPort}}{{else}}listener off{{end}}</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Builds without the MDM agent run <code>com.aioapp.otautil</code>, which polls this host on port 8000 for a system update (this listener is on port {{.LegacyOTAPort}}). Choose who answers. Switching takes effect on the device's next poll (every 15 minutes at least). The old ota-server keeps running on port 8001 either way.
@@ -303,7 +303,7 @@
 </div>
 
 <div class="cc-card" style="margin-top:14px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M8 7l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg></span><h3>OTA discovery config</h3><span class="muted small m">{{if .OTAConfigManaged}}managed by this server{{else}}not managed{{end}}</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M8 7l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg></span><h2>OTA discovery config</h2><span class="muted small m">{{if .OTAConfigManaged}}managed by this server{{else}}not managed{{end}}</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       <code>otautil</code> reads <code>ota_config.json</code> from S3 on every poll and decides its own reboots from it: when an update finishes installing it reboots at once if the device's local hour is inside the window, otherwise it sets an alarm for the window's start hour. It has no "never reboot" setting. So the MDM publishes the file with the window always a few hours ahead of the reference clock and inside the small hours — a device that finishes an install defers, the MDM reboots it first, and the pending alarm dies with that reboot.
@@ -326,7 +326,7 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>MDM OTA support cutoff</h3><span class="muted small m">per product</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h2>MDM OTA support cutoff</h2><span class="muted small m">per product</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Firmware older than the chosen release cannot apply an MDM OTA — those devices update over <a href="/updates/legacy">legacy OTA</a> instead. They are hidden from every push picker, dropped from a push that reaches the server anyway, and never handed the OTA command at check-in. A build with no release row counts as unsupported once a cutoff is set. Leave on "No cutoff" to offer MDM OTA to every build.
@@ -386,7 +386,7 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><h3>Move a device to another MDM</h3><span class="muted small m">the dropdown on a device page</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span><h2>Move a device to another MDM</h2><span class="muted small m">the dropdown on a device page</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       The servers a firmware device can be pointed at from its page — it writes <code>persist.sys.mdm.url</code> and reboots, and reports there from then on. One URL per line; leave empty for the built-in live and stage servers. This server is always offered, whatever the list says.
@@ -399,7 +399,7 @@
   </div>
 </div>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h2>Kiosk locked-app allowlist</h2><span class="muted small m">limits the kiosk app picker</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Only apps matching these patterns appear in the kiosk locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
@@ -476,7 +476,7 @@ function kioskAddPkg(pkg, el){
   <!-- ── Actions — governance, shell/remote, queries ── -->
   <section class="settings-tab" data-tab="commands">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Action Governance</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h2>Action Governance</h2></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>
       <strong>Require a reason for destructive actions</strong>
@@ -520,7 +520,7 @@ function kioskAddPkg(pkg, el){
 .form-input.mono{font-family:var(--mono);}
 </style>
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Security &amp; Access</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h2>Security &amp; Access</h2></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>
       <strong>Interactive Shell</strong>
@@ -539,7 +539,7 @@ function kioskAddPkg(pkg, el){
 
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><h3>Queries</h3><span class="muted small m">admin-curated read-only device property checks</span></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><h2>Queries</h2><span class="muted small m">admin-curated read-only device property checks</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Operators, devs and admins can run them from the Actions page — no raw shell access needed.</div>
     {{if .DeviceQueries}}
@@ -592,7 +592,7 @@ function kioskAddPkg(pkg, el){
   <!-- ── Alerts ── -->
   <section class="settings-tab" data-tab="alerts">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h3>Alert rules</h3><span class="muted small m">toggle what fires · Edit to tune thresholds</span></div>
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h2>Alert rules</h2><span class="muted small m">toggle what fires · Edit to tune thresholds</span></div>
   <div class="alert-cat-tabs" id="alert-cat-tabs">
     {{range $i, $g := .AlertRules}}
     <button type="button" class="alert-cat-tab{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">{{$g.Category}} <span class="pill">{{$g.EnabledCount}}/{{len $g.Rules}}</span></button>
@@ -646,7 +646,7 @@ function kioskAddPkg(pkg, el){
 <div class="cc-card" style="margin-bottom:16px;" id="channels">
   <div class="cc-ch collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" aria-expanded="{{if .ChannelTest}}true{{else}}false{{end}}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
     <span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
-    <h3><span class="collapse-caret">▸</span> Notifications</h3><span class="muted small m">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
+    <h2><span class="collapse-caret">▸</span> Notifications</h2><span class="muted small m">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
   </div>
   <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
     <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
@@ -704,7 +704,7 @@ function kioskAddPkg(pkg, el){
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
     <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
-    <h3><span class="collapse-caret">▸</span> Service hours</h3><span class="muted small m">when operational alerts fire</span>
+    <h2><span class="collapse-caret">▸</span> Service hours</h2><span class="muted small m">when operational alerts fire</span>
   </div>
   <div style="padding:16px;display:none;">
     <div class="muted small" style="margin-bottom:12px;">
@@ -719,7 +719,7 @@ function kioskAddPkg(pkg, el){
   <!-- ── Integrations — AI analysis, Google APIs ── -->
   <section class="settings-tab" data-tab="integrations">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span><h3>AI Analysis</h3></div>
+  <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span><h2>AI Analysis</h2></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Adds an <strong>Analyze with AI</strong> button to device Trends and Fleet Health that reads the rolled-up metrics and explains what's wrong and what to do — a non-ML shortcut while there isn't enough history for prediction. Works with Anthropic (Claude) or any OpenAI-compatible provider such as DeepSeek.
@@ -785,7 +785,7 @@ function kioskAddPkg(pkg, el){
 .gu-tot .gu-tot-n{font-size:24px;font-weight:700;}
 </style>
 <div class="cc-card" style="margin-bottom:16px;" id="google-usage" data-poll="/settings/google-usage">
-  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Google APIs — usage &amp; cost</h3><span class="muted small m">counts since <span id="gu-since">{{.GoogleUsage.SinceAgo}}</span> · <span id="gu-updated">live</span></span></div>
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Google APIs — usage &amp; cost</h2><span class="muted small m">counts since <span id="gu-since">{{.GoogleUsage.SinceAgo}}</span> · <span id="gu-updated">live</span></span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
       Live request metering for the three Google Maps Platform APIs the device fleet uses for location. Server-side caches and a global cooldown keep billable calls low; <strong>cache hits</strong> and <strong>cooldown skips</strong> are requests <em>avoided</em>. Costs are list-price estimates — Google Cloud billing is authoritative.
@@ -835,7 +835,7 @@ function kioskAddPkg(pkg, el){
 
 <!-- Learned WiFi-AP index -->
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M5 12.5a11 11 0 0 1 14 0M8 16a6.5 6.5 0 0 1 8 0M12 19.5h.01"/></svg></span><h3>Learned WiFi location index</h3><span class="muted small m">persisted · avoids Google for known areas</span></div>
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M5 12.5a11 11 0 0 1 14 0M8 16a6.5 6.5 0 0 1 8 0M12 19.5h.01"/></svg></span><h2>Learned WiFi location index</h2><span class="muted small m">persisted · avoids Google for known areas</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
       Every successful Geolocation lookup teaches the server which access points (BSSIDs) live at which point. A later scan that overlaps ≥3 known APs (and ≥50% of the scan) is located <strong>locally</strong> — no Google call. Entries expire after 14 days. This is what drives the <strong>index hits</strong> above.
@@ -941,7 +941,7 @@ function kioskAddPkg(pkg, el){
   <!-- ── Data — retention, maintenance ── -->
   <section class="settings-tab" data-tab="data">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><h3>Data &amp; Maintenance</h3></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><h2>Data &amp; Maintenance</h2></div>
   <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
     <div class="form-group">
@@ -999,7 +999,7 @@ function kioskAddPkg(pkg, el){
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
-    <h3>MDM DPC for QR provisioning</h3>
+    <h2>MDM DPC for QR provisioning</h2>
     {{if or .AgentAPKHosted (and .AgentAPKURL .AgentAPKChecksum)}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
     {{if .AgentAPKFromEnv}}<span class="cc-tag" title="Values come from AGENT_APK_URL / AGENT_APK_CHECKSUM in the server env; saving here overrides them">from env</span>{{end}}
   </div>
@@ -1208,7 +1208,7 @@ document.addEventListener('submit', function (e) {
 <div class="cc-card lib-card" id="lib-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-    <h3>App library</h3>
+    <h2>App library</h2>
     <div class="card-header-actions" style="margin-left:auto">
       {{if canAdmin .Role}}<form action="/settings/app-family-mode" method="POST" class="lib-mode" title="How package variants (x, x.internal, x.uatv2) are shown"><input type="hidden" name="next" value="/apps"><span>Variants</span><select name="app_family_mode" class="form-input" onchange="this.form.submit()"><option value="auto"{{if eq .AppFamilyMode "auto"}} selected{{end}}>grouped automatically</option><option value="suggest"{{if eq .AppFamilyMode "suggest"}} selected{{end}}>suggest merges</option><option value="off"{{if eq .AppFamilyMode "off"}} selected{{end}}>never grouped</option></select></form>{{end}}
       <span class="muted small" style="margin-right:6px;">{{len .Families}} app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}</span>
