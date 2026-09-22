@@ -1511,7 +1511,7 @@ type ClientSlotView struct {
 	// releases at a time, so there is no reason to build them for the other four.
 	Rows     []ClientDeviceRow
 	Groups   []ClientDeviceGroup
-	History  []config.AgentAPKBuild
+	History  []ClientHistoryRow
 	Selected bool
 	// True while any row is mid-update, so the page can poll itself instead of
 	// leaving someone staring at a button that came straight back.
@@ -1524,6 +1524,16 @@ type ClientSlotView struct {
 	// The serials "Update all behind" targets, built here rather than joined in the
 	// template — a comma emitted from a loop index breaks the moment the sort changes.
 	BehindSerials string
+}
+
+// ClientHistoryRow is one past publish on the Releases list. Archived says whether the
+// APK's bytes are still on disk under their digest: builds published before the archive
+// existed have a row and no artifact, and the row has to say so rather than offer a
+// download that 404s.
+type ClientHistoryRow struct {
+	Build    config.AgentAPKBuild
+	Archived bool
+	Hosted   bool // the build this slot serves right now
 }
 
 // ClientVersionCount is one version and how many devices run it.
@@ -1607,6 +1617,24 @@ func groupClientRows(rows []ClientDeviceRow, hosted string, now time.Time) []Cli
 			continue
 		}
 		out = append(out, g)
+	}
+	return out
+}
+
+// clientHistoryRows pairs each past publish with whether its APK is still on disk. The
+// archive is keyed by digest, so this is a stat per row — cheap, and the only way to
+// know: the history is config, the bytes are a file, and before the archive existed the
+// two could not agree.
+func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA string) []ClientHistoryRow {
+	out := make([]ClientHistoryRow, 0, len(hist))
+	for _, b := range hist {
+		row := ClientHistoryRow{Build: b, Hosted: b.SHA != "" && b.SHA == hostedSHA}
+		if p := agentAPKArchivePath(slot, b.SHA256Hex); p != "" {
+			if _, err := os.Stat(p); err == nil {
+				row.Archived = true
+			}
+		}
+		out = append(out, row)
 	}
 	return out
 }
@@ -1780,7 +1808,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	views[selected].Selected = true
-	views[selected].History = h.cfg.AgentAPKHistory(selected)
+	views[selected].History = clientHistoryRows(selected, h.cfg.AgentAPKHistory(selected), views[selected].Build.SHA)
 	if variants[selected] != "" {
 		views[selected].GroupLabel = firmwareLabel
 		views[selected].GroupNote = firmwareNote

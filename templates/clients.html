@@ -40,7 +40,18 @@
 .cl-tag.behind{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
 .cl-tag.unk{background:var(--surface2);color:var(--muted)}
 .cl-rel{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden}
-.cl-rr{display:grid;grid-template-columns:120px minmax(0,1fr) 128px 84px;gap:14px;align-items:start;padding:11px 15px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-rr{display:grid;grid-template-columns:120px minmax(0,1fr) 128px 84px 96px;gap:14px;align-items:start;padding:11px 15px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.cl-acts{display:flex;justify-content:flex-end;align-items:center;min-height:20px}
+.cl-menu{position:relative}
+.cl-kebab{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:13px;line-height:1;padding:3px 8px;cursor:pointer}
+.cl-kebab:hover{color:var(--text);background:var(--surface2)}
+.cl-pop{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:196px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow-lg,var(--shadow-sm));padding:5px;display:flex;flex-direction:column}
+.cl-pop[hidden]{display:none}
+.cl-pop a,.cl-pop button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;cursor:pointer;font-family:inherit}
+.cl-pop a:hover,.cl-pop button:hover{background:var(--surface2);color:var(--text)}
+.cl-pop form{margin:0}
+.cl-pop button.danger{color:var(--warn,#8a5a00)}
+.cl-pop button.danger:hover{background:var(--warn-bg,#fdf1dc)}
 .cl-rr:first-of-type{border-top:0}
 .cl-ver{font-weight:600;font-variant-numeric:tabular-nums}
 .cl-meta{color:var(--muted);font-size:11.5px;line-height:1.5}
@@ -93,6 +104,30 @@
 </div>
 
 <script>
+// One release menu open at a time, closed by Escape or a click anywhere else — the rows
+// sit inside an htmx-swapped fragment, so this is delegated rather than bound per row.
+function clMenu(e, btn) {
+  e.stopPropagation();
+  var pop = btn.nextElementSibling, open = !pop.hidden;
+  document.querySelectorAll('.cl-pop').forEach(function (p) {
+    p.hidden = true;
+    var b = p.previousElementSibling;
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+  pop.hidden = open;
+  btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+}
+function clCopy(btn, sha) {
+  var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy SHA-256'; }, 1200); };
+  if (navigator.clipboard) navigator.clipboard.writeText(sha).then(done, function () {});
+  else done();
+}
+document.addEventListener('click', function () {
+  document.querySelectorAll('.cl-pop').forEach(function (p) { p.hidden = true; });
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') document.querySelectorAll('.cl-pop').forEach(function (p) { p.hidden = true; });
+});
 // Dormant rows start folded; the header button is the only thing that reveals them.
 function clFold(btn, key) {
   var open = btn.getAttribute('aria-expanded') === 'true';
@@ -308,12 +343,39 @@ function clPick(a) {
     <div class="cl-sec"><span>Releases</span></div>
     {{if .History}}
     <div class="cl-rel">
-      {{range .History}}
+      {{$slot := .Slot}}
+      {{range $i, $h := .History}}
+      {{$b := $h.Build}}
       <div class="cl-rr">
-        <span class="cl-ver">{{if .Version}}{{.Version}}{{else}}unversioned{{end}}{{if .VersionCode}}<div class="cl-meta">code {{.VersionCode}}</div>{{end}}</span>
-        <span class="cl-chg">{{if .Changelog}}{{.Changelog}}{{else}}<span class="cl-meta">No changelog — the publisher sent none.</span>{{end}}<div class="cl-meta">{{.Name}}</div></span>
-        <span class="cl-meta">{{.At.Format "2 Jan 15:04"}}</span>
-        <span>{{if eq .SHA $.Selected.Build.SHA}}<span class="cl-tag ok">hosted</span>{{else}}<span class="cl-tag unk">previous</span>{{end}}</span>
+        <span class="cl-ver">{{if $b.Version}}{{$b.Version}}{{else}}unversioned{{end}}{{if $b.VersionCode}}<div class="cl-meta">code {{$b.VersionCode}}</div>{{end}}</span>
+        <span class="cl-chg">{{if $b.Changelog}}{{$b.Changelog}}{{else}}<span class="cl-meta">No changelog — the publisher sent none.</span>{{end}}<div class="cl-meta">{{$b.Name}}</div></span>
+        <span class="cl-meta">{{$b.At.Format "2 Jan 15:04"}}</span>
+        <span>{{if $h.Hosted}}<span class="cl-tag ok">hosted</span>{{else}}<span class="cl-tag unk">previous</span>{{end}}</span>
+        <span class="cl-acts">
+          {{if $h.Archived}}
+          <div class="cl-menu" data-menu="{{$i}}">
+            <button type="button" class="cl-kebab" aria-haspopup="true" aria-expanded="false"
+                    aria-label="Actions for {{if $b.Version}}{{$b.Version}}{{else}}this build{{end}}"
+                    onclick="clMenu(event,this)">&#8943;</button>
+            <div class="cl-pop" hidden>
+              <a href="/agent/history/{{$slot}}/{{$b.SHA256Hex}}.apk" download>Download APK</a>
+              <button type="button" onclick="clCopy(this,'{{$b.SHA256Hex}}')">Copy SHA-256</button>
+              {{if and (not $h.Hosted) (canAdmin $.Role)}}
+              <form method="POST" action="/clients/rollback" hx-post="/clients/rollback" hx-swap="none"
+                    hx-confirm="Make {{if $b.Version}}{{$b.Version}}{{else}}this build{{end}} the build this server hosts? Devices behind it will be offered it from now on.">
+                <input type="hidden" name="slot" value="{{$slot}}">
+                <input type="hidden" name="sha256" value="{{$b.SHA256Hex}}">
+                <button type="submit" class="danger">Roll back to this build</button>
+              </form>
+              {{end}}
+            </div>
+          </div>
+          {{else}}
+          {{/* Published before the archive existed: the row is all that survives, because
+               each publish renamed the slot file over the one before it. */}}
+          <span class="cl-meta" title="This build was published before the server kept an archive, so its APK is no longer on disk. Only builds published from now on can be downloaded or rolled back to.">not archived</span>
+          {{end}}
+        </span>
       </div>
       {{end}}
     </div>
