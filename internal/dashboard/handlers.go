@@ -21830,6 +21830,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	for _, name := range AgentAPKSlots {
 		mux.HandleFunc("GET /agent/"+name, h.AgentAPKDownload)
 	}
+	// Archived builds, by digest. Authenticated, unlike the slot file above: only the
+	// current build has to be reachable without a session.
+	mux.HandleFunc("GET /agent/history/{slot}/{file}", h.requireAuth(h.AgentAPKHistoryDownload))
+	post("POST /clients/rollback", h.requireStrictAdmin(h.AgentAPKRollback))
 	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)

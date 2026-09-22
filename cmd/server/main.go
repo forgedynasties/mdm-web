@@ -439,6 +439,14 @@ func main() {
 		adminAuth(middleware.MaxBytes(128<<20, http.HandlerFunc(dash.AgentAPKPublish))))
 	dash.RegisterRoutes(mux)
 
+	// Back-fill the agent-APK archive with whatever each slot hosts now, so the current
+	// build of every client is downloadable and rollback-able from this boot onwards.
+	if n, err := dashboard.SeedAgentAPKArchive(cfg); err != nil {
+		log.Printf("[startup] seed agent APK archive: %v", err)
+	} else if n > 0 {
+		log.Printf("[startup] archived %d hosted agent APK(s)", n)
+	}
+
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 

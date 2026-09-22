@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -1897,6 +1898,82 @@ func agentAPKPath(slot string) string {
 	return filepath.Join(AgentAPKDir(), name)
 }
 
+// agentAPKArchivePath is where a published build is kept for good, named by its own
+// digest: data/agent/archive/<slot>/<sha256hex>.apk. The slot file itself is a single
+// path that every publish renames over, so before this the previous build's bytes were
+// gone the moment a new one landed — history rows named versions nobody could download
+// and a rollback meant rebuilding the APK in the AOSP tree with the right platform key.
+// Keyed by digest rather than version because the digest is what the client verifies
+// before replacing itself, and two builds of one version are two different artifacts.
+func agentAPKArchivePath(slot, sha256Hex string) string {
+	if _, ok := AgentAPKSlots[slot]; !ok || sha256Hex == "" {
+		return ""
+	}
+	// Only a hex digest ever names a file here — the value reaches this from a URL.
+	if _, err := hex.DecodeString(sha256Hex); err != nil || len(sha256Hex) != 64 {
+		return ""
+	}
+	return filepath.Join(AgentAPKDir(), "archive", slot, sha256Hex+".apk")
+}
+
+// archiveAgentAPK keeps a copy of the bytes just published. A hard link when the
+// filesystem allows it (same directory tree, so usually), a copy otherwise; either way
+// the archive entry survives the next publish renaming the slot file away.
+func archiveAgentAPK(slot, sha256Hex string, data []byte) error {
+	dest := agentAPKArchivePath(slot, sha256Hex)
+	if dest == "" {
+		return errors.New("no archive path for slot " + slot)
+	}
+	if _, err := os.Stat(dest); err == nil {
+		return nil // already archived: the same build published twice
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return err
+	}
+	tmp := dest + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, dest)
+}
+
+// SeedAgentAPKArchive back-fills the archive with whatever each slot is hosting right
+// now, so the current build of every slot is downloadable and rollback-able from the
+// first run after this ships. Builds published before the archive existed cannot be
+// recovered — their bytes were overwritten — so only the current one per slot lands.
+func SeedAgentAPKArchive(cfg *config.Config) (int, error) {
+	seeded := 0
+	for slot := range AgentAPKSlots {
+		b, hosted := cfg.AgentAPKSlot(slot)
+		if !hosted || b.SHA256Hex == "" {
+			continue
+		}
+		dest := agentAPKArchivePath(slot, b.SHA256Hex)
+		if dest == "" {
+			continue
+		}
+		if _, err := os.Stat(dest); err == nil {
+			continue
+		}
+		data, err := os.ReadFile(agentAPKPath(slot))
+		if err != nil {
+			continue
+		}
+		// Only archive it under a digest it actually has: a slot file and a config
+		// that disagree would otherwise put the wrong bytes behind a known digest,
+		// which is exactly what the client's checksum is there to catch.
+		sum := sha256.Sum256(data)
+		if hex.EncodeToString(sum[:]) != b.SHA256Hex {
+			continue
+		}
+		if err := archiveAgentAPK(slot, b.SHA256Hex, data); err != nil {
+			return seeded, err
+		}
+		seeded++
+	}
+	return seeded, nil
+}
+
 // agentSlotFor picks the slot a device can actually install: the DPC agent for a DPC
 // device, else the firmware client built with the same platform key as the image on
 // the device. A device that has not reported its build tags is assumed to be a user
@@ -1955,6 +2032,78 @@ func (h *Handler) AgentAPKDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", `attachment; filename="`+want+`"`)
 	w.Header().Set("Cache-Control", "no-store")
 	http.ServeContent(w, r, want, st.ModTime(), f)
+}
+
+// AgentAPKHistoryDownload serves an archived build by its digest. Authenticated,
+// unlike the slot file: only the current build has to be reachable by a device with
+// no session (QR provisioning), and an archived one is for an operator checking what
+// shipped or staging a rollback.
+func (h *Handler) AgentAPKHistoryDownload(w http.ResponseWriter, r *http.Request) {
+	slot := r.PathValue("slot")
+	sha := strings.TrimSuffix(path.Base(r.URL.Path), ".apk")
+	p := agentAPKArchivePath(slot, sha)
+	if p == "" {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer f.Close()
+	st, _ := f.Stat()
+	name := AgentAPKSlots[slot]
+	// Name the file after the build it is, so a folder of these is readable.
+	for _, b := range h.cfg.AgentAPKHistory(slot) {
+		if b.SHA256Hex == sha && b.Version != "" {
+			name = strings.TrimSuffix(AgentAPKSlots[slot], ".apk") + "-" + b.Version + ".apk"
+			break
+		}
+	}
+	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeContent(w, r, name, st.ModTime(), f)
+}
+
+// AgentAPKRollback makes an archived build the one a slot hosts again. This is the
+// whole point of keeping the archive: before it, going back to yesterday's client
+// meant rebuilding it in the AOSP tree with that tree's platform key. The bytes are
+// checked against the digest they are filed under before anything is swapped — the
+// client verifies the same digest before replacing itself, so a mismatch here would
+// hand every device a download it must reject.
+func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
+	slot := strings.TrimSpace(r.FormValue("slot"))
+	sha := strings.TrimSpace(r.FormValue("sha256"))
+	p := agentAPKArchivePath(slot, sha)
+	if p == "" {
+		h.hxDoneToast(w, r, "/clients", "Unknown client or digest", "error")
+		return
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		h.hxDoneToast(w, r, "/clients?slot="+slot, "That build is not in the archive any more", "error")
+		return
+	}
+	sum := sha256.Sum256(data)
+	if hex.EncodeToString(sum[:]) != sha {
+		h.hxDoneToast(w, r, "/clients?slot="+slot, "Archived build does not match its digest — not published", "error")
+		return
+	}
+	var name string
+	for _, b := range h.cfg.AgentAPKHistory(slot) {
+		if b.SHA256Hex == sha {
+			name = b.Name
+			break
+		}
+	}
+	if _, _, err := h.storeAgentAPK(data, name, slot, "rolled back to this build"); err != nil {
+		h.hxDoneToast(w, r, "/clients?slot="+slot, "Rollback failed: "+err.Error(), "error")
+		return
+	}
+	h.audit(r, "clients.agent_apk_rollback", slot, "sha256 "+sha)
+	h.hxDoneToast(w, r, "/clients?slot="+slot, "Rolled back — this build is what devices install now", "success")
 }
 
 // SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe
@@ -2074,6 +2223,12 @@ func (h *Handler) storeAgentAPK(data []byte, filename, slot, changelog string) (
 	}
 	sum := sha256.Sum256(data)
 	sha := base64.RawURLEncoding.EncodeToString(sum[:])
+	// Keep the bytes under their digest too. Best-effort on purpose: a failure here
+	// costs a rollback shortcut, and refusing the publish over it would cost the fleet
+	// an update it can otherwise install right now.
+	if err := archiveAgentAPK(slot, hex.EncodeToString(sum[:]), data); err != nil {
+		log.Printf("[agent-apk] archiving %s: %v", slot, err)
+	}
 	if filename == "" {
 		filename = AgentAPKSlots[slot]
 	}
