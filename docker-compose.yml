@@ -58,8 +58,11 @@ services:
       - splashdata:/app/data
       - ${HOME}/.aws:/app/.aws:ro
     # Give the server time to finish in-flight requests and drain WebSockets on
-    # `docker compose down`/redeploy — matches the 25s graceful server.Shutdown.
-    stop_grace_period: 30s
+    # `docker compose down`/redeploy. The server closes its streams and device sockets
+    # on SIGTERM and then drains ordinary requests, which takes milliseconds; 15s is the
+    # backstop for a stuck handler, not the expected path. It used to be 30s to match a
+    # 25s Shutdown that always ran to its timeout, and that wait WAS the deploy outage.
+    stop_grace_period: 15s
     depends_on:
       postgres:
         condition: service_healthy

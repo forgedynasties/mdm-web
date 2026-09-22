@@ -21606,13 +21606,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /demo/audit", h.requireAdmin(h.InternalPage))
 	mux.HandleFunc("GET /demo/runbook", h.requireAdmin(h.InternalPage))
 	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
-	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
+	mux.HandleFunc("GET /events/devices", h.requireAuth(drainable(h.FleetEvents)))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.deviceRoute("view", h.DeviceDetail)))
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.deviceRoute("view", h.DeviceHistory)))
 	mux.HandleFunc("GET /devices/{serial}/chart-data", h.requireAuth(h.deviceRoute("view", h.DeviceChartData)))
-	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(h.deviceRoute("view", h.DeviceEvents)))
+	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(drainable(h.deviceRoute("view", h.DeviceEvents))))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.deviceRoute("view", h.DeviceOnlineStatus)))
-	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.deviceRoute("view", h.DevicePresenceStream)))
+	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(drainable(h.deviceRoute("view", h.DevicePresenceStream))))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.deviceRoute("view", h.DeviceStatsPartial)))
 	mux.HandleFunc("GET /devices/{serial}/vitals", h.requireAuth(h.deviceRoute("view", h.DeviceVitalsPartial)))
 	mux.HandleFunc("GET /devices/{serial}/panel", h.requireAuth(h.deviceRoute("view", h.DeviceInspectorPanel)))
@@ -21666,7 +21666,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
 	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.deviceRoute("logcat", h.LogcatLivePage)))
-	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(h.deviceRoute("logcat", h.LogcatStream)))
+	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(drainable(h.deviceRoute("logcat", h.LogcatStream))))
 
 	mux.HandleFunc("GET /groups/new", h.requireAdminOrOperator(h.GroupNew))
 	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrOperator(h.GroupNewDevices))
@@ -21694,7 +21694,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// so it must not be anonymous even though it's a standalone "wrapped" page.
 	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
-	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
+	mux.HandleFunc("GET /alerts/events", h.requireAuth(drainable(h.AlertEvents)))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
@@ -21787,7 +21787,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
 	// Static route wins over /commands/{id}, so this is the global live feed the
 	// history page subscribes to (not a per-command stream).
-	mux.HandleFunc("GET /commands/events", h.requireAuth(h.CommandsFeedEvents))
+	mux.HandleFunc("GET /commands/events", h.requireAuth(drainable(h.CommandsFeedEvents)))
 	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	mux.HandleFunc("GET /commands/target-packages", h.requireAuth(h.CommandTargetPackages))
@@ -21805,7 +21805,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
-	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
+	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(drainable(h.CommandEvents)))
 	post("POST /commands/{id}/delete", h.requireOperatorOrAdmin(h.CommandDelete))
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
@@ -21840,7 +21840,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
 	// say how hard the box is working, which is not a customer-facing fact.
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))
-	mux.HandleFunc("GET /events/server", h.requireAdminOrOperator(h.ServerEvents))
+	mux.HandleFunc("GET /events/server", h.requireAdminOrOperator(drainable(h.ServerEvents)))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
 	// One route per hosted agent slot (DPC, and the firmware client per tree — the
@@ -21898,7 +21898,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
-	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))
+	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(drainable(h.ReleaseProblemEvents)))
 	post("POST /releases", h.requireReleaseAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
 	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
@@ -21947,7 +21947,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /demo/updates", h.requireAdminOrOperator(h.DemoUpdatesIndex))
 	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrOperator(h.DemoUpdatesScenario))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
-	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(h.DeploymentEvents))
+	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(drainable(h.DeploymentEvents)))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOTA(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOTA(h.DeploymentAddTargets))
@@ -21983,7 +21983,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
-	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))
+	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(drainable(h.CommandOutputStream)))
 }
 
 // CommandOutputStream is an SSE endpoint that streams live output for a

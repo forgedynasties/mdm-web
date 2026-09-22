@@ -682,8 +682,24 @@ func main() {
 	}
 
 	<-shutCtx.Done()
+
+	// Close what never closes itself, FIRST. Shutdown waits for active requests to
+	// finish, and an SSE stream is an active request that runs until the client goes
+	// away — so doing this after Shutdown meant every deploy sat here for the full
+	// timeout with nothing listening on :8082, which is where the 502s came from. The
+	// container itself starts in under a second; this wait was the outage.
+	//
+	// Nothing is lost by closing early: browsers re-open an SSE stream on their own,
+	// and devices get a close frame so they back off and reconnect to the new
+	// container instead of stampeding it.
+	log.Println("shutdown: closing streams and device sockets…")
+	dashboard.BeginDrain() // SSE handlers return
+	hub.CloseAll()         // close frames to every device socket
+
 	log.Println("shutdown: draining in-flight requests…")
-	sdCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	// Ordinary requests only now, so this finishes in milliseconds. The timeout is the
+	// backstop for a genuinely stuck handler, not the expected path.
+	sdCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if legacyServer != nil {
 		_ = legacyServer.Shutdown(sdCtx)
@@ -691,8 +707,7 @@ func main() {
 	if err := server.Shutdown(sdCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
-	bgCancel()     // stop the background ticker loops
-	hub.CloseAll() // send close frames to all device sockets
+	bgCancel() // stop the background ticker loops
 	log.Println("shutdown: complete")
 }
 
