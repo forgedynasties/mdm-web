@@ -2234,9 +2234,12 @@ document.addEventListener('keydown', function(e) {
         var ci = !d.online && st.dataset.legacy === '1' && d.last_seen_iso &&
           (Date.now() - Date.parse(d.last_seen_iso)) < (+st.dataset.legacyWindow || 180) * 1000;
         var lbl = d.online ? (st.dataset.labelOn || 'Online') : ci ? 'Checking in' : (st.dataset.labelOff || 'Offline');
+        // Keep the shape the server rendered: layouts that show a bare dot (New,
+        // Serial, Column — the label is in the tooltip) must not grow a label the
+        // first time a row ticks, which is what keying this off .dl-l1 alone did.
+        var dotOnly = !st.textContent.trim() || !!st.closest('.dl-l1');
         st.className = 'dl-status ' + (d.online ? 'on' : ci ? 'checkin' : 'off');
-        // New layout: a bare dot (label in the tooltip). Classic: dot + label.
-        if (st.closest('.dl-l1')) { st.title = lbl; st.setAttribute('aria-label', lbl); st.innerHTML = '<i></i>'; }
+        if (dotOnly) { st.title = lbl; st.setAttribute('aria-label', lbl); st.innerHTML = '<i></i>'; }
         else st.innerHTML = '<i></i>' + lbl;
       }
       var sy = card.querySelector('.dl-synced');
