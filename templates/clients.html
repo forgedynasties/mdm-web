@@ -244,7 +244,7 @@ function clPick(a) {
       {{range $g.Rows}}
       <div class="cl-tr">
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
-        <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+        <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
           {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
@@ -280,7 +280,7 @@ function clPick(a) {
       {{range $g.Dormant}}
       <div class="cl-tr dim hidden" data-dormant="{{$g.Key}}">
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
-        <span>{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+        <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
           {{if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>

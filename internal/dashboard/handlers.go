@@ -1415,7 +1415,10 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// the batch prefix stays quiet and the last few characters — the part support
 		// reads out loud, and the part that differs between two units of the same model —
 		// carry the weight. One rule, so both the card and any future view agree.
-		"serialHead": func(s string) string { return s[:len(s)-serialTailLen(s)] },
+		// misreportedVersion: the device sent the framework's version, not its own —
+		// the pre-1.0.2 client bug. Templates ask before printing the number.
+		"misreportedVersion": frameworkVersionReported,
+		"serialHead":         func(s string) string { return s[:len(s)-serialTailLen(s)] },
 		"serialTail": func(s string) string { return s[len(s)-serialTailLen(s):] },
 		"classes":    product.Classes,
 		// extraBool reads a boolean from latest_extra (false when absent or not a bool).

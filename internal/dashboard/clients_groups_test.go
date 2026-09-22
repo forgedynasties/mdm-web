@@ -67,3 +67,28 @@ func TestGroupClientRowsEmptyAndUnhosted(t *testing.T) {
 		t.Error("no rows should mean no groups")
 	}
 }
+
+// Clients before 1.0.2 sent the framework's version as their own, so a fleet reported
+// "15" (the platform release) with code 35 (the SDK). The pages must not repeat that
+// number as if it were a client version — but they must still believe a real one.
+func TestFrameworkVersionReported(t *testing.T) {
+	cases := []struct {
+		name, pkg string
+		want      bool
+	}{
+		{"15", "", true},                   // the bug: platform release, no package
+		{"15", "—", true},                  // extras render an absent package as a dash
+		{"14", "", true},                   // an older platform, same bug
+		{"1.0.4", "", false},               // a real client version is dotted
+		{"1.2.0", "com.aioapp.mdm", false}, // dotted and self-identified
+		{"15", "com.aioapp.mdm", false},    // names its package: new enough to believe
+		{"", "", false},                    // never reported anything
+		{"—", "", false},                   // the "nothing here" placeholder
+		{"2026", "", false},                // too large to be a platform release
+	}
+	for _, c := range cases {
+		if got := frameworkVersionReported(c.name, c.pkg); got != c.want {
+			t.Errorf("frameworkVersionReported(%q, %q) = %v, want %v", c.name, c.pkg, got, c.want)
+		}
+	}
+}

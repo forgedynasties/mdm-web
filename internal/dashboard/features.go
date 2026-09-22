@@ -1399,6 +1399,28 @@ func clientVersionOf(d *db.Device) (name string, code int64) {
 	return name, extraInt64(d.LatestExtra, "agent_version_code")
 }
 
+// frameworkVersionReported spots the pre-1.0.2 bug in our own firmware client: it read
+// the *framework's* version and sent that as its own, so a fleet of clients reported
+// "15" (the platform release) with code 35 (the SDK). versionComparable already refuses
+// to measure those against a hosted build; this is the cosmetic half, so the pages stop
+// repeating a number that was never a client version.
+//
+// The version NAME is what gives it away. Every build of ours is dotted — 1.0.4, 1.2.0 —
+// and a platform release is a bare integer. The code cannot be used for this: our own
+// client passed through code 35 on the way to 40, so 35 alone proves nothing.
+func frameworkVersionReported(name string, pkg string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "—" {
+		return false
+	}
+	if pkg != "" && pkg != "—" {
+		return false // it names its own package, so it is new enough to be believed
+	}
+	n, err := strconv.Atoi(name)
+	// Android releases are small integers; a dotted version fails Atoi outright.
+	return err == nil && n > 0 && n <= 30
+}
+
 // clientPackageOf is the app a device says its client is, "" when it does not say.
 // Firmware clients before 1.0.2 reported the *framework's* version by accident — the
 // platform release (15) and SDK (35) — which sailed past every "is it newer?" test and
@@ -1520,6 +1542,9 @@ type ClientDeviceRow struct {
 	State    string // "current" | "behind" | "unknown" | "updating"
 	Progress string // for "updating": the device's own word (pending/downloading/installing)
 	LastSeen time.Time
+	// The client sent the framework's version instead of its own (the pre-1.0.2 bug).
+	// Version is blanked when this is set: "15" was never a client version.
+	Misreported bool
 	// Dormant devices have not checked in for clientDormantAfter. They are still
 	// listed, but folded away: most of them are retired or boxed hardware, and left
 	// inline they outnumber the rows an operator came to act on.
@@ -1610,6 +1635,9 @@ type ClientPillView struct {
 	Kind      string // "MDM Firmware" | "MDM DPC" | "MDM Lite"
 	Title     string // the tooltip the old tag carried
 	Version   string // what the device reports ("" = it has never said)
+	// Set when the device reported the framework's version rather than its own; the
+	// pill shows the reason instead of the number.
+	Misreported bool
 	Slot      string
 	SlotLabel string
 	Hosted    bool // a build is hosted for this slot at all
@@ -1643,6 +1671,9 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.Title = "Managed by the AIO MDM Device-Owner agent on a stock device."
 	}
 	v.Version, _ = clientVersionOf(d)
+	if frameworkVersionReported(v.Version, clientPackageOf(d)) {
+		v.Version, v.Misreported = "", true
+	}
 	v.Slot = agentSlotFor(d)
 	v.SlotLabel = clientSlotLabels[v.Slot]
 	for _, slot := range clientSlotOrder {
@@ -1777,6 +1808,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		row := ClientDeviceRow{
 			Serial: d.SerialNumber, Version: name, Code: code,
 			LastSeen: d.LastSeenAt,
+		}
+		if frameworkVersionReported(name, clientPackageOf(d)) {
+			row.Version, row.Misreported = "", true
 		}
 		switch {
 		case code == 0 || !versionComparable(d, sel.Build.Package):

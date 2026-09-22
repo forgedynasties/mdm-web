@@ -318,7 +318,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
               title="{{.Title}}" onclick="toggleClientPill(event)">
         {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
         <span>{{.Kind}}</span>
-        {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>{{end}}
+        {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>
+        {{else if .Misreported}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver muted">pre-1.0.2</span>{{end}}
         <svg class="cpill-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div class="cpill-pop" id="cpill-pop" hidden>
@@ -583,7 +584,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{/* Summary line: what manages this device, before any row is read. */}}
     <div class="en-hero">
       <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
-      {{with extraField .Device.LatestExtra "agent_version"}}{{if ne . "—"}}<span class="mono en-hero-v">{{.}}</span>{{end}}{{end}}
+      {{$hv := extraField .Device.LatestExtra "agent_version"}}{{$hp := extraField .Device.LatestExtra "agent_package"}}
+      {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
       <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
     </div>
 
@@ -3186,7 +3188,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
            updated over the air; it needs a firmware OTA. */}}
       {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
       <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
-        {{if and $cv (ne $cv "—")}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}
+        {{if and $cv (ne $cv "—")}}{{if misreportedVersion $cv $cp}}<span class="muted">pre-1.0.2</span> <span class="muted small">· reported the platform release ({{$cv}}), not its own — fixed in client 1.0.2</span>{{else}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}{{end}}
           <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}DPC agent{{else}}firmware client{{end}}</span>
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
