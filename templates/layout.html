@@ -970,15 +970,20 @@
     var m = map[status] || ['ai-muted', 'Update —'];
     return '<span class="ai-intro ' + m[0] + '">' + m[1] + '</span> ';
   }
-  function mdmReportPreview(rep) { return mdmReportIntro(rep.status) + '<span class="rep-headline">' + mdmLinkify(mdmEsc(rep.headline)) + '</span>'; }
+  function mdmReportPreview(rep) {
+    var n = (rep.issues || []).length;
+    var line = mdmReportIntro(rep.status) + '<span class="rep-headline">' + mdmLinkify(mdmEsc(rep.headline)) + '</span>';
+    // A clean day names what was looked at. Brevity should read as "checked and fine",
+    // never as "the report failed to load" — which is what a bare headline invites.
+    if (!n && rep.good && rep.good.length) {
+      line += '<span class="rep-checked">checked ' + rep.good.map(mdmEsc).join(', ').toLowerCase() + '</span>';
+    }
+    return line;
+  }
+  // How many call-outs the card is holding, for the toggle's label.
+  window.mdmReportIssueCount = function (rep) { return (rep && rep.issues ? rep.issues.length : 0); };
   function mdmReportBody(rep) {
     var h = '';
-    if (rep.metrics && rep.metrics.length) {
-      var tiles = '<div class="rep-tiles">';
-      rep.metrics.forEach(function (m) { tiles += '<span class="rep-tile"><b>' + mdmEsc(m.value) + '</b> <span class="l">' + mdmEsc(m.label) + '</span></span>'; });
-      tiles += '</div>';
-      h += mdmLinkify(tiles); // headline metrics: hottest-unit fallback
-    }
     if (rep.issues && rep.issues.length) {
       h += '<div class="rep-rows">';
       rep.issues.forEach(function (is) {
@@ -997,10 +1002,18 @@
       });
       h += '</div>';
     }
-    if (rep.good && rep.good.length) {
-      h += '<div class="rep-good">' + mdmLinkify('<b>' + rep.good.map(mdmEsc).join(', ') + '</b> are reporting normally') + '</div>';
+    // Metrics and the all-clear list are context, not the report: one muted line at the
+    // bottom rather than a row of tiles above the thing you came to read. The card's job
+    // is to say whether anything needs doing — everything else is the page around it.
+    var foot = [];
+    if (rep.metrics && rep.metrics.length) {
+      foot.push(rep.metrics.map(function (m) { return mdmEsc(m.value) + ' ' + mdmEsc(m.label).toLowerCase(); }).join('  ·  '));
     }
-    return h || '<div class="muted small">No further detail.</div>';
+    if (rep.good && rep.good.length) {
+      foot.push('checked: ' + rep.good.map(mdmEsc).join(', ').toLowerCase());
+    }
+    if (foot.length) h += '<div class="rep-foot">' + mdmLinkify(foot.join('  —  ')) + '</div>';
+    return h || '<div class="muted small">Nothing further to report.</div>';
   }
   function mdmParseReport(raw) {
     raw = String(raw || '').trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
@@ -1044,6 +1057,31 @@
       full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw) : raw;
     }
     full.dataset.rendered = '1';
+    mdmSyncReportToggle();
+  };
+
+  // The toggle names what is hidden — "2 issues" — rather than saying "more", because
+  // the count is the decision: nothing to expand means nothing to do.
+  window.mdmSyncReportToggle = function () {
+    var card = document.getElementById('ai-summary-card');
+    var full = document.getElementById('ai-sum-full');
+    var tg = document.getElementById('ai-sum-toggle');
+    if (!card || !full || !tg) return;
+    var n = full.querySelectorAll('.rep-row').length;
+    var open = !card.classList.contains('ai-collapsed');
+    tg.hidden = false;
+    tg.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (n === 0) {
+      tg.textContent = open ? 'Hide detail' : 'Detail';
+    } else {
+      tg.textContent = open ? 'Hide' : n + (n === 1 ? ' issue' : ' issues');
+    }
+  };
+  window.mdmToggleReport = function () {
+    var card = document.getElementById('ai-summary-card');
+    if (!card) return;
+    card.classList.toggle('ai-collapsed');
+    mdmSyncReportToggle();
   };
   // ── Live generation: thinking log → streamed reveal (mirrors the report demo) ──
   var _repReduce = window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;

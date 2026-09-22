@@ -7091,3 +7091,18 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 /* The serial is the headline here, not a pill — same reset as the column view. */
 .dl-serial-list .dl-card .dl-sc-sn.link-detail { padding: 0; background: none; font-size: 14.5px; color: var(--text); }
 .dl-serial-list .dl-card .dl-sc-sn.link-detail:hover { background: none; color: var(--text); }
+
+/* Daily Report, collapsed form. The card is one line until asked otherwise: on a normal
+   day the report's answer is "nothing to act on", and that should cost a glance rather
+   than a scroll. Expanding shows the call-outs, each with its action. */
+#ai-summary-card.ai-collapsed #ai-sum-full { display: none; }
+.ai-more { margin-left: auto; flex: none; background: none; border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted); font-size: 11px; font-weight: 650; padding: 3px 10px;
+  cursor: pointer; font-family: inherit; }
+.ai-more:hover { color: var(--text); background: var(--surface2); }
+.ai-bubble { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.ai-bubble > #ai-sum-preview { flex: 1; min-width: 200px; }
+.ai-bubble > #ai-sum-full { flex-basis: 100%; }
+.rep-checked { display: block; font-size: 11.5px; color: var(--text-faint); margin-top: 3px; }
+.rep-foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border-soft);
+  font-size: 11.5px; color: var(--text-faint); line-height: 1.6; }

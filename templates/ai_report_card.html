@@ -1,6 +1,10 @@
 {{define "ai-report-card"}}
 {{if .AISummary}}
-<div class="card" id="ai-summary-card" style="margin-bottom:16px;">
+{{/* Collapsed to a single line by default: on most days the answer is "nothing to do",
+     and learning that should take a second. The call-outs — each with its action — are
+     one click away, and a clean day says what was checked so short never reads as
+     broken. */}}
+<div class="card ai-collapsed" id="ai-summary-card" style="margin-bottom:16px;">
   <div class="card-header ai-hdr">
     <span class="ai-orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8 16l2.5-3 2 2 3.5-4"/></svg></span>
     <span class="ai-hdr-t">Daily Report<span class="ai-hdr-sub">your fleet briefing</span></span>
@@ -16,13 +20,13 @@
     {{if .ReportRestaurants}}<script type="application/json" id="ai-sum-restaurants">{{.ReportRestaurants}}</script>{{end}}
     <div class="ai-bubble">
       <div id="ai-sum-preview" class="ai-lede">{{.AISummaryPreview}}</div>
+      <button type="button" class="ai-more" id="ai-sum-toggle" aria-expanded="false" aria-controls="ai-sum-full" hidden
+              onclick="mdmToggleReport()"></button>
       <div id="ai-sum-full" class="ai-text"></div>
     </div>
-    {{/* Live per-restaurant open-alert breakdown — refetched on every alert change */}}
-    <div class="rab" id="report-rest-alerts" data-diff-guard
-         hx-get="/reports/alerts-by-restaurant"
-         hx-trigger="load, mdm:alerts-update from:document"
-         hx-target="this" hx-swap="innerHTML"></div>
+    {{/* The per-restaurant alert breakdown lived here and was the largest block on the
+         card. It repeated the Alerts page, which is one click away and is where an
+         operator acts on an alert; the report's job is to say whether to go there. */}}
   </div>
 </div>
 {{end}}
