@@ -5738,50 +5738,26 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock .nav-link.active { background: var(--accent-soft); color: var(--accent-text); }
 .dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
 
-/* The dock's "More" opens the admin pages upward. Same menu styling as the top-bar
-   popups (.nbar-pop/.nbar-menu); only the placement differs, handled in layout.html. */
+/* The dock's "More" opens the command palette (pages mode), not a menu. */
 .dock .nav-link.js-more { background: none; border: 0; font: inherit; cursor: pointer; }
-.dock .nav-link.js-more[aria-expanded="true"] { background: var(--surface2); color: var(--text); }
-.dock-more-pop { z-index: 60; min-width: 196px; }
-.dock-more-pop .nbar-mcap {
-  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--text-faint); padding: 8px 12px 4px;
-}
-.dock-more-pop .nbar-mi { display: flex; align-items: center; gap: 10px; }
-.dock-more-pop .nbar-mi .ui-icon, .dock-more-pop .nbar-mi .ui-icon svg { width: 16px; height: 16px; }
-/* The open page is marked in the menu as well as promoted into the dock, so it reads
-   the same in both places. The icon takes the accent too — .nbar-mi paints icons
-   var(--muted) by default, which left the active row looking half-highlighted. */
-.dock-more-pop .nbar-mi.active,
-.dock-more-pop .nbar-mi.active:hover { background: var(--accent-soft); color: var(--accent-text); }
-.dock-more-pop .nbar-mi.active .ui-icon,
-.dock-more-pop .nbar-mi.active .ui-icon svg { color: var(--accent-text); }
-.dock-more-pop .nbar-mi:hover { background: var(--hover); color: var(--text); }
 
-/* ── "More" page directory ─────────────────────────────────────────────────────
-   The dock's More menu is the only way into about forty pages, so it is a
-   sectioned directory rather than a list: four groups, scannable in one look.
-   Text-only entries — icons at this count are noise, not wayfinding. */
-.nav-dir { min-width: 0; width: min(560px, calc(100vw - 24px)); padding-bottom: 10px; }
-.nav-dir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; padding: 2px 6px 0; }
-.nav-dir-sec { padding: 6px 6px 8px; border-radius: 9px; }
-.nav-dir-sec > .t {
-  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--text-faint); padding: 0 6px; margin-bottom: 3px;
-}
-.nav-dir-sec > a {
-  display: block; padding: 5px 8px; border-radius: 7px; text-decoration: none;
-  color: var(--text-2); font-size: 12.8px; font-weight: 550; line-height: 1.35;
-}
-.nav-dir-sec > a:hover { background: var(--hover); color: var(--text); }
-.nav-dir-sec > a:focus-visible { outline: none; box-shadow: var(--ring); }
-.nav-dir-sec > a.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
-/* Phones: one column, and the menu may need to scroll rather than run off-screen.
-   The positioning script clamps the top edge to 12px, so cap the height here. */
-@media (max-width: 719px) {
-  .nav-dir-grid { grid-template-columns: 1fr; }
-  .nav-dir { max-height: calc(100vh - 120px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-}
+/* ── "More" ────────────────────────────────────────────────────────────────────
+   More does not open a menu. It opens the command palette in pages mode — the
+   same object ⌘K opens, scoped to navigation.
+
+   It was briefly a sectioned directory: four columns, 28 links, 520x268px
+   hanging off a dock button. That fixed reachability (several pages had no
+   inbound link at all) and created a surface that grows with every route we
+   add. The palette does not: 28 pages or 60, it is a 400px column and three
+   keystrokes. The directory markup still exists in layout.html as #page-index —
+   hidden, never rendered, read by the palette for its page list, and still the
+   place the server-side role guards live.
+
+   Empty state in pages mode: recent pages, then the four sections as one row
+   each, so browsing is still possible for someone who does not know what a page
+   is called. Typing replaces it immediately. */
+.cmdk-panel.cmdk-pages { max-width: 420px; }
+.cmdk-item-browse::after { content: ' ›'; font-size: 13px; letter-spacing: 0; }
 
 @media (max-width: 640px) {
   .appbar { padding: 10px 14px; gap: 8px; }

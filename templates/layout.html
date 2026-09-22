@@ -213,8 +213,11 @@
       // Announce the page name. document.title is "<Page> — <Brand>"; the brand
       // is the same on every page, so announcing it each time is noise.
       var an = document.getElementById('route-announcer');
+      var name = (document.title || '').split(' — ')[0].trim();
+      // Feed the palette's recents from the same signal, so "where you have been"
+      // needs no extra bookkeeping anywhere else.
+      if (window.mdmNoteVisit) window.mdmNoteVisit(location.pathname, name);
       if (an) {
-        var name = (document.title || '').split(' — ')[0].trim();
         // Re-assigning the same string does not re-announce in some readers, so
         // clear first and set on the next frame.
         an.textContent = '';
@@ -435,7 +438,7 @@
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{/* Every non-owner role has entries in the directory now (Fleet and several
          Control pages are open to all), so More is no longer admin-only. */}}
-    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="true" aria-expanded="false" onclick="navAdmin(event)" data-cmdk-label="More"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>
+    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="dialog" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-keyshortcuts="Meta+K Control+K"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>
   </nav>
 
   {{/* Everyone gets the same dock: the four pages the job is done in. Everything
@@ -451,52 +454,65 @@
        Entries a role cannot open are simply not rendered — the server guards are
        the source of truth and each {{if}} below mirrors the one on its route. */}}
   {{if ne .Role "owner"}}
-  <div class="nbar-pop nbar-menu dock-more-pop nav-dir" id="admin-pop" hidden>
-    <div class="nbar-mcap">All pages</div>
+  {{/* This is no longer a menu — it is the page index, and it never renders.
+
+       As a visible menu it was a 520x268 four-column slab hanging off a dock
+       button, which is a page pretending to be a popup, and it grew with every
+       route we added. "More" now opens the command palette in pages mode
+       instead (see mdmOpenPalette), so the surface is a 400px column whose size
+       does not move when the route table does.
+
+       The markup stays because the palette reads its index straight out of the
+       DOM (collectDests, .js-dest[data-cmdk-label]) — which means the role
+       guards below are still the thing deciding what a person can reach, server
+       side, exactly as before. data-cmdk-sec carries the section so a result can
+       say where it lives and the empty state can offer them as browse rows.
+       hidden keeps it out of the tab order; querySelectorAll still sees it. */}}
+  <div id="page-index" hidden>
     <div class="nav-dir-grid">
 
       <div class="nav-dir-sec">
         <div class="t">Fleet</div>
-        <a class="js-dest{{if eq .ActivePath "/devices"}} on{{end}}" href="/devices" data-cmdk-label="Devices">Devices</a>
-        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-cmdk-label="Venues">Venues</a>
-        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-cmdk-label="Groups">Groups</a>
-        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-cmdk-label="Fleet map">Fleet map</a>
-        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-cmdk-label="Fleet health">Fleet health</a>
-        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-cmdk-label="Enrollment">Enrollment</a>
+        <a class="js-dest{{if eq .ActivePath "/devices"}} on{{end}}" href="/devices" data-cmdk-sec="Fleet" data-cmdk-label="Devices">Devices</a>
+        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>
+        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
+        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
+        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
+        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Deploy</div>
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-cmdk-label="Updates">Updates</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-cmdk-label="Releases">Releases</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-cmdk-label="Clients">Clients</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-cmdk-label="Packages">Packages</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-cmdk-sec="Deploy" data-cmdk-label="Updates">Updates</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-cmdk-sec="Deploy" data-cmdk-label="Releases">Releases</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-cmdk-sec="Deploy" data-cmdk-label="Clients">Clients</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-cmdk-sec="Deploy" data-cmdk-label="Packages">Packages</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-cmdk-sec="Deploy" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Control</div>
-        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-cmdk-label="Schedules">Schedules</a>
-        {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-cmdk-label="App library">App library</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-cmdk-label="Policies">Policies</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-cmdk-label="Update policy">Update policy</a>
-        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-cmdk-label="Compliance">Compliance</a>
-        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-cmdk-label="Geofencing">Geofencing</a>
-        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-cmdk-label="Network">Network</a>
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
+        {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-cmdk-sec="Control" data-cmdk-label="Policies">Policies</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-cmdk-sec="Control" data-cmdk-label="Update policy">Update policy</a>
+        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-cmdk-sec="Control" data-cmdk-label="Compliance">Compliance</a>
+        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-cmdk-sec="Control" data-cmdk-label="Geofencing">Geofencing</a>
+        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-cmdk-sec="Control" data-cmdk-label="Network">Network</a>
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-cmdk-sec="Control" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Admin</div>
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-cmdk-label="Users">Users</a>{{end}}
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-cmdk-label="Access rules">Access rules</a>{{end}}
-        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-cmdk-label="Activity log">Activity log</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-cmdk-label="Products">Products</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-cmdk-label="Server">Server</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-cmdk-label="Settings">Settings</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-cmdk-label="Setup">Setup</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-cmdk-label="Export">Export</a>
-        <a class="js-dest" href="/reports/alerts-by-restaurant" data-cmdk-label="Alert report">Alert report</a>
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-cmdk-sec="Admin" data-cmdk-label="Users">Users</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-cmdk-sec="Admin" data-cmdk-label="Access rules">Access rules</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-cmdk-sec="Admin" data-cmdk-label="Activity log">Activity log</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-cmdk-sec="Admin" data-cmdk-label="Products">Products</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-cmdk-sec="Admin" data-cmdk-label="Server">Server</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-cmdk-sec="Admin" data-cmdk-label="Settings">Settings</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-cmdk-sec="Admin" data-cmdk-label="Setup">Setup</a>{{end}}
+        <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-cmdk-sec="Admin" data-cmdk-label="Export">Export</a>
+        <a class="js-dest" href="/reports/alerts-by-restaurant" data-cmdk-sec="Admin" data-cmdk-label="Alert report">Alert report</a>
       </div>
 
     </div>
@@ -519,7 +535,7 @@
     // its compositing layer, which shows up as a one-frame flicker (blur cuts out
     // then back in) if done while the popup is becoming visible. Doing it once,
     // hidden, before any open avoids that entirely.
-    ['alerts-pop', 'acct-pop', 'admin-pop'].forEach(function (id) {
+    ['alerts-pop', 'acct-pop'].forEach(function (id) {
       var p = document.getElementById(id);
       if (p && p.parentElement !== document.body) document.body.appendChild(p);
     });
@@ -532,19 +548,12 @@
         if (b) {
           var r = b.getBoundingClientRect();
           p.style.position = 'fixed';
-          if (p.classList.contains('dock-more-pop')) {
-            // The dock lives at the bottom of the viewport, so its menu opens upward
-            // and is centred on the button rather than right-aligned to it.
-            p.removeAttribute('hidden');
-            var h = p.offsetHeight, w = p.offsetWidth;
-            p.style.top = Math.max(12, r.top - h - 10) + 'px';
-            p.style.right = 'auto';
-            p.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px';
-          } else {
-            p.style.top = (r.bottom + 9) + 'px';
-            p.style.left = 'auto';
-            p.style.right = (window.innerWidth - r.right) + 'px';
-          }
+          // Both remaining popups hang off the top bar, so they open downward
+          // and right-aligned. (The dock's More used to open upward from here;
+          // it opens the command palette now and needs no placement.)
+          p.style.top = (r.bottom + 9) + 'px';
+          p.style.left = 'auto';
+          p.style.right = (window.innerWidth - r.right) + 'px';
         }
         p.removeAttribute('hidden');
       } else {
@@ -553,14 +562,6 @@
       var b = document.querySelector(btnSel);
       if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
-    window.navAdmin = function (e) {
-      if (e) { e.preventDefault(); e.stopPropagation(); }
-      var p = document.getElementById('admin-pop'); if (!p) return;
-      var willOpen = p.hasAttribute('hidden');
-      pop('acct-pop', '.appbar-acct', false);
-      pop('alerts-pop', '#alerts-indicator', false);
-      pop('admin-pop', '#dock-more', willOpen);
-    };
     window.navAcct = function (e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       var willOpen = document.getElementById('acct-pop').hasAttribute('hidden');
@@ -608,8 +609,6 @@
       // wrap and the popup, not just the wrap.
       var aw = document.getElementById('acct-wrap'), ap = document.getElementById('acct-pop');
       if (!(aw && aw.contains(e.target)) && !(ap && ap.contains(e.target))) pop('acct-pop', '.appbar-acct', false);
-      var mb = document.getElementById('dock-more'), mp = document.getElementById('admin-pop');
-      if (!(mb && mb.contains(e.target)) && !(mp && mp.contains(e.target))) pop('admin-pop', '#dock-more', false);
       var lw = document.getElementById('alerts-wrap'), lp = document.getElementById('alerts-pop');
       if (!(lw && lw.contains(e.target)) && !(lp && lp.contains(e.target))) pop('alerts-pop', '#alerts-indicator', false);
     });
@@ -629,7 +628,6 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
-        pop('admin-pop', '#dock-more', false);
         var m = document.getElementById('whatsnew'); if (m && m.classList.contains('modal-open')) navWhatsNew();
       }
     });
@@ -657,7 +655,8 @@
     function syncNav() {
       var path = location.pathname;
       var dock = document.querySelector('nav.dock');
-      var pop = document.getElementById('admin-pop');
+      // Source of the promotion is the (never-rendered) page index.
+      var pop = document.getElementById('page-index');
       if (!dock) return;
       // A previously promoted entry is a clone, not part of the rendered dock.
       var old = dock.querySelector('.js-promoted');
@@ -679,6 +678,10 @@
         if (hit) {
           var clone = hit.cloneNode(true);
           clone.className = 'nav-link js-dest js-promoted active';
+          // Index entries are text-only (they were never meant to be seen), so
+          // wrap the label the way a real dock link carries one.
+          clone.innerHTML = '<span class="dock-lbl">' + (hit.getAttribute('data-cmdk-label') || hit.textContent).trim() + '</span>';
+          clone.setAttribute('data-cmdk-label', hit.getAttribute('data-cmdk-label') || '');
           var more = document.getElementById('dock-more');
           dock.insertBefore(clone, more || null);
           if (window.htmx) htmx.process(clone);
@@ -2041,6 +2044,7 @@
     var input = document.getElementById('cmdk-input');
     var list = document.getElementById('cmdk-list');
     var empty = document.getElementById('cmdk-empty');
+    var panel = backdrop && backdrop.querySelector('.cmdk-panel');
     if (!backdrop || !input || !list) return;
 
     var dests = [];   // {label, sub, url, type}
@@ -2050,13 +2054,50 @@
 
     function collectDests() {
       dests = [];
-      // Pages are marked with .js-dest in the dock and the account/alerts menus.
+      // Pages are marked with .js-dest: the dock, the account/alerts menus, and
+      // #page-index — the hidden directory that carries every route with its
+      // server-side role guard already applied.
+      var byUrl = {};
       document.querySelectorAll('.js-dest').forEach(function (a) {
         var label = a.getAttribute('data-cmdk-label') || (a.textContent || '').replace(/\s+/g, ' ').trim();
         var url = a.getAttribute('href') || a.getAttribute('data-cmdk-href');
         if (!url) return;
-        dests.push({ label: label, sub: '', url: url, type: 'page' });
+        var sec = a.getAttribute('data-cmdk-sec') || '';
+        // The dock and the index both point at /devices. Keep one row per URL,
+        // preferring the one that knows its section.
+        var seen = byUrl[url];
+        if (seen) { if (sec && !seen.sub) { seen.sub = sec; seen.label = label; } return; }
+        var d = { label: label, sub: sec, url: url, type: 'page' };
+        byUrl[url] = d; dests.push(d);
       });
+    }
+
+    // ── Recently visited pages ────────────────────────────────────────────────
+    // The empty palette is a guess about where you are going; the best available
+    // guess is where you have been. Kept per browser, newest first, capped at six.
+    var RECENT_KEY = 'mdm-recent-pages';
+    function recentPages() {
+      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch (e) { return []; }
+    }
+    window.mdmNoteVisit = function (url, label) {
+      if (!url || url === '/' ) return;
+      try {
+        var list = recentPages().filter(function (r) { return r.url !== url; });
+        list.unshift({ url: url, label: label });
+        localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
+      } catch (e) {}
+    }
+    // A full page load (not a boosted swap) never reaches the route handler that
+    // records visits, so record this one here.
+    try {
+      window.mdmNoteVisit(location.pathname, (document.title || '').split(' \u2014 ')[0].trim());
+    } catch (e) {}
+    // Resolve stored URLs back to live index entries, so a page the viewer's role
+    // can no longer reach silently drops out of their recents.
+    function recentDests() {
+      var byUrl = {}; dests.forEach(function (d) { byUrl[d.url] = d; });
+      return recentPages().map(function (r) { return byUrl[r.url]; })
+        .filter(function (d) { return d && d.url !== location.pathname; });
     }
 
     function render() {
@@ -2072,7 +2113,8 @@
         main.textContent = it.label;
         li.appendChild(main);
         var tag = document.createElement('span');
-        tag.className = 'cmdk-item-sub' + (it.type === 'device' ? ' cmdk-item-sub-device' : '');
+        tag.className = 'cmdk-item-sub' + (it.type === 'device' ? ' cmdk-item-sub-device' : '')
+          + (it.browse ? ' cmdk-item-browse' : '');
         tag.textContent = it.type === 'device' ? 'Device' : it.sub;
         li.appendChild(tag);
         li.addEventListener('mousemove', function () { setActive(i); });
@@ -2112,8 +2154,44 @@
       });
       return sub.concat(seq).slice(0, 12);
     }
+    // pagesOnly is the mode "More" opens in: the same palette, scoped to
+    // navigation. No device lookup, no entity index — just the ~28 pages, which
+    // is a surface whose size does not change when the route table does.
+    var pagesOnly = false;
+
+    // The empty state in pages mode. Recents first (where you have been is the
+    // best guess at where you are going), then the four sections as one row
+    // each — so someone who does not yet know what anything is called can still
+    // browse, and everyone else types and never sees this.
+    function pagesEmptyState() {
+      var out = [], rec = recentDests();
+      rec.forEach(function (d) { out.push({ label: d.label, sub: d.sub || 'Recent', url: d.url, type: 'page' }); });
+      var secs = [], counts = {};
+      dests.forEach(function (d) {
+        if (!d.sub) return;
+        if (!counts[d.sub]) { counts[d.sub] = 0; secs.push(d.sub); }
+        counts[d.sub]++;
+      });
+      secs.forEach(function (name) {
+        out.push({ label: name, sub: counts[name] + ' pages', browse: name, type: 'page' });
+      });
+      return out;
+    }
+
     function filter(q) {
       q = q.trim();
+      if (pagesOnly) {
+        if (!q) { items = pagesEmptyState(); active = 0; render(); return; }
+        var ql = q.toLowerCase(), subm = [], seqm = [];
+        dests.forEach(function (d) {
+          var hay = (d.label + ' ' + d.sub).toLowerCase();
+          if (hay.indexOf(ql) !== -1) subm.push(d);
+          else if (subseq(ql, d.label.toLowerCase())) seqm.push(d);
+        });
+        items = subm.concat(seqm).slice(0, 12);
+        active = 0; render();
+        return;
+      }
       items = matchEntries(q).slice();
       // A serial is a single token with no spaces; offer a direct jump immediately
       // (flagged as a placeholder so Enter resolves it to the first fuzzy match),
@@ -2174,6 +2252,13 @@
     function choose(i) {
       var it = items[i];
       if (!it) return;
+      // A section row is a filter, not a destination: it types its own name.
+      if (it.browse) {
+        input.value = it.browse;
+        filter(input.value);
+        input.focus();
+        return;
+      }
       // Enter on the "Open device …" placeholder before the fuzzy results arrived:
       // resolve it now and jump to the first match (typing "32" + Enter lands on the
       // first device whose serial fuzzy-matches, not a dead /devices/32).
@@ -2194,12 +2279,17 @@
       window.location.href = it.url;
     }
 
-    function open() {
+    var PLACEHOLDER_ALL = input.getAttribute('placeholder');
+    function open(mode) {
       if (!backdrop.hidden) return;
+      pagesOnly = (mode === 'pages');
       lastFocus = document.activeElement;
       collectDests();
-      loadEntities();
+      // The entity index (groups, venues, people) is only useful in full mode.
+      if (!pagesOnly) loadEntities();
       input.value = '';
+      input.setAttribute('placeholder', pagesOnly ? 'Go to a page…' : PLACEHOLDER_ALL);
+      panel.classList.toggle('cmdk-pages', pagesOnly);
       filter('');
       backdrop.hidden = false;
       requestAnimationFrame(function () {
@@ -2240,6 +2330,9 @@
       var k = e.key.toLowerCase();
       if ((e.metaKey || e.ctrlKey) && k === 'k') {
         e.preventDefault();
+        // ⌘K on an already-open pages-mode palette widens it to everything,
+        // rather than closing the thing the user just asked for more of.
+        if (!backdrop.hidden && pagesOnly) { close(); open(); return; }
         backdrop.hidden ? open() : close();
       }
     });
