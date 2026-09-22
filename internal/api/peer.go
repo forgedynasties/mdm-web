@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -187,4 +188,10 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// timeoutCtx bounds a peer call made on behalf of an HTTP request, so a peer that
+// accepts a connection and then says nothing cannot hold this handler open.
+func timeoutCtx(r *http.Request, d time.Duration) (ctx context.Context, cancel context.CancelFunc) {
+	return context.WithTimeout(r.Context(), d)
 }

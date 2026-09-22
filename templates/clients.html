@@ -143,6 +143,31 @@ function clFold(btn, key) {
 // The command is queued in milliseconds but the install takes a minute or two, and
 // the device says nothing until it starts. Say "Sent" on the button straight away and
 // pull the page again shortly: by then the row carries the real state from the server.
+// Pressing Update on a device that reports to another MDM. Nothing is queued: the
+// device collects its client from that server, so a command from here would sit
+// unclaimed until it expired. Say so, and offer the way there.
+function clElsewhere(serial, peer, url) {
+  var msg = serial + ' reports to ' + peer + '. Its client comes from that server — an update sent from here would never be collected.';
+  if (window.showToast) showToast(msg, 'info');
+  else alert(msg);
+  if (url) {
+    var go = document.getElementById('cl-go-peer');
+    if (!go) {
+      go = document.createElement('a');
+      go.id = 'cl-go-peer';
+      go.target = '_blank';
+      go.rel = 'noopener';
+      go.className = 'cc-btn sm';
+      go.style.cssText = 'position:fixed;right:18px;bottom:76px;z-index:60';
+      document.body.appendChild(go);
+    }
+    go.href = url + '/devices/' + encodeURIComponent(serial);
+    go.textContent = 'Open ' + serial + ' on ' + peer + ' \u2197';
+    clearTimeout(window.__clGoTimer);
+    window.__clGoTimer = setTimeout(function () { go.remove(); }, 8000);
+  }
+}
+
 function clSent(form) {
   var b = form.querySelector('button[type=submit]');
   if (b) { b.disabled = true; b.innerHTML = '<span class="cl-spin"></span>Sent'; }
@@ -290,7 +315,11 @@ function clPick(a) {
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
           {{if .Elsewhere}}
-          {{/* Nothing to offer: the device collects its client from the other server. */}}
+          {{/* The button stays, because a blank cell reads as a page that forgot to
+               draw one. Pressing it says why nothing will happen, which is the answer
+               the operator came for. */}}
+          <button type="button" class="cc-btn sm" onclick="clElsewhere('{{.Serial}}','{{.Elsewhere}}','{{.ElsewhereURL}}')"
+                  title="This device reports to {{.Elsewhere}}">On {{.Elsewhere}}</button>
           {{else if eq .State "updating"}}
           <button type="button" class="cc-btn sm" disabled title="The device has the command and is installing {{$.Selected.Build.Version}}. It restarts itself when it lands."><span class="cl-spin"></span>Updating</button>
           {{else if eq .State "unknown"}}
@@ -300,7 +329,8 @@ function clPick(a) {
                firmware OTA to get a client that can update itself. */}}
           <button type="button" class="cc-btn sm" disabled title="This client reports no version, so it predates client OTA — it can only be updated by a firmware OTA."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           {{else if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
-          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)">
+          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)"
+                {{if .Unreachable}}hx-confirm="{{.Serial}} has not checked in since {{timeSince .LastSeen}}. The update sits queued until it comes back — and if it was pointed at another MDM, it never will. Queue it anyway?"{{end}}>
             <input type="hidden" name="type" value="app_update">
             <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}}"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           </form>
@@ -329,7 +359,8 @@ function clPick(a) {
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
         <span>
           {{if and (eq .State "behind") (not .Elsewhere) $.Selected.Hosted (canOperate $.Role)}}
-          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)">
+          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)"
+                hx-confirm="{{.Serial}} has not checked in since {{timeSince .LastSeen}}. The update sits queued until it comes back — and if it was pointed at another MDM, it never will. Queue it anyway?">
             <input type="hidden" name="type" value="app_update">
             <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}} — it has not checked in for a while, so the command waits until it does"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           </form>

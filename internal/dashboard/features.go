@@ -1567,6 +1567,12 @@ type ClientDeviceRow struct {
 	// Elsewhere: the device is reporting to another MDM, so this server cannot update
 	// it however far behind it is. Carries the peer's name for the row to say where.
 	Elsewhere string
+	// ElsewhereURL is that server's dashboard, when it is a configured peer.
+	ElsewhereURL string
+	// Unreachable marks a device that has not checked in for long enough that an
+	// update queued now would sit unclaimed. Not proof it moved — proof only that
+	// pressing Update would achieve nothing anyone could see.
+	Unreachable bool
 	// Dormant devices have not checked in for clientDormantAfter. They are still
 	// listed, but folded away: most of them are retired or boxed hardware, and left
 	// inline they outnumber the rows an operator came to act on.
@@ -1863,7 +1869,12 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 			row.Version, row.Misreported = "", true
 		}
 		if c, ok := custody[d.ID]; ok && c.Elsewhere() {
-			row.Elsewhere = c.Server
+			row.Elsewhere, row.ElsewhereURL = c.Server, c.URL
+		}
+		// Three times the check-in interval is the same staleness the fleet list uses
+		// for "offline", so the two pages agree about what silent means.
+		if row.Elsewhere == "" && time.Since(d.LastSeenAt) > time.Duration(h.cfg.CheckinInterval()*3)*time.Second {
+			row.Unreachable = true
 		}
 		switch {
 		case code == 0 || !versionComparable(d, sel.Build.Package):

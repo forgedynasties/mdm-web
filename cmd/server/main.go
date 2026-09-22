@@ -438,6 +438,13 @@ func main() {
 	// it here is how a build publishes a new agent without anyone opening Settings.
 	// Peer endpoints: another MDM asking, or telling, where a device is reporting.
 	// Authenticated by the peer key, which is not the admin key — see internal/api/peer.go.
+	// Peer administration (admin key): configure the neighbours, test them, force a
+	// reconciliation pass. No dashboard form — see internal/api/peers_admin.go.
+	mux.Handle("GET /api/v1/peers", adminAuth(http.HandlerFunc(apiHandler.ListPeers)))
+	mux.Handle("PUT /api/v1/peers", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetPeers))))
+	mux.Handle("POST /api/v1/peers/ping", adminAuth(http.HandlerFunc(apiHandler.PingPeers)))
+	mux.Handle("POST /api/v1/peers/sweep", adminAuth(http.HandlerFunc(apiHandler.SweepPeers)))
+
 	mux.Handle("POST /api/v1/peer/ping", http.HandlerFunc(apiHandler.PeerPing))
 	mux.Handle("POST /api/v1/peer/device-seen", middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.PeerDeviceSeen)))
 	mux.Handle("POST /api/v1/peer/lookup", middleware.MaxBytes(256<<10, http.HandlerFunc(apiHandler.PeerLookup)))
