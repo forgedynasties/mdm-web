@@ -645,10 +645,14 @@
   (function () {
     var RECENT_KEY = 'mdm-recent-pages', FREQ_KEY = 'mdm-page-freq';
     // A page has to be visited this many times before it can claim a dock slot.
-    // Without a floor the dock reshuffles on someone's first afternoon, which is
-    // worse than not personalising at all: the one thing navigation must be is
-    // predictable.
-    var FREQ_MIN = 3;
+    // This was 3, on the theory that a floor keeps the dock from reshuffling on
+    // someone's first afternoon. In practice it meant the feature looked broken:
+    // a fresh browser has no counts, the four fixed links are excluded, and so
+    // nothing appeared at all until you had opened the same page three times.
+    // One visit is the floor now — the ordering is still by count, so the three
+    // settle onto the real favourites within a day and the slots are never empty
+    // for someone who has been anywhere.
+    var FREQ_MIN = 1;
     function read(k, dflt) {
       try { return JSON.parse(localStorage.getItem(k) || dflt) || JSON.parse(dflt); }
       catch (e) { return JSON.parse(dflt); }

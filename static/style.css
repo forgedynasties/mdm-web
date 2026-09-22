@@ -5747,9 +5747,10 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
    smaller text, and a hairline separating "what everyone gets" from "what you
    built up". They are a shortcut, not a promotion to the same rank.
 
-   Hidden below 1024px. The dock is centre-floating and already drops its labels
-   at 719px; seven links plus More does not fit a tablet, and the palette is one
-   tap away on those widths anyway. */
+   Hidden below 860px. The dock is centre-floating and already drops its labels at
+   719px; eight items do not fit a phone, and the palette is one tap away there.
+   (This was 1024px, which hid them on ordinary laptop windows — the width where
+   they are most wanted.) */
 .dock .nav-link.js-freq {
   padding: 10px 12px; font-size: 12.5px; font-weight: var(--fw-semibold);
   color: var(--text-faint); max-width: 140px;
@@ -5760,7 +5761,7 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 /* One hairline before the run, not between each (the class is set in JS — the
    run is not the first child of the dock, so :first-of-type cannot find it). */
 .dock .nav-link.js-freq.js-freq-first { box-shadow: -1px 0 0 var(--border); margin-left: 5px; padding-left: 15px; }
-@media (max-width: 1024px) { .dock .nav-link.js-freq { display: none; } }
+@media (max-width: 860px) { .dock .nav-link.js-freq { display: none; } }
 
 /* ── "More" ────────────────────────────────────────────────────────────────────
    More does not open a menu. It opens the command palette in pages mode — the
