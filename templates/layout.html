@@ -17,6 +17,26 @@
      browser tab. The <head> (and its <title>) is not re-sent on a boosted swap, so
      without this the tab keeps whatever the first full page load set. htmx finds a
      <title> anywhere in the response and applies it to document.title + history. */}}
+  <script>
+    // An expired session must never render as page content. Anything script
+    // fetches gets 401 + X-Auth-Required from the server (see redirectLogin in
+    // handlers.go) instead of a redirect the XHR would follow — otherwise the
+    // login page comes back as a fragment and gets painted into whichever pane,
+    // dropdown or toast asked for it. Turn that answer into a real navigation.
+    // Wrapped before htmx loads so every later caller is covered.
+    (function () {
+      if (!window.fetch) return;
+      var orig = window.fetch;
+      window.fetch = function () {
+        return orig.apply(this, arguments).then(function (res) {
+          if (res.status === 401 && res.headers.get('X-Auth-Required') === '1') {
+            window.location.href = '/login';
+          }
+          return res;
+        });
+      };
+    })();
+  </script>
   <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <main id="main" class="container" tabindex="-1">
 {{else}}

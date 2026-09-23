@@ -85,6 +85,39 @@ func (h *Handler) renderCachedHTML(w http.ResponseWriter, r *http.Request, name 
 // hxReq reports whether the request was issued by htmx.
 func hxReq(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
 
+// fetchedByJS reports that the caller is script pulling a fragment or JSON, not
+// the browser navigating to a page. Sec-Fetch-Dest is "document" only for a real
+// navigation; fetch() and XHR send "empty".
+func fetchedByJS(r *http.Request) bool {
+	if d := r.Header.Get("Sec-Fetch-Dest"); d != "" && d != "document" {
+		return true
+	}
+	return r.Header.Get("X-Requested-With") == "XMLHttpRequest" ||
+		strings.Contains(r.Header.Get("Accept"), "application/json")
+}
+
+// redirectLogin sends an unauthenticated caller to the login page.
+//
+// Only a real navigation may be answered with a 302: XHR follows a redirect
+// transparently, so a pane, a dropdown or a poll that hits an expired session
+// would receive the full login page as its fragment and paint it into place —
+// the login form turning up inside the alerts dropdown. htmx gets HX-Redirect,
+// which it acts on by navigating; a bare fetch() gets 401 plus X-Auth-Required,
+// which the shim in layout.html turns into a navigation.
+func redirectLogin(w http.ResponseWriter, r *http.Request) {
+	if hxReq(r) {
+		w.Header().Set("HX-Redirect", "/login")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if fetchedByJS(r) {
+		w.Header().Set("X-Auth-Required", "1")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	redirectLogin(w, r)
+}
+
 // hxTriggerEvents sets HX-Trigger so htmx dispatches the named events on the
 // client; page regions listen via hx-trigger="<name> from:body" and refetch.
 func hxTriggerEvents(w http.ResponseWriter, events ...string) {
@@ -3156,7 +3189,7 @@ func (h *Handler) SettingsLegacyStripDone(w http.ResponseWriter, r *http.Request
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.isLoggedIn(r) {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -3178,7 +3211,7 @@ func (h *Handler) requireReleaseAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if s.Role != "admin" && s.Role != "dev" {
@@ -3200,7 +3233,7 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 		// logged-in but non-admin user gets a genuine 403.
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if s.Role != "admin" {
@@ -3222,7 +3255,7 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleCanOperate(s.Role) {
@@ -3260,7 +3293,7 @@ func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleCanAppLibrary(s.Role) {
@@ -3289,7 +3322,7 @@ func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleCanOTA(s.Role) {
@@ -3306,7 +3339,7 @@ func (h *Handler) requireAccountAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleCreatesUsers(s.Role) {
@@ -3321,7 +3354,7 @@ func (h *Handler) requireUserManager(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleManagesUsers(s.Role) {
@@ -3340,7 +3373,7 @@ func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if s.Role != "admin" {
@@ -3361,7 +3394,7 @@ func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if s.Role != "dev" {
@@ -3380,7 +3413,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleCanOperate(s.Role) {
@@ -3402,7 +3435,7 @@ func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			redirectLogin(w, r)
 			return
 		}
 		if !roleIsOperatorLike(s.Role) {
@@ -20517,7 +20550,7 @@ func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.DeleteAllSessions(r.Context()); err != nil {
 		log.Printf("[session] logout all: %v", err)
 	}
-	http.Redirect(w, r, "/login", http.StatusFound)
+	redirectLogin(w, r)
 }
 
 func (h *Handler) SettingsToggleShell(w http.ResponseWriter, r *http.Request) {
