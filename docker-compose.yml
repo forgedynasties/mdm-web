@@ -134,6 +134,12 @@ configs:
       # a permanent 502 that only an nginx restart clears. Resolving through a
       # variable defers the lookup to request time, so neither happens.
       resolver 127.0.0.11 valid=10s ipv6=off;
+      # Both of these default absurdly high for our purpose (30s and 60s). While the
+      # server container is gone the name does not resolve and nothing accepts on the
+      # port, and with the defaults nginx sits there for tens of seconds before it
+      # concludes the upstream is unreachable — so the user gets a long hang and only
+      # then the deploying page. Failing fast is the whole point: worst case ~4s.
+      resolver_timeout 2s;
 
       server {
         listen 80;
@@ -144,6 +150,10 @@ configs:
         proxy_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
+        # Connect is a different matter from read: a live WebSocket may idle for an
+        # hour, but establishing the TCP connection should never take seconds. This is
+        # what decides how fast a user sees the deploying page.
+        proxy_connect_timeout 2s;
 
         # APK and OTA uploads go through here. nginx defaults to a 1m body limit,
         # which would reject them with 413 — 0 disables the check entirely.
