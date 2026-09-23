@@ -3,6 +3,9 @@
 # into it. Ship config/display.json.example as the template instead.
 config/display.json
 client-app
+# The compiled server. The image builds its own (Dockerfile -> /app/server); a
+# committed one is 31MB of unstripped binary that nothing reads.
+/server
 __pycache__/
 *.py
 *.md
