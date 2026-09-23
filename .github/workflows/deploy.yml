@@ -277,7 +277,32 @@ jobs:
           echo "started at:    \$(docker inspect -f '{{.State.StartedAt}}' "\$cid")"
           docker compose ps
           docker image prune -f >/dev/null 2>&1 || true
-          [ "\$state" = "healthy" ]
+          [ "\$state" = "healthy" ] || exit 1
+
+          # Healthy once is not the same as staying up. On 2026-09-23 the container
+          # passed its first check, this step went green, and the kernel OOM-killed it
+          # seconds later — live flapped for minutes with a successful deploy on record.
+          # HEALTHCHECK's own --start-period=30s means the first pass can land before
+          # the startup peak is even over.
+          #
+          # So soak for 90s: health must stay healthy AND RestartCount must not move.
+          # A restart is the signal a kill happened, since the container comes back and
+          # looks healthy again afterwards.
+          r0=\$(docker inspect -f '{{.RestartCount}}' "\$cid")
+          for i in \$(seq 1 18); do
+            sleep 5
+            s=\$(docker inspect -f '{{.State.Health.Status}}' "\$cid" 2>/dev/null || echo gone)
+            r=\$(docker inspect -f '{{.RestartCount}}' "\$cid" 2>/dev/null || echo -1)
+            if [ "\$s" != "healthy" ] || [ "\$r" != "\$r0" ]; then
+              echo "ERROR: unstable after deploy — health=\$s restarts=\$r0 -> \$r"
+              echo "--- last 40 log lines ---"
+              docker logs --tail 40 "\$cid" 2>&1 || true
+              echo "--- memory ---"
+              docker stats --no-stream --format '{{.Name}} {{.MemUsage}}' "\$cid" || true
+              exit 1
+            fi
+          done
+          echo "stable for 90s (restarts=\$r0, mem=\$(docker stats --no-stream --format '{{.MemUsage}}' "\$cid" 2>/dev/null))"
           EOF
           )
 
@@ -291,13 +316,21 @@ jobs:
             --query "Command.CommandId" --output text)
           echo "SSM CommandId: $CMD_ID"
 
-          aws ssm wait command-executed \
-            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --region "$AWS_REGION" || true
-
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --region "$AWS_REGION" --query "Status" --output text)
+          # Poll rather than `aws ssm wait command-executed`: that waiter gives up after
+          # 20 attempts x 5s = 100s, and the remote script now runs longer than that
+          # (pull, recreate, health wait, then the 90s stability soak). The waiter
+          # timing out left STATUS as InProgress, which reads as a failed deploy even
+          # when the deploy was fine. 10 minutes is the cap here.
+          STATUS=Pending
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --region "$AWS_REGION" --query "Status" --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 10
+          done
 
           echo "----- STDOUT -----"
           aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \

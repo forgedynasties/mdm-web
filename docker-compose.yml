@@ -46,6 +46,19 @@ services:
       # survive container restarts and rebuilds (default config/ is not mounted).
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
       LEGACY_OTA_PORT: ${LEGACY_OTA_PORT:-8010}
+      # Go sizes its heap against the HOST's RAM (3.9GB here), not the cgroup limit
+      # below, so it grew straight through the old 512m cap and the kernel OOM-killed
+      # it — twice, at ~520MB, during the 2026-09-23 deploy, while steady state is
+      # ~70MB. Most of that was collectable garbage from the reconnect burst that the
+      # GC had no reason to collect, because it could not see the cap.
+      #
+      # GOMEMLIMIT is a soft TARGET, not just a guard: the GC keeps the heap near it
+      # and works harder as it approaches, instead of the process dying. So this is
+      # the number we want it to use, not merely something under the cap — set it too
+      # high and Go reserves that much on a box shared with Postgres and five other
+      # stacks. 400MiB is ~6x the steady state with room for the startup burst; the
+      # hard limit below sits above it for stacks and other non-heap memory.
+      GOMEMLIMIT: ${GOMEMLIMIT:-400MiB}
       # Pass-through target for the legacy routes: the old ota-server, republished on
       # host port 8001 (host.docker.internal resolves to the docker host below).
       LEGACY_OTA_UPSTREAM: ${LEGACY_OTA_UPSTREAM:-http://host.docker.internal:8001}
@@ -69,7 +82,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          # Startup is the peak: migrations run while the whole fleet's WebSockets
+          # reconnect at once. 512m was under that peak. This is the hard ceiling the
+          # kernel enforces; GOMEMLIMIT above is what actually holds usage down.
+          memory: ${MEM_LIMIT:-768m}
 
 volumes:
   pgdata:
