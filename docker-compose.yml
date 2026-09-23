@@ -29,9 +29,10 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      # Host and container both use $PORT so a non-default value still reaches the
-      # server (which reads PORT from env_file); default 8082.
-      - "${PORT:-8082}:${PORT:-8082}"
+      # $PORT is NOT published here any more — the proxy service below owns the host
+      # port and forwards to this container over the compose network. That is what
+      # lets a restart of this service show a "deploying" page instead of the ALB's
+      # raw 502: the proxy stays up while this container is recreated.
       # Legacy OTA listener (otautil on pre-agent builds has host:8000 baked in).
       # Only the /device/* routes answer here; see internal/api/legacy_ota.go.
       # Default 8010 so a stage instance never collides with the old ota-server on
@@ -86,6 +87,110 @@ services:
           # reconnect at once. 512m was under that peak. This is the hard ceiling the
           # kernel enforces; GOMEMLIMIT above is what actually holds usage down.
           memory: ${MEM_LIMIT:-768m}
+
+  # ── The front door ────────────────────────────────────────────────────────────
+  # The ALB sends every request for mdm.dev.aioapp.com to this host on $PORT. It has
+  # no notion of a custom error page: with its only target down it answers a raw 502,
+  # which is what users saw for ~20s on each deploy, and for minutes when the server
+  # was being OOM-killed.
+  #
+  # nginx owns that host port instead and forwards to the server over the compose
+  # network. `docker compose up -d --force-recreate server` never touches this
+  # container, so while the server is being replaced nginx is still there to answer —
+  # and it answers 502/503/504 from upstream with the deploying page below. That
+  # covers an unplanned crash exactly as well as a planned deploy.
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    # No `condition: service_healthy` on purpose: the proxy must come up even when
+    # the server will not, since that is precisely when the page is needed.
+    depends_on:
+      - server
+    ports:
+      - "${PORT:-8082}:80"
+    configs:
+      - source: proxy_conf
+        target: /etc/nginx/conf.d/default.conf
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+
+configs:
+  proxy_conf:
+    # Inline rather than a mounted file: the deploy ships only docker-compose.yml over
+    # SSM, so a separate nginx.conf on disk would go stale the moment anyone edited it
+    # here. $$ escapes a literal $ for nginx — a single $ is compose interpolation.
+    content: |
+      map $$http_upgrade $$connection_upgrade {
+        default upgrade;
+        ''      close;
+      }
+
+      # Docker's embedded DNS. A plain `upstream` block resolves once at startup,
+      # which breaks this twice over: nginx refuses to start at all when the server
+      # container is absent (exactly when the page is needed), and after a recreate
+      # the server has a NEW container IP while nginx keeps dialling the dead one —
+      # a permanent 502 that only an nginx restart clears. Resolving through a
+      # variable defers the lookup to request time, so neither happens.
+      resolver 127.0.0.11 valid=10s ipv6=off;
+
+      server {
+        listen 80;
+
+        # Devices hold long-lived WebSockets, and the dashboard streams live logcat,
+        # remote screen and SSE. Buffering would stall all of that, and a short read
+        # timeout would drop idle device sockets.
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+
+        # APK and OTA uploads go through here. nginx defaults to a 1m body limit,
+        # which would reject them with 413 — 0 disables the check entirely.
+        client_max_body_size 0;
+        client_body_timeout 300s;
+
+        location / {
+          # $$request_uri is required: a variable in proxy_pass stops nginx passing
+          # the path through for you, so without it every request lands on /.
+          set $$app server:${PORT:-8082};
+          proxy_pass http://$$app$$request_uri;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection $$connection_upgrade;
+          proxy_set_header Host $$host;
+          proxy_set_header X-Real-IP $$remote_addr;
+          proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $$http_x_forwarded_proto;
+
+          proxy_next_upstream off;
+          error_page 502 503 504 = @deploying;
+        }
+
+        # /health stays honest: it proxies through, and reports 503 when the server is
+        # down. Answering 200 from nginx here would keep the ALB happy but would also
+        # hide a real outage from every uptime check we have — including the one that
+        # caught the OOM flapping.
+        location = /health {
+          set $$apphc server:${PORT:-8082};
+          proxy_pass http://$$apphc$$request_uri;
+          proxy_http_version 1.1;
+          proxy_set_header Host $$host;
+          error_page 502 503 504 = @health_down;
+        }
+        location @health_down {
+          default_type application/json;
+          add_header Cache-Control "no-store" always;
+          return 503 '{"status":"deploying"}';
+        }
+
+        location @deploying {
+          default_type text/html;
+          add_header Retry-After 10 always;
+          add_header Cache-Control "no-store, must-revalidate" always;
+          return 503 '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>Deploying</title><style>:root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#faf8f5;color:#141210;font:400 16px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}@media(prefers-color-scheme:dark){body{background:#141210;color:#faf8f5}}.w{max-width:26rem;padding:2rem;text-align:center}h1{margin:0 0 .5rem;font-size:1.35rem;font-weight:700;letter-spacing:-.01em}p{margin:0;opacity:.7;font-size:.95rem}.d{display:flex;gap:.4rem;justify-content:center;margin-bottom:1.5rem}.d i{width:.5rem;height:.5rem;border-radius:50%;background:currentColor;opacity:.25;animation:b 1.4s infinite}.d i:nth-child(2){animation-delay:.2s}.d i:nth-child(3){animation-delay:.4s}@keyframes b{0%,80%,100%{opacity:.25}40%{opacity:.9}}</style></head><body><div class="w"><div class="d"><i></i><i></i><i></i></div><h1>Deploying a new version</h1><p>This takes a few seconds. The page refreshes itself.</p></div></body></html>';
+        }
+      }
 
 volumes:
   pgdata:

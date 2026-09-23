@@ -254,6 +254,14 @@ jobs:
           # would otherwise fall back to compiling here, which is the whole problem.
           docker compose up -d --no-build --force-recreate server
 
+          # The proxy owns the host port and must survive the recreate above, so it is
+          # brought up separately and never force-recreated. Order matters on the first
+          # deploy that introduces it: the OLD server container still publishes the host
+          # port, so nginx cannot bind until the recreate above has replaced it with one
+          # that does not. `up -d` is a no-op once it is running, and recreates it only
+          # when its config actually changed.
+          docker compose up -d --no-build proxy
+
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
           # Ask compose which container it just started — the project name differs
@@ -303,6 +311,15 @@ jobs:
             fi
           done
           echo "stable for 90s (restarts=\$r0, mem=\$(docker stats --no-stream --format '{{.MemUsage}}' "\$cid" 2>/dev/null))"
+
+          # The container being healthy is not the same as the front door working: the
+          # proxy could be down, or pointed at a stale address. Check the host port the
+          # ALB actually talks to.
+          port=\$(grep -E '^PORT=' .env | cut -d= -f2)
+          port=\${port:-8082}
+          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:\$port/health" || echo 000)
+          echo "front door http://127.0.0.1:\$port/health -> \$code"
+          [ "\$code" = "200" ] || { echo "ERROR: proxy is not serving the app"; docker compose logs --tail 30 proxy; exit 1; }
           EOF
           )
 
