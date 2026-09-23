@@ -9,32 +9,32 @@
 # `branch` is what `git submodule update --remote` follows. Not all are main —
 # the DPC agent lives on menu-board.
 #
-# URLs are the https form on purpose. The ssh form (git@forgedynasties:...) uses a
-# Host alias from ~/.ssh/config that only exists on our machines — GitHub cannot
-# resolve it into a repository, so the submodule entries rendered as dead links on
-# the web UI, and anyone without that alias could not clone recursively. The repos
-# are public, so https works for everyone.
+# URLs are https under ali-aio, the same account that owns AIOApp/mdm's default
+# github.com key — so a recursive clone needs no ssh Host alias and the submodule
+# entries render as real links on the web UI. The repos are public; the earlier
+# git@forgedynasties:... form used an alias that only exists on our machines, which
+# GitHub could not resolve into a repository.
 #
-# Local checkouts keep their ssh remotes (fetch + both push URLs). `git submodule
-# sync` would overwrite those with the https URL above — re-add the push URLs if you
-# ever run it.
+# forgedynasties still holds a copy of each and stays current: every local checkout
+# pushes to ali-aio AND forgedynasties. `git submodule sync` overwrites a checkout's
+# remote with the single URL above — re-add the forge push URL if you ever run it.
 
 [submodule "aio-mdm-client"]
 	path = aio-mdm-client
-	url = https://github.com/forgedynasties/mdm-client-firmware.git
+	url = https://github.com/ali-aio/mdm-client-firmware.git
 	branch = main
 
 [submodule "aio-mdm-client-dpc"]
 	path = aio-mdm-client-dpc
-	url = https://github.com/forgedynasties/mdm-client-dpc.git
+	url = https://github.com/ali-aio/mdm-client-dpc.git
 	branch = menu-board
 
 [submodule "aio-mdm-lite"]
 	path = aio-mdm-lite
-	url = https://github.com/forgedynasties/mdm-lite.git
+	url = https://github.com/ali-aio/mdm-lite.git
 	branch = main
 
 [submodule "aio-mdm-client-lite"]
 	path = aio-mdm-client-lite
-	url = https://github.com/forgedynasties/mdm-client-lite.git
+	url = https://github.com/ali-aio/mdm-client-lite.git
 	branch = main
