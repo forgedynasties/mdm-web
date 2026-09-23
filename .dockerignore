@@ -27,3 +27,11 @@ tmp
 *.sql
 *.dump
 *.log
+
+# The client submodules (Kotlin/Java, AOSP). They are in this repo so the whole
+# MDM is one clone, but nothing in them is built into the server image, and
+# unignored they stream ~150MB to the daemon as build context on every build.
+aio-mdm-client
+aio-mdm-client-dpc
+aio-mdm-lite
+aio-mdm-client-lite

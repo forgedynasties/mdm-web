@@ -18,6 +18,34 @@ MDM (Mobile Device Management) server for a fleet of custom AOSP Android kiosk d
 
 Go 1.24 · PostgreSQL 17 · HTMX · Docker · AWS (S3, SES)
 
+## The clients
+
+This repo is the server **and** the umbrella for the device agents, which are checked
+out as submodules. One clone gets the whole MDM:
+
+```bash
+git clone --recurse-submodules git@github.com:AIOApp/mdm.git
+git submodule update --init            # existing clone
+git submodule update --remote          # advance each to its branch tip
+```
+
+| Path | Agent | Package | Branch |
+|---|---|---|---|
+| `aio-mdm-client/` | Firmware client — platform-signed system app in our AOSP images | `com.aioapp.mdm` | `main` |
+| `aio-mdm-client-dpc/` | DPC agent — Device Owner on stock Android. Paused | `aio.app.mdmclient.dpc` | `menu-board` |
+| `aio-mdm-lite/` | MDM-lite AAR — embeds in an app we already ship, no Device Owner | `AioMdm` | `main` |
+| `aio-mdm-client-lite/` | Standalone Lite test app, builds against `../aio-mdm-lite` | | `main` |
+
+They live on the `forgedynasties` remote and resolve through the `Host forgedynasties`
+entry in `~/.ssh/config`. `aio-mdm-client-lite` builds the library straight out of
+`../aio-mdm-lite/mdm-lite`, so those two must stay siblings — do not rename the paths.
+
+None of them are built into the server image; `.dockerignore` keeps them out of the
+build context. Nothing in CI checks them out either, so they cannot affect a deploy.
+Commit and push **inside** a submodule first — the pointer commit here names a SHA and
+means nothing until that SHA is on its remote.
+
+
 ## Quick Start
 
 ```bash
@@ -149,6 +177,11 @@ docker/postgres/     DB init script
 docs/                API reference, design and planning docs
 scripts/             Diagnostic scripts
 tools/               Deploy, enrollment and legacy-OTA cutover scripts; reel/ (demo video tooling)
+
+aio-mdm-client/      Submodule: firmware client (see "The clients")
+aio-mdm-client-dpc/  Submodule: DPC agent
+aio-mdm-lite/        Submodule: MDM-lite AAR
+aio-mdm-client-lite/ Submodule: Lite test app
 ```
 
 ## Development

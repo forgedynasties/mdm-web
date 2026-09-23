@@ -1,0 +1,34 @@
+# The client repos, checked out inside the server repo so the whole MDM is one
+# clone. The server itself is this repo's root — it is both the superproject and
+# the thing that deploys.
+#
+# Paths keep the folder names this tree has always used. They are load-bearing:
+# aio-mdm-client-lite/settings.gradle.kts builds the library straight out of
+# ../aio-mdm-lite/mdm-lite, so the two must stay siblings.
+#
+# `branch` is what `git submodule update --remote` follows. Not all are main —
+# the DPC agent lives on menu-board.
+#
+# URLs are forgedynasties because that is where these repos are. They resolve
+# through the `Host forgedynasties` entry in ~/.ssh/config. If they ever move to
+# AIOApp, change the url lines here and run `git submodule sync`.
+
+[submodule "aio-mdm-client"]
+	path = aio-mdm-client
+	url = git@forgedynasties:forgedynasties/mdm-client-firmware.git
+	branch = main
+
+[submodule "aio-mdm-client-dpc"]
+	path = aio-mdm-client-dpc
+	url = git@forgedynasties:forgedynasties/mdm-client-dpc.git
+	branch = menu-board
+
+[submodule "aio-mdm-lite"]
+	path = aio-mdm-lite
+	url = git@forgedynasties:forgedynasties/mdm-lite.git
+	branch = main
+
+[submodule "aio-mdm-client-lite"]
+	path = aio-mdm-client-lite
+	url = git@forgedynasties:forgedynasties/mdm-client-lite.git
+	branch = main
