@@ -81,6 +81,28 @@ type Handler struct {
 	// of adding one. Guarded by its own mutex: Connect runs on every WS upgrade.
 	telemetryMu    sync.Mutex
 	telemetryLoops map[uuid.UUID]*telemetryLoop
+
+	// When each kiosk device was last checked for a pending offline exit it is no
+	// longer reporting (processOfflineExit). Bounds that recovery read to one query
+	// per device per interval instead of one per check-in.
+	exitProbeMu   sync.Mutex
+	exitProbeSeen map[uuid.UUID]time.Time
+}
+
+// offlineExitProbeInterval is how often one device may cost a latest_extra read while
+// the server believes it is in kiosk. A stuck exit is a rare, sticky state — recovering
+// it within a couple of minutes is soon enough, and the check-in path stays cheap.
+const offlineExitProbeInterval = 2 * time.Minute
+
+func (h *Handler) offlineExitProbeDue(deviceID uuid.UUID) bool {
+	now := time.Now()
+	h.exitProbeMu.Lock()
+	defer h.exitProbeMu.Unlock()
+	if last, ok := h.exitProbeSeen[deviceID]; ok && now.Sub(last) < offlineExitProbeInterval {
+		return false
+	}
+	h.exitProbeSeen[deviceID] = now
+	return true
 }
 
 // telemetryLoop is a running loop's handle. Compared by pointer on exit so a loop
@@ -91,7 +113,7 @@ type telemetryLoop struct {
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), peers: peers.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), peers: peers.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}, exitProbeSeen: map[uuid.UUID]time.Time{}}
 }
 
 // Peers is the peer client half, so main can run its outbox and sweep loops against
@@ -1121,9 +1143,30 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 	var e struct {
 		OfflineExitAt int64 `json:"offline_exit_at"`
 	}
-	if err := json.Unmarshal(extra, &e); err != nil || e.OfflineExitAt <= 0 {
+	if err := json.Unmarshal(extra, &e); err != nil {
 		return
 	}
+	at := e.OfflineExitAt
+	if at <= 0 {
+		// A WS delta frame carries only volatile and changed-gated keys, and
+		// offline_exit_at is neither — so the exit rides exactly ONE frame. Lose that
+		// frame (a deploy restart, a half-open socket) and the two sides deadlock: the
+		// device waits for an ack that needs the timestamp, and the server never sees
+		// the timestamp again. It saw device AT070AABU00833 stay "exited" with kiosk
+		// still on server-side for as long as it was left. The event is kept in
+		// latest_extra, so read it from there and ack from any later frame.
+		//
+		// Only for a device the server still believes is in kiosk, and at most once
+		// every few minutes per device: this runs on the check-in path.
+		if !cfg.KioskEnabled || !h.offlineExitProbeDue(deviceID) {
+			return
+		}
+		if at = h.db.PendingOfflineExitAt(ctx, deviceID); at <= 0 {
+			return
+		}
+		log.Printf("[offline-exit] device %s (%s) still reports a pending exit at %d — recovering", serial, deviceID, at)
+	}
+	e.OfflineExitAt = at
 	log.Printf("[offline-exit] device %s (%s) exited kiosk offline at %d — disabling kiosk", serial, deviceID, e.OfflineExitAt)
 	if cfg.KioskEnabled {
 		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {

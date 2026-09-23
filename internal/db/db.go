@@ -7529,6 +7529,20 @@ func (d *DB) ensureOfflineExitSeed(ctx context.Context, cfg *DeviceConfig) {
 	}
 }
 
+// PendingOfflineExitAt returns the offline kiosk-exit timestamp the device last
+// reported (epoch seconds), or 0 when it has none. The value lives in latest_extra
+// because a WS delta frame only carries it once — see processOfflineExit, which uses
+// this to ack an exit whose original frame was lost.
+func (d *DB) PendingOfflineExitAt(ctx context.Context, deviceID uuid.UUID) int64 {
+	var at *int64
+	err := d.pool.QueryRow(ctx,
+		`SELECT (latest_extra->>'offline_exit_at')::bigint FROM devices WHERE id = $1`, deviceID).Scan(&at)
+	if err != nil || at == nil {
+		return 0
+	}
+	return *at
+}
+
 // RecordOfflineExit logs a device_events row when a device reports it was taken out of
 // kiosk mode offline. Idempotent per (device, kind, occurred_at) so repeated reports
 // (the client resends until acked) don't create duplicates.

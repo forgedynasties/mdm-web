@@ -252,7 +252,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
            the stored config saying "on" — the device reports kiosk_suspended, and
            without reading it the dashboard claimed a locked device that is sitting on
            the launcher. */}}
-      {{$ksusp := extraBool .Device.LatestExtra "kiosk_suspended"}}
+      {{/* Only meaningful while the stored config says kiosk is on: once kiosk is off
+           server-side the device is simply out of kiosk, and reporting a past PIN exit
+           read as a fault on an ordinary unlocked device. */}}
+      {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
       {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $ksusp}}Kiosk was exited on the device with the unlock PIN — the saved config still says on, so it re-locks on reboot{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $ksusp}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}
@@ -492,7 +495,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if extraBool .Device.LatestExtra "kiosk_suspended"}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
 </div>
@@ -4232,7 +4235,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // offline exit flips it live for whoever is watching, whatever their role.
   // suspended = the device unlocked itself with the exit PIN. The stored config is
   // still "on" (it re-locks on reboot), so the label says so instead of lying either way.
-  window.__kioskSuspended = {{if extraBool .Device.LatestExtra "kiosk_suspended"}}true{{else}}false{{end}};
+  window.__kioskSuspended = {{if and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}true{{else}}false{{end}};
   window.mdmSyncKiosk = function (enabled, suspended) {
     if (suspended !== undefined && suspended !== null) window.__kioskSuspended = !!suspended;
     if (enabled === undefined || enabled === null) return;
