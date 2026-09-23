@@ -245,11 +245,16 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <div class="ddc-actions cc-actions">
       {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
-      <button type="button" class="ddc-btn ddc-btn-ai cc-btn" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
-      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if .KioskConfig.KioskEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+      {{/* The pill reports what the DEVICE is doing, not only what the server asked
+           for. A technician who exits kiosk on the device with the static PIN leaves
+           the stored config saying "on" — the device reports kiosk_suspended, and
+           without reading it the dashboard claimed a locked device that is sitting on
+           the launcher. */}}
+      {{$ksusp := extraBool .Device.LatestExtra "kiosk_suspended"}}
+      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $ksusp}}Kiosk was exited on the device with the unlock PIN — the saved config still says on, so it re-locks on reboot{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $ksusp}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
@@ -362,14 +367,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{if canAdminOrOperator .Role}}
         <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}" data-locked-mode="{{if .KioskConfig.KioskMode}}{{.KioskConfig.KioskMode}}{{else}}app{{end}}">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
-          <div class="form-row" style="margin-bottom:14px;">
-            <label class="form-label" for="kiosk-mode-sel">Mode</label>
-            <select id="kiosk-mode-sel" name="kiosk_mode" onchange="kioskModeSync()">
-              <option value="app"{{if or (eq .KioskConfig.KioskMode "app") (eq .KioskConfig.KioskMode "")}} selected{{end}}>Single app — lock to one app</option>
-              <option value="multi"{{if eq .KioskConfig.KioskMode "multi"}} selected{{end}}>Multi-app — locked app plus extra allowed apps</option>
-              <option value="browser"{{if eq .KioskConfig.KioskMode "browser"}} selected{{end}}>Browser — lock to a web page</option>
-            </select>
-          </div>
+          {{/* Single app is the only mode offered here. Multi-app and browser kiosk
+               stay in the handler and in the device config, but the modal locks one
+               app: that is what the fleet runs, and a three-way select made the
+               common case a choice nobody wanted to make. */}}
+          <input type="hidden" name="kiosk_mode" value="app">
           <div class="form-row" id="kiosk-app-row">
             <label class="form-label">Locked app</label>
             {{if .KioskApps}}
@@ -401,32 +403,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
               </div>
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on.</span>
-          </div>
-          {{/* Multi-app: extra packages allowed alongside the locked app in lock-task.
-               Same launchable/allowlisted source as the picker, so nothing unpinnable
-               can be chosen. */}}
-          <div class="form-row" id="kiosk-multi-row" hidden>
-            <label class="form-label">Additional allowed apps</label>
-            {{if .KioskApps}}
-            <div class="kmulti">
-              {{range .KioskApps}}
-              <label class="kmulti-item"><input type="checkbox" name="kiosk_packages" value="{{.PackageName}}"{{if index $.KioskExtras .PackageName}} checked{{end}}><span>{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="mono">{{.PackageName}}</span></label>
-              {{end}}
-            </div>
-            <span class="muted small">The device stays pinned to the locked app; these apps may also be opened.</span>
-            {{else}}
-            <div class="muted small">No launchable apps reported yet.</div>
-            {{end}}
-          </div>
-          {{/* Browser kiosk: the agent's locked browser shows the start URL and only
-               follows links matching the allowed prefixes. No package needed. */}}
-          <div class="form-row" id="kiosk-browser-row" hidden>
-            <label class="form-label" for="kiosk-url">Start URL</label>
-            <input type="url" id="kiosk-url" name="kiosk_url" value="{{.KioskConfig.KioskURL}}" placeholder="https://example.com/menu" autocomplete="off" spellcheck="false">
-            <label class="form-label" for="kiosk-url-allow" style="margin-top:12px;">Allowed URL prefixes — one per line</label>
-            <textarea id="kiosk-url-allow" name="kiosk_url_allow" rows="4" placeholder="https://example.com/" spellcheck="false">{{range .KioskConfig.KioskURLAllow}}{{.}}
-{{end}}</textarea>
-            <span class="muted small">Leave empty to allow only the start URL. Applies at the device's next config sync.</span>
           </div>
         </form>
         {{end}}
@@ -516,7 +492,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if extraBool .Device.LatestExtra "kiosk_suspended"}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
 </div>
@@ -717,17 +693,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="gcontrols">
       <span id="chart-info" class="muted small gc-info"></span>
       {{$devtz := extraField .Device.LatestExtra "timezone"}}
-      {{if and $devtz (ne $devtz "—") (ne $devtz "")}}
-      {{/* Timezone control as a two-option segment: the active half is the timezone
-           the graph is currently showing, so there's no "does this label mean now or
-           after I click" ambiguity the old single-button toggle had. */}}
+      {{/* Timezone control as a segment: the active option is the timezone the graph
+           is currently showing, so there's no "does this label mean now or after I
+           click" ambiguity the old single-button toggle had. UTC is here because the
+           CSV export is UTC-only — this is where you line a graph up against a sheet.
+           The Device half is dropped when the device never reported a usable zone. */}}
       <div class="gc-tzseg" id="tz-seg" role="group" aria-label="Graph timezone"
-           title="Show graph times in your timezone or the device's ({{$devtz}})">
+           title="Show graph times in your timezone{{if and $devtz (ne $devtz "—") (ne $devtz "")}}, the device's ({{$devtz}}){{end}} or UTC">
         <span class="gc-tzlbl"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
         <button type="button" class="gc-tzb active" data-tz="browser">You</button>
-        <button type="button" class="gc-tzb" data-tz="device">Device</button>
+        {{if and $devtz (ne $devtz "—") (ne $devtz "")}}<button type="button" class="gc-tzb" data-tz="device">Device</button>{{end}}
+        <button type="button" class="gc-tzb" data-tz="utc">UTC</button>
       </div>
-      {{end}}
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -985,7 +962,8 @@ function mdmBootCharts() {
   if (window.TZ_MODE === undefined) window.TZ_MODE = 'browser';
   function tzArg(o) {
     o = o || {};
-    if (window.TZ_MODE === 'device' && window.DEVICE_TZ && window.DEVICE_TZ !== '—') o.timeZone = window.DEVICE_TZ;
+    if (window.TZ_MODE === 'utc') o.timeZone = 'UTC';
+    else if (window.TZ_MODE === 'device' && window.DEVICE_TZ && window.DEVICE_TZ !== '—') o.timeZone = window.DEVICE_TZ;
     return o;
   }
   window.tzArg = tzArg;
@@ -1057,13 +1035,27 @@ function mdmBootCharts() {
   // now] span the battery chart already has loaded — so it lines up with whatever
   // chartLoadOlder widens later instead of leaving an unfetched gap behind it.
   let tempLoaded = allTemp.length > 0, ramLoaded = allRam.length > 0;
-  function loadMetricLazy(metric) {
-    if (metric === 'temp' && tempLoaded) return;
-    if (metric === 'ram' && ramLoaded) return;
+  // Published on window.mdmChart so the SSE pusher can tell a loaded series from an
+  // empty one: appending a live point to a series that was never fetched leaves a
+  // one-point array, and "nearest point" against one point is the same value
+  // everywhere — the rail looked frozen while the cursor moved.
+  function markLoaded(metric) {
+    if (metric === 'temp') tempLoaded = true; else ramLoaded = true;
+    if (window.mdmChart) window.mdmChart[metric === 'temp' ? 'tempLoaded' : 'ramLoaded'] = true;
+  }
+  // The crosshair rail on the right reads Temp and RAM whatever tab is open, so
+  // the warm-up below loads both silently (spinner suppressed, no redraw needed)
+  // right after first paint — otherwise the rail had only the point or two the SSE
+  // stream had pushed in since load and reported the same value at every cursor
+  // position until the Temp tab was opened once.
+  function loadMetricLazy(metric, silent, done) {
+    function fin() { if (done) done(); }
+    if (metric === 'temp' && tempLoaded) { fin(); return; }
+    if (metric === 'ram' && ramLoaded) { fin(); return; }
     var until = Math.floor(Date.now());
     var from = Math.floor(loadedMinX);
-    if (from >= until) { if (metric === 'temp') tempLoaded = true; else ramLoaded = true; return; }
-    showChartLoading();
+    if (from >= until) { if (metric === 'temp') markLoaded('temp'); else markLoaded('ram'); fin(); return; }
+    if (!silent) showChartLoading();
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
@@ -1072,17 +1064,22 @@ function mdmBootCharts() {
           // (empty) reference for the live-SSE pusher, so repoint it here too or
           // live updates would keep appending to an array nothing renders from.
           if (metric === 'temp' && d.temp) {
-            allTemp = d.temp; tempLoaded = true;
+            allTemp = d.temp; markLoaded('temp');
             if (window.mdmChart) window.mdmChart.allTemp = allTemp;
           }
           if (metric === 'ram' && d.ram) {
-            allRam = d.ram; ramLoaded = true;
+            allRam = d.ram; markLoaded('ram');
             if (window.mdmChart) window.mdmChart.allRam = allRam;
           }
         }
       })
       .catch(function () {})
-      .then(function () { hideChartLoading(); updateCharts(); if (activeTab === 'all' && unifiedChart) applyUnifiedData(); });
+      .then(function () {
+        if (!silent) hideChartLoading();
+        updateCharts();
+        if (activeTab === 'all' && unifiedChart) applyUnifiedData();
+        fin();
+      });
   }
   function loadOlderWithSpinner(fromMs, done) {
     var needFetch = fromMs < loadedMinX && !chartFetching;
@@ -1166,11 +1163,14 @@ function mdmBootCharts() {
             allCharge = d.charge.concat(allCharge);
             if (window.mdmChart) window.mdmChart.allCharge = allCharge;
           }
-          if (d.temp && d.temp.length) {
+          // Only widen a series that has actually been loaded for the recent window.
+          // Prepending older points to an unfetched series leaves a hole in front of
+          // them, which the rail reads as a stale value.
+          if (tempLoaded && d.temp && d.temp.length) {
             allTemp = d.temp.concat(allTemp);
             if (window.mdmChart) window.mdmChart.allTemp = allTemp;
           }
-          if (d.ram && d.ram.length) {
+          if (ramLoaded && d.ram && d.ram.length) {
             allRam = d.ram.concat(allRam);
             if (window.mdmChart) window.mdmChart.allRam = allRam;
           }
@@ -1189,6 +1189,31 @@ function mdmBootCharts() {
   // range buttons become instant. Silent: no spinner, and failures are ignored
   // because the on-demand path still covers the click.
   function chartWarmBackground() {
+    // Temp and RAM first: the rail shows them on every tab, so they have to be real
+    // before the window widens (chartLoadOlder skips a series that was never loaded).
+    // One fetch for both — the endpoint returns every series anyway.
+    if (tempLoaded && ramLoaded) { widenWindow(); return; }
+    var until = Math.floor(Date.now()), from = Math.floor(loadedMinX);
+    if (from >= until) { markLoaded('temp'); markLoaded('ram'); widenWindow(); return; }
+    fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        if (!tempLoaded && d.temp) {
+          allTemp = d.temp; markLoaded('temp');
+          if (window.mdmChart) window.mdmChart.allTemp = allTemp;
+        }
+        if (!ramLoaded && d.ram) {
+          allRam = d.ram; markLoaded('ram');
+          if (window.mdmChart) window.mdmChart.allRam = allRam;
+        }
+        updateCharts();
+        if (activeTab === 'all' && unifiedChart) applyUnifiedData();
+      })
+      .catch(function () {})
+      .then(widenWindow);
+  }
+  function widenWindow() {
     var steps = [24 * 3600 * 1000, 48 * 3600 * 1000];
     (function next(i) {
       if (i >= steps.length) return;
@@ -2809,14 +2834,17 @@ function mdmBootCharts() {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
 
-  // Timezone segment: each half switches the graph timezone (viewer's vs device's) and
-  // re-renders axes, tooltips and the range label. The active half is the current mode.
+  // Timezone segment: your zone, the device's, or UTC. Each option re-renders axes,
+  // tooltips and the range label; the active one is the current mode. A device that
+  // never reported a usable zone has no Device option (server-side), but You/UTC stay
+  // — UTC is what the CSV export prints, so it must be reachable everywhere.
   var tzSeg = document.getElementById("tz-seg");
-  if (tzSeg && !window.DEVICE_TZ) tzSeg.style.display = "none"; // device tz unusable → hide
-  if (tzSeg && window.DEVICE_TZ) {
+  if (tzSeg) {
+    var devBtn = tzSeg.querySelector('.gc-tzb[data-tz="device"]');
+    if (devBtn && !window.DEVICE_TZ) devBtn.remove();   // reported zone Intl won't take
     tzSeg.querySelectorAll(".gc-tzb").forEach(function (b) {
       b.addEventListener("click", function () {
-        window.TZ_MODE = (b.getAttribute("data-tz") === "device") ? "device" : "browser";
+        window.TZ_MODE = b.getAttribute("data-tz");
         tzSeg.querySelectorAll(".gc-tzb").forEach(function (x) { x.classList.toggle("active", x === b); });
         updateCharts();
       });
@@ -3100,7 +3128,7 @@ function mdmBootCharts() {
   // against it directly instead of inferring it from a single series (which fails
   // for battery-less kiosk devices). Seeded lazily on the first push from whatever
   // history rendered; reset here because hx-boost re-runs this boot on every visit.
-  window.mdmChart = { allBattery, allTemp, allRam, allCharge, pushCharge, updateCharts, setOnline, lastPlottedMs: null };
+  window.mdmChart = { allBattery, allTemp, allRam, allCharge, pushCharge, updateCharts, setOnline, lastPlottedMs: null, tempLoaded, ramLoaded };
 
   // The trailing break turns true purely by the passage of time — the device is gone,
   // so no check-in, SSE frame or presence event will arrive to trigger a redraw. The
@@ -3976,28 +4004,13 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     // always reflects the applied state.
     var hid = document.getElementById('kiosk-pkg-value');
     if (hid && window.__kioskOrig) hid.value = window.__kioskOrig.pkg;
-    var sel = document.getElementById('kiosk-mode-sel');
-    if (sel && window.__kioskOrig) sel.value = window.__kioskOrig.mode || 'app';
     window.__kioskDirty = false;
     var q = document.getElementById('kpk-q');
     if (q) q.value = '';
     if (window.kioskPickerRender) window.kioskPickerRender();
     m.classList.add('modal-open');
-    if (window.kioskModeSync) window.kioskModeSync();
-    if (q) setTimeout(function () { q.focus(); }, 40);
-  };
-  // Show/hide the mode-specific rows (app picker / extra multi-app list / browser
-  // URL fields) to match the mode select, then refresh the footer buttons.
-  window.kioskModeSync = function () {
-    var sel = document.getElementById('kiosk-mode-sel');
-    var mode = sel ? sel.value : 'app';
-    var appRow = document.getElementById('kiosk-app-row');
-    var multiRow = document.getElementById('kiosk-multi-row');
-    var browserRow = document.getElementById('kiosk-browser-row');
-    if (appRow) appRow.hidden = (mode === 'browser');
-    if (multiRow) multiRow.hidden = (mode !== 'multi');
-    if (browserRow) browserRow.hidden = (mode !== 'browser');
     if (window.kioskRefreshToggle) window.kioskRefreshToggle();
+    if (q) setTimeout(function () { q.focus(); }, 40);
   };
   window.kioskModalClose = function () {
     var m = document.getElementById('kiosk-modal');
@@ -4037,8 +4050,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var val = document.getElementById('kiosk-enabled-val');
     var pkg = document.getElementById('kiosk-pkg-value');
     if (!form || !val) return;
-    var mode0 = document.getElementById('kiosk-mode-sel');
-    if (enabled && pkg && pkg.value && (!mode0 || mode0.value === 'app') && !window.kioskIsAioApp(pkg.value)) {
+    if (enabled && pkg && pkg.value && !window.kioskIsAioApp(pkg.value)) {
       if (!window.confirm('Only the AIO app is fully supported in kiosk mode.\n\n'
           + pkg.value + ' will be locked on the device, but the device keeps reporting kiosk as off, '
           + 'so this page will show "Kiosk off" while the device is actually locked.\n\nLock it anyway?')) {
@@ -4052,17 +4064,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var body = new URLSearchParams();
     body.append('kiosk_enabled', enabled ? '1' : '0');
     body.append('kiosk_package', pkg ? pkg.value : '');
-    var modeSel = document.getElementById('kiosk-mode-sel');
-    body.append('kiosk_mode', modeSel ? modeSel.value : 'app');
-    var url = document.getElementById('kiosk-url');
-    if (url) body.append('kiosk_url', url.value);
-    var allow = document.getElementById('kiosk-url-allow');
-    if (allow) body.append('kiosk_url_allow', allow.value);
-    document.querySelectorAll('#kiosk-multi-row input[name="kiosk_packages"]:checked').forEach(function (c) {
-      body.append('kiosk_packages', c.value);
-    });
-    // Optimistic: reflect the new state in the header pill right away.
-    if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled);
+    body.append('kiosk_mode', 'app');
+    // Optimistic: reflect the new state in the header pill right away. A server-side
+    // kiosk change also ends any local exit — the client clears its suspension when the
+    // config arrives — so the "exited on device" label goes with it.
+    if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled, false);
     kioskBusy = true;
     if (window.mdmBeginBusy) window.mdmBeginBusy();
     fetch(form.action, {
@@ -4105,19 +4111,10 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var applyBtn = document.getElementById('kiosk-apply-btn');
     var offBtn = document.getElementById('kiosk-off-btn');
     if (!applyBtn) return;
-    var modeSel = document.getElementById('kiosk-mode-sel');
-    var mode = modeSel ? modeSel.value : 'app';
     var pkg = document.getElementById('kiosk-pkg-value');
-    var hasApp;
-    if (mode === 'browser') {
-      // Browser kiosk needs no app — it's ready once a start URL is entered.
-      var url = document.getElementById('kiosk-url');
-      hasApp = url ? !!url.value.trim() : false;
-    } else {
-      hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
-    }
+    var hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
     var orig = window.__kioskOrig || { pkg: '', on: false, mode: 'app' };
-    var changed = (pkg && pkg.value !== orig.pkg) || mode !== orig.mode || window.__kioskDirty;
+    var changed = (pkg && pkg.value !== orig.pkg) || orig.mode !== 'app' || window.__kioskDirty;
     var n = document.getElementById('kiosk-note');
     if (!orig.on) {
       if (offBtn) offBtn.hidden = true;
@@ -4125,15 +4122,15 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       applyBtn.textContent = 'Enable kiosk';
       applyBtn.disabled = !hasApp;
       if (n && !n.classList.contains('err')) {
-        var nonAio = mode === 'app' && pkg && pkg.value && window.kioskIsAioApp && !window.kioskIsAioApp(pkg.value);
+        var nonAio = pkg && pkg.value && window.kioskIsAioApp && !window.kioskIsAioApp(pkg.value);
         kioskNote(hasApp ? (nonAio ? 'Only the AIO app reports its kiosk state — this page will show "Kiosk off" while the device is locked' : '')
-                         : (mode === 'browser' ? 'Enter a start URL to enable' : 'Select a locked app to enable'));
+                         : 'Select a locked app to enable');
       }
     } else {
       if (offBtn) offBtn.hidden = false;
       if (changed && hasApp) {
         applyBtn.hidden = false;
-        applyBtn.textContent = (mode === 'app' && orig.mode === 'app') ? 'Switch kiosk app' : 'Apply changes';
+        applyBtn.textContent = orig.mode === 'app' ? 'Switch kiosk app' : 'Apply changes';
         applyBtn.disabled = false;
       } else {
         applyBtn.hidden = true;
@@ -4143,27 +4140,18 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Primary button: enable kiosk (when off) or apply the newly-chosen app (when on),
   // then close. The pill flips immediately via kioskSubmit -> mdmSyncKiosk.
   window.kioskApply = function () {
-    var modeSel = document.getElementById('kiosk-mode-sel');
-    var mode = modeSel ? modeSel.value : 'app';
     var pkg = document.getElementById('kiosk-pkg-value');
-    if (mode === 'browser') {
-      var url = document.getElementById('kiosk-url');
-      if (url && !url.value.trim()) {
-        url.focus();
-        kioskNote('Enter a start URL first', true);
-        return;
-      }
-    } else if (pkg && !pkg.value.trim()) {
+    if (pkg && !pkg.value.trim()) {
       var s = document.getElementById('kpk-q');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
       kioskNote('Pick a locked app first', true);
       return;
     }
     window.kioskSubmit(true);
-    var appliedPkg = (mode !== 'browser' && pkg) ? pkg.value : '';
+    var appliedPkg = pkg ? pkg.value : '';
     var f = document.getElementById('kiosk-form');
-    if (f) { f.setAttribute('data-locked-on', '1'); f.setAttribute('data-locked-pkg', appliedPkg); f.setAttribute('data-locked-mode', mode); }
-    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = appliedPkg; window.__kioskOrig.mode = mode; }
+    if (f) { f.setAttribute('data-locked-on', '1'); f.setAttribute('data-locked-pkg', appliedPkg); f.setAttribute('data-locked-mode', 'app'); }
+    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = appliedPkg; window.__kioskOrig.mode = 'app'; }
     window.__kioskDirty = false;
     window.kioskModalClose();
   };
@@ -4176,21 +4164,14 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     window.kioskModalClose();
   };
   // Picking a different app just updates the buttons (no auto-apply); an explicit
-  // Enable / Change kiosk app press commits it. Edits to the mode-specific fields
-  // (extra apps, browser URL/prefixes) mark the form dirty so Apply shows.
+  // Enable / Change kiosk app press commits it.
   document.addEventListener('change', function (e) {
     if (!e.target) return;
-    if (e.target.id === 'kiosk-pkg-value' || e.target.id === 'kiosk-mode-sel') {
+    if (e.target.id === 'kiosk-pkg-value') {
       window.kioskRefreshToggle();
       return;
     }
     if (e.target.closest && e.target.closest('#kiosk-form')) {
-      window.__kioskDirty = true;
-      window.kioskRefreshToggle();
-    }
-  });
-  document.addEventListener('input', function (e) {
-    if (e.target && (e.target.id === 'kiosk-url' || e.target.id === 'kiosk-url-allow')) {
       window.__kioskDirty = true;
       window.kioskRefreshToggle();
     }
@@ -4249,14 +4230,19 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // static chip both carry a .ddc-kstate label; the popover also has the toggle +
   // hidden input. Driven by the SSE device payload (kiosk_enabled) so an on-device
   // offline exit flips it live for whoever is watching, whatever their role.
-  window.mdmSyncKiosk = function (enabled) {
+  // suspended = the device unlocked itself with the exit PIN. The stored config is
+  // still "on" (it re-locks on reboot), so the label says so instead of lying either way.
+  window.__kioskSuspended = {{if extraBool .Device.LatestExtra "kiosk_suspended"}}true{{else}}false{{end}};
+  window.mdmSyncKiosk = function (enabled, suspended) {
+    if (suspended !== undefined && suspended !== null) window.__kioskSuspended = !!suspended;
     if (enabled === undefined || enabled === null) return;
+    var susp = !!window.__kioskSuspended && !!enabled;
     document.querySelectorAll('.ddc-kstate').forEach(function (el) {
       if (el.closest('#wlc-chip')) return; // the charging pill shares this class — leave it alone
-      el.textContent = enabled ? 'on' : 'off';
+      el.textContent = susp ? 'exited on device' : (enabled ? 'on' : 'off');
     });
     var btn = document.querySelector('.ddc-ctl');
-    if (btn) btn.classList.toggle('on', !!enabled);
+    if (btn) btn.classList.toggle('on', !!enabled && !susp);
     var tog = document.getElementById('kiosk-toggle');
     if (tog) tog.checked = !!enabled;
     var hid = document.getElementById('kiosk-enabled-val');
@@ -4303,8 +4289,9 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 
       // Kiosk state travels in the SSE payload — flip the chip/toggle live when the
       // device reports an on-device offline exit (kiosk turned off), no reload.
+      if (typeof d.kiosk_suspended === 'boolean') window.__kioskSuspended = d.kiosk_suspended;
       if (typeof d.kiosk_enabled === 'boolean' && window.mdmSyncKiosk) {
-        window.mdmSyncKiosk(d.kiosk_enabled);
+        window.mdmSyncKiosk(d.kiosk_enabled, d.kiosk_suspended);
       }
 
       // Charging-pad occupancy (wlc_status) also rides the payload — keep the sidebar
@@ -4343,9 +4330,12 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
           var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
           {{if .ShowBattery}}window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
           {{if and .ShowBattery .Device.HasCharging}}window.mdmChart.pushCharge(d.ts_ms, typeof d.charging === 'boolean' ? d.charging : null);{{end}}
-          if (d.temp_c !== null && d.temp_c !== undefined)
+          // Skip a series the page has not fetched yet (temp/RAM load lazily): one
+          // pushed point makes a one-point series that the crosshair rail reports at
+          // every cursor position. The lazy load picks the live point up anyway.
+          if (window.mdmChart.tempLoaded && d.temp_c !== null && d.temp_c !== undefined)
             window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
-          if (d.ram_pct !== null && d.ram_pct !== undefined)
+          if (window.mdmChart.ramLoaded && d.ram_pct !== null && d.ram_pct !== undefined)
             window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
           window.mdmChart.updateCharts();
         }

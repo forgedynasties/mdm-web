@@ -3985,6 +3985,23 @@ type SiteMetrics struct {
 	ConnectCount     int
 	DisconnectAvgPct float64 // ...and when they unplug it
 	DisconnectCount  int
+
+	// Time on mains, summed the same way the weekly report's per-device rows do it
+	// (charging fraction × powered minutes), so the venue card and the report's
+	// "Plugged in" tile are the same measurement under the same name.
+	PluggedMinutes float64
+}
+
+// PluggedPct is time on mains as a share of the device-days present.
+func (m SiteMetrics) PluggedPct() int {
+	if m.FullWindowMinutes <= 0 {
+		return 0
+	}
+	p := int(m.PluggedMinutes * 100 / m.FullWindowMinutes)
+	if p > 100 {
+		return 100
+	}
+	return p
 }
 
 
@@ -4266,7 +4283,8 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 			COALESCE(SUM(s.charge_disconnect_n), 0)::int,
 			COALESCE(SUM(s.screen_on_minutes), 0)::float8,
 			COALESCE(SUM(s.online_minutes) FILTER (WHERE s.screen_on_minutes IS NOT NULL), 0)::float8,
-			COUNT(s.screen_on_minutes)
+			COUNT(s.screen_on_minutes),
+			COALESCE(SUM(s.charging_frac * s.online_minutes), 0)::float8
 		FROM device_daily_stats s
 		JOIN devices d ON d.id = s.device_id AND NOT d.hidden
 		WHERE `+scope+`
@@ -4275,7 +4293,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 		Scan(&m.DeviceCount, &m.DeviceDays, &m.OpenDeviceDays, &m.PoweredMinutes, &m.PoweredOpenMinutes, &m.HasOpenHours,
 			&m.PadMinutes, &m.PadDrainPct, &m.PadDrainMinutes,
 			&m.ConnectAvgPct, &m.ConnectCount, &m.DisconnectAvgPct, &m.DisconnectCount,
-			&m.ScreenOnMinutes, &m.ScreenPoweredMinutes, &m.ScreenDeviceDays)
+			&m.ScreenOnMinutes, &m.ScreenPoweredMinutes, &m.ScreenDeviceDays, &m.PluggedMinutes)
 	if err != nil {
 		return m, err
 	}
@@ -8254,13 +8272,28 @@ const rollupAggregateSQL = `		-- Charge SESSIONS, not flag flips. The charging f
 			FROM runs
 			GROUP BY device_id, run_id
 		),
+		-- Only a session somebody both plugged IN and unplugged counts. A charging run
+		-- with no not-charging run before it in the day began before midnight, and one
+		-- with none after it was still on charge at midnight — neither edge was seen
+		-- here. Counting those meant a tablet left plugged at 100% over a long weekend
+		-- was reported as a fresh "charge at 100%" every single day, and the same for a
+		-- unit sitting flat and unplugged: today's rollup re-counted yesterday's state.
+		-- An open run is not lost, only unreported until the day its other edge lands.
+		bounded AS (
+			SELECT *,
+				LAG(run_id)  OVER (PARTITION BY device_id ORDER BY run_id) AS prev_run,
+				LEAD(run_id) OVER (PARTITION BY device_id ORDER BY run_id) AS next_run
+			FROM sessions
+		),
 		charge_events AS (
 			SELECT device_id,
 				COUNT(*)::int AS n,
 				COALESCE(SUM(first_batt), 0)::real AS connect_sum,
 				COALESCE(SUM(last_batt), 0)::real AS disconnect_sum
-			FROM sessions
+			FROM bounded
 			WHERE charging AND secs >= 300   -- five minutes on charge = a real plug-in
+			  AND prev_run IS NOT NULL       -- plugged in during this day
+			  AND next_run IS NOT NULL       -- and unplugged again during it
 			GROUP BY device_id
 		)
 		INSERT INTO device_daily_stats AS s (

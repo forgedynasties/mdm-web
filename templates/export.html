@@ -74,12 +74,9 @@
           <input type="datetime-local" name="end" class="form-input" id="export-end" onchange="onTimeChange()">
         </div>
       </div>
-      <div style="margin-top:12px;">
-        <span class="form-label" style="margin-right:8px;">Timestamps in:</span>
-        <label class="checkbox-label" style="margin-right:10px;"><input type="radio" name="tz" value="local" checked> My timezone</label>
-        <label class="checkbox-label" style="margin-right:10px;"><input type="radio" name="tz" value="utc"> UTC</label>
-        <label class="checkbox-label"><input type="radio" name="tz" value="pkt"> Pakistan (UTC+5)</label>
-      </div>
+      {{/* The start/end you type are your own wall clock; the CSV always prints UTC,
+           so two exports can be compared whoever downloaded them. */}}
+      <p class="muted small" style="margin-top:12px;">Start and end are in your timezone. Every timestamp in the CSV is <strong>UTC</strong>.</p>
       <div style="margin-top:10px;">
         <span class="form-label" style="margin-right:8px;">Quick:</span>
         <div class="dur-btns" id="export-range-btns" style="display:inline-flex;flex-wrap:wrap;">
@@ -94,177 +91,57 @@
     </div>
   </div>
 
-  {{/* Default is the raw check-in shape: one row per check-in the device actually
-       sent, at the device's own timestamp. Picking an interval switches to fixed
-       grid marks (start, start+interval, …), each carrying the last value the
-       device reported — which repeats a value for as long as nothing changed. */}}
-  <input type="hidden" name="cycles" id="export-cycles" value="0">
-
+  {{/* Fixed column set, no picker: every export anyone asked for was this one, and
+       a picker that can produce an empty or half-useful CSV is a way to get it wrong.
+       The server writes exactly these columns (exportColumns in handlers.go). */}}
   <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h2>Sampling interval</h2><span class="m" id="interval-summary">Every check-in</span>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h2>Columns</h2><span class="m">fixed</span>
     </div>
     <div style="padding:16px 20px;">
-      <p class="muted small" style="margin-bottom:10px;">
-        By default you get every check-in the device actually sent, at its own timestamp — nothing resampled, nothing repeated. Pick an interval instead to reduce volume: rows then land on fixed marks starting at your chosen start time, each carrying the last value the device reported, so a value repeats for as long as nothing changed. Every row carries one <code>timestamp</code>, in the timezone chosen above. The moment of the check-in behind the values — the point you will find on the device graph — is available as the <em>Sample time</em> column under Meta.
-      </p>
-      <div class="dur-btns" id="export-interval-btns">
-        <button type="button" class="dur-btn active" data-label="Every check-in" onclick="setSampleInterval(this, 0)">Every check-in</button>
-        <button type="button" class="dur-btn" data-label="1 row / 30 sec" onclick="setSampleInterval(this, 30)">30 sec</button>
-        <button type="button" class="dur-btn" data-label="1 row / minute" onclick="setSampleInterval(this, 60)">1 min</button>
-        <button type="button" class="dur-btn" data-label="1 row / 5 min" onclick="setSampleInterval(this, 300)">5 min</button>
-        <button type="button" class="dur-btn" data-label="1 row / 15 min" onclick="setSampleInterval(this, 900)">15 min</button>
-        <button type="button" class="dur-btn" data-label="1 row / 30 min" onclick="setSampleInterval(this, 1800)">30 min</button>
-        <button type="button" class="dur-btn" data-label="1 row / hour" onclick="setSampleInterval(this, 3600)">1 hr</button>
-        <button type="button" class="dur-btn" data-label="1 row / 6 hr" onclick="setSampleInterval(this, 21600)">6 hr</button>
-        <button type="button" class="dur-btn" data-label="1 row / day" onclick="setSampleInterval(this, 86400)">1 day</button>
-      </div>
-      <input type="hidden" name="interval" id="export-interval" value="0">
+      <p class="muted small" style="margin-bottom:10px;">Every row is one check-in the device actually sent, at its own timestamp. The CSV carries:</p>
+      <ul class="muted small" style="margin:0;padding-left:18px;line-height:1.8;">
+        <li><code>serial_number</code>, <code>timestamp (UTC)</code></li>
+        <li><code>battery_pct</code> — battery %</li>
+        <li><code>battery_temp_c</code> — device temperature (°C)</li>
+        <li><code>charging</code> — 0 or 1</li>
+        <li><code>wlc_state</code> — wireless charging in words (vacant / charging / pad misplaced)</li>
+        <li><code>charging_pad</code> — enabled or disabled for that device</li>
+        <li><code>ram_used_pct</code> — RAM used %</li>
+        <li><code>storage_free_pct</code> — storage free %</li>
+      </ul>
     </div>
   </div>
 
+  {{/* Excel splits a .csv on the machine's locale list separator, so on a machine
+       set to ";" the whole row lands in one cell. "sep=," is Excel's own opt-out
+       and is off by default: it is not CSV, and other tools read it as data.
+       It sits in the Columns card, not in the sticky submit bar — a checkbox that
+       rides along above the page as you scroll reads as a control you have to
+       answer again. */}}
   <div class="cc-card" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h2>Columns</h2><span class="m"><span id="col-count">0</span> selected</span>
-    </div>
-    <div style="padding:16px 20px;">
-      <div class="export-presets">
-        <span class="form-label" style="margin-right:8px;">Preset:</span>
-        <button type="button" class="dur-btn" onclick="applyPreset('common')">Common</button>
-        <button type="button" class="dur-btn" onclick="applyPreset('battery')">Battery</button>
-        {{/* This preset selects only admin-only columns, so for anyone else it
-             would clear the form and select nothing. */}}
-        {{if canAdmin .Role}}<button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>{{end}}
-        <button type="button" class="dur-btn" onclick="applyPreset('system')">System</button>
-        <button type="button" class="dur-btn" onclick="applyPreset('all')">All</button>
-        <button type="button" class="dur-btn" onclick="applyPreset('none')">None</button>
-      </div>
-
-      <div class="export-col-group">
-        <div class="export-col-group-head">
-          <strong>Battery</strong>
-          <button type="button" class="link-btn" onclick="toggleGroup('battery')">toggle</button>
-        </div>
-        <div class="export-columns" data-group="battery">
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked onchange="updateColCount()"> Battery %</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked onchange="updateColCount()"> Device Temp (°C)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="charging" checked onchange="updateColCount()"> Charging (0/1)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked onchange="updateColCount()"> WLC status (0/1/2)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_state" checked onchange="updateColCount()"> WLC status in words</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="charging_pad" checked onchange="updateColCount()"> Charging pad enabled</label>
-        </div>
-      </div>
-
-      {{/* Network and Meta identify how to reach a device rather than how it is
-           behaving — admin-only. ExportCSV drops these columns
-           server-side too, since the form posts plain column names. */}}
-      {{if canAdmin .Role}}
-      <div class="export-col-group">
-        <div class="export-col-group-head">
-          <strong>Network</strong>
-          <button type="button" class="link-btn" onclick="toggleGroup('network')">toggle</button>
-        </div>
-        <div class="export-columns" data-group="network">
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="wifi" checked onchange="updateColCount()"> WiFi SSID</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="ip_address" checked onchange="updateColCount()"> IP Address</label>
-        </div>
-      </div>
-      {{end}}
-
-      <div class="export-col-group">
-        <div class="export-col-group-head">
-          <strong>System</strong>
-          <button type="button" class="link-btn" onclick="toggleGroup('system')">toggle</button>
-        </div>
-        <div class="export-columns" data-group="system">
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="build_id" checked onchange="updateColCount()"> Release version</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_used_mb" checked onchange="updateColCount()"> RAM Used (MB)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_total_mb" checked onchange="updateColCount()"> RAM Total (MB)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="storage_free_gb" checked onchange="updateColCount()"> Storage Free (GB)</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="timezone" checked onchange="updateColCount()"> Timezone</label>
-        </div>
-      </div>
-
-      {{if canAdmin .Role}}
-      <div class="export-col-group">
-        <div class="export-col-group-head">
-          <strong>Meta</strong>
-          <button type="button" class="link-btn" onclick="toggleGroup('meta')">toggle</button>
-        </div>
-        <div class="export-columns" data-group="meta">
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked onchange="updateColCount()"> Last Seen</label>
-          <label class="checkbox-label"><input type="checkbox" name="columns" value="sample_at" onchange="updateColCount()"> Sample time (the check-in behind the row)</label>
-        </div>
-      </div>
-      {{end}}
+    <div style="padding:14px 20px;">
+      <label class="checkbox-label"><input type="checkbox" name="excel" value="1" autocomplete="off"> Check this if you want to open in Excel (adds a <code>sep=,</code> line)</label>
     </div>
   </div>
 
   <div class="export-submit-bar">
     <div class="export-submit-summary">
-      {{/* Excel splits a .csv on the machine's locale list separator, so on a machine
-           set to ";" the whole row lands in one cell. "sep=," is Excel's own opt-out
-           and is off by default: it is not CSV, and other tools read it as data. */}}
-      <label class="checkbox-label" style="display:block;margin-bottom:6px;"><input type="checkbox" name="excel" value="1"> Opening this in Excel (adds a <code>sep=,</code> line)</label>
       <span class="muted small">
         <strong id="summary-devices">{{len .Serials}}</strong> device{{if ne (len .Serials) 1}}s{{end}}
-        · <strong id="summary-cols">0</strong> columns
         · <span id="summary-range">Last 48 hours</span>
-        · <span id="summary-interval">Every check-in</span>
+        · every check-in, UTC
       </span>
     </div>
-    <button type="submit" class="cc-btn primary" id="export-submit" data-dp-submit disabled>
+    <button type="submit" class="cc-btn primary" id="export-submit" data-dp-submit>
       <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
       <span id="export-submit-label">Download CSV</span>
     </button>
   </div>
 </form>
 
-<style>
-.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:14px 17px}
-.rp-card{display:flex;flex-direction:column;gap:6px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface);text-decoration:none;color:inherit}
-.rp-card:hover{border-color:var(--rule-2)}
-.rp-card .rp-ico{width:26px;height:26px;color:var(--accent)}
-.rp-card .rp-ico svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.rp-card b{font-size:14px;font-weight:650}
-.rp-card p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
-.rp-go{font-size:12.5px;font-weight:600;color:var(--accent);margin-top:2px}
-</style>
-
-<div class="cc-card" style="margin-top:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><h2>Fleet reports</h2><span class="m">one-click CSV, whole fleet</span></div>
-  <div class="rp-grid">
-    <a class="rp-card" href="/export/report/inventory.csv" download hx-boost="false">
-      <span class="rp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg></span>
-      <b>Inventory</b>
-      <p>Every device with product, model, OS build, battery, online state, groups and restaurant. One row per device.</p>
-      <span class="rp-go">Download CSV &rarr;</span>
-    </a>
-    <a class="rp-card" href="/export/report/compliance.csv" download hx-boost="false">
-      <span class="rp-ico"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 3l7 4v5c0 4.4-3 8.3-7 9-4-.7-7-4.6-7-9V7z"/></svg></span>
-      <b>Compliance</b>
-      <p>Pass/fail per device against the current compliance rules, with each failed rule spelled out.</p>
-      <span class="rp-go">Download CSV &rarr;</span>
-    </a>
-    <a class="rp-card" href="/export/report/activity.csv" download hx-boost="false">
-      <span class="rp-ico"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
-      <b>Activity &mdash; last 7 days</b>
-      <p>Devices seen and total check-ins per day, from the daily telemetry rollups.</p>
-      <span class="rp-go">Download CSV &rarr;</span>
-    </a>
-  </div>
-</div>
-
-</div>
+</div><!-- /cc-wrap -->
 
 <script>
-var COLUMN_PRESETS = {
-  common:   ['battery_pct', 'build_id', 'wifi', 'ip_address', 'last_seen'],
-  battery:  ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'wlc_state', 'charging_pad', 'last_seen'],
-  network:  ['wifi', 'ip_address', 'last_seen'],
-  system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'timezone', 'last_seen'],
-  all:      null,  // sentinel: check everything
-  none:     []
-};
-
 function setRange(btn, hours) {
   var now = new Date();
   var start = new Date(now.getTime() - hours * 3600 * 1000);
@@ -310,48 +187,6 @@ function toLocalISO(d) {
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 
-// sec === 0 is "every check-in": raw rows at the device's own timestamps. Any
-// other value switches on the fixed-mark grid, which carries values forward.
-function setSampleInterval(btn, sec) {
-  document.getElementById('export-interval').value = sec;
-  document.getElementById('export-cycles').value = sec > 0 ? '1' : '0';
-  btn.closest('.dur-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  var label = btn.getAttribute('data-label') || btn.textContent;
-  document.getElementById('interval-summary').textContent = label;
-  document.getElementById('summary-interval').textContent = label;
-}
-
-function applyPreset(preset) {
-  var wanted = COLUMN_PRESETS[preset];
-  document.querySelectorAll('.export-columns input[type="checkbox"]').forEach(function(cb) {
-    if (wanted === null) {
-      cb.checked = true;
-    } else {
-      cb.checked = wanted.indexOf(cb.value) !== -1;
-    }
-  });
-  updateColCount();
-}
-
-function toggleGroup(group) {
-  var boxes = document.querySelectorAll('.export-columns[data-group="' + group + '"] input[type="checkbox"]');
-  var anyUnchecked = false;
-  boxes.forEach(function(cb) { if (!cb.checked) anyUnchecked = true; });
-  boxes.forEach(function(cb) { cb.checked = anyUnchecked; });
-  updateColCount();
-}
-
-function updateColCount() {
-  var n = document.querySelectorAll('.export-columns input[type="checkbox"]:checked').length;
-  document.getElementById('col-count').textContent = n;
-  document.getElementById('summary-cols').textContent = n;
-  var btn = document.getElementById('export-submit');
-  btn.disabled = (n === 0);
-  document.getElementById('export-submit-label').textContent =
-    n === 0 ? 'Select at least one column' : 'Download CSV';
-}
-
 function toggleSerials(btn) {
   var wrap = document.getElementById('export-serials');
   var collapsed = wrap.getAttribute('data-collapsed') === '1';
@@ -375,14 +210,9 @@ function toggleSerials(btn) {
 // this page) is the only completion signal, and clicking it twice just requests the
 // file twice — harmless.
 
-// Default: last 48 hours, "Common" preset, Cycles on a 30-second grid.
-// Cycles is the default because check-in times are the device's own transmit
-// schedule — change-gated, jittered and Doze-batched — so a raw export looks
-// full of gaps that are not data loss. A fixed grid holds the last reported
-// value forward and gives evenly spaced rows.
+// Default: last 48 hours. Columns and sampling are fixed, so there is nothing else
+// to initialise.
 setRange(document.querySelector('#export-range-btns .dur-btn[data-hours="48"]'), 48);
-setSampleInterval(document.querySelector('#export-interval-btns .dur-btn[data-label="Every check-in"]'), 0);
-updateColCount();
 </script>
 
 <script src="/static/picker.js?v={{.AssetVer}}"></script>

@@ -346,6 +346,23 @@ func extractBatteryMissing(raw json.RawMessage) bool {
 	return !b
 }
 
+// extraBoolField reads a boolean check-in field, false when absent or not a boolean.
+func extraBoolField(raw json.RawMessage, key string) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	v, ok := m[key]
+	if !ok {
+		return false
+	}
+	var b bool
+	return json.Unmarshal(v, &b) == nil && b
+}
+
 func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
 	if len(raw) == 0 {
 		return 0, false
@@ -485,6 +502,10 @@ type DeviceRowJSON struct {
 	TimeSince    string  `json:"time_since"`
 	PollInterval int     `json:"poll_interval_ms"`
 	KioskEnabled bool    `json:"kiosk_enabled"`
+	// KioskSuspended: the device reported that it is OUT of lock-task after a local
+	// unlock (the static exit PIN), while the stored config still says kiosk is on.
+	// Without it the dashboard showed "Kiosk on" over a device sitting on the launcher.
+	KioskSuspended bool  `json:"kiosk_suspended"`
 	KioskPackage string  `json:"kiosk_package"`
 	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
 	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
@@ -507,8 +528,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		BatteryPct:   dev.BatteryPct,
 		BatteryWidth: fmt.Sprintf("%d%%", dev.BatteryPct),
 		PollInterval: dev.PollIntervalMs,
-		KioskEnabled: dev.KioskEnabled,
-		KioskPackage: dev.KioskPackage,
+		KioskEnabled:   dev.KioskEnabled,
+		KioskSuspended: extraBoolField(dev.LatestExtra, "kiosk_suspended"),
+		KioskPackage:   dev.KioskPackage,
 		Hidden:       dev.Hidden,
 		HasBattery:     dev.HasBattery(),
 		BatteryMissing: dev.HasBattery() && extractBatteryMissing(dev.LatestExtra),
@@ -7064,6 +7086,11 @@ type deviceEventPayload struct {
 	// checkin) so the device page reflects an on-device offline exit live. Pointer so
 	// it is only sent when the SSE writer looked it up.
 	KioskEnabled *bool `json:"kiosk_enabled,omitempty"`
+	// KioskSuspended rides the check-in: the device is out of lock-task after a local
+	// unlock with the static exit PIN, while the stored config still says kiosk is on.
+	// Reported so the page stops claiming a locked device the moment the client says
+	// otherwise, rather than at the next full page load.
+	KioskSuspended *bool `json:"kiosk_suspended,omitempty"`
 }
 
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
@@ -7079,6 +7106,12 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				var n int
 				if json.Unmarshal(v, &n) == nil {
 					p.Wlc = &n
+				}
+			}
+			if v, ok := extra["kiosk_suspended"]; ok {
+				var b bool
+				if json.Unmarshal(v, &b) == nil {
+					p.KioskSuspended = &b
 				}
 			}
 			if v, ok := extra["charging"]; ok {
@@ -8796,15 +8829,48 @@ func extraRamField(raw json.RawMessage, field string) string {
 // dashboard use; bump it if a real workflow needs more.
 const maxExportRange = 90 * 24 * time.Hour
 
-// adminOnlyExportColumns are the export columns that identify how to reach a
-// device — its network identity — rather than how it is behaving. They are
-// admin-only: an operator exporting battery history has no reason to carry a
-// fleet's SSIDs and IPs out of the dashboard.
-// Enforced in ExportCSV, and the checkboxes are hidden in export.html.
-var adminOnlyExportColumns = map[string]bool{
-	"wifi":       true,
-	"ip_address": true,
-	"last_seen":  true,
+// exportColumns is the whole CSV, in order. The export used to be 15 checkboxes
+// with presets on top; every sheet anyone actually asked for was this set, and a
+// picker that can produce an empty or useless CSV is a way to get the export wrong.
+// Network and Meta columns (SSID, IP, last_seen) are gone with it — they identify
+// how to reach a device rather than how it is behaving, which is why they were
+// admin-only in the first place.
+var exportColumns = []string{
+	"battery_pct",
+	"battery_temp_c",
+	"charging",
+	"wlc_state",
+	"charging_pad",
+	"ram_used_pct",
+	"storage_free_pct",
+}
+
+// storageFreePct is free space as a percentage of the volume, for devices that
+// report the volume size (Lite and the DPC agent send storage_total_bytes). The
+// firmware client only sends storage_free_gb, so on a T7 or a kiosk this column is
+// blank rather than a percentage of a total nobody knows.
+func storageFreePct(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	freeGB, err := strconv.ParseFloat(extraFloat(raw, "storage_free_gb"), 64)
+	if err != nil {
+		return ""
+	}
+	totalBytes := extraInt64(raw, "storage_total_bytes")
+	if totalBytes <= 0 {
+		return ""
+	}
+	totalGB := float64(totalBytes) / (1024 * 1024 * 1024)
+	pct := freeGB * 100 / totalGB
+	if pct > 100 {
+		pct = 100
+	}
+	return strconv.FormatFloat(pct, 'f', 1, 64)
 }
 
 // wlcStateWord spells out a wireless-charging status code for the CSV: the number
@@ -8854,17 +8920,12 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			loc = time.FixedZone("client", mins*60)
 		}
 	}
-	// The window the user typed is always read in their own wall clock (above). What
-	// the CSV *prints* is a separate choice — "my timezone" (the default), UTC, or
-	// Pakistan time — because one timestamp column in a named zone is what people
-	// actually want in the sheet (FW-2026-000052), not three columns to reconcile.
-	outLoc, outZone := loc, "local time"
-	switch r.FormValue("tz") {
-	case "utc":
-		outLoc, outZone = time.UTC, "UTC"
-	case "pkt":
-		outLoc, outZone = time.FixedZone("PKT", 5*3600), "PKT"
-	}
+	// The window the user typed is read in their own wall clock (above); every CSV
+	// *prints* UTC. One fixed zone, no picker: exports get mailed around and merged
+	// with each other, and a sheet whose timestamps depended on whoever downloaded it
+	// could not be compared with the next one. The device graph is where you look at
+	// the same data in your own or the device's zone.
+	outLoc, outZone := time.UTC, "UTC"
 	start, err := time.ParseInLocation("2006-01-02T15:04", startStr, loc)
 	if err != nil {
 		http.Error(w, "Invalid start time", http.StatusBadRequest)
@@ -8880,48 +8941,15 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if end.Sub(start) > maxExportRange {
-		http.Error(w, "Time range too large (max 90 days). Narrow the window or use a coarser sampling interval.", http.StatusBadRequest)
+		http.Error(w, "Time range too large (max 90 days). Narrow the window.", http.StatusBadRequest)
 		return
 	}
 
-	// Sampling interval
-	intervalSec := 0
-	if v := r.FormValue("interval"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			intervalSec = n
-		}
-	}
-
-	// Cycles mode: rows at fixed grid marks (start, start+interval, …) instead of
-	// raw check-in timestamps. Needs a positive step; default to hourly.
-	cycles := r.FormValue("cycles") == "1"
-	if cycles && intervalSec <= 0 {
-		intervalSec = 3600
-	}
-
-	// Columns to include — at least one is required.
-	columns := r.Form["columns"]
-	if len(columns) == 0 {
-		http.Error(w, "Select at least one column to export", http.StatusBadRequest)
-		return
-	}
-	// Admin-only columns are dropped here, not just hidden in the picker: the form
-	// posts plain column names, so anyone can add them back by hand. A non-admin
-	// asking for them gets a CSV without them rather than an error — the rest of
-	// the export is legitimate.
-	if h.role(r) != "admin" {
-		kept := columns[:0]
-		for _, c := range columns {
-			if !adminOnlyExportColumns[c] {
-				kept = append(kept, c)
-			}
-		}
-		columns = kept
-		if len(columns) == 0 {
-			http.Error(w, "Those columns are admin-only. Select at least one other column to export.", http.StatusForbidden)
-			return
-		}
-	}
+	// Every row is a check-in the device actually sent, at its own timestamp. The
+	// resampling grid (interval / cycles mode) is gone from the form: it repeated the
+	// last value for as long as nothing changed, which reads as data the device never
+	// reported. The stream functions keep the parameters, so nothing else changes.
+	const intervalSec = 0
 
 	// Resolve serials to device IDs
 	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
@@ -8937,24 +8965,12 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 
-	colSet := make(map[string]bool, len(columns))
-	for _, c := range columns {
-		colSet[c] = true
-	}
-	colOrder := []string{"battery_pct", "battery_temp_c", "charging", "build_id", "wifi", "ip_address",
-		"ram_used_mb", "ram_total_mb", "storage_free_gb", "wlc_status", "wlc_state", "charging_pad",
-		"timezone", "last_seen", "sample_at"}
+	colOrder := exportColumns
 
-	// One timestamp column, in the zone the user picked, offset included — the old
-	// timestamp / timestamp_utc / sample_at trio only invited "which one is real?"
-	// (FW-2026-000052). sample_at (the moment of the check-in behind the values, the
-	// point you find on the device graph) is still available as a column.
-	header := []string{"serial_number", "timestamp (" + outZone + ")"}
-	for _, c := range colOrder {
-		if colSet[c] {
-			header = append(header, c)
-		}
-	}
+	// One timestamp column, UTC, offset included — the old timestamp / timestamp_utc /
+	// sample_at trio only invited "which one is real?" (FW-2026-000052). Rows are raw
+	// check-ins now, so the timestamp *is* the moment of the sample.
+	header := append([]string{"serial_number", "timestamp (" + outZone + ")"}, colOrder...)
 	cw := csv.NewWriter(w)
 	// Excel splits a .csv on the list separator of the machine's locale, which is ";"
 	// across most of Europe and elsewhere — the whole row then lands in cell A1. The
@@ -8971,10 +8987,8 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	// Per-device charging-pad setting, read once: it is configuration, not telemetry,
 	// so it does not ride along on the rows.
 	padOn := map[string]bool{}
-	if colSet["charging_pad"] {
-		if m, padErr := h.db.WlcEnabledBySerial(r.Context(), deviceIDs); padErr == nil {
-			padOn = m
-		}
+	if m, padErr := h.db.WlcEnabledBySerial(r.Context(), deviceIDs); padErr == nil {
+		padOn = m
 	}
 
 	writeRow := func(row db.ExportRow) error {
@@ -8983,11 +8997,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			row.Timestamp.In(outLoc).Format(time.RFC3339),
 		}
 		for _, c := range colOrder {
-			if !colSet[c] {
-				continue
-			}
-			// Grid mark with no check-in within one interval: leave data cells blank.
-			if row.Empty && c != "last_seen" {
+			if row.Empty {
 				rec = append(rec, "")
 				continue
 			}
@@ -8998,20 +9008,6 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, extraFloat(row.Extra, "battery_temp_c"))
 			case "charging":
 				rec = append(rec, extraBoolAsInt(row.Extra, "charging"))
-			case "build_id":
-				rec = append(rec, row.BuildID)
-			case "wifi":
-				rec = append(rec, extraString(row.Extra, "wifi"))
-			case "ip_address":
-				rec = append(rec, extraString(row.Extra, "ip_address"))
-			case "ram_used_mb":
-				rec = append(rec, extraRamField(row.Extra, "used"))
-			case "ram_total_mb":
-				rec = append(rec, extraRamField(row.Extra, "total"))
-			case "storage_free_gb":
-				rec = append(rec, extraFloat(row.Extra, "storage_free_gb"))
-			case "wlc_status":
-				rec = append(rec, extraInt(row.Extra, "wlc_status"))
 			case "wlc_state":
 				rec = append(rec, wlcStateWord(extraInt(row.Extra, "wlc_status")))
 			case "charging_pad":
@@ -9020,16 +9016,14 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				} else {
 					rec = append(rec, "disabled")
 				}
-			case "sample_at":
-				if row.Empty || row.SampleAt.IsZero() {
-					rec = append(rec, "")
+			case "ram_used_pct":
+				if pct, ok := ramPctFromExtra(row.Extra); ok {
+					rec = append(rec, strconv.FormatFloat(pct, 'f', 1, 64))
 				} else {
-					rec = append(rec, row.SampleAt.In(outLoc).Format(time.RFC3339))
+					rec = append(rec, "")
 				}
-			case "timezone":
-				rec = append(rec, extraString(row.Extra, "timezone"))
-			case "last_seen":
-				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
+			case "storage_free_pct":
+				rec = append(rec, storageFreePct(row.Extra))
 			}
 		}
 		return cw.Write(rec)
@@ -9050,12 +9044,9 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	case "shaped":
 		useShaped = true
 	}
-	switch {
-	case useShaped:
-		err = h.db.StreamExportShaped(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, cycles, writeRow)
-	case cycles:
-		err = h.db.StreamExportCycles(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
-	default:
+	if useShaped {
+		err = h.db.StreamExportShaped(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, false, writeRow)
+	} else {
 		err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
 	}
 	cw.Flush()
@@ -9642,6 +9633,28 @@ func (h *Handler) RestaurantNewDevices(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// powerWindowChoices are the windows the venue page's Power & usage card offers. Each
+// one is a whole number of days because every figure behind the card comes from
+// device_daily_stats, which has one row per device per day — a 36-hour window would be
+// rounded to a day anyway and only invite "which day is half missing?".
+var powerWindowChoices = []int{7, 14, 30}
+
+// powerWindowDays reads the ?days= choice, falling back to a week. Anything not offered
+// is refused rather than clamped: a hand-typed 365 would scan a year of rollups per
+// venue page load.
+func powerWindowDays(v string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return 7
+	}
+	for _, c := range powerWindowChoices {
+		if c == n {
+			return n
+		}
+	}
+	return 7
+}
+
 func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -9668,12 +9681,16 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
-	// Power and usage over the last week: uptime, guest-pad time and what it costs the
-	// tablet's own battery, and the battery levels staff plug and unplug at.
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, 7, time.Time{}); err == nil {
+	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
+	// the tablet's own battery, and the battery levels staff plug and unplug at. The
+	// same number of days feeds the tiles and the per-day strip below them, so the
+	// bars are always the evidence for the figure above them.
+	powerDays := powerWindowDays(r.URL.Query().Get("days"))
+	data["PowerRanges"] = powerWindowChoices
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, powerDays, time.Time{}); err == nil {
 		data["Metrics"] = m
-		// The evidence behind the headline: the same week, day by day.
-		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, 7, time.Time{}); err == nil {
+		// The evidence behind the headline: the same window, day by day.
+		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, powerDays, time.Time{}); err == nil {
 			data["MetricsDaily"] = daily
 			max := 1.0
 			for _, x := range daily {
@@ -9687,6 +9704,10 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-kpis", h.withRole(r, data))
+		return
+	}
+	if r.URL.Query().Get("partial") == "power" { // range buttons on the Power & usage card
+		_ = h.tmpl.ExecuteTemplate(w, "restaurant-power", h.withRole(r, data))
 		return
 	}
 	h.render(w, r, "restaurant_detail.html", data)
@@ -9951,7 +9972,7 @@ func reportEmailHTML(venue string, days int, m db.SiteMetrics, weeks []db.Device
 	if m.HasPadDrain() {
 		costValue = fmt.Sprintf("%.2f", m.PadDrainPctPerMin())
 		costUnit = "%/min"
-		costNote = fmt.Sprintf("off mains, over %s hrs of charging", hrs(m.PadDrainMinutes))
+		costNote = fmt.Sprintf("%s hrs of wireless charging", hrs(m.PadDrainMinutes))
 	}
 	standbyValue, standbyUnit, standbyNote := "", "", ""
 	if m.HasStandby() {

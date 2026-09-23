@@ -340,7 +340,7 @@
           <button type="button" class="ov3-pop-item reset" id="ov3-reset"><b>Reset to default</b><span>Show every widget in the standard order.</span></button>
         </div>
       </div>
-      <a class="ov3-btn" href="/export" title="Export device telemetry as CSV — pick devices, a time range and the columns"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Export</a>
+      <a class="ov3-btn" href="/export" title="Export device telemetry as CSV — pick devices and a time range"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Export</a>
       <a class="ov3-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>
     </div>
   </div>
@@ -1078,7 +1078,7 @@
           </div>
           <div class="ov3-vr">
             <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Wireless charging in use</span>
-            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min off mains{{else}}not enough charging time to rate{{end}}</small></span>
+            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min{{else}}not enough charging time to rate{{end}}</small></span>
           </div>
           <div class="ov3-vr">
             <span class="l"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>Standby</span>
@@ -1086,8 +1086,8 @@
             {{if $m.HasStandby}}<div class="ov3-meter"><i style="width:{{$m.StandbyPct}}%"></i></div>{{end}}
           </div>
           <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Plugged in / unplugged at</span>
-            <span class="v">{{if $m.ConnectCount}}{{printf "%.0f" $m.ConnectAvgPct}}% → {{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}}<small>{{$m.ConnectCount}} charge{{if ne $m.ConnectCount 1}}s{{end}} this week</small></span>
+            <span class="l"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Plugged in</span>
+            <span class="v">{{if $m.ConnectCount}}{{printf "%.0f" $m.ConnectAvgPct}}% → {{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}}<small>{{$m.ConnectCount}} completed charge{{if ne $m.ConnectCount 1}}s{{end}} this week</small></span>
           </div>
         </div>
         {{else}}

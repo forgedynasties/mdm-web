@@ -90,7 +90,7 @@
       <span class="k">Battery drained through wireless charging</span>
       {{if $m.HasPadDrain}}
       <div class="v">{{printf "%.2f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
-      <div class="muted small">off mains, over {{hrs1 $m.PadDrainMinutes}} hrs of charging</div>
+      <div class="muted small">{{hrs1 $m.PadDrainMinutes}} hrs of wireless charging</div>
       {{else}}
       <div class="v muted">—</div>
       <div class="muted small">not enough charging time yet</div>
@@ -204,6 +204,13 @@
     root.setAttribute('data-theme', 'light');
     var actions = doc.querySelector('.cc-actions');
     if (actions) actions.style.display = 'none';
+    // The device table scrolls sideways on screen, and html2canvas rasterises what is
+    // inside that scroller — so anything scrolled out of view (the right-hand columns
+    // on a narrow window) was simply missing from the PDF. Let it lay out full width
+    // for the capture, exactly as the print rules do.
+    var wrap = doc.querySelector('.rp-tablewrap');
+    var wrapOv = wrap ? wrap.style.overflowX : null;
+    if (wrap) { wrap.style.overflowX = 'visible'; wrap.scrollLeft = 0; }
 
     html2canvas(doc, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
       .then(function (canvas) {
@@ -212,18 +219,48 @@
         var ph = pdf.internal.pageSize.getHeight();
         var margin = 8;
         var w = pw - margin * 2;
-        var h = (canvas.height * w) / canvas.width;
-        var img = canvas.toDataURL('image/jpeg', 0.95);
-        // Taller than one page: shift the same image up a page at a time and clip.
-        var left = h;
-        var y = margin;
-        pdf.addImage(img, 'JPEG', margin, y, w, h);
-        left -= ph - margin * 2;
-        while (left > 0) {
-          pdf.addPage();
-          y = margin - (h - left);
-          pdf.addImage(img, 'JPEG', margin, y, w, h);
-          left -= ph - margin * 2;
+        // Pages are cut at a row boundary, not at whatever pixel the page height lands
+        // on. Slicing blind put a device half on one page and half on the next — the
+        // "device on the edge of the page" in every report with enough devices to spill.
+        // Candidate cuts are the bottom of each table row, card and tile block, measured
+        // in the live DOM and scaled into canvas pixels.
+        var docPx = doc.offsetHeight || 1;
+        var scale = canvas.height / docPx;                 // canvas px per CSS px
+        var pxPerMm = canvas.width / w;                    // canvas px per mm of page
+        var pageH = (ph - margin * 2) * pxPerMm;           // usable page, in canvas px
+        var top = doc.getBoundingClientRect().top;
+        var cuts = [];
+        doc.querySelectorAll('tbody tr, .cc-card, .cc-kpis, .cc-kpi').forEach(function (el) {
+          var b = (el.getBoundingClientRect().bottom - top) * scale;
+          if (b > 0 && b < canvas.height) cuts.push(b);
+        });
+        cuts.sort(function (a, b) { return a - b; });
+        // A cut is only worth taking if it keeps most of the page — snapping to a
+        // boundary near the top of the page would leave a mostly blank sheet.
+        function nextCut(start) {
+          var ideal = start + pageH;
+          if (ideal >= canvas.height) return canvas.height;
+          var best = 0;
+          for (var i = 0; i < cuts.length; i++) {
+            if (cuts[i] > start + pageH * 0.55 && cuts[i] <= ideal) best = cuts[i];
+          }
+          return best || ideal;
+        }
+        var slice = document.createElement('canvas');
+        var sctx = slice.getContext('2d');
+        var start = 0, first = true;
+        while (start < canvas.height - 1) {
+          var end = nextCut(start);
+          var sh = Math.max(1, Math.round(end - start));
+          slice.width = canvas.width;
+          slice.height = sh;
+          sctx.fillStyle = '#ffffff';
+          sctx.fillRect(0, 0, slice.width, sh);
+          sctx.drawImage(canvas, 0, Math.round(start), canvas.width, sh, 0, 0, canvas.width, sh);
+          if (!first) pdf.addPage();
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, w, sh / pxPerMm);
+          first = false;
+          start = end;
         }
         pdf.save(FILENAME.replace(/[\\/:*?"<>|]/g, '-'));
       })
@@ -236,6 +273,7 @@
 
     function restore() {
       if (actions) actions.style.display = '';
+      if (wrap) wrap.style.overflowX = wrapOv || '';
       if (theme) { root.setAttribute('data-theme', theme); } else { root.removeAttribute('data-theme'); }
       if (label.textContent === 'Building…') label.textContent = was;
       btn.disabled = false;

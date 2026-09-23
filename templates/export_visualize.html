@@ -170,6 +170,10 @@ html[data-theme="dark"] .evz-root {
   var METRICS = [
     { key: 'battery_pct', label: 'Battery', unit: '%' },
     { key: 'battery_temp_c', label: 'Battery temp', unit: '°C' },
+    // The export writes percentages now; the MB/GB keys stay so an older CSV
+    // someone kept still charts.
+    { key: 'ram_used_pct', label: 'RAM used', unit: '%' },
+    { key: 'storage_free_pct', label: 'Storage free', unit: '%' },
     { key: 'ram_used_mb', label: 'RAM used', unit: 'MB' },
     { key: 'storage_free_gb', label: 'Storage free', unit: 'GB' }
   ];
@@ -221,8 +225,8 @@ html[data-theme="dark"] .evz-root {
     serials.forEach(function (s) { body.append('serials', s); });
     var end = new Date(), start = new Date(end.getTime() - 7 * 86400000);
     function loc(d) { var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+    // Columns are fixed server-side now (exportColumns), so nothing is posted for them.
     body.set('start', loc(start)); body.set('end', loc(end)); body.set('tz_offset', String(-new Date().getTimezoneOffset()));
-    ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'wifi', 'ip_address', 'build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'timezone', 'last_seen'].forEach(function (c) { body.append('columns', c); });
     filenameEl.textContent = 'Loading ' + serials.length + ' device' + (serials.length === 1 ? '' : 's') + ', last 7 days…';
     fetch('/export/csv', { method: 'POST', body: body }).then(function (r) {
       if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });

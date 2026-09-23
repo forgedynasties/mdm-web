@@ -51,80 +51,14 @@
 
 <div id="kpi-live" hx-get="/restaurants/{{.Restaurant.ID}}?partial=kpis" hx-select="unset" hx-trigger="restaurant-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "restaurant-kpis" .}}</div>
 
-{{/* Power and usage — what the venue's hardware actually did this week. Every tile says
-     what it was measured over, and shows "not enough data" rather than a confident zero:
-     a site whose devices checked in for an hour has not got 0% uptime. */}}
-{{if and .Metrics .Metrics.DeviceCount}}
-{{$m := .Metrics}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h2>Power &amp; usage</h2><span class="muted small">last {{$m.Days}} days · {{$m.DeviceCount}} device{{if ne $m.DeviceCount 1}}s{{end}}</span></div>
-  <div class="cc-kpis sm-kpis">
-    <div class="cc-kpi">
-      <span class="k">Average uptime · open hours</span>
-      {{if $m.HasOpenHours}}
-      <div class="v">{{hrs (perDev $m.PoweredOpenMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.OpenWindowMinutes $m.DeviceCount)}} hrs</span></div>
-      <div class="muted small">{{$m.UptimeOpenPct}}% of opening hours · {{$m.UptimeFullPct}}% of the full week</div>
-      {{else}}
-      <div class="v">{{hrs (perDev $m.PoweredMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.FullWindowMinutes $m.DeviceCount)}} hrs</span></div>
-      <div class="muted small">{{$m.UptimeFullPct}}% of the full week · no service hours set</div>
-      {{end}}
-    </div>
-    <div class="cc-kpi">
-      <span class="k">Wireless charging in use</span>
-      <div class="v">{{hrs $m.PadMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.PadMinutes 60.0}} hrs{{end}}</span></div>
-      <div class="muted small">total time TSAI wireless charging was used</div>
-    </div>
-    <div class="cc-kpi">
-      <span class="k">Battery drained through wireless charging</span>
-      {{if $m.HasPadDrain}}
-      <div class="v">{{printf "%.1f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
-      <div class="muted small">off mains, over {{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} of wireless charging</div>
-      {{else}}
-      <div class="v muted">—</div>
-      <div class="muted small">not enough charging time yet</div>
-      {{end}}
-    </div>
-    {{if $m.HasStandby}}
-    <div class="cc-kpi">
-      <span class="k">Standby</span>
-      <div class="v">{{hrs $m.StandbyMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.StandbyMinutes 60.0}} hrs{{end}}</span></div>
-      <div class="muted small">{{$m.StandbyPct}}% of powered time with the screen off</div>
-    </div>
-    {{end}}
-    <div class="cc-kpi">
-      <span class="k">Plugged in at</span>
-      {{if $m.ConnectCount}}
-      <div class="v">{{printf "%.0f" $m.ConnectAvgPct}}<span class="muted" style="font-size:.6em;">%</span></div>
-      <div class="muted small">unplugged at {{if $m.DisconnectCount}}{{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}} · {{$m.ConnectCount}} charge{{if ne $m.ConnectCount 1}}s{{end}}</div>
-      {{else}}
-      <div class="v muted">—</div>
-      <div class="muted small">no charger events recorded</div>
-      {{end}}
-    </div>
-  </div>
-  {{/* The evidence behind the headline: the same week day by day, so a percentage can be
-       checked rather than believed. Days before the metric existed say so instead of
-       drawing a zero bar. */}}
-  {{if .MetricsDaily}}
-  <div class="sm-days">
-    {{range .MetricsDaily}}
-    <div class="sm-day" title="{{.Day.Format "Mon 2 Jan"}} · {{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{hrs .PoweredMinutes}} powered{{if .HasOpen}} · {{hrs .OpenMinutes}} in opening hours{{end}}">
-      <div class="sm-bar">
-        <i class="tot" style="height:{{pctOfF .PoweredMinutes $.MetricsDailyMax}}%"></i>
-        {{if .HasOpen}}<i class="open" style="height:{{pctOfF .OpenMinutes $.MetricsDailyMax}}%"></i>{{end}}
-      </div>
-      <span class="sm-lbl">{{.Day.Format "Mon"}}</span>
-      <span class="sm-val">{{if .HasOpen}}{{hrs .OpenMinutes}}{{else}}—{{end}}</span>
-    </div>
-    {{end}}
-  </div>
-  <div class="muted small" style="padding:0 16px 14px;">
-    Bars are hours powered per day; the darker part is inside opening hours.
-    {{if lt $m.OpenDeviceDays $m.DeviceDays}}<b>{{sub $m.DeviceDays $m.OpenDeviceDays}} of {{$m.DeviceDays}} device-days</b> predate the opening-hours measurement and are excluded from that percentage — it fills in as the week rolls on.{{end}}
-  </div>
-  {{end}}
-</div>
-{{end}}
+{{/* Power and usage — what the venue's hardware actually did over the chosen window.
+     Every tile says what it was measured over, and shows "not enough data" rather than
+     a confident zero: a site whose devices checked in for an hour has not got 0%
+     uptime. The whole card (tiles AND the per-day strip) is one htmx target, because
+     the range buttons used to reload only the headline and leave the bars showing the
+     old seven days underneath the new number. */}}
+<div id="power-live">{{template "restaurant-power" .}}</div>
+
 
 {{if .Restaurant.Notes}}
 <div class="card" style="margin-bottom:16px;">
@@ -171,6 +105,88 @@
 </div>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "restaurant-power"}}
+{{if and .Metrics .Metrics.DeviceCount}}
+{{$m := .Metrics}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h2>Power &amp; usage</h2>
+    <span class="muted small">last {{$m.Days}} days · {{$m.DeviceCount}} device{{if ne $m.DeviceCount 1}}s{{end}}</span>
+    <span style="flex:1"></span>
+    <span class="dur-btns" role="group" aria-label="Window">
+      {{range .PowerRanges}}<button type="button" class="dur-btn{{if eq . $m.Days}} active{{end}}"
+        hx-get="/restaurants/{{$.Restaurant.ID}}?partial=power&days={{.}}" hx-target="#power-live" hx-swap="innerHTML"
+        hx-select="unset">{{.}}d</button>{{end}}
+    </span>
+  </div>
+  <div class="cc-kpis sm-kpis">
+    <div class="cc-kpi">
+      <span class="k">Average uptime</span>
+      {{if $m.HasOpenHours}}
+      <div class="v">{{hrs (perDev $m.PoweredOpenMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.OpenWindowMinutes $m.DeviceCount)}} hrs</span></div>
+      <div class="muted small"><b>{{$m.UptimeOpenPct}}%</b> of opening hours · <b>{{$m.UptimeFullPct}}%</b> of the measured window</div>
+      {{else}}
+      <div class="v">{{hrs (perDev $m.PoweredMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.FullWindowMinutes $m.DeviceCount)}} hrs</span></div>
+      <div class="muted small"><b>{{$m.UptimeFullPct}}%</b> of the measured window · no service hours set</div>
+      {{end}}
+    </div>
+    <div class="cc-kpi">
+      <span class="k">Wireless charging in use</span>
+      <div class="v">{{hrs $m.PadMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.PadMinutes 60.0}} hrs{{end}}</span></div>
+      <div class="muted small">customer's phone charged through the T7 charging pad</div>
+    </div>
+    <div class="cc-kpi">
+      <span class="k">Battery drained through wireless charging</span>
+      {{if $m.HasPadDrain}}
+      <div class="v">{{printf "%.1f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
+      <div class="muted small">{{hrs $m.PadDrainMinutes}}{{if ge $m.PadDrainMinutes 60.0}} hrs{{end}} of wireless charging</div>
+      {{else}}
+      <div class="v muted">—</div>
+      <div class="muted small">not enough charging time yet</div>
+      {{end}}
+    </div>
+    {{if $m.HasStandby}}
+    <div class="cc-kpi">
+      <span class="k">Standby</span>
+      <div class="v">{{hrs $m.StandbyMinutes}}<span class="muted" style="font-size:.6em;">{{if ge $m.StandbyMinutes 60.0}} hrs{{end}}</span></div>
+      <div class="muted small">{{$m.StandbyPct}}% of powered time with the screen off</div>
+    </div>
+    {{end}}
+    <div class="cc-kpi">
+      {{/* Named "Plugged in" like the report's tile, and counting the same thing it
+           does: a charge somebody both plugged in and unplugged. A device left on
+           charge across the window is not a charge until it comes off again. */}}
+      <span class="k">Plugged in</span>
+      <div class="v">{{hrs (perDev $m.PluggedMinutes $m.DeviceCount)}}<span class="muted" style="font-size:.6em;"> / {{hrs (perDev $m.FullWindowMinutes $m.DeviceCount)}} hrs</span></div>
+      <div class="muted small"><b>{{$m.PluggedPct}}%</b> of the measured window{{if $m.ConnectCount}} · plugged in at <b>{{printf "%.0f" $m.ConnectAvgPct}}%</b>, unplugged at <b>{{if $m.DisconnectCount}}{{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}}</b> over {{$m.ConnectCount}} completed charge{{if ne $m.ConnectCount 1}}s{{end}}{{end}}</div>
+    </div>
+  </div>
+  {{/* The evidence behind the headline: the same week day by day, so a percentage can be
+       checked rather than believed. Days before the metric existed say so instead of
+       drawing a zero bar. */}}
+  {{if .MetricsDaily}}
+  <div class="sm-days">
+    {{range .MetricsDaily}}
+    <div class="sm-day" title="{{.Day.Format "Mon 2 Jan"}} · {{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{hrs .PoweredMinutes}} powered{{if .HasOpen}} · {{hrs .OpenMinutes}} in opening hours{{end}}">
+      <div class="sm-bar">
+        <i class="tot" style="height:{{pctOfF .PoweredMinutes $.MetricsDailyMax}}%"></i>
+        {{if .HasOpen}}<i class="open" style="height:{{pctOfF .OpenMinutes $.MetricsDailyMax}}%"></i>{{end}}
+      </div>
+      {{/* Weekday names stop telling days apart past a week — 30 of them read as four
+           identical Mondays — so a longer window labels by date instead. */}}
+      <span class="sm-lbl">{{if gt (len $.MetricsDaily) 7}}{{.Day.Format "2"}}{{else}}{{.Day.Format "Mon"}}{{end}}</span>
+      <span class="sm-val">{{if .HasOpen}}{{hrs .OpenMinutes}}{{else}}—{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  <div class="muted small" style="padding:0 16px 14px;">
+    Bars are hours powered per day; the darker part is inside opening hours.
+    {{if lt $m.OpenDeviceDays $m.DeviceDays}}<b>{{sub $m.DeviceDays $m.OpenDeviceDays}} of {{$m.DeviceDays}} device-days</b> predate the opening-hours measurement and are excluded from that percentage — it fills in as the week rolls on.{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
 {{end}}
 
 {{/* Deploy-devices card + members list — shared by the standalone venue page
