@@ -254,13 +254,22 @@ jobs:
           # would otherwise fall back to compiling here, which is the whole problem.
           docker compose up -d --no-build --force-recreate server
 
-          # The proxy owns the host port and must survive the recreate above, so it is
-          # brought up separately and never force-recreated. Order matters on the first
-          # deploy that introduces it: the OLD server container still publishes the host
-          # port, so nginx cannot bind until the recreate above has replaced it with one
-          # that does not. `up -d` is a no-op once it is running, and recreates it only
-          # when its config actually changed.
-          docker compose up -d --no-build proxy
+          # The proxy owns the host port, so it is brought up separately from the
+          # recreate above — that is what lets it stay serving the deploying page while
+          # the server is replaced.
+          #
+          # --force-recreate is required, not optional: compose does NOT recreate this
+          # container when only the inline `configs:` content changes. Its service hash
+          # does not cover config content, and the file is bind-mounted at create time.
+          # Plain `up -d` left the proxy running its original config across three
+          # deploys while reporting success, so every nginx fix shipped but none loaded.
+          #
+          # It runs AFTER the server on purpose. The server is healthy again by now, so
+          # the ~1s while nginx restarts is the only exposed moment, and on the very
+          # first deploy the old server must release the host port before nginx can
+          # bind it. The cost is that a change to this config protects the NEXT deploy,
+          # not the one shipping it.
+          docker compose up -d --no-build --force-recreate proxy
 
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
