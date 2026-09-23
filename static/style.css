@@ -7090,6 +7090,26 @@ html[data-theme="dark"] #sel-sheet .cc-btn { border-color: rgba(255, 255, 255, .
 .ss-grid > form { display: contents; }
 .ss-preview { font-size: 12.5px; line-height: 1.7; margin: 4px 0 12px; padding: 8px 12px; border-radius: 12px; background: var(--surface2); }
 .ss-preview code { font: 500 11px var(--mono); color: var(--muted); }
+/* ── Selection panel: one primary, the rest behind More ──────────────────────
+   The primary is the only full-height button in the panel; the promoted
+   shortcuts sit under it at normal size, and everything else lives in the
+   collapsible below. The point is that the composer that can do anything no
+   longer looks like Copy serials. */
+.ss-primary { min-height: 40px !important; font-size: 13px !important; font-weight: 700 !important; }
+.ss-more-btn { justify-content: center; color: var(--text-faint); }
+.ss-more-btn .ss-chev { margin-left: 4px; transition: transform var(--dur, .15s) ease; }
+.ss-more-btn.open .ss-chev { transform: rotate(180deg); }
+.ss-more { display: flex; flex-direction: column; gap: 6px; }
+.ss-more[hidden] { display: none; }
+.ss-more .ss-lbl { margin-top: 4px; }
+.ss-more .ss-lbl:first-child { margin-top: 0; }
+/* Everything past this rule is hard or impossible to undo. It is last, it is
+   separated, and it is the only place in the panel that uses the danger colour —
+   Retire used to be one grid cell below Copy serials, in the same grey. */
+.ss-danger { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 9px;
+  border-top: 1px solid var(--danger-edge); }
+.ss-danger form { display: contents; }
+
 .ss-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ss-acts .bulk-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .ss-acts .bulk-actions form { display: contents; }

@@ -311,20 +311,50 @@ if (!window.__dlRowNav) {
     <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
     <span class="selbar-sep"></span>
 
+    {{/* ── What this selection is for ────────────────────────────────────────
+         Fourteen actions used to sit here as fourteen identical buttons in four
+         labelled grids. Nothing was hidden, but nothing was ranked either: the
+         composer that can perform any of them looked exactly like "Copy
+         serials", and Retire sat in the same grid one row below — often below
+         the fold on a laptop, which is the worst place to keep the most
+         dangerous button in the product.
+
+         So: one primary, the two or three shortcuts worth a click, and the rest
+         behind More, with the destructive ones at the bottom of it behind a
+         rule. Nothing is removed — Reboot and Screenshot are themselves only
+         the Action composer pre-filled, so this mostly admits what the panel
+         already was.
+
+         More expands in place rather than opening a floating menu: #sel-sheet
+         sets overflow-y:auto, so an absolutely-positioned menu inside it would
+         be clipped, and portalling one to <body> is exactly the machinery that
+         made this panel render itself twice. */}}
     {{if canAdminOrOperator .Role}}
-    <div class="ss-sec">
-      <div class="ss-lbl">Send</div>
-      <button type="button" class="cc-btn sm primary ss-w" onclick="bulkAction()"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
-      <div class="ss-grid">
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'install_apk'})" title="Open Actions with Install app and these devices ready; pick the app there"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
-        {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
-      </div>
+    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+    <div class="ss-grid">
+      {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
+      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
+      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
+    </div>
+    {{else}}
+    {{/* A viewer has no Send group at all, so the two things they can always do
+         take the promoted slots instead of leaving the panel headed by More. */}}
+    <div class="ss-grid">
+      <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
+      <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
     </div>
     {{end}}
 
-    <div class="ss-sec">
+    <button type="button" class="cc-btn sm ss-more-btn" id="ss-more-btn" aria-expanded="false" aria-controls="ss-more" onclick="ssToggleMore(this)">More<svg class="ss-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+
+    <div class="ss-more" id="ss-more" hidden>
+      {{if canAdminOrOperator .Role}}
+      <div class="ss-lbl">Send</div>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkGo('/commands', {type:'install_apk'})" title="Open Actions with Install app and these devices ready; pick the app there"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+      </div>
+      {{end}}
+
       <div class="ss-lbl">Organize</div>
       <div class="ss-grid">
         <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
@@ -333,37 +363,44 @@ if (!window.__dlRowNav) {
         <button type="button" class="cc-btn sm" onclick="bulkSaveAsGroup()" title="Create a new group from this selection so you can reuse it">Save as group</button>
         <button type="button" class="cc-btn sm" onclick="openBulkRenameModal()" title="Nickname the selection from a pattern, e.g. Register {n}">Rename</button>
         {{end}}
+      </div>
+
+      <div class="ss-lbl">Data</div>
+      <div class="ss-grid">
+        {{if canAdminOrOperator .Role}}
+        <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
+        <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
+        {{end}}
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/export/visualize')" title="Chart the last 7 days of these devices side by side"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg>Compare</button>
+        <button type="button" class="cc-btn sm" onclick="bulkGo('/map')" title="Show only these devices on the map"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Show on map</button>
+      </div>
+
+      {{if canAdmin .Role}}
+      <div class="ss-lbl">Admin</div>
+      <div class="ss-grid">
+        <button type="button" class="cc-btn sm ss-w" onclick="openBulkClassModal()" title="Set the product of the selected devices">Set product</button>
+      </div>
+      {{end}}
+
+      {{/* Everything below the rule changes the fleet in a way that is awkward or
+           impossible to undo. Separated on purpose, and last on purpose. */}}
+      {{if or .ActiveGroup (canAdmin .Role)}}
+      <div class="ss-danger">
         {{if .ActiveGroup}}
         <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')">Remove from group</button>
         {{end}}
-      </div>
-    </div>
-
-    <div class="ss-sec">
-      <div class="ss-lbl">Data</div>
-      <div class="ss-grid">
-        <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/export/visualize')" title="Chart the last 7 days of these devices side by side"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg>Compare</button>
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/map')" title="Show only these devices on the map"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Show on map</button>
-        <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
-      </div>
-    </div>
-
-    {{if canAdmin .Role}}
-    <div class="ss-sec">
-      <div class="ss-lbl">Admin</div>
-      <div class="ss-grid">
-        <button type="button" class="cc-btn sm" onclick="openBulkClassModal()" title="Set the product of the selected devices">Set product</button>
-        <button type="button" class="cc-btn sm selbar-danger" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
-        <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:contents;" onsubmit="return confirmBulkHide(event)">
-          <button type="submit" class="cc-btn sm selbar-danger">Mark inactive</button>
+        {{if canAdmin .Role}}
+        <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
+        <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" onsubmit="return confirmBulkHide(event)">
+          <button type="submit" class="cc-btn sm selbar-danger ss-w">Mark inactive</button>
         </form>
         <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
-          <button type="submit" class="cc-btn sm">Reactivate</button>
+          <button type="submit" class="cc-btn sm ss-w">Reactivate</button>
         </form>
+        {{end}}
       </div>
+      {{end}}
     </div>
-    {{end}}
   </div>
   {{/* Layout switch: stat-block rows (new) or the classic cards; the choice lives in
        the fleet_layout cookie so the server renders it directly. */}}
@@ -1394,6 +1431,28 @@ function selectAllMatching() {
     });
 }
 
+// More: expands in place. The open/closed state is remembered for the session, so
+// someone doing a run of the same organise-y task is not re-opening it on every
+// selection — but it starts closed, because the point of the panel is the primary.
+function ssToggleMore(btn) {
+  var box = document.getElementById('ss-more');
+  if (!box) return;
+  var open = box.hasAttribute('hidden');
+  if (open) box.removeAttribute('hidden'); else box.setAttribute('hidden', '');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btn.classList.toggle('open', open);
+  try { sessionStorage.setItem('mdm-sel-more', open ? '1' : '0'); } catch (e) {}
+}
+// The panel is re-rendered on every roster refresh, so restore the state rather
+// than letting it snap shut under someone mid-task.
+function ssRestoreMore() {
+  var box = document.getElementById('ss-more'), btn = document.getElementById('ss-more-btn');
+  if (!box || !btn) return;
+  var want = false;
+  try { want = sessionStorage.getItem('mdm-sel-more') === '1'; } catch (e) {}
+  if (want) { box.removeAttribute('hidden'); btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); }
+}
+
 function clearSelection() {
   selectAllMatchingSet = null;
   document.querySelectorAll('.device-cb').forEach(function (b) { b.checked = false; });
@@ -1446,6 +1505,7 @@ function updateBulkBar() {
       // being dropped here is always the stale copy.
       while (acts.firstChild) acts.removeChild(acts.firstChild);
       acts.appendChild(bar);
+      ssRestoreMore();
     }
     document.getElementById('ss-count').textContent = serials.length + ' selected';
     sheet.hidden = false;
