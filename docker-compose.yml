@@ -152,8 +152,15 @@ configs:
         # page — measured at 6.7s, 13.1s and one 20s timeout on stage. The dashboard's
         # SSE streams heartbeat every 25s (": keep-alive"), so 60s is comfortably
         # clear of them. The device WebSocket gets its own block below.
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
+        # 30s is a deliberate floor, not a round number: the dashboard's SSE streams
+        # heartbeat every 25s (": keep-alive"), so anything at or under that kills
+        # them. It is the ceiling on the one case nginx cannot avoid — a request
+        # ACCEPTED by the outgoing container microseconds before Go closes its
+        # listener, which then goes unanswered for the whole stop_grace_period drain
+        # ("upstream prematurely closed connection" in the error log). Refused
+        # connections, which is almost all of them, still hit the page in ~1ms.
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
         # Connect is a different matter from read: a live WebSocket may idle for an
         # hour, but establishing the TCP connection should never take seconds. This is
         # what decides how fast a user sees the deploying page.
