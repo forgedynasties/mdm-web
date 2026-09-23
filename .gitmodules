@@ -9,26 +9,32 @@
 # `branch` is what `git submodule update --remote` follows. Not all are main —
 # the DPC agent lives on menu-board.
 #
-# URLs are forgedynasties because that is where these repos are. They resolve
-# through the `Host forgedynasties` entry in ~/.ssh/config. If they ever move to
-# AIOApp, change the url lines here and run `git submodule sync`.
+# URLs are the https form on purpose. The ssh form (git@forgedynasties:...) uses a
+# Host alias from ~/.ssh/config that only exists on our machines — GitHub cannot
+# resolve it into a repository, so the submodule entries rendered as dead links on
+# the web UI, and anyone without that alias could not clone recursively. The repos
+# are public, so https works for everyone.
+#
+# Local checkouts keep their ssh remotes (fetch + both push URLs). `git submodule
+# sync` would overwrite those with the https URL above — re-add the push URLs if you
+# ever run it.
 
 [submodule "aio-mdm-client"]
 	path = aio-mdm-client
-	url = git@forgedynasties:forgedynasties/mdm-client-firmware.git
+	url = https://github.com/forgedynasties/mdm-client-firmware.git
 	branch = main
 
 [submodule "aio-mdm-client-dpc"]
 	path = aio-mdm-client-dpc
-	url = git@forgedynasties:forgedynasties/mdm-client-dpc.git
+	url = https://github.com/forgedynasties/mdm-client-dpc.git
 	branch = menu-board
 
 [submodule "aio-mdm-lite"]
 	path = aio-mdm-lite
-	url = git@forgedynasties:forgedynasties/mdm-lite.git
+	url = https://github.com/forgedynasties/mdm-lite.git
 	branch = main
 
 [submodule "aio-mdm-client-lite"]
 	path = aio-mdm-client-lite
-	url = git@forgedynasties:forgedynasties/mdm-client-lite.git
+	url = https://github.com/forgedynasties/mdm-client-lite.git
 	branch = main
