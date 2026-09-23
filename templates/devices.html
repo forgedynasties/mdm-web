@@ -1437,7 +1437,16 @@ function updateBulkBar() {
       document.body.appendChild(sheet);
     }
     var acts = document.getElementById('ss-acts');
-    if (bar.parentElement !== acts) acts.appendChild(bar);
+    if (bar.parentElement !== acts) {
+      // The sheet lives under <body>, so it survives a roster refresh — but that
+      // refresh re-renders the table and with it a SECOND #bulk-bar. Moving the
+      // new one in without clearing the old left the panel showing every section
+      // twice. getElementById returns the first in document order, which is the
+      // freshly rendered one (the sheet is appended after <main>), so the one
+      // being dropped here is always the stale copy.
+      while (acts.firstChild) acts.removeChild(acts.firstChild);
+      acts.appendChild(bar);
+    }
     document.getElementById('ss-count').textContent = serials.length + ' selected';
     sheet.hidden = false;
   } else if (sheet) {
