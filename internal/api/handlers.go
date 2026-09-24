@@ -187,6 +187,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validSerial(serial) {
+		h.noteRefusedSerial(serial, ratelimit.ClientIP(r), "")
 		http.Error(w, errInvalidSerial, http.StatusBadRequest)
 		return
 	}
@@ -1087,6 +1088,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validSerial(req.SerialNumber) {
+		h.noteRefusedSerial(req.SerialNumber, ratelimit.ClientIP(r), req.BuildID)
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}

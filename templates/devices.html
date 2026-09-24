@@ -253,6 +253,18 @@ if (!window.__dlRowNav) {
 {{define "fleet-headline"}}{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
   <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
   <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
+  {{if .RefusedSerials}}
+  {{/* Tablets whose serial read corrupt ("androidboot.baseband=msm") are refused and
+       stored nowhere (api.validSerial); this is the only place they appear. */}}
+  <div class="fl-refused" role="alert">
+    <b>⚠ Tablets with a corrupted serial are being refused</b> — nothing they send is stored.
+    They need a firmware OTA carrying MDM client 1.4.7 or later, after which each shows up
+    as its own <i>Corrupted serial</i> device.
+    <ul>
+      {{range .RefusedSerials}}<li><code>{{.Serial}}</code> from {{.RemoteIP}}{{if .BuildID}} · build {{.BuildID}}{{end}} · {{.Attempts}} attempt{{if ne .Attempts 1}}s{{end}} · last {{.LastAt.UTC.Format "Jan 2 15:04 UTC"}}</li>{{end}}
+    </ul>
+  </div>
+  {{end}}
 {{end}}
 
 {{/* Product tabs above the roster: stack with the rail's collection and the quick
@@ -539,6 +551,9 @@ a.fleet-rail-item{min-height:40px}
 .dl-ktag.new{background:var(--warn-bg);color:var(--warn)}
 .dl-ktag.ret{background:var(--danger-bg);color:var(--danger)}
 .dl-ktag.bad{background:var(--danger-bg);color:var(--danger)}
+.fl-refused{margin:10px 0 4px;padding:10px 14px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-size:13px;line-height:1.5}
+.fl-refused ul{margin:6px 0 0;padding-left:18px}
+.fl-refused code{font-size:12px}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */

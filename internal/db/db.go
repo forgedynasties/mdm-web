@@ -12558,6 +12558,18 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_at         TIMESTAMPTZ;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_battery    SMALLINT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_build      TEXT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_state_hash TEXT;
+
+-- Check-ins refused for a corrupted serial (api.validSerial): who, from where, how often.
+-- Nothing else of theirs is stored; this keeps such a tablet visible on the dashboard.
+CREATE TABLE IF NOT EXISTS refused_checkins (
+	serial    TEXT        NOT NULL,
+	remote_ip TEXT        NOT NULL,
+	build_id  TEXT        NOT NULL DEFAULT '',
+	first_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	last_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	attempts  BIGINT      NOT NULL DEFAULT 1,
+	PRIMARY KEY (serial, remote_ip)
+);
 CREATE INDEX IF NOT EXISTS idx_devices_custody ON devices(custody_server) WHERE custody_server <> '';
 
 -- The peer outbox: an arrival is announced to every peer, and the announcement has to

@@ -1,6 +1,11 @@
 package api
 
-import "regexp"
+import (
+	"context"
+	"log"
+	"regexp"
+	"time"
+)
 
 // serialRe is what a device serial can look like: letters, digits, '-' and '_' — a T7's
 // AT070AABU00429, MDM-lite's android-<ANDROID_ID>, a corrupted T7's msm-<ANDROID_ID>.
@@ -15,6 +20,19 @@ var serialRe = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 // validSerial reports whether s can be a device serial (see serialRe).
 func validSerial(s string) bool { return serialRe.MatchString(s) }
+
+// noteRefusedSerial records a refused check-in so the dashboard can show that tablets are
+// stuck on a corrupted serial (nothing else of theirs is kept). Off the request path: a
+// refused device must not be slowed, and the record is best-effort.
+func (h *Handler) noteRefusedSerial(serial, remoteIP, buildID string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.db.RecordRefusedCheckin(ctx, serial, remoteIP, buildID); err != nil {
+			log.Printf("[serial] record refused %q: %v", serial, err)
+		}
+	}()
+}
 
 // errInvalidSerial is the body a refused check-in gets back.
 const errInvalidSerial = "serial_number is not a device serial (corrupted serial; update the client to 1.4.7+)"

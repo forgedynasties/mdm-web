@@ -5029,6 +5029,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		data["CanSaveView"] = true
 	}
 	data["CurrentQuery"] = r.URL.RawQuery
+	// Tablets refused for a corrupted serial in the last day: they are stored nowhere
+	// else, so this banner is the only place they show up at all.
+	if refused, err := h.db.RecentRefusedCheckins(r.Context(), 24*time.Hour); err == nil && len(refused) > 0 {
+		data["RefusedSerials"] = refused
+	}
 
 	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
 	// device list is the main swap target, and the heading + quick-view counts ride

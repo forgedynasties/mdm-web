@@ -1,4 +1,4 @@
--- Run on live 24 Sep 2026 (tools/README below): filled 1,493,160 samples and wrote 2,339,846 state events.
+-- Run on live 24 Sep 2026: filled 1,493,160 samples and wrote 2,339,846 state events.
 -- Needs samples_fill loaded first — see the header of this file.
 -- One sitting, 24 Sep 2026: put back what the dup-strip took, and the pre-17-Sep state history.
 -- Expects samples_fill already loaded (step 0 in the run command). Every step only fills
