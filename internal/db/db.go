@@ -12570,6 +12570,10 @@ CREATE TABLE IF NOT EXISTS refused_checkins (
 	attempts  BIGINT      NOT NULL DEFAULT 1,
 	PRIMARY KEY (serial, remote_ip)
 );
+-- The public address a device last reached the server from (NoteDeviceRemoteIP): places a
+-- refused tablet by the devices already checking in from the same network.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_remote_ip TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_devices_last_remote_ip ON devices(last_remote_ip) WHERE last_remote_ip <> '';
 CREATE INDEX IF NOT EXISTS idx_devices_custody ON devices(custody_server) WHERE custody_server <> '';
 
 -- The peer outbox: an arrival is announced to every peer, and the announcement has to

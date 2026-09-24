@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corrupted-serial tablets — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f7f7f7);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:38px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* fleet page mock */
+.fleet{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+.fh1{font-size:21px;font-weight:750;margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fh1 .hl{color:var(--warn,#c9861a)}
+.fsub{color:var(--text-faint);font-size:12.5px;margin:3px 0 12px}
+.card{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--border);border-radius:11px;margin-top:8px;background:var(--surface)}
+.card .chip{font-size:11px;font-weight:750;border-radius:8px;padding:4px 8px;text-align:center;background:var(--surface2);color:var(--text-2)}
+.card .sn{font-weight:750;font-size:13.5px}
+.card .meta{font-size:11.5px;color:var(--text-faint)}
+.card .right{font-size:11.5px;color:var(--text-faint);text-align:right}
+.card.ok .chip{background:rgba(0,184,148,.12);color:#00a383}
+.ktag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:var(--danger-bg);color:var(--danger);margin-right:4px;vertical-align:1px}
+.muted{color:var(--text-faint)}
+
+/* current banner */
+.banner{margin:4px 0;padding:10px 14px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-size:13px;line-height:1.5}
+.banner ul{margin:6px 0 0;padding-left:18px}
+
+/* A: pill + drawer */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;background:var(--danger-bg);color:var(--danger);border-radius:99px;padding:4px 11px;cursor:pointer;border:1px solid transparent}
+.pill:hover{border-color:var(--danger)}
+.drawerwrap{position:relative;min-height:330px}
+.drawer{position:absolute;top:0;right:0;width:360px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px rgba(20,22,40,.2);padding:16px}
+.drawer h3{margin:0 0 4px;font-size:15px}
+.src{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12.5px;line-height:1.55}
+.src b{font-weight:750}
+.btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.b{font-size:11.5px;font-weight:700;border:1px solid var(--border);border-radius:8px;padding:4px 9px;background:var(--surface);color:var(--text);cursor:pointer}
+.b.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* B: ghost card */
+.card.ghost{border:1.5px dashed var(--danger);background:var(--danger-bg);cursor:pointer}
+.card.ghost .chip{background:var(--danger);color:#fff}
+.card.ghost .sn{color:var(--danger)}
+.card.ghost:hover{box-shadow:0 6px 20px rgba(220,60,60,.18)}
+
+/* C: tile */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 6px}
+.tile{border:1px solid var(--border);border-radius:11px;padding:10px 12px;background:var(--surface)}
+.tile .k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.tile .v{font-size:20px;font-weight:750;margin-top:2px}
+.tile.bad{border-color:var(--danger);background:var(--danger-bg);cursor:pointer}
+.tile.bad .v,.tile.bad .k{color:var(--danger)}
+
+/* detail page */
+.detail{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px}
+.detail h2{margin:0;font-size:19px}
+.detail .sub{color:var(--text-faint);font-size:12.5px;margin:3px 0 14px}
+.grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+.box{border:1px solid var(--border);border-radius:11px;padding:12px 14px;font-size:12.8px;line-height:1.6}
+.box h4{margin:0 0 6px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);font-weight:800;padding:6px 8px;border-bottom:1px solid var(--border)}
+table.t td{padding:7px 8px;border-bottom:1px solid var(--border-soft)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:34px}
+.spark i{flex:1;background:var(--danger);opacity:.75;border-radius:2px 2px 0 0}
+ol.steps{margin:4px 0 0;padding-left:18px}
+.note{font-size:12px;color:var(--text-faint);margin:18px 0 0;line-height:1.6;max-width:850px}
+@media (max-width:720px){body{padding:20px 16px 120px}.grid2{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}.themebar{top:auto;bottom:16px;right:16px}.drawer{position:static;width:auto}}
+</style>
+</head>
+<body>
+<div class="themebar"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+  <h1>Corrupted-serial tablets on the fleet page</h1>
+  <p class="lead">
+    A T7 whose serial reads corrupt (<code>androidboot.baseband=msm</code>) is refused by the server and stored nowhere —
+    the refusal log (source address, build, attempts) is the only trace of it. The fleet page has to say so without
+    shouting, and one click has to lead to what to do about it. All three options open the same detail view (bottom),
+    whose most useful line is the <b>likely location</b>: the refused tablet's address matched against the devices
+    already checking in from it.
+  </p>
+
+  <div class="eyebrow">Deployed now</div>
+  <div class="dname">Full-width banner <span class="cur">Deployed</span></div>
+  <p class="ddesc">Says everything at once, in the danger colour, above the roster — and leads nowhere. The raw source line
+    (serial · IP · build · attempts) is for engineers, not for the person looking at the fleet.</p>
+  <div class="fleet">
+    <p class="fh1"><span class="hl">158 of 196</span> devices online</p>
+    <div class="fsub">Viewing <b>All devices</b> · 196 devices</div>
+    <div class="banner"><b>⚠ Tablets with a corrupted serial are being refused</b> — nothing they send is stored. They need a firmware OTA carrying MDM client 1.4.7 or later, after which each shows up as its own <i>Corrupted serial</i> device.
+      <ul><li><code>androidboot.baseband=msm</code> from 125.209.65.146 · build v2.0.61 · 1,284 attempts · last Sep 24 18:07 UTC</li></ul></div>
+    <div class="card ok"><span class="chip">87%</span><div><div class="sn">AT070AABU00429</div><div class="meta">v2.0.96l · Tableside AI</div></div><div class="right">Lab · online</div></div>
+  </div>
+
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Alert pill in the heading → side drawer</div>
+  <p class="ddesc">A small danger pill next to "devices online". Click opens a drawer over the roster with each source, its likely location, and what to do.</p>
+  <div class="fleet">
+    <p class="fh1"><span><span class="hl">158 of 196</span> devices online</span> <span class="pill">⚠ 1 tablet refused · corrupted serial ›</span></p>
+    <div class="fsub">Viewing <b>All devices</b> · 196 devices</div>
+    <div class="drawerwrap">
+      <div class="card ok"><span class="chip">87%</span><div><div class="sn">AT070AABU00429</div><div class="meta">v2.0.96l · Tableside AI</div></div><div class="right">Lab · online</div></div>
+      <div class="drawer">
+        <h3>1 tablet refused</h3>
+        <div class="muted" style="font-size:12px">Its serial reads corrupt, so the server stores nothing it sends.</div>
+        <div class="src"><b>Likely at Huanchaco Peruvian</b> — same network as 4 devices there<br>
+          <span class="muted">125.209.65.146 · build v2.0.61 · 1,284 attempts · last 3 min ago</span>
+          <div class="btns"><span class="b pri">Details</span><span class="b">Copy address</span><span class="b">Dismiss</span></div></div>
+        <div class="src muted">Fix: a firmware OTA carrying MDM client 1.4.7+ — the tablet then appears as its own <span class="ktag">Corrupted serial</span> device.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pros"><div><b>Good at</b>Quiet until wanted — one line in the heading — and the drawer keeps the roster in view while you read it.</div>
+    <div><b>Bad at</b>Easy to miss on a busy morning, and a drawer is one more pattern on a page that has none today.</div></div>
+
+  <div class="eyebrow">Option B</div>
+  <div class="dname">A card in the roster, like any device <span class="rec">Recommended</span></div>
+  <p class="ddesc">The refused tablet appears at the top of the device list as a dashed danger card — it <i>is</i> a device, just one the server
+    cannot name. Click goes to its detail view, exactly like clicking any device.</p>
+  <div class="fleet">
+    <p class="fh1"><span class="hl">158 of 196</span> devices online</p>
+    <div class="fsub">Viewing <b>All devices</b> · 196 devices · <span style="color:var(--danger);font-weight:700">1 unidentified</span></div>
+    <div class="card ghost"><span class="chip">?</span><div><div class="sn">Unidentified tablet <span class="ktag">Corrupted serial</span></div>
+      <div class="meta">Likely at <b>Huanchaco Peruvian</b> · build v2.0.61 · refused 1,284× · last 3 min ago</div></div><div class="right">Details ›</div></div>
+    <div class="card ok"><span class="chip">87%</span><div><div class="sn">AT070AABU00429</div><div class="meta">v2.0.96l · Tableside AI</div></div><div class="right">Lab · online</div></div>
+  </div>
+  <div class="pros"><div><b>Good at</b>Lives where people already look for devices, reads as "a tablet with a problem" rather than an error message, and clicks through the way everything in the roster does. Several corrupt tablets become several cards, one per network.</div>
+    <div><b>Bad at</b>A card that is not a real device record: it cannot be selected for bulk actions or filtered like the others (it is skipped by both), which has to be explained once in its tooltip.</div></div>
+
+  <div class="eyebrow">Option C</div>
+  <div class="dname">A health tile above the roster</div>
+  <p class="ddesc">A row of small tiles (online, offline, alerts, refused); the refused tile turns red when non-zero and opens the detail view.</p>
+  <div class="fleet">
+    <p class="fh1"><span class="hl">158 of 196</span> devices online</p>
+    <div class="tiles"><div class="tile"><div class="k">Online</div><div class="v">158</div></div><div class="tile"><div class="k">Offline</div><div class="v">38</div></div>
+      <div class="tile"><div class="k">Alerts</div><div class="v">21</div></div><div class="tile bad"><div class="k">Refused tablets ›</div><div class="v">1</div></div></div>
+  </div>
+  <div class="pros"><div><b>Good at</b>A number you can glance at, and room for more fleet-level health figures later.</div>
+    <div><b>Bad at</b>Adds a whole tile row to show one number that is zero almost always; most of the row repeats what the heading already says.</div></div>
+
+  <div class="eyebrow">What every option opens</div>
+  <div class="dname">Detail view · <code>/devices/refused</code></div>
+  <p class="ddesc">One page per refused source: where it probably is, how often it tries, and the fix. "Dismiss" hides a source until it tries again.</p>
+  <div class="detail">
+    <h2>Unidentified tablet <span class="ktag">Corrupted serial</span></h2>
+    <div class="sub">Refused since Sep 18 · last attempt 3 min ago · nothing it sends is stored</div>
+    <div class="grid2">
+      <div class="box"><h4>Where it probably is</h4>
+        <b>Huanchaco Peruvian</b> — checking in from 125.209.65.146, the same address as 4 devices there:
+        <table class="t" style="margin-top:6px"><tr><th>Device</th><th>Last seen</th></tr>
+          <tr><td>AT070AABU00509</td><td>1 min ago</td></tr><tr><td>AT070AABU00641</td><td>2 min ago</td></tr><tr><td>AT070AABU00644</td><td>just now</td></tr><tr><td class="muted">+1 more</td><td></td></tr></table></div>
+      <div class="box"><h4>Attempts, last 24 h</h4>
+        <div class="spark"><i style="height:40%"></i><i style="height:55%"></i><i style="height:60%"></i><i style="height:52%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:86%"></i><i style="height:80%"></i><i style="height:75%"></i><i style="height:62%"></i><i style="height:58%"></i></div>
+        <div class="muted" style="font-size:12px;margin-top:4px">1,284 attempts · build v2.0.61 · reported serial <code>androidboot.baseband=msm</code></div>
+        <h4 style="margin-top:12px">How to fix</h4>
+        <ol class="steps"><li>Find the tablet at the site (unnamed in the dashboard).</li><li>Update its firmware with an OTA that carries MDM client 1.4.7+.</li><li>It returns as <b>msm-&lt;Android ID&gt;</b> with its own history.</li></ol>
+        <div class="btns"><span class="b">Copy address</span><span class="b">Dismiss</span></div></div>
+    </div>
+  </div>
+
+  <p class="note"><b>Pick:</b> B. It treats the tablet as what it is — a device with a problem — in the place people already look,
+    and it clicks through like every other card. The "likely location" line (address matched to the devices already
+    checking in from it) is what makes any of these actionable; it is in all three. The raw serial and address stay
+    on the detail view, not on the fleet page.</p>
+</div>
+<script>
+(function(){const root=document.documentElement;document.querySelectorAll('.themebar button').forEach(function(b){b.addEventListener('click',function(){root.setAttribute('data-theme',b.dataset.t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b));});});})();
+</script>
+</body>
+</html>
