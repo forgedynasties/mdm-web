@@ -186,6 +186,10 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "serial query parameter required", http.StatusBadRequest)
 		return
 	}
+	if !validSerial(serial) {
+		http.Error(w, errInvalidSerial, http.StatusBadRequest)
+		return
+	}
 	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
 		http.Error(w, "serial does not match device credential", http.StatusForbidden)
 		return
@@ -702,6 +706,10 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "token and serial are required"})
 		return
 	}
+	if !validSerial(req.Serial) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
+		return
+	}
 	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
 	if err != nil {
 		enrollFailures.Hit(ip)
@@ -1076,6 +1084,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number or build_id too long"})
+		return
+	}
+	if !validSerial(req.SerialNumber) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
 	if len(req.Extra) > maxExtraBytes {
@@ -1683,6 +1695,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen || len(req.Extra) > maxExtraBytes {
 		log.Printf("[ws-telemetry] oversized field from %s", req.SerialNumber)
 		return
+	}
+	if !validSerial(req.SerialNumber) {
+		return // a corrupted serial: nothing is stored (see validSerial)
 	}
 
 	// Same gate as the HTTP path: DPC support off means store nothing. No config is

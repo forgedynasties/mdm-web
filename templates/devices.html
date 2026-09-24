@@ -105,7 +105,7 @@ if (!window.__dlRowNav) {
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
       <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
-      <span class="dl-onboard">{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
+      <span class="dl-onboard">{{if .SerialCorrupt}}<span class="dl-ktag bad" title="This tablet's serial read corrupt, so it identifies by its Android ID (msm-…). Its bootloader needs re-flashing.">Corrupted serial</span>{{end}}{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
     </div>
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
@@ -538,6 +538,7 @@ a.fleet-rail-item{min-height:40px}
 .dl-ktag.cls{background:var(--surface2);color:var(--text-2)}
 .dl-ktag.new{background:var(--warn-bg);color:var(--warn)}
 .dl-ktag.ret{background:var(--danger-bg);color:var(--danger)}
+.dl-ktag.bad{background:var(--danger-bg);color:var(--danger)}
 /* Quick-view chips → cc-seg pill look */
 .fleet-view{border-radius:99px!important;min-height:40px}
 /* product row: quieter, smaller pills under the quick views */

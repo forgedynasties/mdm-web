@@ -96,6 +96,11 @@ const (
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
 func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 
+// SerialCorrupt reports a T7 whose serial read corrupt and which identifies as
+// msm-<ANDROID_ID> instead (client 1.4.7+; the raw value it read is in latest_extra as
+// serial_raw). The fleet lists these so they can be found and re-flashed.
+func (d Device) SerialCorrupt() bool { return strings.HasPrefix(d.SerialNumber, "msm-") }
+
 // IsMDMLite reports whether a stock device is reported by the MDM-lite library
 // embedded in an app, rather than by the DPC agent. See prod.AgentTypeMDMLite. Such a
 // device never holds a live connection, so it shows Reporting / Not reporting (from
