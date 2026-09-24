@@ -797,7 +797,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div id="chart-panel-battery">
     {{/* The pad legend only makes sense on hardware with a wireless charging pad;
          MDM DPC devices and products without a pad get the plain battery chart. */}}
-    {{if or .Device.HasWLC .Device.HasCharging}}
+    {{if .Device.HasWLC}}
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
         {{if .Device.HasWLC}}
@@ -811,16 +811,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> Wireless pad misplaced</span>
         <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> Wireless pad unreadable</span>
         {{end}}
-        {{if .Device.HasCharging}}
-        {{/* The strip under the chart (chargeStripPlugin), not the line colour. */}}
-        <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
-        <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
-        <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
-        {{end}}
       </div>
     </div>
     {{end}}
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
+    {{if .Device.HasCharging}}
+    {{/* The strip's legend sits under the strip it explains (chargeStripPlugin draws it
+         along the chart's bottom edge); the line-colour legend stays above the chart. */}}
+    <div class="wlc-bar wlc-bar--strip">
+      <div class="chart-legend" id="charge-strip-legend">
+        <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
+        <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
+        <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
+      </div>
+    </div>
+    {{end}}
   </div>
   {{end}}
 
