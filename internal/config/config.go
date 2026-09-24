@@ -129,6 +129,11 @@ type Config struct {
 	// Same shape, for filling device_samples from existing check-in history so the
 	// shaped tables cover the past as well as everything arriving now.
 	SamplesBackfillCursorVal string `json:"samples_backfill_cursor"`
+	// State-history backfill (checkins retirement): the next UTC day to derive events
+	// for, oldest first, or "done"; and the instant live events began, pinned on the
+	// first run because the backfill itself moves the table's oldest event.
+	StateBackfillCursorVal string `json:"state_backfill_cursor"`
+	StateBackfillUntilVal  string `json:"state_backfill_until"`
 	// Dashboard shows a maintenance page to non-admin users while set.
 	MaintenanceModeFlag bool `json:"maintenance_mode"`
 	// Drop check-ins and telemetry from DPC agents instead of storing them. The
@@ -946,6 +951,20 @@ func (c *Config) SamplesBackfillCursor() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SamplesBackfillCursorVal
+}
+
+func (c *Config) StateBackfill() (cursor, until string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.StateBackfillCursorVal, c.StateBackfillUntilVal
+}
+
+func (c *Config) SetStateBackfill(cursor, until string) error {
+	c.mu.Lock()
+	c.StateBackfillCursorVal, c.StateBackfillUntilVal = cursor, until
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetSamplesBackfillCursor(cur string) error {
