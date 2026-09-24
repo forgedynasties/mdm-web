@@ -3399,8 +3399,8 @@ func (d *DB) GetCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, u
 }
 
 // chartExtraKeys are the only extra keys the device graph reads (temperature, RAM,
-// wireless charging, charging state).
-var chartExtraKeys = []string{"battery_temp_c", "cpu_temp_c", "ram_usage_mb", "wlc_status", "charging"}
+// wireless charging, charging state, and a flapping charger on the charge strip).
+var chartExtraKeys = []string{"battery_temp_c", "cpu_temp_c", "ram_usage_mb", "wlc_status", "charging", "charger_flapping"}
 
 // GetChartCheckinsBetween is GetCheckinsBetween for the device graph: the same rows, but
 // extra cut down in SQL to chartExtraKeys. A month of a chatty device is ~170k rows and
