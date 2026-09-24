@@ -1364,6 +1364,10 @@ type DB struct {
 	// from config at startup and whenever the setting is saved.
 	checkinSampleSec atomic.Int32
 
+	// flaps holds which devices' chargers are flapping, so history stores the flap as
+	// one state instead of a row per toggle (see charger_flap.go).
+	flaps flapTracker
+
 	// cmdSummaryMu/cmdSummaryCache short-TTL-cache GetCommandDeliverySummaries: it's
 	// a full join+CASE-classify over the commands/command_status window, polled
 	// every 20s by the Actions page from every open tab/browser. Collapsing repeat
@@ -1676,6 +1680,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// jsonb normalises key order, so equal values always render to identical text and
 	// the hash is stable. Rows written before this have a NULL hash and so compare
 	// unequal, which stores one extra row per device once, and never again.
+	// A flapping charger is one state in history, not a row per toggle: the hash and the
+	// events compare this projection, while latest_extra above keeps the real report.
+	histPrev, histCur := d.flaps.project(deviceID, prevExtra, merged, time.Now())
+
 	sample := int(d.checkinSampleSec.Load())
 	ct, err := tx.Exec(ctx, `
 		INSERT INTO checkins (device_id, battery_pct, build_id, extra, state_hash)
@@ -1694,7 +1702,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			  AND last.state_hash
 			    = md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
 		)
-	`, deviceID, battery, buildID, merged, sample)
+	`, deviceID, battery, buildID, histCur, sample)
 	if err != nil {
 		return uuid.Nil, 0, false, false, err
 	}
@@ -1713,7 +1721,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// condition, so the two counts diverging is the signal. Phase 2 compares them
 	// before a single reader moves over.
 	if sp, spErr := tx.Begin(ctx); spErr == nil {
-		if err := d.writeShapedTelemetry(ctx, sp, deviceID, prevExtra, merged, battery, stored); err != nil {
+		if err := d.writeShapedTelemetry(ctx, sp, deviceID, histPrev, histCur, battery, stored); err != nil {
 			_ = sp.Rollback(ctx)
 		} else {
 			_ = sp.Commit(ctx)
@@ -1911,7 +1919,7 @@ const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.
-const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','battery_temp_c','storage_free_gb','ota_progress','wifi_disconnects_1h','location_accuracy']`
+const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','battery_temp_c','storage_free_gb','ota_progress','wifi_disconnects_1h','location_accuracy','charger_flaps_5m']`
 
 // SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
 func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
@@ -8483,7 +8491,10 @@ const rollupSamplesFromShaped = `
 				UNION ALL
 				SELECT ev.device_id, ev.at, FALSE,
 				       NULL::smallint, NULL::float8, NULL::int, NULL::int, NULL::float8,
-				       CASE WHEN ev.key = 'charging'   THEN ev.to_val END,
+				       -- "2" is a flapping charger (charger_flap.go). It is carried as not
+				       -- charging: the ::boolean casts below would fail on it, and a charger
+				       -- toggling every second is not charging the device in any useful sense.
+				       CASE WHEN ev.key = 'charging'   THEN CASE WHEN ev.to_val = '2' THEN 'false' ELSE ev.to_val END END,
 				       CASE WHEN ev.key = 'wlc_status' THEN ev.to_val END,
 				       CASE WHEN ev.key = 'screen_on'  THEN ev.to_val END,
 				       CASE WHEN ev.key = 'timezone'   THEN ev.to_val END,
@@ -10131,7 +10142,17 @@ func (d *DB) FlappingChargers(ctx context.Context, windowMin, flapsPerMin int) (
 		}
 		out[id] = flapRate(n, windowMin)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// A device in a flap stores it as one state, so its toggles are no longer events to
+	// count above; the tracker has its rate instead.
+	for id, r := range d.flaps.rates(time.Now()) {
+		if r > flapsPerMin && r > out[id] {
+			out[id] = r
+		}
+	}
+	return out, nil
 }
 
 // flapRate rounds a transition count over windowMin minutes to a per-minute rate.
@@ -10159,6 +10180,10 @@ func (d *DB) DeviceChargerFlapRate(ctx context.Context, deviceID uuid.UUID, wind
 		deviceID, windowMin).Scan(&n)
 	if err != nil {
 		return 0, err
+	}
+	// Inside a flap the toggles are not events (charger_flap.go); the tracker counts them.
+	if r := d.flaps.rates(time.Now())[deviceID]; r > flapRate(n, windowMin) {
+		return r, nil
 	}
 	return flapRate(n, windowMin), nil
 }
