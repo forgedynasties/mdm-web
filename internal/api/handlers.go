@@ -202,6 +202,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.noteRemoteIP(serial, ratelimit.ClientIP(r))
 	client, err := h.hub.Upgrade(w, r, device.ID)
 	if err != nil {
 		log.Printf("[ws] upgrade error for %s: %v", serial, err)
@@ -1123,6 +1124,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	h.noteRemoteIP(req.SerialNumber, ratelimit.ClientIP(r))
 
 	resp := map[string]any{
 		"status":   "ok",

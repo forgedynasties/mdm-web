@@ -1,0 +1,68 @@
+{{define "refused_serial.html"}}
+{{template "header" .}}
+<style>
+.rs-wrap{max-width:1100px;margin:0 auto;padding:22px 24px 80px}
+.rs-tag{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--danger-bg);color:var(--danger);vertical-align:4px;margin-left:6px}
+.rs-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-top:16px}
+.rs-grid .cc-card{padding:16px 18px}
+.rs-grid h2{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:0 0 8px}
+.rs-grid p,.rs-grid li{font-size:13.5px;line-height:1.6}
+.rs-src{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
+.rs-src .where{font-weight:700}
+.rs-src .meta{font-size:12px;color:var(--text-faint);margin-top:2px}
+.rs-near{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px}
+.rs-near li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-top:1px solid var(--border-soft)}
+.rs-near a{color:var(--text)}
+.rs-empty{color:var(--text-faint);font-size:13px}
+@media (max-width:1024px){.rs-grid{grid-template-columns:1fr}}
+</style>
+<div class="rs-wrap">
+  <a href="/devices" class="cc-sub" style="text-decoration:none">← Fleet</a>
+  <h1 class="cc-h1" style="margin-top:6px">Unidentified tablet <span class="rs-tag">Corrupted serial</span></h1>
+  <div class="cc-sub">Reported serial <code>{{.Serial}}</code>{{if .Sources}} · refused {{.Attempts}} time{{if ne .Attempts 1}}s{{end}}{{end}} · nothing it sends is stored</div>
+
+  <div class="rs-grid">
+    <div class="cc-card">
+      <h2>What this serial is</h2>
+      <p><code>{{.Serial}}</code> is not a device serial. A T7 whose bootloader is corrupted starts without a
+        serial on its boot command line, and Android reads the next item on that line instead — here the
+        modem setting <code>androidboot.baseband=msm</code>. Every tablet in that state reports the same value,
+        so the server cannot tell them apart.</p>
+      <p>Until 24 Sep they were merged into one "device" under this serial: several tablets' history interleaved
+        on one record (19 different boots and 29 addresses). That record has been deleted, and the server now
+        refuses this serial — nothing these tablets send is stored.</p>
+      <h2 style="margin-top:16px">How to fix it</h2>
+      <ol style="margin:0;padding-left:18px">
+        <li>Find the tablet at the site (below, where it probably is).</li>
+        <li>Update its firmware with an OTA carrying MDM client 1.4.7 or later.</li>
+        <li>It comes back as <b>msm-&lt;Android ID&gt;</b>, its own device with its own history, tagged
+          <span class="rs-tag" style="vertical-align:1px;margin:0">Corrupted serial</span> in the fleet. Re-flashing
+          the bootloader restores the real serial.</li>
+      </ol>
+    </div>
+
+    <div class="cc-card">
+      <h2>Where it probably is</h2>
+      {{if .Sources}}
+        {{range .Sources}}
+        <div class="rs-src">
+          {{if .Nearby}}{{$first := index .Nearby 0}}
+            <div class="where">{{if $first.Restaurant}}Likely at {{$first.Restaurant}}{{else}}Same network as {{len .Nearby}} device{{if ne (len .Nearby) 1}}s{{end}}{{end}}</div>
+            <div class="meta">Reaching the server from {{.RemoteIP}}, the address these devices use:</div>
+            <ul class="rs-near">{{range .Nearby}}<li><a href="/devices/{{.Serial}}">{{.Serial}}</a><span class="cc-sub" style="margin:0">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{if .LastSeen}}{{.LastSeen.UTC.Format "Jan 2 15:04"}}{{end}}</span></li>{{end}}</ul>
+          {{else}}
+            <div class="where">Unknown location</div>
+            <div class="meta">Reaching the server from {{.RemoteIP}}; no known device uses that address.</div>
+          {{end}}
+          <div class="meta" style="margin-top:6px">{{if .BuildID}}Build {{.BuildID}} · {{end}}{{.Attempts}} attempt{{if ne .Attempts 1}}s{{end}} · first {{.FirstAt.UTC.Format "Jan 2 15:04"}} · last {{.LastAt.UTC.Format "Jan 2 15:04 UTC"}}</div>
+        </div>
+        {{end}}
+      {{else}}
+        <p class="rs-empty">No tablet has tried to check in under this serial since the server started refusing it.
+          If one does, it appears here with where it is reaching us from.</p>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}

@@ -5030,9 +5030,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 	data["CurrentQuery"] = r.URL.RawQuery
 	// Tablets refused for a corrupted serial in the last day: they are stored nowhere
-	// else, so this banner is the only place they show up at all.
+	// else, so their cards at the top of the roster are the only place they show up.
 	if refused, err := h.db.RecentRefusedCheckins(r.Context(), 24*time.Hour); err == nil && len(refused) > 0 {
-		data["RefusedSerials"] = refused
+		data["RefusedSerials"] = h.refusedCards(r.Context(), refused)
 	}
 
 	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
@@ -5989,6 +5989,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
+		if h.refusedSerialPage(w, r, serial) {
+			return
+		}
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}

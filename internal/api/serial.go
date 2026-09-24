@@ -34,5 +34,17 @@ func (h *Handler) noteRefusedSerial(serial, remoteIP, buildID string) {
 	}()
 }
 
+// noteRemoteIP keeps a device's last public address current (written only on change), so
+// a refused tablet can be placed by the devices reaching us from the same network.
+func (h *Handler) noteRemoteIP(serial, ip string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.db.NoteDeviceRemoteIP(ctx, serial, ip); err != nil {
+			log.Printf("[serial] note address for %s: %v", serial, err)
+		}
+	}()
+}
+
 // errInvalidSerial is the body a refused check-in gets back.
 const errInvalidSerial = "serial_number is not a device serial (corrupted serial; update the client to 1.4.7+)"
