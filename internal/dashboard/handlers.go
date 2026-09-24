@@ -19150,6 +19150,16 @@ func (h *Handler) downsampleOldCheckins(ctx context.Context) {
 		log.Printf("[housekeeping] downsampled %d check-in row(s) across %d day(s) older than %dd to 1 per %ds",
 			rows, processed, days, sec)
 	}
+	// Same setting, applied to the history that replaced checkins.
+	srows, sdays, err := h.db.DownsampleSamples(ctx, days, sec, downsampleCheckinsDaysPerRun)
+	if err != nil {
+		log.Printf("[housekeeping] downsample samples: %v", err)
+		return
+	}
+	if srows > 0 {
+		log.Printf("[housekeeping] downsampled %d sample row(s) across %d day(s) older than %dd to 1 per %ds",
+			srows, sdays, days, sec)
+	}
 }
 
 // stripLegacyCheckins walks the check-in history one UTC day at a time, oldest
@@ -19408,6 +19418,12 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] prune checkins: %v", err)
 		} else if n > 0 {
 			log.Printf("[retention] pruned %d checkin(s) older than %dd", n, d)
+		}
+		// The same setting governs the history that replaced checkins.
+		if n, err := h.db.PruneShaped(ctx, d); err != nil {
+			log.Printf("[retention] prune samples/events: %v", err)
+		} else if n > 0 {
+			log.Printf("[retention] pruned %d sample/event row(s) older than %dd", n, d)
 		}
 	}
 	if d := h.cfg.LogcatRetentionDays(); d > 0 {

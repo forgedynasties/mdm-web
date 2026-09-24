@@ -8085,6 +8085,76 @@ func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
+// PruneShaped applies the check-in retention setting to the history that replaced the
+// checkins table: samples older than `days` go, and so do state events — except each
+// device's last event per key before the cut-off. That one is the state the device was
+// in when the kept window opens; without it every reader would see "unknown" until the
+// key next changed, which for a timezone can be never.
+func (d *DB) PruneShaped(ctx context.Context, days int) (int64, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	s, err := d.pool.Exec(ctx, `DELETE FROM device_samples WHERE at < NOW() - make_interval(days => $1)`, days)
+	if err != nil {
+		return 0, err
+	}
+	e, err := d.pool.Exec(ctx, `
+		DELETE FROM device_state_events e
+		WHERE e.at < NOW() - make_interval(days => $1)
+		  AND EXISTS (SELECT 1 FROM device_state_events n
+		              WHERE n.device_id = e.device_id AND n.key = e.key
+		                AND n.at > e.at AND n.at < NOW() - make_interval(days => $1))`, days)
+	if err != nil {
+		return s.RowsAffected(), err
+	}
+	return s.RowsAffected() + e.RowsAffected(), nil
+}
+
+// DownsampleSamples is DownsampleCheckins for device_samples: days older than
+// olderThanDays keep the first sample per device per bucketSec, up to maxDays productive
+// days a run. State events are never thinned — they are one row per real change already.
+func (d *DB) DownsampleSamples(ctx context.Context, olderThanDays, bucketSec, maxDays int) (rows int64, days int, err error) {
+	if olderThanDays <= 0 || bucketSec <= 0 || maxDays <= 0 {
+		return 0, 0, nil
+	}
+	var day, cutoff time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT COALESCE(MIN(at)::date, CURRENT_DATE), (CURRENT_DATE - $1::int)
+		FROM device_samples`, olderThanDays).Scan(&day, &cutoff)
+	if err != nil {
+		return 0, 0, err
+	}
+	const maxExamined = 400
+	for examined := 0; days < maxDays && examined < maxExamined && day.Before(cutoff); examined++ {
+		var n int64
+		err = d.pool.QueryRow(ctx, `
+			WITH doomed AS (
+				SELECT device_id, at FROM (
+					SELECT device_id, at, ROW_NUMBER() OVER (
+						PARTITION BY device_id,
+						             to_timestamp(floor(EXTRACT(EPOCH FROM at) / $2::int) * $2::int)
+						ORDER BY at
+					) AS rn
+					FROM device_samples
+					WHERE at >= $1::date AND at < $1::date + 1
+				) t WHERE t.rn > 1
+			), del AS (
+				DELETE FROM device_samples s USING doomed dd
+				WHERE s.device_id = dd.device_id AND s.at = dd.at RETURNING 1
+			)
+			SELECT COUNT(*) FROM del`, day, bucketSec).Scan(&n)
+		if err != nil {
+			return rows, days, err
+		}
+		rows += n
+		if n > 0 {
+			days++
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return rows, days, nil
+}
+
 // RollupDailyStats aggregates one calendar day of checkins into device_daily_stats
 // (one row per device for that day). Idempotent: re-running refreshes the day, so it
 // is safe to call repeatedly for the current (still-accumulating) day. Returns the
