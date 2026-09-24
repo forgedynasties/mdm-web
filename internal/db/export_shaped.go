@@ -297,8 +297,17 @@ func ShapedExtra(s DeviceSample, state map[string]string) json.RawMessage {
 			}
 		}
 	}
-	if v, ok := state["charging"]; ok && (v == "true" || v == "false") {
-		put("charging", v)
+	if v, ok := state["charging"]; ok {
+		switch v {
+		case "true", "false":
+			put("charging", v)
+		case flapCharging:
+			// A flapping charger (charger_flap.go). charging stays a boolean for every
+			// reader and the API; the flap rides beside it, under the key the firmware
+			// client itself reports.
+			put("charging", "false")
+			put("charger_flapping", "true")
+		}
 	}
 	if v, ok := state["wlc_status"]; ok {
 		if _, isNum := atoiExport(v); isNum {

@@ -25,6 +25,7 @@ type shapedPoint struct {
 	HasWlc     bool
 	Charging   bool
 	HasCharge  bool
+	Flapping   bool // charging "2": a flapping charger (db/charger_flap.go)
 }
 
 // mergeShapedSeries walks the samples and the state timeline together, carrying each
@@ -70,7 +71,7 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 			}
 		}
 		if v, ok := cur["charging"]; ok {
-			p.Charging, p.HasCharge = v == "true", true
+			p.Charging, p.HasCharge, p.Flapping = v == "true", true, v == "2"
 		}
 		out = append(out, p)
 	}
@@ -139,13 +140,12 @@ func shapedChargeRuns(points []shapedPoint, gapMs int64) []chargeRun {
 		}
 		if n := len(runs); n > 0 {
 			last := &runs[n-1]
-			same := (last.C == nil && st == nil) || (last.C != nil && st != nil && *last.C == *st)
-			if same && x-last.To <= gapMs {
+			if last.sameCharge(st, p.Flapping) && x-last.To <= gapMs {
 				last.To = x
 				continue
 			}
 		}
-		runs = append(runs, chargeRun{From: x, To: x, C: st})
+		runs = append(runs, chargeRun{From: x, To: x, C: st, F: p.Flapping})
 	}
 	return runs
 }

@@ -815,6 +815,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{/* The strip under the chart (chargeStripPlugin), not the line colour. */}}
         <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
         <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
+        <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
         {{end}}
       </div>
     </div>
@@ -1579,6 +1580,27 @@ function mdmBootCharts() {
   // left blank, the same place the battery line breaks.
   const CHARGE_STRIP_H = 6, CHARGE_STRIP_GAP = 5;
   const CHARGE_ON = '#00b894', CHARGE_OFF = 'rgba(122,127,154,0.22)';
+  // A flapping charger — a bad cable toggling every second or two, stored as one state
+  // (charger_flapping). Yellow, and hatched so it reads as a fault rather than a third
+  // kind of charging, and stays apart from the green without relying on colour.
+  const CHARGE_FLAP = '#fdcb6e', CHARGE_FLAP_STRIPE = '#e0a93a';
+  function chargeFlapFill(chart) {
+    if (chart.$chargeFlapFill) return chart.$chargeFlapFill;
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = 6;
+    const g = tile.getContext('2d');
+    g.fillStyle = CHARGE_FLAP;
+    g.fillRect(0, 0, 6, 6);
+    g.strokeStyle = CHARGE_FLAP_STRIPE;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(-1, 7); g.lineTo(7, -1);   // the diagonal, plus its two corner ends so
+    g.moveTo(-1, 1); g.lineTo(1, -1);   // the stripes join up across tiles
+    g.moveTo(5, 7); g.lineTo(7, 5);
+    g.stroke();
+    chart.$chargeFlapFill = chart.ctx.createPattern(tile, 'repeat') || CHARGE_FLAP;
+    return chart.$chargeFlapFill;
+  }
   // Sub-minute flips are the charger's noise, not the device's behaviour: a pad losing
   // contact for one check-in, or a charger negotiating. Drawn literally they slice the
   // strip into slivers that read as a fault. Runs shorter than this are absorbed into
@@ -1603,7 +1625,11 @@ function mdmBootCharts() {
     return out;
   }
   function chargeSpans(rawRuns) {
-    const runs = despeckleCharge(rawRuns);
+    // A run's state as one value: true, false, null, or 'flap'. Copies, so despeckling
+    // never edits the runs it was handed.
+    const runs = despeckleCharge(rawRuns.map(function (r) {
+      return { from: r.from, to: r.to, c: r.f ? 'flap' : r.c };
+    }));
     const out = [];
     for (let i = 0; i < runs.length; i++) {
       const r = runs[i], prev = runs[i - 1], next = runs[i + 1];
@@ -1639,7 +1665,7 @@ function mdmBootCharts() {
         const x0 = Math.max(ca.left, xs.getPixelForValue(sp.from));
         const x1 = Math.min(ca.right, xs.getPixelForValue(sp.to));
         if (x1 < ca.left || x0 > ca.right) return;
-        ctx.fillStyle = sp.c ? CHARGE_ON : CHARGE_OFF;
+        ctx.fillStyle = sp.c === 'flap' ? chargeFlapFill(chart) : sp.c ? CHARGE_ON : CHARGE_OFF;
         ctx.fillRect(x0, y, Math.max(1, x1 - x0), CHARGE_STRIP_H);
       });
       ctx.restore();
@@ -1915,7 +1941,8 @@ function mdmBootCharts() {
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       if (srcCharge().length) {
         const c = chargeAt(ms);
-        if (c === true) s += ' · Charging';
+        if (c === 'flap') s += ' · ⚠ Charger flapping';
+        else if (c === true) s += ' · Charging';
         else if (c === false) s += ' · Not charging';
       }
       parts.push(s);
@@ -1956,7 +1983,8 @@ function mdmBootCharts() {
     let note = '';
     if (bPt && srcCharge().length) {
       const c = chargeAt(anchor ? anchor.x : ms);
-      if (c === true) note = 'charging';
+      if (c === 'flap') note = 'charger flapping';
+      else if (c === true) note = 'charging';
       else if (c === false) note = 'not charging';
     }
     setReadout('cr-charge', note);
@@ -4332,7 +4360,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
           window.mdmChart.lastPlottedMs = d.ts_ms;
           var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
           {{if .ShowBattery}}window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
-          {{if and .ShowBattery .Device.HasCharging}}window.mdmChart.pushCharge(d.ts_ms, typeof d.charging === 'boolean' ? d.charging : null);{{end}}
+          {{if and .ShowBattery .Device.HasCharging}}window.mdmChart.pushCharge(d.ts_ms, d.charger_flapping ? 'flap' : typeof d.charging === 'boolean' ? d.charging : null);{{end}}
           // Skip a series the page has not fetched yet (temp/RAM load lazily): one
           // pushed point makes a one-point series that the crosshair rail reports at
           // every cursor position. The lazy load picks the live point up anyway.
