@@ -1687,31 +1687,36 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	histPrev, histCur := d.flaps.project(deviceID, prevExtra, merged, time.Now())
 
 	sample := int(d.checkinSampleSec.Load())
+	//
+	// The last stored report's fingerprint lives on the device row (hist_*), not in a
+	// checkins row: that table is being retired, and every reader now takes history from
+	// device_samples and device_state_events. The devices row is already locked by the
+	// upsert above, so reading and moving the fingerprint here is race-free. A device with
+	// no fingerprint yet (new, or the first report after this moved) simply stores.
 	ct, err := tx.Exec(ctx, `
-		INSERT INTO checkins (device_id, battery_pct, build_id, extra, state_hash)
-		SELECT $1, $2, $3, '{}'::jsonb,
-		       md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
-		WHERE NOT EXISTS (
-			SELECT 1 FROM (
-				SELECT created_at, battery_pct, build_id, state_hash
-				FROM checkins WHERE device_id = $1
-				ORDER BY created_at DESC LIMIT 1
-			) last
-			WHERE $5 > 0
-			  AND last.created_at > NOW() - make_interval(secs => $5)
-			  AND last.battery_pct = $2
-			  AND last.build_id = $3
-			  AND last.state_hash
-			    = md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
-		)
+		UPDATE devices SET
+			hist_at         = NOW(),
+			hist_battery    = $2,
+			hist_build      = $3,
+			hist_state_hash = md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
+		WHERE id = $1
+		  AND NOT (
+			$5 > 0
+			AND hist_at IS NOT NULL
+			AND hist_at > NOW() - make_interval(secs => $5)
+			AND hist_battery = $2
+			AND hist_build = $3
+			AND hist_state_hash
+			  = md5(((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)::text)
+		  )
 	`, deviceID, battery, buildID, histCur, sample)
 	if err != nil {
 		return uuid.Nil, 0, false, false, err
 	}
 	stored := ct.RowsAffected() > 0
 
-	// Dual-write the shaped tables. Nothing reads them yet: they exist to be compared
-	// against checkins before any reader moves over.
+	// Write the shaped tables: the state events always, the numeric sample when this
+	// report stored (the same condition that used to store a checkins row).
 	//
 	// Inside a SAVEPOINT, because an error anywhere in a transaction poisons the whole
 	// transaction — "log it and carry on" would still fail the commit, and take the
@@ -2036,7 +2041,10 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 	if sampleFrom == nil || eventFrom == nil {
 		return time.Time{}, false, nil
 	}
-	if checkinFrom != nil && !checkinFrom.Before(*sampleFrom) {
+	// No check-in history at all is the same case: check-ins stopped being written to
+	// that table, so a device enrolled since has none, and nothing older than its first
+	// sample exists anywhere.
+	if checkinFrom == nil || !checkinFrom.Before(*sampleFrom) {
 		return time.Time{}, true, nil
 	}
 	if eventFrom.After(*sampleFrom) {
@@ -13046,6 +13054,13 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_url TEXT NOT NULL DEFAULT '
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_seen_at TIMESTAMPTZ;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_source TEXT NOT NULL DEFAULT '';
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS custody_set_at TIMESTAMPTZ;
+
+-- The last stored report's fingerprint, for UpsertCheckin's store-or-coalesce decision.
+-- It used to be read back from the newest checkins row; that table is being retired.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_at         TIMESTAMPTZ;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_battery    SMALLINT;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_build      TEXT;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_state_hash TEXT;
 CREATE INDEX IF NOT EXISTS idx_devices_custody ON devices(custody_server) WHERE custody_server <> '';
 
 -- The peer outbox: an arrival is announced to every peer, and the announcement has to
