@@ -2175,6 +2175,69 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 	return ct.RowsAffected(), nil
 }
 
+// StateEventsLiveStart is when device_state_events began to be written live: the
+// oldest event in the table. Read once, before any history is backfilled into it (the
+// backfill then pins it in config), because afterwards the oldest event is a backfilled one.
+func (d *DB) StateEventsLiveStart(ctx context.Context) (time.Time, bool, error) {
+	var t *time.Time
+	if err := d.pool.QueryRow(ctx, `SELECT MIN(at) FROM device_state_events`).Scan(&t); err != nil {
+		return time.Time{}, false, err
+	}
+	if t == nil {
+		return time.Time{}, false, nil
+	}
+	return *t, true, nil
+}
+
+// BackfillStateEventsDay derives state transitions for one UTC day of check-in history
+// older than `until` (the instant live events began), so the charge strip, pad state,
+// screen and timezone history survive the checkins table being retired.
+//
+// It is lossy in exactly one way, and knowingly: that history was thinned to one row per
+// device per few minutes, so a flip and its reversal between two kept rows left no trace.
+// But the rows it reads are the very rows the charts draw those windows from today, so
+// the events describe precisely what the dashboard already shows — nothing visible is
+// lost, and nothing is invented.
+//
+// Days must run oldest first. Within the day a change is a value that differs from the
+// same key's previous row; the first row of a day continues from the last event already
+// written, so there is no seam between days. The first value ever seen is a seed (from
+// ""), as the live path writes one. Values are rendered as jsonScalar renders them, so a
+// derived event and a live one are indistinguishable to every reader. Idempotent: events
+// are keyed (device_id, key, at).
+func (d *DB) BackfillStateEventsDay(ctx context.Context, day, until time.Time) (int64, error) {
+	ct, err := d.pool.Exec(ctx, `
+		WITH k(key) AS (SELECT unnest($3::text[])),
+		r AS (
+			SELECT c.device_id, c.created_at AS at, k.key,
+			       CASE jsonb_typeof(c.extra -> k.key)
+			            WHEN 'string' THEN c.extra ->> k.key
+			            WHEN 'null'   THEN 'null'
+			            ELSE (c.extra -> k.key)::text END AS v
+			FROM checkins c CROSS JOIN k
+			WHERE c.created_at >= $1::date AND c.created_at < LEAST($1::date + 1, $2::timestamptz)
+			  AND c.extra ? k.key
+		),
+		w AS (
+			SELECT r.*, LAG(v) OVER (PARTITION BY device_id, key ORDER BY at) AS pv FROM r
+		),
+		p AS (
+			SELECT w.device_id, w.at, w.key, w.v,
+			       COALESCE(w.pv, (SELECT e.to_val FROM device_state_events e
+			                       WHERE e.device_id = w.device_id AND e.key = w.key AND e.at < w.at
+			                       ORDER BY e.at DESC LIMIT 1)) AS prev
+			FROM w
+		)
+		INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
+		SELECT device_id, at, key, COALESCE(prev, ''), v FROM p
+		WHERE prev IS DISTINCT FROM v
+		ON CONFLICT DO NOTHING`, day, until, stateKeys)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 // checkinDupKeys are the snapshot keys whose values now live in fixed columns on
 // device_samples for the whole of history — the backfill reaches 2026-03-18, the same
 // day check-ins begin. Holding them in both places buys nothing, and they are the

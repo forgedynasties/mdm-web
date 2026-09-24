@@ -18994,6 +18994,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.stripLegacyCheckins(ctx)
 	h.backfillBuildHistory(ctx)
 	h.backfillDeviceSamples(ctx)
+	h.backfillStateEvents(ctx)
 	// After the backfill, never before it: a day whose samples have not been written
 	// yet must not have its snapshots stripped. The EXISTS guard inside the strip makes
 	// that safe regardless, but running them in this order means the guard is a backstop
@@ -19052,6 +19053,77 @@ func (h *Handler) backfillDeviceSamples(ctx context.Context) {
 	}
 	if total > 0 {
 		log.Printf("[samples-backfill] wrote %d sample(s) across %d day(s), now at %s", total, steps, day.Format("2006-01-02"))
+	}
+}
+
+// backfillStateEvents derives state events from the check-in snapshots older than the
+// instant live events began (BackfillStateEventsDay), oldest day first, up to 20 days or
+// three minutes a pass. Once it is done every window of every device is answerable from
+// the shaped tables, which is what lets the checkins table go.
+func (h *Handler) backfillStateEvents(ctx context.Context) {
+	cur, untilS := h.cfg.StateBackfill()
+	if cur == "done" {
+		return
+	}
+	if untilS == "" {
+		start, ok, err := h.db.StateEventsLiveStart(ctx)
+		if err != nil {
+			log.Printf("[state-backfill] live start: %v", err)
+			return
+		}
+		if !ok {
+			return // no live events yet: nothing to line history up against
+		}
+		untilS = start.UTC().Format(time.RFC3339Nano)
+		if err := h.cfg.SetStateBackfill(cur, untilS); err != nil {
+			log.Printf("[state-backfill] save start: %v", err)
+			return
+		}
+	}
+	until, err := time.Parse(time.RFC3339Nano, untilS)
+	if err != nil {
+		log.Printf("[state-backfill] bad start %q", untilS)
+		return
+	}
+	var day time.Time
+	if cur == "" {
+		oldest, ok, err := h.db.OldestCheckinDay(ctx)
+		if err != nil {
+			log.Printf("[state-backfill] oldest checkin: %v", err)
+			return
+		}
+		if !ok {
+			_ = h.cfg.SetStateBackfill("done", untilS)
+			return
+		}
+		day = oldest
+	} else if day, err = time.Parse("2006-01-02", cur); err != nil {
+		log.Printf("[state-backfill] bad cursor %q, restarting", cur)
+		_ = h.cfg.SetStateBackfill("", untilS)
+		return
+	}
+	deadline := time.Now().Add(3 * time.Minute)
+	var total int64
+	steps := 0
+	for ; steps < 20 && day.Before(until) && time.Now().Before(deadline); steps++ {
+		n, err := h.db.BackfillStateEventsDay(ctx, day, until)
+		if err != nil {
+			log.Printf("[state-backfill] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		day = day.AddDate(0, 0, 1)
+		if err := h.cfg.SetStateBackfill(day.Format("2006-01-02"), untilS); err != nil {
+			log.Printf("[state-backfill] save cursor: %v", err)
+			return
+		}
+	}
+	if !day.Before(until) {
+		_ = h.cfg.SetStateBackfill("done", untilS)
+		log.Printf("[state-backfill] complete up to %s", until.Format(time.RFC3339))
+	}
+	if total > 0 {
+		log.Printf("[state-backfill] wrote %d event(s) across %d day(s), next %s", total, steps, day.Format("2006-01-02"))
 	}
 }
 
