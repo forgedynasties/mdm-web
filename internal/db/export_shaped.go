@@ -17,7 +17,7 @@ var exportStateKeys = []string{"charging", "wlc_status", "wifi", "ip_address", "
 
 // StreamExportShaped answers the CSV export from the shaped tables instead of from
 // checkins.extra. It produces exactly the same ExportRow stream as
-// StreamExportCheckins (or StreamExportCycles when cycles is true) for the same
+// StreamExportCheckins for the same
 // window, and it is the last reader that had to move before checkins.extra can stop
 // being written.
 //
@@ -220,9 +220,8 @@ func (d *DB) streamShapedSamples(ctx context.Context, dev exportDevice, start, e
 }
 
 // streamShapedCycles is the grid mode: a row at every interval mark, carrying the last
-// sample at or before it, subject to the same per-device staleness cap as
-// StreamExportCycles so a device that goes dark shows a gap rather than a value frozen
-// forever.
+// sample at or before it, subject to a per-device staleness cap so a device that goes
+// dark shows a gap rather than a value frozen forever.
 func (d *DB) streamShapedCycles(ctx context.Context, dev exportDevice, start, end time.Time, intervalSec int, emit func(time.Time, *DeviceSample) error) error {
 	rows, err := d.pool.Query(ctx, `
 		SELECT g.ts, s.at, s.battery_pct, s.temp_c, s.wifi_rssi, s.ram_used_mb, s.ram_total_mb, s.storage_free_gb

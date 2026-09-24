@@ -6068,7 +6068,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			if stats, statErr := h.db.GetDeviceDailyStats(ctx, device.ID, 8); statErr == nil {
 				var peakDay time.Time
 				if peakDay, havePeak = peakDayForFocus(stats, focus); havePeak {
-					cc, err = h.db.GetCheckinsBetween(ctx, device.ID, peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour))
+					// Shaped first, like the default window below. Check-in rows no longer
+					// carry temperature or RAM (new rows store '{}', and older ones had those
+					// keys moved to device_samples), so reading them alone drew an empty
+					// temp/RAM chart for every peak day.
+					from, until := peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour)
+					if shaped, ok := h.shapedCheckins(ctx, device.ID, from, until); ok {
+						cc = shaped
+					} else {
+						cc, err = h.db.GetCheckinsBetween(ctx, device.ID, from, until)
+					}
 				}
 			}
 		}
@@ -6526,9 +6535,11 @@ func chartCachePut(key string, body []byte) {
 	chartCache[key] = chartCacheEntry{body: body, at: time.Now()}
 }
 
-// batteryAnchorShaped / batteryAnchorCheckins fetch the last battery reading before the
-// chart window, from whichever table is answering this chart. Best-effort: a chart with
-// no anchor is still correct, it just cannot see a cycle that armed off the left edge.
+// batteryAnchorShaped fetches the last battery reading before the chart window.
+// Best-effort: a chart with no anchor is still correct, it just cannot see a cycle that
+// armed off the left edge. Always from device_samples, whichever table answers the chart:
+// samples are backfilled to the first check-in (2026-03-18), so they hold every battery
+// reading the check-in history does.
 func (h *Handler) batteryAnchorShaped(ctx context.Context, deviceID uuid.UUID, from time.Time) *batteryAnchor {
 	at, pct, ok, err := h.db.LastBatteryMarkBefore(ctx, deviceID, from)
 	if err != nil || !ok {
@@ -6537,13 +6548,6 @@ func (h *Handler) batteryAnchorShaped(ctx context.Context, deviceID uuid.UUID, f
 	return &batteryAnchor{X: at.UnixMilli(), Y: pct}
 }
 
-func (h *Handler) batteryAnchorCheckins(ctx context.Context, deviceID uuid.UUID, from time.Time) *batteryAnchor {
-	at, pct, ok, err := h.db.LastBatteryMarkCheckin(ctx, deviceID, from)
-	if err != nil || !ok {
-		return nil
-	}
-	return &batteryAnchor{X: at.UnixMilli(), Y: pct}
-}
 
 func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -6650,7 +6654,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
 	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge,
-		"battery_before": h.batteryAnchorCheckins(r.Context(), device.ID, time.UnixMilli(fromMs))})
+		"battery_before": h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs))})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -6837,35 +6841,9 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const pageSize = 25
-	page := 1
-	if p := r.URL.Query().Get("page"); p != "" {
-		if n, err := strconv.Atoi(p); err == nil && n > 0 {
-			page = n
-		}
-	}
-	offset := (page - 1) * pageSize
-
-	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	totalPages := (total + pageSize - 1) / pageSize
-	if totalPages == 0 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-		offset = (page - 1) * pageSize
-	}
-
-	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
+	// The page used to carry a paged table of raw check-ins (a count(*) plus a page query
+	// on every view); the template stopped rendering it, and the rows no longer hold
+	// anything to show, so neither is fetched.
 	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -6878,11 +6856,6 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		"Title":        device.SerialNumber + " — History",
 		"Device":       device,
 		"Commands":     commands,
-		"Checkins":     checkins,
-		"ExtraColumns": h.cfg.Columns(),
-		"CheckinPage":  page,
-		"CheckinPages": totalPages,
-		"CheckinTotal": total,
 	})
 }
 

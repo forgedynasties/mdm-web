@@ -1071,7 +1071,9 @@ func (d *DB) SetNickname(ctx context.Context, id uuid.UUID, name string) error {
 
 // HourlyOnline returns, for the last `hours` hours ending now (UTC hour
 // buckets, oldest first), how many of the given devices checked in during
-// each hour. Index-bounded by created_at; small device sets.
+// each hour. Read from device_samples, which gets a row under exactly the condition
+// a check-in history row used to be stored, so the counts are the same; the BRIN index
+// on `at` bounds the scan.
 func (d *DB) HourlyOnline(ctx context.Context, ids []uuid.UUID, hours int) ([]int, error) {
 	out := make([]int, hours)
 	if len(ids) == 0 {
@@ -1079,8 +1081,8 @@ func (d *DB) HourlyOnline(ctx context.Context, ids []uuid.UUID, hours int) ([]in
 	}
 	start := time.Now().UTC().Truncate(time.Hour).Add(-time.Duration(hours-1) * time.Hour)
 	rows, err := d.pool.Query(ctx, `
-		SELECT date_trunc('hour', created_at), COUNT(DISTINCT device_id)
-		FROM checkins WHERE device_id = ANY($1) AND created_at >= $2
+		SELECT date_trunc('hour', at), COUNT(DISTINCT device_id)
+		FROM device_samples WHERE device_id = ANY($1) AND at >= $2
 		GROUP BY 1`, ids, start)
 	if err != nil {
 		return nil, err
@@ -2099,26 +2101,6 @@ func (d *DB) LastBatteryMarkBefore(ctx context.Context, deviceID uuid.UUID, t ti
 	return at, pct, true, nil
 }
 
-// LastBatteryMarkCheckin is LastBatteryMarkBefore against the check-in history, for the
-// windows the shaped tables do not cover. Check-ins carry no NULL battery, so unlike the
-// samples query it needs no null guard.
-func (d *DB) LastBatteryMarkCheckin(ctx context.Context, deviceID uuid.UUID, t time.Time) (time.Time, int, bool, error) {
-	var at time.Time
-	var pct int
-	err := d.pool.QueryRow(ctx, `
-		SELECT created_at, battery_pct FROM checkins
-		WHERE device_id = $1 AND created_at < $2
-		  AND (battery_pct >= $3 OR battery_pct <= $4)
-		ORDER BY created_at DESC LIMIT 1`, deviceID, t, cycleFull, cycleEmpty).Scan(&at, &pct)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return time.Time{}, 0, false, nil
-	}
-	if err != nil {
-		return time.Time{}, 0, false, err
-	}
-	return at, pct, true, nil
-}
-
 // GetStateTimeline returns the transitions of the given keys inside a window, plus the
 // last transition of each key BEFORE it. That leading row is what makes the series
 // correct at its left edge: a device that went on charge yesterday and has not changed
@@ -2975,79 +2957,6 @@ func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSe
 		[]interface{}{deviceIDs, start, end}
 }
 
-// StreamExportCycles streams one row per device per grid mark: start, start+interval,
-// …, end (inclusive). Each mark carries the latest check-in at or before it, held
-// forward until the device reports something different.
-//
-// Carrying forward is correct, not a fabrication: client telemetry is change-gated
-// (a frame is only sent when a gated key or the battery level actually moves), so the
-// absence of a check-in means "identical to the last one", not "unknown". A grid finer
-// than the device's reporting cadence would otherwise come back mostly empty — a 30 s
-// grid against a device reporting every ~2 min is 3 empty marks in 4.
-//
-// The carry stops at a staleness cap, so a device that goes dark shows a real gap
-// instead of a value frozen forever. The cap is per-device rather than fixed: a plugged
-// kiosk polling at 30 s and a battery-powered unit deferred to 5 min by the HTTP safety
-// net plus Doze cannot share one threshold. It is also never shorter than the grid step
-// itself, which would reintroduce the empty marks this exists to avoid.
-func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
-	rows, err := d.pool.Query(ctx, `
-		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, g.ts, d.last_seen_at, c.created_at
-		FROM devices d
-		CROSS JOIN generate_series($2::timestamptz, $3::timestamptz, make_interval(secs => $4)) AS g(ts)
-		LEFT JOIN LATERAL (
-			SELECT battery_pct, build_id, extra, created_at
-			FROM checkins c
-			WHERE c.device_id = d.id
-			  AND c.created_at <= g.ts
-			  AND c.created_at > g.ts - GREATEST(
-			        make_interval(secs => $4),
-			        make_interval(secs => COALESCE(d.poll_interval_ms, 30000) / 1000.0 * 10),
-			        INTERVAL '15 minutes')
-			ORDER BY c.created_at DESC
-			LIMIT 1
-		) c ON true
-		WHERE d.id = ANY($1)
-		ORDER BY d.serial_number, g.ts`,
-		deviceIDs, start, end, intervalSec)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r ExportRow
-		var batteryPct *int
-		var buildID *string
-		var extra []byte
-		var sampleAt *time.Time
-		if err := rows.Scan(&r.SerialNumber, &batteryPct, &buildID, &extra, &r.Timestamp, &r.LastSeenAt, &sampleAt); err != nil {
-			return err
-		}
-		if sampleAt != nil {
-			r.SampleAt = *sampleAt
-		}
-		if batteryPct == nil {
-			r.Empty = true
-			r.Extra = json.RawMessage("{}")
-		} else {
-			r.BatteryPct = *batteryPct
-			if buildID != nil {
-				r.BuildID = *buildID
-			}
-			if len(extra) > 0 {
-				r.Extra = json.RawMessage(extra)
-			} else {
-				r.Extra = json.RawMessage("{}")
-			}
-		}
-		if err := fn(r); err != nil {
-			return err
-		}
-	}
-	return rows.Err()
-}
-
-
 // ListAllSerials returns every device serial (visible and hidden), so callers can
 // detect and linkify serials named in free text (e.g. the AI report prose).
 func (d *DB) ListAllSerials(ctx context.Context) ([]string, error) {
@@ -3443,41 +3352,7 @@ func scanCheckins(rows pgx.Rows) ([]Checkin, error) {
 	return checkins, rows.Err()
 }
 
-func (d *DB) GetCheckinsCount(ctx context.Context, deviceID uuid.UUID) (int, error) {
-	var count int
-	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM checkins WHERE device_id = $1`, deviceID).Scan(&count)
-	return count, err
-}
 
-func (d *DB) GetCheckinsPaged(ctx context.Context, deviceID uuid.UUID, limit, offset int) ([]Checkin, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1
-		ORDER BY created_at DESC, id DESC
-		LIMIT $2 OFFSET $3
-	`, deviceID, limit, offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checkins []Checkin
-	for rows.Next() {
-		var c Checkin
-		var extra []byte
-		if err := rows.Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &extra, &c.CreatedAt); err != nil {
-			return nil, err
-		}
-		if len(extra) > 0 {
-			c.Extra = json.RawMessage(extra)
-		} else {
-			c.Extra = json.RawMessage("{}")
-		}
-		checkins = append(checkins, c)
-	}
-	return checkins, rows.Err()
-}
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
@@ -11717,11 +11592,13 @@ func (d *DB) TableStats(ctx context.Context) (DBStats, error) {
 	var s DBStats
 	// Exact counts for the small tables; instant planner estimates (pg_class.reltuples,
 	// maintained by autovacuum/ANALYZE) for the large high-churn ones — an exact
-	// count(*) on checkins/logcat_results full-scans millions of rows and was making the
-	// Settings page take seconds to load. Estimates are fine for a stats readout.
+	// count(*) on device_samples/logcat_results full-scans millions of rows and was making
+	// the Settings page take seconds to load. Estimates are fine for a stats readout.
+	// Checkins counts device_samples: one row per stored report, the history the charts
+	// read, now that the checkins table is being retired.
 	err := d.pool.QueryRow(ctx, `
 		SELECT (SELECT count(*) FROM devices),
-		       (SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = 'checkins'::regclass),
+		       (SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = 'device_samples'::regclass),
 		       (SELECT count(*) FROM commands),
 		       (SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = 'logcat_results'::regclass)
 	`).Scan(&s.Devices, &s.Checkins, &s.Commands, &s.LogcatResults)
