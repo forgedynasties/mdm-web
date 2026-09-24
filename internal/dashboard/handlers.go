@@ -6527,6 +6527,9 @@ const (
 	chartCacheMaxSize = 400
 )
 
+// chartRawSem bounds concurrent raw-check-in chart builds (see DeviceChartData).
+var chartRawSem = make(chan struct{}, 2)
+
 func chartCacheKey(deviceID uuid.UUID, fromMs, untilMs int64) string {
 	const round = 30_000
 	return fmt.Sprintf("%s|%d|%d", deviceID, fromMs/round, untilMs/round)
@@ -6617,16 +6620,24 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checkins, err := h.db.GetCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
+	// Raw check-ins are the expensive path (a month can be ~170k rows), so only a couple
+	// run at once; the rest wait here instead of stacking up in memory side by side.
+	select {
+	case chartRawSem <- struct{}{}:
+		defer func() { <-chartRawSem }()
+	case <-r.Context().Done():
+		return
+	}
+	asc, err := h.db.GetChartCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	// GetCheckinsBetween returns newest-first; the chart wants oldest-first.
-	n := len(checkins)
-	asc := make([]db.Checkin, n)
-	for i := 0; i < n; i++ {
-		asc[i] = checkins[n-1-i]
+	// Newest-first from the query; the chart wants oldest-first. In place: a copy of a
+	// month of rows is exactly the memory this path can't spare.
+	n := len(asc)
+	for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
+		asc[i], asc[j] = asc[j], asc[i]
 	}
 	// These devices can check in every few seconds, so a multi-day pull is huge.
 	// Build every point, then decimate each series to about maxPoints while

@@ -3398,6 +3398,32 @@ func (d *DB) GetCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, u
 	return scanCheckins(rows)
 }
 
+// chartExtraKeys are the only extra keys the device graph reads (temperature, RAM,
+// wireless charging, charging state).
+var chartExtraKeys = []string{"battery_temp_c", "cpu_temp_c", "ram_usage_mb", "wlc_status", "charging"}
+
+// GetChartCheckinsBetween is GetCheckinsBetween for the device graph: the same rows, but
+// extra cut down in SQL to chartExtraKeys. A month of a chatty device is ~170k rows and
+// ~125MB of extra, and pulling that whole into the server OOM-killed live (2026-09-24).
+// jsonb_each keeps each key exactly as stored — an absent key stays absent rather than
+// becoming a JSON null — so the extractors read the same values they did before.
+func (d *DB) GetChartCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]Checkin, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, device_id, battery_pct, build_id,
+		       (SELECT jsonb_object_agg(e.key, e.value) FROM jsonb_each(c.extra) e WHERE e.key = ANY($4)),
+		       created_at
+		FROM checkins c
+		WHERE device_id = $1 AND created_at >= $2 AND created_at <= $3
+		ORDER BY created_at DESC
+	`, deviceID, from, until, chartExtraKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanCheckins(rows)
+}
+
 // scanCheckins materializes check-in rows, defaulting empty extra to "{}".
 func scanCheckins(rows pgx.Rows) ([]Checkin, error) {
 	var checkins []Checkin
