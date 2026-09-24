@@ -48,10 +48,8 @@ git submodule update --remote          # advance each to its branch tip
 | `aio-mdm-client/` | Firmware | `com.aioapp.mdm` | `main` |
 | `aio-mdm-client-dpc/` | DPC — paused | `aio.app.mdmclient.dpc` | `menu-board` |
 | `aio-mdm-lite/` | Lite (the AAR) | `AioMdm` | `main` |
-| `aio-mdm-client-lite/` | Standalone Lite test app | | `main` |
 
-`aio-mdm-client-lite` builds the library straight out of `../aio-mdm-lite/mdm-lite`,
-so those two must stay siblings — do not rename the paths. None of them are built
+Do not rename the paths. None of them are built
 into the server image (`.dockerignore` keeps them out of the build context) and
 nothing in CI checks them out, so they cannot affect a deploy. Commit and push
 **inside** a submodule first: the pointer commit here names a SHA and means nothing
