@@ -48,3 +48,27 @@ func TestChargeRuns(t *testing.T) {
 		t.Errorf("chartGapMs(120000) = %d, want 1200000", g)
 	}
 }
+
+// A flapping charger is one run, not a sliver per toggle, and it ends where the flap does.
+func TestChargeRunsFlap(t *testing.T) {
+	base := time.Date(2026, 9, 24, 11, 0, 0, 0, time.UTC)
+	ci := func(sec int, extra string) db.Checkin {
+		return db.Checkin{CreatedAt: base.Add(time.Duration(sec) * time.Second), Extra: json.RawMessage(extra)}
+	}
+	runs := chargeRuns([]db.Checkin{
+		ci(0, `{"charging":true}`),
+		ci(30, `{"charging":false,"charger_flapping":true}`),
+		ci(60, `{"charging":false,"charger_flapping":true}`),
+		ci(90, `{"charging":true,"charger_flapping":true}`), // held value may differ: still the flap
+		ci(120, `{"charging":true,"charger_flapping":false}`),
+	}, int64(15*60*1000))
+	if len(runs) != 3 {
+		t.Fatalf("want charging, flap, charging; got %+v", runs)
+	}
+	if runs[0].F || !runs[1].F || runs[2].F {
+		t.Fatalf("flap flags wrong: %+v", runs)
+	}
+	if runs[1].From != base.Add(30*time.Second).UnixMilli() || runs[1].To != base.Add(90*time.Second).UnixMilli() {
+		t.Fatalf("flap run should span 30s..90s, got %+v", runs[1])
+	}
+}

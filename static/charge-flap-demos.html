@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flapping charger on the charge strip — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f7f7f7);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:38px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.ghead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;font-weight:700;}
+.ghead span{color:var(--text-faint);font-weight:600;}
+.gplot{position:relative;height:190px;margin:10px 16px 0;}
+.gplot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 16px 12px;font-size:11.5px;color:var(--text-faint);}
+.legend i{display:inline-block;width:18px;height:6px;border-radius:1px;margin-right:6px;vertical-align:1px;}
+.tip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 34px rgba(20,22,40,.18);
+  padding:9px 11px;font-size:12px;min-width:200px;pointer-events:none;}
+.tip .t{font-size:11px;font-weight:800;color:var(--text-faint);margin-bottom:6px;letter-spacing:.03em;}
+.tip .r{display:flex;justify-content:space-between;gap:14px;padding:2px 0;}
+.tip .r b{font-weight:750;}
+.note{font-size:12px;color:var(--text-faint);margin:18px 0 0;line-height:1.6;max-width:850px;}
+@media (max-width:720px){body{padding:20px 16px 120px;}.themebar{top:auto;bottom:16px;right:16px;}}
+</style>
+</head>
+<body>
+<div class="themebar"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+  <h1>Flapping charger on the charge strip</h1>
+  <p class="lead">
+    A faulty charger (bad cable, port or supply) toggles <code>charging</code> every second or two. From the
+    server change now on stage, history stores that stretch as one state, <code>charging = 2</code>, instead of a
+    row per toggle — and firmware client 1.4.5 debounces it on the device too. The strip under the battery chart
+    has to draw that state. You asked for a yellow strip; these are three ways to draw it, against what
+    AT070AABU00509 looks like today. Same mock data in each: charging, a short spell on battery, 50 minutes of
+    flapping, then charging again.
+  </p>
+
+  <div class="eyebrow">Deployed today</div>
+  <div class="dname">Today: green / grey churn <span class="cur">Deployed</span></div>
+  <p class="ddesc">Every toggle is its own run, so the flapping stretch renders as a smear of green and grey slivers — and on a
+    zoomed-out range it averages into what looks like normal charging. Nothing says the charger is faulty.</p>
+  <div class="gcard" data-variant="today"></div>
+
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Solid yellow</div>
+  <p class="ddesc">The flap is one yellow run, exactly as asked. Simplest to build — a third fill colour in chargeStripPlugin.</p>
+  <div class="gcard" data-variant="solid"></div>
+  <div class="pros"><div><b>Good at</b>Unmissable, and it reads at a glance as "something else" next to green and grey.</div>
+    <div><b>Bad at</b>Colour alone carries it: for the ~8% of men with red-green colour blindness, this yellow and the charging green are close. It also sits near the wireless line's orange "pad misplaced".</div></div>
+
+  <div class="eyebrow">Option B</div>
+  <div class="dname">Yellow with diagonal hatching <span class="rec">Recommended</span></div>
+  <p class="ddesc">The same yellow, drawn as stripes. Hatching is the usual chart convention for "unreliable / fault" rather than a
+    steady state, so it reads as a problem, not a third kind of charging.</p>
+  <div class="gcard" data-variant="hatch"></div>
+  <div class="pros"><div><b>Good at</b>Still yellow, and the pattern tells it apart from charging without relying on colour, in both themes. No extra height, so the chart layout does not move.</div>
+    <div><b>Bad at</b>Slightly more drawing code (a canvas pattern). At 6 px tall the stripes are fine-grained, so it reads as "textured yellow" rather than bold stripes.</div></div>
+
+  <div class="eyebrow">Option C</div>
+  <div class="dname">Yellow, with a fault marker and rate</div>
+  <p class="ddesc">Solid yellow plus a small ⚠ marker where the flap starts, labelled with its rate. The chart itself says how bad it is.</p>
+  <div class="gcard" data-variant="marker"></div>
+  <div class="pros"><div><b>Good at</b>Carries the rate on the chart, and the marker survives a zoomed-out range where a short flap is only a few pixels wide.</div>
+    <div><b>Bad at</b>A label on the chart competes with the build and command markers already drawn there; with several flaps in a day it gets busy.</div></div>
+
+  <p class="note">
+    <b>Pick:</b> B. It is the yellow strip you asked for, and the hatching keeps it readable for colour-blind operators
+    without changing the chart's layout. In every option the hover readout names it — "Charger flapping · ~48 toggles/min" —
+    and the legend gains one item. History recorded before the server change keeps its green/grey churn; only new flaps draw yellow.
+  </p>
+</div>
+
+<script>
+(function () {
+  const ON = '#00b894', OFF = 'rgba(122,127,154,0.22)', FLAP = '#fdcb6e', FLAP_DARK = '#e0a93a';
+  // Mock timeline, 0..1 of the chart width.
+  const runs = [
+    { a: 0.00, b: 0.30, s: 'on' },
+    { a: 0.30, b: 0.38, s: 'off' },
+    { a: 0.38, b: 0.72, s: 'flap' },
+    { a: 0.72, b: 1.00, s: 'on' },
+  ];
+  const W = 1000, H = 190, TOP = 8, BOT = 160, STRIP_Y = 168, STRIP_H = 6;
+
+  function battery() {
+    // Battery % over the same span: rises while charging, dips on battery, wobbles while flapping.
+    const pts = [];
+    for (let i = 0; i <= 100; i++) {
+      const x = i / 100;
+      let y;
+      if (x < 0.30) y = 62 + x * 90;
+      else if (x < 0.38) y = 89 - (x - 0.30) * 120;
+      else if (x < 0.72) y = 79 - (x - 0.38) * 25 + Math.sin(i * 1.7) * 0.8;
+      else y = 70.5 + (x - 0.72) * 70;
+      pts.push([x * W, BOT - (y / 100) * (BOT - TOP)]);
+    }
+    return pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  }
+
+  function strip(variant) {
+    let out = '';
+    runs.forEach(function (r) {
+      const x = r.a * W, w = (r.b - r.a) * W;
+      if (r.s !== 'flap') {
+        out += `<rect x="${x}" y="${STRIP_Y}" width="${w}" height="${STRIP_H}" fill="${r.s === 'on' ? ON : OFF}"/>`;
+        return;
+      }
+      if (variant === 'today') {
+        // One sliver per toggle.
+        const n = 90;
+        for (let i = 0; i < n; i++) {
+          out += `<rect x="${(x + (w * i) / n).toFixed(2)}" y="${STRIP_Y}" width="${(w / n).toFixed(2)}" height="${STRIP_H}" fill="${i % 2 ? OFF : ON}"/>`;
+        }
+      } else if (variant === 'hatch') {
+        out += `<rect x="${x}" y="${STRIP_Y}" width="${w}" height="${STRIP_H}" fill="url(#hatch)"/>`;
+      } else {
+        out += `<rect x="${x}" y="${STRIP_Y}" width="${w}" height="${STRIP_H}" fill="${FLAP}"/>`;
+      }
+      if (variant === 'marker') {
+        out += `<g transform="translate(${x},${STRIP_Y - 16})">
+          <path d="M0 -7 L7 6 L-7 6 Z" fill="${FLAP}" stroke="${FLAP_DARK}" stroke-width="1"/>
+          <text x="0" y="4" text-anchor="middle" font-size="8" font-weight="800" fill="#6b4e00">!</text>
+          <text x="11" y="4" font-size="11" font-weight="700" style="fill:var(--text-faint)">Charger flapping · ~48/min</text></g>`;
+      }
+    });
+    return out;
+  }
+
+  function legend(variant) {
+    let flap = '';
+    if (variant === 'solid' || variant === 'marker') flap = `<span><i style="background:${FLAP}"></i>Charger flapping</span>`;
+    if (variant === 'hatch') flap = `<span><i style="background:repeating-linear-gradient(135deg,${FLAP} 0 3px,${FLAP_DARK} 3px 5px)"></i>Charger flapping</span>`;
+    return `<span><i style="background:${ON}"></i>Tablet charging</span>
+            <span><i style="background:${OFF}"></i>Tablet on battery</span>${flap}`;
+  }
+
+  function tip(variant) {
+    if (variant === 'today') {
+      return `<div class="tip" style="left:52%;top:40px"><div class="t">11:24 · 24 SEP</div>
+        <div class="r"><span>Battery</span><b>76%</b></div><div class="r"><span>Tablet</span><b>Charging</b></div></div>`;
+    }
+    return `<div class="tip" style="left:52%;top:40px"><div class="t">11:24 · 24 SEP</div>
+      <div class="r"><span>Battery</span><b>76%</b></div>
+      <div class="r"><span>Tablet</span><b style="color:${FLAP_DARK}">Charger flapping</b></div>
+      <div class="r"><span>Since</span><b>11:00 · ~48 toggles/min</b></div></div>`;
+  }
+
+  document.querySelectorAll('.gcard').forEach(function (card) {
+    const v = card.dataset.variant;
+    card.innerHTML = `
+      <div class="ghead">Battery <span>AT070AABU00509 · last 2 h</span></div>
+      <div class="gplot">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="5" height="5" fill="${FLAP}"/><rect width="2" height="5" fill="${FLAP_DARK}"/></pattern></defs>
+          <line x1="0" x2="${W}" y1="${BOT}" y2="${BOT}" style="stroke:var(--border)"/>
+          <line x1="520" x2="520" y1="${TOP}" y2="${BOT}" style="stroke:var(--accent)" opacity=".5"/>
+          <path d="${battery()}" fill="none" stroke="#6c5ce7" stroke-width="2.2" vector-effect="non-scaling-stroke"/>
+          ${strip(v)}
+        </svg>
+        ${tip(v)}
+      </div>
+      <div class="legend">${legend(v)}</div>`;
+  });
+
+  const root = document.documentElement;
+  document.querySelectorAll('.themebar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.setAttribute('data-theme', b.dataset.t);
+      document.querySelectorAll('.themebar button').forEach(x => x.classList.toggle('on', x === b));
+    });
+  });
+})();
+</script>
+</body>
+</html>

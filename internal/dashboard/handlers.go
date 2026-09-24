@@ -6752,31 +6752,43 @@ func wlcIntFromExtra(raw json.RawMessage) *int {
 
 // chargeRun is one span of a device's charging state for the battery chart's charging
 // strip: C is nil where the check-ins carried no "charging" key. From/To are the first
-// and last check-in in the span.
+// and last check-in in the span. F marks a flapping charger, drawn as a hatched yellow
+// run: a bad cable toggling every second or two, which C alone would draw as slivers.
 type chargeRun struct {
 	From int64 `json:"from"`
 	To   int64 `json:"to"`
 	C    *bool `json:"c"`
+	F    bool  `json:"f,omitempty"`
 }
 
-// chargingFromExtra returns a check-in's "charging" flag, or nil when absent.
-func chargingFromExtra(raw json.RawMessage) *bool {
+// sameCharge reports whether a point's state continues run r.
+func (r *chargeRun) sameCharge(c *bool, flap bool) bool {
+	if r.F || flap {
+		return r.F == flap
+	}
+	return (r.C == nil && c == nil) || (r.C != nil && c != nil && *r.C == *c)
+}
+
+// chargingFromExtra returns a check-in's "charging" flag, or nil when absent, and
+// whether it says the charger is flapping.
+func chargingFromExtra(raw json.RawMessage) (*bool, bool) {
 	if len(raw) == 0 {
-		return nil
+		return nil, false
 	}
 	var m map[string]json.RawMessage
 	if json.Unmarshal(raw, &m) != nil {
-		return nil
+		return nil, false
 	}
+	flap := string(m["charger_flapping"]) == "true"
 	v, ok := m["charging"]
 	if !ok {
-		return nil
+		return nil, flap
 	}
 	var b bool
 	if json.Unmarshal(v, &b) != nil {
-		return nil
+		return nil, flap
 	}
-	return &b
+	return &b, flap
 }
 
 // chargeRuns folds oldest-first check-ins into charging-state spans. It runs over
@@ -6787,16 +6799,15 @@ func chargeRuns(asc []db.Checkin, gapMs int64) []chargeRun {
 	runs := []chargeRun{}
 	for _, c := range asc {
 		x := c.CreatedAt.UnixMilli()
-		st := chargingFromExtra(c.Extra)
+		st, flap := chargingFromExtra(c.Extra)
 		if n := len(runs); n > 0 {
 			last := &runs[n-1]
-			same := (last.C == nil && st == nil) || (last.C != nil && st != nil && *last.C == *st)
-			if same && x-last.To <= gapMs {
+			if last.sameCharge(st, flap) && x-last.To <= gapMs {
 				last.To = x
 				continue
 			}
 		}
-		runs = append(runs, chargeRun{From: x, To: x, C: st})
+		runs = append(runs, chargeRun{From: x, To: x, C: st, F: flap})
 	}
 	return runs
 }
@@ -7114,6 +7125,9 @@ type deviceEventPayload struct {
 	TempC      *float64 `json:"temp_c"`   // nil = no data
 	RamPct     *float64 `json:"ram_pct"`  // nil = no data
 	Charging   *bool    `json:"charging"` // nil = no data
+	// ChargerFlapping is the firmware client's own flap flag (1.4.5+), so the live strip
+	// turns yellow without waiting for a reload.
+	ChargerFlapping bool `json:"charger_flapping,omitempty"`
 	ScreenOn   *bool    `json:"screen_on"` // nil = firmware does not report it
 	Latitude   *float64 `json:"latitude,omitempty"`
 	Longitude  *float64 `json:"longitude,omitempty"`
@@ -7155,6 +7169,7 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 					p.Charging = &b
 				}
 			}
+			p.ChargerFlapping = string(extra["charger_flapping"]) == "true"
 			if v, ok := extra["screen_on"]; ok {
 				var b bool
 				if json.Unmarshal(v, &b) == nil {
