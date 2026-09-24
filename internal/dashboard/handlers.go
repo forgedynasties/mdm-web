@@ -18995,11 +18995,12 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.backfillBuildHistory(ctx)
 	h.backfillDeviceSamples(ctx)
 	h.backfillStateEvents(ctx)
-	// After the backfill, never before it: a day whose samples have not been written
-	// yet must not have its snapshots stripped. The EXISTS guard inside the strip makes
-	// that safe regardless, but running them in this order means the guard is a backstop
-	// rather than the only thing standing between us and deleted history.
-	h.stripDupCheckins(ctx)
+	// stripDupCheckins is off. Its guard only checked that a sample row EXISTS at the
+	// same instant, not that the sample holds the value: ~1.4M pre-17-Sep samples carry
+	// battery only (an early backfill wrote nothing else, and the full one then skipped
+	// them on conflict), so the strip was deleting the only copy of their temperature and
+	// RAM. Found 24 Sep 2026 with the cursor at 2026-07-29. checkins is being retired
+	// anyway; its space comes back when the table is dropped, not from rewriting rows.
 }
 
 // backfillDeviceSamples fills device_samples from existing check-in history, one UTC
