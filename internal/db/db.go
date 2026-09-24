@@ -15970,6 +15970,79 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 	return out, rows.Err()
 }
 
+// CrashSignature is one exact (kind, summary) signature of a device's crash events:
+// how often it fired in the window, when first and last, and the newest event's id
+// so its trace can be fetched on its own.
+type CrashSignature struct {
+	Kind       string
+	Summary    string
+	Count      int
+	FirstAt    time.Time
+	LastAt     time.Time
+	LatestID   uuid.UUID
+	BuildID    string
+	Serial     string
+	Restaurant string
+}
+
+// ListDeviceCrashSignatures aggregates one device's crash/ANR/tombstone events of the
+// last sinceDays by exact (kind, summary), newest signature first. No traces: a noisy
+// device carries thousands of identical events, and the Alerts tab only needs the trace
+// of the newest one per row (GetCrashDetails). limit <= 0 means 200.
+func (d *DB) ListDeviceCrashSignatures(ctx context.Context, deviceID uuid.UUID, sinceDays, limit int) ([]CrashSignature, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.kind, e.summary, COUNT(*), MIN(e.occurred_at), MAX(e.occurred_at),
+		       (ARRAY_AGG(e.id ORDER BY e.occurred_at DESC))[1],
+		       (ARRAY_AGG(e.build_id ORDER BY e.occurred_at DESC))[1]
+		FROM device_events e
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		  AND e.occurred_at > now() - make_interval(days => $2)
+		GROUP BY e.kind, e.summary
+		ORDER BY MAX(e.occurred_at) DESC
+		LIMIT $3`, deviceID, sinceDays, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CrashSignature
+	for rows.Next() {
+		var s CrashSignature
+		if err := rows.Scan(&s.Kind, &s.Summary, &s.Count, &s.FirstAt, &s.LastAt, &s.LatestID, &s.BuildID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetCrashDetails returns the trace (detail) of each given crash event, by id.
+func (d *DB) GetCrashDetails(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT id, detail FROM device_events WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var detail string
+		if err := rows.Scan(&id, &detail); err != nil {
+			return nil, err
+		}
+		out[id] = detail
+	}
+	return out, rows.Err()
+}
+
 // ListRecentCrashEventsPage returns one page of fleet crash/ANR/tombstone events
 // (not reboots) within the last sinceDays, newest first, plus the total number of
 // matches (via COUNT(*) OVER()) for pagination. Events on hidden devices are excluded.

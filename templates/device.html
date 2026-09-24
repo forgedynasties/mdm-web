@@ -4730,7 +4730,7 @@ async function saveNewApp() {
   <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
     <span class="da-ico">{{if $a.AppIcon}}<img src="{{iconSrc $a.AppIcon}}" alt="">{{else}}{{template "alx-icon" $a.IconKey}}{{end}}</span>
     <div class="da-body">
-      <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
+      <div class="da-top"><span class="da-t">{{$a.Headline}}</span>{{if gt $a.Occurrences 1}}<span class="cc-tag warn" title="Times this condition has come back">×{{$a.Occurrences}}</span>{{end}}<span class="da-when">{{timeSince $a.FiredAt}}</span></div>
       <div class="da-s">{{$a.Sentence}}</div>
       {{if $a.Trace}}{{template "crash-trace" $a.Trace}}{{end}}
     </div>
@@ -4740,14 +4740,14 @@ async function saveNewApp() {
   </div>
   {{end}}
   {{if .DeviceCrashes}}
-  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes · last 7 days</span><span class="sc">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
+  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes · last 7 days</span><span class="sc" title="Distinct crashes; repeats are merged into one row">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
     <span class="da-ico">{{if $c.AppIcon}}<img src="{{iconSrc $c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
     <div class="da-body">
-      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
-      {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
+      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span>{{if gt $c.EventCount 1}}<span class="cc-tag bad" title="The same {{$c.KindLabel}} {{$c.EventCount}} times in the last 7 days">×{{$c.EventCount}}</span>{{end}}<span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
+      {{if or $c.Restaurant $c.BuildID (gt $c.EventCount 1)}}<div class="da-meta">{{if gt $c.EventCount 1}}<span>first seen {{timeSince $c.FirstAt}}</span><span class="dot"></span><span>last seen {{timeSince $c.OccurredAt}}</span>{{if or $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{end}}{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
       {{if $c.Trace}}{{template "crash-trace" $c.Trace}}{{end}}
     </div>
   </div>

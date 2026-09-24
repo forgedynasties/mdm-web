@@ -3047,10 +3047,7 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	// with their full stack traces made this fragment tens of seconds and ~90KB, which
 	// reads as "the alerts never load". Everything beyond this goes to the Alerts page.
 	const panelRows = 12
-	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, panelRows)))
-	for i := range crashes {
-		crashes[i].Trace = trimTrace(crashes[i].Trace)
-	}
+	crashes := h.deviceCrashGroups(ctx, device, panelRows)
 	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)
 	role := h.role(r)
 	canAct := roleCanOperate(role)
@@ -3067,6 +3064,44 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 		"DeviceCrashes": crashes,
 		"DeviceAlerts":  alerts,
 	})
+}
+
+// deviceCrashGroups is the Alerts tab's crash list: the last seven days of this
+// device's crashes with repeats merged into one row (crashGroupKey), newest first.
+// A device stuck in a crash loop logs the same ANR thousands of times, and listing
+// each one pushed every other problem off the tab.
+func (h *Handler) deviceCrashGroups(ctx context.Context, device *db.Device, limit int) []crashCardView {
+	sigs, err := h.db.ListDeviceCrashSignatures(ctx, device.ID, 7, 0)
+	if err != nil {
+		return nil
+	}
+	groups := mergeCrashSignatures(sigs)
+	if len(groups) > limit {
+		groups = groups[:limit]
+	}
+	ids := make([]uuid.UUID, 0, len(groups))
+	for _, g := range groups {
+		ids = append(ids, g.LatestID)
+	}
+	details, _ := h.db.GetCrashDetails(ctx, ids)
+	cards := make([]crashCardView, 0, len(groups))
+	for _, g := range groups {
+		label, class := crashKindBadge(g.Kind)
+		cards = append(cards, crashCardView{
+			Serial:      device.SerialNumber,
+			Restaurant:  device.RestaurantName,
+			KindLabel:   label,
+			KindClass:   class,
+			BuildID:     g.BuildID,
+			OccurredAt:  g.LastAt,
+			FirstAt:     g.FirstAt,
+			Summary:     g.Summary,
+			Trace:       trimTrace(details[g.LatestID]),
+			PackageName: extractPackageName(g.Summary),
+			EventCount:  g.Count,
+		})
+	}
+	return cards
 }
 
 // ProfilePage shows the signed-in user their own account details and footprint:
@@ -7832,6 +7867,7 @@ type crashCardView struct {
 	KindClass  string
 	BuildID    string
 	OccurredAt time.Time
+	FirstAt    time.Time // first event of a merged row (device Alerts tab); zero otherwise
 	Summary    string
 	Trace      string
 	PackageName string // app package parsed from Summary, if any
