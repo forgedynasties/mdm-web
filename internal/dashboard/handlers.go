@@ -18995,6 +18995,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.backfillBuildHistory(ctx)
 	h.backfillDeviceSamples(ctx)
 	h.backfillStateEvents(ctx)
+	h.repairSamplesFromCheckins(ctx)
 	// stripDupCheckins is off. Its guard only checked that a sample row EXISTS at the
 	// same instant, not that the sample holds the value: ~1.4M pre-17-Sep samples carry
 	// battery only (an early backfill wrote nothing else, and the full one then skipped
@@ -19054,6 +19055,58 @@ func (h *Handler) backfillDeviceSamples(ctx context.Context) {
 	}
 	if total > 0 {
 		log.Printf("[samples-backfill] wrote %d sample(s) across %d day(s), now at %s", total, steps, day.Format("2006-01-02"))
+	}
+}
+
+// repairSamplesFromCheckins runs RepairSamplesDay oldest day first, up to 30 days or
+// three minutes a pass, until today. It has to finish before checkins is dropped: for the
+// battery-only samples, the check-in rows are the last copy of their other readings.
+func (h *Handler) repairSamplesFromCheckins(ctx context.Context) {
+	cur := h.cfg.SamplesRepairCursor()
+	if cur == "done" {
+		return
+	}
+	var day time.Time
+	var err error
+	if cur == "" {
+		oldest, ok, oerr := h.db.OldestCheckinDay(ctx)
+		if oerr != nil {
+			log.Printf("[samples-repair] oldest checkin: %v", oerr)
+			return
+		}
+		if !ok {
+			_ = h.cfg.SetSamplesRepairCursor("done")
+			return
+		}
+		day = oldest
+	} else if day, err = time.Parse("2006-01-02", cur); err != nil {
+		log.Printf("[samples-repair] bad cursor %q, restarting", cur)
+		_ = h.cfg.SetSamplesRepairCursor("")
+		return
+	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	deadline := time.Now().Add(3 * time.Minute)
+	var total int64
+	steps := 0
+	for ; steps < 30 && !day.After(today) && time.Now().Before(deadline); steps++ {
+		n, err := h.db.RepairSamplesDay(ctx, day)
+		if err != nil {
+			log.Printf("[samples-repair] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		day = day.AddDate(0, 0, 1)
+		if err := h.cfg.SetSamplesRepairCursor(day.Format("2006-01-02")); err != nil {
+			log.Printf("[samples-repair] save cursor: %v", err)
+			return
+		}
+	}
+	if day.After(today) {
+		_ = h.cfg.SetSamplesRepairCursor("done")
+		log.Printf("[samples-repair] complete")
+	}
+	if total > 0 {
+		log.Printf("[samples-repair] filled %d sample(s) across %d day(s), next %s", total, steps, day.Format("2006-01-02"))
 	}
 }
 

@@ -2183,6 +2183,46 @@ func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64
 	return ct.RowsAffected(), nil
 }
 
+// RepairSamplesDay fills the numbers a sample is missing from the check-in row stored
+// at the same instant, for one UTC day. About 1.4M pre-dual-write samples carry battery
+// only: an early backfill wrote nothing else, and BackfillDeviceSamplesDay then skipped
+// them on conflict. The check-in rows behind them still held the readings (where the
+// dup-strip had not yet removed them), and this copies them across before the table goes.
+//
+// Only NULLs are filled — a value already in the sample is never overwritten — and the
+// match is on the exact (device_id, at): the backfill stamped each sample with its
+// check-in's created_at, and downsampling keeps the first row per bucket on both sides.
+// Idempotent; a day with nothing missing costs one indexed scan.
+func (d *DB) RepairSamplesDay(ctx context.Context, day time.Time) (int64, error) {
+	ct, err := d.pool.Exec(ctx, `
+		UPDATE device_samples s SET
+			temp_c          = COALESCE(s.temp_c,          (c.extra->>'battery_temp_c')::float8),
+			ram_used_mb     = COALESCE(s.ram_used_mb,     (c.extra->'ram_usage_mb'->>'used')::int),
+			ram_total_mb    = COALESCE(s.ram_total_mb,    (c.extra->'ram_usage_mb'->>'total')::int),
+			wifi_rssi       = COALESCE(s.wifi_rssi,       (round((c.extra->>'wifi_rssi')::numeric))::smallint),
+			storage_free_gb = COALESCE(s.storage_free_gb, (c.extra->>'storage_free_gb')::float8),
+			cpu_temp_c      = COALESCE(s.cpu_temp_c,      (c.extra->>'cpu_temp_c')::float8)
+		FROM checkins c
+		WHERE c.device_id = s.device_id AND c.created_at = s.at
+		  AND s.at >= $1::date AND s.at < $1::date + 1
+		  AND c.created_at >= $1::date AND c.created_at < $1::date + 1
+		  -- Only where a missing value can actually be filled. "Some column is NULL" alone
+		  -- matches nearly every sample (a T7 never reports cpu_temp_c) and would rewrite
+		  -- millions of rows for nothing, on every run.
+		  AND (   (s.temp_c          IS NULL AND c.extra->>'battery_temp_c'          IS NOT NULL)
+		       OR (s.ram_used_mb     IS NULL AND c.extra->'ram_usage_mb'->>'used'    IS NOT NULL)
+		       OR (s.ram_total_mb    IS NULL AND c.extra->'ram_usage_mb'->>'total'   IS NOT NULL)
+		       OR (s.wifi_rssi       IS NULL AND c.extra->>'wifi_rssi'               IS NOT NULL)
+		       OR (s.storage_free_gb IS NULL AND c.extra->>'storage_free_gb'         IS NOT NULL)
+		       OR (s.cpu_temp_c      IS NULL AND c.extra->>'cpu_temp_c'              IS NOT NULL))
+		  -- One absurd rssi would abort the whole day's update.
+		  AND COALESCE((c.extra->>'wifi_rssi')::numeric, 0) BETWEEN -32768 AND 32767`, day)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 // StateEventsLiveStart is when device_state_events began to be written live: the
 // oldest event in the table. Read once, before any history is backfilled into it (the
 // backfill then pins it in config), because afterwards the oldest event is a backfilled one.
