@@ -5584,6 +5584,8 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 
 /* WLC states legend (battery chart) */
 .wlc-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 16px 0; }
+/* The charge-strip legend, under the chart: tight to the strip above it. */
+.wlc-bar--strip { padding: 2px 16px 8px; }
 
 /* ============================================================================
    Global chrome v2 — top app bar + floating bottom dock (replaces the sidebar)

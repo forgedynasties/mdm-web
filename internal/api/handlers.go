@@ -186,6 +186,11 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "serial query parameter required", http.StatusBadRequest)
 		return
 	}
+	if !validSerial(serial) {
+		h.noteRefusedSerial(serial, ratelimit.ClientIP(r), "")
+		http.Error(w, errInvalidSerial, http.StatusBadRequest)
+		return
+	}
 	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
 		http.Error(w, "serial does not match device credential", http.StatusForbidden)
 		return
@@ -702,6 +707,10 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "token and serial are required"})
 		return
 	}
+	if !validSerial(req.Serial) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
+		return
+	}
 	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
 	if err != nil {
 		enrollFailures.Hit(ip)
@@ -1076,6 +1085,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number or build_id too long"})
+		return
+	}
+	if !validSerial(req.SerialNumber) {
+		h.noteRefusedSerial(req.SerialNumber, ratelimit.ClientIP(r), req.BuildID)
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
 	if len(req.Extra) > maxExtraBytes {
@@ -1684,6 +1698,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-telemetry] oversized field from %s", req.SerialNumber)
 		return
 	}
+	if !validSerial(req.SerialNumber) {
+		return // a corrupted serial: nothing is stored (see validSerial)
+	}
 
 	// Same gate as the HTTP path: DPC support off means store nothing. No config is
 	// pushed back either — the frame is simply dropped.
@@ -1786,12 +1803,11 @@ func (h *Handler) GetDevice(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
 		return
 	}
-	// Built from the shaped tables where they reach, so the response keeps the same
-	// shape now that checkins.extra is no longer the source of truth; older windows
-	// still come from the stored snapshots.
+	// The last 7 days, at most 100 rows, rebuilt in the check-in shape from the shaped
+	// tables (the checkins table itself is retired). A device silent for a week gets [].
 	checkins, ok, err := h.db.ShapedCheckins(r.Context(), device.ID, time.Now().UTC().Add(-7*24*time.Hour), time.Now().UTC(), 100)
 	if err == nil && !ok {
-		checkins, err = h.db.GetCheckins(r.Context(), device.ID, 100)
+		checkins = []db.Checkin{}
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})

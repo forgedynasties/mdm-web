@@ -129,6 +129,10 @@ func (h *Handler) legacyIdentify(w http.ResponseWriter, r *http.Request, isCheck
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and build_id are required"})
 		return nil, false
 	}
+	if !validSerial(req.SerialNumber) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
+		return nil, false
+	}
 	if h.deviceRateLimited(w, req.SerialNumber) {
 		return nil, false
 	}

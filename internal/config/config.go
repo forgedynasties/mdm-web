@@ -134,6 +134,8 @@ type Config struct {
 	// first run because the backfill itself moves the table's oldest event.
 	StateBackfillCursorVal string `json:"state_backfill_cursor"`
 	StateBackfillUntilVal  string `json:"state_backfill_until"`
+	// Samples repair (RepairSamplesDay): the next UTC day to fill, oldest first, or "done".
+	SamplesRepairCursorVal string `json:"samples_repair_cursor"`
 	// Dashboard shows a maintenance page to non-admin users while set.
 	MaintenanceModeFlag bool `json:"maintenance_mode"`
 	// Drop check-ins and telemetry from DPC agents instead of storing them. The
@@ -951,6 +953,20 @@ func (c *Config) SamplesBackfillCursor() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.SamplesBackfillCursorVal
+}
+
+func (c *Config) SamplesRepairCursor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SamplesRepairCursorVal
+}
+
+func (c *Config) SetSamplesRepairCursor(cur string) error {
+	c.mu.Lock()
+	c.SamplesRepairCursorVal = cur
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) StateBackfill() (cursor, until string) {

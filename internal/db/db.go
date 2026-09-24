@@ -96,6 +96,11 @@ const (
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
 func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 
+// SerialCorrupt reports a T7 whose serial read corrupt and which identifies as
+// msm-<ANDROID_ID> instead (client 1.4.7+; the raw value it read is in latest_extra as
+// serial_raw). The fleet lists these so they can be found and re-flashed.
+func (d Device) SerialCorrupt() bool { return strings.HasPrefix(d.SerialNumber, "msm-") }
+
 // IsMDMLite reports whether a stock device is reported by the MDM-lite library
 // embedded in an app, rather than by the DPC agent. See prod.AgentTypeMDMLite. Such a
 // device never holds a live connection, so it shows Reporting / Not reporting (from
@@ -1931,67 +1936,6 @@ const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','
 // SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
 func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
 
-// DownsampleCheckins thins history older than olderThanDays down to one row per device
-// per bucketSec, oldest day first, and returns the rows removed and the days processed.
-//
-// Why thin instead of delete: a venue's week is still readable years later — when a
-// device was powered, charging, on a pad — at a fraction of the rows. PruneCheckins
-// (retention) throws that period away entirely; this keeps its shape.
-//
-// One calendar day per transaction, and at most maxDays per call. Nothing runs long
-// enough to hold locks or block autovacuum, an interrupted run keeps the days it
-// finished, and a large backlog is worked off over successive housekeeping passes
-// instead of in one statement that would swamp a small box.
-//
-// The rows kept are the FIRST in each bucket. Sub-bucket detail in that period is gone,
-// which is the trade the setting describes; device_daily_stats already holds the
-// aggregates for those days and is not touched.
-func (d *DB) DownsampleCheckins(ctx context.Context, olderThanDays, bucketSec, maxDays int) (rows int64, days int, err error) {
-	if olderThanDays <= 0 || bucketSec <= 0 || maxDays <= 0 {
-		return 0, 0, nil
-	}
-	// Oldest day holding history, and the day thinning stops at. Both from the server so
-	// the calendar maths matches the rows (the database runs in UTC).
-	var day, cutoff time.Time
-	err = d.pool.QueryRow(ctx, `
-		SELECT COALESCE(MIN(created_at)::date, CURRENT_DATE), (CURRENT_DATE - $1::int)
-		FROM checkins`, olderThanDays).Scan(&day, &cutoff)
-	if err != nil {
-		return 0, 0, err
-	}
-	// A day that is already at the bucket costs one cheap indexed scan and removes
-	// nothing, so it must not spend the run's budget — otherwise a long history is
-	// walked three days an hour and takes days to reach the part that needs work.
-	// Only productive days count; examined bounds the total work per run.
-	const maxExamined = 400
-	for examined := 0; days < maxDays && examined < maxExamined && day.Before(cutoff); examined++ {
-		var n int64
-		err = d.pool.QueryRow(ctx, `
-			WITH doomed AS (
-				SELECT ctid FROM (
-					SELECT ctid, ROW_NUMBER() OVER (
-						PARTITION BY device_id,
-						             to_timestamp(floor(EXTRACT(EPOCH FROM created_at) / $2::int) * $2::int)
-						ORDER BY created_at
-					) AS rn
-					FROM checkins
-					WHERE created_at >= $1::date AND created_at < $1::date + 1
-				) t WHERE t.rn > 1
-			), del AS (
-				DELETE FROM checkins c USING doomed dd WHERE c.ctid = dd.ctid RETURNING 1
-			)
-			SELECT COUNT(*) FROM del`, day, bucketSec).Scan(&n)
-		if err != nil {
-			return rows, days, err
-		}
-		rows += n
-		if n > 0 {
-			days++
-		}
-		day = day.AddDate(0, 0, 1)
-	}
-	return rows, days, nil
-}
 
 // DeviceSample is one row of the numeric series. Pointers where the device may not
 // report the field at all: nil means "not measured", which no reader should draw as a
@@ -2014,43 +1958,15 @@ type StateAt struct {
 	Value string
 }
 
-// ShapedCoverage reports the instant from which this device's history can be answered
-// from the shaped tables: the later of its first sample and its first state event.
-//
-// Both halves are needed. Samples alone would draw the numbers but lose the charge runs
-// and pad markers, which come from events; events alone have nothing to plot. ok is
-// false when either side has nothing at all, which is the case for every window older
-// than the day dual-writing began.
-//
-// A device first seen after dual-writing began has samples from its very first
-// check-in, and nothing older exists anywhere: the shaped tables cover its whole life,
-// so coverage is unbounded. Its first state event can still come later (a key first
-// reported, or seeded, after enrollment), and holding coverage to that would send its
-// first hours to the check-in fallback, whose rows no longer carry a snapshot. A new
-// device's chart then showed only the stray early rows that still had one.
+// ShapedCoverage reports whether this device has history in the shaped tables, and
+// from when (always "from the beginning": ok means covered). They hold every device's
+// whole life — samples were backfilled to its first check-in and state history derived
+// from the old snapshots before the checkins table was retired — so the only question
+// left is whether the device has ever stored a sample at all.
 func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.Time, ok bool, err error) {
-	var sampleFrom, eventFrom, checkinFrom *time.Time
-	err = d.pool.QueryRow(ctx, `
-		SELECT (SELECT MIN(at)         FROM device_samples      WHERE device_id = $1),
-		       (SELECT MIN(at)         FROM device_state_events WHERE device_id = $1),
-		       (SELECT MIN(created_at) FROM checkins            WHERE device_id = $1)`,
-		deviceID).Scan(&sampleFrom, &eventFrom, &checkinFrom)
-	if err != nil {
-		return time.Time{}, false, err
-	}
-	if sampleFrom == nil || eventFrom == nil {
-		return time.Time{}, false, nil
-	}
-	// No check-in history at all is the same case: check-ins stopped being written to
-	// that table, so a device enrolled since has none, and nothing older than its first
-	// sample exists anywhere.
-	if checkinFrom == nil || !checkinFrom.Before(*sampleFrom) {
-		return time.Time{}, true, nil
-	}
-	if eventFrom.After(*sampleFrom) {
-		return *eventFrom, true, nil
-	}
-	return *sampleFrom, true, nil
+	err = d.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM device_samples WHERE device_id = $1)`, deviceID).Scan(&ok)
+	return time.Time{}, ok, err
 }
 
 // GetDeviceSamples returns the numeric series for a window, oldest first — the order
@@ -2144,182 +2060,13 @@ func (d *DB) GetStateTimeline(ctx context.Context, deviceID uuid.UUID, keys []st
 	return out, rows.Err()
 }
 
-// BackfillDeviceSamplesDay fills device_samples from the check-in history of one UTC
-// day, so the shaped tables cover the past and not only what arrives from now on.
-// Idempotent: the day's rows are keyed (device_id, at) and conflicts are skipped, so a
-// re-run costs a scan and writes nothing.
-//
-// Only the numbers are backfilled. State transitions are deliberately NOT derived from
-// history: that history has already been thinned to one row per device per few minutes,
-// so a flip and its reversal between two kept rows left no trace, and a derived event
-// stream would look complete while quietly missing changes. Events therefore start from
-// the day dual-writing began, and a reader can tell the two periods apart by that date.
-func (d *DB) BackfillDeviceSamplesDay(ctx context.Context, day time.Time) (int64, error) {
-	ct, err := d.pool.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb)
-		SELECT c.device_id,
-		       c.created_at,
-		       c.battery_pct,
-		       -- The reading as the device sent it, NULL where it sent none: "not
-		       -- measured" is not zero, and a rounded copy here would disagree with the
-		       -- CSV export, which prints the same field straight from checkins.
-		       (c.extra->>'battery_temp_c')::float8,
-		       (round((c.extra->>'wifi_rssi')::numeric))::smallint,
-		       (c.extra->'ram_usage_mb'->>'used')::int,
-		       (c.extra->'ram_usage_mb'->>'total')::int,
-		       (c.extra->>'storage_free_gb')::float8
-		FROM checkins c
-		WHERE c.created_at >= $1::date AND c.created_at < $1::date + 1
-		  -- One absurd rssi would abort the whole day's insert.
-		  AND COALESCE((c.extra->>'wifi_rssi')::numeric, 0) BETWEEN -32768 AND 32767
-		  -- Rows written after the snapshot stopped being stored carry '{}' and would
-		  -- backfill a sample of all NULLs over a day the dual write already covered.
-		  -- Those days need no backfill; this makes running it on one a no-op.
-		  AND c.extra <> '{}'::jsonb
-		ON CONFLICT (device_id, at) DO NOTHING`, day)
-	if err != nil {
-		return 0, err
-	}
-	return ct.RowsAffected(), nil
-}
 
-// StateEventsLiveStart is when device_state_events began to be written live: the
-// oldest event in the table. Read once, before any history is backfilled into it (the
-// backfill then pins it in config), because afterwards the oldest event is a backfilled one.
-func (d *DB) StateEventsLiveStart(ctx context.Context) (time.Time, bool, error) {
-	var t *time.Time
-	if err := d.pool.QueryRow(ctx, `SELECT MIN(at) FROM device_state_events`).Scan(&t); err != nil {
-		return time.Time{}, false, err
-	}
-	if t == nil {
-		return time.Time{}, false, nil
-	}
-	return *t, true, nil
-}
 
-// BackfillStateEventsDay derives state transitions for one UTC day of check-in history
-// older than `until` (the instant live events began), so the charge strip, pad state,
-// screen and timezone history survive the checkins table being retired.
-//
-// It is lossy in exactly one way, and knowingly: that history was thinned to one row per
-// device per few minutes, so a flip and its reversal between two kept rows left no trace.
-// But the rows it reads are the very rows the charts draw those windows from today, so
-// the events describe precisely what the dashboard already shows — nothing visible is
-// lost, and nothing is invented.
-//
-// Days must run oldest first. Within the day a change is a value that differs from the
-// same key's previous row; the first row of a day continues from the last event already
-// written, so there is no seam between days. The first value ever seen is a seed (from
-// ""), as the live path writes one. Values are rendered as jsonScalar renders them, so a
-// derived event and a live one are indistinguishable to every reader. Idempotent: events
-// are keyed (device_id, key, at).
-func (d *DB) BackfillStateEventsDay(ctx context.Context, day, until time.Time) (int64, error) {
-	ct, err := d.pool.Exec(ctx, `
-		WITH k(key) AS (SELECT unnest($3::text[])),
-		r AS (
-			SELECT c.device_id, c.created_at AS at, k.key,
-			       CASE jsonb_typeof(c.extra -> k.key)
-			            WHEN 'string' THEN c.extra ->> k.key
-			            WHEN 'null'   THEN 'null'
-			            ELSE (c.extra -> k.key)::text END AS v
-			FROM checkins c CROSS JOIN k
-			WHERE c.created_at >= $1::date AND c.created_at < LEAST($1::date + 1, $2::timestamptz)
-			  AND c.extra ? k.key
-		),
-		w AS (
-			SELECT r.*, LAG(v) OVER (PARTITION BY device_id, key ORDER BY at) AS pv FROM r
-		),
-		p AS (
-			SELECT w.device_id, w.at, w.key, w.v,
-			       COALESCE(w.pv, (SELECT e.to_val FROM device_state_events e
-			                       WHERE e.device_id = w.device_id AND e.key = w.key AND e.at < w.at
-			                       ORDER BY e.at DESC LIMIT 1)) AS prev
-			FROM w
-		)
-		INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
-		SELECT device_id, at, key, COALESCE(prev, ''), v FROM p
-		WHERE prev IS DISTINCT FROM v
-		ON CONFLICT DO NOTHING`, day, until, stateKeys)
-	if err != nil {
-		return 0, err
-	}
-	return ct.RowsAffected(), nil
-}
 
-// checkinDupKeys are the snapshot keys whose values now live in fixed columns on
-// device_samples for the whole of history — the backfill reaches 2026-03-18, the same
-// day check-ins begin. Holding them in both places buys nothing, and they are the
-// largest remaining part of the old rows: about half the surviving bytes.
-//
-// Deliberately NOT the state keys. device_state_events only begins the day dual writing
-// started, so for any window older than that the snapshot is the only record of what a
-// device was doing, and stripping charging or wlc_status would destroy history that
-// cannot be reconstructed.
-const checkinDupKeys = `'ram_usage_mb' - 'battery_temp_c' - 'storage_free_gb' - 'wifi_rssi'`
 
-// StripRedundantCheckinKeys removes checkinDupKeys from up to `limit` rows of one UTC
-// day, and ONLY from rows whose reading demonstrably survives in device_samples — the
-// EXISTS is on the exact (device_id, at) pair, so a row is never emptied on the
-// assumption that the backfill covered it. Anything the shaped tables missed keeps its
-// snapshot.
-//
-// Returns rows rewritten; fewer than `limit` means the day is done. Batched and paced
-// by the caller for the same reason as the legacy strip: rewriting rows is I/O the
-// dashboard and the device traffic need too.
-func (d *DB) StripRedundantCheckinKeys(ctx context.Context, day time.Time, limit int) (int64, error) {
-	tag, err := d.pool.Exec(ctx, `
-		UPDATE checkins SET extra = extra - `+checkinDupKeys+`
-		WHERE ctid IN (
-			SELECT c.ctid FROM checkins c
-			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
-			  AND c.extra ?| ARRAY['ram_usage_mb','battery_temp_c','storage_free_gb','wifi_rssi']
-			  AND EXISTS (
-				SELECT 1 FROM device_samples s
-				WHERE s.device_id = c.device_id AND s.at = c.created_at)
-			LIMIT $2
-		)
-	`, day.Format("2006-01-02"), limit)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
 
-// StripLegacyCheckinKeys removes checkinStripKeys from up to `limit` checkins rows
-// of one UTC day — the one-off cleanup for rows written before UpsertCheckin
-// stripped them at insert. Returns rows rewritten; fewer than `limit` means the
-// day is clean. Small batches matter: the affected rows are tens of KB each
-// (TOASTed crash traces), so rewriting a whole day at once was tens of GB of I/O
-// that starved every other query on a small production box. The caller paces
-// batches and walks the cursor.
-func (d *DB) StripLegacyCheckinKeys(ctx context.Context, day time.Time, limit int) (int64, error) {
-	tag, err := d.pool.Exec(ctx, `
-		UPDATE checkins SET extra = extra - `+checkinStripKeys+`
-		WHERE ctid IN (
-			SELECT ctid FROM checkins
-			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
-			  AND extra ?| ARRAY['crash_events','wifi_scan']
-			LIMIT $2
-		)
-	`, day.Format("2006-01-02"), limit)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
 
-// OldestCheckinDay returns the UTC date of the oldest check-in row, or ok=false when
-// the table is empty. Index-backed (created_at).
-func (d *DB) OldestCheckinDay(ctx context.Context) (time.Time, bool, error) {
-	var t *time.Time
-	if err := d.pool.QueryRow(ctx, `SELECT MIN(created_at) FROM checkins`).Scan(&t); err != nil {
-		return time.Time{}, false, err
-	}
-	if t == nil {
-		return time.Time{}, false, nil
-	}
-	return t.UTC().Truncate(24 * time.Hour), true, nil
-}
+
 
 // TouchLastSeen stamps a device's last_seen_at without recording a check-in. It is
 // called when a WebSocket drops so "Last seen" reflects the moment the device was
@@ -2960,73 +2707,7 @@ func (d *DB) CountDevicesByProduct(ctx context.Context) (map[string]int, error) 
 	return counts, rows.Err()
 }
 
-// StreamExportCheckins runs the same query as ExportCheckins but invokes
-// fn for each row as it is read, so the caller can write directly to a
-// response without buffering the whole result set. If fn returns an error,
-// iteration stops and that error is returned.
-func (d *DB) StreamExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
-	query, args := exportCheckinsQuery(deviceIDs, start, end, intervalSec)
-	rows, err := d.pool.Query(ctx, query, args...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r ExportRow
-		var extra []byte
-		if err := rows.Scan(&r.SerialNumber, &r.BatteryPct, &r.BuildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
-			return err
-		}
-		r.SampleAt = r.Timestamp
-		if len(extra) > 0 {
-			r.Extra = json.RawMessage(extra)
-		} else {
-			r.Extra = json.RawMessage("{}")
-		}
-		if err := fn(r); err != nil {
-			return err
-		}
-	}
-	return rows.Err()
-}
 
-func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) (string, []interface{}) {
-	if intervalSec > 0 {
-		return `
-			WITH numbered AS (
-				SELECT
-					d.serial_number,
-					c.battery_pct,
-					c.build_id,
-					c.extra,
-					c.created_at,
-					d.last_seen_at,
-					ROW_NUMBER() OVER (
-						PARTITION BY c.device_id,
-							floor(EXTRACT(EPOCH FROM (c.created_at - $2)) / $4)
-						ORDER BY c.created_at
-					) AS rn
-				FROM checkins c
-				JOIN devices d ON d.id = c.device_id
-				WHERE c.device_id = ANY($1)
-				  AND c.created_at >= $2
-				  AND c.created_at <= $3
-			)
-			SELECT serial_number, battery_pct, build_id, extra, created_at, last_seen_at
-			FROM numbered WHERE rn = 1
-			ORDER BY serial_number, created_at`,
-			[]interface{}{deviceIDs, start, end, intervalSec}
-	}
-	return `
-			SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, c.created_at, d.last_seen_at
-			FROM checkins c
-			JOIN devices d ON d.id = c.device_id
-			WHERE c.device_id = ANY($1)
-			  AND c.created_at >= $2
-			  AND c.created_at <= $3
-			ORDER BY d.serial_number, c.created_at`,
-		[]interface{}{deviceIDs, start, end}
-}
 
 // ListAllSerials returns every device serial (visible and hidden), so callers can
 // detect and linkify serials named in free text (e.g. the AI report prose).
@@ -3235,35 +2916,6 @@ func (d *DB) GetDeviceLive(ctx context.Context, deviceID uuid.UUID) (*Checkin, e
 }
 
 
-func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]Checkin, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2
-	`, deviceID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checkins []Checkin
-	for rows.Next() {
-		var c Checkin
-		var extra []byte
-		if err := rows.Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &extra, &c.CreatedAt); err != nil {
-			return nil, err
-		}
-		if len(extra) > 0 {
-			c.Extra = json.RawMessage(extra)
-		} else {
-			c.Extra = json.RawMessage("{}")
-		}
-		checkins = append(checkins, c)
-	}
-	return checkins, rows.Err()
-}
 
 // BuildChange is one point in time where a device's reported build_id differed from
 // its previous check-in — i.e. it booted into a different build (OTA applied, rollback,
@@ -3297,112 +2949,14 @@ func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildCh
 	return out, rows.Err()
 }
 
-// BackfillBuildHistoryDay derives build changes for one UTC day of check-ins and
-// stores them in device_build_history (idempotent via the primary key). Two
-// sources: changes between consecutive rows within the day (LAG, index-bounded
-// by created_at), and the change between each device's first row of the day and
-// its last row before the day (one index-backed lookup per device). Returns the
-// rows inserted.
-func (d *DB) BackfillBuildHistoryDay(ctx context.Context, day time.Time) (int64, error) {
-	ds := day.Format("2006-01-02")
-	t1, err := d.pool.Exec(ctx, `
-		INSERT INTO device_build_history (device_id, at, from_build, to_build)
-		SELECT device_id, created_at, prev, build_id FROM (
-			SELECT device_id, created_at, build_id,
-			       LAG(build_id) OVER (PARTITION BY device_id ORDER BY created_at) AS prev
-			FROM checkins
-			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
-			  AND build_id <> ''
-		) t
-		WHERE prev IS NOT NULL AND prev <> build_id
-		ON CONFLICT DO NOTHING
-	`, ds)
-	if err != nil {
-		return 0, err
-	}
-	t2, err := d.pool.Exec(ctx, `
-		INSERT INTO device_build_history (device_id, at, from_build, to_build)
-		SELECT f.device_id, f.created_at, p.build_id, f.build_id
-		FROM (
-			SELECT DISTINCT ON (device_id) device_id, created_at, build_id
-			FROM checkins
-			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
-			  AND build_id <> ''
-			ORDER BY device_id, created_at
-		) f
-		JOIN LATERAL (
-			SELECT build_id FROM checkins c
-			WHERE c.device_id = f.device_id AND c.created_at < f.created_at AND c.build_id <> ''
-			ORDER BY c.created_at DESC LIMIT 1
-		) p ON true
-		WHERE p.build_id <> f.build_id
-		ON CONFLICT DO NOTHING
-	`, ds)
-	if err != nil {
-		return 0, err
-	}
-	return t1.RowsAffected() + t2.RowsAffected(), nil
-}
 
 
-func (d *DB) GetCheckinsForDuration(ctx context.Context, deviceID uuid.UUID, since time.Time) ([]Checkin, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1 AND created_at >= $2
-		ORDER BY created_at DESC
-	`, deviceID, since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 
-	return scanCheckins(rows)
-}
-
-// GetCheckinsBetween returns a device's check-ins within [from, until]. Used to load a
-// bounded window around a past incident (e.g. a heat spike days ago) without pulling
-// every check-in since then — these devices can check in every few seconds.
-func (d *DB) GetCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]Checkin, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1 AND created_at >= $2 AND created_at <= $3
-		ORDER BY created_at DESC
-	`, deviceID, from, until)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return scanCheckins(rows)
-}
 
 // chartExtraKeys are the only extra keys the device graph reads (temperature, RAM,
 // wireless charging, charging state, and a flapping charger on the charge strip).
 var chartExtraKeys = []string{"battery_temp_c", "cpu_temp_c", "ram_usage_mb", "wlc_status", "charging", "charger_flapping"}
 
-// GetChartCheckinsBetween is GetCheckinsBetween for the device graph: the same rows, but
-// extra cut down in SQL to chartExtraKeys. A month of a chatty device is ~170k rows and
-// ~125MB of extra, and pulling that whole into the server OOM-killed live (2026-09-24).
-// jsonb_each keeps each key exactly as stored — an absent key stays absent rather than
-// becoming a JSON null — so the extractors read the same values they did before.
-func (d *DB) GetChartCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]Checkin, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id,
-		       (SELECT jsonb_object_agg(e.key, e.value) FROM jsonb_each(c.extra) e WHERE e.key = ANY($4)),
-		       created_at
-		FROM checkins c
-		WHERE device_id = $1 AND created_at >= $2 AND created_at <= $3
-		ORDER BY created_at DESC
-	`, deviceID, from, until, chartExtraKeys)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return scanCheckins(rows)
-}
 
 // scanCheckins materializes check-in rows, defaulting empty extra to "{}".
 func scanCheckins(rows pgx.Rows) ([]Checkin, error) {
@@ -8072,37 +7626,77 @@ func (d *DB) ResolveAlertsForHiddenDevices(ctx context.Context) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
-// PruneCheckins deletes check-in rows older than `days` days.
-func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
+
+// PruneShaped applies the check-in retention setting to the history that replaced the
+// checkins table: samples older than `days` go, and so do state events — except each
+// device's last event per key before the cut-off. That one is the state the device was
+// in when the kept window opens; without it every reader would see "unknown" until the
+// key next changed, which for a timezone can be never.
+func (d *DB) PruneShaped(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
 		return 0, nil
 	}
-	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
-		`DELETE FROM checkins WHERE created_at < NOW() - INTERVAL '%d days'`, days))
+	s, err := d.pool.Exec(ctx, `DELETE FROM device_samples WHERE at < NOW() - make_interval(days => $1)`, days)
 	if err != nil {
 		return 0, err
 	}
-	return tag.RowsAffected(), nil
+	e, err := d.pool.Exec(ctx, `
+		DELETE FROM device_state_events e
+		WHERE e.at < NOW() - make_interval(days => $1)
+		  AND EXISTS (SELECT 1 FROM device_state_events n
+		              WHERE n.device_id = e.device_id AND n.key = e.key
+		                AND n.at > e.at AND n.at < NOW() - make_interval(days => $1))`, days)
+	if err != nil {
+		return s.RowsAffected(), err
+	}
+	return s.RowsAffected() + e.RowsAffected(), nil
 }
 
-// RollupDailyStats aggregates one calendar day of checkins into device_daily_stats
-// (one row per device for that day). Idempotent: re-running refreshes the day, so it
-// is safe to call repeatedly for the current (still-accumulating) day. Returns the
-// number of device-day rows written. `day` is interpreted at date granularity.
-func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error) {
-	dayStr := day.Format("2006-01-02")
-	// Telemetry is change-gated, so check-ins are irregular in time. Average/fraction/
-	// duration aggregates are therefore TIME-WEIGHTED: each sample is weighted by the gap to
-	// the next sample (LEAD), capped at 600 s so a long silent/offline stretch can't dominate.
-	// The day's last sample has no successor (NULL gap → weight 0); when all weights are 0
-	// (e.g. a single sample) we fall back to the plain row average. MAX/MIN/last-value
-	// aggregates are insensitive to sampling cadence and stay as-is.
-		tag, err := d.pool.Exec(ctx, rollupSQL(rollupSamplesFromCheckins), dayStr)
-	if err != nil {
-		return 0, err
+// DownsampleSamples is DownsampleCheckins for device_samples: days older than
+// olderThanDays keep the first sample per device per bucketSec, up to maxDays productive
+// days a run. State events are never thinned — they are one row per real change already.
+func (d *DB) DownsampleSamples(ctx context.Context, olderThanDays, bucketSec, maxDays int) (rows int64, days int, err error) {
+	if olderThanDays <= 0 || bucketSec <= 0 || maxDays <= 0 {
+		return 0, 0, nil
 	}
-	return tag.RowsAffected(), nil
+	var day, cutoff time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT COALESCE(MIN(at)::date, CURRENT_DATE), (CURRENT_DATE - $1::int)
+		FROM device_samples`, olderThanDays).Scan(&day, &cutoff)
+	if err != nil {
+		return 0, 0, err
+	}
+	const maxExamined = 400
+	for examined := 0; days < maxDays && examined < maxExamined && day.Before(cutoff); examined++ {
+		var n int64
+		err = d.pool.QueryRow(ctx, `
+			WITH doomed AS (
+				SELECT device_id, at FROM (
+					SELECT device_id, at, ROW_NUMBER() OVER (
+						PARTITION BY device_id,
+						             to_timestamp(floor(EXTRACT(EPOCH FROM at) / $2::int) * $2::int)
+						ORDER BY at
+					) AS rn
+					FROM device_samples
+					WHERE at >= $1::date AND at < $1::date + 1
+				) t WHERE t.rn > 1
+			), del AS (
+				DELETE FROM device_samples s USING doomed dd
+				WHERE s.device_id = dd.device_id AND s.at = dd.at RETURNING 1
+			)
+			SELECT COUNT(*) FROM del`, day, bucketSec).Scan(&n)
+		if err != nil {
+			return rows, days, err
+		}
+		rows += n
+		if n > 0 {
+			days++
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return rows, days, nil
 }
+
 
 // RollupDailyStatsFor computes a day from the shaped tables when they can answer it
 // and from the check-in snapshots when they cannot. Callers should use this rather than
@@ -8115,25 +7709,11 @@ func (d *DB) RollupDailyStatsFor(ctx context.Context, day time.Time) (int64, err
 	if ready {
 		return d.RollupDailyStatsShaped(ctx, day)
 	}
-	// The check-in path needs snapshots to read. Once they stopped being stored, a day
-	// without them would not fail here — it would compute a full set of statistics in
-	// which every state-derived figure is zero, and write them as fact. Better to roll
-	// the day up not at all than to roll it up wrong, so an unanswerable day is skipped
-	// and says so.
-	var haveSnapshots bool
-	if err := d.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM checkins
-			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
-			  AND extra <> '{}'::jsonb
-			LIMIT 1)`, day.Format("2006-01-02")).Scan(&haveSnapshots); err != nil {
-		return 0, err
-	}
-	if !haveSnapshots {
-		return 0, fmt.Errorf("rollup %s: shaped tables cannot answer the day and no check-in snapshots remain for it",
-			day.Format("2006-01-02"))
-	}
-	return d.RollupDailyStats(ctx, day)
+	// With the checkins table retired there is no second source. A day the shaped tables
+	// cannot answer would otherwise roll up with every state-derived figure zero, written
+	// as fact; better not rolled up at all, and said so.
+	return 0, fmt.Errorf("rollup %s: shaped tables cannot answer the day (a device without a state baseline)",
+		day.Format("2006-01-02"))
 }
 
 // shapedRollupReady reports whether every device that reported during the day already
@@ -8212,37 +7792,6 @@ func rollupSQL(samplesCTE string) string {
 	return "\t\tWITH samples AS (\n" + samplesCTE + "\n\t\t),\n" + rollupAggregateSQL
 }
 
-// rollupSamplesFromCheckins reads the day's readings out of the check-in snapshots.
-const rollupSamplesFromCheckins = `			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
-				COALESCE(LEAST(EXTRACT(EPOCH FROM (
-					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
-					- c.created_at)), 600), 0) AS w,
-				LAG(c.battery_pct) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_batt,
-				-- Charger transitions: the previous sample's charging state, so a flip can be
-				-- spotted and the battery level AT the flip recorded.
-				LAG((c.extra->>'charging')::boolean) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_charging,
-				-- Was this sample inside the site's opening hours? Minute-of-day in the venue's
-				-- own timezone (falling back to the device's, then UTC), tested against the
-				-- window — which may wrap past midnight, hence the OR form.
-				CASE
-					WHEN COALESCE(sw.open_min, fsw.open_min) IS NULL THEN NULL
-					ELSE (
-						WITH lt AS (
-							SELECT (EXTRACT(HOUR FROM c.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(fsw.timezone, ''), NULLIF(c.extra->>'timezone', ''), 'UTC')) * 60
-							      + EXTRACT(MINUTE FROM c.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(c.extra->>'timezone', ''), 'UTC')))::int AS m
-						)
-						SELECT CASE WHEN COALESCE(sw.open_min, fsw.open_min) <= COALESCE(sw.close_min, fsw.close_min)
-							THEN lt.m >= COALESCE(sw.open_min, fsw.open_min) AND lt.m < COALESCE(sw.close_min, fsw.close_min)
-							ELSE lt.m >= COALESCE(sw.open_min, fsw.open_min) OR lt.m < COALESCE(sw.close_min, fsw.close_min) END
-						FROM lt
-					)
-				END AS in_open_hours
-			FROM checkins c
-			JOIN devices d ON d.id = c.device_id
-			LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
-			-- The fleet default, used by every venue that has not set its own hours.
-			LEFT JOIN service_windows fsw ON fsw.restaurant_id IS NULL AND fsw.group_id IS NULL
-			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')`
 
 const rollupAggregateSQL = `		-- Charge SESSIONS, not flag flips. The charging flag chatters: a full battery
 		-- alternates CHARGING/FULL, and a failing charger can toggle ten times a minute
@@ -8640,47 +8189,6 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 	return n, nil
 }
 
-func (d *DB) BackfillDailyStats(ctx context.Context, maxDays int) (int, error) {
-	var done bool
-	if err := d.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM app_flags WHERE flag = $1)`, backfillFlag).Scan(&done); err != nil {
-		return 0, err
-	}
-	if done {
-		return 0, nil
-	}
-	if maxDays <= 0 || maxDays > 120 {
-		maxDays = 120 // cap work even when retention is "keep forever"
-	}
-	today := time.Now().UTC()
-	n := 0
-	for i := 1; i <= maxDays; i++ { // start at yesterday; today is owned by housekeeping
-		dayStr := today.AddDate(0, 0, -i).Format("2006-01-02")
-		var rolled, hasCheckins bool
-		if err := d.pool.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM device_daily_stats WHERE day = $1::date)`, dayStr).Scan(&rolled); err != nil {
-			return n, err
-		}
-		if rolled {
-			continue
-		}
-		if err := d.pool.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM checkins WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day'))`,
-			dayStr).Scan(&hasCheckins); err != nil {
-			return n, err
-		}
-		if !hasCheckins {
-			continue
-		}
-		day, _ := time.Parse("2006-01-02", dayStr)
-		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
-			return n, err
-		}
-		n++
-	}
-	_, err := d.pool.Exec(ctx, `INSERT INTO app_flags (flag) VALUES ($1) ON CONFLICT DO NOTHING`, backfillFlag)
-	return n, err
-}
 
 // DeviceDailyStat is one rolled-up day of telemetry for a device. Aggregate columns
 // are pointers so a day with no data for a metric serializes as null rather than 0.
@@ -11687,14 +11195,10 @@ CREATE TABLE IF NOT EXISTS devices (
 	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS checkins (
-	id          UUID     PRIMARY KEY DEFAULT gen_random_uuid(),
-	device_id   UUID     NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-	battery_pct SMALLINT NOT NULL,
-	build_id    TEXT     NOT NULL DEFAULT '',
-	extra       JSONB    NOT NULL DEFAULT '{}',
-	created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- checkins (the per-report snapshot history) was retired on 24 Sep 2026: device_samples
+-- and device_state_events hold the history, and the device row holds the fingerprint the
+-- store-or-coalesce decision needs. It is no longer created here, so a table dropped by
+-- hand stays dropped.
 
 CREATE TABLE IF NOT EXISTS groups (
 	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -11740,8 +11244,6 @@ CREATE TABLE IF NOT EXISTS apps (
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX IF NOT EXISTS idx_checkins_device_created_at ON checkins(device_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_checkins_created_at ON checkins(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen   ON devices(last_seen_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_serial_trgm ON devices USING GIN (serial_number gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_device_groups_group_id_device_id ON device_groups(group_id, device_id);
@@ -12748,12 +12250,7 @@ ALTER TABLE device_events ADD COLUMN IF NOT EXISTS detail TEXT NOT NULL DEFAULT 
 -- to). CrashesOnBuild filters on this. One-time backfill: attribute existing crash
 -- events from the nearest prior check-in. Self-limiting (only un-attributed rows).
 ALTER TABLE device_events ADD COLUMN IF NOT EXISTS build_id TEXT NOT NULL DEFAULT '';
-UPDATE device_events e SET build_id = COALESCE((
-        SELECT c.build_id FROM checkins c
-        WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> ''
-        ORDER BY c.created_at DESC LIMIT 1), '')
-WHERE e.build_id = '' AND e.kind <> 'reboot'
-  AND EXISTS (SELECT 1 FROM checkins c WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> '');
+-- (Its one-time backfill from check-in history ran long ago and went with checkins.)
 
 -- Release-problem continuity ("rides the release train"): a manual bug is a thread that
 -- follows the releases forward until an operator verifies it fixed. fixed_in_release_id is
@@ -13061,6 +12558,18 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_at         TIMESTAMPTZ;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_battery    SMALLINT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_build      TEXT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hist_state_hash TEXT;
+
+-- Check-ins refused for a corrupted serial (api.validSerial): who, from where, how often.
+-- Nothing else of theirs is stored; this keeps such a tablet visible on the dashboard.
+CREATE TABLE IF NOT EXISTS refused_checkins (
+	serial    TEXT        NOT NULL,
+	remote_ip TEXT        NOT NULL,
+	build_id  TEXT        NOT NULL DEFAULT '',
+	first_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	last_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	attempts  BIGINT      NOT NULL DEFAULT 1,
+	PRIMARY KEY (serial, remote_ip)
+);
 CREATE INDEX IF NOT EXISTS idx_devices_custody ON devices(custody_server) WHERE custody_server <> '';
 
 -- The peer outbox: an arrival is announced to every peer, and the announcement has to
@@ -13122,7 +12631,6 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 -- insert. 177 MB back on the live box. Dropping an unused index is metadata work, so
 -- the exclusive lock it takes is momentary — but it is still a lock, hence last, after
 -- everything else has succeeded.
-DROP INDEX IF EXISTS idx_checkins_device_id;
 
 -- Telemetry, stored by shape rather than as one snapshot per report.
 --
@@ -13209,7 +12717,6 @@ CREATE INDEX IF NOT EXISTS idx_device_samples_at ON device_samples USING BRIN (a
 -- whether anything non-volatile changed since the last STORED row, which is what keeps
 -- a device reporting every few seconds from storing a row every few seconds. It holds
 -- an md5 of exactly the projection that comparison used to make.
-ALTER TABLE checkins ADD COLUMN IF NOT EXISTS state_hash TEXT;
 
 -- checkins.id is not a key anyone uses. Nothing in the database references it (no
 -- foreign key points at checkins), no query looks a check-in up by it, and its scan
@@ -13222,31 +12729,12 @@ ALTER TABLE checkins ADD COLUMN IF NOT EXISTS state_hash TEXT;
 -- The column stays, default and all — the public API echoes it — it simply stops being
 -- indexed and enforced-unique. Collisions on random uuids are not a practical concern,
 -- and nothing would notice one if it happened, because nothing reads the column.
-ALTER TABLE checkins DROP CONSTRAINT IF EXISTS checkins_pkey;
 
 -- Keep monthly partitions created ahead of the present, so a check-in can never be
 -- rejected for want of a partition. Guarded on relkind = 'p': until checkins is
 -- actually converted (tools/partition-checkins.sql) this is a cheap no-op, and it
 -- starts maintaining itself the moment the conversion lands, with nothing to remember
 -- and no second deploy.
-DO $checkin_parts$
-DECLARE
-    m      DATE;
-    last_m DATE;
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'checkins' AND relkind = 'p') THEN
-        RETURN;
-    END IF;
-    m      := date_trunc('month', NOW())::date;
-    last_m := (date_trunc('month', NOW()) + INTERVAL '3 months')::date;
-    WHILE m <= last_m LOOP
-        EXECUTE format(
-            'CREATE TABLE IF NOT EXISTS %I PARTITION OF checkins FOR VALUES FROM (%L) TO (%L)',
-            'checkins_' || to_char(m, 'YYYY_MM'), m, (m + INTERVAL '1 month')::date);
-        m := (m + INTERVAL '1 month')::date;
-    END LOOP;
-END
-$checkin_parts$;
 
 -- Saved fleet views. The Fleet page has fifteen filter dimensions plus a sort;
 -- the combination an operator rebuilds every morning had to be rebuilt every

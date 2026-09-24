@@ -2,9 +2,7 @@
 # clone. The server itself is this repo's root — it is both the superproject and
 # the thing that deploys.
 #
-# Paths keep the folder names this tree has always used. They are load-bearing:
-# aio-mdm-client-lite/settings.gradle.kts builds the library straight out of
-# ../aio-mdm-lite/mdm-lite, so the two must stay siblings.
+# Paths keep the folder names this tree has always used.
 #
 # `branch` is what `git submodule update --remote` follows. Not all are main —
 # the DPC agent lives on menu-board.
@@ -34,7 +32,3 @@
 	url = https://github.com/ali-aio/mdm-lite.git
 	branch = main
 
-[submodule "aio-mdm-client-lite"]
-	path = aio-mdm-client-lite
-	url = https://github.com/ali-aio/mdm-client-lite.git
-	branch = main

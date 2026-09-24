@@ -5064,6 +5064,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		data["CanSaveView"] = true
 	}
 	data["CurrentQuery"] = r.URL.RawQuery
+	// Tablets refused for a corrupted serial in the last day: they are stored nowhere
+	// else, so this banner is the only place they show up at all.
+	if refused, err := h.db.RecentRefusedCheckins(r.Context(), 24*time.Hour); err == nil && len(refused) > 0 {
+		data["RefusedSerials"] = refused
+	}
 
 	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
 	// device list is the main swap target, and the heading + quick-view counts ride
@@ -6103,22 +6108,15 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			if stats, statErr := h.db.GetDeviceDailyStats(ctx, device.ID, 8); statErr == nil {
 				var peakDay time.Time
 				if peakDay, havePeak = peakDayForFocus(stats, focus); havePeak {
-					// Shaped first, like the default window below. Check-in rows no longer
-					// carry temperature or RAM (new rows store '{}', and older ones had those
-					// keys moved to device_samples), so reading them alone drew an empty
-					// temp/RAM chart for every peak day.
 					from, until := peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour)
 					if shaped, ok := h.shapedCheckins(ctx, device.ID, from, until); ok {
 						cc = shaped
-					} else {
-						cc, err = h.db.GetCheckinsBetween(ctx, device.ID, from, until)
 					}
 				}
 			}
 		}
-		// Prefer the shaped tables for the default window; fall through to the
-		// snapshots for anything they do not reach. Same fallback the /chart-data
-		// endpoint already has — the first paint simply never had one.
+		// History comes from the shaped tables (device_samples + device_state_events),
+		// which cover every device's whole life since the checkins table was retired.
 		if !havePeak {
 			// Bake in only the default 6h view (matches the chart's default
 			// currentDuration) instead of the full 48h range the duration buttons
@@ -6131,9 +6129,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			// background right after load — see chartWarmBackground in device.html.
 			from := device.LastSeenAt.Add(-6 * time.Hour)
 			if shaped, ok := h.shapedCheckins(ctx, device.ID, from, time.Now().UTC()); ok {
-				cc, err = shaped, nil
-			} else {
-				cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, from)
+				cc = shaped
 			}
 		}
 		if err != nil {
@@ -6536,8 +6532,6 @@ const (
 	chartCacheMaxSize = 400
 )
 
-// chartRawSem bounds concurrent raw-check-in chart builds (see DeviceChartData).
-var chartRawSem = make(chan struct{}, 2)
 
 func chartCacheKey(deviceID uuid.UUID, fromMs, untilMs int64) string {
 	const round = 30_000
@@ -6607,10 +6601,7 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(body)
 		return
 	}
-	// Prefer the shaped tables: a wide window there is fixed-width rows on a clustered
-	// index instead of tens of thousands of jsonb snapshots, each detoasted to read four
-	// numbers out of it. Falls back for any window they do not yet cover, so this needs
-	// no flag day and no backfill to have finished.
+	// The shaped tables: a wide window is fixed-width rows on a clustered index.
 	if pts, ok := h.shapedChartSeries(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs)); ok {
 		body, err := buildChartBody(device, pts, h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs)))
 		if err != nil {
@@ -6624,71 +6615,9 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Raw check-ins are the expensive path (a month can be ~170k rows), so only a couple
-	// run at once; the rest wait here instead of stacking up in memory side by side.
-	select {
-	case chartRawSem <- struct{}{}:
-		defer func() { <-chartRawSem }()
-	case <-r.Context().Done():
-		return
-	}
-	asc, err := h.db.GetChartCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
-	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	// Newest-first from the query; the chart wants oldest-first. In place: a copy of a
-	// month of rows is exactly the memory this path can't spare.
-	n := len(asc)
-	for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
-		asc[i], asc[j] = asc[j], asc[i]
-	}
-	// These devices can check in every few seconds, so a multi-day pull is huge.
-	// Build every point, then decimate each series to about maxPoints while
-	// KEEPING each bucket's minimum and maximum, so a temperature spike or a
-	// battery dip that is in the CSV is also on the graph (a plain stride skipped
-	// them, which is where "the CSV says 49°C but the graph never shows it" came from).
-	const maxPoints = 2500
-	type bpt struct {
-		X   int64 `json:"x"`
-		Y   int   `json:"y"`
-		Wlc *int  `json:"wlc"`
-	}
-	type pt struct {
-		X int64   `json:"x"`
-		Y float64 `json:"y"`
-	}
-	hasBattery := device.HasBattery()
-	battery := make([]bpt, 0, n)
-	temp := make([]pt, 0, n)
-	ram := make([]pt, 0, n)
-	for i := 0; i < n; i++ {
-		c := asc[i]
-		x := c.CreatedAt.UnixMilli()
-		if hasBattery {
-			battery = append(battery, bpt{X: x, Y: c.BatteryPct, Wlc: wlcIntFromExtra(c.Extra)})
-		}
-		if t, _, ok := deviceTempC(c.Extra); ok {
-			temp = append(temp, pt{X: x, Y: t})
-		}
-		if rp, ok := ramPctFromExtra(c.Extra); ok {
-			ram = append(ram, pt{X: x, Y: rp})
-		}
-	}
-	var charge []chargeRun
-	if hasBattery && device.HasCharging() {
-		charge = chargeRuns(asc, chartGapMs(device.PollIntervalMs))
-	}
-	if len(temp) > maxPoints {
-		temp = decimateExtremes(temp, maxPoints, func(p pt) float64 { return p.Y })
-	}
-	if len(ram) > maxPoints {
-		ram = decimateExtremes(ram, maxPoints, func(p pt) float64 { return p.Y })
-	}
-	if len(battery) > maxPoints {
-		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
-	}
-	body, err := json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge,
+	// Nothing in the window (the shaped tables cover every device's whole life, so this
+	// is a window with no samples in it): an empty chart, not a fallback.
+	body, err := json.Marshal(map[string]any{"battery": []any{}, "temp": []any{}, "ram": []any{}, "charge": []any{},
 		"battery_before": h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs))})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -7604,15 +7533,8 @@ func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	from := time.Now().UTC().Add(-time.Duration(hours) * time.Hour)
-	checkins, ok := h.shapedCheckins(r.Context(), device.ID, from, time.Now().UTC())
-	if !ok {
-		var err error
-		checkins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, from)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-	}
+	// Empty when the window holds no samples: the CSV is then just its header.
+	checkins, _ := h.shapedCheckins(r.Context(), device.ID, from, time.Now().UTC())
 
 	filename := fmt.Sprintf("%s_battery_%dh.csv", serial, hours)
 	w.Header().Set("Content-Type", "text/csv")
@@ -9063,27 +8985,10 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		return cw.Write(rec)
 	}
-	// The shaped tables answer this window only if they cover its whole span for every
-	// device asked for; otherwise the snapshot does. Coverage begins the day dual
-	// writing started, so an export reaching further back still reads checkins — which
-	// is why the fallback stays rather than the old path being deleted.
-	//
-	//
-	// "source" overrides the choice. It exists so the two paths can be run against each
-	// other on real windows and diffed, which is the only way this move is safe to
-	// make, and it stays as the escape hatch if they ever disagree in the field.
-	useShaped := h.shapedCoversExport(r.Context(), deviceIDs, start.UTC())
-	switch r.FormValue("source") {
-	case "checkins":
-		useShaped = false
-	case "shaped":
-		useShaped = true
-	}
-	if useShaped {
-		err = h.db.StreamExportShaped(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, false, writeRow)
-	} else {
-		err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
-	}
+	// The shaped tables cover every device's whole history since the checkins table was
+	// retired (samples backfilled to the first check-in, state events derived from the
+	// old snapshots), so they answer every export.
+	err = h.db.StreamExportShaped(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, false, writeRow)
 	cw.Flush()
 	if err != nil {
 		// Headers already written; the partial CSV is the best we can do.
@@ -19027,140 +18932,10 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
 	h.downsampleOldCheckins(ctx)
-	h.stripLegacyCheckins(ctx)
-	h.backfillBuildHistory(ctx)
-	h.backfillDeviceSamples(ctx)
-	h.backfillStateEvents(ctx)
-	// After the backfill, never before it: a day whose samples have not been written
-	// yet must not have its snapshots stripped. The EXISTS guard inside the strip makes
-	// that safe regardless, but running them in this order means the guard is a backstop
-	// rather than the only thing standing between us and deleted history.
-	h.stripDupCheckins(ctx)
-}
-
-// backfillDeviceSamples fills device_samples from existing check-in history, one UTC
-// day per step, newest first — so the recent window every chart reads is shaped after
-// the first run and older history fills in over the following hours. Bounded per run;
-// the cursor persists in config; stops at the oldest check-in.
-//
-// Only numbers are backfilled; see BackfillDeviceSamplesDay for why transitions are
-// not derived from thinned history.
-func (h *Handler) backfillDeviceSamples(ctx context.Context) {
-	cur := h.cfg.SamplesBackfillCursor()
-	if cur == "done" {
-		return
-	}
-	oldest, ok, err := h.db.OldestCheckinDay(ctx)
-	if err != nil {
-		log.Printf("[samples-backfill] oldest checkin: %v", err)
-		return
-	}
-	if !ok {
-		_ = h.cfg.SetSamplesBackfillCursor("done")
-		return
-	}
-	day := time.Now().UTC().Truncate(24 * time.Hour)
-	if cur != "" {
-		if day, err = time.Parse("2006-01-02", cur); err != nil {
-			log.Printf("[samples-backfill] bad cursor %q, restarting", cur)
-			_ = h.cfg.SetSamplesBackfillCursor("")
-			return
-		}
-	}
-	deadline := time.Now().Add(3 * time.Minute)
-	var total int64
-	steps := 0
-	for ; steps < 20 && !day.Before(oldest) && time.Now().Before(deadline); steps++ {
-		n, err := h.db.BackfillDeviceSamplesDay(ctx, day)
-		if err != nil {
-			log.Printf("[samples-backfill] %s: %v", day.Format("2006-01-02"), err)
-			return
-		}
-		total += n
-		day = day.AddDate(0, 0, -1)
-		if err := h.cfg.SetSamplesBackfillCursor(day.Format("2006-01-02")); err != nil {
-			log.Printf("[samples-backfill] save cursor: %v", err)
-			return
-		}
-	}
-	if day.Before(oldest) {
-		_ = h.cfg.SetSamplesBackfillCursor("done")
-		log.Printf("[samples-backfill] complete, back to %s", oldest.Format("2006-01-02"))
-	}
-	if total > 0 {
-		log.Printf("[samples-backfill] wrote %d sample(s) across %d day(s), now at %s", total, steps, day.Format("2006-01-02"))
-	}
-}
-
-// backfillStateEvents derives state events from the check-in snapshots older than the
-// instant live events began (BackfillStateEventsDay), oldest day first, up to 20 days or
-// three minutes a pass. Once it is done every window of every device is answerable from
-// the shaped tables, which is what lets the checkins table go.
-func (h *Handler) backfillStateEvents(ctx context.Context) {
-	cur, untilS := h.cfg.StateBackfill()
-	if cur == "done" {
-		return
-	}
-	if untilS == "" {
-		start, ok, err := h.db.StateEventsLiveStart(ctx)
-		if err != nil {
-			log.Printf("[state-backfill] live start: %v", err)
-			return
-		}
-		if !ok {
-			return // no live events yet: nothing to line history up against
-		}
-		untilS = start.UTC().Format(time.RFC3339Nano)
-		if err := h.cfg.SetStateBackfill(cur, untilS); err != nil {
-			log.Printf("[state-backfill] save start: %v", err)
-			return
-		}
-	}
-	until, err := time.Parse(time.RFC3339Nano, untilS)
-	if err != nil {
-		log.Printf("[state-backfill] bad start %q", untilS)
-		return
-	}
-	var day time.Time
-	if cur == "" {
-		oldest, ok, err := h.db.OldestCheckinDay(ctx)
-		if err != nil {
-			log.Printf("[state-backfill] oldest checkin: %v", err)
-			return
-		}
-		if !ok {
-			_ = h.cfg.SetStateBackfill("done", untilS)
-			return
-		}
-		day = oldest
-	} else if day, err = time.Parse("2006-01-02", cur); err != nil {
-		log.Printf("[state-backfill] bad cursor %q, restarting", cur)
-		_ = h.cfg.SetStateBackfill("", untilS)
-		return
-	}
-	deadline := time.Now().Add(3 * time.Minute)
-	var total int64
-	steps := 0
-	for ; steps < 20 && day.Before(until) && time.Now().Before(deadline); steps++ {
-		n, err := h.db.BackfillStateEventsDay(ctx, day, until)
-		if err != nil {
-			log.Printf("[state-backfill] %s: %v", day.Format("2006-01-02"), err)
-			return
-		}
-		total += n
-		day = day.AddDate(0, 0, 1)
-		if err := h.cfg.SetStateBackfill(day.Format("2006-01-02"), untilS); err != nil {
-			log.Printf("[state-backfill] save cursor: %v", err)
-			return
-		}
-	}
-	if !day.Before(until) {
-		_ = h.cfg.SetStateBackfill("done", untilS)
-		log.Printf("[state-backfill] complete up to %s", until.Format(time.RFC3339))
-	}
-	if total > 0 {
-		log.Printf("[state-backfill] wrote %d event(s) across %d day(s), next %s", total, steps, day.Format("2006-01-02"))
-	}
+	// The check-in backfill, repair and strip jobs are gone with the checkins table
+	// (retired 24 Sep 2026): samples and state history were filled from it in one sitting
+	// first, and the strip job had been deleting the last copy of readings it wrongly
+	// believed were in device_samples.
 }
 
 // downsampleCheckinsDaysPerRun is how much history one housekeeping pass thins. Three
@@ -19177,273 +18952,33 @@ func (h *Handler) downsampleOldCheckins(ctx context.Context) {
 		return // an admin turned it off; keep every row at full resolution
 	}
 	sec := h.cfg.CheckinDownsampleSec()
-	rows, processed, err := h.db.DownsampleCheckins(ctx, days, sec, downsampleCheckinsDaysPerRun)
+	// The check-in downsampling setting, applied to the history that replaced checkins.
+	srows, sdays, err := h.db.DownsampleSamples(ctx, days, sec, downsampleCheckinsDaysPerRun)
 	if err != nil {
-		log.Printf("[housekeeping] downsample check-ins: %v", err)
+		log.Printf("[housekeeping] downsample samples: %v", err)
 		return
 	}
-	if rows > 0 {
-		log.Printf("[housekeeping] downsampled %d check-in row(s) across %d day(s) older than %dd to 1 per %ds",
-			rows, processed, days, sec)
+	if srows > 0 {
+		log.Printf("[housekeeping] downsampled %d sample row(s) across %d day(s) older than %dd to 1 per %ds",
+			srows, sdays, days, sec)
 	}
 }
 
-// stripLegacyCheckins walks the check-in history one UTC day at a time, oldest
-// first, rewriting rows that still carry the keys UpsertCheckin now strips at
-// insert (crash_events, wifi_scan). Those two keys were ~80% of the production
-// table. Bounded per run (time budget + day cap) so it never competes with real
-// work for long on a small box; progress persists in config so it resumes across
-// restarts and finishes on its own. Space is reclaimed by autovacuum for reuse;
-// returning it to the OS needs a one-off pg_repack / VACUUM FULL afterwards.
-// backfillBuildHistory fills device_build_history from check-in history, one UTC
-// day per step, newest first — so the device graph's recent build markers are
-// right after the first run and older history fills in over the following hours.
-// Bounded per run; the cursor persists in config; stops at the oldest check-in.
-func (h *Handler) backfillBuildHistory(ctx context.Context) {
-	cur := h.cfg.BuildHistoryCursor()
-	if cur == "done" {
-		return
-	}
-	oldest, ok, err := h.db.OldestCheckinDay(ctx)
-	if err != nil {
-		log.Printf("[build-history] oldest checkin: %v", err)
-		return
-	}
-	if !ok {
-		_ = h.cfg.SetBuildHistoryCursor("done")
-		return
-	}
-	day := time.Now().UTC().Truncate(24 * time.Hour)
-	if cur != "" {
-		if day, err = time.Parse("2006-01-02", cur); err != nil {
-			log.Printf("[build-history] bad cursor %q, restarting", cur)
-			_ = h.cfg.SetBuildHistoryCursor("")
-			return
-		}
-	}
-	deadline := time.Now().Add(3 * time.Minute)
-	var total int64
-	for steps := 0; steps < 20 && !day.Before(oldest) && time.Now().Before(deadline); steps++ {
-		n, err := h.db.BackfillBuildHistoryDay(ctx, day)
-		if err != nil {
-			log.Printf("[build-history] %s: %v", day.Format("2006-01-02"), err)
-			return
-		}
-		total += n
-		day = day.AddDate(0, 0, -1)
-		if err := h.cfg.SetBuildHistoryCursor(day.Format("2006-01-02")); err != nil {
-			log.Printf("[build-history] save cursor: %v", err)
-			return
-		}
-	}
-	if day.Before(oldest) {
-		_ = h.cfg.SetBuildHistoryCursor("done")
-		log.Printf("[build-history] backfill finished (%d change(s) this run)", total)
-		return
-	}
-	log.Printf("[build-history] %d change(s) this run; next day %s", total, day.Format("2006-01-02"))
-}
-
-// stripDupCheckins removes the snapshot keys that device_samples now holds in fixed
-// columns, from history written before the snapshot stopped being stored. Same shape
-// as stripLegacyCheckins — its own cursor, small paced batches, a per-run budget —
-// because it is the same kind of job: a one-off walk of the whole history whose I/O
-// competes with live traffic.
-//
-// It stops at the day the snapshot stopped being written; rows after that carry '{}'
-// and have nothing to strip.
-func (h *Handler) stripDupCheckins(ctx context.Context) {
-	cur := h.cfg.DupStripCursor()
-	if cur == "done" {
-		return
-	}
-	var day time.Time
-	if cur == "" {
-		oldest, ok, err := h.db.OldestCheckinDay(ctx)
-		if err != nil {
-			log.Printf("[dup-strip] oldest checkin: %v", err)
-			return
-		}
-		if !ok {
-			_ = h.cfg.SetDupStripCursor("done")
-			return
-		}
-		day = oldest
-	} else {
-		var err error
-		if day, err = time.Parse("2006-01-02", cur); err != nil {
-			log.Printf("[dup-strip] bad cursor %q, restarting", cur)
-			_ = h.cfg.SetDupStripCursor("")
-			return
-		}
-	}
-
-	// A row cap as well as a deadline, because the deadline alone does not bound the
-	// damage: it bounds how long we spend, not how much we rewrite. The first run on
-	// live had only a deadline, rewrote 295,161 rows in under four minutes, and
-	// Postgres was OOM-killed shortly after — every one of those UPDATEs writes a new
-	// row version, and that much WAL and dead-tuple churn in one pass was more than the
-	// instance had room for.
-	//
-	// 10,000 was the emergency setting, chosen while the database had no headroom at
-	// all. The cause of that has since been fixed — idle pool connections were holding
-	// 1.7 GB of the 2 GB limit — and the instance now sits near 20%, so the cap moves
-	// to 50,000: about ten days to walk the history rather than two months, and still
-	// a fifth of the pass that caused the trouble.
-	const batch, maxRows = 2000, 50000
-	stop := time.Now().UTC().Truncate(24 * time.Hour)
-	deadline := time.Now().Add(2 * time.Minute)
-	var total int64
-	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
-		n, err := h.db.StripRedundantCheckinKeys(ctx, day, batch)
-		if err != nil {
-			log.Printf("[dup-strip] %s: %v", day.Format("2006-01-02"), err)
-			return
-		}
-		total += n
-		if n < int64(batch) {
-			day = day.AddDate(0, 0, 1)
-			if err := h.cfg.SetDupStripCursor(day.Format("2006-01-02")); err != nil {
-				log.Printf("[dup-strip] save cursor: %v", err)
-				return
-			}
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(400 * time.Millisecond):
-		}
-	}
-	if !day.Before(stop) {
-		_ = h.cfg.SetDupStripCursor("done")
-		log.Printf("[dup-strip] finished (%d row(s) rewritten this run)", total)
-		return
-	}
-	if total > 0 {
-		log.Printf("[dup-strip] rewrote %d row(s); cursor at %s", total, day.Format("2006-01-02"))
-	}
-}
-
-func (h *Handler) stripLegacyCheckins(ctx context.Context) {
-	cur := h.cfg.LegacyStripCursor()
-	if cur == "done" {
-		return
-	}
-	var day time.Time
-	if cur == "" {
-		oldest, ok, err := h.db.OldestCheckinDay(ctx)
-		if err != nil {
-			log.Printf("[legacy-strip] oldest checkin: %v", err)
-			return
-		}
-		if !ok {
-			_ = h.cfg.SetLegacyStripCursor("done")
-			return
-		}
-		day = oldest
-		_ = h.cfg.SetLegacyStripStart(day.Format("2006-01-02"))
-	} else {
-		var err error
-		if day, err = time.Parse("2006-01-02", cur); err != nil {
-			log.Printf("[legacy-strip] bad cursor %q, restarting", cur)
-			_ = h.cfg.SetLegacyStripCursor("")
-			return
-		}
-	}
-	// Stop at yesterday: today's rows are already written stripped, and yesterday's
-	// may still be in flight across the UTC boundary — they get picked up next run.
-	//
-	// Pacing: small batches with a pause between them and a modest per-run budget.
-	// The rows being rewritten carry tens of KB each, so throughput here is I/O the
-	// dashboard and device traffic need too. Hourly runs finish the history in days,
-	// which is fine — this is a one-off.
-	const batch, maxRows = 1000, 20000
-	stop := time.Now().UTC().Truncate(24 * time.Hour)
-	deadline := time.Now().Add(3 * time.Minute)
-	var total int64
-	for day.Before(stop) && total < maxRows && time.Now().Before(deadline) {
-		n, err := h.db.StripLegacyCheckinKeys(ctx, day, batch)
-		if err != nil {
-			log.Printf("[legacy-strip] %s: %v", day.Format("2006-01-02"), err)
-			return
-		}
-		total += n
-		if n < int64(batch) {
-			// Day is clean — advance the cursor.
-			day = day.AddDate(0, 0, 1)
-			if err := h.cfg.SetLegacyStripCursor(day.Format("2006-01-02")); err != nil {
-				log.Printf("[legacy-strip] save cursor: %v", err)
-				return
-			}
-			continue
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(300 * time.Millisecond):
-		}
-	}
-	if !day.Before(stop) {
-		_ = h.cfg.SetLegacyStripCursor("done")
-		log.Printf("[legacy-strip] finished (%d row(s) rewritten this run)", total)
-		return
-	}
-	if total > 0 {
-		log.Printf("[legacy-strip] rewrote %d row(s); cursor at %s", total, day.Format("2006-01-02"))
-	}
-}
-
-// legacyStripPct is the cleanup's progress, 0–100, for the Settings page: days done
-// between the start day and today. The start day is recorded when the job begins;
-// for a run that started before that field existed it is looked up once (indexed
-// MIN(created_at)) and saved.
+// legacyStripPct is the legacy check-in cleanup's progress for the Settings page.
 func (h *Handler) legacyStripPct(ctx context.Context) int {
-	cur := h.cfg.LegacyStripCursor()
-	if cur == "done" {
-		return 100
-	}
-	if cur == "" {
-		return 0
-	}
-	curDay, err := time.Parse("2006-01-02", cur)
-	if err != nil {
-		return 0
-	}
-	start := h.cfg.LegacyStripStart()
-	if start == "" {
-		if oldest, ok, err := h.db.OldestCheckinDay(ctx); err == nil && ok {
-			start = oldest.Format("2006-01-02")
-			_ = h.cfg.SetLegacyStripStart(start)
-		}
-	}
-	startDay, err := time.Parse("2006-01-02", start)
-	if err != nil {
-		return 0
-	}
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	total := today.Sub(startDay).Hours() / 24
-	if total <= 0 {
-		return 100
-	}
-	pct := int(100 * curDay.Sub(startDay).Hours() / 24 / total)
-	if pct < 0 {
-		return 0
-	}
-	if pct > 100 {
-		return 100
-	}
-	return pct
+	// The legacy strip ran to completion before the checkins table was retired.
+	return 100
 }
 
 // applyPrunes deletes check-ins and logcat results past their retention windows
 // (each a no-op when disabled). These are destructive — rows are removed.
 func (h *Handler) applyPrunes(ctx context.Context) {
 	if d := h.cfg.CheckinRetentionDays(); d > 0 {
-		if n, err := h.db.PruneCheckins(ctx, d); err != nil {
-			log.Printf("[retention] prune checkins: %v", err)
+		// The check-in retention setting governs the history that replaced checkins.
+		if n, err := h.db.PruneShaped(ctx, d); err != nil {
+			log.Printf("[retention] prune samples/events: %v", err)
 		} else if n > 0 {
-			log.Printf("[retention] pruned %d checkin(s) older than %dd", n, d)
+			log.Printf("[retention] pruned %d sample/event row(s) older than %dd", n, d)
 		}
 	}
 	if d := h.cfg.LogcatRetentionDays(); d > 0 {
