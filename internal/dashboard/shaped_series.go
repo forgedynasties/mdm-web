@@ -210,21 +210,6 @@ func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor)
 	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor})
 }
 
-// shapedCoversExport reports whether every selected device's shaped history reaches
-// back to the start of the window. One device short of it is enough to send the whole
-// export to checkins: a CSV where some devices' rows come from one source and some
-// from another would be the hardest kind of discrepancy to notice, since it would look
-// like a per-device data difference rather than a source difference.
-func (h *Handler) shapedCoversExport(ctx context.Context, deviceIDs []uuid.UUID, from time.Time) bool {
-	for _, id := range deviceIDs {
-		coverFrom, ok, err := h.db.ShapedCoverage(ctx, id)
-		if err != nil || !ok || from.Before(coverFrom) {
-			return false
-		}
-	}
-	return true
-}
-
 // shapedCheckins delegates to the db-level builder, keeping one implementation of the
 // merge shared with the public API.
 func (h *Handler) shapedCheckins(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]db.Checkin, bool) {

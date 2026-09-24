@@ -490,15 +490,6 @@ func main() {
 	safego("peer-outbox", func() { apiHandler.Peers().RunOutbox(bgCtx, time.Minute) })
 	safego("peer-sweep", func() { apiHandler.Peers().RunSweep(bgCtx, 10*time.Minute) })
 
-	// One-time backfill of daily stats for any historical days not yet rolled up.
-	safego("backfill-daily-stats", func() {
-		if n, err := database.BackfillDailyStats(bgCtx, cfg.CheckinRetentionDays()); err != nil {
-			log.Printf("[startup] backfill daily stats: %v", err)
-		} else if n > 0 {
-			log.Printf("[startup] backfilled daily stats for %d day(s)", n)
-		}
-	})
-
 	// One-time: fill the power/usage columns on days rolled up before they existed, so
 	// the restaurant metrics cover a full week from the first deploy.
 	safego("backfill-site-metrics", func() {

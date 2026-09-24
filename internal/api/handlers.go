@@ -1786,12 +1786,11 @@ func (h *Handler) GetDevice(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
 		return
 	}
-	// Built from the shaped tables where they reach, so the response keeps the same
-	// shape now that checkins.extra is no longer the source of truth; older windows
-	// still come from the stored snapshots.
+	// The last 7 days, at most 100 rows, rebuilt in the check-in shape from the shaped
+	// tables (the checkins table itself is retired). A device silent for a week gets [].
 	checkins, ok, err := h.db.ShapedCheckins(r.Context(), device.ID, time.Now().UTC().Add(-7*24*time.Hour), time.Now().UTC(), 100)
 	if err == nil && !ok {
-		checkins, err = h.db.GetCheckins(r.Context(), device.ID, 100)
+		checkins = []db.Checkin{}
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
