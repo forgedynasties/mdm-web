@@ -3376,6 +3376,10 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
             <button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Open adb on port 5555. Only machines whose adb key this device already trusts can connect. Needs firmware v2.1.022+."{{end}}>Turn on</button></form>{{end}}
         {{end}}
       </span></div>
+      {{if and $s.AdbOn $s.IP}}{{$cmd := printf "adb connect %s:%d" $s.IP (or $s.AdbPort 5555)}}
+      <div class="ddc-kv" id="wadb-connect"><span class="k">Connect</span><span class="v"><code class="mono">{{$cmd}}</code>
+        <button type="button" class="cc-btn sm" data-cmd="{{$cmd}}" onclick="copyText(this.dataset.cmd, this)" title="Copy the adb connect command">Copy</button></span></div>
+      {{end}}
     </div>
     {{end}}
   </div>
