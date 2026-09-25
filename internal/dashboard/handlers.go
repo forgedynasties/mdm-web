@@ -6167,8 +6167,27 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		names := h.actorDisplayNames(ctx)
-		items := make([]deviceActivityItem, 0, len(entries))
+		// Admin activity is for admins: the built-in admin login, the admin API key and any
+		// admin account. Everyone else sees what operators and the device itself did.
+		adminActors := map[string]bool{"admin": true, "api": true}
+		if role != "admin" {
+			if users, err := h.db.ListUsers(ctx); err == nil {
+				for _, u := range users {
+					if u.Role == "admin" {
+						adminActors[u.Username] = true
+					}
+				}
+			}
+		}
+		const activityShown = 5 // the card is a glance; "all activity" has the rest
+		items := make([]deviceActivityItem, 0, activityShown)
 		for _, e := range entries {
+			if len(items) == activityShown {
+				break
+			}
+			if role != "admin" && adminActors[e.Actor] {
+				continue
+			}
 			actor := e.Actor
 			if dn, ok := names[actor]; ok && dn != "" {
 				actor = dn
