@@ -5529,6 +5529,12 @@ type StalledInstall struct {
 //
 // Only rows whose updated_at has not moved for stallMinutes are touched, so a slow but
 // live download (a large package on a poor link acks every few percent) is left alone.
+//
+// update_devices.updated_at only moves at status checkpoints, so it alone cannot
+// tell a dead download from a long one: a download still running 30 minutes after
+// it started would be failed while its device was reporting progress every few
+// seconds. Progress frames are written to command_status (SetCommandProgress), so
+// a row is only stalled when its device has also sent no OTA progress in the window.
 func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
 	rows, err := d.pool.Query(ctx, `
 		UPDATE update_devices ud
@@ -5538,7 +5544,73 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		  AND u.status = 'active'
 		  AND ud.status IN ('pending', 'downloading')
 		  AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM command_status cs
+		      JOIN commands c ON c.id = cs.command_id
+		      WHERE cs.device_id = ud.device_id
+		        AND c.type = 'ota'
+		        AND c.created_at >= u.created_at
+		        AND cs.updated_at > NOW() - make_interval(mins => $1))
 		RETURNING ud.update_id, ud.device_id
+	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var updateID int
+		var s StalledInstall
+		if err := rows.Scan(&updateID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// ReviveStalledOTAs undoes a stall verdict the device has since disproved: a row
+// failed as 'stalled' whose device is still reporting progress on this deployment's
+// OTA goes back to 'downloading', and one whose OTA installed after the verdict moves
+// on to 'awaiting_reboot' — where the installed ack would have put it had the row
+// not been failed (ResolveUpdateForDevice skips failed rows, so the ack could not).
+// A deployment that closed only because those rows counted as terminal is reopened.
+// The OTA is matched to the deployment by release version and creation time, and
+// only verdicts from the last day are reconsidered.
+func (d *DB) ReviveStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH s AS (
+		    SELECT DISTINCT ON (ud2.update_id, ud2.device_id)
+		           ud2.update_id, ud2.device_id, ud2.updated_at AS failed_at,
+		           cs.status AS cs_status, cs.updated_at AS cs_at
+		    FROM update_devices ud2
+		    JOIN updates u ON u.id = ud2.update_id AND u.status IN ('active', 'complete')
+		    JOIN releases rel ON rel.id = u.release_id
+		    JOIN command_status cs ON cs.device_id = ud2.device_id
+		    JOIN commands c ON c.id = cs.command_id
+		    WHERE ud2.status = 'failed' AND ud2.error_code = 'stalled'
+		      AND ud2.updated_at > NOW() - INTERVAL '1 day'
+		      AND c.type = 'ota'
+		      AND c.created_at >= u.created_at
+		      AND c.payload->>'build_id' = rel.version
+		    ORDER BY ud2.update_id, ud2.device_id, c.created_at DESC
+		), rev AS (
+		    UPDATE update_devices ud
+		    SET status = CASE WHEN s.cs_status = 'installed' THEN 'awaiting_reboot' ELSE 'downloading' END,
+		        error_code = '', updated_at = NOW()
+		    FROM s
+		    WHERE ud.update_id = s.update_id AND ud.device_id = s.device_id
+		      AND ud.status = 'failed' AND ud.error_code = 'stalled'
+		      AND ((s.cs_status = 'installed' AND s.cs_at >= s.failed_at)
+		           OR (s.cs_status IN ('downloading', 'installing')
+		               AND s.cs_at > NOW() - make_interval(mins => $1)))
+		    RETURNING ud.update_id, ud.device_id
+		), reopen AS (
+		    UPDATE updates SET status = 'active'
+		    WHERE status = 'complete' AND id IN (SELECT update_id FROM rev)
+		    RETURNING id
+		)
+		SELECT rev.update_id, rev.device_id FROM rev
 	`, stallMinutes)
 	if err != nil {
 		return nil, err
