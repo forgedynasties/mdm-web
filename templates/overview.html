@@ -2,1096 +2,210 @@
 {{template "header" .}}
 
 <style>
-/* ── Overview · Command center v3 ─────────────────────────── */
-.ov3{max-width:1280px;margin:0 auto}
-.ov3 .tnum{font-variant-numeric:tabular-nums}
+/* ── Overview ──────────────────────────────────────────────────────────────
+   Counts, then what needs attention, then where. Fixed layout: the reading
+   order is the design. Colour appears only on status (dots, severity tags,
+   an over-limit temperature); cards are flat, 8px, no header icons. */
+.ovd{max-width:1280px;margin:0 auto;font-size:13px}
+.ovd .tn,.ovd td{font-variant-numeric:tabular-nums}
+.ovd .cc-card{border-radius:8px;box-shadow:none}
+.ovd .cc-card+.cc-card{margin-top:0}
+.ovd .cc-ch{padding:10px 14px;min-height:42px}
+.ovd .cc-ch h2{font-size:13px;font-weight:650}
 
-/* top bar */
-.ov3-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:18px}
-.ov3-top>div:first-child{flex:1;min-width:0}
-.ov3-actions{flex:none;padding-top:20px}
-@media(max-width:1000px){.ov3-top{flex-direction:column;gap:14px}.ov3-actions{padding-top:0}}
+.ovd-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.ovd-head h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
+.ovd-meta{font-size:12px;color:var(--muted);margin-top:3px}
 
-.ov3-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);display:flex;align-items:center;gap:10px}
-.ov3-h1{font-size:26px;font-weight:750;letter-spacing:-.022em;margin:6px 0 0;line-height:1.15}
-.ov3-h1 .hl.ok{color:var(--ok)}.ov3-h1 .hl.warn{color:var(--warn)}.ov3-h1 .hl.danger{color:var(--danger)}
-.ov3-sub{font-size:13.5px;color:var(--muted);margin-top:6px;max-width:78ch;line-height:1.5}
-.ov3-sub b{color:var(--text);font-weight:650}
-.ov3-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
-.ov3-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:8px 13px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;box-shadow:var(--shadow-sm);transition:border-color var(--dur),background var(--dur)}
-.ov3-btn:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
-.ov3-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}.ov3-btn.primary:hover{background:var(--accent-h);color:#fff}
-.ov3-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ov3-btn .n{font-size:10.5px;font-weight:750;padding:1px 6px;border-radius:99px;background:var(--surface-3);color:var(--text-2);margin-left:2px}
-.ov3-btn .n.warn{background:var(--warn-bg);color:var(--warn)}
+.ovd-stats{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.ovd-stat{display:block;padding:12px 16px;border-left:1px solid var(--border-soft);color:inherit;text-decoration:none}
+.ovd-stat:first-child{border-left:0}
+.ovd-stat:hover{background:var(--surface2)}
+.ovd-stat:first-child:hover{border-radius:8px 0 0 8px}.ovd-stat:last-child:hover{border-radius:0 8px 8px 0}
+.ovd-stat .l{font-size:12px;color:var(--muted)}
+.ovd-stat .v{display:flex;align-items:baseline;gap:8px;font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums}
+.ovd-stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+.ovd-stat .v svg{margin-left:auto;align-self:center;flex:none}
+.ovd-stat .s{font-size:11.5px;color:var(--text-faint);margin-top:2px}
+.ovd-stat .bad{color:var(--danger)}.ovd-stat .good{color:var(--ok)}
+@media(max-width:1024px){.ovd-stats{grid-template-columns:repeat(3,1fr)}.ovd-stat:nth-child(4){border-left:0}.ovd-stat:nth-child(n+4){border-top:1px solid var(--border-soft)}}
+@media(max-width:720px){.ovd-stats{grid-template-columns:1fr 1fr}.ovd-stat{border-left:0!important;border-top:1px solid var(--border-soft)}.ovd-stat:nth-child(-n+2){border-top:0}.ovd-stat:nth-child(even){border-left:1px solid var(--border-soft)!important}}
 
-/* hero */
-.ov3-hero{display:grid;grid-template-columns:auto 1fr minmax(260px,320px);gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);margin-bottom:16px;overflow:hidden;position:relative}
-.ov3-hero::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(118deg,var(--warn-bg),transparent 55%)}
-.ov3-hero.is-ok::before{background:linear-gradient(118deg,var(--ok-bg),transparent 55%)}
-.ov3-hero.is-danger::before{background:linear-gradient(118deg,var(--danger-bg),transparent 55%)}
-.ov3-hero>*{position:relative}
-@media(max-width:980px){.ov3-hero{grid-template-columns:1fr}}
-.ov3-score{display:flex;align-items:center;gap:18px;padding:22px 26px;border-right:1px solid var(--border-soft)}
-@media(max-width:980px){.ov3-score{border-right:none;border-bottom:1px solid var(--border-soft)}}
-.ov3-ring{position:relative;width:104px;height:104px;flex:none}
-.ov3-ring svg{width:104px;height:104px}
-.ov3-ring .trk{fill:none;stroke:var(--surface-3);stroke-width:9}
-.ov3-ring .val{fill:none;stroke:var(--warn);stroke-width:9;stroke-linecap:round}
-.ov3-hero.is-ok .ov3-ring .val{stroke:var(--ok)}.ov3-hero.is-danger .ov3-ring .val{stroke:var(--danger)}
-.ov3-ring b{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;font-weight:750;letter-spacing:-.02em;color:var(--warn);line-height:1}
-.ov3-ring b small{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-top:3px}
-.ov3-hero.is-ok .ov3-ring b{color:var(--ok)}.ov3-hero.is-danger .ov3-ring b{color:var(--danger)}
-.ov3-st{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.ov3-pill{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
-.ov3-hero.is-ok .ov3-pill{background:var(--ok-bg);color:var(--ok)}.ov3-hero.is-danger .ov3-pill{background:var(--danger-bg);color:var(--danger)}
-.ov3-delta{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.4}
-.ov3-why{margin-top:10px;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--surface);border-radius:40px;padding:5px 11px;font:inherit;font-size:12px;font-weight:500;color:var(--accent-text);cursor:pointer}
-.ov3-why svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;transition:transform .15s}
-.ov3-why.on svg{transform:rotate(180deg)}
-.ov3-explain{grid-column:1/-1;border-top:1px solid var(--border-soft);padding:14px 26px 16px;background:var(--surface2)}
-.ov3-explain[hidden]{display:none}
-.ov3-explain-h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:500;margin-bottom:10px}
-.ov3-explain-h .m{font-weight:400;font-size:11.5px;color:var(--muted)}
-.ov3-reason{display:grid;grid-template-columns:52px 120px 1fr;gap:12px;align-items:center;padding:9px 12px;border-radius:12px;background:var(--surface);margin-bottom:6px;text-decoration:none;color:inherit;box-shadow:var(--shadow-sm)}
-.ov3-reason:hover{background:var(--hover)}
-.ov3-reason .pts{font-family:var(--font-display);font-size:18px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--warn)}
-.ov3-reason.bad .pts{color:var(--danger)}.ov3-reason.ok .pts{color:var(--ok)}
-.ov3-reason .bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden}
-.ov3-reason .bar i{display:block;height:100%;background:var(--warn);border-radius:3px}
-.ov3-reason.bad .bar i{background:var(--danger)}
-.ov3-reason .txt{font-size:13px;min-width:0}
-.ov3-reason .txt b{font-weight:500}
-.ov3-reason .txt small{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
-.ov3-explain-f{font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5}
-@media(max-width:720px){.ov3-reason{grid-template-columns:48px 1fr}.ov3-reason .bar{display:none}}
-.ov3-delta b{font-weight:700}.ov3-delta b.up{color:var(--ok)}.ov3-delta b.down{color:var(--danger)}
-.ov3-msg{padding:22px 26px;min-width:0;display:flex;flex-direction:column;justify-content:center}
-.ov3-facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
-.ov3-fact{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px 11px;text-decoration:none}
-.ov3-fact:hover{border-color:var(--rule-2);color:var(--text)}
-.ov3-fact b{color:var(--text);font-variant-numeric:tabular-nums}
-.ov3-fact.bad{color:var(--danger);border-color:var(--danger-edge)}.ov3-fact.bad b{color:var(--danger)}
-.ov3-fact.warn{color:var(--warn);border-color:var(--warn-edge)}.ov3-fact.warn b{color:var(--warn)}
-.ov3-fact svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
-.ov3-comp{padding:20px 24px;border-left:1px solid var(--border-soft);background:color-mix(in srgb,var(--surface2) 55%,transparent)}
-@media(max-width:980px){.ov3-comp{border-left:none;border-top:1px solid var(--border-soft)}}
-.ov3-comp .t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);display:flex;justify-content:space-between}
-.ov3-comp .t a{color:var(--accent-text);text-decoration:none;text-transform:none;letter-spacing:0;font-weight:650}
-.ov3-comp .big{font-size:28px;font-weight:750;letter-spacing:-.02em;margin-top:4px;line-height:1}
-.ov3-comp .big small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}
-.ov3-stack{display:flex;height:9px;border-radius:99px;overflow:hidden;background:var(--surface-3);margin-top:12px;gap:2px}
-.ov3-stack i{display:block;height:100%;min-width:3px}
-.ov3-c1{background:var(--accent)}.ov3-c2{background:var(--accent-2)}.ov3-c3{background:var(--info)}.ov3-c4{background:var(--ok)}.ov3-c5{background:var(--warn)}.ov3-c6{background:var(--rule-2)}
-.ov3-legend{display:flex;flex-wrap:wrap;gap:5px 13px;margin-top:10px;font-size:11.5px;color:var(--muted)}
-.ov3-legend span,.ov3-legend a.ov3-leg{display:inline-flex;align-items:center;gap:6px}
-.ov3-legend a.ov3-leg{color:inherit;text-decoration:none}
-.ov3-legend a.ov3-leg:hover{color:var(--text)}
-.ov3-legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
-.ov3-legend b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
-.ov3-mini{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-soft)}
-.ov3-mini div{font-size:11.5px;color:var(--muted)}
-.ov3-mini b{display:block;font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.ovd-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start;margin-bottom:14px}
+.ovd-side{display:grid;gap:14px}
+@media(max-width:1024px){.ovd-mid{grid-template-columns:1fr}}
 
-/* KPI strip */
-.ov3-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
-@media(max-width:1100px){.ov3-kpis{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.ov3-kpis{grid-template-columns:repeat(2,1fr)}}
-.ov3-kpi{--kc:var(--text-2);--kwash:transparent;--kchip:var(--surface2);position:relative;display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:none;padding:14px 16px 0;text-decoration:none;color:inherit;overflow:hidden;transition:border-color var(--dur),transform var(--dur-fast),box-shadow var(--dur)}
-.ov3-kpi:hover{border-color:var(--rule-2);transform:translateY(-1px);color:inherit}
-.ov3-kpi:has(.v.ok){--kc:var(--ok);--kwash:var(--ok-bg);--kchip:var(--ok-bg)}
-.ov3-kpi:has(.v.warn){--kc:var(--warn);--kwash:var(--warn-bg);--kchip:var(--warn-bg)}
-.ov3-kpi:has(.v.bad){--kc:var(--danger);--kwash:var(--danger-bg);--kchip:var(--danger-bg)}
-.ov3-kpi .k{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted)}
-.ov3-kpi .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;color:var(--kc)}
-.ov3-kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;margin-top:9px;font-variant-numeric:tabular-nums}
-.ov3-kpi .v.ok{color:var(--ok)}.ov3-kpi .v.warn{color:var(--warn)}.ov3-kpi .v.bad{color:var(--danger)}
-.ov3-kpi .d{font-size:11.5px;color:var(--muted);margin-top:7px;display:flex;align-items:center;gap:5px;min-height:16px}
-.ov3-dl{font-weight:700;display:inline-flex;align-items:center;gap:1px}
-.ov3-dl.bad{color:var(--danger)}.ov3-dl.good{color:var(--ok)}
-.ov3-dl svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
-.ov3-sp{display:block;width:100%;height:30px;margin-top:6px}
-.ov3-sp polyline{fill:none;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.ov3-sp polygon{opacity:.14}
-.ov3-sp.ok polyline{stroke:var(--ok)}.ov3-sp.ok polygon{fill:var(--ok)}
-.ov3-sp.warn polyline{stroke:var(--warn)}.ov3-sp.warn polygon{fill:var(--warn)}
-.ov3-sp.bad polyline{stroke:var(--danger)}.ov3-sp.bad polygon{fill:var(--danger)}
-.ov3-sp.mut polyline{stroke:var(--rule-2)}.ov3-sp.mut polygon{fill:var(--rule-2)}
-.ov3-sp-empty{height:30px;margin-top:6px}
+.ovd-tw{overflow-x:auto}
+.ovd-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.ovd-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+.ovd-t td{padding:8px 14px;border-top:1px solid var(--border-soft);white-space:nowrap}
+.ovd-t tbody tr:first-child td{border-top:0}
+.ovd-t tbody tr:hover td{background:var(--surface2)}
+.ovd-t .num{text-align:right}
+.ovd-t .mut{color:var(--muted)}
+.ovd-t .wrap{white-space:normal}
+.ovd-t a{color:var(--text);text-decoration:none;font-weight:550}
+.ovd-t a:hover{text-decoration:underline}
+.ovd-t .ser{font-family:var(--mono);font-size:11.5px;font-weight:500}
+.ovd-t .hot{color:var(--danger);font-weight:600}
+.ovd-more{display:block;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.ovd-more:hover{background:var(--surface2)}
+.ovd-empty{padding:18px 14px;font-size:12.5px;color:var(--muted)}
+.ovd-empty b{color:var(--text);font-weight:600}
 
-/* main grid */
-/* one home-screen grid: each widget spans 1 (half) or 2 (full) columns */
-.ov3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
-@media(max-width:980px){.ov3-grid{grid-template-columns:1fr}}
-.ov3-w[data-cw="2"]{grid-column:1/-1}
-.ov3-w[data-ch="1"] > .ov3-card{max-height:300px;overflow:auto}
-.ov3-w[data-ch="3"] > .ov3-card{min-height:560px}
-.ov3-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
-.ov3-ch{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid var(--border-soft)}
-.ov3-ch h2{font-size:14px;font-weight:700;margin:0;letter-spacing:-.005em}
-.ov3-ch .ic{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent-text);flex:none}
-.ov3-ch .ic.v2{background:var(--accent-2-soft);color:var(--accent-2)}
-.ov3-ch .ic.ok{background:var(--ok-bg);color:var(--ok)}
-.ov3-ch .ic.info{background:var(--info-bg);color:var(--info)}
-.ov3-ch .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ov3-ch .m{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
-.ov3-ch .r{font-size:12px;font-weight:650;color:var(--accent-text);text-decoration:none;white-space:nowrap}
-.ov3-ch .m+.r{margin-left:12px}
-.ov3-foot{display:block;text-align:center;padding:10px;font-size:12.5px;font-weight:600;color:var(--accent-text);border-top:1px solid var(--border-soft);text-decoration:none}
-.ov3-foot:hover{background:var(--surface2)}
-.ov3-empty{display:flex;align-items:center;gap:10px;padding:20px 17px;font-size:13px;color:var(--muted)}
-.ov3-empty .i{width:32px;height:32px;flex:none;border-radius:9px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
-.ov3-empty .i.mut{background:var(--surface2);color:var(--muted)}
-.ov3-empty .i svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
-.ov3-empty b{display:block;color:var(--text);font-weight:650;font-size:13px}
+.ovd-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-faint);margin-right:7px;vertical-align:1px}
+.ovd-dot.ok{background:var(--ok)}.ovd-dot.warn{background:var(--warn)}.ovd-dot.danger{background:var(--danger)}
+.ovd-sev{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:4px;border:1px solid var(--border);color:var(--text-2)}
+.ovd-sev.critical{color:var(--danger);border-color:var(--danger-edge);background:var(--danger-bg)}
+.ovd-sev.warning{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-bg)}
+.ovd-sev.info{color:var(--info);border-color:var(--info-edge);background:var(--info-bg)}
 
-/* sites heatmap */
-.ov3-sfilter{display:flex;gap:6px;margin-left:auto}
-.ov3-sfilter button{font:inherit;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.ov3-sfilter button i{width:7px;height:7px;border-radius:50%}
-.ov3-sfilter button[data-f=ok] i{background:var(--ok)}.ov3-sfilter button[data-f=warn] i{background:var(--warn)}.ov3-sfilter button[data-f=danger] i{background:var(--danger)}
-.ov3-sfilter button.on{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
-.ov3-sites{display:flex;flex-direction:column;padding:2px 0}
-.ov3-site{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;padding:10px 18px;text-decoration:none;color:inherit;border-top:1px solid var(--border-soft);transition:background var(--dur)}
-.ov3-sites .ov3-site:first-of-type{border-top:0}
-.ov3-site:hover{background:var(--hover);color:inherit}
-.ov3-site.hide{display:none}
-.ov3-site .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--ok)}
-.ov3-site.warn .dot{background:var(--warn)}.ov3-site.danger .dot{background:var(--danger)}
-.ov3-site .mid{min-width:0}
-.ov3-site .n{font-size:13px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov3-site .meta{font-size:11.5px;line-height:1.45;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ov3-site .meta b{color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums}
-.ov3-site .meta .mw{color:var(--warn);font-weight:600}
-.ov3-site .meta .md{color:var(--danger);font-weight:600}
-.ov3-site .meta .mok{color:var(--ok);font-weight:600}
-.ov3-site .sc{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;padding:3px 10px;border-radius:8px;background:var(--surface2);color:var(--muted)}
-.ov3-site.ok .sc{background:var(--ok-bg);color:var(--ok)}.ov3-site.warn .sc{background:var(--warn-bg);color:var(--warn)}.ov3-site.danger .sc{background:var(--danger-bg);color:var(--danger)}
-.ov3-site .sc .sc-why{margin-left:1px}
-.ov3-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--surface2);color:var(--muted);white-space:nowrap}
-.ov3-tag.bad{background:var(--danger-bg);color:var(--danger)}.ov3-tag.warn{background:var(--warn-bg);color:var(--warn)}.ov3-tag.ok{background:var(--ok-bg);color:var(--ok)}
-.ov3-sites-more{display:block;text-align:center;font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none;padding:11px 6px;margin-top:2px;border-top:1px solid var(--border-soft)}
-.ov3-sites-more:hover{background:var(--surface2)}
-
-/* release adoption */
-.ov3-adopt{padding:14px 17px}
-.ov3-adopt .bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--surface-3);gap:2px}
-.ov3-adopt .bar i{display:block;height:100%;min-width:3px}
-.ov3-vrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
-.ov3-vrow:first-of-type{border-top:none;margin-top:8px}
-.ov3-vrow .sw{width:9px;height:9px;border-radius:3px;flex:none}
-.ov3-vrow .ver{font-family:var(--mono);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.ov3-vrow .pr{font-size:10.5px;color:var(--text-faint);font-weight:600}
-.ov3-vrow .st{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;letter-spacing:.03em;text-transform:uppercase;flex:none}
-.ov3-vrow .st.published{background:var(--ok-bg);color:var(--ok)}.ov3-vrow .st.draft{background:var(--warn-bg);color:var(--warn)}.ov3-vrow .st.unmanaged{background:var(--surface2);color:var(--muted)}
-.ov3-vrow .cnt{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ov3-vrow .cnt small{font-weight:600;color:var(--muted);margin-left:4px}
-.ov3-adopt-kpi{display:flex;gap:18px;margin-bottom:12px}
-.ov3-adopt-kpi div{font-size:11px;color:var(--muted)}
-.ov3-adopt-kpi b{display:block;font-size:19px;font-weight:750;letter-spacing:-.01em;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1}
-.ov3-adopt-kpi b.ok{color:var(--ok)}
-
-/* rollouts */
-.ov3-ro{display:block;padding:12px 17px;border-top:1px solid var(--border-soft);text-decoration:none;color:inherit}
-.ov3-ro:first-of-type{border-top:none}.ov3-ro:hover{background:var(--surface2);color:inherit}
-.ov3-ro .h{display:flex;align-items:center;gap:8px}
-.ov3-ro .ver{font-family:var(--mono);font-size:12.5px;font-weight:650}
-.ov3-ro .pr{font-size:10.5px;color:var(--text-faint);font-weight:600}
-.ov3-ro .stp{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px;background:var(--info-bg);color:var(--info)}
-.ov3-ro .stp.pending{background:var(--surface2);color:var(--muted)}
-.ov3-ro .pb{display:flex;height:7px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:8px}
-.ov3-ro .pb i{display:block;height:100%}
-.ov3-ro .pb .done{background:var(--ok)}.ov3-ro .pb .down{background:var(--accent-2)}.ov3-ro .pb .fail{background:var(--danger)}
-.ov3-ro .m{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
-.ov3-ro .m b{color:var(--text);font-weight:650}.ov3-ro .m .f{color:var(--danger);font-weight:650}
-
-/* vitals */
-.ov3-vit{padding:6px 17px 10px}
-.ov3-vr{display:grid;grid-template-columns:1fr auto;gap:3px 14px;padding:10px 0;border-top:1px solid var(--border-soft)}
-.ov3-vr:first-child{border-top:none}
-.ov3-vr .l{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
-.ov3-vr .l svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--text-faint)}
-.ov3-vr .v{font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
-.ov3-vr .v small{font-weight:600;color:var(--muted);font-size:11px;margin-left:3px}
-.ov3-vr .v a{color:inherit;text-decoration:none;font-family:var(--mono);font-size:12px}
-.ov3-vr .v.bad{color:var(--danger)}.ov3-vr .v.warn{color:var(--warn)}.ov3-vr .v.ok{color:var(--ok)}
-.ov3-meter{grid-column:1/-1;height:5px;border-radius:99px;background:var(--surface-3);overflow:hidden}
-.ov3-meter i{display:block;height:100%;border-radius:99px;background:var(--accent-2)}
-.ov3-meter i.ok{background:var(--ok)}.ov3-meter i.warn{background:var(--warn)}.ov3-meter i.bad{background:var(--danger)}
-
-/* activity chart */
-.ov3-chart{height:200px;position:relative;padding:12px 14px 8px}
-.ov3-chart-legend{display:flex;gap:14px;padding:0 17px 12px;font-size:11.5px;color:var(--muted)}
-.ov3-chart-legend span{display:inline-flex;align-items:center;gap:6px}
-.ov3-chart-legend i{width:14px;height:0;border-top:2px solid var(--accent)}
-.ov3-chart-legend i.low{border-top-style:dashed;border-color:var(--warn)}
-.ov3-bars-empty{padding:26px;color:var(--muted);font-size:13px;text-align:center}
-
-
-/* ── Widget system: hide buttons, drag handles, customize popover ── */
-.ov3-w{position:relative;min-width:0}
-.ov3-hide{width:24px;height:24px;flex:none;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--text-faint);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;opacity:0;transition:opacity var(--dur),background var(--dur);padding:0}
-.ov3-hide svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-.ov3-w:hover .ov3-hide,.ov3-hide:focus-visible,.ov3-w.dragging .ov3-hide{opacity:1}
-.ov3-hide:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
-.ov3-ch .ov3-hide{margin-left:auto}
-.ov3-ch .m~.ov3-hide,.ov3-ch .r~.ov3-hide,.ov3-ch .ov3-sfilter~.ov3-hide,.ov3-ch .ov3-ch-btn~.ov3-hide{margin-left:8px}
-.ov3-w>.ov3-hide{position:absolute;top:8px;right:8px;z-index:2;background:var(--surface);border-color:var(--border)}
-@media(hover:none){.ov3-hide{opacity:1}}
-/* edit mode ("Customize"): wiggle, per-widget toolbar, drag to reorder, add tray */
-.ov3-editing .ov3-w{animation:ov3wig 1.6s ease-in-out infinite;transform-origin:50% 50%}
-.ov3-editing .ov3-w:nth-child(2n){animation-delay:-.8s}
-@keyframes ov3wig{0%,100%{transform:rotate(-.25deg)}50%{transform:rotate(.25deg)}}
-@media(prefers-reduced-motion:reduce){.ov3-editing .ov3-w{animation:none!important}}
-.ov3-editing .ov3-w{outline:2px dashed var(--accent-edge);outline-offset:3px;border-radius:var(--r-4);cursor:grab}
-.ov3-editing .ov3-w.dragging{opacity:.35}
-.ov3-editing .ov3-w>*:not(.ov3-tools){pointer-events:none}
-.ov3-tools{display:none;position:absolute;top:-12px;right:10px;z-index:4;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;box-shadow:var(--shadow-pop)}
-.ov3-editing .ov3-w .ov3-tools{display:inline-flex}
-.ov3-tools button{width:28px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:700}
-.ov3-tools button:hover{background:var(--surface2);color:var(--text)}
-.ov3-tools button.on{background:var(--accent-soft);color:var(--accent-text)}
-.ov3-tools button.grab{cursor:grab}
-.ov3-tools button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ov3-tools .sep{width:1px;background:var(--border);margin:4px 2px}
-.ov3-tools button.x{color:var(--danger)}
-.ov3-drop{grid-column:span 1;min-height:64px;border:2px dashed var(--accent);border-radius:14px;background:var(--accent-soft);opacity:.7}
-.ov3-drop.wide{grid-column:1/-1}
-.ov3-tray{display:none;grid-column:1/-1;border:1px dashed var(--border);border-radius:14px;padding:12px 14px;background:var(--surface2)}
-.ov3-editing .ov3-tray{display:block}
-.ov3-tray .cap{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
-.ov3-tray .row{display:flex;gap:8px;flex-wrap:wrap}
-.ov3-tray button{font:inherit;font-size:12.5px;font-weight:650;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
-.ov3-tray button:hover{color:var(--accent-text);border-color:var(--accent-edge)}
-.ov3-tray .none{font-size:12px;color:var(--muted)}
-.ov3-editbar{display:none;position:sticky;top:8px;z-index:2;align-items:center;gap:10px;margin:0 0 14px;padding:8px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:12px;font-size:12.5px;color:var(--accent-text)}
-.ov3-editing .ov3-editbar{display:flex}
-.ov3-editbar b{font-weight:700}
-.ov3-editbar .done{margin-left:auto;font:inherit;font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:99px;border:0;background:var(--accent);color:#fff;cursor:pointer}
-.ov3-editing .ov3-hide{display:none}
-.ov3-ch .ov3-ch-btn{font:inherit;font-size:11.5px;font-weight:650;padding:4px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;margin-left:8px;white-space:nowrap}
-.ov3-ch .ov3-ch-btn:hover{color:var(--text);border-color:var(--rule-2)}
-.ov3-ch .ov3-ch-btn:disabled{opacity:.6;cursor:wait}
-.ov3-ch .ic.ai{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
-/* customize popover */
-.ov3-cust{position:relative}
-.ov3-pop{position:absolute;right:0;top:calc(100% + 8px);width:310px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:8px;z-index:60;text-align:left}
-.ov3-pop-sec{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);padding:8px 10px 4px}
-.ov3-pop-item{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;font:inherit;padding:8px 10px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--text)}
-.ov3-pop-item b{font-size:13px;font-weight:650}.ov3-pop-item span{font-size:11.5px;color:var(--muted)}
-.ov3-pop-item:hover{background:var(--surface2)}
-.ov3-pop-item.on{background:var(--accent-soft);border-color:var(--accent-edge)}
-.ov3-pop-item.on b{color:var(--accent-text)}
-.ov3-pop-item.reset b{color:var(--danger)}
-.ov3-pop-item.static{cursor:default}
-.ov3-pop-item:disabled{cursor:default;opacity:.55}
-.ov3-pop-item.busy{opacity:1}
-.ov3-pop-item.busy b::after{content:'';display:inline-block;width:10px;height:10px;margin-left:8px;vertical-align:-1px;border-radius:50%;border:2px solid var(--accent-edge);border-top-color:var(--accent);animation:ov3spin .7s linear infinite}
-@keyframes ov3spin{to{transform:rotate(360deg)}}
-.ov3-btn.busy{pointer-events:none}
-.ov3-btn.busy svg{animation:ov3spin .9s linear infinite}
-.ov3.ov3-switching .ov3-grid,.ov3.ov3-switching .ov3-hero{opacity:.45;pointer-events:none;transition:opacity .15s}
-.ov3-pop-none,.ov3-pop-hint{font-size:11.5px;color:var(--muted);padding:6px 10px}
-.ov3-pop-hint{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:10px}
-.ov3-pop-hint kbd{font:inherit;font-weight:650;color:var(--text-2)}
-.ov3-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:99px;box-shadow:var(--shadow-pop);z-index:70;opacity:0;transition:opacity .2s;pointer-events:none}
-.ov3-toast.show{opacity:1}
-/* compact daily report (brief) */
-.ov3-brief-body{padding:14px 17px}
-.ov3-brief-lede{font-size:14px;line-height:1.5;font-weight:500}
-.ov3-brief-full{margin-top:10px}
-.ov3-brief .rep-tiles,.ov3-brief .rep-good{display:none}
-.ov3-brief .rep-rows{margin-top:0;gap:8px}
-.ov3-brief .rep-row .meta{font-size:12.5px;line-height:1.45}
-.ov3-brief:not(.open) .rep-row:nth-child(n+4){display:none}
-.ov3-w[data-w="report"] #ai-summary-card{margin-bottom:0}
-.ov3-brief-more{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px}
-.ov3-brief-more button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:0}
-.ov3-brief-more a{color:var(--muted);text-decoration:none;font-weight:600;margin-left:auto}
-.ov3-brief-more a:hover{color:var(--text)}
+.ovd-bar{display:flex;height:6px;border-radius:2px;overflow:hidden;background:var(--surface-3);margin-top:6px;min-width:120px}
+.ovd-bar i{display:block;height:100%}
+.ovd-bar .done{background:var(--text-2)}.ovd-bar .down{background:var(--rule-2)}.ovd-bar .fail{background:var(--danger)}
 </style>
 
-<div class="ov3" id="ov3">
+<div class="ovd">
 
-  {{/* ── Top bar ── */}}
-  <div class="ov3-top">
+  <div class="ovd-head">
     <div>
-      <div class="ov3-eyebrow">{{.Greeting}} · {{.DateLine}}</div>
-      <h1 class="ov3-h1">{{if gt .AttentionRest 0}}<span class="hl {{.ScoreClass}}">{{.AttentionRest}} site{{if ne .AttentionRest 1}}s{{end}}</span> need{{if eq .AttentionRest 1}}s{{end}} a look today{{else}}Your fleet is in <span class="hl ok">good shape</span>{{end}}</h1>
-      <div class="ov3-sub">{{.HeroSentence}}</div>
+      <h1>Overview</h1>
+      <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
     </div>
-    <div class="ov3-actions">
-      <a class="ov3-btn primary" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Fleet health</a>
-      <a class="ov3-btn" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="n{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span></a>
-      {{if canAdmin .Role}}      <a class="ov3-btn" href="/enrollment"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/></svg>Enroll device</a>{{end}}
-      <a class="ov3-btn{{if not (canAct .Role)}} role-locked{{end}}" href="/commands"{{if not (canAct .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>
-      <a class="ov3-btn{{if not (canOTA .Role)}} role-locked{{end}}" href="/updates"{{if not (canOTA .Role)}} title="Requires the super op role" data-role-need="Super op"{{end}}><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Deploy update</a>
-      {{if canAppLibrary .Role}}<a class="ov3-btn" href="/apps" title="Upload APKs and manage the app library"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</a>{{end}}
-      <div class="ov3-cust" id="ov3-cust">
-        <button type="button" class="ov3-btn" id="ov3-cust-btn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>Customize{{if .IsCustomized}}<span class="n">{{if eq .Layout.Preset "custom"}}custom{{else}}{{.Layout.Preset}}{{end}}</span>{{end}}</button>
-        <div class="ov3-pop" id="ov3-pop" hidden>
-          <div class="ov3-pop-sec">Views</div>
-          {{range .Presets}}<button type="button" class="ov3-pop-item{{if eq $.Layout.Preset .ID}} on{{end}}" data-preset="{{.ID}}"><b>{{.Label}}</b><span>{{.Blurb}}</span></button>{{end}}
-          {{if eq .Layout.Preset "custom"}}<div class="ov3-pop-item on static"><b>Custom</b><span>Your own arrangement, saved to your account.</span></div>{{end}}
-          <div class="ov3-pop-sec">Hidden widgets</div>
-          <div id="ov3-hidden-list">{{range .HiddenWidgets}}<button type="button" class="ov3-pop-item" data-show="{{.ID}}"><b>{{.Title}}</b><span>Show again</span></button>{{else}}<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>{{end}}</div>
-          <button type="button" class="ov3-pop-item" id="ov3-edit"><b>Edit layout</b><span>Drag to reorder, resize half / full width and short / tall, hide or add widgets.</span></button>
-          <div class="ov3-pop-hint">Changes save to your account.</div>
-          <button type="button" class="ov3-pop-item reset" id="ov3-reset"><b>Reset to default</b><span>Show every widget in the standard order.</span></button>
-        </div>
+    <a class="cc-btn sm" href="/export" title="Export device telemetry as CSV">Export</a>
+  </div>
+
+  {{/* ── Stat strip: every cell a measured count that opens its list ── */}}
+  {{$sitesN := add (add .SitesOK .SitesWarn) .SitesBad}}
+  <div class="ovd-stats">
+    <a class="ovd-stat" href="/devices?status=online">
+      <div class="l"><span class="ovd-dot ok"></span>Online</div>
+      <div class="v">{{.Summary.RecentlyActive}}<small>of {{.Summary.Total}}</small>{{if .SparkActive}}<svg width="58" height="22" viewBox="0 0 58 22" aria-hidden="true"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="{{.SparkActive}}"/></svg>{{end}}</div>
+      <div class="s">{{if .OnlinePct}}{{.OnlinePct}}%{{end}}{{with .OnlineDelta}}{{if .Show}} · <span class="{{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}+{{else}}−{{end}}{{.N}}</span> vs yesterday{{end}}{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/devices?status=offline">
+      <div class="l"><span class="ovd-dot{{if gt .Offline 0}} danger{{end}}"></span>Offline</div>
+      <div class="v">{{.Offline}}</div>
+      <div class="s">{{with .OfflineDelta}}{{if .Show}}<span class="{{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}+{{else}}−{{end}}{{.N}}</span> vs yesterday{{else}}same as yesterday{{end}}{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/alerts">
+      <div class="l">Needs attention</div>
+      <div class="v">{{.AttentionTotal}}</div>
+      <div class="s">{{if .AttentionCritical}}<span class="bad">{{.AttentionCritical}} critical</span>{{else}}none critical{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/alerts?view=crashes">
+      <div class="l">Crashes · 24h</div>
+      <div class="v">{{.Crashes24h}}{{if .CrashSpark}}<svg width="58" height="22" viewBox="0 0 58 22" aria-hidden="true"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="{{.CrashSpark}}"/></svg>{{end}}</div>
+      <div class="s">on {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/restaurants">
+      <div class="l">Restaurants healthy</div>
+      <div class="v">{{.SitesOK}}<small>of {{$sitesN}}</small></div>
+      <div class="s">{{if .SitesBad}}<span class="bad">{{.SitesBad}} at risk</span>{{else}}none at risk{{end}} · {{.SitesWarn}} to watch</div>
+    </a>
+  </div>
+
+  <div class="ovd-mid">
+
+    {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}} open</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>View all</a></div>
+      {{if .AttentionRows}}
+      <div class="ovd-tw"><table class="ovd-t">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Affected</th><th>Where</th><th class="num">Since</th></tr></thead>
+        <tbody>
+        {{range .AttentionRows}}
+        <tr>
+          <td><span class="ovd-sev {{.Severity}}">{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}</span></td>
+          <td class="wrap"><a href="{{.Href}}">{{.Issue}}</a></td>
+          <td>{{if .Serial}}<a class="ser" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}</td>
+          <td class="{{if not .Restaurant}}mut{{end}}">{{if .Restaurant}}{{.Restaurant}}{{else if eq .Href "/enrollment"}}Unassigned{{else}}—{{end}}</td>
+          <td class="num mut">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
+      {{else}}
+      <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
+      {{end}}
+    </div>
+
+    <div class="ovd-side">
+      {{/* ── Rollouts in flight ── */}}
+      <div class="cc-card">
+        <div class="cc-ch"><h2>Rollouts</h2>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates</a>{{end}}</div>
+        {{if .Rollouts}}
+        <table class="ovd-t"><tbody>
+          {{range .Rollouts}}
+          <tr><td class="wrap">
+            <a href="/updates">{{if .Version}}{{.Version}}{{else}}Update #{{.ID}}{{end}}</a>{{if .Product}} <span class="mut">· {{.Product}}</span>{{end}}
+            <div class="ovd-bar"><i class="done" style="width:{{.PctDone}}%"></i><i class="down" style="width:{{.PctDown}}%"></i><i class="fail" style="width:{{.PctFail}}%"></i></div>
+          </td><td class="num mut" style="vertical-align:top">{{.Installed}} / {{.Total}}{{if gt .Failed 0}}<br><span style="color:var(--danger)">{{.Failed}} failed</span>{{end}}</td></tr>
+          {{end}}
+        </tbody></table>
+        {{if gt .RolloutsCount 4}}<a class="ovd-more" href="/updates">{{sub .RolloutsCount 4}} more</a>{{end}}
+        {{else}}
+        <div class="ovd-empty">No rollouts in flight.</div>
+        {{end}}
       </div>
-      <a class="ov3-btn" href="/export" title="Export device telemetry as CSV — pick devices and a time range"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Export</a>
-      <a class="ov3-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>
+
+      {{/* ── Devices by type ── */}}
+      <div class="cc-card">
+        <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
+        {{if .ClassOnline}}
+        <table class="ovd-t">
+          <thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead>
+          <tbody>
+          {{range .ClassOnline}}
+          <tr><td>{{if .Class}}<a href="/devices?class={{.Class}}">{{.Label}}</a>{{else}}{{.Label}}{{end}}</td><td class="num">{{.Online}}</td><td class="num mut">{{.Total}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="ovd-empty">No devices enrolled yet.</div>
+        {{end}}
+      </div>
     </div>
   </div>
 
-  {{/* ── Home-screen grid: user-arranged, user-sized widgets ── */}}
-  <div class="ov3-editbar" id="ov3-editbar"><b>Editing the layout.</b> Drag a card to move it, use its buttons to resize or hide it, add widgets from the tray.<button type="button" class="done" id="ov3-edit-done">Done</button></div>
-  <div class="ov3-grid" id="ov3-grid">
-    {{range .Layout.Order}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}
-    <div class="ov3-tray" id="ov3-tray"><div class="cap">Add a widget</div><div class="row" id="ov3-tray-row"></div></div>
+  {{/* ── Restaurants, worst first ── */}}
+  <div class="cc-card">
+    <div class="cc-ch"><h2>Restaurants</h2>{{if .Sites}}<span class="m">worst first</span>{{end}}<a class="r" href="/restaurants"{{if not .Sites}} style="margin-left:auto"{{end}}>All restaurants</a></div>
+    {{if .Sites}}
+    <div class="ovd-tw"><table class="ovd-t">
+      <thead><tr><th>Restaurant</th><th>Status</th><th class="num">Online</th><th class="num">Alerts</th><th class="num">Crashes · 24h</th><th class="num">Hottest</th><th>Main issue</th></tr></thead>
+      <tbody>
+      {{range $i, $s := .Sites}}{{if lt $i 6}}
+      <tr>
+        <td><a href="/restaurants/{{$s.ID}}">{{$s.Name}}</a></td>
+        <td><span class="ovd-dot {{$s.Class}}"></span>{{if eq $s.Class "ok"}}Healthy{{else if eq $s.Class "warn"}}Watch{{else}}At risk{{end}}</td>
+        <td class="num">{{$s.Online}} / {{$s.Devices}}</td>
+        <td class="num{{if not (add $s.Critical $s.Warning)}} mut{{end}}">{{add $s.Critical $s.Warning}}</td>
+        <td class="num{{if not $s.Crashes}} mut{{end}}">{{$s.Crashes}}</td>
+        <td class="num{{if $s.Hot}} hot{{else}} mut{{end}}">{{if $s.HasTemp}}{{$s.TempMax}} °C{{else}}—{{end}}</td>
+        <td class="mut wrap">{{if $s.MainIssue}}{{$s.MainIssue}}{{else}}—{{end}}</td>
+      </tr>
+      {{end}}{{end}}
+      </tbody>
+    </table></div>
+    {{if gt (len .Sites) 6}}<a class="ovd-more" href="/restaurants">{{sub (len .Sites) 6}} more</a>{{end}}
+    {{else}}
+    <div class="ovd-empty"><b>No restaurants yet.</b> Assign devices to a restaurant and it appears here.</div>
+    {{end}}
   </div>
 
 </div>
 
-<script type="application/json" id="ov3-layout">{{.LayoutJSON}}</script>
-<script type="application/json" id="ov3-widgets">{{.WidgetsJSON}}</script>
-
 <script>
-// Sites heatmap: legend chips toggle a class filter; "Show N more" reveals the overflow.
 (function () {
-  var root = document.getElementById('ov3-sites');
-  if (!root) return;
-  var active = null, expanded = false;
-  var tiles = Array.prototype.slice.call(root.querySelectorAll('.ov3-site'));
-  var btns = Array.prototype.slice.call(root.querySelectorAll('.ov3-sfilter button'));
-  var more = document.getElementById('ov3-sites-more');
-  function apply() {
-    var shown = 0;
-    tiles.forEach(function (t) {
-      var match = !active || t.getAttribute('data-c') === active;
-      var over = !expanded && !active && t.classList.contains('xtra');
-      t.classList.toggle('hide', !match || over);
-      if (match && !over) shown++;
-    });
-    btns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-f') === active); });
-    if (more) more.style.display = (active || expanded) ? 'none' : '';
-  }
-  btns.forEach(function (b) {
-    b.addEventListener('click', function () {
-      var f = b.getAttribute('data-f');
-      active = (active === f) ? null : f;
-      apply();
-    });
-  });
-  if (more) more.addEventListener('click', function (e) { e.preventDefault(); expanded = true; apply(); });
-})();
-</script>
-
-
-<script>
-// ── Widget system: home-screen grid. Edit mode (Customize → Edit layout): drag to
-// reorder, half/full width, compact/normal/tall, hide, add from the tray. Presets
-// and reset live in the popover. Every change saves to the account.
-(function () {
-  var root = document.getElementById('ov3');
-  if (!root) return;
-  var grid = document.getElementById('ov3-grid');
-  function readJSON(id, fallback) {
-    try {
-      var v = JSON.parse(document.getElementById(id).textContent);
-      if (typeof v === 'string') v = JSON.parse(v);
-      return v == null ? fallback : v;
-    } catch (e) { return fallback; }
-  }
-  var layout = readJSON('ov3-layout', { hidden: [], order: [], sizes: {} });
-  var widgets = readJSON('ov3-widgets', []);
-  if (!Array.isArray(widgets)) widgets = [];
-  var titles = {}, slot = {}; widgets.forEach(function (w) { titles[w.id] = w.title; slot[w.id] = w.slot; });
-  layout.hidden = layout.hidden || []; layout.sizes = layout.sizes || {};
-
-  function toast(msg) {
-    var t = document.getElementById('ov3-toast');
-    if (!t) { t = document.createElement('div'); t.id = 'ov3-toast'; t.className = 'ov3-toast'; document.body.appendChild(t); }
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 1800);
-  }
-  function cells() { return Array.prototype.filter.call(grid.children, function (e) { return e.classList.contains('ov3-w'); }); }
-  function collect() {
-    var sizes = {};
-    // every widget's footprint, explicitly: the server knows the per-widget
-    // defaults (headline widgets are full width) and drops what matches them
-    cells().forEach(function (w) {
-      sizes[w.getAttribute('data-w')] = { w: parseInt(w.getAttribute('data-cw') || '1', 10), h: parseInt(w.getAttribute('data-ch') || '2', 10) };
-    });
-    return { preset: 'custom', hidden: layout.hidden.slice(), order: cells().map(function (e) { return e.getAttribute('data-w'); }), sizes: sizes };
-  }
-  var saveTimer = null;
-  function save(body, msg) {
-    return fetch('/overview/layout', { method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { if (!r.ok) throw new Error('save failed'); return r.json(); })
-      .then(function (j) { if (msg) toast(msg); return j; })
-      .catch(function () { toast('Could not save layout'); });
-  }
-  function saveSoon(msg) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { layout = Object.assign(collect(), { hidden: layout.hidden }); save(layout, msg); }, 350); }
-  function markCustom() {
-    var btn = document.getElementById('ov3-cust-btn');
-    if (btn && !btn.querySelector('.n')) { var n = document.createElement('span'); n.className = 'n'; n.textContent = 'custom'; btn.appendChild(n); }
-    else if (btn) btn.querySelector('.n').textContent = 'custom';
-    Array.prototype.forEach.call(document.querySelectorAll('#ov3-pop [data-preset]'), function (b) { b.classList.remove('on'); });
-  }
-  function refreshHiddenMenu() {
-    var host = document.getElementById('ov3-hidden-list');
-    if (host) {
-      host.innerHTML = '';
-      if (!layout.hidden.length) host.innerHTML = '<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>';
-      layout.hidden.forEach(function (id) {
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'ov3-pop-item'; b.setAttribute('data-show', id);
-        b.innerHTML = '<b></b><span>Show again</span>'; b.querySelector('b').textContent = titles[id] || id;
-        host.appendChild(b);
-      });
-    }
-    var row = document.getElementById('ov3-tray-row');
-    if (row) {
-      row.innerHTML = '';
-      if (!layout.hidden.length) row.innerHTML = '<span class="none">Every widget is on the page.</span>';
-      layout.hidden.forEach(function (id) {
-        var b = document.createElement('button'); b.type = 'button'; b.setAttribute('data-show', id); b.textContent = '+ ' + (titles[id] || id);
-        row.appendChild(b);
-      });
-    }
-  }
-
-  // ── per-widget tools (edit mode) + the always-there × ──
-  function svg(d) { return '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>'; }
-  function syncTools(w) {
-    var t = w.querySelector('.ov3-tools'); if (!t) return;
-    var cw = w.getAttribute('data-cw') || '1', ch = w.getAttribute('data-ch') || '2';
-    t.querySelector('[data-cw="1"]').classList.toggle('on', cw === '1');
-    t.querySelector('[data-cw="2"]').classList.toggle('on', cw === '2');
-    Array.prototype.forEach.call(t.querySelectorAll('[data-ch]'), function (b) { b.classList.toggle('on', b.getAttribute('data-ch') === ch); });
-  }
-  function hideWidget(w, id) {
-    if (layout.hidden.indexOf(id) < 0) layout.hidden.push(id);
-    w.remove(); markCustom(); refreshHiddenMenu();
-    saveSoon((titles[id] || 'Widget') + ' hidden');
-  }
-  cells().forEach(function (w) {
-    var id = w.getAttribute('data-w');
-    var x = document.createElement('button');
-    x.type = 'button'; x.className = 'ov3-hide'; x.title = 'Hide ' + (titles[id] || 'widget'); x.setAttribute('aria-label', x.title);
-    x.innerHTML = svg('M6 6l12 12M18 6L6 18');
-    x.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); hideWidget(w, id); });
-    var head = w.querySelector('.ov3-ch');
-    if (head) head.appendChild(x); else w.appendChild(x);
-    var tools = document.createElement('div'); tools.className = 'ov3-tools';
-    tools.innerHTML =
-      '<button type="button" class="grab" title="Drag to move" draggable="true">' + svg('M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01') + '</button><span class="sep"></span>' +
-      '<button type="button" data-cw="1" title="Half width">' + svg('M3 5h8v14H3zM13 5h8v14h-8') + '</button>' +
-      '<button type="button" data-cw="2" title="Full width">' + svg('M3 5h18v14H3z') + '</button><span class="sep"></span>' +
-      '<button type="button" data-ch="1" title="Compact (scrolls)">S</button>' +
-      '<button type="button" data-ch="2" title="Normal height">M</button>' +
-      '<button type="button" data-ch="3" title="Tall">L</button><span class="sep"></span>' +
-      '<button type="button" class="x" title="Hide">' + svg('M6 6l12 12M18 6L6 18') + '</button>';
-    w.appendChild(tools);
-    syncTools(w);
-    tools.addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      e.preventDefault(); e.stopPropagation();
-      if (b.classList.contains('x')) { hideWidget(w, id); return; }
-      if (b.hasAttribute('data-cw')) w.setAttribute('data-cw', b.getAttribute('data-cw'));
-      if (b.hasAttribute('data-ch')) w.setAttribute('data-ch', b.getAttribute('data-ch'));
-      syncTools(w); markCustom(); saveSoon('Layout saved');
-    });
-  });
-
-  // ── edit mode ──
-  function setEditing(on) {
-    root.classList.toggle('ov3-editing', on);
-    cells().forEach(function (w) { w.setAttribute('draggable', on ? 'true' : 'false'); });
-    if (on) { refreshHiddenMenu(); var bar = document.getElementById('ov3-editbar'); if (bar) bar.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-  }
-  document.getElementById('ov3-edit-done').addEventListener('click', function () { setEditing(false); toast('Layout saved'); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && root.classList.contains('ov3-editing')) setEditing(false); });
-  var tray = document.getElementById('ov3-tray');
-  tray.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-show]'); if (!b) return;
-    var id = b.getAttribute('data-show');
-    layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
-    var body = Object.assign(collect(), { hidden: layout.hidden }); body.order.push(id);
-    save(body).then(function () { reloadOverview(true); });
-  });
-
-  // ── drag to reorder within the grid (a drop slot follows the pointer) ──
-  var dragging = null, marker = document.createElement('div'); marker.className = 'ov3-drop';
-  grid.addEventListener('dragstart', function (e) {
-    var w = e.target.closest && e.target.closest('.ov3-w');
-    if (!w || !root.classList.contains('ov3-editing')) { e.preventDefault(); return; }
-    dragging = w; w.classList.add('dragging');
-    marker.classList.toggle('wide', w.getAttribute('data-cw') === '2');
-    try { e.dataTransfer.setData('text/plain', w.getAttribute('data-w')); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
-  });
-  grid.addEventListener('dragend', function () {
-    if (dragging) dragging.classList.remove('dragging');
-    dragging = null; marker.remove();
-  });
-  grid.addEventListener('dragover', function (e) {
-    if (!dragging) return;
-    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-    // nearest widget by centre distance; drop before it when the pointer is in its
-    // first half (x for side-by-side cards, y for stacked ones)
-    // the widget under the pointer wins; otherwise the nearest by centre
-    var best = null, bd = Infinity, before = false;
-    cells().forEach(function (w) {
-      if (w === dragging) return;
-      var r = w.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      var inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-      var d = inside ? -1 : Math.hypot(e.clientX - cx, e.clientY - cy);
-      if (d < bd) { bd = d; best = w; before = (r.width < grid.clientWidth * 0.75) ? (e.clientX < cx) : (e.clientY < cy); }
-    });
-    if (!best) { tray.before(marker); return; }
-    if (before) best.before(marker); else best.after(marker);
-  });
-  grid.addEventListener('drop', function (e) {
-    if (!dragging) return;
-    e.preventDefault();
-    if (marker.parentNode) marker.replaceWith(dragging); 
-    markCustom(); saveSoon('Layout saved');
-  });
-
-  // ── customize popover (views, hidden, edit, reset) ──
-  var cust = document.getElementById('ov3-cust'), btn = document.getElementById('ov3-cust-btn'), pop = document.getElementById('ov3-pop');
-  function reloadOverview(keepEditing) {
-    var url = location.pathname + location.search;
-    if (keepEditing) try { sessionStorage.setItem('ov3-editing', '1'); } catch (err) {}
-    if (!window.htmx || !document.querySelector('main')) { location.reload(); return; }
-    if (pop) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
-    try {
-      var p = window.htmx.ajax('GET', url, { source: document.body, target: 'main', swap: 'outerHTML', select: 'main' });
-      if (p && p.catch) p.catch(function () { location.reload(); });
-    } catch (e) { location.reload(); }
-  }
-  try { if (sessionStorage.getItem('ov3-editing') === '1') { sessionStorage.removeItem('ov3-editing'); setEditing(true); } } catch (err) {}
-  if (btn && pop) {
-    btn.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); });
-    if (!window.__ov3PopBound) {
-      window.__ov3PopBound = true;
-      document.addEventListener('click', function (e) {
-        var p = document.getElementById('ov3-pop'), c = document.getElementById('ov3-cust');
-        if (p && !p.hidden && c && !c.contains(e.target)) { p.hidden = true; document.getElementById('ov3-cust-btn').setAttribute('aria-expanded', 'false'); }
-      });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var p = document.getElementById('ov3-pop'); if (p) p.hidden = true; } });
-    }
-    function switching(t) {
-      Array.prototype.forEach.call(pop.querySelectorAll('button'), function (b) { b.disabled = true; });
-      Array.prototype.forEach.call(pop.querySelectorAll('.ov3-pop-item.on'), function (b) { b.classList.remove('on'); });
-      t.disabled = true; t.classList.add('on', 'busy');
-      btn.classList.add('busy');
-      root.classList.add('ov3-switching');
-    }
-    pop.addEventListener('click', function (e) {
-      var t = e.target.closest('button'); if (!t || t.disabled) return;
-      if (t.id === 'ov3-edit') { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); setEditing(true); return; }
-      if (t.hasAttribute('data-preset')) {
-        if (t.classList.contains('on')) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
-        switching(t);
-        save({ preset: t.getAttribute('data-preset') }).then(function () { reloadOverview(false); });
-      } else if (t.hasAttribute('data-show')) {
-        var id = t.getAttribute('data-show');
-        layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
-        var body = Object.assign(collect(), { hidden: layout.hidden }); body.order.push(id);
-        switching(t);
-        save(body).then(function () { reloadOverview(false); });
-      } else if (t.id === 'ov3-reset') {
-        switching(t);
-        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(function () { reloadOverview(false); }, function () { reloadOverview(false); });
-      }
-    });
-  }
-  refreshHiddenMenu();
+  var t = document.getElementById('ovd-at');
+  if (!t) return;
+  var d = new Date(t.getAttribute('datetime'));
+  if (!isNaN(d)) t.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (window.mdmTickRel) window.mdmTickRel();
 })();
 </script>
 
 {{template "footer" .}}
-{{end}}
-
-{{/* ── Widget dispatch: renders one column widget by id ── */}}
-{{define "ov3-w-hero"}}
-  {{/* ── Hero: score · verdict · composition ── */}}
-  <div class="ov3-hero is-{{.ScoreClass}}">
-    <div class="ov3-score">
-      <div class="ov3-ring">
-        <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"><animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/></circle></svg>
-        <b>{{.Score}}<small>score</small></b>
-      </div>
-      <div>
-        <div class="ov3-st">Fleet health</div>
-        <span class="ov3-pill">{{.StatusWord}}</span>
-        <div class="ov3-delta">7-day window{{if ne .ScoreDelta 0}}<br><b class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}}</b> vs prior week{{else}}<br>steady vs prior week{{end}}</div>
-        <button type="button" class="ov3-why" onclick="var p=document.getElementById('ov3-explain');p.hidden=!p.hidden;this.classList.toggle('on',!p.hidden)" aria-controls="ov3-explain" aria-expanded="false">Why {{.Score}}? <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
-      </div>
-    </div>
-
-    <div class="ov3-msg">
-      <div class="ov3-st">Right now</div>
-      <div class="ov3-facts">
-        <a class="ov3-fact" href="/devices?status=online"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg><b>{{.Summary.RecentlyActive}}</b> online</a>
-        <a class="ov3-fact{{if gt .Offline 0}} warn{{end}}" href="/devices?status=offline"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg><b>{{.Offline}}</b> offline</a>
-        <a class="ov3-fact{{if gt .Crashes24h 0}} bad{{end}}" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</a>
-        <a class="ov3-fact{{if gt .AlertsOpenCount 0}} warn{{end}}" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg><b>{{.AlertsOpenCount}}</b> open alert{{if ne .AlertsOpenCount 1}}s{{end}}</a>
-        <a class="ov3-fact{{if gt .Hot 0}} bad{{end}}" href="/devices?sort=temp&dir=desc"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg><b>{{.Hot}}</b> running hot</a>
-        <span class="ov3-fact"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>{{.KioskPct}}%</b> in kiosk mode</span>
-      </div>
-      <div class="ov3-sub" style="margin-top:14px">Sites: <b>{{.SitesOK}}</b> healthy · <b>{{.SitesWarn}}</b> to watch · <b>{{.SitesBad}}</b> at risk{{if .RolloutsCount}} · <b>{{.RolloutsCount}}</b> rollout{{if ne .RolloutsCount 1}}s{{end}} in flight{{end}}</div>
-    </div>
-
-    <div class="ov3-comp">
-      <div class="t"><span>Fleet composition</span><a href="/devices">All devices →</a></div>
-      <div class="big tnum">{{.Summary.Total}}<small>devices</small></div>
-      {{if .Products}}
-      <div class="ov3-stack">{{range $i, $p := .Products}}<i class="ov3-c{{add $i 1}}" style="flex:{{$p.Count}}" title="{{$p.Label}} · {{$p.Count}}"></i>{{end}}</div>
-      <div class="ov3-legend">{{range $i, $p := .Products}}{{if $p.Class}}<a href="/devices?class={{$p.Class}}" class="ov3-leg"><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></a>{{else}}<span><i class="ov3-c{{add $i 1}}"></i>{{$p.Label}} <b>{{$p.Count}}</b></span>{{end}}{{end}}</div>
-      {{end}}
-      <div class="ov3-mini">
-        <div><b>{{.DeployedCount}}</b>in venues · {{.DeployedPct}}%</div>
-        <div><b>{{sub .Summary.Total .DeployedCount}}</b>lab / bench</div>
-        <div><b>{{.Summary.KioskCount}}</b>kiosk locked</div>
-        <div><b>{{.Summary.UniqueBuilds}}</b>distinct build{{if ne .Summary.UniqueBuilds 1}}s{{end}}</div>
-      </div>
-    </div>
-  <div class="ov3-explain" id="ov3-explain" hidden>
-    <div class="ov3-explain-h"><span>Why {{.Score}} and not 100</span>{{if .HealthReasons}}<span class="m">{{len .HealthReasons}} reason{{if ne (len .HealthReasons) 1}}s{{end}} · biggest first · points are fleet points, weighted by each venue's share of devices</span>{{end}}</div>
-    {{if .HealthReasons}}
-    {{$lost := (index .HealthReasons 0).Points}}
-    {{range $i, $r := .HealthReasons}}{{if lt $i 8}}
-    <a class="ov3-reason {{$r.Class}}" href="{{$r.Href}}">
-      <span class="pts">{{$r.PointsLabel}}</span>
-      <span class="bar"><i style="width:{{$r.Pct $lost}}%"></i></span>
-      <span class="txt"><b>{{$r.Venue}}</b> · {{$r.What}}<small>{{$r.Do}}</small></span>
-    </a>
-    {{end}}{{end}}
-    {{if gt (len .HealthReasons) 8}}<a class="ov3-foot" href="/fleet-health">{{sub (len .HealthReasons) 8}} more reasons, smallest last →</a>{{end}}
-    {{else}}
-    <div class="ov3-reason ok"><span class="pts">−0</span><span class="txt"><b>Nothing is pulling the score down.</b><small>Every venue is online, charging, cool and on one build, with no open alerts.</small></span></div>
-    {{end}}
-    <div class="ov3-explain-f">Score = 100 minus, per venue: offline share (up to 40) · critical alerts (15 each) · warnings (4 each) · poor charging (15) · battery decline (15) · a device at 45°C or more (15) · extra builds (5 each). Venues count by their number of devices.</div>
-  </div>
-  </div>
-
-  {{end}}
-
-{{define "ov3-w-kpis"}}
-  {{/* ── KPI strip ── */}}
-  <div class="ov3-kpis">
-    <a class="ov3-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
-      <div class="v ok">{{.Summary.RecentlyActive}}</div>
-      <div class="d">of {{.Summary.Total}}{{with .OnlineDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{else}} · steady{{end}}{{end}}</div>
-      {{if .SparkActive}}<svg class="ov3-sp ok" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkActive}} 57,22"/><polyline points="{{.SparkActive}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span>
-      <div class="v{{if gt .Offline 0}} warn{{end}}">{{.Offline}}</div>
-      <div class="d">{{with .OfflineDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> today{{else}}not checking in{{end}}{{end}}</div>
-      {{if .SparkOff}}<svg class="ov3-sp {{if gt .Offline 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkOff}} 57,22"/><polyline points="{{.SparkOff}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span>
-      <div class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</div>
-      <div class="d">under 20%{{with .LowDelta}}{{if .Show}} · <span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{end}}{{end}}</div>
-      {{if .SparkLow}}<svg class="ov3-sp {{if gt .Summary.LowBattery 0}}warn{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkLow}} 57,22"/><polyline points="{{.SparkLow}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/devices?sort=temp&dir=desc"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span>
-      <div class="v{{if gt .Hot 0}} bad{{end}}">{{.Hot}}</div>
-      <div class="d">over threshold</div>
-      {{if .SparkHot}}<svg class="ov3-sp {{if gt .Hot 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.SparkHot}} 57,22"/><polyline points="{{.SparkHot}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/fleet-health"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span>
-      <div class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</div>
-      <div class="d">{{with .CrashDelta}}{{if .Show}}<span class="ov3-dl {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> · {{end}}{{end}}{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div>
-      {{if .CrashSpark}}<svg class="ov3-sp {{if gt .Crashes24h 0}}bad{{else}}mut{{end}}" viewBox="0 0 58 22" preserveAspectRatio="none"><polygon points="1,22 {{.CrashSpark}} 57,22"/><polyline points="{{.CrashSpark}}"/></svg>{{else}}<div class="ov3-sp-empty"></div>{{end}}</a>
-
-    <a class="ov3-kpi" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span>
-      <div class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</div>
-      <div class="d">unresolved</div>
-      <div class="ov3-sp-empty"></div></a>
-  </div>
-
-  {{end}}
-
-{{define "ov3-w-report"}}
-  {{template "ai-report-card" .}}
-  {{template "ai-report-evidence" .}}
-  {{end}}
-
-{{define "ov3-widget"}}{{$d := .D}}{{$sz := $d.Layout.Size .ID}}<div class="ov3-w" data-w="{{.ID}}" data-cw="{{$sz.W}}" data-ch="{{$sz.H}}">
-{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{else if eq .ID "power"}}{{template "ov3-w-power" $d}}{{end}}
-</div>{{end}}
-
-{{define "ov3-w-inbox"}}
-{{/* Onboarding inbox: devices that enrolled / first checked in but have no site yet */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Onboarding</h2>{{if .InboxCount}}<span class="m">{{.InboxCount}} waiting</span>{{end}}<a class="r" href="/enrollment">Enroll →</a></div>
-        {{if .Inbox}}
-          {{range .Inbox}}
-          <a class="cc-row" href="/enrollment#dev-{{.SerialNumber}}">
-            <div class="main"><div class="t"><span class="cc-mono">{{.SerialNumber}}</span> <span class="cc-tag">{{.KindLabel}}</span></div>
-              <div class="s">{{$m := extraField .LatestExtra "model"}}{{if and .IsDPC (ne $m "") (ne $m "—")}}{{$m}}{{else}}{{.ProductLabel}}{{end}} · {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</div></div>
-            <span class="end"><span class="cc-tag warn">Needs a site</span></span>
-          </a>
-          {{end}}
-          {{if gt .InboxCount 5}}<a class="ov3-foot" href="/enrollment">{{sub .InboxCount 5}} more waiting →</a>{{end}}
-        {{else}}
-        <div class="ov3-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Every device is placed</b>New devices land here until they get a site.</div></div>
-        {{end}}
-      </div>
-{{end}}
-{{define "ov3-w-sites"}}
-{{/* Sites heatmap */}}
-      <div class="ov3-card" id="ov3-sites">
-        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h2>Sites</h2>
-          {{if .Sites}}<div class="ov3-sfilter">
-            <button type="button" data-f="ok"><i></i>{{.SitesOK}} healthy</button>
-            <button type="button" data-f="warn"><i></i>{{.SitesWarn}} watch</button>
-            <button type="button" data-f="danger"><i></i>{{.SitesBad}} at risk</button>
-          </div>{{else}}<span class="m"></span>{{end}}
-          <a class="r" href="/restaurants" style="margin-left:12px">All sites →</a>
-        </div>
-        {{if .Sites}}
-        <div class="ov3-sites">
-          {{range $i, $s := .Sites}}
-          <a class="ov3-site {{$s.Class}}{{if ge $i 8}} hide xtra{{end}}" data-c="{{$s.Class}}" href="/restaurants/{{$s.ID}}" title="{{$s.Name}} · score {{$s.Score}}">
-            <span class="dot"></span>
-            <span class="mid">
-              <span class="n">{{$s.Name}}</span>
-              <span class="meta"><b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if gt $s.Offline 0}} · <span class="md">{{$s.Offline}} offline</span>{{end}}{{if gt $s.Critical 0}} · <span class="md">{{$s.Critical}} critical</span>{{end}}{{if gt $s.Crashes 0}} · <span class="md">{{$s.Crashes}} crash{{if ne $s.Crashes 1}}es{{end}}</span>{{end}}{{if $s.Hot}} · <span class="md">running hot</span>{{end}}{{if and (eq $s.Offline 0) (eq $s.Critical 0) (eq $s.Crashes 0) (not $s.Hot)}}{{if gt $s.Warning 0}} · <span class="mw">{{$s.Warning}} warning{{if ne $s.Warning 1}}s{{end}}</span>{{else}} · <span class="mok">all clear</span>{{end}}{{end}}{{if $s.HasBattery}} · {{$s.BatteryAvg}}% battery{{end}}</span>
-            </span>
-            <span class="sc">{{$s.Score}}{{template "score-why" $s.Why}}</span>
-          </a>
-          {{end}}
-          {{if gt (len .Sites) 8}}<a class="ov3-sites-more" href="#" id="ov3-sites-more">Show {{sub (len .Sites) 8}} more</a>{{end}}
-        </div>
-        {{else}}
-        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg></span><div><b>No sites yet</b>Assign devices to a restaurant and it appears here with a live health score.</div></div>
-        {{end}}
-      </div>
-
-      {{end}}
-{{define "ov3-w-map"}}
-{{/* Fleet map */}}
-      {{if .Preview}}
-      {{/* Preview: a stylised static map (no Google key needed) so the geolocation
-           feature is shown off instead of a "configure a key" message. */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Fleet map</h2><span class="m">Wi-Fi geolocation · clustered by venue</span><a class="r" href="/login" style="margin-left:12px">Full map →</a></div>
-        <div class="pk-map">
-          <div class="pk-grid" aria-hidden="true"></div>
-          <span class="pk-pin danger" style="left:22%;top:38%"><i></i><b>Harbor Grill</b></span>
-          <span class="pk-pin danger" style="left:29%;top:46%"><i></i></span>
-          <span class="pk-pin warn" style="left:63%;top:60%"><i></i><b>Sausalito</b></span>
-          <span class="pk-pin warn" style="left:48%;top:29%"><i></i></span>
-          <span class="pk-pin warn" style="left:71%;top:41%"><i></i></span>
-          <span class="pk-pin" style="left:39%;top:66%"><i></i></span>
-          <span class="pk-pin" style="left:55%;top:52%"><i></i><b>Marina Point</b></span>
-          <span class="pk-pin" style="left:17%;top:64%"><i></i></span>
-          <span class="pk-pin" style="left:82%;top:33%"><i></i></span>
-          <span class="pk-pin" style="left:34%;top:22%"><i></i></span>
-          <span class="pk-pin" style="left:76%;top:70%"><i></i></span>
-          <span class="pk-pin" style="left:60%;top:20%"><i></i></span>
-          <span class="pk-pin" style="left:44%;top:76%"><i></i></span>
-          <span class="pk-pin" style="left:88%;top:55%"><i></i></span>
-        </div>
-      </div>
-      <style>
-        .pk-map{position:relative;height:300px;overflow:hidden;background:radial-gradient(circle at 28% 40%,var(--accent-soft),transparent 42%),radial-gradient(circle at 72% 62%,var(--accent-2-soft),transparent 42%),var(--surface2)}
-        .pk-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border-soft) 1px,transparent 1px),linear-gradient(90deg,var(--border-soft) 1px,transparent 1px);background-size:46px 46px;opacity:.7}
-        .pk-pin{position:absolute;transform:translate(-50%,-50%)}
-        .pk-pin i{display:block;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.28)}
-        .pk-pin.warn i{background:var(--warn)}.pk-pin.danger i{background:var(--danger);width:17px;height:17px}
-        .pk-pin b{position:absolute;left:50%;top:calc(100% + 5px);transform:translateX(-50%);font-size:10.5px;font-weight:650;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap}
-      </style>
-      {{else if and .DeviceMapCount .MapsEmbedKey}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Fleet map</h2><span class="m">{{.DeviceMapCount}} located</span><a class="r" href="/map">Full map →</a></div>
-        <div id="ov-map" style="height:340px"></div>
-      </div>
-      <script type="application/json" id="ov-map-data">{{.DeviceLocations}}</script>
-      <script>
-      // Google-recommended dark map palette, applied when the dashboard is in dark mode
-      // and re-applied live on theme toggle (mdm:themechange).
-      var OV_MAP_DARK = [
-        {elementType:'geometry',stylers:[{color:'#212a37'}]},
-        {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-        {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
-        {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
-        {featureType:'poi',stylers:[{visibility:'off'}]},
-        {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
-        {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-        {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
-        {featureType:'transit',stylers:[{visibility:'off'}]},
-        {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
-        {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
-      ];
-      function ovMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? OV_MAP_DARK : []; }
-      function ovInitMap(){
-        var el = document.getElementById('ov-map');
-        if (!el || !window.google || !google.maps) return;
-        function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-        var pts = [];
-        try { pts = JSON.parse(document.getElementById('ov-map-data').textContent || '[]'); } catch(e){}
-        var map = new google.maps.Map(el, {
-          zoom: 2, center: {lat:20, lng:0},
-          mapTypeControl:false, streetViewControl:false, fullscreenControl:false, keyboardShortcuts:false,
-          styles: ovMapStyles()
-        });
-        window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: ovMapStyles()}); });
-        var bounds = new google.maps.LatLngBounds();
-        var iw = new google.maps.InfoWindow();
-        var markers = [];
-        pts.forEach(function(p){
-          var pos = {lat:p.lat, lng:p.lon};
-          var mk = new google.maps.Marker({
-            position: pos, map: map, title: p.name,
-            icon: {path: google.maps.SymbolPath.CIRCLE, scale:7,
-              fillColor: p.online ? '#22c55e' : '#94a3b8', fillOpacity:1,
-              strokeColor:'#fff', strokeWeight:2}
-          });
-          mk.addListener('click', function(){
-            iw.setContent('<div style="min-width:150px"><b>'+esc(p.name)+'</b>'
-              + '<div style="opacity:.7">'+esc(p.serial)+'</div>'
-              + (p.address ? '<div>'+esc(p.address)+'</div>' : '')
-              + '<div style="margin:3px 0">'+(p.online?'🟢 online':'⚪ offline')+'</div>'
-              + '<a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a></div>');
-            iw.open(map, mk);
-          });
-          bounds.extend(pos);
-          markers.push(mk);
-        });
-        // Group markers that are close together into a numbered cluster at low zoom;
-        // clicking a cluster (its default behavior) zooms in until it splits apart —
-        // otherwise devices at ~the same address just stack invisibly on top of each other.
-        // Custom renderer: the library's default cluster icon is a plain generic
-        // circle+pin that doesn't match the app's look — draw our own brand-colored
-        // dot with a crisp white count label instead.
-        if (window.markerClusterer && markers.length > 1) {
-          var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#f9674e';
-          new markerClusterer.MarkerClusterer({
-            map: map, markers: markers,
-            renderer: {
-              render: function (cluster) {
-                var count = cluster.count;
-                var size = count < 10 ? 34 : count < 100 ? 42 : 50;
-                var r = size / 2;
-                var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '">' +
-                  '<circle cx="' + r + '" cy="' + r + '" r="' + (r - 2) + '" fill="' + accent + '" stroke="#fff" stroke-width="2.5"/>' +
-                  '</svg>';
-                return new google.maps.Marker({
-                  position: cluster.position,
-                  icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size), anchor: new google.maps.Point(r, r) },
-                  label: { text: String(count), color: '#fff', fontSize: '12.5px', fontWeight: '700' },
-                  zIndex: 1000 + count
-                });
-              }
-            }
-          });
-        }
-        if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(12); }
-        else if (pts.length > 1) {
-          // fitBounds on a near-zero-area box (devices clustered at ~the same spot)
-          // zooms to Google's max (~21, building-level) — clamp it back to a
-          // neighborhood-level view so the surrounding area is still visible.
-          google.maps.event.addListenerOnce(map, 'bounds_changed', function(){
-            if (map.getZoom() > 14) map.setZoom(14);
-          });
-          map.fitBounds(bounds);
-        }
-      }
-      </script>
-      {{/* Vendored locally (not CDN'd) — the app's CSP script-src only allows self,
-           maps.googleapis.com and maps.gstatic.com. */}}
-      <script src="/static/vendor/markerclusterer.min.js"></script>
-      <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovInitMap"></script>
-      {{else}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Fleet map</h2><a class="r" href="/map" style="margin-left:auto">Full map →</a></div>
-        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/></svg></span><div><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear here once the geolocation pipeline resolves their position.{{else}}Add a Google Maps key in Settings → Google APIs to enable the map.{{end}}</div></div>
-      </div>
-      {{end}}
-
-      {{end}}
-{{define "ov3-w-activity"}}
-{{/* Fleet activity */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h2>Fleet activity</h2><span class="m">7 days · peak {{.ActivityPeak}}</span></div>
-        {{if .ActivityBars}}
-        <div class="ov3-chart"><canvas id="ov-activity"></canvas></div>
-        <div class="ov3-chart-legend"><span><i></i>Active devices</span><span><i class="low"></i>Low battery</span></div>
-        {{else}}
-        <div class="ov3-bars-empty">No activity recorded yet.</div>
-        {{end}}
-      </div>
-      {{if .ActivityBars}}
-      <script>
-      {{/* Under hx-boost, htmx injects this fragment's <script> tags and an external
-           `<script src>` resolves asynchronously — unlike a full page load, which
-           blocks on it — so the bootstrap below could run with Chart still undefined
-           and silently no-op. window.mdmChartReady (same pattern as device.html)
-           makes the dependency explicit and awaits it instead of racing it. */}}
-      window.mdmChartReady = window.mdmChartReady || (window.Chart
-        ? Promise.resolve()
-        : new Promise(function (resolve, reject) {
-            var s = document.createElement('script');
-            s.src = '/static/vendor/chart.umd.min.js';
-            s.onload = resolve;
-            s.onerror = function () { reject(new Error('Chart.js failed to load')); };
-            document.head.appendChild(s);
-          }));
-      window.mdmChartReady.then(function(){
-        var el = document.getElementById('ov-activity');
-        if (!el || typeof Chart === 'undefined') return;
-        var rows = {{.ActivityJSON}};
-        var cs = getComputedStyle(document.body);
-        var accent = (cs.getPropertyValue('--accent') || '#f9674e').trim();
-        var warn = (cs.getPropertyValue('--warn') || '#8f4209').trim();
-        var tick = (cs.getPropertyValue('--chart-tick') || '#687078').trim();
-        var grid = (cs.getPropertyValue('--chart-grid') || 'rgba(16,24,40,.08)').trim();
-        var ctx = el.getContext('2d');
-        var grad = ctx.createLinearGradient(0, 0, 0, 200);
-        grad.addColorStop(0, accent + '44'); grad.addColorStop(1, accent + '00');
-        new Chart(ctx, {
-          type: 'line',
-          data: { labels: rows.map(function(r){ return r.label; }),
-            datasets: [
-              { label: 'Active', data: rows.map(function(r){ return r.val; }),
-                borderColor: accent, backgroundColor: grad, fill: true, tension: 0.35,
-                borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
-                pointBackgroundColor: accent, pointBorderColor: '#fff', pointBorderWidth: 1 },
-              { label: 'Low battery', data: rows.map(function(r){ return r.low; }),
-                borderColor: warn, borderDash: [4,4], fill: false, tension: 0.35,
-                borderWidth: 1.6, pointRadius: 2, pointHoverRadius: 4, pointBackgroundColor: warn }
-            ] },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { grid: { display: false }, ticks: { color: tick } },
-              y: { beginAtZero: true, grid: { color: grid }, ticks: { color: tick, precision: 0 } }
-            }
-          }
-        });
-      }).catch(function (err) { console.error('[mdm] fleet activity chart failed:', err); });
-      </script>
-      {{end}}
-
-    {{end}}
-{{define "ov3-w-rollouts"}}
-{{/* Rollouts in flight */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span><h2>Rollouts</h2>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates hub →</a>{{end}}</div>
-        {{if .Rollouts}}
-          {{range .Rollouts}}
-          <a class="ov3-ro" href="/updates">
-            <div class="h"><span class="ver">{{if .Version}}{{.Version}}{{else}}Update #{{.ID}}{{end}}</span><span class="pr">{{.Product}}</span><span class="stp {{.Status}}">{{.Status}}</span></div>
-            <div class="pb"><i class="done" style="width:{{.PctDone}}%"></i><i class="down" style="width:{{.PctDown}}%"></i><i class="fail" style="width:{{.PctFail}}%"></i></div>
-            <div class="m"><span><b>{{.Installed}}</b> / {{.Total}} installed{{if gt .Downloading 0}} · {{.Downloading}} downloading{{end}}{{if gt .Failed 0}} · <span class="f">{{.Failed}} failed</span>{{end}}</span><span>{{.Ago}}</span></div>
-          </a>
-          {{end}}
-          {{if gt .RolloutsCount 4}}<a class="ov3-foot" href="/updates">{{sub .RolloutsCount 4}} more in flight →</a>{{end}}
-        {{else}}
-        <div class="ov3-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing in flight</b>No OTA deployments pending or active.</div></div>
-        {{end}}
-      </div>
-
-      {{end}}
-{{define "ov3-w-adoption"}}
-{{/* Release adoption */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg></span><h2>Release adoption</h2>{{if canAdminOrOperator .Role}}<a class="r" href="/releases" style="margin-left:auto">Releases →</a>{{end}}</div>
-        {{if .Versions}}
-        <div class="ov3-adopt">
-          <div class="ov3-adopt-kpi">
-            <div><b class="{{if ge .OnPublishedPct 90}}ok{{end}}">{{.OnPublishedPct}}%</b>on a published release</div>
-            <div><b>{{.VersionsCount}}</b>distinct build{{if ne .VersionsCount 1}}s{{end}}</div>
-            <div><b>{{with index .Versions 0}}{{.Pct}}%{{end}}</b>on the top build</div>
-          </div>
-          <div class="bar">{{range $i, $v := .Versions}}<i class="ov3-c{{add $i 1}}" style="flex:{{$v.Count}}" title="{{$v.Version}} · {{$v.Count}}"></i>{{end}}{{if .VersionOther}}<i class="ov3-c6" style="flex:{{.VersionOther}}" title="{{.VersionOtherN}} other builds · {{.VersionOther}}"></i>{{end}}</div>
-          {{range $i, $v := .Versions}}
-          <div class="ov3-vrow"><span class="sw ov3-c{{add $i 1}}"></span><span class="ver" title="{{$v.Version}}">{{$v.Version}}</span><span class="pr">{{$v.Product}}</span><span class="st {{$v.Status}}">{{$v.Status}}</span><span class="cnt">{{$v.Count}}<small>{{$v.Pct}}%</small></span></div>
-          {{end}}
-          {{if .VersionOther}}<div class="ov3-vrow"><span class="sw ov3-c6"></span><span class="ver" style="font-family:inherit;font-weight:600;color:var(--muted)">{{.VersionOtherN}} other build{{if ne .VersionOtherN 1}}s{{end}}</span><span class="cnt">{{.VersionOther}}<small>{{.VersionOtherPct}}%</small></span></div>{{end}}
-        </div>
-        {{else}}
-        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/></svg></span><div><b>No builds reported</b>Devices report their build on first check-in.</div></div>
-        {{end}}
-      </div>
-
-      {{end}}
-{{define "ov3-w-vitals"}}
-{{/* Fleet vitals */}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h2>Fleet vitals</h2><span class="m">7-day window</span></div>
-        <div class="ov3-vit">
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Average battery today</span>
-            <span class="v {{if .HasBatteryAvg}}{{if lt .BatteryAvg 30}}bad{{else if lt .BatteryAvg 50}}warn{{else}}ok{{end}}{{end}}">{{if .HasBatteryAvg}}{{.BatteryAvg}}%{{else}}—{{end}}</span>
-            <div class="ov3-meter"><i class="{{if lt .BatteryAvg 30}}bad{{else if lt .BatteryAvg 50}}warn{{else}}ok{{end}}" style="width:{{.BatteryAvg}}%"></i></div>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Charging coverage</span>
-            <span class="v {{if .HasCharge}}{{if lt .ChargePct 40}}bad{{else if lt .ChargePct 70}}warn{{else}}ok{{end}}{{end}}">{{if .HasCharge}}{{.ChargePct}}%{{else}}—{{end}}<small>of time on power</small></span>
-            <div class="ov3-meter"><i class="{{if lt .ChargePct 40}}bad{{else if lt .ChargePct 70}}warn{{else}}ok{{end}}" style="width:{{.ChargePct}}%"></i></div>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Kiosk lock coverage</span>
-            <span class="v">{{.KioskPct}}%<small>{{.Summary.KioskCount}} of {{.Summary.Total}}</small></span>
-            <div class="ov3-meter"><i style="width:{{.KioskPct}}%"></i></div>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>Deployed in venues</span>
-            <span class="v">{{.DeployedPct}}%<small>{{.DeployedCount}} of {{.Summary.Total}}</small></span>
-            <div class="ov3-meter"><i style="width:{{.DeployedPct}}%"></i></div>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Hottest unit</span>
-            <span class="v {{if ge .Hottest 45}}bad{{else if ge .Hottest 40}}warn{{end}}">{{if .Hottest}}{{.Hottest}}°C{{if .HottestSerial}} <small><a href="/devices/{{.HottestSerial}}">{{.HottestSerial}}</a></small>{{end}}{{else}}—{{end}}</span>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashing devices · 24h</span>
-            <span class="v {{if gt .CrashDevices24h 0}}bad{{else}}ok{{end}}">{{.CrashDevices24h}}<small>{{.Crashes24h}} event{{if ne .Crashes24h 1}}s{{end}}</small></span>
-          </div>
-        </div>
-      </div>
-  {{end}}
-
-{{define "ov3-w-power"}}
-{{/* Power & usage across every venue: how long the hardware ran, how much wireless
-     charging was delivered to customers' phones and what it cost, and the battery levels
-     staff plug and unplug at. The same figures appear per site on the restaurant page. */}}
-{{$m := .PowerMetrics}}
-      <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h2>Power &amp; usage</h2><span class="m">{{if $m}}last {{$m.Days}} days · {{$m.DeviceCount}} placed device{{if ne $m.DeviceCount 1}}s{{end}}{{else}}no data{{end}}</span></div>
-        {{if and $m $m.DeviceCount}}
-        <div class="ov3-vit">
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Uptime in opening hours</span>
-            <span class="v {{if lt $m.UptimeOpenPct 80}}warn{{else}}ok{{end}}">{{$m.UptimeOpenPct}}%<small>{{hrs $m.PoweredOpenMinutes}} of {{hrs $m.OpenWindowMinutes}} hrs</small></span>
-            <div class="ov3-meter"><i class="{{if lt $m.UptimeOpenPct 80}}warn{{else}}ok{{end}}" style="width:{{$m.UptimeOpenPct}}%"></i></div>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Wireless charging in use</span>
-            <span class="v">{{hrs $m.PadMinutes}}<small>{{if $m.HasPadDrain}}costs {{printf "%.1f" $m.PadDrainPctPerMin}}%/min{{else}}not enough charging time to rate{{end}}</small></span>
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>Standby</span>
-            <span class="v">{{if $m.HasStandby}}{{$m.StandbyPct}}%<small>{{hrs $m.StandbyMinutes}} powered but unused</small>{{else}}—<small>needs the firmware that reports screen state</small>{{end}}</span>
-            {{if $m.HasStandby}}<div class="ov3-meter"><i style="width:{{$m.StandbyPct}}%"></i></div>{{end}}
-          </div>
-          <div class="ov3-vr">
-            <span class="l"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Plugged in</span>
-            <span class="v">{{if $m.ConnectCount}}{{printf "%.0f" $m.ConnectAvgPct}}% → {{printf "%.0f" $m.DisconnectAvgPct}}%{{else}}—{{end}}<small>{{$m.ConnectCount}} completed charge{{if ne $m.ConnectCount 1}}s{{end}} this week</small></span>
-          </div>
-        </div>
-        {{else}}
-        <div class="ov3-empty">No rolled-up telemetry for placed devices yet.</div>
-        {{end}}
-      </div>
 {{end}}
