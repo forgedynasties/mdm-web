@@ -9,7 +9,7 @@ func TestEditDistance(t *testing.T) {
 		a, b string
 		want int
 	}{
-		{"AT070AABU0028", "AT070AABU00280", 1}, // cut-off paste
+		{"AT070AABU0028", "AT070AABU00280", 1},  // cut-off paste
 		{"AT070AABU00208", "AT070AABU00280", 2}, // swapped digits
 		{"AT070AABU00280", "AT070AABU00280", 0},
 		{"AT070AABU00280", "AT070AA2600030", 4},

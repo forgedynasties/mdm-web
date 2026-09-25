@@ -372,6 +372,7 @@ type OTAPackage struct {
 	UpdateURL       string    `json:"update_url"`
 	Changelog       string    `json:"changelog"`
 	Status          string    `json:"status"` // "active" or "yanked"
+	Wipe            bool      `json:"wipe"`   // installing it factory-resets the device
 	CreatedAt       time.Time `json:"created_at"`
 	DeploymentCount int       `json:"deployment_count,omitempty"` // populated by ListOTAPackages
 }
@@ -11398,6 +11399,12 @@ CREATE TABLE IF NOT EXISTS ota_packages (
 );
 
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'full';
+-- wipe: installing the package factory-resets the device (built with --wipe; the zip says
+-- ota-wipe=yes / POWERWASH=1). Read from the package itself when it is added, or from the
+-- publisher; wipe_checked marks packages whose zip has been read (the startup backfill
+-- reads the rest). A wipe package is never a silent fallback: see ResolveUpdateForDevice.
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS wipe BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS wipe_checked BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS target_build_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS source_build_id TEXT NOT NULL DEFAULT '';
 
@@ -11931,6 +11938,9 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
 -- an operator retries a failed device, so the guaranteed-applicable full image
 -- is served instead of re-attempting the same failing incremental.
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS force_full BOOLEAN NOT NULL DEFAULT false;
+-- allow_wipe: this deployment may hand a device the release's wipe (factory-reset) full
+-- image when it has no incremental for the device's build. Off unless asked for.
+ALTER TABLE updates ADD COLUMN IF NOT EXISTS allow_wipe BOOLEAN NOT NULL DEFAULT false;
 
 -- Per-channel alert-type allowlist. NULL = deliver all types (back-compat); a
 -- non-empty array restricts the channel to those alert type keys.
@@ -12789,7 +12799,7 @@ func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBui
 
 func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at,
+		SELECT p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.wipe, p.created_at,
 		       COUNT(u.id) AS deployment_count
 		FROM ota_packages p
 		LEFT JOIN updates u ON u.ota_package_id = p.id
@@ -12804,7 +12814,7 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	var out []OTAPackage
 	for rows.Next() {
 		var p OTAPackage
-		if err := rows.Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt, &p.DeploymentCount); err != nil {
+		if err := rows.Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.Wipe, &p.CreatedAt, &p.DeploymentCount); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -12834,13 +12844,13 @@ func (d *DB) SetOTAPayloadMeta(ctx context.Context, id int, offset, size int64, 
 func (d *DB) GetOTAPackage(ctx context.Context, id int) (*OTAPackage, error) {
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
-		SELECT p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at,
+		SELECT p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.wipe, p.created_at,
 		       COUNT(u.id) AS deployment_count
 		FROM ota_packages p
 		LEFT JOIN updates u ON u.ota_package_id = p.id
 		WHERE p.id = $1
 		GROUP BY p.id
-	`, id).Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt, &p.DeploymentCount)
+	`, id).Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.Wipe, &p.CreatedAt, &p.DeploymentCount)
 	if err != nil {
 		return nil, err
 	}
@@ -13325,10 +13335,11 @@ func (d *DB) RemoveDowngradeTargets(ctx context.Context, releaseID int, ids []uu
 
 // RemoveInapplicableTargets drops devices that have NO applicable artifact for the
 // release: a device is kept only if the release has an active full image (covers any
-// device) OR the device's current build matches an active incremental's source_build_id.
+// device — unless that image wipes and allowWipe is off) OR the device's current build
+// matches an active incremental's source_build_id.
 // Without this, selecting a device on an unrelated build for an incremental-only release
 // creates a pending row the resolver can never satisfy — it sits "pending" forever.
-func (d *DB) RemoveInapplicableTargets(ctx context.Context, releaseID int, ids []uuid.UUID) ([]uuid.UUID, error) {
+func (d *DB) RemoveInapplicableTargets(ctx context.Context, releaseID int, ids []uuid.UUID, allowWipe bool) ([]uuid.UUID, error) {
 	if len(ids) == 0 {
 		return ids, nil
 	}
@@ -13338,11 +13349,12 @@ func (d *DB) RemoveInapplicableTargets(ctx context.Context, releaseID int, ids [
 		WHERE dv.id = ANY($2)
 		  AND (
 		      EXISTS (SELECT 1 FROM ota_packages p
-		              WHERE p.release_id = $1 AND p.status = 'active' AND p.type = 'full')
+		              WHERE p.release_id = $1 AND p.status = 'active' AND p.type = 'full'
+		                AND (NOT p.wipe OR $3))
 		   OR EXISTS (SELECT 1 FROM ota_packages p
 		              WHERE p.release_id = $1 AND p.status = 'active' AND p.type = 'incremental'
 		                AND p.source_build_id = dv.build_id)
-		  )`, releaseID, ids)
+		  )`, releaseID, ids, allowWipe)
 	if err != nil {
 		return nil, err
 	}
@@ -13737,7 +13749,7 @@ func (d *DB) SetReleaseSkipBaseTests(ctx context.Context, id int, skip bool) err
 // ListPackagesByRelease returns the packages (full + incrementals) of a release.
 func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, created_at
+		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, wipe, created_at
 		FROM ota_packages WHERE release_id = $1
 		ORDER BY (type = 'full') DESC, source_build_id, created_at DESC
 	`, releaseID)
@@ -13748,7 +13760,7 @@ func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPac
 	var out []OTAPackage
 	for rows.Next() {
 		var p OTAPackage
-		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.Wipe, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -14060,7 +14072,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 		JOIN LATERAL (
 			SELECT pk.* FROM ota_packages pk
 			WHERE pk.release_id = u.release_id AND pk.status = 'active'
-			  AND (pk.type = 'full'
+			  AND ((pk.type = 'full' AND (NOT pk.wipe OR u.allow_wipe))
 			       OR (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = d.build_id))
 			ORDER BY (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = d.build_id) DESC, pk.created_at DESC
 			LIMIT 1

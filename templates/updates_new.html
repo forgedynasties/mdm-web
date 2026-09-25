@@ -246,6 +246,15 @@
         <div class="form-hint"><b>Smart</b> sends an incremental to devices whose current build matches one, and the full image to the rest. <b>Full image</b> forces the complete package to every device.</div>
       </div>
       {{end}}
+      {{if .FullWipes}}
+      {{/* The release's full image was built with --wipe: it factory-resets every device it
+           lands on. Without consent it is never used — not as Smart's fallback, not forced. */}}
+      <div id="push-wipe" style="border:1px solid var(--danger-edge,var(--border));background:var(--danger-bg);border-radius:10px;padding:11px 13px;">
+        <div style="font-weight:700;color:var(--danger);margin-bottom:4px;">The full image of this release wipes the device</div>
+        <div class="form-hint" style="margin:0 0 8px;">Installing it is a factory reset: apps, settings and data are erased and the device has to be set up again. Unless you allow it, devices with no incremental for their current build are left out, and "Full image" delivery is refused.</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;"><input type="checkbox" name="allow_wipe" value="1" id="push-allow-wipe"> Allow factory reset</label>
+      </div>
+      {{end}}
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);">
       <span style="flex:1;"></span>
@@ -273,6 +282,10 @@ document.addEventListener('DOMContentLoaded', pushCount);
 function pushConfirm(e){
   var f=document.getElementById('pk-serials'); var n=f&&f.value?f.value.split('\n').filter(Boolean).length:0;
   if(n===0){ e.preventDefault(); return false; }
+  var w=document.getElementById('push-allow-wipe');
+  if(w&&w.checked){
+    return mdmConfirmSubmit(e,{title:'Push update and allow factory reset?',body:'This pushes the update to '+n+' selected device'+(n===1?'':'s')+'. Any of them without an incremental for its current build gets the full image, which WIPES the device: all apps, settings and data are erased.',confirmLabel:'Push and allow reset'});
+  }
   return mdmConfirmSubmit(e,{title:'Push update?',body:'This pushes the update to '+n+' selected device'+(n===1?'':'s')+'.',confirmLabel:'Push update'});
 }
 function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}

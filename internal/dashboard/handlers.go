@@ -11845,6 +11845,8 @@ func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return nil, false
 	}
+	// Read the wipe flag from the zip itself; the form's "wipes data" box is a claim too.
+	pkg.Wipe = ota.RecordWipe(r.Context(), h.db, pkg.ID, updateURL, r.FormValue("wipe") == "1")
 	return pkg, true
 }
 
@@ -13185,7 +13187,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				// Delivery relevance: forcing full only makes sense when the release has a
 				// full image; smart-vs-full only differs when an incremental also exists.
 				pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
-				hasFull, hasIncremental := false, false
+				hasFull, hasIncremental, fullWipes := false, false, false
 				sourceBuilds := map[string]bool{}
 				for _, p := range pkgs {
 					if p.Status != "active" {
@@ -13193,6 +13195,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					}
 					if p.Type == "full" {
 						hasFull = true
+						fullWipes = fullWipes || p.Wipe
 					} else {
 						hasIncremental = true
 						if p.SourceBuildID != "" {
@@ -13203,6 +13206,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				data["HasFull"] = hasFull
 				data["HasIncremental"] = hasIncremental
 				data["SourceBuilds"] = sourceBuilds
+				data["FullWipes"] = fullWipes
 
 				// Every device of the release's product; the template marks devices already
 				// on this build as up to date and ones mid-update as updating.
@@ -13337,12 +13341,13 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	// (ResolveUpdateForDevice) hands each incremental only to devices whose
 	// current build matches its source_build_id, and skips the rest.
 	pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
-	hasActive, hasFull := false, false
+	hasActive, hasFull, fullWipes := false, false, false
 	for _, p := range pkgs {
 		if p.Status == "active" {
 			hasActive = true
 			if p.Type == "full" {
 				hasFull = true
+				fullWipes = fullWipes || p.Wipe
 			}
 		}
 	}
@@ -13366,6 +13371,14 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "This release has no full image — add one before forcing full delivery.", http.StatusBadRequest)
 		return
 	}
+	// A full image built with --wipe factory-resets every device it lands on. It is only
+	// handed out — as the fallback for devices with no incremental, or forced — when the
+	// deployment says so explicitly.
+	allowWipe := fullWipes && r.FormValue("allow_wipe") == "1"
+	if forceFull && fullWipes && !allowWipe {
+		http.Error(w, "This release's full image wipes the device (factory reset). Tick \"Allow factory reset\" to force it.", http.StatusBadRequest)
+		return
+	}
 
 	// Resolve eligibility BEFORE creating the deployment row: a push that resolves to
 	// zero eligible devices (a double-submitted push where a second request finds
@@ -13386,7 +13399,7 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	}
 	// Drop devices with no applicable artifact (incremental-only release + device not on a
 	// source build) — the resolver could never serve them, so they'd strand as pending.
-	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible)
+	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible, allowWipe)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -13413,6 +13426,13 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if allowWipe {
+		if err := h.db.SetUpdateAllowWipe(r.Context(), deployment.ID, true); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "deployment.allow_wipe", strconv.Itoa(deployment.ID), rel.Version)
 	}
 	if len(eligible) > 0 {
 		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
@@ -13874,6 +13894,14 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	// have chosen originally (e.g. a transient DOWNLOAD_ERROR unrelated to the
 	// package itself, where the incremental is still the right, smaller download).
 	if r.FormValue("delivery") == "full" {
+		// A wipe image is only handed out by a deployment that allowed it; pinning the
+		// device to one otherwise would leave it pending with nothing it may be sent.
+		if wipes, _ := h.db.ReleaseHasWipeFull(r.Context(), relID); wipes {
+			if allow, _ := h.db.UpdateAllowsWipe(r.Context(), did); !allow {
+				http.Error(w, "This release's full image wipes the device (factory reset), and this deployment was not created to allow that. Create a deployment with \"Allow factory reset\" ticked instead.", http.StatusBadRequest)
+				return
+			}
+		}
 		_ = h.db.SetUpdateDeviceForceFull(r.Context(), did, device.ID)
 	} else {
 		_ = h.db.ClearUpdateDeviceForceFull(r.Context(), did, device.ID)
@@ -14085,15 +14113,19 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 	forceFull := r.FormValue("delivery") == "full"
 	if forceFull {
 		pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
-		hasFull := false
+		hasFull, fullWipes := false, false
 		for _, p := range pkgs {
 			if p.Status == "active" && p.Type == "full" {
-				hasFull = true
+				hasFull, fullWipes = true, p.Wipe
 				break
 			}
 		}
 		if !hasFull {
 			http.Error(w, "This release has no full image — add one before forcing full delivery.", http.StatusBadRequest)
+			return
+		}
+		if allow, _ := h.db.UpdateAllowsWipe(r.Context(), did); fullWipes && !allow {
+			http.Error(w, "This release's full image wipes the device (factory reset), and this deployment was not created to allow that.", http.StatusBadRequest)
 			return
 		}
 	}
@@ -14110,7 +14142,9 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// And drop devices with no applicable artifact for this release.
-	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible)
+	// Added targets follow the rule the deployment was created with.
+	allowWipe, _ := h.db.UpdateAllowsWipe(r.Context(), did)
+	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible, allowWipe)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
