@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"mdm/internal/db"
+	"mdm/internal/ota"
 	prod "mdm/internal/product"
 )
 
@@ -114,6 +115,9 @@ type packageBody struct {
 	UpdateURL     string `json:"update_url"`
 	SourceBuildID string `json:"source_build_id"` // required for an incremental
 	Changelog     string `json:"changelog"`
+	// Wipe is the publisher saying the package factory-resets the device (built with
+	// --wipe). The server also reads it from the zip; either one marks the package.
+	Wipe bool `json:"wipe"`
 }
 
 // AddReleasePackage attaches an OTA package to a release. The target build is
@@ -182,9 +186,13 @@ func (h *Handler) AddReleasePackage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error: " + err.Error()})
 		return
 	}
+	pkg.Wipe = ota.RecordWipe(r.Context(), h.db, pkg.ID, url, body.Wipe)
 	detail := typ + " " + rel.Version
 	if source != "" {
 		detail += " from " + source
+	}
+	if pkg.Wipe {
+		detail += " (wipes data)"
 	}
 	_ = h.db.InsertAudit(r.Context(), "api", "release.package.add", strconv.Itoa(rel.ID), detail)
 	writeJSON(w, http.StatusCreated, pkg)
@@ -242,3 +250,4 @@ func (h *Handler) CancelDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deployment": id, "status": "canceled"})
 }
+

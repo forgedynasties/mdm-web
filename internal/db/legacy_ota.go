@@ -266,14 +266,15 @@ func (d *DB) RemoveLegacyOTAGroupSerial(ctx context.Context, id int, serial stri
 }
 
 // PickLegacyOTAPackage chooses the package of a release for a device on buildID:
-// the active incremental whose source is that build, else the active full image.
+// the active incremental whose source is that build, else the active full image — never
+// a wipe one: a legacy group has no way to consent to factory-resetting its devices.
 func (d *DB) PickLegacyOTAPackage(ctx context.Context, releaseID int, buildID string) (*OTAPackage, error) {
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, created_at
 		FROM ota_packages
 		WHERE release_id = $1 AND status = 'active'
-		  AND (type = 'full' OR (type = 'incremental' AND source_build_id = $2))
+		  AND ((type = 'full' AND NOT wipe) OR (type = 'incremental' AND source_build_id = $2))
 		ORDER BY (type = 'incremental') DESC, created_at DESC
 		LIMIT 1`, releaseID, buildID).
 		Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)

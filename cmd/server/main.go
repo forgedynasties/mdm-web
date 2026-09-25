@@ -26,6 +26,7 @@ import (
 	"mdm/internal/logstream"
 	"mdm/internal/metrics"
 	"mdm/internal/middleware"
+	"mdm/internal/ota"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
 	"mdm/internal/shell"
@@ -321,6 +322,31 @@ func main() {
 	// Watchers live in memory: pick up any legacy install that was running when this
 	// process started (a deploy mid-install, a crash, a restart).
 	go apiHandler.ResumeLegacyWatches(context.Background())
+	// Packages added before the wipe flag existed, or whose zip could not be read when
+	// they were added: read each once (a few KB of range requests) so a factory-reset
+	// image is never mistaken for a safe fallback. Off the start path, one at a time.
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("[ota] wipe backfill panic: %v", rec)
+			}
+		}()
+		time.Sleep(20 * time.Second)
+		pkgs, err := database.PackagesNeedingWipeCheck(context.Background(), 1000)
+		if err != nil {
+			log.Printf("[ota] wipe backfill: %v", err)
+			return
+		}
+		wipes := 0
+		for _, p := range pkgs {
+			if ota.RecordWipe(context.Background(), database, p.ID, p.URL, false) {
+				wipes++
+			}
+		}
+		if len(pkgs) > 0 {
+			log.Printf("[ota] wipe backfill: read %d package(s), %d wipe the device", len(pkgs), wipes)
+		}
+	}()
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		// This runs on the device's WS read-loop goroutine, which net/http does not
 		// protect — a panic here would crash the process and drop the whole fleet.

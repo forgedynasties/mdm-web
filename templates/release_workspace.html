@@ -154,6 +154,7 @@
             <span class="dot"></span>
             {{if eq .Type "incremental"}}<b>{{if .SourceBuildID}}{{.SourceBuildID}}{{else}}any build{{end}}</b><span class="arr">→</span><span class="tgt">{{.TargetBuildID}}</span>
             {{else}}<b>Any build</b><span class="arr">→</span><span class="tgt">{{.TargetBuildID}}</span><span class="full-tag">full image</span>{{end}}
+            {{if .Wipe}}<span class="cc-tag bad" title="Installing it factory-resets the device: apps, settings and data are erased">wipes data</span>{{end}}
             {{if eq .Status "yanked"}}<span class="full-tag yank">yanked</span>{{end}}
           </td>
           <td class="art"><a href="{{.UpdateURL}}" target="_blank" rel="noopener" title="{{.UpdateURL}}">{{basename .UpdateURL}}</a></td>
