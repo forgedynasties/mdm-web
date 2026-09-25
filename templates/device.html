@@ -3371,11 +3371,16 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
           {{if $s.CanAdbTCP}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="0"><button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Turn wireless adb off (USB only)"{{end}}>Turn off</button></form>{{end}}
         {{else}}
           {{if $s.AdbKnown}}Off{{else}}—{{end}}
-          {{if $s.CanAdbTCP}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="5555">
+          {{if and $s.CanAdbTCP (not $s.ClientTooOld)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="5555">
             <span class="sec-seg" role="radiogroup" aria-label="Turn off after"><label><input type="radio" name="hours" value="2"><span>2 h</span></label><label><input type="radio" name="hours" value="24" checked><span>24 h</span></label><label><input type="radio" name="hours" value="0"><span>Stay on</span></label></span>
             <button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Open adb on port 5555. Only machines whose adb key this device already trusts can connect. Needs firmware v2.1.022+."{{end}}>Turn on</button></form>{{end}}
         {{end}}
       </span></div>
+      {{if $s.ClientTooOld}}
+      <div class="ddc-kv" id="wadb-need"><span class="k">Needs</span><span class="v">MDM client 1.4.9 or later — this device runs {{if $s.Client}}{{$s.Client}}{{else}}an older client{{end}}. Update the agent first (⋯ menu → Update agent).</span></div>
+      {{else if and $s.AdbError (not $s.AdbOn)}}
+      <div class="ddc-kv" id="wadb-err"><span class="k">Last try</span><span class="v"><span class="cc-tag bad">failed</span> <span class="small">{{$s.AdbError}}</span></span></div>
+      {{end}}
       {{if and $s.AdbOn $s.IP}}{{$cmd := printf "adb connect %s:%d" $s.IP (or $s.AdbPort 5555)}}
       <div class="ddc-kv" id="wadb-connect"><span class="k">Connect</span><span class="v"><code class="mono">{{$cmd}}</code>
         <button type="button" class="cc-btn sm" data-cmd="{{$cmd}}" onclick="copyText(this.dataset.cmd, this)" title="Copy the adb connect command">Copy</button></span></div>

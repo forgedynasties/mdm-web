@@ -53,3 +53,22 @@ func (d *DB) LastAdbTCP(ctx context.Context, deviceID uuid.UUID) (g AdbTCPGrant,
 	}
 	return g, true, nil
 }
+
+// LastAdbTCPAttempt is the device's most recent adb_tcp command whatever became of it,
+// with the device's reply: the switch shows why the last try failed (an old client, or
+// firmware without aio-adb-tcp.rc) instead of silently staying off.
+func (d *DB) LastAdbTCPAttempt(ctx context.Context, deviceID uuid.UUID) (status, output string, at time.Time, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT s.status, COALESCE(cr.output, ''), s.updated_at
+		FROM command_status s JOIN commands c ON c.id = s.command_id
+		LEFT JOIN command_results cr ON cr.command_id = s.command_id AND cr.device_id = s.device_id
+		WHERE s.device_id = $1 AND c.type = 'adb_tcp'
+		ORDER BY c.created_at DESC LIMIT 1`, deviceID).Scan(&status, &output, &at)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", at, false, nil
+	}
+	if err != nil {
+		return "", "", at, false, err
+	}
+	return status, output, at, true, nil
+}
