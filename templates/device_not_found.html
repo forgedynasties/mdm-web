@@ -1,0 +1,36 @@
+{{define "device_not_found.html"}}
+{{template "header" .}}
+<style>
+.nf-wrap{max-width:560px;margin:0 auto;padding:56px 16px 80px;text-align:center}
+.nf-ic{width:48px;height:48px;border-radius:14px;background:var(--surface-3);color:var(--text-2);display:grid;place-items:center;margin:0 auto 16px}
+.nf-wrap .cc-h1{font-size:22px}
+.nf-wrap code{font-size:.92em}
+.nf-srch{display:flex;gap:8px;max-width:440px;margin:18px auto 0}
+.nf-srch input{flex:1;min-width:0;font:inherit;font-size:13.5px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text)}
+.nf-sugg{text-align:left;max-width:440px;margin:26px auto 0}
+.nf-sugg h2{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:0 0 4px}
+.nf-sugg a{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-top:6px;text-decoration:none;color:var(--text);background:var(--surface);font-size:13.5px}
+.nf-sugg a:hover{border-color:var(--rule-2);background:var(--surface2)}
+.nf-sugg .d{margin-left:auto;font-size:12px;color:var(--text-faint);text-align:right}
+.nf-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}.nf-dot.on{background:var(--ok)}
+</style>
+<div class="nf-wrap">
+  <div class="nf-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg></div>
+  <h1 class="cc-h1">No device with serial <code>{{.Serial}}</code></h1>
+  <div class="cc-sub" style="margin:8px auto 0">It may have been removed, or the serial is mistyped.</div>
+  <form class="nf-srch" method="GET" action="/devices" role="search">
+    <input type="search" name="q" value="{{.Serial}}" aria-label="Search devices by name, serial, venue or group">
+    <button type="submit" class="cc-btn primary">Search fleet</button>
+  </form>
+  {{if .Similar}}
+  <div class="nf-sugg">
+    <h2>Did you mean</h2>
+    {{range .Similar}}
+    <a href="/devices/{{.Serial}}"><span class="nf-dot{{if .Online}} on{{end}}" aria-hidden="true"></span><code>{{.Serial}}</code>
+      <span class="d">{{if .Online}}Online{{else if .Seen}}{{.Seen}}{{else}}Never seen{{end}}{{if .Restaurant}} · {{.Restaurant}}{{end}}</span></a>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{template "footer" .}}
+{{end}}

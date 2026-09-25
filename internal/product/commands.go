@@ -134,6 +134,11 @@ var commands = []Command{
 	// accessActionsAdminOnly below.
 	{Type: "wipe", Cap: CapWipe, Roles: rolesAdmin, API: true},
 
+	// Wireless adb on (payload port, default 5555) or off (port 0), switching itself off
+	// after payload hours (default 24; 0 = stays on). It opens adb to the network, so it is
+	// admin-only and the send paths accept exactly one named device — never all or a group.
+	{Type: "adb_tcp", Cap: CapAdbTcp, Roles: rolesAdmin, API: true},
+
 	// ── T7 hardware ─────────────────────────────────────────────────────────
 	// Mic capture gain (codec TX_DEC). Reading the mixer is admin-only: the field
 	// it refreshes is rendered for admins alone (device.html Hardware card).
@@ -167,6 +172,7 @@ var commands = []Command{
 var accessActionsAdminOnly = map[string]string{
 	"wipe":          "wipe",
 	"mic_gain_read": "mic_gain_read",
+	"adb_tcp":       "adb_tcp",
 }
 
 // AdminOnlyCommandTypes is the set in accessActionsAdminOnly, exported so the

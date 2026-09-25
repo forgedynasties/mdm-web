@@ -6027,7 +6027,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		if h.refusedSerialPage(w, r, serial) {
 			return
 		}
-		http.Error(w, "Device not found", http.StatusNotFound)
+		h.deviceNotFoundPage(w, r, serial)
 		return
 	}
 
@@ -6404,6 +6404,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"KioskConfig":         kioskCfg,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"MicGain":             micGainPtr(device.LatestExtra),
+		"Security":            h.securityFor(r.Context(), device),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
@@ -18101,6 +18102,17 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 		return json.RawMessage(b)
 	case "uninstall":
 		b, _ := json.Marshal(map[string]string{"package": strings.TrimSpace(r.FormValue("package"))})
+		return json.RawMessage(b)
+	case "adb_tcp":
+		// port 0 turns wireless adb off; hours is how long it stays on (0 = until told).
+		m := map[string]int{"port": 5555, "hours": 24}
+		if p, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port"))); err == nil {
+			m["port"] = p
+		}
+		if h, err := strconv.Atoi(strings.TrimSpace(r.FormValue("hours"))); err == nil {
+			m["hours"] = h
+		}
+		b, _ := json.Marshal(m)
 		return json.RawMessage(b)
 	case "mic_gain_set":
 		// value = TX_DEC Volume to enforce (e.g. 102); empty clears enforcement.
