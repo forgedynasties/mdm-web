@@ -3750,6 +3750,7 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 	summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts := sneakPeekFleet()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, nil, 0)
+	sneakPeekOverviewExtras(data, summary, groups)
 
 	// Per-user widget layout (default arrangement for the unknown preview user).
 	for k, v := range h.overviewLayoutData(r) {
@@ -5142,6 +5143,12 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { versions, _ = h.db.GetFleetVersions(ctx) })
 	run(func() { deployments, _ = h.db.ListDeployments(ctx) })
 	run(func() { prodCounts, _ = h.db.CountDevicesByProduct(ctx) })
+	var (
+		active  []db.Alert
+		classOn []db.ClassOnline
+	)
+	run(func() { active, _ = h.db.ListActiveAlerts(ctx, 300) })
+	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), h.access(r).hidesDPC()) })
 	wg.Wait()
 
 	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
@@ -5150,6 +5157,16 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		inboxN = fc.Inbox
 	}
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
+
+	// Needs attention: active alerts folded by (type, restaurant), worst first.
+	att, attN, attCrit := buildAttention(h.access(r).keepVisibleAlerts(active), inboxN)
+	data["AttentionRows"] = att
+	data["AttentionTotal"] = attN
+	data["AttentionCritical"] = attCrit
+	data["ClassOnline"] = classOnlineRows(classOn)
+	if summary.Total > 0 {
+		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
+	}
 
 	// Power & usage widget: the same figures the restaurant page shows per site, summed
 	// across every placed device (uuid.Nil = the whole deployed fleet).
@@ -5427,6 +5444,10 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		BatteryAvg   int
 		HasBattery   bool
 		Why          []string // penalties behind the score, for the "?" popover
+		Online       int
+		TempMax      int
+		HasTemp      bool
+		MainIssue    string // the first of Why, without its points
 	}
 	var sites []siteTile
 	sitesOK, sitesWarn, sitesBad, deployedN := 0, 0, 0, 0
@@ -5442,6 +5463,11 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 			Crashes: crashStats.ByRestaurant[g.GroupID],
 			Hot:     g.TempMax != nil && *g.TempMax >= 45,
 			Why:     whyScore(g),
+			Online:  g.DeviceCount - g.OfflineCount,
+		}
+		t.MainIssue = mainIssue(t.Why)
+		if g.TempMax != nil {
+			t.TempMax, t.HasTemp = int(math.Round(*g.TempMax)), true
 		}
 		if g.BatteryAvg != nil {
 			t.BatteryAvg, t.HasBattery = int(math.Round(*g.BatteryAvg)), true

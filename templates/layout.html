@@ -2783,7 +2783,7 @@
   (function () {
     var STEPS = [
       { sel: '.appbar-brand', title: 'Welcome to AIO MDM', body: 'This is your fleet command center. Take a 60-second tour of where things live — or skip and explore on your own.', pos: 'bottom' },
-      { sel: '.dock .nav-link[href="/"]', title: 'Overview', body: 'Your fleet at a glance: health score, live signals, sites, map, rollouts and the daily report. Every card is a widget you can hide, move or reset.', pos: 'top' },
+      { sel: '.dock .nav-link[href="/"]', title: 'Overview', body: 'Your fleet at a glance: live counts, what needs attention right now, rollouts in flight, and every restaurant worst first. Each number opens its list.', pos: 'top' },
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
       { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
       { sel: '.dock .nav-link[href="/commands"]', title: 'Actions', body: 'Send an action to one device or the whole fleet: install apps, screenshots, shell, reboot, kiosk lock. Save recipes and schedule them.', pos: 'top', optional: true },
@@ -2792,7 +2792,6 @@
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
       { sel: '.topbar-search', title: 'Search anything', body: 'Jump to a device by serial, or to any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'bottom' },
       { sel: '#alerts-indicator', title: 'Live alerts', body: 'Open alerts update live. Click for the newest ones without leaving the page.', pos: 'bottom' },
-      { sel: '#ov3-cust-btn', title: 'Make it yours', body: 'Choose a view (Operations, Releases, Minimal), hide widgets with the ×, drag cards by their header. It saves to your account.', pos: 'bottom', optional: true },
       { sel: '#acct-wrap', title: 'You are set', body: 'Theme, settings, users and this tour live under your account. Install MDM on your phone from the browser menu for a full-screen app.', pos: 'bottom' }
     ];
     var i = 0, els = {}, active = false, mobile = function () { return window.innerWidth < 720; };

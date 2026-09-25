@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview redesign · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* ---- demo page chrome ---- */
+body{background:var(--bg);margin:0;padding:28px 16px 120px}
+.wrap{max-width:1240px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:860px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:44px 0 6px;letter-spacing:-.01em}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:880px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:1024px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a:hover{border-color:var(--rule-2)}
+
+/* benchmark table */
+.bench{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12.5px}
+.bench th{text-align:left;font-size:11.5px;font-weight:650;color:var(--muted);padding:9px 12px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.bench td{padding:10px 12px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.5;color:var(--text-2)}
+.bench td:first-child{font-weight:650;color:var(--text);white-space:nowrap}
+.bench-wrap{overflow-x:auto}
+.fix{display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12.5px}
+.fix>div{padding:9px 14px;border-top:1px solid var(--border-soft);line-height:1.5;color:var(--text-2)}
+.fix>div:nth-child(-n+2){border-top:0;background:var(--surface2);font-size:11.5px;font-weight:650;color:var(--muted)}
+.fix>div:nth-child(odd){border-right:1px solid var(--border-soft)}
+@media(max-width:720px){.fix{grid-template-columns:1fr}.fix>div:nth-child(odd){border-right:0}}
+
+/* the mock frame: a page's content area */
+.mock{border:1px solid var(--rule);border-radius:10px;background:var(--bg);overflow-x:auto}
+.mock-in{min-width:1060px;padding:22px 24px 26px}
+
+/* ═══ Professional baseline (options A–D) ═══ */
+.p{font-size:13px;color:var(--text)}
+.p .tn{font-variant-numeric:tabular-nums}
+.p-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.p-h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
+.p-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.p-ctrls{display:flex;gap:6px;align-items:center}
+.p-sel,.p-b{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12.5px;font-weight:550;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;white-space:nowrap}
+.p-sel::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg) translate(-2px,-1px);margin-left:4px}
+.p-b.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
+.p-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.p-ch{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-soft);min-height:42px}
+.p-ch h2{font-size:13px;font-weight:650;margin:0}
+.p-ch .m{font-size:12px;color:var(--muted)}
+.p-ch .r{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.p-tabs{display:flex;gap:2px;margin-left:12px}
+.p-tabs span{font-size:12px;font-weight:600;color:var(--muted);padding:4px 9px;border-radius:5px}
+.p-tabs span.on{background:var(--surface-3);color:var(--text)}
+.p-tabs b{font-weight:650;margin-left:4px;color:var(--text-faint)}
+.p-grid{display:grid;gap:14px}
+.g2{grid-template-columns:2fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+
+/* stat strip: one bordered bar, cells split by rules */
+.p-stats{display:grid;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.p-stat{padding:12px 16px;border-left:1px solid var(--border-soft);text-decoration:none;color:inherit;display:block}
+.p-stat:first-child{border-left:0}
+.p-stat:hover{background:var(--surface2)}
+.p-stat .l{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.p-stat .v{font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:8px}
+.p-stat .s{font-size:11.5px;color:var(--text-faint);margin-top:2px}
+.p-stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+.p-stat svg.sp{margin-left:auto;align-self:center}
+.up{color:var(--danger)}.dn{color:var(--ok)}
+
+/* tables */
+.p-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.p-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+.p-t td{padding:8px 14px;border-top:1px solid var(--border-soft);white-space:nowrap;font-variant-numeric:tabular-nums}
+.p-t tr:first-child td{border-top:0}
+.p-t tbody tr:hover td{background:var(--surface2)}
+.p-t .num{text-align:right}
+.p-t .mut{color:var(--muted)}
+.p-t a{color:var(--text);text-decoration:none;font-weight:550}
+.p-t a:hover{text-decoration:underline}
+.p-t .go{color:var(--accent-text);font-weight:600}
+.p-t tfoot td{border-top:1px solid var(--border);color:var(--muted);font-weight:600}
+.p-more{display:block;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+
+/* status marks: colour only where it is data */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-faint);margin-right:7px;vertical-align:1px}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--danger)}.dot.info{background:var(--info)}
+.sev{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:4px;border:1px solid var(--border);color:var(--text-2)}
+.sev.bad{color:var(--danger);border-color:var(--danger-edge);background:var(--danger-bg)}
+.sev.warn{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-bg)}
+.sev.info{color:var(--info);border-color:var(--info-edge);background:var(--info-bg)}
+
+/* bars */
+.hb{display:flex;height:6px;border-radius:2px;overflow:hidden;background:var(--surface-3);min-width:90px}
+.hb i{display:block;height:100%}
+.hb .on{background:var(--ok)}.hb .off{background:var(--danger)}.hb .n{background:var(--text-2)}.hb .n2{background:var(--rule-2)}
+.kv{display:grid;grid-template-columns:1fr auto;font-size:12.5px}
+.kv>*{padding:8px 14px;border-top:1px solid var(--border-soft)}
+.kv>*:nth-child(-n+2){border-top:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.kv dd small{font-weight:500;color:var(--text-faint);margin-left:6px}
+.rows{font-size:12.5px}
+.row{display:grid;grid-template-columns:110px 1fr 70px;gap:12px;align-items:center;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.row:first-child{border-top:0}
+.row .c{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2)}
+.row .c b{color:var(--text);font-weight:600}
+.chart{padding:10px 14px 8px}
+.chart svg{display:block;width:100%;height:auto}
+.chart text{font-size:10px;fill:var(--text-faint);font-family:inherit}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);padding:0 14px 10px}
+.legend i{display:inline-block;width:10px;height:2px;margin-right:5px;vertical-align:3px}
+.inline-stats{display:flex;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.inline-stats a{padding:10px 18px;border-left:1px solid var(--border-soft);text-decoration:none;color:var(--muted);font-size:12.5px}
+.inline-stats a:first-child{border-left:0}
+.inline-stats b{color:var(--text);font-size:15px;font-weight:600;margin-right:5px;font-variant-numeric:tabular-nums}
+
+/* ═══ Current (Command center v3) — a faithful shorthand of what ships ═══ */
+.cur{font-size:13px}
+.cur .eb{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint)}
+.cur .h{font-size:26px;font-weight:750;letter-spacing:-.022em;margin:6px 0 0}
+.cur .h .w{color:var(--warn)}
+.cur .sub{font-size:13.5px;color:var(--muted);margin-top:6px;max-width:70ch;line-height:1.5}
+.cur .top{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px}
+.cur .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:470px;padding-top:18px}
+.cur .hero{display:grid;grid-template-columns:230px 1fr 300px;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-sm);margin-bottom:14px}
+.cur .hero>div{padding:20px 22px;border-left:1px solid var(--border-soft)}.cur .hero>div:first-child{border-left:0;display:flex;gap:14px;align-items:center}
+.cur .ring{width:84px;height:84px;border-radius:50%;background:conic-gradient(var(--ok) 0 88%,var(--surface-3) 0);display:grid;place-items:center;flex:none}
+.cur .ring span{width:68px;height:68px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:24px;font-weight:750}
+.cur .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--ok-bg);color:var(--ok);margin:4px 0}
+.cur .st{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
+.cur .facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cur .fact{font-size:12.5px;padding:6px 10px;border-radius:10px;background:var(--surface2)}
+.cur .stack{display:flex;height:10px;border-radius:99px;overflow:hidden;margin:10px 0}
+.cur .stack i:nth-child(1){background:var(--accent);flex:304}.cur .stack i:nth-child(2){background:var(--accent-2,#7a80f6);flex:58}.cur .stack i:nth-child(3){background:var(--info);flex:41}.cur .stack i:nth-child(4){background:var(--ok);flex:21}.cur .stack i:nth-child(5){background:var(--warn);flex:14}
+.cur .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.cur .kpi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow-sm)}
+.cur .kpi .k{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);display:flex;gap:6px;align-items:center}
+.cur .kpi .k i{width:18px;height:18px;border-radius:6px;background:var(--accent-soft)}
+.cur .kpi b{display:block;font-size:22px;font-weight:750;margin-top:6px}
+.cur .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cur .card{background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-sm);padding:14px 18px;min-height:96px}
+.cur .card .ch{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px}
+.cur .card .ch i{width:26px;height:26px;border-radius:8px;background:var(--accent-soft)}
+.cur .card .ch i.b{background:var(--info-bg)}.cur .card .ch i.v{background:var(--accent-2-soft,rgba(122,128,246,.12))}.cur .card .ch i.g{background:var(--ok-bg)}
+.cur .card .ch span{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}
+.cur .card p{font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.5}
+.cur .mark{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--danger);color:#fff;font-size:10.5px;font-weight:750;margin-left:6px;vertical-align:2px}
+</style>
+<script>
+(function(){try{var t=localStorage.getItem('ovdemo-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>Overview — redesign options</h1>
+<p class="lead">The Overview reads as a personal dashboard (a greeting, a narrative sentence, an invented health score, coloured icon tiles, drag-and-drop widgets). Commercial MDM consoles read as operations tools: plain title, scope and time range, counts that link to lists, then the exceptions. Below: what the commercial products do, what specifically makes ours look home-made, the current page, and four options. All mock data is one consistent fleet: 438 devices across 31 restaurants.</p>
+<div class="toc"><a href="#bench">Benchmark</a><a href="#tells">What reads as vibecoded</a><a href="#cur">Current</a><a href="#a">A · Console</a><a href="#b">B · Exceptions queue</a><a href="#c">C · Restaurants table</a><a href="#d">D · Hybrid (recommended)</a><a href="#pick">Recommendation</a></div>
+
+<!-- ═══════════ BENCHMARK ═══════════ -->
+<h2 class="sec" id="bench">Benchmark: commercial MDM home screens</h2>
+<p class="desc">What each product puts on its landing page. Taken from their public product UI and documentation; layouts shift between releases, so this is the pattern, not a pixel copy.</p>
+<div class="bench-wrap">
+<table class="bench">
+<thead><tr><th>Product</th><th>Landing page shows</th><th>Worth borrowing</th><th>Not for us</th></tr></thead>
+<tbody>
+<tr><td>Esper</td><td>Device counts by state (online / offline / provisioning), device map, OS and app-version breakdowns. Built for Android dedicated devices, so the closest peer.</td><td>State counts as the first row; version breakdown as a plain list; every count opens the filtered device list.</td><td>The map as a headline widget — it is decoration at restaurant scale.</td></tr>
+<tr><td>Microsoft Intune</td><td>Admin-centre home with service status and a dashboard of chart tiles: device compliance, config-profile status, devices by OS, enrollment failures.</td><td>Compliance expressed as <i>counts</i> (compliant / not compliant / grace), never as an invented score.</td><td>Tile sprawl — a dashboard of equal-weight charts gives no reading order.</td></tr>
+<tr><td>Omnissa Workspace ONE UEM</td><td>Monitor › Overview: a summary strip, then category charts (devices, compliance, OS, apps) that drill into filtered lists.</td><td>One summary strip across the top; drill-down from every chart segment.</td><td>Deep drill-through chains; our pages already exist for the destination.</td></tr>
+<tr><td>Kandji</td><td>Clean device and library-item status with an emphasis on what failed or needs attention.</td><td>An exceptions list with severity, subject and age — the thing an operator actually works through.</td><td>Apple-specific library concepts.</td></tr>
+<tr><td>Jamf Pro</td><td>A dashboard of pinned widgets, each a count from a saved smart group or policy ("12 computers with failed commands").</td><td>Widgets are just <i>named counts that link</i>. Nothing decorative.</td><td>Making every user build their own dashboard; we have one job to show.</td></tr>
+<tr><td>SOTI MobiControl · Hexnode · Scalefusion</td><td>Donut and bar widgets: device status, OS, compliance, recent activity feed.</td><td>A short recent-activity table (commands, rollouts).</td><td>Donuts for 2–3 categories — a number reads faster.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="desc" style="margin-top:12px"><b>What they share:</b> the page is titled by its function ("Dashboard", "Overview"), not by the time of day · a scope control and a timestamp · status counts first, all linking to filtered lists · colour appears only on status, never on decoration · flat cards with small radii and hairline borders · tables over prose · no score that the product made up.</p>
+
+<h2 class="sec" id="tells">What reads as vibecoded today</h2>
+<div class="fix">
+<div>In the current Overview</div><div>Professional replacement</div>
+<div>"Good morning · Thursday" eyebrow and a headline that changes with the data ("18 devices need a look")</div><div>A fixed title — <b>Overview</b> — plus "All restaurants · updated 10:42"</div>
+<div>A narrative hero sentence stitched from counts</div><div>The same counts in a stat strip, each a link</div>
+<div>Fleet health ring (88) with "Why 88?" — a number we invented and then had to explain</div><div>Countable facts: 26 of 31 restaurants healthy, 409 of 438 online. The per-site score can stay on the restaurant page</div>
+<div>A coloured icon tile on every card header and every KPI (coral, periwinkle, blue, green)</div><div>No icons in card headers. Colour is reserved for status dots and severity</div>
+<div>24px card radius, soft shadows, pill badges, uppercase letter-spaced micro-labels</div><div>8px radius, hairline border, no shadow, sentence-case labels</div>
+<div>Six header buttons (Alerts, Enroll, App library, Customize, Export, Visualize CSV)</div><div>Scope, range, one Export. The rest already live in the nav</div>
+<div>Eleven widgets, draggable and resizable per user, with presets</div><div>One fixed layout with a reading order: counts → what's wrong → where → releases</div>
+<div>Five-colour stacked "fleet composition" bar</div><div>A table of device types with online / offline</div>
+<div>↗ / ↘ arrows, meters on every vital</div><div>Plain deltas ("+4 vs yesterday") where they matter; meters only for rollout progress</div>
+</div>
+
+<!-- ═══════════ CURRENT ═══════════ -->
+<h2 class="sec" id="cur">Current — Command center v3 <span class="tag live">Deployed</span></h2>
+<p class="desc">Shorthand of what ships at <code>/</code> today, with the same data. Lower cards abbreviated.</p>
+<div class="mock"><div class="mock-in cur">
+  <div class="top">
+    <div>
+      <div class="eb">Good morning · Thursday, 25 September</div>
+      <div class="h"><span class="w">18 devices</span> need a look<span class="mark">1</span></div>
+      <div class="sub">409 of 438 devices online · 37 crashes in the last 24h · 14 open alerts. Pho 88 — Garden Grove is the worst — 6 offline, 3 crashes.<span class="mark">2</span></div>
+    </div>
+    <div class="acts"><span class="cc-btn">Alerts <span class="n warn">14</span></span><span class="cc-btn">Enroll device</span><span class="cc-btn">App library</span><span class="cc-btn">Customize</span><span class="cc-btn">Export</span><span class="cc-btn">Visualize CSV</span><span class="mark">3</span></div>
+  </div>
+  <div class="hero">
+    <div><div class="ring"><span>88</span></div><div><div class="st">Fleet health</div><span class="pill">Healthy</span><div style="font-size:11.5px;color:var(--muted)">7-day window<br><b style="color:var(--ok)">↗ +3</b> vs prior week</div><div style="font-size:12px;font-weight:650;margin-top:4px">Why 88? ▾<span class="mark">4</span></div></div></div>
+    <div><div class="st">Right now</div><div class="facts"><span class="fact"><b>409</b> online</span><span class="fact"><b>29</b> offline</span><span class="fact"><b>6</b> low battery</span><span class="fact"><b>2</b> running hot</span><span class="fact"><b>94%</b> in kiosk mode</span></div><div class="sub" style="margin-top:12px">Sites: <b>26</b> healthy · <b>3</b> to watch · <b>2</b> at risk · <b>1</b> rollout in flight</div></div>
+    <div><div class="st">Fleet composition</div><div class="stack"><i></i><i></i><i></i><i></i><i></i></div><div style="font-size:11.5px;color:var(--muted);line-height:1.7">TSAI 304 · Kiosk 58 · Menu board 41 · KDS 21 · Handheld 14<span class="mark">5</span></div></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="k"><i></i>Online</div><b>409</b></div><div class="kpi"><div class="k"><i></i>Offline</div><b>29</b></div><div class="kpi"><div class="k"><i></i>Low battery</div><b>6</b></div><div class="kpi"><div class="k"><i></i>Overheating</div><b>2</b></div><div class="kpi"><div class="k"><i></i>Crashes · 24h</div><b>37</b></div><div class="kpi"><div class="k"><i></i>Open alerts</div><b>14</b></div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="ch"><i></i>Onboarding<span>5 waiting</span></div><p>…</p></div>
+    <div class="card"><div class="ch"><i class="v"></i>Rollouts<span>1 in flight</span></div><p>…</p></div>
+    <div class="card"><div class="ch"><i></i>Sites</div><p>…</p></div>
+    <div class="card"><div class="ch"><i class="g"></i>Release adoption</div><p>…</p></div>
+    <div class="card" style="grid-column:span 2"><div class="ch"><i class="b"></i>Fleet map<span>412 located</span></div><p>… + Fleet activity, Fleet vitals, Power &amp; usage, Daily report<span class="mark">6</span></p></div>
+  </div>
+</div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Everything is on one page.</li><li>The per-site reasons behind the score are genuinely useful.</li></ul></div>
+<div><b>Bad at</b><ul><li>(1) greeting + changing headline, (2) prose hero, (3) six buttons, (4) invented score, (5) decorative colour, (6) eleven widgets with no reading order.</li><li>Every card has the same visual weight, so nothing says "start here".</li></ul></div>
+<div><b>Closest to</b><ul><li>Consumer fitness / banking app home screens — not an admin console.</li></ul></div>
+</div>
+
+<!-- ═══════════ OPTION A ═══════════ -->
+<h2 class="sec" id="a">A · Console — stat strip + chart grid</h2>
+<p class="desc">The Intune / Workspace ONE / Hexnode shape: one summary strip, then a grid of equal cards, each a breakdown that drills into a list.</p>
+<div class="mock"><div class="mock-in p">
+  <div class="p-head">
+    <div><h1 class="p-h1">Overview</h1><div class="p-meta">All restaurants · updated 10:42</div></div>
+    <div class="p-ctrls"><span class="p-sel">All restaurants</span><span class="p-sel">Last 7 days</span><span class="p-b">Export</span></div>
+  </div>
+  <div class="p-stats" style="grid-template-columns:repeat(6,1fr)">
+    <a class="p-stat" href="#"><div class="l">Devices</div><div class="v">438</div><div class="s">31 restaurants</div></a>
+    <a class="p-stat" href="#"><div class="l"><span class="dot ok"></span>Online</div><div class="v">409<small>93.4%</small></div><div class="s">seen in last 10 min</div></a>
+    <a class="p-stat" href="#"><div class="l"><span class="dot bad"></span>Offline</div><div class="v">29</div><div class="s"><span class="up">+4</span> vs yesterday</div></a>
+    <a class="p-stat" href="#"><div class="l">Open alerts</div><div class="v">14</div><div class="s">3 critical</div></a>
+    <a class="p-stat" href="#"><div class="l">Crashes · 24h</div><div class="v">37</div><div class="s">on 11 devices</div></a>
+    <a class="p-stat" href="#"><div class="l">Update pending</div><div class="v">116</div><div class="s">v2.1.021 rollout</div></a>
+  </div>
+  <div class="p-grid g3">
+    <div class="p-card"><div class="p-ch"><h2>Devices by type</h2><a class="r" href="#">All devices</a></div>
+      <div class="rows">
+        <div class="row"><span>TSAI</span><div class="hb"><i class="on" style="width:93.8%"></i><i class="off" style="width:6.2%"></i></div><span class="c"><b>285</b> / 304</span></div>
+        <div class="row"><span>Kiosk</span><div class="hb"><i class="on" style="width:94.8%"></i><i class="off" style="width:5.2%"></i></div><span class="c"><b>55</b> / 58</span></div>
+        <div class="row"><span>Menu board</span><div class="hb"><i class="on" style="width:92.7%"></i><i class="off" style="width:7.3%"></i></div><span class="c"><b>38</b> / 41</span></div>
+        <div class="row"><span>Kitchen display</span><div class="hb"><i class="on" style="width:95.2%"></i><i class="off" style="width:4.8%"></i></div><span class="c"><b>20</b> / 21</span></div>
+        <div class="row"><span>Handheld</span><div class="hb"><i class="on" style="width:78.6%"></i><i class="off" style="width:21.4%"></i></div><span class="c"><b>11</b> / 14</span></div>
+      </div>
+    </div>
+    <div class="p-card"><div class="p-ch"><h2>Online devices</h2><span class="m">7 days</span></div>
+      <div class="chart"><svg viewBox="0 0 300 120" aria-label="Online devices over 7 days">
+        <g stroke="var(--border-soft)" stroke-width="1"><line x1="28" y1="10" x2="300" y2="10"/><line x1="28" y1="50" x2="300" y2="50"/><line x1="28" y1="90" x2="300" y2="90"/></g>
+        <text x="0" y="13">440</text><text x="0" y="53">420</text><text x="0" y="93">400</text>
+        <polyline fill="none" stroke="var(--text-2)" stroke-width="1.6" points="36,24 80,20 124,28 168,22 212,30 256,18 292,48"/>
+        <circle cx="292" cy="48" r="3" fill="var(--text)"/>
+        <g><text x="30" y="112">Fr</text><text x="74" y="112">Sa</text><text x="118" y="112">Su</text><text x="162" y="112">Mo</text><text x="206" y="112">Tu</text><text x="250" y="112">We</text><text x="284" y="112">Th</text></g>
+      </svg></div>
+    </div>
+    <div class="p-card"><div class="p-ch"><h2>Firmware · TSAI</h2><a class="r" href="#">Releases</a></div>
+      <div class="rows">
+        <div class="row"><span style="font-family:var(--mono);font-size:12px">v2.1.021</span><div class="hb"><i class="n" style="width:61.8%"></i></div><span class="c"><b>188</b></span></div>
+        <div class="row"><span style="font-family:var(--mono);font-size:12px">v2.1.019</span><div class="hb"><i class="n2" style="width:23.4%"></i></div><span class="c"><b>71</b></span></div>
+        <div class="row"><span style="font-family:var(--mono);font-size:12px">v2.1.018</span><div class="hb"><i class="n2" style="width:9.5%"></i></div><span class="c"><b>29</b></span></div>
+        <div class="row"><span style="font-family:var(--mono);font-size:12px">v2.0.014</span><div class="hb"><i class="n2" style="width:5.3%"></i></div><span class="c"><b>16</b></span></div>
+      </div>
+    </div>
+    <div class="p-card"><div class="p-ch"><h2>Open alerts by type</h2><a class="r" href="#">Alerts</a></div>
+      <table class="p-t"><tbody>
+        <tr><td><span class="dot bad"></span>Device offline</td><td class="num">6</td></tr>
+        <tr><td><span class="dot bad"></span>Crash loop</td><td class="num">1</td></tr>
+        <tr><td><span class="dot warn"></span>Battery temperature</td><td class="num">2</td></tr>
+        <tr><td><span class="dot warn"></span>Update failed</td><td class="num">3</td></tr>
+        <tr><td><span class="dot warn"></span>Kiosk lock off</td><td class="num">2</td></tr>
+      </tbody></table>
+    </div>
+    <div class="p-card"><div class="p-ch"><h2>Rollouts</h2><a class="r" href="#">Updates</a></div>
+      <table class="p-t"><tbody>
+        <tr><td><a href="#">v2.1.021 · TSAI (QCOM)</a><div class="hb" style="margin-top:6px"><i class="n" style="width:62%"></i></div></td><td class="num mut">188 / 304</td></tr>
+        <tr><td><a href="#">MDM client 1.4.2</a><div class="hb" style="margin-top:6px"><i class="n" style="width:97%"></i></div></td><td class="num mut">353 / 362</td></tr>
+      </tbody></table>
+    </div>
+    <div class="p-card"><div class="p-ch"><h2>Recent commands</h2><a class="r" href="#">History</a></div>
+      <table class="p-t"><tbody>
+        <tr><td>Reboot · <a href="#">T7-0412</a></td><td class="mut">10:41</td><td class="num"><span class="dot ok"></span>Done</td></tr>
+        <tr><td>Clear cache · <a href="#">MB-0027</a></td><td class="mut">10:36</td><td class="num"><span class="dot ok"></span>Done</td></tr>
+        <tr><td>Kiosk lock · <a href="#">K22-0031</a></td><td class="mut">10:12</td><td class="num"><span class="dot"></span>Queued</td></tr>
+        <tr><td>Install APK · 12 devices</td><td class="mut">09:58</td><td class="num"><span class="dot bad"></span>3 failed</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Instantly recognisable as an admin console — this is the layout buyers have seen in Intune and Workspace ONE.</li><li>Every block is a breakdown with a link out; nothing to explain.</li></ul></div>
+<div><b>Bad at</b><ul><li>Six equal cards — still no "start here". The operator has to scan to find what's wrong.</li><li>Restaurants, our real unit of support, don't appear at all.</li></ul></div>
+<div><b>Borrowed from</b><ul><li>Intune dashboard tiles, Workspace ONE Monitor › Overview, Hexnode widgets — minus the donuts.</li></ul></div>
+</div>
+
+<!-- ═══════════ OPTION B ═══════════ -->
+<h2 class="sec" id="b">B · Exceptions queue — what needs attention, first</h2>
+<p class="desc">The Kandji / Esper / on-call-tool shape: the page is a worklist. Counts shrink to a side column.</p>
+<div class="mock"><div class="mock-in p">
+  <div class="p-head">
+    <div><h1 class="p-h1">Overview</h1><div class="p-meta">All restaurants · updated 10:42</div></div>
+    <div class="p-ctrls"><span class="p-sel">All restaurants</span><span class="p-b">Export</span></div>
+  </div>
+  <div class="p-grid g2" style="grid-template-columns:1fr 300px;align-items:start">
+    <div class="p-card"><div class="p-ch"><h2>Needs attention</h2><div class="p-tabs"><span class="on">All<b>23</b></span><span>Critical<b>2</b></span><span>Warning<b>16</b></span><span>Info<b>5</b></span></div><a class="r" href="#">Alerts</a></div>
+      <table class="p-t">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Affected</th><th>Restaurant</th><th>Since</th><th></th></tr></thead>
+        <tbody>
+        <tr><td><span class="sev bad">Critical</span></td><td>All devices offline</td><td>6 devices</td><td><a href="#">Pho 88 — Garden Grove</a></td><td class="mut">09:12 · 1 h 30 m</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev bad">Critical</span></td><td>Crash loop · com.aioapp.tsai (14×)</td><td><a href="#">T7-0412</a></td><td><a href="#">Taco Loco — Anaheim</a></td><td class="mut">10:03 · 39 m</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td>Update failed · v2.1.021</td><td>3 devices</td><td class="mut">2 restaurants</td><td class="mut">08:40</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td>Battery at 47 °C</td><td><a href="#">T7-0388</a></td><td><a href="#">Golden Wok — Tustin</a></td><td class="mut">10:31 · 11 m</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td>Low battery, not charging</td><td>4 devices</td><td class="mut">3 restaurants</td><td class="mut">10:20</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td>Kiosk lock off</td><td><a href="#">K22-0031</a></td><td><a href="#">Bella Pasta — Costa Mesa</a></td><td class="mut">Yesterday</td><td class="num"><a class="go" href="#">Open</a></td></tr>
+        <tr><td><span class="sev info">Info</span></td><td>Waiting for a restaurant</td><td>5 devices</td><td class="mut">Unassigned</td><td class="mut">Mon</td><td class="num"><a class="go" href="#">Assign</a></td></tr>
+        </tbody>
+      </table>
+      <a class="p-more" href="#">16 more</a>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div class="p-card"><div class="p-ch"><h2>Fleet</h2></div>
+        <dl class="kv"><dt>Devices</dt><dd>438</dd><dt>Online</dt><dd>409<small>93.4%</small></dd><dt>Offline</dt><dd>29</dd><dt>Crashes · 24h</dt><dd>37<small>11 devices</small></dd><dt>Restaurants healthy</dt><dd>26<small>of 31</small></dd><dt>Kiosk locked</dt><dd>94%</dd></dl>
+      </div>
+      <div class="p-card"><div class="p-ch"><h2>Rollouts</h2><a class="r" href="#">Updates</a></div>
+        <table class="p-t"><tbody><tr><td><a href="#">v2.1.021 · TSAI</a><div class="hb" style="margin-top:6px"><i class="n" style="width:62%"></i></div></td><td class="num mut">62%</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Clear first action: the top row is the most urgent thing in the fleet.</li><li>Folds the onboarding inbox, crash, heat and alert widgets into one list with one grammar.</li></ul></div>
+<div><b>Bad at</b><ul><li>On a quiet day the page is nearly empty — fine for ops, thin for a manager or a customer demo.</li><li>Needs the alert rows grouped server-side (6 offline devices at one site = one row), which is new work.</li></ul></div>
+<div><b>Borrowed from</b><ul><li>Kandji's attention-first status, Esper alerts, PagerDuty-style incident lists.</li></ul></div>
+</div>
+
+<!-- ═══════════ OPTION C ═══════════ -->
+<h2 class="sec" id="c">C · Restaurants table — the fleet as a list of sites</h2>
+<p class="desc">The multi-location shape (Esper groups, POS back-offices): one inline totals bar, then a sortable table of restaurants, worst first.</p>
+<div class="mock"><div class="mock-in p">
+  <div class="p-head">
+    <div><h1 class="p-h1">Overview</h1><div class="p-meta">31 restaurants · updated 10:42</div></div>
+    <div class="p-ctrls"><span class="p-sel">All device types</span><span class="p-sel">Last 24 hours</span><span class="p-b">Export</span></div>
+  </div>
+  <div class="inline-stats">
+    <a href="#"><b>438</b>devices</a><a href="#"><b>409</b>online</a><a href="#"><b>29</b>offline</a><a href="#"><b>14</b>open alerts</a><a href="#"><b>37</b>crashes</a><a href="#"><b>62%</b>on v2.1.021</a>
+  </div>
+  <div class="p-card"><div class="p-ch"><h2>Restaurants</h2><span class="m">sorted by status, worst first</span><a class="r" href="#">All restaurants</a></div>
+    <table class="p-t">
+      <thead><tr><th>Restaurant</th><th>Status</th><th class="num">Online</th><th class="num">Alerts</th><th class="num">Crashes</th><th class="num">Hottest</th><th>Latest firmware</th><th>Last issue</th></tr></thead>
+      <tbody>
+      <tr><td><a href="#">Pho 88 — Garden Grove</a></td><td><span class="dot bad"></span>At risk</td><td class="num">0 / 6</td><td class="num">1</td><td class="num">3</td><td class="num mut">—</td><td><div class="hb" style="width:90px"><i class="n" style="width:50%"></i></div></td><td class="mut">All offline since 09:12</td></tr>
+      <tr><td><a href="#">Taco Loco — Anaheim</a></td><td><span class="dot bad"></span>At risk</td><td class="num">14 / 15</td><td class="num">2</td><td class="num">17</td><td class="num">41 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:80%"></i></div></td><td class="mut">Crash loop on T7-0412</td></tr>
+      <tr><td><a href="#">Golden Wok — Tustin</a></td><td><span class="dot warn"></span>Watch</td><td class="num">11 / 12</td><td class="num">1</td><td class="num">2</td><td class="num" style="color:var(--danger)">47 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:67%"></i></div></td><td class="mut">Battery hot on T7-0388</td></tr>
+      <tr><td><a href="#">Bella Pasta — Costa Mesa</a></td><td><span class="dot warn"></span>Watch</td><td class="num">18 / 18</td><td class="num">1</td><td class="num">0</td><td class="num">38 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:100%"></i></div></td><td class="mut">Kiosk lock off on K22-0031</td></tr>
+      <tr><td><a href="#">Blue Fin Sushi — Santa Ana</a></td><td><span class="dot warn"></span>Watch</td><td class="num">9 / 11</td><td class="num">0</td><td class="num">4</td><td class="num">39 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:36%"></i></div></td><td class="mut">2 offline since yesterday</td></tr>
+      <tr><td><a href="#">Sakura Ramen — Irvine</a></td><td><span class="dot ok"></span>Healthy</td><td class="num">22 / 22</td><td class="num">0</td><td class="num">1</td><td class="num">36 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:91%"></i></div></td><td class="mut">—</td></tr>
+      <tr><td><a href="#">Seoul BBQ — Buena Park</a></td><td><span class="dot ok"></span>Healthy</td><td class="num">16 / 16</td><td class="num">0</td><td class="num">0</td><td class="num">35 °C</td><td><div class="hb" style="width:90px"><i class="n" style="width:100%"></i></div></td><td class="mut">—</td></tr>
+      </tbody>
+      <tfoot><tr><td>31 restaurants</td><td>26 healthy</td><td class="num">409 / 438</td><td class="num">14</td><td class="num">37</td><td class="num">47 °C</td><td>62%</td><td></td></tr></tfoot>
+    </table>
+    <a class="p-more" href="#">24 more healthy restaurants</a>
+  </div>
+</div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Matches how support thinks: "which restaurant is having a bad day".</li><li>Dense and honest — every cell is a measured value, the status is a rule, not a score.</li></ul></div>
+<div><b>Bad at</b><ul><li>Fleet-wide problems (a bad rollout across 40 sites) are spread over rows instead of shown once.</li><li>Unassigned devices have nowhere to live.</li><li>Close to the existing Restaurants page — some duplication.</li></ul></div>
+<div><b>Borrowed from</b><ul><li>Esper device groups, multi-location POS back-office dashboards.</li></ul></div>
+</div>
+
+<!-- ═══════════ OPTION D ═══════════ -->
+<h2 class="sec" id="d">D · Hybrid — counts, exceptions, restaurants <span class="tag rec">Recommended</span></h2>
+<p class="desc">The order most commercial consoles converge on: a stat strip (Workspace ONE / Esper), the exceptions list (Kandji), then the restaurant table (ours). Releases take the narrow column. Fixed layout, no customisation.</p>
+<div class="mock"><div class="mock-in p">
+  <div class="p-head">
+    <div><h1 class="p-h1">Overview</h1><div class="p-meta">All restaurants · updated 10:42</div></div>
+    <div class="p-ctrls"><span class="p-sel">All restaurants</span><span class="p-sel">All device types</span><span class="p-b">Export</span></div>
+  </div>
+  <div class="p-stats" style="grid-template-columns:repeat(5,1fr)">
+    <a class="p-stat" href="#"><div class="l"><span class="dot ok"></span>Online</div><div class="v">409<small>of 438</small><svg class="sp" width="64" height="20" viewBox="0 0 64 20"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="2,6 12,5 22,8 32,6 42,9 52,4 62,14"/></svg></div><div class="s">93.4% · <span class="up">−4</span> vs yesterday</div></a>
+    <a class="p-stat" href="#"><div class="l"><span class="dot bad"></span>Offline</div><div class="v">29</div><div class="s">6 at one restaurant</div></a>
+    <a class="p-stat" href="#"><div class="l">Open alerts</div><div class="v">14</div><div class="s">3 critical</div></a>
+    <a class="p-stat" href="#"><div class="l">Crashes · 24h</div><div class="v">37<svg class="sp" width="64" height="20" viewBox="0 0 64 20"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="2,14 12,15 22,12 32,14 42,13 52,15 62,4"/></svg></div><div class="s">on 11 devices</div></a>
+    <a class="p-stat" href="#"><div class="l">Restaurants healthy</div><div class="v">26<small>of 31</small></div><div class="s">2 at risk · 3 watch</div></a>
+  </div>
+  <div class="p-grid g2" style="margin-bottom:14px;align-items:start">
+    <div class="p-card"><div class="p-ch"><h2>Needs attention</h2><span class="m">23 open</span><a class="r" href="#">View all</a></div>
+      <table class="p-t">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Affected</th><th>Where</th><th>Since</th></tr></thead>
+        <tbody>
+        <tr><td><span class="sev bad">Critical</span></td><td><a href="#">All devices offline</a></td><td>6 devices</td><td>Pho 88 — Garden Grove</td><td class="mut">1 h 30 m</td></tr>
+        <tr><td><span class="sev bad">Critical</span></td><td><a href="#">Crash loop · com.aioapp.tsai</a></td><td>T7-0412</td><td>Taco Loco — Anaheim</td><td class="mut">39 m</td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td><a href="#">Update failed · v2.1.021</a></td><td>3 devices</td><td class="mut">2 restaurants</td><td class="mut">2 h</td></tr>
+        <tr><td><span class="sev warn">Warning</span></td><td><a href="#">Battery at 47 °C</a></td><td>T7-0388</td><td>Golden Wok — Tustin</td><td class="mut">11 m</td></tr>
+        <tr><td><span class="sev info">Info</span></td><td><a href="#">Waiting for a restaurant</a></td><td>5 devices</td><td class="mut">Unassigned</td><td class="mut">3 d</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div class="p-card"><div class="p-ch"><h2>Rollouts</h2><a class="r" href="#">Updates</a></div>
+        <table class="p-t"><tbody>
+          <tr><td><a href="#">v2.1.021 · TSAI</a><div class="hb" style="margin-top:6px"><i class="n" style="width:62%"></i></div></td><td class="num mut">188 / 304</td></tr>
+          <tr><td><a href="#">MDM client 1.4.2</a><div class="hb" style="margin-top:6px"><i class="n" style="width:97%"></i></div></td><td class="num mut">353 / 362</td></tr>
+        </tbody></table>
+      </div>
+      <div class="p-card"><div class="p-ch"><h2>Devices by type</h2></div>
+        <table class="p-t"><thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead><tbody>
+          <tr><td>TSAI</td><td class="num">285</td><td class="num mut">304</td></tr>
+          <tr><td>Kiosk</td><td class="num">55</td><td class="num mut">58</td></tr>
+          <tr><td>Menu board</td><td class="num">38</td><td class="num mut">41</td></tr>
+          <tr><td>Kitchen display</td><td class="num">20</td><td class="num mut">21</td></tr>
+          <tr><td>Handheld</td><td class="num">11</td><td class="num mut">14</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+  <div class="p-card"><div class="p-ch"><h2>Restaurants</h2><span class="m">worst first</span><a class="r" href="#">All 31</a></div>
+    <table class="p-t">
+      <thead><tr><th>Restaurant</th><th>Status</th><th class="num">Online</th><th class="num">Alerts</th><th class="num">Crashes · 24h</th><th class="num">Hottest</th><th class="num">On latest firmware</th><th>Last issue</th></tr></thead>
+      <tbody>
+      <tr><td><a href="#">Pho 88 — Garden Grove</a></td><td><span class="dot bad"></span>At risk</td><td class="num">0 / 6</td><td class="num">1</td><td class="num">3</td><td class="num mut">—</td><td class="num">50%</td><td class="mut">All offline since 09:12</td></tr>
+      <tr><td><a href="#">Taco Loco — Anaheim</a></td><td><span class="dot bad"></span>At risk</td><td class="num">14 / 15</td><td class="num">2</td><td class="num">17</td><td class="num">41 °C</td><td class="num">80%</td><td class="mut">Crash loop on T7-0412</td></tr>
+      <tr><td><a href="#">Golden Wok — Tustin</a></td><td><span class="dot warn"></span>Watch</td><td class="num">11 / 12</td><td class="num">1</td><td class="num">2</td><td class="num" style="color:var(--danger)">47 °C</td><td class="num">67%</td><td class="mut">Battery hot on T7-0388</td></tr>
+      <tr><td><a href="#">Bella Pasta — Costa Mesa</a></td><td><span class="dot warn"></span>Watch</td><td class="num">18 / 18</td><td class="num">1</td><td class="num">0</td><td class="num">38 °C</td><td class="num">100%</td><td class="mut">Kiosk lock off on K22-0031</td></tr>
+      <tr><td><a href="#">Blue Fin Sushi — Santa Ana</a></td><td><span class="dot warn"></span>Watch</td><td class="num">9 / 11</td><td class="num">0</td><td class="num">4</td><td class="num">39 °C</td><td class="num">36%</td><td class="mut">2 offline since yesterday</td></tr>
+      </tbody>
+    </table>
+    <a class="p-more" href="#">26 healthy restaurants</a>
+  </div>
+</div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>A reading order: how big is the problem → what exactly → where. Each step answers the question the previous one raises.</li><li>Works on a quiet day (the table still has content) and a bad one (the queue leads).</li><li>Every number is measured and links to a filtered list; nothing needs a "Why?" button.</li></ul></div>
+<div><b>Bad at</b><ul><li>Drops the map, fleet activity chart, vitals, power &amp; usage and the daily report from the home page (they move to their own pages — see below).</li><li>Removes per-user customise/drag. Users who set a preset lose it.</li></ul></div>
+<div><b>Borrowed from</b><ul><li>Workspace ONE / Esper summary strip, Kandji attention list, Esper groups for the restaurant table.</li></ul></div>
+</div>
+
+<!-- ═══════════ RECOMMENDATION ═══════════ -->
+<h2 class="sec" id="pick">Recommendation: D</h2>
+<p class="desc"><b>Why D over the others.</b> A looks professional but is still a gallery — the operator has to find the problem. B is the right first screen for on-call but thin for anyone else. C is the most AIO-specific but hides fleet-wide problems. D takes the strongest part of each, in the order the commercial consoles use, and keeps restaurants as the unit because that is how our support works.</p>
+<div class="fix">
+<div>Current widget</div><div>Where it goes under D</div>
+<div>Fleet health ring + "Why 88?"</div><div>Removed from Overview. "Restaurants healthy 26 of 31" replaces it; per-site reasons stay on the restaurant page and <code>/fleet-health</code></div>
+<div>Signal strip (6 KPIs)</div><div>Stat strip (5 cells). Low battery and overheating become rows in Needs attention</div>
+<div>Onboarding inbox</div><div>An Info row: "Waiting for a restaurant · 5 devices"</div>
+<div>Sites</div><div>Restaurants table</div>
+<div>Rollouts, Release adoption</div><div>Rollouts card (adoption = the progress bar); full breakdown on Releases</div>
+<div>Fleet map</div><div><code>/map</code> (already exists)</div>
+<div>Fleet activity, Fleet vitals, Power &amp; usage</div><div>A "Fleet" or "Reports" page — trend data, not a morning check</div>
+<div>Daily report</div><div>Its own page / email, linked from the header Export menu</div>
+<div>Customize / presets / drag grid</div><div>Removed. Fixed layout, filtered by the restaurant and device-type selectors</div>
+<div>Header buttons: Alerts, Enroll, App library, Visualize CSV</div><div>Nav only. Header keeps the two filters and Export</div>
+</div>
+<p class="desc" style="margin-top:12px">Styling for the new page uses the existing vocabulary (<code>.cc-card</code>, <code>.cc-btn</code>, <code>.cc-tag</code>) with two changes worth making globally later: card radius from <code>--r-4</code> (24px) to 8px, and no icon tile in card headers. Pick one and I'll build it; the changes above are the default for D and any of them can be kept.</p>
+</div>
+
+<script>
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('ovdemo-theme',t);}catch(e){}
+  mark(t);
+}
+function mark(t){
+  document.getElementById('th-l').classList.toggle('on',t==='light');
+  document.getElementById('th-d').classList.toggle('on',t==='dark');
+}
+mark(document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light');
+document.querySelectorAll('.mock a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();});});
+</script>
+</body></html>

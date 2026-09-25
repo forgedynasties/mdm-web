@@ -3075,6 +3075,55 @@ func (d *DB) FleetComposition(ctx context.Context, excludeDPC bool) (classes []C
 	return classes, firmware, dpc, nil
 }
 
+// ClassOnline is one device class with its online share, for the Overview's
+// devices-by-type table.
+type ClassOnline struct {
+	Class  string
+	Total  int
+	Online int
+}
+
+// FleetClassOnline counts active devices per class and how many of them are in
+// connected (the hub's live set), in the class order of prod.Classes(), with
+// unclassified devices last under Class "".
+func (d *DB) FleetClassOnline(ctx context.Context, connected []uuid.UUID, excludeDPC bool) ([]ClassOnline, error) {
+	kindWhere := ""
+	if excludeDPC {
+		kindWhere = " AND agent_kind <> 'dpc'"
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT `+derivedClassSQL()+` AS cls,
+		       COUNT(*), COUNT(*) FILTER (WHERE id = ANY($1::uuid[]))
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		GROUP BY 1`, connected)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byClass := map[string]ClassOnline{}
+	for rows.Next() {
+		var c ClassOnline
+		if err := rows.Scan(&c.Class, &c.Total, &c.Online); err != nil {
+			return nil, err
+		}
+		byClass[c.Class] = c
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []ClassOnline
+	for _, c := range prod.Classes() {
+		if v, ok := byClass[c]; ok && v.Total > 0 {
+			out = append(out, v)
+		}
+	}
+	if v, ok := byClass[""]; ok && v.Total > 0 {
+		out = append(out, v)
+	}
+	return out, nil
+}
+
 // EnrollmentStats feeds the Enroll page's number strip.
 type EnrollmentStats struct {
 	Inbox       int // waiting for assignment
