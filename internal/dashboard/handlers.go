@@ -115,7 +115,7 @@ func redirectLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	redirectLogin(w, r)
+	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
 // hxTriggerEvents sets HX-Trigger so htmx dispatches the named events on the
