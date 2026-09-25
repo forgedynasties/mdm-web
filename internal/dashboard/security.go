@@ -24,7 +24,16 @@ type deviceSecurity struct {
 	AdbStaysOn bool
 	IP         string
 	CanAdbTCP  bool // the device's agent takes adb_tcp (firmware client)
+	// ClientTooOld: a firmware client before 1.4.9 answers adb_tcp with "unknown type", so
+	// the switch is replaced by what to do about it. Client is the version it runs.
+	ClientTooOld bool
+	Client       string
+	// AdbError is the device's reply to the last adb_tcp when that one failed.
+	AdbError string
 }
+
+// adbTCPMinClientCode is client 1.4.9, the first that takes adb_tcp.
+const adbTCPMinClientCode = 56
 
 // Reported is whether the client sent any posture at all; older clients send none.
 func (s deviceSecurity) Reported() bool {
@@ -56,6 +65,13 @@ func (h *Handler) securityFor(ctx context.Context, d *db.Device) deviceSecurity 
 	s := deviceSecurity{USBDebugging: postureWord(p.AdbEnabled), DevOptions: postureWord(p.DevOptions),
 		UnknownSources: postureWord(p.UnknownSources), AdbKnown: p.AdbTCP != nil,
 		AdbOn: p.AdbTCP != nil && *p.AdbTCP, IP: p.IP, CanAdbTCP: d.Supports("adb_tcp")}
+	if s.CanAdbTCP {
+		s.Client = extraString(d.LatestExtra, "agent_version")
+		s.ClientTooOld = extraInt64(d.LatestExtra, "agent_version_code") < adbTCPMinClientCode
+		if st, out, _, ok, _ := h.db.LastAdbTCPAttempt(ctx, d.ID); ok && st == "failed" {
+			s.AdbError = out
+		}
+	}
 	if s.AdbOn {
 		if g, ok, _ := h.db.LastAdbTCP(ctx, d.ID); ok && g.Port > 0 {
 			s.AdbPort = g.Port
