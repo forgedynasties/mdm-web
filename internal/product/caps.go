@@ -116,6 +116,9 @@ const (
 	CapUpdateSplash  = "update_splash" // boot splash write
 	CapMicGain       = "mic_gain"      // T7 codec gain (TX_DEC)
 	CapWLC           = "wlc"           // wireless-charging guest pad control
+	// CapAdbTcp: switch wireless adb on or off (client 1.4.9+). It takes effect only on
+	// firmware that ships aio-adb-tcp.rc (v2.1.022+); older images report that plainly.
+	CapAdbTcp = "adb_tcp"
 	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
 	// app, clear its web cache, check for an app update). No Device Owner needed.
 	CapAppControl = "app_control"
@@ -132,7 +135,7 @@ const (
 // firmwareBaseCaps is everything the system-app client can do on any of our products.
 var firmwareBaseCaps = []string{
 	CapKiosk, CapInstallAPK, CapUninstall, CapReboot, CapTelemetry,
-	CapScreenCapture, CapInput, CapLogcat, CapShell, CapOTA, CapUpdateSplash,
+	CapScreenCapture, CapInput, CapLogcat, CapShell, CapOTA, CapUpdateSplash, CapAdbTcp,
 	// The client can install a newer build of itself (ClientUpdater): it holds
 	// INSTALL_PACKAGES and runs as system uid, so no firmware OTA is needed for a
 	// client change. Offered only when a matching build is hosted for the device's

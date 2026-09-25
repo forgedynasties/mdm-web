@@ -190,13 +190,15 @@ an API rather than a dashboard-only form.
 `POST /commands` request:
 ```json
 {
-  "type": "install_apk",             // install_apk|shell|screenshot|reboot|ota|update_splash (default install_apk)
+  "type": "install_apk",             // install_apk|shell|screenshot|reboot|ota|update_splash|adb_tcp (default install_apk)
   "apk_url": "string",               // required for install_apk
   "payload": {},                     // type-specific; update_splash: {"url":"...","partition_size":N}
   "target_type": "devices",          // required: all|devices|groups
   "targets": ["serial-or-group-id"]  // required unless target_type=all
 }
 ```
+`adb_tcp` switches wireless adb on a firmware device: payload `{"port": 5555, "hours": 24}` (port `0` = off, hours `0` = stays on; defaults 5555 / 24). Exactly one named device per command (`target_type: "devices"`, one target) — anything else is `400`. Needs client 1.4.9+ on firmware v2.1.022+; an older image answers `failed` saying so. adbd still requires an authorized key.
+
 Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every target already has that app installing, returns `200` with `{ "created": false, "skipped": [...], "message": "…" }`.
 
 `GET /commands/{id}` → `{ "command": {…}, "deliveries": [ { "device_id","serial_number","status","progress","updated_at","output","last_seen_at","online" } ] }`.

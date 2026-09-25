@@ -31,6 +31,7 @@ var wantCommandRoles = map[string][]string{
 	"logcat":           {"admin", "dev"},
 	"wipe":             {"admin"},
 	"mic_gain_read":    {"admin"},
+	"adb_tcp":          {"admin"},
 }
 
 func TestCommandRolesMatchTheAllowlist(t *testing.T) {

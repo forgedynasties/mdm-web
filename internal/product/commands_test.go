@@ -12,7 +12,7 @@ func TestCommandCatalogueIsCoherent(t *testing.T) {
 		CapWipe: true, CapConfig: true, CapTelemetry: true, CapScreenCapture: true,
 		CapInput: true, CapLogcat: true, CapShell: true, CapOTA: true,
 		CapUpdateSplash: true, CapMicGain: true, CapWLC: true, CapAppControl: true,
-		CapSelfUpdate: true,
+		CapSelfUpdate: true, CapAdbTcp: true,
 	}
 	seen := map[string]bool{}
 	for _, c := range Commands() {
@@ -123,11 +123,11 @@ func TestAPICommandTypes(t *testing.T) {
 	}
 }
 
-// TestAdminOnlyResidueIsExactlyTheExpectedSet: these two are the last types judged
-// by an access action that does not exist. Both are admin-only, so nothing changes;
+// TestAdminOnlyResidueIsExactlyTheExpectedSet: these are the last types judged
+// by an access action that does not exist. All are admin-only, so nothing changes;
 // the moment a reachable command joins them, this test says so.
 func TestAdminOnlyResidueIsExactlyTheExpectedSet(t *testing.T) {
-	want := map[string]bool{"wipe": true, "mic_gain_read": true}
+	want := map[string]bool{"wipe": true, "mic_gain_read": true, "adb_tcp": true}
 	got := AdminOnlyCommandTypes()
 	if len(got) != len(want) {
 		t.Fatalf("AdminOnlyCommandTypes() = %v, want %v", got, want)
