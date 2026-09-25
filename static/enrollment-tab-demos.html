@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enrollment tab · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6}
+.opt{margin:34px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.frame{border:1px dashed var(--border);border-radius:14px;padding:14px;background:var(--surface2)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap}
+.tabs span{padding:8px 12px;font-size:13px;color:var(--text-faint);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs span.on{color:var(--text);border-color:var(--accent);font-weight:650}
+.tabs span.new{color:var(--accent-text)}
+.lay{display:grid;grid-template-columns:1fr 290px;gap:12px}
+.col{display:flex;flex-direction:column;gap:12px}
+.blk{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.blk h3{margin:0 0 8px;font-size:13px}
+.ghost{height:64px;border-radius:8px;background:var(--surface-3);opacity:.6}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-top:1px solid var(--border-soft,var(--border))}
+.kv:first-of-type{border-top:0}.kv .k{color:var(--text-faint)}
+.grp{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:10px 0 4px}
+.long .kv{padding:5px 0}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.danger{border-color:var(--danger-edge,var(--border))}
+.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+@media (max-width:1024px){.lay{grid-template-columns:1fr}.three{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){try{var t=localStorage.getItem('mdm-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('mdm-theme',t)}catch(e){}
+document.querySelectorAll('.themebar button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)})}
+</script>
+</head><body>
+<div class="themebar"><button data-t="light" onclick="setTheme('light')">Light</button><button data-t="dark" onclick="setTheme('dark')">Dark</button></div>
+<div class="wrap">
+<h1>Enrollment in its own tab</h1>
+<p class="lead">Today the Enrollment card (admin-only, the longest card on the page) sits in the side column that shows next
+to every tab, pushing Charging pad and Notes below the fold. Each option moves it into a tab; they differ in the tab's
+name, what moves with it, and where it sits.</p>
+
+<div class="opt">
+  <div class="oname">Today <span class="now">Deployed</span></div>
+  <p class="onote">Side column: Placement, then Enrollment (identity, settings, move / retire / wipe), then Charging pad and Notes.</p>
+  <div class="frame">
+    <div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Queue</span><span>History</span><span>Alerts</span><span>About</span></div>
+    <div class="lay">
+      <div class="col"><div class="blk"><h3>Vitals</h3><div class="ghost"></div></div><div class="blk"><h3>Action history</h3><div class="ghost"></div></div></div>
+      <div class="col">
+        <div class="blk"><h3>Placement</h3><div class="kv"><span class="k">Site</span><span>Downtown Diner</span></div><div class="kv"><span class="k">Groups</span><span>Test Lab units</span></div></div>
+        <div class="blk long"><h3>Enrollment</h3>
+          <div class="grp">Identity</div><div class="kv"><span class="k">First seen</span><span>Sep 2</span></div><div class="kv"><span class="k">Credential</span><span>Fleet device key</span></div><div class="kv"><span class="k">Server</span><span>mdm.dev.aioapp.com</span></div>
+          <div class="grp">Settings</div><div class="kv"><span class="k">Product</span><span>Tableside AI</span></div>
+          <div class="btns"><span class="cc-btn sm">Move to another server…</span><span class="cc-btn sm">Retire</span><span class="cc-btn sm danger">Factory wipe</span></div>
+        </div>
+        <div class="blk"><h3>Charging pad</h3><div class="ghost" style="height:30px"></div></div>
+        <div class="blk"><h3>Notes</h3><div class="ghost" style="height:30px"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <div class="oname">A · An "Enrollment" tab after About, admin-only <span class="rec">Recommended</span></div>
+  <p class="onote">The card becomes a full-width tab in three columns: Identity, Settings, and Lifecycle (move, back to
+  the fleet, retire, wipe) with the destructive ones in their own box. Shown only to admins, as the card is today.
+  <b>Good:</b> the side column shrinks to Placement, Charging pad and Notes, which everyone uses; the rare, dangerous
+  actions stop sitting next to everyday controls. <b>Bad:</b> one more tab, and an admin looking for "which server is
+  this on" is one click further away.</p>
+  <div class="frame">
+    <div class="tabs"><span>Overview</span><span>Applications</span><span>Queue</span><span>History</span><span>Alerts</span><span>About</span><span class="on new">Enrollment</span></div>
+    <div class="three">
+      <div class="blk"><h3>Identity</h3><div class="kv"><span class="k">Agent</span><span>Firmware client 1.4.9 · system app</span></div><div class="kv"><span class="k">First seen</span><span>Sep 2</span></div><div class="kv"><span class="k">Credential</span><span>Fleet device key</span></div><div class="kv"><span class="k">Server</span><span>mdm.dev.aioapp.com</span></div></div>
+      <div class="blk"><h3>Settings</h3><div class="kv"><span class="k">Product</span><span>Tableside AI ▾</span></div><div class="kv"><span class="k">Onboarding</span><span>Done</span></div></div>
+      <div class="blk danger"><h3>Lifecycle</h3><div class="kv"><span class="k">State</span><span class="cc-tag ok">active</span></div>
+        <div class="btns"><span class="cc-btn sm">Move to another server…</span><span class="cc-btn sm">Back to the fleet</span></div>
+        <div class="btns"><span class="cc-btn sm">Retire</span><span class="cc-btn sm danger">Factory wipe</span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <div class="oname">B · A "Manage" tab: Enrollment plus Placement</div>
+  <p class="onote">Everything about where the device belongs — site, groups, server, product, lifecycle — in one tab.
+  <b>Good:</b> a single place for "move this tablet". <b>Bad:</b> Placement is operator-level and used daily; putting it
+  behind an admin-ish tab hides it from the people who use it most, or forces the tab to show for everyone with half of it locked.</p>
+  <div class="frame">
+    <div class="tabs"><span>Overview</span><span>Applications</span><span>Queue</span><span>History</span><span>Alerts</span><span>About</span><span class="on new">Manage</span></div>
+    <div class="three">
+      <div class="blk"><h3>Placement</h3><div class="kv"><span class="k">Site</span><span>Downtown Diner ▾</span></div><div class="kv"><span class="k">Groups</span><span>Test Lab units</span></div></div>
+      <div class="blk"><h3>Enrollment</h3><div class="kv"><span class="k">Credential</span><span>Fleet device key</span></div><div class="kv"><span class="k">Server</span><span>mdm.dev.aioapp.com</span></div><div class="kv"><span class="k">Product</span><span>Tableside AI ▾</span></div></div>
+      <div class="blk danger"><h3>Lifecycle</h3><div class="btns"><span class="cc-btn sm">Move to another server…</span><span class="cc-btn sm">Retire</span><span class="cc-btn sm danger">Factory wipe</span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="opt">
+  <div class="oname">C · A, but placed right after Overview</div>
+  <p class="onote">Same tab as A, second in the row. <b>Good:</b> quicker to reach during bring-up and re-enrolment work.
+  <b>Bad:</b> it puts an admin-only, rarely-needed tab ahead of Applications and History, which every role opens daily,
+  and the tab row shifts between admins and everyone else.</p>
+  <div class="frame">
+    <div class="tabs"><span>Overview</span><span class="on new">Enrollment</span><span>Applications</span><span>Queue</span><span>History</span><span>Alerts</span><span>About</span></div>
+    <p class="onote" style="margin:0">(Tab contents as in A.)</p>
+  </div>
+</div>
+
+<p class="lead" style="margin-top:40px"><b>My pick: A.</b> It does what was asked — Enrollment out of the side column and
+into its own tab — keeps it admin-only as today, and leaves Placement where operators already use it. Putting it last
+keeps the tab order the same for every role up to About.</p>
+</div>
+<script>setTheme(document.documentElement.getAttribute('data-theme')||'light')</script>
+</body></html>
