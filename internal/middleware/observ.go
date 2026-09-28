@@ -81,6 +81,10 @@ func (w *logRW) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 func AccessLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		// Count the request's database work: the pool's query tracer adds every
+		// query run under this context (see db.queryTracer).
+		ctx, dbu := metrics.WithDBUsage(r.Context())
+		r = r.WithContext(ctx)
 		lw := &logRW{ResponseWriter: w, r: r, start: start, status: http.StatusOK}
 		next.ServeHTTP(lw, r)
 		dur := time.Since(start)
@@ -100,7 +104,7 @@ func AccessLog(next http.Handler) http.Handler {
 		case lw.stream:
 			metrics.Default.StreamClose(r.Method, r.URL.Path, dur)
 		case lw.wrote:
-			metrics.Default.Observe(r.Method, r.URL.Path, lw.status, dur)
+			metrics.Default.Observe(r.Method, r.URL.Path, lw.status, dur, dbu)
 		}
 		// Slow means a slow ordinary request; the 60s cap keeps large downloads out.
 		if lw.status >= 400 || (lw.wrote && !lw.stream && dur > 2*time.Second && dur < 60*time.Second) {

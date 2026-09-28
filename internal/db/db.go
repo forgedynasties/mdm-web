@@ -1446,6 +1446,11 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 		cfg.ConnConfig.RuntimeParams = map[string]string{}
 	}
 	cfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	// No JIT. It triggers on estimated cost, and our estimates run high on the wide
+	// CTE queries: the daily rollup spent 3.7s of 9.7s compiling 202 functions to
+	// process 28k rows. Nothing this server runs is big enough to win it back.
+	cfg.ConnConfig.RuntimeParams["jit"] = "off"
+	cfg.ConnConfig.Tracer = queryTracer{}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -8186,13 +8191,18 @@ const rollupSamplesFromShaped = `
 			-- every change during it. Without the leading row a device that has been on
 			-- charge since yesterday reads as unknown until it next unplugs.
 			ev AS (
-				-- Each branch is parenthesised: a DISTINCT ON branch carries its own
-				-- ORDER BY, which without parentheses would bind to the whole union.
+				-- One primary-key probe per (device, state) rather than DISTINCT ON over
+				-- every event before the day: that sorted all of history (415k rows, on
+				-- disk) to keep a few hundred, and was where the temp files came from.
+				-- Checked row-for-row against the DISTINCT ON form on live data.
 				(
-					SELECT DISTINCT ON (e.device_id, e.key) e.device_id, b.d0::timestamptz AS at, e.key, e.to_val
-					FROM device_state_events e, bounds b
-					WHERE e.key = ANY($2) AND e.at < b.d0
-					ORDER BY e.device_id, e.key, e.at DESC
+					SELECT d.id AS device_id, b.d0::timestamptz AS at, k.key, l.to_val
+					FROM devices d CROSS JOIN unnest($2::text[]) AS k(key) CROSS JOIN bounds b
+					CROSS JOIN LATERAL (
+						SELECT e.to_val FROM device_state_events e
+						WHERE e.device_id = d.id AND e.key = k.key AND e.at < b.d0
+						ORDER BY e.at DESC LIMIT 1
+					) l
 				)
 				UNION ALL
 				(
@@ -9837,8 +9847,8 @@ func (d *DB) criticalStorageFloor(ctx context.Context) float64 {
 // one dozens per minute.
 //
 // This reads device_state_events, where every row already IS a transition, so the
-// count is a grouped scan of a table under a megabyte rather than a window function
-// over the 15 GB check-in history. It is also the more direct statement of the
+// count is a count of rows rather than a window function over the old check-in
+// history. It is also the more direct statement of the
 // question: the old form reconstructed transitions by comparing consecutive stored
 // check-ins, which worked only because a charging change is non-volatile and therefore
 // always forces a row to be stored.
@@ -9846,15 +9856,23 @@ func (d *DB) criticalStorageFloor(ctx context.Context) float64 {
 // Seed rows are excluded. A seed records a state's first known value with an empty
 // from_val and is not a transition; counting it would report a flap for every device
 // the first time it was seen.
+//
+// It counts per device through the (device_id, key, at) primary key: one short range
+// probe each, instead of a scan of the whole table filtered to the last few minutes,
+// which is what the planner chose for the grouped form. $2 is the minimum count.
 const chargingFlapSQL = `
-	SELECT device_id, COUNT(*) AS flaps
-	FROM device_state_events
-	WHERE key = 'charging'
-	  AND at > NOW() - ($1 * INTERVAL '1 minute')
-	  AND from_val IN ('true','false')
-	  AND to_val   IN ('true','false')
-	  AND to_val <> from_val
-	GROUP BY device_id`
+	SELECT d.id, f.flaps
+	FROM devices d
+	CROSS JOIN LATERAL (
+		SELECT COUNT(*) AS flaps
+		FROM device_state_events e
+		WHERE e.device_id = d.id AND e.key = 'charging'
+		  AND e.at > NOW() - ($1 * INTERVAL '1 minute')
+		  AND e.from_val IN ('true','false')
+		  AND e.to_val   IN ('true','false')
+		  AND e.to_val <> e.from_val
+	) f
+	WHERE f.flaps > $2`
 
 // FlappingChargers returns devices whose charging state is toggling faster than
 // flapsPerMin times per minute over the last windowMin minutes — the signature of a
@@ -9870,7 +9888,7 @@ func (d *DB) FlappingChargers(ctx context.Context, windowMin, flapsPerMin int) (
 	// "More than flapsPerMin per minute" over the window = strictly more than
 	// flapsPerMin*windowMin total transitions.
 	minCount := flapsPerMin * windowMin
-	rows, err := d.pool.Query(ctx, chargingFlapSQL+` HAVING COUNT(*) > $2`, windowMin, minCount)
+	rows, err := d.pool.Query(ctx, chargingFlapSQL, windowMin, minCount)
 	if err != nil {
 		return nil, err
 	}
@@ -15735,18 +15753,26 @@ func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([
 	return out, rows.Err()
 }
 
-// ListDeviceCrashes returns crash/ANR/tombstone events (not reboots) for a single
-// device, newest first — the crash feed for that device's Alerts tab. limit <= 0
-// means 50.
 // CountDeviceCrashes is the badge count for the device page's Alerts tab — same
 // filter as ListDeviceCrashes, without pulling the (large) trace payloads.
 func (d *DB) CountDeviceCrashes(ctx context.Context, deviceID uuid.UUID) (int, error) {
 	var n int
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM device_events e
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')`, deviceID).Scan(&n)
+		JOIN devices dv ON dv.id = e.device_id
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		  AND e.build_id = dv.build_id`, deviceID).Scan(&n)
 	return n, err
 }
+
+// ListDeviceCrashes returns crash/ANR/tombstone events (not reboots) for a single
+// device, newest first — the crash feed for that device's Alerts tab. limit <= 0
+// means 50.
+//
+// Only crashes on the build the device runs now: a crash from before an update is
+// history, most likely fixed by it, and listing it on the device reads as a current
+// fault. Each event carries the build it happened on (see the insert in the check-in
+// path). The Alerts page's crash view still has every build.
 
 func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit int) ([]CrashEvent, error) {
 	if limit <= 0 {
@@ -15759,6 +15785,7 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
 		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		  AND e.build_id = dv.build_id
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, deviceID, limit)
 	if err != nil {

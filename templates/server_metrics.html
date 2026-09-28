@@ -38,6 +38,8 @@ table.sv-tbl th.n,table.sv-tbl td.n{text-align:right}
 table.sv-tbl td{padding:6px 8px 6px 0;border-top:1px solid var(--border-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
 table.sv-tbl td.rt{font-family:var(--mono);font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
 table.sv-tbl td.slow{color:var(--warn);font-weight:600}
+table.sv-tbl tr.probe td{color:var(--text-faint)}
+table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
 .sv-feed{font-family:var(--mono);font-size:11.5px;line-height:1.85;color:var(--text-2);max-height:330px;overflow:auto}
 .sv-feed div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sv-feed .t{color:var(--text-faint)}
@@ -161,12 +163,14 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
     <div class="sv-sec"><span>Database</span><span class="live" style="font-weight:500" id="sv-db-age"></span></div>
     <div class="sv-card" id="sv-db"></div>
 
-    {{/* Ordered by total time spent, so the top row is what the server is busiest with.
-         SSE streams are not here: their duration is how long a tab stayed open. */}}
-    <div class="sv-sec"><span>Where the time goes</span></div>
-    <div class="sv-card">
+    {{/* The last 15 minutes, ordered by total time spent, so the top row is what the
+         server is busiest with. SSE streams are not here: their duration is how long a
+         tab stayed open. DB is Postgres time per call and queries per call — one slow
+         query, an N+1, or (near zero) time spent rendering. */}}
+    <div class="sv-sec"><span>Where the time goes</span><span class="live" style="font-weight:500">last 15 min</span></div>
+    <div class="sv-card" style="overflow-x:auto">
       <table class="sv-tbl" id="sv-routes">
-        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n" title="All calls' time added up">Total</th><th class="n">Err</th></tr></thead>
+        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n" title="Postgres time per call · queries per call">DB</th><th class="n" title="All calls' time added up">Total</th><th class="n" title="Share of all request time">Share</th><th class="n">Err</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -465,16 +469,18 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
 
     document.querySelector('#sv-routes tbody').innerHTML = (s.routes || []).length
       ? s.routes.map(function (r) {
-          return '<tr><td class="rt" title="' + esc(r.route) + '">' + esc(r.route) + '</td>' +
+          return '<tr' + (r.probe ? ' class="probe"' : '') + '><td class="rt" title="' + esc(r.route) + '">' + esc(r.route) + '</td>' +
             '<td class="n">' + r.calls + '</td>' +
             '<td class="n">' + fmt(r.p50_ms) + '</td>' +
             (r.calls >= MIN_P95_CALLS
               ? '<td class="n' + (r.p95_ms > 500 ? ' slow' : '') + '">' + fmt(r.p95_ms) + '</td>'
               : '<td class="n" title="Too few calls for a p95">—</td>') +
+            '<td class="n">' + (r.queries_per_call ? fmt(r.db_ms_per_call) + '<span class="q">×' + fmt(r.queries_per_call, r.queries_per_call < 10 ? 1 : 0) + '</span>' : '—') + '</td>' +
             '<td class="n">' + total(r.total_ms) + '</td>' +
+            '<td class="n">' + fmt(r.share_pct) + '%</td>' +
             '<td class="n' + (r.errors ? ' slow' : '') + '">' + (r.errors || 0) + '</td></tr>';
         }).join('')
-      : '<tr><td colspan="6" class="sv-empty">No requests measured yet.</td></tr>';
+      : '<tr><td colspan="8" class="sv-empty">No requests in the last 15 minutes.</td></tr>';
 
     document.getElementById('sv-feed').innerHTML = (s.events || []).length
       ? s.events.map(function (e) {

@@ -12,10 +12,12 @@
 package metrics
 
 import (
+	"context"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -27,7 +29,21 @@ const (
 	// Per-route latency sample. Enough for a stable p95 without keeping every
 	// request: at 60 rps the busiest route still turns its sample over every 2s.
 	routeSampleLen = 128
+	// RouteWindow is what the routes table covers. Since-boot totals meant one bad
+	// hour three days ago still sat on the page; a rolling window answers "now".
+	RouteWindow = 15 * time.Minute
+	windowMins  = int(RouteWindow / time.Minute)
 )
+
+// ProbesRoute is the one row health checks and static files fold into. Docker's
+// healthcheck alone is a call every few seconds; as separate rows they crowded out
+// the routes someone might actually need to look at.
+const ProbesRoute = "health checks & static files"
+
+func isProbe(path string) bool {
+	return path == "/health" || path == "/healthz" || path == "/favicon.ico" || path == "/robots.txt" ||
+		strings.HasPrefix(path, "/static/")
+}
 
 // Event is one thing the server did, for the live feed.
 type Event struct {
@@ -37,7 +53,7 @@ type Event struct {
 	Class string    `json:"class"` // "" | ok | warn | bad
 }
 
-// RouteStat is one route's traffic over the life of the process.
+// RouteStat is one route's traffic over the last RouteWindow.
 type RouteStat struct {
 	Route  string  `json:"route"`
 	Calls  int64   `json:"calls"`
@@ -47,6 +63,43 @@ type RouteStat struct {
 	// TotalMs is every call's latency added up: where the server's time actually
 	// went. It is the sort key, so a busy 200ms route outranks one 2s call.
 	TotalMs float64 `json:"total_ms"`
+	// SharePct is TotalMs as a share of all request time in the window.
+	SharePct float64 `json:"share_pct"`
+	// DBMsPerCall and QueriesPerCall say where a slow route's time goes: one slow
+	// query, dozens of fast ones (an N+1), or none at all (rendering). Queries run in
+	// parallel inside one request add up, so DB time can exceed the latency.
+	DBMsPerCall    float64 `json:"db_ms_per_call"`
+	QueriesPerCall float64 `json:"queries_per_call"`
+	Probe          bool    `json:"probe,omitempty"`
+}
+
+// DBUsage is what one request spent in Postgres. The access-log middleware puts a
+// counter in the request context (WithDBUsage) and the pool's query tracer adds to it.
+type DBUsage struct {
+	queries atomic.Int64
+	nanos   atomic.Int64
+}
+
+func (u *DBUsage) Add(d time.Duration) {
+	u.queries.Add(1)
+	u.nanos.Add(int64(d))
+}
+
+func (u *DBUsage) Queries() int64          { return u.queries.Load() }
+func (u *DBUsage) Duration() time.Duration { return time.Duration(u.nanos.Load()) }
+
+type dbUsageKey struct{}
+
+// WithDBUsage returns a context that counts the database work done under it.
+func WithDBUsage(ctx context.Context) (context.Context, *DBUsage) {
+	u := &DBUsage{}
+	return context.WithValue(ctx, dbUsageKey{}, u), u
+}
+
+// DBUsageFrom is the counter for ctx's request, or nil outside one.
+func DBUsageFrom(ctx context.Context) *DBUsage {
+	u, _ := ctx.Value(dbUsageKey{}).(*DBUsage)
+	return u
 }
 
 // MinCallsForP95 is how many calls a route needs before its p95 means anything. Below
@@ -81,11 +134,27 @@ type Sample struct {
 	DBWaiting  int64     `json:"db_waiting"`
 }
 
+// routeAgg keeps one bucket per minute of the window, so a total over the last 15
+// minutes is a sum of at most 15 small structs, and a sample of recent latencies,
+// each stamped so a quiet route's hour-old calls drop out of its percentiles.
 type routeAgg struct {
+	buckets [windowMins]bucket
+	samples []stamped
+	next    int
+}
+
+type bucket struct {
+	minute  int64 // unix minute this bucket holds; stale when older than the window
 	calls   int64
 	errors  int64
 	totalMs float64
-	samples ring // latencies in ms
+	dbMs    float64
+	queries int64
+}
+
+type stamped struct {
+	at int64 // unix seconds
+	ms float64
 }
 
 type streamAgg struct {
@@ -113,6 +182,7 @@ type Collector struct {
 	mu sync.Mutex
 
 	started time.Time
+	now     func() time.Time // time.Now; tests move it
 	routes  map[string]*routeAgg
 	streams map[string]*streamAgg
 
@@ -128,13 +198,18 @@ type Collector struct {
 var Default = New()
 
 func New() *Collector {
-	return &Collector{started: time.Now(), routes: map[string]*routeAgg{}, streams: map[string]*streamAgg{}}
+	return &Collector{started: time.Now(), now: time.Now, routes: map[string]*routeAgg{}, streams: map[string]*streamAgg{}}
 }
 
 // Observe records one finished request. Called from the access-log middleware, which
-// already wraps every route, so nothing has to be instrumented twice.
-func (c *Collector) Observe(method, path string, status int, d time.Duration) {
+// already wraps every route, so nothing has to be instrumented twice. db is what the
+// request spent in Postgres; nil when it was not counted.
+func (c *Collector) Observe(method, path string, status int, d time.Duration, db *DBUsage) {
 	key := method + " " + normalizePath(path)
+	if isProbe(path) {
+		key = ProbesRoute
+	}
+	now := c.now()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.reqTotal++
@@ -148,13 +223,28 @@ func (c *Collector) Observe(method, path string, status int, d time.Duration) {
 		a = &routeAgg{}
 		c.routes[key] = a
 	}
-	a.calls++
-	if status >= 400 {
-		a.errors++
+	minute := now.Unix() / 60
+	b := &a.buckets[minute%int64(windowMins)]
+	if b.minute != minute {
+		*b = bucket{minute: minute}
 	}
 	ms := float64(d) / float64(time.Millisecond)
-	a.totalMs += ms
-	a.samples.add(ms)
+	b.calls++
+	if status >= 400 {
+		b.errors++
+	}
+	b.totalMs += ms
+	if db != nil {
+		b.dbMs += float64(db.Duration()) / float64(time.Millisecond)
+		b.queries += db.Queries()
+	}
+	st := stamped{at: now.Unix(), ms: ms}
+	if len(a.samples) < routeSampleLen {
+		a.samples = append(a.samples, st)
+	} else {
+		a.samples[a.next] = st
+		a.next = (a.next + 1) % routeSampleLen
+	}
 }
 
 // StreamOpen records an SSE stream starting, at the moment its headers go out; ttfb
@@ -257,7 +347,8 @@ type Snapshot struct {
 	CheckTotal int64        `json:"checkin_total"`
 }
 
-// Snapshot copies the current state. Routes come back by total time spent, most
+// Snapshot copies the current state. Routes cover the last RouteWindow and come back
+// by total time spent, most
 // first — "what is the server busy with" — rather than by p95, which a single slow
 // call on a rarely used route would otherwise top. Streams come back most-open first.
 func (c *Collector) Snapshot(routeLimit, eventLimit int) Snapshot {
@@ -273,9 +364,43 @@ func (c *Collector) Snapshot(routeLimit, eventLimit int) Snapshot {
 	if n := len(c.series); n > 0 {
 		out.Latest = c.series[n-1]
 	}
+	now := c.now()
+	oldestMin := now.Unix()/60 - int64(windowMins) + 1
+	oldestSec := now.Add(-RouteWindow).Unix()
+	var allMs float64
 	for route, a := range c.routes {
-		p50, p95 := percentiles(a.samples.v)
-		out.Routes = append(out.Routes, RouteStat{Route: route, Calls: a.calls, P50Ms: p50, P95Ms: p95, Errors: a.errors, TotalMs: a.totalMs})
+		st := RouteStat{Route: route, Probe: route == ProbesRoute}
+		var dbMs float64
+		var queries int64
+		for _, b := range a.buckets {
+			if b.minute < oldestMin || b.calls == 0 {
+				continue
+			}
+			st.Calls += b.calls
+			st.Errors += b.errors
+			st.TotalMs += b.totalMs
+			dbMs += b.dbMs
+			queries += b.queries
+		}
+		if st.Calls == 0 {
+			continue // nothing in the window
+		}
+		var lat []float64
+		for _, sm := range a.samples {
+			if sm.at >= oldestSec {
+				lat = append(lat, sm.ms)
+			}
+		}
+		st.P50Ms, st.P95Ms = percentiles(lat)
+		st.DBMsPerCall = dbMs / float64(st.Calls)
+		st.QueriesPerCall = float64(queries) / float64(st.Calls)
+		allMs += st.TotalMs
+		out.Routes = append(out.Routes, st)
+	}
+	if allMs > 0 {
+		for i := range out.Routes {
+			out.Routes[i].SharePct = out.Routes[i].TotalMs * 100 / allMs
+		}
 	}
 	sort.Slice(out.Routes, func(i, j int) bool {
 		if out.Routes[i].TotalMs != out.Routes[j].TotalMs {
