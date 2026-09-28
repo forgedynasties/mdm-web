@@ -10,6 +10,28 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
+    # Tuned for the t2.xlarge (16 GB, since 25 Sep 2026) that live and stage share with
+    # other stacks; the defaults assumed a 128 MB buffer pool on a 1.2 GB database, so
+    # most reads went to the OS. Stage keeps smaller numbers in its .env (PG_*).
+    # Changing these takes a recreate of this container, not a deploy: deploy.yml only
+    # recreates the server.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE:-3GB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_MEM:-256MB}
+      - -c
+      - work_mem=8MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - random_page_cost=1.1
+    # Parallel query workers share memory through /dev/shm; Docker's 64 MB default
+    # fails a parallel hash join once the buffer pool is this size.
+    shm_size: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -18,7 +40,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g
+          memory: ${PG_MEM_LIMIT:-4g}
 
   server:
     # MDM_IMAGE is set by the deploy pipeline to an ECR tag, so the box runs an image
