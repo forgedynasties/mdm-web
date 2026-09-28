@@ -303,8 +303,12 @@ func (d *DB) CancelPendingForCustody(ctx context.Context, deviceID uuid.UUID) (i
 // query rather than seven: it runs every two seconds for every operator with the page
 // open, and seven round trips each tick is exactly the kind of self-inflicted load a
 // metrics page should not add.
-func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deploymentsLive, otaInFlight, peerOutbox, devicesTotal, devicesElsewhere, alertsOpen int) {
-	_ = d.pool.QueryRow(ctx, `
+//
+// One query also means one failure: a single bad table name zeroes every count. It
+// did — `deployments` had become `updates` and the block read all zeroes, silently,
+// because the error was dropped. So it is returned now.
+func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deploymentsLive, otaInFlight, peerOutbox, devicesTotal, devicesElsewhere, alertsOpen int, err error) {
+	err = d.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT COUNT(*) FROM command_targets ct
 		     JOIN commands c ON c.id = ct.command_id
@@ -312,8 +316,11 @@ func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deployments
 		      AND NOT EXISTS (SELECT 1 FROM command_status cs
 		                       WHERE cs.command_id = ct.command_id AND cs.device_id = ct.target_id
 		                         AND cs.status IN ('completed', 'failed', 'expired'))),
-		  (SELECT COUNT(*) FROM deployments WHERE status = 'active'),
-		  (SELECT COUNT(*) FROM updates WHERE status IN ('downloading', 'installing')),
+		  (SELECT COUNT(*) FROM updates WHERE status = 'active'),
+		  -- Per-device OTA progress lives on update_devices; updates.status is the
+		  -- deployment's own state (pending / active / complete / canceled).
+		  (SELECT COUNT(*) FROM update_devices ud JOIN updates u ON u.id = ud.update_id
+		    WHERE u.status = 'active' AND ud.status IN ('downloading', 'installing', 'verifying', 'finalizing')),
 		  (SELECT COUNT(*) FROM peer_outbox),
 		  (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')),
 		  (SELECT COUNT(*) FROM devices WHERE custody_server <> ''),
