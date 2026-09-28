@@ -2,10 +2,12 @@ package dashboard
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"mdm/internal/ingest"
 	"mdm/internal/metrics"
 )
 
@@ -71,5 +73,38 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 	}
 	if checkin.Calls != 2 || checkin.Errors != 1 {
 		t.Errorf("check-in route: %d calls / %d errors, want 2 / 1", checkin.Calls, checkin.Errors)
+	}
+}
+
+// TestServerPipelinePayload pins the check-in pipeline card's keys: the frame carries
+// the pipeline only once main has wired it, and carries every field the card reads.
+func TestServerPipelinePayload(t *testing.T) {
+	h := &Handler{}
+	if b, _ := json.Marshal(serverPayload{Ingest: nil}); strings.Contains(string(b), `"ingest"`) {
+		t.Error("an unwired pipeline should leave the card out of the frame")
+	}
+	h.SetIngestStats(func() ingest.Pipeline {
+		return ingest.Pipeline{Stats: ingest.Stats{Depth: 3, Capacity: 2048, Written: 12, Batches: 2, Rejected: 1},
+			SlotsInUse: 4, Slots: 16, Shed: 5, HistoryFailed: 0}
+	})
+	st := h.ingestStats()
+	b, err := json.Marshal(serverPayload{Ingest: &st})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"ingest"`, `"slots_in_use"`, `"slots"`, `"depth"`, `"capacity"`, `"written"`,
+		`"batches"`, `"last_flush_ms"`, `"max_flush_ms"`, `"shed"`, `"rejected"`, `"history_failed"`} {
+		if !strings.Contains(string(b), key) {
+			t.Errorf("pipeline frame is missing %s — the card reads it", key)
+		}
+	}
+	page, err := os.ReadFile("../../templates/server_metrics.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`id="sv-pipe-wrap"`, `id="sv-pipe"`, "p.ingest"} {
+		if !strings.Contains(string(page), want) {
+			t.Errorf("server page is missing %s", want)
+		}
 	}
 }

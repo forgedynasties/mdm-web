@@ -454,6 +454,7 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	dash.SetIngestStats(apiHandler.IngestStats)
 
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting

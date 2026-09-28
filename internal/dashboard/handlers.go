@@ -43,6 +43,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/otaconfig"
 	"mdm/internal/db"
+	"mdm/internal/ingest"
 	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
@@ -223,6 +224,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 }
 
 type Handler struct {
+	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
