@@ -391,7 +391,8 @@
 
   <h2>Status, 28 September</h2>
 
-  <div class="callout"><b>Is there a queue now?</b> Not yet, and it is decided: a bounded in-process queue with batched writes (option A). The reply to a check-in keeps what the device needs synchronously &mdash; device id, config, pending commands, OTA &mdash; and everything else (device events, package list, install reconcile, wifi locations, dashboard publish) goes to a few workers that write in batches, with <code>429 Retry-After</code> when the queue is full. No broker: Redis or NATS only earns its place with a second replica, which his own list puts past ~500 devices. The point now is bursts, not volume &mdash; a deploy or a restaurant power cut brings ~190 devices back at once onto the same 60-connection pool the dashboard uses.</div>
+  <div class="callout"><b>Is there a queue now?</b> Yes, since <code>4fb4458</code> (live 28 Sep): a bounded in-process queue with batched writes (option A). Measured before shipping, on a throwaway copy: 1,200 check-ins from 400 devices in 0.6 s, all answered (p99 264 ms), all history written; SIGTERM straight after a burst lost nothing; with <code>device_samples</code> locked for 25 s the queue filled, 558 of 3,000 check-ins were told <code>429</code> with a 20&ndash;60 s <code>Retry-After</code>, and every one of the 2,442 accepted landed once the lock cleared. The live deploy itself was the first real burst: 55 devices back inside 2.5 minutes, none shed.</div>
+  <div class="callout"><b>How it works.</b> The reply to a check-in keeps everything the device needs, synchronously: its id, config, pending commands, OTA, the app list. Its history &mdash; the numeric sample, state transitions, crash and reboot events &mdash; goes to four workers, sharded by device so one device's events stay in order, which write it in batches of up to 200 at least once a second, in one transaction per batch. At most 16 check-ins run their synchronous half at once, so the fleet reconnecting cannot take the dashboard's share of the 60-connection pool; an HTTP check-in that cannot get a slot within 5 s, or arrives with the queue 80% full, is told <code>429</code> with a spread <code>Retry-After</code>. A WebSocket frame waits instead, and a job the queue will not take is written inline, so history is never dropped for load. A deploy drains the queue before the pool closes; a crash loses at most a second of history. No broker: Redis or NATS only earns its place with a second replica, which his own list puts past ~500 devices.</div>
 
   <h3>The box was upgraded</h3>
   <div class="card">
@@ -415,7 +416,7 @@
 
   <h3>Still open from his list</h3>
   <ul>
-    <li>The ingest queue itself (option A), with its depth, drops and batch latency on the server-load page.</li>
+    <li>Queue depth, shed count and batch latency on the Server page. They are in <code>/debug/vars</code> (<code>ingest</code>) now; the page change needs a demo first.</li>
     <li>Postgres tuning now that there is room: <code>shared_buffers</code> ~1 GB and a ~4 GB container cap.</li>
     <li>The DPC agent diff &mdash; still paused with the agent.</li>
   </ul>
