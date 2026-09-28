@@ -389,6 +389,37 @@
 
   <p class="small" style="margin-top:20px">Status section added 18 September, after the work in it shipped. Figures measured against the live box, not estimated. The one thing this audit got wrong by omission: it read "watch pool vs max_connections" as headroom advice, and it was the cause of an outage pattern &mdash; see above.</p>
 
+  <h2>Status, 28 September</h2>
+
+  <div class="callout"><b>Is there a queue now?</b> Not yet, and it is decided: a bounded in-process queue with batched writes (option A). The reply to a check-in keeps what the device needs synchronously &mdash; device id, config, pending commands, OTA &mdash; and everything else (device events, package list, install reconcile, wifi locations, dashboard publish) goes to a few workers that write in batches, with <code>429 Retry-After</code> when the queue is full. No broker: Redis or NATS only earns its place with a second replica, which his own list puts past ~500 devices. The point now is bursts, not volume &mdash; a deploy or a restaurant power cut brings ~190 devices back at once onto the same 60-connection pool the dashboard uses.</div>
+
+  <h3>The box was upgraded</h3>
+  <div class="card">
+    <div class="tw"><table>
+      <thead><tr><th>Item</th><th>17 Sep</th><th>28 Sep</th></tr></thead>
+      <tbody>
+        <tr><td>Instance</td><td>t2.medium, 2 vCPU, 4 GiB</td><td>t2.xlarge, 4 vCPU, 16 GiB, relaunched 25 Sep</td></tr>
+        <tr><td>CPU credits</td><td>standard, 0 left, throttled</td><td>unlimited: 42&ndash;48% average against a 22.5% baseline, ~1,280 surplus credits billed a day (~$1)</td></tr>
+        <tr><td>RAM</td><td>3.2 of 3.9 GiB used</td><td>8.3 of 16 GiB used, 7.7 GiB available</td></tr>
+        <tr><td>Disk</td><td>76 of 96 GB</td><td>42 of 96 GB</td></tr>
+        <tr><td>MDM database</td><td>17 GB</td><td>1.2 GB &mdash; <code>checkins</code> retired, <code>device_samples</code> 883 MB</td></tr>
+        <tr><td>Postgres config</td><td>defaults</td><td>still defaults: <code>shared_buffers</code> 128 MB, 2 GB container cap, <code>max_wal_size</code> 1 GB</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:14px 0 0">Most of the CPU is not ours: <code>unifinms-app</code> runs at up to 2.3 cores and holds 6.4 GiB. The rest was one MDM query, below.</p>
+  </div>
+
+  <h3>The core that was not a queue problem</h3>
+  <p>Live Postgres was pegging one full core. Sampling <code>pg_stat_activity</code> once a second showed <code>GetPendingCommandsForDevice</code> running in almost every sample. It filtered the whole <code>commands</code> table (4,312 rows) row by row, with a <code>command_status</code> probe per row for the "still installing" exception &mdash; 440 ms per call as the generic prepared plan pgx ends up with, returning nothing, on every connect, ack, minute flush and Lite check-in. A queue would not have helped: the reply needs its result.</p>
+  <p>The fix builds the current set once, from the two small indexed sources (commands from the last hour, plus this device's downloading/installing), and uses the same set for both delivery and the one-at-a-time blocker. Checked on a copy of the live command tables at 1,500 random (device, moment) pairs, 757 of them non-empty: 0 differences. On live: <b>440 ms &rarr; 0.3 ms</b>. After the deploy (<code>c520935</code>) Postgres sits near 0% and the query no longer shows up in samples.</p>
+
+  <h3>Still open from his list</h3>
+  <ul>
+    <li>The ingest queue itself (option A), with its depth, drops and batch latency on the server-load page.</li>
+    <li>Postgres tuning now that there is room: <code>shared_buffers</code> ~1 GB and a ~4 GB container cap.</li>
+    <li>The DPC agent diff &mdash; still paused with the agent.</li>
+  </ul>
+
   <p class="small" style="margin-top:36px">Measurements taken read-only on the live dev box, 17 September 2026, via SSM. Code references are to <code>mdm-server</code> at the current <code>stage</code> working tree. One statistics query during this audit caused a Postgres backend crash and a ~20 second automatic recovery; no data was lost and the API stayed up.</p>
 </div>
 </body>
