@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -37,8 +38,12 @@ type serverQueues struct {
 func (h *Handler) serverQueues(r *http.Request) serverQueues {
 	q := serverQueues{}
 	ctx := r.Context()
+	var err error
 	q.CommandsPending, q.DeploymentsLive, q.OTAInFlight, q.PeerOutbox,
-		q.DevicesTotal, q.DevicesElsewhere, q.AlertsOpen = h.db.ServerWorkCounts(ctx)
+		q.DevicesTotal, q.DevicesElsewhere, q.AlertsOpen, err = h.db.ServerWorkCounts(ctx)
+	if err != nil && ctx.Err() == nil {
+		log.Printf("[server] work counts: %v", err)
+	}
 	q.DevicesOnline = len(h.hub.ConnectedIDs())
 	// Live shell + remote-screen sessions come from the managers that hold them; both
 	// report 0 when nothing is attached, which is the normal state.

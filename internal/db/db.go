@@ -9236,7 +9236,7 @@ func (d *DB) resolveClearedAlerts(ctx context.Context) (int64, error) {
 		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
 		WHERE status <> 'resolved'
 		  AND cleared_at IS NOT NULL
-		  AND cleared_at < make_interval(mins => -$1) + NOW()
+		  AND cleared_at < NOW() - make_interval(mins => $1::int)
 		  AND (muted_until IS NULL OR muted_until < NOW())
 	`, alertClearMin)
 	if err != nil {
@@ -10730,7 +10730,12 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 		resolved += int(tag.RowsAffected())
 	}
 	// Close out anything whose clear window has now passed.
-	if n, e := d.resolveClearedAlerts(ctx); e == nil {
+	// Logged, not returned: returning would drop this tick's new-alert notifications.
+	// It was silently dropped before, which hid a query that failed every minute and
+	// left every cleared alert open.
+	if n, e := d.resolveClearedAlerts(ctx); e != nil {
+		log.Printf("[alerts] resolve cleared: %v", e)
+	} else {
 		resolved += int(n)
 	}
 	return created, resolved, nil
@@ -11080,33 +11085,36 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// state alone would fire on a device that went dark an hour ago still carrying
 		// its last known state, which is the opposite of continuous charging.
 		rows, err := d.pool.Query(ctx, `
-			WITH win AS (SELECT NOW() - (($1 + 5) * INTERVAL '1 minute') AS t0),
-			pres AS (
+			-- The window start is written inline, not as a one-row CTE: a CTE hides it
+			-- from the planner, which then walked every row of device_samples (6.3M on
+			-- live) to keep the last hour's. The state lookups go per device through
+			-- the (device_id, key, at) primary key rather than scanning all history.
+			WITH pres AS (
 				SELECT device_id, MIN(at) AS mn, MAX(at) AS mx
-				FROM device_samples, win WHERE at > win.t0 GROUP BY device_id
-			),
-			-- The pad state as the window opened. A device whose first ever wlc_status
-			-- event falls inside the window has no state here and cannot qualify, which
-			-- is the conservative reading: we do not know what it was doing before.
-			at_start AS (
-				SELECT DISTINCT ON (e.device_id) e.device_id, e.to_val
-				FROM device_state_events e, win
-				WHERE e.key = 'wlc_status' AND e.at <= win.t0
-				ORDER BY e.device_id, e.at DESC
-			),
-			-- Any change inside the window that moved it off the pad breaks continuity.
-			broke AS (
-				SELECT DISTINCT e.device_id FROM device_state_events e, win
-				WHERE e.key = 'wlc_status' AND e.at > win.t0 AND e.to_val IS DISTINCT FROM '1'
+				FROM device_samples WHERE at > NOW() - (($1 + 5) * INTERVAL '1 minute')
+				GROUP BY device_id
 			)
 			SELECT p.device_id, dv.serial_number,
 			       EXTRACT(EPOCH FROM (p.mx - p.mn))/60 AS span_min
 			FROM pres p
 			JOIN devices dv ON dv.id = p.device_id
-			LEFT JOIN at_start a ON a.device_id = p.device_id
+			-- The pad state as the window opened. A device whose first ever wlc_status
+			-- event falls inside the window has no state here and cannot qualify, which
+			-- is the conservative reading: we do not know what it was doing before.
+			LEFT JOIN LATERAL (
+				SELECT e.to_val FROM device_state_events e
+				WHERE e.device_id = p.device_id AND e.key = 'wlc_status'
+				  AND e.at <= NOW() - (($1 + 5) * INTERVAL '1 minute')
+				ORDER BY e.at DESC LIMIT 1
+			) a ON true
 			WHERE NOT dv.hidden
 			  AND COALESCE(a.to_val, '') = '1'
-			  AND NOT EXISTS (SELECT 1 FROM broke b WHERE b.device_id = p.device_id)
+			  -- Any change inside the window that moved it off the pad breaks continuity.
+			  AND NOT EXISTS (
+				SELECT 1 FROM device_state_events e
+				WHERE e.device_id = p.device_id AND e.key = 'wlc_status'
+				  AND e.at > NOW() - (($1 + 5) * INTERVAL '1 minute')
+				  AND e.to_val IS DISTINCT FROM '1')
 			  AND (p.mx - p.mn) >= ($1 * INTERVAL '1 minute')`, sustain)
 		if err != nil {
 			return nil, "critical", err
@@ -11249,38 +11257,38 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		maxGain := param(p, "max_gain_pct", 15)
 		windowH := param(p, "window_hours", 2)
 		rows, err := d.pool.Query(ctx, `
-			WITH win AS (SELECT NOW() - ($1 * INTERVAL '1 hour') AS t0),
-			s AS (
+			-- Window start inline and state lookups per device, for the same reasons
+			-- as wlc_continuous above: this ran 3.8s a minute on live as a CTE.
+			WITH s AS (
 				SELECT device_id,
 				       (array_agg(battery_pct ORDER BY at ASC))[1]  AS first_batt,
 				       (array_agg(battery_pct ORDER BY at DESC))[1] AS last_batt,
 				       COUNT(*) AS n,
 				       (MAX(at) - MIN(at)) AS span
-				FROM device_samples, win
-				WHERE at > win.t0
+				FROM device_samples
+				WHERE at > NOW() - ($1 * INTERVAL '1 hour')
 				GROUP BY device_id
-			),
-			-- "Continuously charging" is now the charging state as the window opened,
-			-- with no event since that left it. A device with no charging event at or
-			-- before the window cannot qualify: the old query treated an unconfirmed
-			-- reading as not charging, and an unknown state is the same claim.
-			at_start AS (
-				SELECT DISTINCT ON (e.device_id) e.device_id, e.to_val
-				FROM device_state_events e, win
-				WHERE e.key = 'charging' AND e.at <= win.t0
-				ORDER BY e.device_id, e.at DESC
-			),
-			broke AS (
-				SELECT DISTINCT e.device_id FROM device_state_events e, win
-				WHERE e.key = 'charging' AND e.at > win.t0 AND e.to_val IS DISTINCT FROM 'true'
 			)
 			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
 			FROM s
 			JOIN devices dv ON dv.id = s.device_id
-			LEFT JOIN at_start a ON a.device_id = s.device_id
+			-- "Continuously charging" is now the charging state as the window opened,
+			-- with no event since that left it. A device with no charging event at or
+			-- before the window cannot qualify: the old query treated an unconfirmed
+			-- reading as not charging, and an unknown state is the same claim.
+			LEFT JOIN LATERAL (
+				SELECT e.to_val FROM device_state_events e
+				WHERE e.device_id = s.device_id AND e.key = 'charging'
+				  AND e.at <= NOW() - ($1 * INTERVAL '1 hour')
+				ORDER BY e.at DESC LIMIT 1
+			) a ON true
 			WHERE NOT dv.hidden AND s.n >= 3
 			  AND COALESCE(a.to_val, '') = 'true'
-			  AND NOT EXISTS (SELECT 1 FROM broke b WHERE b.device_id = s.device_id)
+			  AND NOT EXISTS (
+				SELECT 1 FROM device_state_events e
+				WHERE e.device_id = s.device_id AND e.key = 'charging'
+				  AND e.at > NOW() - ($1 * INTERVAL '1 hour')
+				  AND e.to_val IS DISTINCT FROM 'true')
 			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
 			  AND (s.last_batt - s.first_batt) <= $2
 			  AND s.last_batt < 95`, windowH, maxGain)
