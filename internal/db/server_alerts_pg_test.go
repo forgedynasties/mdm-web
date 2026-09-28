@@ -61,4 +61,9 @@ func TestServerAndAlertQueriesAgainstPostgres(t *testing.T) {
 			t.Errorf("%s: %v", typ, err)
 		}
 	}
+	// The whole recent tier, including the once-a-night gating and the windows scan
+	// that now carries each device's restaurant.
+	if _, _, err := d.EvaluateRecentAlerts(ctx, nil); err != nil {
+		t.Errorf("evaluate recent alerts: %v", err)
+	}
 }

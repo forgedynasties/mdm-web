@@ -1377,6 +1377,9 @@ type DB struct {
 	// one state instead of a row per toggle (see charger_flap.go).
 	flaps flapTracker
 
+	// nightly remembers which venues a once-a-night rule has checked (alert_nightly.go).
+	nightly nightlyTracker
+
 	// cmdSummaryMu/cmdSummaryCache short-TTL-cache GetCommandDeliverySummaries: it's
 	// a full join+CASE-classify over the commands/command_status window, polled
 	// every 20s by the Actions page from every open tab/browser. Collapsing repeat
@@ -10125,7 +10128,7 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 		return nil, err
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, COALESCE(d.latest_extra->>'timezone', ''),
+		SELECT d.id, d.restaurant_id, COALESCE(d.latest_extra->>'timezone', ''),
 		       sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone
 		FROM devices d
 		LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
@@ -10137,13 +10140,15 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 	out := make(map[uuid.UUID]ServiceWindow)
 	for rows.Next() {
 		var id uuid.UUID
+		var rid *uuid.UUID
 		var devTZ string
 		var open, closeM, nOpen, nClose *int
 		var winTZ *string
-		if err := rows.Scan(&id, &devTZ, &open, &closeM, &nOpen, &nClose, &winTZ); err != nil {
+		if err := rows.Scan(&id, &rid, &devTZ, &open, &closeM, &nOpen, &nClose, &winTZ); err != nil {
 			return nil, err
 		}
 		w := fleet // copy fleet defaults, override with the group's window when present
+		w.RestaurantID = rid
 		if open != nil {
 			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin = *open, *closeM, *nOpen, *nClose
 			if winTZ != nil {
@@ -10627,9 +10632,21 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 		if len(r.Params) > 0 {
 			_ = json.Unmarshal(r.Params, &p)
 		}
-		hits, severity, e := d.detectRecentRule(ctx, r.Type, p, connected)
-		if e != nil {
-			return created, resolved, e
+		// A once-a-night rule only queries when some venue is due its check, and only
+		// that venue's devices can fire; see alert_nightly.go.
+		var nightly *nightlyPlan
+		if onceNightlyRules[r.Type] {
+			pl := d.nightly.plan(r.ID, time.Duration(param(p, "window_hours", 2)*float64(time.Hour)), windows, now)
+			nightly = &pl
+		}
+		var hits []alertHit
+		var severity string
+		if nightly == nil || len(nightly.due) > 0 {
+			var e error
+			hits, severity, e = d.detectRecentRule(ctx, r.Type, p, connected)
+			if e != nil {
+				return created, resolved, e
+			}
 		}
 		aw := r.ActiveWindow
 		if aw == "" {
@@ -10647,6 +10664,12 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 		for _, h := range hits {
 			if deployedOnly && !deployed[h.DeviceID] {
 				continue
+			}
+			if nightly != nil {
+				rid := windowFor(windows, h.DeviceID).RestaurantID
+				if rid == nil || nightly.due[*rid] == "" {
+					continue
+				}
 			}
 			// Skip devices outside the rule's active window; they auto-resolve below.
 			// Peak windows are a separate list of ranges; service/overnight use the span.
@@ -10669,6 +10692,11 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
 			}
 		}
+		// Mid-night devices of venues not due this tick keep whatever tonight's check
+		// found; only a check (or the night ending) clears them.
+		if nightly != nil {
+			ids = append(ids, nightly.keep...)
+		}
 		// Same clear-window treatment as the daily tier above.
 		tag, e := d.pool.Exec(ctx, `
 			UPDATE alerts SET cleared_at = COALESCE(cleared_at, NOW()), updated_at = NOW()
@@ -10679,6 +10707,9 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 			return created, resolved, e
 		}
 		resolved += int(tag.RowsAffected())
+		if nightly != nil {
+			d.nightly.mark(r.ID, nightly.due)
+		}
 	}
 	// Close out anything whose clear window has now passed.
 	// Logged, not returned: returning would drop this tick's new-alert notifications.
