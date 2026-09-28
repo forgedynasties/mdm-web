@@ -4,7 +4,12 @@
      rather than a standalone document, so it reads as part of the product and works in
      both themes. Save as PDF is drawn by the server (report_pdf_render.go); the print
      rules below only matter to someone who prints the page from the browser.
-     Every figure comes from device_daily_stats rollups — never raw check-ins. */}}
+     The standard report comes from device_daily_stats rollups — never raw check-ins.
+
+     ?view= picks one of six plain-language layouts written for the venue rather than for
+     us (report_views.go, and static/restaurant-report-demos.html for why each exists).
+     The standard report stays the default: no view, no extra queries, and the PDF and
+     the email are always the standard report. */}}
 <style>
 /* rp-: this page only. Everything else is cc-*. */
 .rp-days{display:flex;gap:6px;align-items:flex-end;padding:14px 16px 16px}
@@ -24,8 +29,86 @@
 .rp-na{color:var(--text-faint)}
 .rp-note{padding:0 16px 14px;font-size:12px;color:var(--muted)}
 .rp-mail{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rp-week{display:flex;gap:8px;flex-wrap:wrap}
 .rp-week select{min-width:210px}
+.rp-week select[name=view]{min-width:170px}
 .rp-mail input{min-width:210px}
+
+/* rv-: the plain-language views. */
+.rv-paper{padding:22px 24px;margin-bottom:16px}
+.rv-kick{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
+.rv-h{font-size:20px;letter-spacing:-.02em;margin:4px 0 2px;font-weight:650;line-height:1.25}
+.rv-when{font-size:13px;color:var(--muted)}
+.rv-paper h2.rv-sec{font-size:13px;font-weight:700;margin:22px 0 10px}
+.rv-paper p{font-size:14px;line-height:1.65;margin:0 0 12px;max-width:720px}
+.rv-up{color:var(--ok);font-weight:650;white-space:nowrap}
+.rv-dn{color:var(--danger);font-weight:650;white-space:nowrap}
+.rv-flat{color:var(--text-faint);font-weight:600;white-space:nowrap}
+.rv-g{--c:var(--ok)} .rv-a{--c:var(--warn)} .rv-r{--c:var(--danger)}
+.rv-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:7px;vertical-align:0;flex:none}
+.rv-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.rv-kpis.three{grid-template-columns:repeat(3,1fr);margin-top:16px}
+.rv-k{border:1px solid var(--border-soft,var(--border));border-radius:12px;padding:12px 14px}
+.rv-k .k{font-size:12px;color:var(--muted)}
+.rv-k .v{font-size:24px;font-weight:650;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+.rv-k .v small{font-size:14px;color:var(--muted);font-weight:500}
+.rv-k .s{font-size:12px;color:var(--muted);margin-top:2px}
+.rv-sc-top{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:center;margin-top:18px}
+.rv-grade{border-radius:16px;padding:18px;text-align:center;background:color-mix(in srgb,var(--c) 12%,transparent)}
+.rv-grade .gl{font-size:54px;font-weight:700;line-height:1;color:var(--c);letter-spacing:-.03em}
+.rv-grade .gw{font-size:14px;font-weight:650;margin-top:6px}
+.rv-todo{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.rv-todo li{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.5;background:var(--surface2);border-radius:10px;padding:10px 12px}
+.rv-todo li .bx{width:18px;height:18px;border:2px solid var(--rule-2,var(--border));border-radius:5px;margin-top:1px}
+.rv-todo li small{display:block;color:var(--muted);font-size:12.5px}
+.rv-fine{font-size:13.5px;color:var(--muted);margin-top:10px}
+.rv-rule{font-size:11.5px;color:var(--text-faint);margin-top:14px}
+.rv-letter{max-width:640px;margin:0 auto}
+.rv-letter p{font-size:15px;line-height:1.75}
+.rv-letter b{font-weight:650}
+.rv-sign{margin-top:18px;font-size:13px;color:var(--muted)}
+.rv-tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:16px}
+.rv-tab{border-radius:11px;padding:10px 11px;background:color-mix(in srgb,var(--c) 11%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);text-decoration:none;color:inherit}
+.rv-tab .tn{font-size:13px;font-weight:700;display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-tab .ts{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+.rv-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}
+.rv-grid{display:grid;grid-template-columns:48px repeat(var(--n),minmax(0,1fr));gap:3px;margin-top:10px;font-size:11px}
+.rv-grid .h{color:var(--text-faint);text-align:center;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
+.rv-grid .d{color:var(--muted);font-weight:650;align-self:center}
+.rv-grid .c{height:24px;border-radius:5px;background:var(--surface2);position:relative}
+.rv-grid .c.rv-g{background:color-mix(in srgb,var(--ok) 75%,var(--surface2))}
+.rv-grid .c.rv-a{background:color-mix(in srgb,var(--warn) 70%,var(--surface2))}
+.rv-grid .c.rv-r{background:color-mix(in srgb,var(--danger) 80%,var(--surface2))}
+.rv-grid .c.flag::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:12px}
+.rv-grid.heat .c{height:20px;background:color-mix(in srgb,var(--accent) var(--p),var(--surface2))}
+.rv-key{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-top:10px}
+.rv-key i{display:inline-block;width:22px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.rv-moment{display:grid;grid-template-columns:130px 1fr;gap:12px;font-size:13.5px;line-height:1.5;padding:8px 0;border-top:1px solid var(--border-soft,var(--border))}
+.rv-moment:first-child{border-top:0}
+.rv-moment .mw{font-weight:700;color:var(--muted);font-size:12.5px}
+.rv-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.rv-hero .gv{border-radius:14px;padding:16px;background:var(--surface2)}
+.rv-hero .v{font-size:32px;font-weight:700;letter-spacing:-.03em;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-hero .k{font-size:13px;font-weight:600;margin-top:6px}
+.rv-hero .s{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+.rv-pg{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:0 0 10px}
+.rv-att .row{display:grid;grid-template-columns:150px 1fr 1.2fr;gap:14px;padding:10px 0;border-top:1px solid var(--border-soft,var(--border));font-size:13.5px;line-height:1.45;align-items:start}
+.rv-att .row:first-child{border-top:0}
+.rv-att .row .nm{display:flex;align-items:center;font-weight:700}
+.rv-att .row .fix{color:var(--muted)}
+.rv-att .row .also{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.rv-empty{font-size:13.5px;color:var(--muted)}
+@media(max-width:1024px){.rv-kpis.three{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){
+  .rv-paper{padding:16px}
+  .rv-sc-top{grid-template-columns:1fr}.rv-kpis,.rv-kpis.three{grid-template-columns:1fr}
+  .rv-hero{grid-template-columns:1fr}
+  .rv-att .row{grid-template-columns:1fr;gap:4px}
+  .rv-moment{grid-template-columns:1fr;gap:2px}
+  .rv-grid{grid-template-columns:30px repeat(var(--n),minmax(0,1fr));gap:2px;font-size:9px}
+  .rv-grid .h{font-size:0}.rv-grid .h:nth-child(3n+2){font-size:9px}
+}
+
 @media print{
   /* Saved as a PDF: drop the app chrome and the controls, keep the report.
      .appbar is the header's real class — this rule said .topbar, which matches
@@ -52,6 +135,10 @@
   /* Cards may split across pages, but never a row. break-inside:avoid on the card
      pushed the whole device table to page 2 and left the first page half empty. */
   .cc-table tr{break-inside:avoid}
+
+  /* The two-page summary is two pages on paper too. */
+  .rv-page2{break-before:page}
+  .rv-grid .c,.rv-grade,.rv-tab,.rv-hero .gv{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 
@@ -70,18 +157,141 @@
         <select class="form-input" name="week" aria-label="Week" onchange="this.form.submit()">
           {{range .Weeks}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
         </select>
+        {{if .Views}}
+        <select class="form-input" name="view" aria-label="Layout" onchange="this.form.submit()">
+          {{range .Views}}<option value="{{.Key}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        {{end}}
         <noscript><button type="submit" class="cc-btn">Show</button></noscript>
       </form>
+      {{if .View}}
+      <button type="button" class="cc-btn primary" onclick="window.print()"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg><span>Print or save as PDF</span></button>
+      {{else}}
       <a class="cc-btn primary" href="{{.PDFURL}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Save as PDF</span></a>
+      {{end}}
       <form class="rp-mail" method="POST" action="/restaurants/{{.Restaurant.ID}}/report/email" hx-post="/restaurants/{{.Restaurant.ID}}/report/email" hx-target="#rp-mail-out" hx-swap="innerHTML">
         <input type="hidden" name="week" value="{{.Week.Value}}">
         <input class="form-input" type="email" name="to" required placeholder="name@aioapp.com" aria-label="Send this report to">
-        <button type="submit" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></svg>Email report</button>
+        <button type="submit" class="cc-btn" {{if .View}}title="Sends the standard report"{{end}}><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></svg>Email report</button>
         <span id="rp-mail-out" class="muted small"></span>
       </form>
     </div>
   </div>
 
+  {{if not .View}}
+    {{template "rp-standard" .}}
+  {{else}}{{with .Story}}
+  {{$name := $.Restaurant.Name}}
+  {{$week := printf "%s – %s" ($.WindowFrom.Format "2 Jan") ($.WindowTo.Format "2 Jan")}}
+
+  {{if eq $.View "scorecard"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-kick">Weekly tablet report · {{$week}}</div>
+    <div class="rv-when">{{.TabletCount}} tablet{{if ne .TabletCount 1}}s{{end}}{{if .OpenLabel}} · open {{.OpenLabel}}{{end}}{{if .Current}} · week in progress{{end}}</div>
+    <div class="rv-sc-top">
+      <div class="rv-grade rv-{{or .GradeClass "a"}}"><div class="gl">{{or .Grade "—"}}</div><div class="gw">{{.GradeWord}}</div></div>
+      <div class="rv-kpis">
+        <div class="rv-k"><div class="k">Tablets ready while you were open</div><div class="v">{{if .HasReady}}{{.ReadyPct}}%{{else}}—{{end}}</div><div class="s">{{with .ReadyDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{else}}&nbsp;{{end}}</div></div>
+        <div class="rv-k"><div class="k">Guest phones charged at the table</div><div class="v">{{.Sessions}}</div><div class="s">{{with .SessionsDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}} · {{end}}{{printf "%.0f" .GuestHours}} hours of charging</div></div>
+        <div class="rv-k"><div class="k">Times a tablet ran flat during service</div><div class="v">{{.Flat}}</div><div class="s">{{with .FlatDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}{{if .FlatNames}} · {{range $i, $n := .FlatNames}}{{if $i}}, {{end}}{{$n}}{{end}}{{end}}</div></div>
+        <div class="rv-k"><div class="k">Tablets that need a look</div><div class="v">{{len .Attention}} <small>of {{.TabletCount}}</small></div><div class="s">{{if .Red}}{{.Red}} let guests down during service{{else}}none let guests down{{end}}</div></div>
+      </div>
+    </div>
+    <h2 class="rv-sec">This week, please</h2>
+    {{if .Attention}}
+    <ul class="rv-todo">
+      {{range .Attention}}<li><span class="bx"></span><span><b>{{.Name}}: {{lowerFirst .Reason}}.</b><small>{{.Fix}}</small></span></li>{{end}}
+    </ul>
+    {{else}}<p class="rv-empty">Nothing needs doing this week.</p>{{end}}
+    <div class="rv-rule">{{.GradeNote}}</div>
+  </div>
+
+  {{else if eq $.View "letter"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-letter">
+      <div class="rv-kick">{{$name}} · week of {{$week}}</div>
+      <div style="margin-top:14px">{{range .Letter}}<p>{{.}}</p>{{end}}</div>
+      <p class="rv-sign">— The AIO team</p>
+    </div>
+  </div>
+
+  {{else if eq $.View "tablets"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-kick">{{$name}} · {{$week}}</div>
+    <div class="rv-h">Your tablets this week</div>
+    <div class="rv-when">{{.Fine}} fine · {{.Amber}} need a look · {{.Red}} let guests down during service</div>
+    <div class="rv-tabs">
+      {{range .Tablets}}<a class="rv-tab rv-{{.Status}}" href="/devices/{{.Serial}}" title="{{.Name}}: {{.Reason}}"><div class="tn"><span class="rv-dot"></span>{{.Name}}</div><div class="ts">{{.Reason}}</div></a>{{end}}
+    </div>
+    <div class="rv-legend"><span class="rv-g"><span class="rv-dot"></span>Fine all week</span><span class="rv-a"><span class="rv-dot"></span>Needs a look — worked, but something is off</span><span class="rv-r"><span class="rv-dot"></span>Let guests down during service</span></div>
+  </div>
+
+  {{else if eq $.View "service"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-kick">{{$name}} · {{$week}}</div>
+    <div class="rv-h">Were the tablets ready when you were open?</div>
+    <div class="rv-when">{{if .OpenHourSlots}}Every tablet ready in {{.AllReadyHours}} of {{.OpenHourSlots}} opening hours{{else}}No opening hours with data yet{{end}}{{if .OpenLabel}} · open {{.OpenLabel}}{{end}}</div>
+    <div class="rv-grid" style="--n:{{len .HourLabel}}">
+      <div></div>{{range .HourLabel}}<div class="h">{{.}}</div>{{end}}
+      {{range .Timeline}}<div class="d">{{.Label}}</div>{{range .Cells}}<div class="c{{if .Class}} rv-{{.Class}}{{end}}{{if .Flag}} flag{{end}}" title="{{.Title}}"></div>{{end}}{{end}}
+    </div>
+    <div class="rv-key"><span><i style="background:color-mix(in srgb,var(--ok) 75%,var(--surface2))"></i>every tablet ready</span><span><i style="background:color-mix(in srgb,var(--warn) 70%,var(--surface2))"></i>1 not ready</span><span><i style="background:color-mix(in srgb,var(--danger) 80%,var(--surface2))"></i>2 or more not ready</span><span><i style="background:var(--surface2)"></i>no data</span></div>
+    <h2 class="rv-sec">What happened</h2>
+    {{if .Moments}}<div>{{range .Moments}}<div class="rv-moment"><span class="mw">{{.When}}</span><span><b>{{.Name}}</b> {{.Text}}</span></div>{{end}}</div>
+    {{else}}<p class="rv-empty">Nothing went wrong during opening hours.</p>{{end}}
+  </div>
+
+  {{else if eq $.View "guests"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-kick">{{$name}} · {{$week}}</div>
+    <div class="rv-h">What your tablets did for guests this week</div>
+    <div class="rv-hero">
+      <div class="gv"><div class="v">{{.Sessions}}</div><div class="k">phones charged at the table</div><div class="s">{{printf "%.0f" .GuestHours}} hours of charging{{with .SessionsDelta}} · <span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}</div></div>
+      <div class="gv"><div class="v">{{if .Sessions}}{{.AvgSessionMin}} min{{else}}—{{end}}</div><div class="k">average charge per guest</div><div class="s">a phone left on the pad for at least 2 minutes counts as one charge</div></div>
+      <div class="gv"><div class="v" title="{{with index0 .TopSpots}}{{.Name}}{{end}}">{{with index0 .TopSpots}}{{.Name}}{{else}}—{{end}}</div><div class="k">most popular spot</div><div class="s">{{range $i, $s := .TopSpots}}{{if $i}} · {{end}}{{$s.Name}} ({{$s.Count}}){{end}}</div></div>
+    </div>
+    <h2 class="rv-sec">When guests charged their phones</h2>
+    <div class="rv-grid heat" style="--n:{{len .HourLabel}}">
+      <div></div>{{range .HourLabel}}<div class="h">{{.}}</div>{{end}}
+      {{range .Heat}}<div class="d">{{.Label}}</div>{{range .Cells}}<div class="c" style="--p:{{.Pct}}%" title="{{.Title}}"></div>{{end}}{{end}}
+    </div>
+    <p class="rv-when" style="margin-top:8px">Darker = more phones put on the pads in that hour.{{if .PeakLabel}} Busiest: {{.PeakLabel}}.{{end}}</p>
+    <h2 class="rv-sec">Tablet health</h2>
+    <p style="font-size:13.5px">{{if .HasReady}}Ready for {{.ReadyPct}}% of opening hours.{{end}} {{if .Attention}}{{len .Attention}} tablet{{if ne (len .Attention) 1}}s{{end}} worth a look: {{range $i, $t := .Attention}}{{if $i}}, {{end}}{{$t.Name}}{{end}}.{{else}}Nothing needs your attention.{{end}}</p>
+  </div>
+
+  {{else if eq $.View "summary"}}
+  <div class="cc-card rv-paper">
+    <div class="rv-pg">Page 1 · for the venue · {{$week}}</div>
+    <div class="rv-h">{{.Headline}}</div>
+    <div class="rv-when">{{.TabletCount}} tablet{{if ne .TabletCount 1}}s{{end}}{{if .OpenLabel}} · open {{.OpenLabel}}{{end}} · {{if .Current}}week in progress{{else}}compared with the week before{{end}}</div>
+    <div class="rv-kpis three">
+      <div class="rv-k"><div class="k">Ready while you were open</div><div class="v">{{if .HasReady}}{{.ReadyPct}}%{{else}}—{{end}}</div><div class="s">{{with .ReadyDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{else}}&nbsp;{{end}}</div></div>
+      <div class="rv-k"><div class="k">Guest phones charged</div><div class="v">{{.Sessions}}</div><div class="s">{{with .SessionsDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}{{if .PeakLabel}} · busiest {{.PeakLabel}}{{end}}</div></div>
+      <div class="rv-k"><div class="k">Ran flat during service</div><div class="v">{{.Flat}}</div><div class="s">{{with .FlatDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{else}}&nbsp;{{end}}</div></div>
+    </div>
+    <h2 class="rv-sec">Needs attention</h2>
+    {{if .Attention}}
+    <div class="rv-att">
+      {{range .Attention}}<div class="row rv-{{.Status}}"><span class="nm"><span class="rv-dot"></span>{{.Name}}</span><span>{{.Reason}}.{{with .Also}}<span class="also">{{.}}</span>{{end}}</span><span class="fix">{{.Fix}}</span></div>{{end}}
+    </div>
+    {{else}}<p class="rv-empty">Nothing this week.</p>{{end}}
+    {{if .Fine}}<div class="rv-fine"><span class="rv-g"><span class="rv-dot"></span></span>{{if .Attention}}The other {{.Fine}}{{else}}All {{.Fine}}{{end}} tablet{{if ne .Fine 1}}s were{{else}} was{{end}} fine all week.</div>{{end}}
+  </div>
+  <div class="rv-page2">
+    <div class="rv-pg" style="margin-top:22px">Page 2 · for whoever looks after the tablets</div>
+    {{template "rp-standard" $}}
+  </div>
+  {{end}}
+  {{end}}{{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}
+
+{{/* The standard report body, on its own so the two-page summary can use it as its
+     second page unchanged. */}}
+{{define "rp-standard"}}
   {{$m := .Metrics}}
   {{if $m}}
   <div class="cc-kpis">
@@ -182,7 +392,4 @@
     </div>
     {{end}}
   </div>
-</div>
-
-{{template "footer" .}}
 {{end}}
