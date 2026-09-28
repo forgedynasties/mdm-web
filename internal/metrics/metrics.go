@@ -44,6 +44,27 @@ type RouteStat struct {
 	P50Ms  float64 `json:"p50_ms"`
 	P95Ms  float64 `json:"p95_ms"`
 	Errors int64   `json:"errors"`
+	// TotalMs is every call's latency added up: where the server's time actually
+	// went. It is the sort key, so a busy 200ms route outranks one 2s call.
+	TotalMs float64 `json:"total_ms"`
+}
+
+// MinCallsForP95 is how many calls a route needs before its p95 means anything. Below
+// it, "p95" of three samples is just the slowest one, and a single cold-cache hit
+// would sit at the top of the table looking like a problem.
+const MinCallsForP95 = 20
+
+// StreamStat is one SSE route. A stream's duration is how long a tab stayed open, not
+// how slow the server was, so streams are kept out of RouteStat entirely and measured
+// by what does mean something for them: how fast they start, how many are open, and
+// how long they live (a stream that lives seconds is a client reconnecting in a loop).
+type StreamStat struct {
+	Route     string  `json:"route"`
+	Open      int64   `json:"open"`   // right now
+	Opened    int64   `json:"opened"` // since boot
+	TTFBP50Ms float64 `json:"ttfb_p50_ms"`
+	TTFBP95Ms float64 `json:"ttfb_p95_ms"`
+	LifeP50S  float64 `json:"life_p50_sec"`
 }
 
 // Sample is one point in the sampled series.
@@ -63,8 +84,28 @@ type Sample struct {
 type routeAgg struct {
 	calls   int64
 	errors  int64
-	samples []float64 // ring of latencies in ms
-	next    int
+	totalMs float64
+	samples ring // latencies in ms
+}
+
+type streamAgg struct {
+	open, opened int64
+	ttfb, life   ring // ms, seconds
+}
+
+// ring is a bounded sample: the newest routeSampleLen values.
+type ring struct {
+	v    []float64
+	next int
+}
+
+func (r *ring) add(x float64) {
+	if len(r.v) < routeSampleLen {
+		r.v = append(r.v, x)
+		return
+	}
+	r.v[r.next] = x
+	r.next = (r.next + 1) % routeSampleLen
 }
 
 // Collector holds it all. One per process; the default is fine.
@@ -73,6 +114,7 @@ type Collector struct {
 
 	started time.Time
 	routes  map[string]*routeAgg
+	streams map[string]*streamAgg
 
 	reqTotal     int64 // lifetime
 	reqAtSample  int64 // value at the previous sample, for the per-second rate
@@ -86,7 +128,7 @@ type Collector struct {
 var Default = New()
 
 func New() *Collector {
-	return &Collector{started: time.Now(), routes: map[string]*routeAgg{}}
+	return &Collector{started: time.Now(), routes: map[string]*routeAgg{}, streams: map[string]*streamAgg{}}
 }
 
 // Observe records one finished request. Called from the access-log middleware, which
@@ -103,7 +145,7 @@ func (c *Collector) Observe(method, path string, status int, d time.Duration) {
 		if len(c.routes) >= 400 {
 			return
 		}
-		a = &routeAgg{samples: make([]float64, 0, routeSampleLen)}
+		a = &routeAgg{}
 		c.routes[key] = a
 	}
 	a.calls++
@@ -111,12 +153,43 @@ func (c *Collector) Observe(method, path string, status int, d time.Duration) {
 		a.errors++
 	}
 	ms := float64(d) / float64(time.Millisecond)
-	if len(a.samples) < routeSampleLen {
-		a.samples = append(a.samples, ms)
-	} else {
-		a.samples[a.next] = ms
-		a.next = (a.next + 1) % routeSampleLen
+	a.totalMs += ms
+	a.samples.add(ms)
+}
+
+// StreamOpen records an SSE stream starting, at the moment its headers go out; ttfb
+// is how long the handler took to get there. Pair every call with StreamClose.
+func (c *Collector) StreamOpen(method, path string, ttfb time.Duration) {
+	key := method + " " + normalizePath(path)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.reqTotal++
+	s := c.streams[key]
+	if s == nil {
+		if len(c.streams) >= 100 {
+			return
+		}
+		s = &streamAgg{}
+		c.streams[key] = s
 	}
+	s.open++
+	s.opened++
+	s.ttfb.add(float64(ttfb) / float64(time.Millisecond))
+}
+
+// StreamClose records an SSE stream ending after living for life.
+func (c *Collector) StreamClose(method, path string, life time.Duration) {
+	key := method + " " + normalizePath(path)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s := c.streams[key]
+	if s == nil {
+		return // opened while the map was full
+	}
+	if s.open > 0 {
+		s.open--
+	}
+	s.life.add(life.Seconds())
 }
 
 // Checkin counts a device check-in, which is the fleet's own unit of load.
@@ -174,17 +247,19 @@ func (c *Collector) SampleNow(ws int, dbUsed, dbTotal int32, dbWaiting int64) Sa
 
 // Snapshot is what the page renders and the stream sends.
 type Snapshot struct {
-	UptimeSec  float64     `json:"uptime_sec"`
-	Series     []Sample    `json:"series"`
-	Latest     Sample      `json:"latest"`
-	Routes     []RouteStat `json:"routes"`
-	Events     []Event     `json:"events"`
-	ReqTotal   int64       `json:"req_total"`
-	CheckTotal int64       `json:"checkin_total"`
+	UptimeSec  float64      `json:"uptime_sec"`
+	Series     []Sample     `json:"series"`
+	Latest     Sample       `json:"latest"`
+	Routes     []RouteStat  `json:"routes"`
+	Streams    []StreamStat `json:"streams"`
+	Events     []Event      `json:"events"`
+	ReqTotal   int64        `json:"req_total"`
+	CheckTotal int64        `json:"checkin_total"`
 }
 
-// Snapshot copies the current state. Routes come back slowest-first by p95 — the
-// ordering an operator wants, since the question is always "what is slow".
+// Snapshot copies the current state. Routes come back by total time spent, most
+// first — "what is the server busy with" — rather than by p95, which a single slow
+// call on a rarely used route would otherwise top. Streams come back most-open first.
 func (c *Collector) Snapshot(routeLimit, eventLimit int) Snapshot {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -199,18 +274,30 @@ func (c *Collector) Snapshot(routeLimit, eventLimit int) Snapshot {
 		out.Latest = c.series[n-1]
 	}
 	for route, a := range c.routes {
-		p50, p95 := percentiles(a.samples)
-		out.Routes = append(out.Routes, RouteStat{Route: route, Calls: a.calls, P50Ms: p50, P95Ms: p95, Errors: a.errors})
+		p50, p95 := percentiles(a.samples.v)
+		out.Routes = append(out.Routes, RouteStat{Route: route, Calls: a.calls, P50Ms: p50, P95Ms: p95, Errors: a.errors, TotalMs: a.totalMs})
 	}
 	sort.Slice(out.Routes, func(i, j int) bool {
-		if out.Routes[i].P95Ms != out.Routes[j].P95Ms {
-			return out.Routes[i].P95Ms > out.Routes[j].P95Ms
+		if out.Routes[i].TotalMs != out.Routes[j].TotalMs {
+			return out.Routes[i].TotalMs > out.Routes[j].TotalMs
 		}
-		return out.Routes[i].Calls > out.Routes[j].Calls
+		return out.Routes[i].Route < out.Routes[j].Route
 	})
 	if routeLimit > 0 && len(out.Routes) > routeLimit {
 		out.Routes = out.Routes[:routeLimit]
 	}
+	for route, s := range c.streams {
+		t50, t95 := percentiles(s.ttfb.v)
+		l50, _ := percentiles(s.life.v)
+		out.Streams = append(out.Streams, StreamStat{Route: route, Open: s.open, Opened: s.opened,
+			TTFBP50Ms: t50, TTFBP95Ms: t95, LifeP50S: l50})
+	}
+	sort.Slice(out.Streams, func(i, j int) bool {
+		if out.Streams[i].Open != out.Streams[j].Open {
+			return out.Streams[i].Open > out.Streams[j].Open
+		}
+		return out.Streams[i].Route < out.Streams[j].Route
+	})
 	ev := c.events
 	if eventLimit > 0 && len(ev) > eventLimit {
 		ev = ev[len(ev)-eventLimit:]
