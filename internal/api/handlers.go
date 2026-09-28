@@ -1583,6 +1583,17 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 // link can legitimately go minutes between percent acks.
 func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	const stallMinutes = 30
+	revived, err := h.db.ReviveStalledOTAs(ctx, stallMinutes)
+	if err != nil {
+		log.Printf("[ota-sweep] ReviveStalledOTAs error: %v", err)
+	}
+	for _, s := range revived {
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[ota-sweep] revived OTA device=%s (still reporting after a stall verdict)", s.DeviceID)
+	}
+	if len(revived) > 0 {
+		h.hub.PublishDeploymentUpdate()
+	}
 	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes)
 	if err != nil {
 		log.Printf("[ota-sweep] ExpireStalledOTAs error: %v", err)

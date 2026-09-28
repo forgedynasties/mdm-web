@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -3738,6 +3739,25 @@ func endDayArg(endDay time.Time) any {
 	return endDay
 }
 
+// DailyStatsStamp is the newest computed_at and the row count of a venue's rollups in
+// a window: whatever changes the figures a report quotes changes one of the two, so
+// together they key a cached render of it.
+func (d *DB) DailyStatsStamp(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) (time.Time, int, error) {
+	var at *time.Time
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT MAX(s.computed_at), COUNT(*)::int
+		FROM device_daily_stats s
+		JOIN devices dev ON dev.id = s.device_id AND NOT dev.hidden
+		WHERE dev.restaurant_id = $2
+		  AND s.day >  COALESCE($3::date, CURRENT_DATE) - $1::int
+		  AND s.day <= COALESCE($3::date, CURRENT_DATE)`, days, restaurantID, endDayArg(endDay)).Scan(&at, &n)
+	if err != nil || at == nil {
+		return time.Time{}, n, err
+	}
+	return *at, n, nil
+}
+
 func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) ([]DeviceWeek, error) {
 	if days <= 0 {
 		days = 7
@@ -5578,6 +5598,12 @@ type StalledInstall struct {
 //
 // Only rows whose updated_at has not moved for stallMinutes are touched, so a slow but
 // live download (a large package on a poor link acks every few percent) is left alone.
+//
+// update_devices.updated_at only moves at status checkpoints, so it alone cannot
+// tell a dead download from a long one: a download still running 30 minutes after
+// it started would be failed while its device was reporting progress every few
+// seconds. Progress frames are written to command_status (SetCommandProgress), so
+// a row is only stalled when its device has also sent no OTA progress in the window.
 func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
 	rows, err := d.pool.Query(ctx, `
 		UPDATE update_devices ud
@@ -5587,7 +5613,73 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		  AND u.status = 'active'
 		  AND ud.status IN ('pending', 'downloading')
 		  AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM command_status cs
+		      JOIN commands c ON c.id = cs.command_id
+		      WHERE cs.device_id = ud.device_id
+		        AND c.type = 'ota'
+		        AND c.created_at >= u.created_at
+		        AND cs.updated_at > NOW() - make_interval(mins => $1))
 		RETURNING ud.update_id, ud.device_id
+	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var updateID int
+		var s StalledInstall
+		if err := rows.Scan(&updateID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// ReviveStalledOTAs undoes a stall verdict the device has since disproved: a row
+// failed as 'stalled' whose device is still reporting progress on this deployment's
+// OTA goes back to 'downloading', and one whose OTA installed after the verdict moves
+// on to 'awaiting_reboot' — where the installed ack would have put it had the row
+// not been failed (ResolveUpdateForDevice skips failed rows, so the ack could not).
+// A deployment that closed only because those rows counted as terminal is reopened.
+// The OTA is matched to the deployment by release version and creation time, and
+// only verdicts from the last day are reconsidered.
+func (d *DB) ReviveStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH s AS (
+		    SELECT DISTINCT ON (ud2.update_id, ud2.device_id)
+		           ud2.update_id, ud2.device_id, ud2.updated_at AS failed_at,
+		           cs.status AS cs_status, cs.updated_at AS cs_at
+		    FROM update_devices ud2
+		    JOIN updates u ON u.id = ud2.update_id AND u.status IN ('active', 'complete')
+		    JOIN releases rel ON rel.id = u.release_id
+		    JOIN command_status cs ON cs.device_id = ud2.device_id
+		    JOIN commands c ON c.id = cs.command_id
+		    WHERE ud2.status = 'failed' AND ud2.error_code = 'stalled'
+		      AND ud2.updated_at > NOW() - INTERVAL '1 day'
+		      AND c.type = 'ota'
+		      AND c.created_at >= u.created_at
+		      AND c.payload->>'build_id' = rel.version
+		    ORDER BY ud2.update_id, ud2.device_id, c.created_at DESC
+		), rev AS (
+		    UPDATE update_devices ud
+		    SET status = CASE WHEN s.cs_status = 'installed' THEN 'awaiting_reboot' ELSE 'downloading' END,
+		        error_code = '', updated_at = NOW()
+		    FROM s
+		    WHERE ud.update_id = s.update_id AND ud.device_id = s.device_id
+		      AND ud.status = 'failed' AND ud.error_code = 'stalled'
+		      AND ((s.cs_status = 'installed' AND s.cs_at >= s.failed_at)
+		           OR (s.cs_status IN ('downloading', 'installing')
+		               AND s.cs_at > NOW() - make_interval(mins => $1)))
+		    RETURNING ud.update_id, ud.device_id
+		), reopen AS (
+		    UPDATE updates SET status = 'active'
+		    WHERE status = 'complete' AND id IN (SELECT update_id FROM rev)
+		    RETURNING id
+		)
+		SELECT rev.update_id, rev.device_id FROM rev
 	`, stallMinutes)
 	if err != nil {
 		return nil, err
@@ -8123,9 +8215,12 @@ const rollupSamplesFromShaped = `
 				WHERE c.is_sample
 			)
 			SELECT s.device_id, s.battery_pct, s.build_id, s.created_at, s.extra,
-				COALESCE(LEAST(EXTRACT(EPOCH FROM (
+				-- COALESCE inside LEAST, not around it: LEAST ignores NULLs, so the day's
+				-- last sample (no LEAD) was credited the full 600s cap. That put every
+				-- always-on device at 1445-1450 minutes, a day of 24.1 hours.
+				LEAST(COALESCE(EXTRACT(EPOCH FROM (
 					LEAD(s.created_at) OVER (PARTITION BY s.device_id ORDER BY s.created_at)
-					- s.created_at)), 600), 0) AS w,
+					- s.created_at)), 0), 600) AS w,
 				LAG(s.battery_pct) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_batt,
 				LAG((s.extra->>'charging')::boolean) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_charging,
 				CASE
@@ -8198,7 +8293,8 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 // v2 only looked for days where they were NULL, so after v1 had filled them with the bad
 // charge counts every day was skipped and the flag was written as though the work was
 // done — leaving 32,000 "charges" on days 13 and 14 while fresh days read correctly.
-const siteMetricsBackfillFlag = "site_metrics_backfilled_v3"
+// v4: the last sample of each day was weighted 600s, so online time ran 10 minutes over.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v4"
 
 // BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
 // week immediately rather than filling in a day at a time, and so a corrected formula
@@ -8234,8 +8330,11 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 		if !hasRows {
 			continue
 		}
+		// A day the shaped tables cannot answer keeps its stored row; it must not stop
+		// the days after it, or the flag is never written and this re-runs every boot.
 		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
-			return n, err
+			log.Printf("[backfill] site metrics %s: %v", day.Format("2006-01-02"), err)
+			continue
 		}
 		n++
 	}
