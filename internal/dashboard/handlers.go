@@ -9910,7 +9910,7 @@ func reportEmailHTML(venue string, win reportWindow, m db.SiteMetrics, weeks []d
 	// Headline figures.
 	uptimeNote := "of the measured window"
 	padNote := "per device, a customer's phone on the T7 charging pad"
-	costValue, costUnit, costNote := "—", "", "not enough charging time yet"
+	costValue, costUnit, costNote := "—", "", "under 10 min of wireless charging off the charger"
 	if m.HasPadDrain() {
 		costValue = fmt.Sprintf("%.2f", m.PadDrainPctPerMin())
 		costUnit = "%/min"
@@ -9925,7 +9925,7 @@ func reportEmailHTML(venue string, win reportWindow, m db.SiteMetrics, weeks []d
 	fmt.Fprintf(&b, `<tr><td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%%"><tr>`)
 	b.WriteString(strings.Replace(tile("Average uptime", fmt.Sprintf("%d", m.UptimeFullPct()), "%", uptimeNote), "border-left:1px solid "+line+";", "", 1))
 	b.WriteString(tile("Wireless charging", hrs(avgPadMinutes), "hrs", padNote))
-	b.WriteString(tile("Battery drained by wireless charging", costValue, costUnit, costNote))
+	b.WriteString(tile("Battery drain due to wireless charging", costValue, costUnit, costNote))
 	// Omitted entirely where the firmware does not report screen state, matching the
 	// web report: a tile that only explains its own emptiness is worse than one fewer.
 	if m.HasStandby() {

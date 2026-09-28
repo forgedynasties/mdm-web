@@ -80,9 +80,9 @@ func renderReportPDF(venue string, v venueReport, generated time.Time) ([]byte, 
 	type tile struct{ label, value, unit, note string }
 	var tiles []tile
 	if m := v.Metrics; m != nil {
-		drain := tile{"Battery drained by wireless charging", "—", "", "not enough charging time off the charger yet"}
+		drain := tile{"Battery drain due to wireless charging", "—", "", "under 10 min of wireless charging off the charger"}
 		if m.HasPadDrain() {
-			drain = tile{"Battery drained by wireless charging", fmt.Sprintf("%.2f", m.PadDrainPctPerMin()), "%/min",
+			drain = tile{"Battery drain due to wireless charging", fmt.Sprintf("%.2f", m.PadDrainPctPerMin()), "%/min",
 				fmt.Sprintf("measured over %s hrs off the charger, all devices", hrs(m.PadDrainMinutes))}
 		}
 		tiles = []tile{
@@ -175,18 +175,18 @@ func renderReportPDF(venue string, v venueReport, generated time.Time) ([]byte, 
 		w     float64
 		align string
 	}{
-		{"Serial number", 42, "L"},
-		{"Name", 55, "L"},
-		{"Uptime", 26, "R"},
-		{"% of window", 40, "L"},
-		{"Days", 16, "R"},
-		{"Wireless charging", 32, "R"},
-		{"Battery drain", 30, "R"},
-		{"Plugged in", 32, "R"},
+		{"Serial number", 38, "L"},
+		{"Name", 36, "L"},
+		{"Uptime", 24, "R"},
+		{"% of window", 34, "L"},
+		{"Days", 13, "R"},
+		{"Wireless charging", 30, "R"},
+		{"Battery drain due to wireless charging", 68, "R"},
+		{"Plugged in", 30, "R"},
 	}
 	const rowH = 7.0
 	header := func() {
-		font("B", 7.5)
+		font("B", 6.5)
 		text(muted)
 		draw(line)
 		pdf.SetX(margin)
@@ -247,9 +247,13 @@ func renderReportPDF(venue string, v venueReport, generated time.Time) ([]byte, 
 			text(ink)
 			pdf.CellFormat(cols[5].w, rowH, hrs(d.PadMinutes)+" hrs", "", 0, "R", false, 0, "")
 			drain := "—"
-			if d.HasPadDrain() {
+			switch {
+			case d.HasPadDrain():
 				drain = fmt.Sprintf("%.2f %%/min", d.PadDrainPctPerMin())
-			} else {
+			case d.PadUnused():
+				drain = "not used"
+				text(faint)
+			default:
 				text(faint)
 			}
 			pdf.CellFormat(cols[6].w, rowH, tr(drain), "", 0, "R", false, 0, "")
@@ -260,7 +264,8 @@ func renderReportPDF(venue string, v venueReport, generated time.Time) ([]byte, 
 	}
 
 	note := "Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. " +
-		"Battery drain needs at least 30 minutes of wireless charging with the tablet off its own charger; a dash means that never happened, not that the drain was zero."
+		"Battery drain due to wireless charging needs at least 10 minutes of a phone on the pad with the tablet off its own charger (on the charger the drain is hidden). " +
+		"\"Not used\" means a phone was on the pad for under 5 minutes all week; a dash means it was used, but not long enough off the charger to measure."
 	font("", 7.5)
 	if pdf.GetY()+14 > bottom {
 		pdf.AddPage()
