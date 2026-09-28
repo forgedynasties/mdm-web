@@ -4834,7 +4834,7 @@ async function saveNewApp() {
   </div>
   {{end}}
   {{if .DeviceCrashes}}
-  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes · last 7 days</span><span class="sc" title="Distinct crashes; repeats are merged into one row">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
+  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes on {{if .Device.BuildID}}{{.Device.BuildID}}{{else}}this build{{end}}</span><span class="sc" title="Distinct crashes; repeats are merged into one row">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
@@ -4850,7 +4850,7 @@ async function saveNewApp() {
   </div>
   {{end}}
   {{if and (not .DeviceAlerts) (not .DeviceCrashes)}}
-  <div class="da-empty cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">No active alerts or crashes reported for this device.</div></div></div>
+  <div class="da-empty cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">No active alerts, and no crashes on the build it runs now.</div></div></div>
   {{end}}
 {{end}}
 

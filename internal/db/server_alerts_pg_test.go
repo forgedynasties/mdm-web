@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"mdm/internal/metrics"
 )
 
 // TestServerAndAlertQueriesAgainstPostgres runs the queries that failed on live
@@ -28,6 +30,15 @@ func TestServerAndAlertQueriesAgainstPostgres(t *testing.T) {
 	defer d.Close()
 	if err := d.RunMigrations(ctx); err != nil {
 		t.Fatal(err)
+	}
+
+	// The pool's tracer counts queries run under a request's context.
+	rctx, u := metrics.WithDBUsage(ctx)
+	if _, _, _, _, _, _, _, err := d.ServerWorkCounts(rctx); err != nil {
+		t.Fatal(err)
+	}
+	if u.Queries() != 1 || u.Duration() <= 0 {
+		t.Errorf("tracer counted %d queries / %v", u.Queries(), u.Duration())
 	}
 
 	if _, _, _, _, total, _, _, err := d.ServerWorkCounts(ctx); err != nil {
@@ -60,6 +71,10 @@ func TestServerAndAlertQueriesAgainstPostgres(t *testing.T) {
 		if _, _, err := d.detectRecentRule(ctx, typ, nil, nil); err != nil {
 			t.Errorf("%s: %v", typ, err)
 		}
+	}
+	// The daily rollup's SQL (the day-open state lookup was rewritten) must run.
+	if _, err := d.RollupDailyStatsShaped(ctx, time.Now().UTC()); err != nil {
+		t.Errorf("rollup: %v", err)
 	}
 	// The whole recent tier, including the once-a-night gating and the windows scan
 	// that now carries each device's restaurant.
