@@ -15884,8 +15884,11 @@ func (d *DB) ListDeviceCrashSignatures(ctx context.Context, deviceID uuid.UUID, 
 		       (ARRAY_AGG(e.id ORDER BY e.occurred_at DESC))[1],
 		       (ARRAY_AGG(e.build_id ORDER BY e.occurred_at DESC))[1]
 		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
 		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
 		  AND e.occurred_at > now() - make_interval(days => $2)
+		  -- The build the device runs now only; see ListDeviceCrashes.
+		  AND e.build_id = dv.build_id
 		GROUP BY e.kind, e.summary
 		ORDER BY MAX(e.occurred_at) DESC
 		LIMIT $3`, deviceID, sinceDays, limit)
