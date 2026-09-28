@@ -3569,14 +3569,24 @@ func (m SiteMetrics) StandbyPct() int {
 // PadDrainPctPerMin is the headline "1% per minute" figure, or 0 when the window holds
 // too little pad time to say anything honest.
 func (m SiteMetrics) PadDrainPctPerMin() float64 {
-	if m.PadDrainMinutes < 30 {
+	if !m.HasPadDrain() {
 		return 0
 	}
 	return m.PadDrainPct / m.PadDrainMinutes
 }
 
+// PadDrainMinMinutes is the least wireless-charging time, off the tablet's own charger,
+// a drain rate is shown for. Battery is reported in whole percent, so below this one
+// step either way swings the rate wildly. It was 30, which left most tablets at a
+// venue with a dash; ten minutes still means at least a percent or so of real drain.
+const PadDrainMinMinutes = 10
+
+// PadUnusedMinutes is how little pad time in a week reads as "not used" rather than
+// "too little to measure".
+const PadUnusedMinutes = 5
+
 // HasPadDrain reports whether the drain rate rests on enough measured time to show.
-func (m SiteMetrics) HasPadDrain() bool { return m.PadDrainMinutes >= 30 }
+func (m SiteMetrics) HasPadDrain() bool { return m.PadDrainMinutes >= PadDrainMinMinutes }
 
 // UptimeOpenPct is powered time as a share of opening hours, capped at 100: a device
 // left on overnight would otherwise read as 140% of a site that opens for 10 hours.
@@ -3652,8 +3662,12 @@ func (w DeviceWeek) PluggedPct() int {
 }
 
 // HasPadDrain reports whether the drain rate rests on enough measured time to show.
-// Same 30-minute floor as the site figure, so a row and the header agree.
-func (w DeviceWeek) HasPadDrain() bool { return w.PadDrainMinutes >= 30 }
+// Same floor as the site figure, so a row and the header agree.
+func (w DeviceWeek) HasPadDrain() bool { return w.PadDrainMinutes >= PadDrainMinMinutes }
+
+// PadUnused reports a device whose pad was barely touched all week — the honest
+// reason its drain is blank.
+func (w DeviceWeek) PadUnused() bool { return w.PadMinutes < PadUnusedMinutes }
 
 // PadDrainPctPerMin is the per-device drain while a guest phone is on the pad and
 // the tablet is off mains, or 0 when too little pad time was measured to say.

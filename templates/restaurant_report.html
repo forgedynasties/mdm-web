@@ -96,13 +96,13 @@
       <div class="muted small">per device, a customer's phone on the T7 charging pad</div>
     </div>
     <div class="cc-kpi">
-      <span class="k">Battery drained through wireless charging</span>
+      <span class="k">Battery drain due to wireless charging</span>
       {{if $m.HasPadDrain}}
       <div class="v">{{printf "%.2f" $m.PadDrainPctPerMin}}<span class="muted" style="font-size:.6em;">%/min</span></div>
       <div class="muted small">measured over {{hrs1 $m.PadDrainMinutes}} hrs off the charger, all devices</div>
       {{else}}
       <div class="v muted">—</div>
-      <div class="muted small">not enough charging time off the charger yet</div>
+      <div class="muted small">under 10 min of wireless charging off the charger</div>
       {{end}}
     </div>
     {{/* Only shown where the firmware reports screen state. A card explaining why it
@@ -151,7 +151,7 @@
     {{if .DeviceWeeks}}
     <div class="rp-tablewrap" style="overflow-x:auto;">
       <table class="cc-table">
-        <thead><tr><th>Serial number</th><th>Uptime</th><th>Wireless charging</th><th>Battery drain</th><th>Plugged in</th></tr></thead>
+        <thead><tr><th>Serial number</th><th>Uptime</th><th>Wireless charging</th><th>Battery drain due to wireless charging</th><th>Plugged in</th></tr></thead>
         <tbody>
           {{range .DeviceWeeks}}
           <tr>
@@ -165,7 +165,7 @@
               <div class="rp-sub">over {{.DeviceDays}} day{{if ne .DeviceDays 1}}s{{end}} reported</div>
             </td>
             <td class="rp-n"><b>{{hrs1 .PadMinutes}}</b> <small>hrs</small></td>
-            <td class="rp-n">{{if .HasPadDrain}}<b>{{printf "%.2f" .PadDrainPctPerMin}}</b> <small>%/min</small>{{else}}<span class="rp-na" title="Under 30 minutes of wireless charging off the charger this week">—</span>{{end}}</td>
+            <td class="rp-n">{{if .HasPadDrain}}<b>{{printf "%.2f" .PadDrainPctPerMin}}</b> <small>%/min</small>{{else if .PadUnused}}<span class="rp-na" title="A phone was on the pad for under 5 minutes all week">not used</span>{{else}}<span class="rp-na" title="Under 10 minutes of wireless charging off the charger this week">—</span>{{end}}</td>
             <td class="rp-n"><b>{{hrs1 .PluggedMinutes}}</b> <small>hrs</small></td>
           </tr>
           {{end}}
@@ -173,7 +173,7 @@
       </table>
     </div>
     <div class="rp-note">
-      Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. Battery drain needs at least 30 minutes of wireless charging with the tablet off its own charger; a dash means that never happened, not that the drain was zero.
+      Every figure is measured over the device-days that actually reported, so a device deployed midweek shortens its own window instead of dragging the venue down. Battery drain due to wireless charging needs at least 10 minutes of a phone on the pad with the tablet off its own charger (while it is on the charger the drain is hidden). "Not used" means a phone was on the pad for under 5 minutes all week; a dash means it was used, but not long enough off the charger to measure.
     </div>
     {{else}}
     <div class="cc-empty tall">

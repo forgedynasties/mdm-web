@@ -148,7 +148,7 @@ func (h *Handler) serveReportPDF(w http.ResponseWriter, r *http.Request, id uuid
 
 // reportPDFLayout is part of every cache key, so a change to the drawing below makes
 // every cached file stale at once. Bump it with any change to renderReportPDF.
-const reportPDFLayout = "1"
+const reportPDFLayout = "2"
 
 // venueReportPDF returns the venue's PDF for a week, from the disk cache when the
 // week's rollups have not changed since it was drawn.
