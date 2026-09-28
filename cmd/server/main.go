@@ -306,6 +306,7 @@ func main() {
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)
+	expvar.Publish("ingest", expvar.Func(func() any { return apiHandler.IngestStats() }))
 	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
 	// /connect flush can fire before the socket opens, and a never-delivered command has
 	// nothing else to re-trigger it, so it would sit in the queue until the next reconnect.
@@ -719,6 +720,16 @@ func main() {
 	if err := server.Shutdown(sdCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+	// No request can queue history any more, so write out what is buffered while the
+	// pool is still open. A second at most in practice; the timeout keeps this plus the
+	// drain above inside compose's 15 s stop_grace_period, past which Docker kills us
+	// mid-write.
+	log.Println("shutdown: writing queued check-in history…")
+	ingCtx, ingCancel := context.WithTimeout(context.Background(), 4*time.Second)
+	if err := apiHandler.CloseIngest(ingCtx); err != nil {
+		log.Printf("shutdown: ingest queue: %v", err)
+	}
+	ingCancel()
 	bgCancel() // stop the background ticker loops
 	log.Println("shutdown: complete")
 }

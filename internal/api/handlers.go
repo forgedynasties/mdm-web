@@ -24,6 +24,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
+	"mdm/internal/ingest"
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/metrics"
@@ -77,6 +78,11 @@ type Handler struct {
 	otaGate     *otagate.Gate      // which builds can take an MDM OTA (the rest go legacy)
 	peers       *peers.Service     // tells neighbouring MDMs when a device turns up here
 
+	// Check-in history, written in batches off the request, and the cap on check-ins
+	// running their synchronous half at once (ingest_queue.go).
+	history     *ingest.Queue[historyJob]
+	ingestSlots chan struct{}
+
 	// One telemetry-request loop per device, so a reconnect replaces its loop instead
 	// of adding one. Guarded by its own mutex: Connect runs on every WS upgrade.
 	telemetryMu    sync.Mutex
@@ -113,7 +119,7 @@ type telemetryLoop struct {
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, logMgr *logstream.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), peers: peers.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}, exitProbeSeen: map[uuid.UUID]time.Time{}}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, logs: logMgr, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute), otaGate: otagate.New(d, cfg), peers: peers.New(d, cfg), telemetryLoops: map[uuid.UUID]*telemetryLoop{}, exitProbeSeen: map[uuid.UUID]time.Time{}, history: newHistoryQueue(d), ingestSlots: make(chan struct{}, ingestSlotCount)}
 }
 
 // Peers is the peer client half, so main can run its outbox and sweep loops against
@@ -880,7 +886,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	// A WS frame is a delta → merge it. Product is usually empty on deltas, and
 	// UpsertCheckin keeps the previously learned value then.
 	merge := src == sourceWS
-	deviceID, _, isNew, arrival, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, merge, req.Product)
+	deviceID, _, isNew, arrival, shaped, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, merge, req.Product)
 	if err != nil {
 		return nil, err
 	}
@@ -894,7 +900,9 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	}
 	metrics.Default.Checkin()
 	metrics.Default.Emit("checkin", "", req.SerialNumber+" "+firstNonEmpty(req.BuildID, "—"))
-	h.db.IngestDeviceEvents(ctx, deviceID, req.BuildID, req.Extra)
+	// History — samples, state transitions, crash and reboot events — goes to the queue:
+	// nothing below or in the reply reads it, and batching it is most of the write cost.
+	h.queueHistory(ctx, historyJob{Shaped: shaped, BuildID: req.BuildID, Extra: req.Extra})
 	if isMDMLitePayload(req.Extra) {
 		// MDM-lite has no live connection; its check-ins are its presence.
 		h.hub.MarkCheckinPresence(deviceID, mdmLiteForeground(req.Extra))
@@ -1118,7 +1126,12 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	release, ok := h.admitCheckin(w, r)
+	if !ok {
+		return
+	}
 	res, err := h.ingestCheckin(r.Context(), &req, sourceHTTP)
+	release()
 	if err != nil {
 		log.Printf("[checkin] ingest error for %s: %v", req.SerialNumber, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
@@ -1721,7 +1734,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		return
 	}
 
+	release := h.acquireSlotWS()
 	res, err := h.ingestCheckin(ctx, &req, sourceWS)
+	release()
 	if err != nil {
 		log.Printf("[ws-telemetry] ingest error for %s: %v", req.SerialNumber, err)
 		return
