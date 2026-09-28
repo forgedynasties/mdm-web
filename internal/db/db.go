@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -3687,6 +3688,25 @@ func endDayArg(endDay time.Time) any {
 		return nil
 	}
 	return endDay
+}
+
+// DailyStatsStamp is the newest computed_at and the row count of a venue's rollups in
+// a window: whatever changes the figures a report quotes changes one of the two, so
+// together they key a cached render of it.
+func (d *DB) DailyStatsStamp(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) (time.Time, int, error) {
+	var at *time.Time
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT MAX(s.computed_at), COUNT(*)::int
+		FROM device_daily_stats s
+		JOIN devices dev ON dev.id = s.device_id AND NOT dev.hidden
+		WHERE dev.restaurant_id = $2
+		  AND s.day >  COALESCE($3::date, CURRENT_DATE) - $1::int
+		  AND s.day <= COALESCE($3::date, CURRENT_DATE)`, days, restaurantID, endDayArg(endDay)).Scan(&at, &n)
+	if err != nil || at == nil {
+		return time.Time{}, n, err
+	}
+	return *at, n, nil
 }
 
 func (d *DB) RestaurantDeviceWeeks(ctx context.Context, restaurantID uuid.UUID, days int, endDay time.Time) ([]DeviceWeek, error) {
@@ -8146,9 +8166,12 @@ const rollupSamplesFromShaped = `
 				WHERE c.is_sample
 			)
 			SELECT s.device_id, s.battery_pct, s.build_id, s.created_at, s.extra,
-				COALESCE(LEAST(EXTRACT(EPOCH FROM (
+				-- COALESCE inside LEAST, not around it: LEAST ignores NULLs, so the day's
+				-- last sample (no LEAD) was credited the full 600s cap. That put every
+				-- always-on device at 1445-1450 minutes, a day of 24.1 hours.
+				LEAST(COALESCE(EXTRACT(EPOCH FROM (
 					LEAD(s.created_at) OVER (PARTITION BY s.device_id ORDER BY s.created_at)
-					- s.created_at)), 600), 0) AS w,
+					- s.created_at)), 0), 600) AS w,
 				LAG(s.battery_pct) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_batt,
 				LAG((s.extra->>'charging')::boolean) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_charging,
 				CASE
@@ -8221,7 +8244,8 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 // v2 only looked for days where they were NULL, so after v1 had filled them with the bad
 // charge counts every day was skipped and the flag was written as though the work was
 // done — leaving 32,000 "charges" on days 13 and 14 while fresh days read correctly.
-const siteMetricsBackfillFlag = "site_metrics_backfilled_v3"
+// v4: the last sample of each day was weighted 600s, so online time ran 10 minutes over.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v4"
 
 // BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
 // week immediately rather than filling in a day at a time, and so a corrected formula
@@ -8257,8 +8281,11 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 		if !hasRows {
 			continue
 		}
+		// A day the shaped tables cannot answer keeps its stored row; it must not stop
+		// the days after it, or the flag is never written and this re-runs every boot.
 		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
-			return n, err
+			log.Printf("[backfill] site metrics %s: %v", day.Format("2006-01-02"), err)
+			continue
 		}
 		n++
 	}
