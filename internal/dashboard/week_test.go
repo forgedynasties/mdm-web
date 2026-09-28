@@ -50,3 +50,50 @@ func TestLastFullWeek(t *testing.T) {
 		})
 	}
 }
+
+// TestReportWeeks pins the picker: this week so far, then the two finished weeks
+// before it, and last week chosen when nothing (or something unoffered) is asked for.
+func TestReportWeeks(t *testing.T) {
+	now := time.Date(2026, 9, 30, 15, 0, 0, 0, time.UTC) // a Wednesday
+	weeks := reportWeeks(now)
+	if len(weeks) != 3 {
+		t.Fatalf("got %d weeks, want 3", len(weeks))
+	}
+	want := []struct {
+		from, to string
+		days     int
+		current  bool
+	}{
+		{"2026-09-28", "2026-09-30", 3, true},
+		{"2026-09-21", "2026-09-27", 7, false},
+		{"2026-09-14", "2026-09-20", 7, false},
+	}
+	for i, w := range want {
+		got := weeks[i]
+		if got.From.Format("2006-01-02") != w.from || got.To.Format("2006-01-02") != w.to ||
+			got.Days != w.days || got.Current != w.current {
+			t.Errorf("week %d = %s..%s days=%d current=%v, want %s..%s days=%d current=%v", i,
+				got.From.Format("2006-01-02"), got.To.Format("2006-01-02"), got.Days, got.Current,
+				w.from, w.to, w.days, w.current)
+		}
+	}
+	for q, wantFrom := range map[string]string{
+		"":           "2026-09-21",
+		"2026-09-28": "2026-09-28",
+		"2026-09-14": "2026-09-14",
+		"2026-09-07": "2026-09-21", // older than the picker reaches
+		"junk":       "2026-09-21",
+	} {
+		if w, _ := pickReportWeek(q, now); w.Value() != wantFrom {
+			t.Errorf("week=%q picked %s, want %s", q, w.Value(), wantFrom)
+		}
+	}
+	// On a Monday, this week is one day long.
+	if w := reportWeeks(time.Date(2026, 9, 28, 1, 0, 0, 0, time.UTC))[0]; w.Days != 1 || !w.Current {
+		t.Errorf("Monday: this week = %d days current=%v, want 1 day current", w.Days, w.Current)
+	}
+	// A link to a finished week stays valid after it leaves the picker.
+	if w, ok := reportWindowFor("2026-08-31", now); !ok || w.Days != 7 || w.Current {
+		t.Errorf("old week: %+v ok=%v", w, ok)
+	}
+}

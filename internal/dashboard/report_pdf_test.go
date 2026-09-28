@@ -13,7 +13,7 @@ import (
 
 func testHandler(secret string) *Handler { return &Handler{reportSecret: secret} }
 
-// TestReportTokenIsStableAndScoped: the uploader and the emailer derive the URL
+// TestReportTokenIsStableAndScoped: the link and the route that serves it derive the URL
 // independently, so the same venue and week must always give the same token — and a
 // different venue or week must not.
 func TestReportTokenIsStableAndScoped(t *testing.T) {
@@ -111,5 +111,37 @@ func TestReportPDFServeMissingIsNotFound(t *testing.T) {
 	h.ReportPDFServe(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("got %d, want 404", rec.Code)
+	}
+}
+
+// TestReportPDFTokenRejectsBadLinks: the tokenised route has no session, so every part
+// of the path is checked before anything is read — and h.db is nil here, so a request
+// that got as far as the database would panic rather than pass.
+func TestReportPDFTokenRejectsBadLinks(t *testing.T) {
+	h := testHandler("s3cr3t")
+	id := uuid.New()
+	now := time.Now()
+	_, lastTo := lastFullWeek(now)
+	monday := lastTo.AddDate(0, 0, -6)
+	good := h.reportToken(id, monday)
+	cases := []struct{ id, week, tok string }{
+		{id.String(), monday.Format("2006-01-02"), h.reportToken(uuid.New(), monday)},            // another venue's token
+		{id.String(), monday.AddDate(0, 0, -7).Format("2006-01-02"), good},                       // another week
+		{id.String(), monday.AddDate(0, 0, 1).Format("2006-01-02"), good},                        // not a Monday
+		{id.String(), monday.AddDate(0, 0, 14).Format("2006-01-02"), good},                       // the future
+		{"not-a-uuid", monday.Format("2006-01-02"), good},                                        // bad id
+		{id.String(), "2026-13-40", good},                                                        // bad date
+		{id.String(), monday.Format("2006-01-02"), testHandler("other").reportToken(id, monday)}, // other secret
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/reports/x", nil)
+		req.SetPathValue("id", c.id)
+		req.SetPathValue("week", c.week)
+		req.SetPathValue("token", c.tok+".pdf")
+		rec := httptest.NewRecorder()
+		h.ReportPDFToken(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s/%s returned %d, want 404", c.week, c.tok, rec.Code)
+		}
 	}
 }

@@ -3,6 +3,7 @@ package dashboard
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"mdm/internal/db"
 )
@@ -10,7 +11,7 @@ import (
 // TestReportEmailHasNoDeviceTable pins the shape of the mail: headline figures and a
 // way through to the full thing, not a table of every device. An email is read on a
 // phone, and the per-device breakdown both made it long and wrapped badly in narrow
-// reading panes — the page renders it properly and can save it as a PDF.
+// reading panes — the PDF it links to carries it.
 func TestReportEmailHasNoDeviceTable(t *testing.T) {
 	weeks := []db.DeviceWeek{
 		{Serial: "AT070AABU00318", PoweredMinutes: 9000, PadMinutes: 120, PluggedMinutes: 8000, DeviceDays: 7},
@@ -18,7 +19,8 @@ func TestReportEmailHasNoDeviceTable(t *testing.T) {
 		{Serial: "AT070AABUF0039", PoweredMinutes: 7000, PadMinutes: 30, PluggedMinutes: 6000, DeviceDays: 7},
 	}
 	url := "https://mdm.dev.aioapp.com/restaurants/abc-123/report?days=7"
-	out := reportEmailHTML("Flights Vegas", 7, db.SiteMetrics{}, weeks, url)
+	win, _ := pickReportWeek("", time.Now())
+	out := reportEmailHTML("Flights Vegas", win, db.SiteMetrics{}, weeks, 70, url)
 
 	// No device appears by serial — that is the whole change.
 	for _, w := range weeks {
@@ -33,7 +35,7 @@ func TestReportEmailHasNoDeviceTable(t *testing.T) {
 	if !strings.Contains(out, url) {
 		t.Error("the mail does not link to the full report")
 	}
-	if !strings.Contains(out, "View the full report") {
+	if !strings.Contains(out, "Open the full report") {
 		t.Error("no call to action to reach the full report")
 	}
 	// The venue and window still lead the mail.
@@ -45,7 +47,8 @@ func TestReportEmailHasNoDeviceTable(t *testing.T) {
 // TestReportEmailEscapesUntrustedText: the venue name and the URL are interpolated into
 // HTML, and a venue is named by a user.
 func TestReportEmailEscapesUntrustedText(t *testing.T) {
-	out := reportEmailHTML(`Bob"s <script>alert(1)</script>`, 7, db.SiteMetrics{}, nil,
+	win, _ := pickReportWeek("", time.Now())
+	out := reportEmailHTML(`Bob"s <script>alert(1)</script>`, win, db.SiteMetrics{}, nil, 0,
 		"https://x/report?a=1&b=2")
 	if strings.Contains(out, "<script>") {
 		t.Error("venue name was not escaped into the mail")

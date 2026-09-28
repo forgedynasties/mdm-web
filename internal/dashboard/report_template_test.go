@@ -79,6 +79,9 @@ func TestRestaurantReportRenders(t *testing.T) {
 		"AvgPadMinutes":     300.0,
 		"AvgPadPct":         2,
 		"AvgStandbyMinutes": 6000.0,
+		"Week":              reportWindow{Days: 7},
+		"Weeks":             reportWeeks(time.Now()),
+		"PDFURL":            "/restaurants/x/report.pdf?week=2026-09-21",
 	}
 
 	var buf bytes.Buffer
@@ -99,10 +102,18 @@ func TestRestaurantReportRenders(t *testing.T) {
 			t.Errorf("rendered report is missing %q", want)
 		}
 	}
-	// The second device has no pad time and no screen state: both cells must degrade
-	// to a dash rather than claiming a measured zero.
-	if strings.Count(out, `<span class="rp-na">—</span>`) < 2 {
-		t.Error("expected unmeasured pad drain and standby cells to render as —")
+	// The second device has no pad time: its drain must degrade to a dash rather than
+	// claiming a measured zero.
+	if !strings.Contains(out, `<span class="rp-na" title=`) {
+		t.Error("expected the unmeasured pad drain cell to render as —")
+	}
+	if strings.Contains(out, "<th>Standby</th>") {
+		t.Error("the Standby column is back in the device table")
+	}
+	for _, want := range []string{`name="week"`, "This week", "Last week", "2 weeks ago", "report.pdf?week="} {
+		if !strings.Contains(out, want) {
+			t.Errorf("rendered report is missing %q", want)
+		}
 	}
 }
 
@@ -130,6 +141,8 @@ func TestRestaurantReportEmpty(t *testing.T) {
 		"WindowFrom":  time.Now().AddDate(0, 0, -6),
 		"WindowTo":    time.Now(),
 		"DeviceWeeks": []db.DeviceWeek{},
+		"Week":        reportWindow{Days: 7},
+		"Weeks":       reportWeeks(time.Now()),
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "restaurant_report.html", data); err != nil {
