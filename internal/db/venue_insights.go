@@ -188,3 +188,16 @@ func (d *DB) VenueInsightsFor(ctx context.Context, ids []uuid.UUID, from, to, ho
 func asLocal(t time.Time, loc *time.Location) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
 }
+
+// VenueDeviceTimezone is the timezone most of these devices report. A venue with no
+// timezone of its own is read in its tablets' time rather than UTC, which put an
+// American dinner service at 2am.
+func (d *DB) VenueDeviceTimezone(ctx context.Context, ids []uuid.UUID) (string, error) {
+	var tz string
+	err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE((
+			SELECT latest_extra->>'timezone' FROM devices
+			WHERE id = ANY($1) AND COALESCE(latest_extra->>'timezone', '') <> ''
+			GROUP BY 1 ORDER BY COUNT(*) DESC, 1 LIMIT 1), '')`, ids).Scan(&tz)
+	return tz, err
+}

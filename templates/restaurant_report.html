@@ -192,7 +192,7 @@
       <div class="rv-grade rv-{{or .GradeClass "a"}}"><div class="gl">{{or .Grade "—"}}</div><div class="gw">{{.GradeWord}}</div></div>
       <div class="rv-kpis">
         <div class="rv-k"><div class="k">Tablets ready while you were open</div><div class="v">{{if .HasReady}}{{.ReadyPct}}%{{else}}—{{end}}</div><div class="s">{{with .ReadyDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{else}}&nbsp;{{end}}</div></div>
-        <div class="rv-k"><div class="k">Guest phones charged at the table</div><div class="v">{{.Sessions}}</div><div class="s">{{with .SessionsDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}} · {{end}}{{printf "%.0f" .GuestHours}} hours of charging</div></div>
+        <div class="rv-k"><div class="k">Guest phones charged at the table</div><div class="v">{{.Sessions}}</div><div class="s">{{with .SessionsDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}} · {{end}}{{guestTime .GuestHours}} of charging</div></div>
         <div class="rv-k"><div class="k">Times a tablet ran flat during service</div><div class="v">{{.Flat}}</div><div class="s">{{with .FlatDelta}}<span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}{{if .FlatNames}} · {{range $i, $n := .FlatNames}}{{if $i}}, {{end}}{{$n}}{{end}}{{end}}</div></div>
         <div class="rv-k"><div class="k">Tablets that need a look</div><div class="v">{{len .Attention}} <small>of {{.TabletCount}}</small></div><div class="s">{{if .Red}}{{.Red}} let guests down during service{{else}}none let guests down{{end}}</div></div>
       </div>
@@ -246,7 +246,7 @@
     <div class="rv-kick">{{$name}} · {{$week}}</div>
     <div class="rv-h">What your tablets did for guests this week</div>
     <div class="rv-hero">
-      <div class="gv"><div class="v">{{.Sessions}}</div><div class="k">phones charged at the table</div><div class="s">{{printf "%.0f" .GuestHours}} hours of charging{{with .SessionsDelta}} · <span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}</div></div>
+      <div class="gv"><div class="v">{{.Sessions}}</div><div class="k">phones charged at the table</div><div class="s">{{guestTime .GuestHours}} of charging{{with .SessionsDelta}} · <span class="rv-{{.Class}}">{{.Text}}</span> {{.Prev}}{{end}}</div></div>
       <div class="gv"><div class="v">{{if .Sessions}}{{.AvgSessionMin}} min{{else}}—{{end}}</div><div class="k">average charge per guest</div><div class="s">a phone left on the pad for at least 2 minutes counts as one charge</div></div>
       <div class="gv"><div class="v" title="{{with index0 .TopSpots}}{{.Name}}{{end}}">{{with index0 .TopSpots}}{{.Name}}{{else}}—{{end}}</div><div class="k">most popular spot</div><div class="s">{{range $i, $s := .TopSpots}}{{if $i}} · {{end}}{{$s.Name}} ({{$s.Count}}){{end}}</div></div>
     </div>

@@ -1702,6 +1702,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// The plain-language report views (report_views.go): a reason read mid-sentence, and
 	// the top spot, which may not exist.
 	funcMap["lowerFirst"] = lowerFirst
+	funcMap["guestTime"] = guestTime
 	funcMap["index0"] = func(s []storySpot) *storySpot {
 		if len(s) == 0 {
 			return nil

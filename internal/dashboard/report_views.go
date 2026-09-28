@@ -467,9 +467,17 @@ func buildVenueStory(in storyInput) venueStory {
 		st.PlugInPct, st.HasPlugIn = int(in.Metrics.ConnectAvgPct+0.5), true
 	}
 
-	// Alerts by device and type.
+	// Alerts by device and type. "Offline during opening hours" is our alert's own
+	// window, not the venue's, so it is held to the venue's hours here.
+	isOpen := map[int]bool{}
+	for _, h := range hours {
+		isOpen[h] = true
+	}
 	alerts := map[uuid.UUID]map[string][]time.Time{}
 	for _, a := range in.Ins.Alerts {
+		if a.Type == "offline_peak" && !isOpen[a.At.Hour()] {
+			continue
+		}
 		if alerts[a.DeviceID] == nil {
 			alerts[a.DeviceID] = map[string][]time.Time{}
 		}
@@ -506,7 +514,7 @@ func buildVenueStory(in storyInput) venueStory {
 		a := alerts[d.DeviceID]
 		if off := a["offline_peak"]; len(off) > 0 {
 			t.Issues = append(t.Issues, storyIssue{Red: true,
-				Text: "Went offline during opening hours (" + whenList(off) + ")",
+				Text: "Went offline during opening hours: " + whenList(off),
 				Fix:  "Check the Wi-Fi signal where it sits; if it happens again, ask us to look."})
 		}
 		if t.HasReady && t.ReadyPct < storyRedReadyPct {
@@ -516,7 +524,7 @@ func buildVenueStory(in storyInput) venueStory {
 		}
 		if f := flats[d.DeviceID]; len(f) > 0 {
 			t.Issues = append(t.Issues, storyIssue{
-				Text: "Ran flat during service (" + whenList(f) + ")",
+				Text: "Ran flat during service: " + whenList(f),
 				Fix:  "Put it back on charge between services."})
 		}
 		if len(a["charger_flapping"]) > 0 {
@@ -526,7 +534,7 @@ func buildVenueStory(in storyInput) venueStory {
 		}
 		if hot := a["overheating"]; len(hot) > 0 {
 			t.Issues = append(t.Issues, storyIssue{
-				Text: "Got very hot (" + whenList(hot) + ")",
+				Text: "Got very hot: " + whenList(hot),
 				Fix:  "Keep it out of direct sun and away from heat lamps."})
 		}
 		if t.Restarts >= storyRestartsAmber {
@@ -723,8 +731,8 @@ func storyLetter(st venueStory) []template.HTML {
 		ps = append(ps, "There is not enough data yet to say how your tablets did this week.")
 	}
 	if st.Sessions > 0 {
-		p := fmt.Sprintf("Guests charged their phones on the tablets %s (%.0f hours in all)",
-			b(fmt.Sprintf("%d time%s", st.Sessions, plural(st.Sessions))), st.GuestHours)
+		p := fmt.Sprintf("Guests charged their phones on the tablets %s (%s in all)",
+			b(fmt.Sprintf("%d time%s", st.Sessions, plural(st.Sessions))), e(guestTime(st.GuestHours)))
 		if st.PeakLabel != "" {
 			p += ", busiest around " + e(st.PeakLabel)
 		}
@@ -766,12 +774,25 @@ func storyLetter(st venueStory) []template.HTML {
 	return out
 }
 
+// guestTime reads a total of guest charging for a sentence: minutes under an hour.
+func guestTime(hours float64) string {
+	if hours < 1 {
+		m := int(hours*60 + 0.5)
+		return fmt.Sprintf("%d minute%s", m, plural(m))
+	}
+	return fmt.Sprintf("%.0f hours", hours)
+}
+
+// joinNames lists up to three names in a sentence; past that a list stops being read.
 func joinNames(ns []string) string {
 	switch len(ns) {
 	case 0:
 		return ""
 	case 1:
 		return ns[0]
+	}
+	if len(ns) > 3 {
+		return fmt.Sprintf("%d tablets", len(ns))
 	}
 	return strings.Join(ns[:len(ns)-1], ", ") + " and " + ns[len(ns)-1]
 }
@@ -818,8 +839,13 @@ func (h *Handler) venueStoryFor(ctx context.Context, rest *db.Restaurant, v venu
 	if err != nil {
 		return venueStory{}, err
 	}
+	ids := make([]uuid.UUID, 0, len(v.DeviceWeeks))
+	for _, d := range v.DeviceWeeks {
+		ids = append(ids, d.DeviceID)
+	}
+	devTZ, _ := h.db.VenueDeviceTimezone(ctx, ids)
 	loc := time.UTC
-	for _, name := range []string{rest.Timezone, sw.TZ} {
+	for _, name := range []string{rest.Timezone, sw.TZ, devTZ} {
 		if name == "" {
 			continue
 		}
@@ -838,10 +864,6 @@ func (h *Handler) venueStoryFor(ctx context.Context, rest *db.Restaurant, v venu
 	readTo := to.Add(12 * time.Hour)
 	if readTo.After(now) {
 		readTo = now
-	}
-	ids := make([]uuid.UUID, 0, len(v.DeviceWeeks))
-	for _, d := range v.DeviceWeeks {
-		ids = append(ids, d.DeviceID)
 	}
 	ins, err := h.db.VenueInsightsFor(ctx, ids, from, to, readTo, loc)
 	if err != nil {

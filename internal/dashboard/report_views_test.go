@@ -90,6 +90,8 @@ func storyFixture(t *testing.T) (storyInput, map[string]uuid.UUID) {
 	ins.Alerts = []db.VenueAlert{
 		{DeviceID: ids["t3"], Type: "offline_peak", At: dayStart.AddDate(0, 0, 4).Add(18*time.Hour + 20*time.Minute)},
 		{DeviceID: ids["bar"], Type: "charger_flapping", At: dayStart.AddDate(0, 0, 2).Add(15 * time.Hour)},
+		// Our alert's window is not the venue's: 2am is after close, so Table 1 stays fine.
+		{DeviceID: ids["t1"], Type: "offline_peak", At: dayStart.AddDate(0, 0, 1).Add(2 * time.Hour)},
 	}
 	return storyInput{
 		Win: win, Loc: loc, OpenMin: 660, CloseMin: 1380, Now: dayStart.AddDate(0, 0, 14),
@@ -200,6 +202,7 @@ func TestRestaurantReportViewsRender(t *testing.T) {
 		"hrs1":       func(minutes float64) string { return fmt.Sprintf("%.1f", minutes/60) },
 		"band":       func(int) string { return "" },
 		"lowerFirst": lowerFirst,
+		"guestTime":  guestTime,
 		"index0": func(s []storySpot) *storySpot {
 			if len(s) == 0 {
 				return nil
