@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Restaurant report for non-technical readers — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f7f7f7);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1.page{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:46px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:860px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:14px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 280px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.verdict{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin:46px 0 0;font-size:13px;line-height:1.65;max-width:900px;}
+.verdict b{font-weight:750;}
+.note{font-size:12px;color:var(--text-faint);margin:14px 0 0;line-height:1.6;max-width:900px;}
+.toc{display:flex;flex-wrap:wrap;gap:6px 14px;margin:14px 0 0;font-size:12.5px;}
+.toc a{color:var(--accent-text,var(--accent));text-decoration:none;font-weight:650;}
+
+/* ── The report "paper": what the reader sees ─────────────────────────────── */
+.paper{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px 30px;box-shadow:0 10px 34px rgba(20,22,40,.06);}
+.paper .kick{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);}
+.paper h2{font-size:22px;letter-spacing:-.02em;margin:4px 0 2px;font-weight:650;}
+.paper .when{font-size:13px;color:var(--muted);}
+.paper h3{font-size:13px;font-weight:700;letter-spacing:.02em;margin:22px 0 10px;color:var(--text);}
+.paper p{font-size:14px;line-height:1.65;margin:0 0 12px;max-width:720px;}
+.muted2{color:var(--muted);}
+.up{color:var(--ok);font-weight:650;white-space:nowrap}
+.dn{color:var(--danger,#c0392b);font-weight:650;white-space:nowrap}
+.flat{color:var(--text-faint);font-weight:600;white-space:nowrap}
+.g{--c:var(--ok)} .a{--c:var(--warn)} .r{--c:var(--danger,#c0392b)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:7px;vertical-align:0}
+
+/* A: scorecard */
+.sc-top{display:grid;grid-template-columns:220px 1fr;gap:26px;align-items:center;margin-top:18px}
+.sc-grade{border-radius:16px;padding:18px;text-align:center;background:color-mix(in srgb,var(--ok) 12%,transparent);}
+.sc-grade .gl{font-size:54px;font-weight:700;line-height:1;color:var(--ok);letter-spacing:-.03em}
+.sc-grade .gw{font-size:14px;font-weight:650;margin-top:6px}
+.sc-grade .gs{font-size:12px;color:var(--muted);margin-top:2px}
+.sc-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.sc-k{border:1px solid var(--border-soft,var(--border));border-radius:12px;padding:12px 14px}
+.sc-k .k{font-size:12px;color:var(--muted)}
+.sc-k .v{font-size:24px;font-weight:650;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+.sc-k .s{font-size:12px;color:var(--muted);margin-top:2px}
+.todo{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.todo li{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.5;background:var(--surface2);border-radius:10px;padding:10px 12px}
+.todo li .bx{width:18px;height:18px;border:2px solid var(--rule-2,var(--border));border-radius:5px;margin-top:1px}
+.todo li small{display:block;color:var(--muted);font-size:12.5px}
+
+/* B: letter */
+.letter{max-width:640px;margin:0 auto;font-size:15px}
+.letter p{font-size:15px;line-height:1.75}
+.letter .big{font-size:15px}
+.letter b{font-weight:650}
+.spark{display:inline-flex;align-items:flex-end;gap:2px;height:16px;vertical-align:-2px;margin:0 3px}
+.spark i{width:5px;border-radius:2px 2px 0 0;background:var(--accent);display:block}
+.spark i.lo{background:var(--danger,#c0392b)}
+.sign{margin-top:18px;font-size:13px;color:var(--muted)}
+
+/* C: floor */
+.floor{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin-top:16px}
+.zone{border:1px dashed var(--rule-2,var(--border));border-radius:14px;padding:12px}
+.zone .zn{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+.tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.tab{border-radius:11px;padding:10px 11px;background:color-mix(in srgb,var(--c) 11%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);cursor:default}
+.tab .tn{font-size:13px;font-weight:700}
+.tab .ts{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}
+
+/* D: service timeline */
+.tl{display:grid;grid-template-columns:56px repeat(12,1fr);gap:3px;margin-top:10px;font-size:11px}
+.tl .h{color:var(--text-faint);text-align:center;font-variant-numeric:tabular-nums}
+.tl .d{color:var(--muted);font-weight:650;align-self:center}
+.tl .c{height:26px;border-radius:5px;background:color-mix(in srgb,var(--c) var(--p),var(--surface2));position:relative}
+.tl .c.flag::after{content:"!";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:12px}
+.tl-key{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-top:10px}
+.tl-key i{display:inline-block;width:22px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.moments{display:grid;gap:8px;margin-top:6px}
+.moment{display:grid;grid-template-columns:120px 1fr;gap:12px;font-size:13.5px;line-height:1.5;padding:8px 0;border-top:1px solid var(--border-soft,var(--border))}
+.moment:first-child{border-top:0}
+.moment .mw{font-weight:700;color:var(--muted);font-size:12.5px}
+
+/* E: guest value */
+.gv-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.gv{border-radius:14px;padding:16px;background:var(--surface2)}
+.gv .v{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.gv .k{font-size:13px;font-weight:600;margin-top:6px}
+.gv .s{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+.heat{display:grid;grid-template-columns:40px repeat(12,1fr);gap:3px;font-size:11px;margin-top:8px}
+.heat .h{color:var(--text-faint);text-align:center}
+.heat .d{color:var(--muted);font-weight:650;align-self:center}
+.heat .c{height:20px;border-radius:4px;background:color-mix(in srgb,var(--accent) var(--p),var(--surface2))}
+
+/* F: two audiences */
+.pg{border:1px solid var(--border-soft,var(--border));border-radius:12px;padding:18px 20px;margin-top:14px}
+.pg-label{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:10px;display:flex;justify-content:space-between}
+.att{display:grid;gap:0}
+.att .row{display:grid;grid-template-columns:110px 1fr 1.4fr;gap:14px;padding:10px 0;border-top:1px solid var(--border-soft,var(--border));font-size:13.5px;line-height:1.45;align-items:start}
+.att .row:first-child{border-top:0}
+.att .row b{font-weight:700}
+.att .row .fix{color:var(--muted)}
+.okline{font-size:13px;color:var(--muted);margin-top:10px}
+.tech{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.tech th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:0 8px 6px 0;font-weight:700}
+.tech td{padding:6px 8px 6px 0;border-top:1px solid var(--border-soft,var(--border));white-space:nowrap}
+.tech td.mono{font-family:var(--mono);font-size:11px}
+
+/* Deployed today, drawn small */
+.cur-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cur-kpis div{border:1px solid var(--border-soft,var(--border));border-radius:10px;padding:10px 12px;font-size:11px;color:var(--muted)}
+.cur-kpis b{display:block;font-size:18px;color:var(--text);margin:3px 0 2px;font-weight:650}
+
+/* Metric catalogue */
+.cat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+.cat th{text-align:left;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:0 10px 8px 0;font-weight:700;border-bottom:1px solid var(--border)}
+.cat td{padding:9px 10px 9px 0;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top;line-height:1.45}
+.cat td:first-child{font-weight:650;white-space:nowrap}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;white-space:nowrap}
+.pill.have{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.pill.new{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+
+@media (max-width:1024px){.floor{grid-template-columns:1fr 1fr}.floor .zone:first-child{grid-column:1/-1}}
+@media (max-width:720px){
+  body{padding:20px 16px 120px;}.themebar{top:auto;bottom:16px;right:16px;}
+  .paper{padding:18px 16px}
+  .sc-top{grid-template-columns:1fr}.sc-kpis{grid-template-columns:1fr}
+  .floor{grid-template-columns:1fr}
+  .gv-hero{grid-template-columns:1fr}
+  .att .row{grid-template-columns:1fr}
+  .cur-kpis{grid-template-columns:1fr 1fr}
+  .tl,.heat{font-size:9.5px;gap:2px}.tl{grid-template-columns:34px repeat(12,1fr)}.heat{grid-template-columns:30px repeat(12,1fr)}
+  .moment{grid-template-columns:1fr}
+  .tech-wrap{overflow-x:auto}
+  /* The catalogue stacks: four columns do not fit a phone, and its first column
+     never wraps, which pushed the whole page sideways. */
+  .cat thead{display:none}
+  .cat tr{display:block;padding:10px 0;border-bottom:1px solid var(--border-soft,var(--border))}
+  .cat td{display:block;border:0;padding:2px 0}
+  .cat td:first-child{white-space:normal}
+}
+</style>
+</head>
+<body>
+<div class="themebar"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+  <h1 class="page">The restaurant report, for people who run restaurants</h1>
+  <p class="lead">
+    Today's weekly report is written for us: uptime hours out of 168, "battery drain due to wireless charging" in %/min,
+    serial numbers. The people it goes to are owners, GMs and floor managers, who want to know three things: <b>did the
+    tablets work when we were open, did guests use them, and is there anything I need to do.</b> Six ways to answer
+    that, all drawn from the same made-up week at a 12-tablet venue (numbers shaped on last week's live fleet). Every
+    metric used is listed at the bottom with where it comes from — most we already collect.
+  </p>
+  <div class="toc">
+    <a href="#today">Deployed today</a><a href="#a">A · Scorecard</a><a href="#b">B · The letter</a><a href="#c">C · Floor plan</a>
+    <a href="#d">D · Service timeline</a><a href="#e">E · Guest value</a><a href="#f">F · Two readers</a><a href="#metrics">Metrics</a>
+  </div>
+
+  <!-- ─────────────────────────────── Deployed today ─────────────────────────────── -->
+  <div class="eyebrow" id="today">Deployed today</div>
+  <div class="dname">The engineering report <span class="cur">Deployed</span></div>
+  <p class="ddesc">Accurate, and written in our vocabulary. A GM reading it cannot tell whether 0.19 %/min is good, why "plugged in"
+    matters, or which tablet "DEMO0000412" is on their floor.</p>
+  <div class="paper">
+    <div class="kick">Fleet · Restaurants · Weekly report</div>
+    <h2>Harbor &amp; Vine</h2>
+    <div class="when">12 devices reporting · Mon 21 Sep – Sun 27 Sep 2026</div>
+    <div class="cur-kpis" style="margin-top:14px">
+      <div>Average uptime<b>158.4 / 168 hrs</b>94% of the measured window</div>
+      <div>Wireless charging in use<b>5.3 hrs</b>per device</div>
+      <div>Battery drain due to wireless charging<b>0.19 %/min</b>measured over 11.2 hrs off the charger</div>
+      <div>Plugged in<b>110.9 / 168 hrs</b>66% of the window</div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────── A ─────────────────────────────── -->
+  <div class="eyebrow" id="a">Option A</div>
+  <div class="dname">Scorecard: one grade, four numbers, a to-do list</div>
+  <p class="ddesc">The whole week reduced to a grade a manager can quote, four plain numbers with last week beside them, and a
+    checklist. Fits on one printed page.</p>
+  <div class="paper">
+    <div class="kick">Weekly tablet report</div>
+    <h2>Harbor &amp; Vine</h2>
+    <div class="when">Week of 21–27 September · 12 tablets · open 11am–11pm</div>
+    <div class="sc-top">
+      <div class="sc-grade"><div class="gl">A−</div><div class="gw">A good week</div><div class="gs">up from B+ last week</div></div>
+      <div class="sc-kpis">
+        <div class="sc-k"><div class="k">Tablets ready while you were open</div><div class="v">97%</div><div class="s"><span class="up">▲ 5 pts</span> from 92%</div></div>
+        <div class="sc-k"><div class="k">Guest phones charged at the table</div><div class="v">184</div><div class="s"><span class="up">▲ 33</span> from 151 · 63 hours of charging</div></div>
+        <div class="sc-k"><div class="k">Times a tablet ran flat during service</div><div class="v">2</div><div class="s"><span class="up">▼ 3</span> from 5 · both on Table 4</div></div>
+        <div class="sc-k"><div class="k">Tablets that need a look</div><div class="v">4 <span class="muted2" style="font-size:15px">of 12</span></div><div class="s"><span class="flat">same as last week</span></div></div>
+      </div>
+    </div>
+    <h3>This week, please</h3>
+    <ul class="todo">
+      <li><span class="bx"></span><span><b>Table 6 was offline for Friday dinner (6:20–10pm).</b><small>It was on and charged but lost Wi-Fi. If it happens again, move it closer to the bar or call us to check the signal.</small></span></li>
+      <li><span class="bx"></span><span><b>Swap the charging cable on Bar 1.</b><small>It keeps connecting and disconnecting — a worn cable or loose plug. We can send a new one.</small></span></li>
+      <li><span class="bx"></span><span><b>Put Table 4 back on charge between lunch and dinner.</b><small>It went flat at 8:10pm Saturday and 1pm Sunday.</small></span></li>
+    </ul>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>Readable in ten seconds; the grade and the to-do list are what a GM forwards to a floor manager. Last
+      week's figure next to every number answers "is that good?" without us explaining it.</div>
+    <div><b>Bad at</b>A grade is our judgement dressed as a measurement — the first time a venue gets a C for a Wi-Fi problem
+      that is theirs, it becomes an argument. Needs a clear, published rule for how the grade is set.</div>
+  </div>
+
+  <!-- ─────────────────────────────── B ─────────────────────────────── -->
+  <div class="eyebrow" id="b">Option B</div>
+  <div class="dname">The letter: the week in sentences</div>
+  <p class="ddesc">Written like an account manager's weekly email. Numbers appear inside sentences, never as bare tiles. Doubles as
+    the body of the "Email report" message.</p>
+  <div class="paper">
+    <div class="letter">
+      <div class="kick">Harbor &amp; Vine · week of 21–27 September</div>
+      <p style="margin-top:14px">Hi Sam,</p>
+      <p>Your 12 tablets had <b>a good week</b>. They were ready to take orders for <b>97% of your opening hours</b>
+        <span class="spark" title="Mon–Sun"><i style="height:15px"></i><i style="height:16px"></i><i style="height:15px"></i><i style="height:16px"></i><i class="lo" style="height:9px"></i><i style="height:14px"></i><i style="height:15px"></i></span>
+        — up from 92% the week before. The one dip was <b>Friday dinner</b>, when Table 6 lost its Wi-Fi from 6:20 until
+        close.</p>
+      <p>Guests charged their phones on the tables <b>184 times</b> (63 hours in all), most of it on Friday and Saturday
+        between 7 and 9pm. Patio 1 and Table 2 were the most popular spots.</p>
+      <p>Your team is doing well with charging: tablets went back on the charger at <b>around a third full</b> on average,
+        and only Table 4 ran flat — twice, on Saturday night and Sunday lunch. A top-up between services would fix that.</p>
+      <p>Two small things for this week: the <b>charging cable on Bar 1</b> is wearing out (we'll send a new one), and
+        <b>Patio 2 got very hot</b> on Wednesday and Thursday afternoon in direct sun — shading it or moving it in for
+        those hours will keep it from slowing down.</p>
+      <p class="sign">— The AIO team · Full per-tablet details are on the second page.</p>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>The friendliest by far; reads like a person looked at their week. Context comes for free ("the one dip
+      was Friday dinner"), and it is the natural email body — nobody has to open a PDF to get the point.</div>
+    <div><b>Bad at</b>Sentences have to be generated from rules, and bad generated prose is worse than a table. Hard to scan
+      for one number, and it does not scale past a handful of issues — a bad week becomes a long, alarming letter.</div>
+  </div>
+
+  <!-- ─────────────────────────────── C ─────────────────────────────── -->
+  <div class="eyebrow" id="c">Option C</div>
+  <div class="dname">Floor plan: every tablet where it lives</div>
+  <p class="ddesc">Tablets named by where they sit (the device nickname) and grouped by area, each green / amber / red with one line
+    saying why. The picture a floor manager already has in their head.</p>
+  <div class="paper">
+    <div class="kick">Harbor &amp; Vine · 21–27 September</div>
+    <h2>Your tablets this week</h2>
+    <div class="when">8 fine · 3 need a look · 1 let guests down during service</div>
+    <div class="floor" id="floor"></div>
+    <div class="legend"><span class="g"><span class="dot"></span>Fine all week</span><span class="a"><span class="dot"></span>Needs a look — worked, but something is off</span><span class="r"><span class="dot"></span>Let guests down during service</span></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>Instantly actionable on the floor: "the red one is Table 6". Names instead of serials is the single
+      biggest readability win in this whole page, and every option can borrow it.</div>
+    <div><b>Bad at</b>Says nothing about the venue as a whole or the trend; needs every tablet to have a nickname (today most do
+      not, so it would fall back to serials). Colour carries the meaning, so the one-line reason must always be there too.</div>
+  </div>
+
+  <!-- ─────────────────────────────── D ─────────────────────────────── -->
+  <div class="eyebrow" id="d">Option D</div>
+  <div class="dname">Service timeline: when it mattered</div>
+  <p class="ddesc">Only opening hours, only the week. Each square is one hour of service; the colour is how many tablets were ready
+    to take an order. Problems are shown at the hour they happened, with a short note underneath.</p>
+  <div class="paper">
+    <div class="kick">Harbor &amp; Vine · 21–27 September</div>
+    <h2>Were the tablets ready when you were open?</h2>
+    <div class="when">Every tablet ready in 75 of your 84 opening hours · the dip was Friday dinner</div>
+    <div class="tl" id="tl"></div>
+    <div class="tl-key"><span><i style="background:var(--ok)"></i>all 12 ready</span><span><i style="background:color-mix(in srgb,var(--warn) 70%,var(--surface2))"></i>1 not ready</span><span><i style="background:color-mix(in srgb,var(--danger,#c0392b) 80%,var(--surface2))"></i>2 or more not ready</span></div>
+    <h3>What happened</h3>
+    <div class="moments">
+      <div class="moment"><span class="mw">Fri 6pm – 10pm</span><span><b>Table 6 offline.</b> Lost Wi-Fi at 6:20pm, back after close. It was charged and on — the signal at that table is weak.</span></div>
+      <div class="moment"><span class="mw">Sat 8pm</span><span><b>Table 4 ran flat</b> at 8:10pm, 40 minutes into dinner. It had been off the charger since 11am.</span></div>
+      <div class="moment"><span class="mw">Sun 1pm</span><span><b>Table 4 ran flat again</b> at 1:05pm — it was not put back on charge overnight.</span></div>
+      <div class="moment"><span class="mw">Wed–Thu 2–4pm</span><span><b>Patio 2 ran hot</b> (48°C) in direct sun. It kept working, but a hot tablet slows down and wears its battery.</span></div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>Ties every problem to a service a manager remembers ("Friday dinner was a mess"), and makes the
+      difference between a problem at 3am and one at 8pm on a Saturday — only the second matters, and only this option
+      shows it. Honest about quiet weeks: a green grid says so.</div>
+    <div><b>Bad at</b>Needs the venue's opening hours set (today only some venues have them; without them it has to fall back to
+      a 24-hour day). Readiness per hour is a new rollup. Says little about guests.</div>
+  </div>
+
+  <!-- ─────────────────────────────── E ─────────────────────────────── -->
+  <div class="eyebrow" id="e">Option E</div>
+  <div class="dname">Guest value: what the tablets did for your guests</div>
+  <p class="ddesc">Leads with the guest experience instead of the hardware: phones charged, when guests used the tablets, the most
+    popular spots. Health is one line at the bottom. The report an account manager brings to a renewal.</p>
+  <div class="paper">
+    <div class="kick">Harbor &amp; Vine · 21–27 September</div>
+    <h2>What your tablets did for guests this week</h2>
+    <div class="gv-hero">
+      <div class="gv"><div class="v">184</div><div class="k">phones charged at the table</div><div class="s">63 hours of charging · <span class="up">▲ 22%</span> on last week</div></div>
+      <div class="gv"><div class="v">21 min</div><div class="k">average charge per guest</div><div class="s">about a quarter of a phone battery on a typical phone</div></div>
+      <div class="gv"><div class="v">Patio 1</div><div class="k">most popular spot</div><div class="s">31 charges · then Table 2 (26) and Bar 2 (22)</div></div>
+    </div>
+    <h3>When guests charged their phones</h3>
+    <div class="heat" id="heat"></div>
+    <p class="muted2" style="font-size:12.5px;margin-top:8px">Darker = more phones on the pads. Friday and Saturday 7–9pm is your peak; weekday lunch is steady.</p>
+    <h3>Tablet health</h3>
+    <p style="font-size:13.5px"><span class="g"><span class="dot"></span></span>Ready for 97% of opening hours. Two things to look at: Table 6's Wi-Fi and the cable on Bar 1 — details on page 2.</p>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>The only option that shows what the owner is paying for. "184 phones charged" is a number a GM repeats to
+      their boss; a peak-hours grid is useful for staffing, not only for us.</div>
+    <div><b>Bad at</b>Tablet problems are pushed to the bottom, so a bad week can read like a good one. Pad use is low at many
+      venues today (0.4 h per tablet last week fleet-wide) — at those, the headline number is small and the report looks
+      thin. "% of a phone battery" is an estimate, and must be labelled as one.</div>
+  </div>
+
+  <!-- ─────────────────────────────── F ─────────────────────────────── -->
+  <div class="eyebrow" id="f">Option F</div>
+  <div class="dname">Two readers: page 1 for the venue, page 2 for the technician <span class="rec">Recommended</span></div>
+  <p class="ddesc">Page 1 is plain language: a one-line verdict, three numbers with last week beside them, and a short
+    "needs attention" list naming tablets by where they sit, each with what to do. Page 2 keeps today's per-tablet table,
+    retitled for whoever looks after the hardware. Borrows A's numbers, C's names and D's "when" — without A's grade.</p>
+  <div class="paper">
+    <div class="pg">
+      <div class="pg-label"><span>Page 1 · for the venue</span><span>Harbor &amp; Vine · 21–27 September</span></div>
+      <h2 style="margin-top:0">A good week — tablets were ready for 97% of opening hours.</h2>
+      <div class="when">12 tablets · open 11am–11pm · compared with the week before</div>
+      <div class="sc-kpis" style="grid-template-columns:repeat(3,1fr);margin-top:16px">
+        <div class="sc-k"><div class="k">Ready while you were open</div><div class="v">97%</div><div class="s"><span class="up">▲ 5 pts</span> from 92%</div></div>
+        <div class="sc-k"><div class="k">Guest phones charged</div><div class="v">184</div><div class="s"><span class="up">▲ 33</span> · busiest Fri &amp; Sat 7–9pm</div></div>
+        <div class="sc-k"><div class="k">Ran flat during service</div><div class="v">2</div><div class="s"><span class="up">▼ 3</span> from 5</div></div>
+      </div>
+      <h3>Needs attention</h3>
+      <div class="att">
+        <div class="row r"><span><span class="dot"></span><b>Table 6</b></span><span>Offline Friday 6:20–10pm — lost Wi-Fi during dinner.</span><span class="fix">If it repeats, move it nearer the bar or ask us to check the signal.</span></div>
+        <div class="row a"><span><span class="dot"></span><b>Bar 1</b></span><span>Charging cable keeps cutting in and out.</span><span class="fix">We're sending a replacement cable.</span></div>
+        <div class="row a"><span><span class="dot"></span><b>Table 4</b></span><span>Ran flat Saturday 8:10pm and Sunday 1pm.</span><span class="fix">Top it up between lunch and dinner.</span></div>
+        <div class="row a"><span><span class="dot"></span><b>Patio 2</b></span><span>Got very hot (48°C) Wed and Thu afternoon in the sun.</span><span class="fix">Shade it, or bring it in 2–4pm.</span></div>
+      </div>
+      <div class="okline"><span class="g"><span class="dot"></span></span>The other 8 tablets were fine all week.</div>
+    </div>
+    <div class="pg">
+      <div class="pg-label"><span>Page 2 · for whoever looks after the tablets</span><span>same week</span></div>
+      <div class="tech-wrap">
+      <table class="tech">
+        <thead><tr><th>Tablet</th><th>Serial</th><th>Ready (open hrs)</th><th>On all week</th><th>On charger</th><th>Guest charging</th><th>Restarts</th><th>Hottest</th></tr></thead>
+        <tbody id="techrows"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>Each reader gets their page and can stop there: the GM reads one headline sentence and four lines, the
+      person who fixes things gets every number we have today. No grade to dispute. Works as a two-page PDF and as an
+      email (page 1 is the body, page 2 the attachment). Degrades well: with no problems the list just says so.</div>
+    <div><b>Bad at</b>Less warm than B, less visual than C or D. Relies on nicknames like C, and on opening hours like D, for
+      its two best lines — venues missing them fall back to serials and a 24-hour day.</div>
+  </div>
+
+  <div class="verdict"><b>My pick: F</b>, with B's sentences as the email body. The report's job for a non-technical reader is
+    "did it work while we were open, and what do I do" — F answers both on one page without asking them to read a table or
+    trust a grade, and it keeps today's numbers intact on page 2 for our own team, so nothing we rely on is lost.
+    Two things make every option better and are worth doing whatever you pick: <b>name tablets by where they sit</b> (the
+    nickname field already exists — prompt for it at enrolment), and <b>count only opening hours</b> (set them for every
+    venue; the report falls back to 24 hours without them). I would drop the wireless-charging drain %/min from the venue's
+    page entirely — it is our engineering question, not theirs.</div>
+
+  <!-- ─────────────────────────────── Metrics ─────────────────────────────── -->
+  <div class="eyebrow" id="metrics">Metrics used above</div>
+  <div class="dname">What each number is, and whether we collect it today</div>
+  <p class="ddesc">Every option above is built from these. "Have it" means the data is already stored (a new query at most);
+    "new rollup" means a small addition to the hourly housekeeping job.</p>
+  <table class="cat">
+    <thead><tr><th>Metric (as the reader sees it)</th><th>What it means</th><th>Where it comes from</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Ready while you were open</td><td>Share of opening hours each tablet was on, connected, and above 10% battery — i.e. could take an order.</td><td>online_minutes_open (daily rollup) + battery from device_samples, inside the venue's service window</td><td><span class="pill new">new rollup</span></td></tr>
+      <tr><td>Ran flat during service</td><td>Times a tablet dropped below 5% or switched off while the venue was open.</td><td>device_samples battery + reboot/shutdown events, filtered to opening hours</td><td><span class="pill new">new rollup</span></td></tr>
+      <tr><td>Guest phones charged</td><td>Times a phone was placed on a T7 charging pad for at least 2 minutes.</td><td>device_state_events, <code>wlc_status</code> changing to 1</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Hours of guest charging · average per guest</td><td>Total and average time phones spent on the pads.</td><td>wlc_minutes (daily rollup) ÷ sessions above</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Busiest charging hours</td><td>When in the week guests used the pads, by day and hour.</td><td>device_state_events <code>wlc_status</code>, bucketed by local hour</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Most popular spot</td><td>The tablet with the most guest charges.</td><td>sessions above, per tablet + nickname</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Put back on charge at</td><td>Average battery level when staff plug a tablet in — too low means tablets are going flat.</td><td>charge_connect_sum / charge_connect_n (daily rollup)</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Offline during service</td><td>A tablet that was on but not connected during opening hours, and for how long.</td><td>offline_peak alerts + presence, inside the service window</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Charging cable fault</td><td>A charger that keeps connecting and disconnecting — almost always a worn cable or loose plug.</td><td>charger_flapping alerts / <code>charging = 2</code> state</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Ran hot</td><td>Battery above 45°C for more than 15 minutes — sun, a heat lamp, or a blocked vent.</td><td>device_samples temp_c</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Restarts</td><td>Unexpected restarts (not ones we sent) — a crashing tablet.</td><td>device_events <code>reboot</code>, minus reboot commands</td><td><span class="pill have">have it</span></td></tr>
+      <tr><td>Grade (option A only)</td><td>A–F from readiness, flat events and open issues, by a published rule.</td><td>derived from the above</td><td><span class="pill new">new rule</span></td></tr>
+      <tr><td>Last week, beside every number</td><td>The same figure for the previous week.</td><td>the same queries, one week earlier</td><td><span class="pill have">have it</span></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Made-up venue and numbers. The fleet-wide ranges they were shaped on (live, 21–27 Sep, 27 tablets at 2 venues):
+    94% powered, on a charger 66% of the time, put back on charge at ~85%, 0.4 h of guest pad use per tablet, 14 of 27
+    tablets dipped under 15% battery at least once, and battery-at-night, temperature and charger alerts the most common.</p>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.querySelectorAll('.themebar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.setAttribute('data-theme', b.dataset.t);
+      document.querySelectorAll('.themebar button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
+
+  // One made-up venue, shared by every option.
+  var tablets = [
+    { n: 'Table 1', z: 'Dining room', s: 'g', why: 'Fine all week', sn: 'DEMO0000412', ready: 99, on: 167, chg: 61, guest: 4.1, rs: 0, hot: 38 },
+    { n: 'Table 2', z: 'Dining room', s: 'g', why: '26 guest charges', sn: 'DEMO0000415', ready: 98, on: 166, chg: 64, guest: 9.2, rs: 1, hot: 39 },
+    { n: 'Table 3', z: 'Dining room', s: 'g', why: 'Fine all week', sn: 'DEMO0000419', ready: 99, on: 168, chg: 70, guest: 3.3, rs: 0, hot: 37 },
+    { n: 'Table 4', z: 'Dining room', s: 'a', why: 'Ran flat Sat night and Sun lunch', sn: 'DEMO0000423', ready: 94, on: 151, chg: 42, guest: 5.0, rs: 2, hot: 39 },
+    { n: 'Table 5', z: 'Dining room', s: 'g', why: 'Fine all week', sn: 'DEMO0000427', ready: 99, on: 167, chg: 66, guest: 4.4, rs: 0, hot: 38 },
+    { n: 'Table 6', z: 'Dining room', s: 'r', why: 'Offline Fri dinner, 6:20–10pm (Wi-Fi)', sn: 'DEMO0000431', ready: 96, on: 166, chg: 68, guest: 2.9, rs: 1, hot: 38 },
+    { n: 'Table 7', z: 'Dining room', s: 'g', why: 'Fine all week', sn: 'DEMO0000436', ready: 98, on: 165, chg: 63, guest: 3.7, rs: 0, hot: 38 },
+    { n: 'Table 8', z: 'Dining room', s: 'g', why: 'Fine all week', sn: 'DEMO0000440', ready: 99, on: 168, chg: 71, guest: 3.9, rs: 0, hot: 37 },
+    { n: 'Bar 1', z: 'Bar', s: 'a', why: 'Charging cable cutting in and out', sn: 'DEMO0000444', ready: 96, on: 162, chg: 58, guest: 6.1, rs: 1, hot: 40 },
+    { n: 'Bar 2', z: 'Bar', s: 'g', why: '22 guest charges', sn: 'DEMO0000448', ready: 99, on: 167, chg: 69, guest: 7.8, rs: 0, hot: 39 },
+    { n: 'Patio 1', z: 'Patio', s: 'g', why: 'Most popular: 31 charges', sn: 'DEMO0000452', ready: 97, on: 164, chg: 60, guest: 10.6, rs: 0, hot: 43 },
+    { n: 'Patio 2', z: 'Patio', s: 'a', why: 'Very hot Wed & Thu afternoon (48°C)', sn: 'DEMO0000457', ready: 95, on: 163, chg: 59, guest: 2.0, rs: 1, hot: 48 }
+  ];
+
+  // C: floor plan by zone.
+  var zones = ['Dining room', 'Bar', 'Patio'];
+  document.getElementById('floor').innerHTML = zones.map(function (z) {
+    return '<div class="zone"><div class="zn">' + z + '</div><div class="tabs">' +
+      tablets.filter(function (t) { return t.z === z; }).map(function (t) {
+        return '<div class="tab ' + t.s + '" title="' + t.n + ': ' + t.why + '"><div class="tn"><span class="dot"></span>' + t.n +
+          '</div><div class="ts">' + t.why + '</div></div>';
+      }).join('') + '</div></div>';
+  }).join('');
+
+  // D: readiness per opening hour (11am–11pm), 12 tablets. Mostly all ready.
+  var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var notReady = {}; // "day,hourIndex" -> tablets not ready
+  [7, 8, 9, 10].forEach(function (h) { notReady['4,' + h] = 1; });  // Fri 6pm–10pm Table 6 (hour idx 7 = 6pm)
+  notReady['4,8'] = 2;                                                // Fri 7pm: also a brief Bar 1 drop
+  [9, 10, 11].forEach(function (h) { notReady['5,' + h] = 1; });      // Sat 8pm–11pm Table 4 flat
+  [2, 3].forEach(function (h) { notReady['6,' + h] = 1; });           // Sun 1–3pm Table 4 flat
+  var tl = '<div></div>';
+  for (var h = 0; h < 12; h++) { var hr = 11 + h; tl += '<div class="h">' + (hr > 12 ? hr - 12 : hr) + (hr >= 12 ? 'p' : 'a') + '</div>'; }
+  days.forEach(function (d, di) {
+    tl += '<div class="d">' + d + '</div>';
+    for (var h = 0; h < 12; h++) {
+      var n = notReady[di + ',' + h] || 0;
+      var cls = n === 0 ? 'g' : n === 1 ? 'a' : 'r', p = n === 0 ? '78%' : n === 1 ? '70%' : '80%';
+      var flag = (di === 5 && h === 9) || (di === 6 && h === 2) || (di === 4 && h === 7);
+      tl += '<div class="c ' + cls + (flag ? ' flag' : '') + '" style="--p:' + p + '" title="' + d + ' ' + (11 + h) + ':00 — ' +
+        (n ? n + ' tablet' + (n > 1 ? 's' : '') + ' not ready' : 'all 12 ready') + '"></div>';
+    }
+  });
+  document.getElementById('tl').innerHTML = tl;
+
+  // E: guest charging heat map, opening hours.
+  var heat = '<div></div>';
+  for (var h2 = 0; h2 < 12; h2++) { var hr2 = 11 + h2; heat += '<div class="h">' + (hr2 > 12 ? hr2 - 12 : hr2) + (hr2 >= 12 ? 'p' : 'a') + '</div>'; }
+  days.forEach(function (d, di) {
+    heat += '<div class="d">' + d + '</div>';
+    for (var h = 0; h < 12; h++) {
+      var lunch = (h === 1 || h === 2) ? 30 : 0, dinner = (h >= 7 && h <= 9) ? 45 : (h === 6 || h === 10) ? 22 : 0;
+      var wk = (di >= 4 && di <= 5) ? 1.9 : di === 6 ? 1.3 : 1;
+      var p = Math.min(95, Math.round((6 + lunch + dinner) * wk * (0.85 + ((di * 7 + h) % 5) * 0.06)));
+      heat += '<div class="c" style="--p:' + p + '%" title="' + d + ' ' + (11 + h) + ':00"></div>';
+    }
+  });
+  document.getElementById('heat').innerHTML = heat;
+
+  // F page 2: today's numbers, per tablet, named.
+  document.getElementById('techrows').innerHTML = tablets.map(function (t) {
+    return '<tr><td><b>' + t.n + '</b></td><td class="mono">' + t.sn + '</td><td>' + t.ready + '%</td><td>' + t.on + ' / 168 h</td><td>' +
+      t.chg + '%</td><td>' + t.guest.toFixed(1) + ' h</td><td>' + t.rs + '</td><td>' + t.hot + '°C</td></tr>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

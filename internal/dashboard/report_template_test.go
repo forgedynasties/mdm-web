@@ -40,6 +40,8 @@ func TestRestaurantReportRenders(t *testing.T) {
 		},
 		"padDrainBar": func(rate float64) int { return pctCapped(rate, 0.2) },
 		"shortDate":   func(t time.Time) string { return t.Format("Jan 2") },
+		"lowerFirst":  lowerFirst,
+		"index0":      func(s []storySpot) *storySpot { return nil },
 	}
 	tmpl, err := template.New("").Funcs(funcs).Parse(`{{define "header"}}<html><body>{{end}}{{define "footer"}}</body></html>{{end}}`)
 	if err != nil {
@@ -126,6 +128,8 @@ func TestRestaurantReportEmpty(t *testing.T) {
 		"initials":    func(string) string { return "XX" },
 		"padDrainBar": func(float64) int { return 0 },
 		"shortDate":   func(t time.Time) string { return t.Format("Jan 2") },
+		"lowerFirst":  lowerFirst,
+		"index0":      func(s []storySpot) *storySpot { return nil },
 	}
 	tmpl, err := template.New("").Funcs(funcs).Parse(`{{define "header"}}<html><body>{{end}}{{define "footer"}}</body></html>{{end}}`)
 	if err != nil {

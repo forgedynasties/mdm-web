@@ -1699,6 +1699,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// only place that reads in hours, so the conversion lives here rather than in the
 	// query.
 	funcMap["hrs1"] = func(minutes float64) string { return fmt.Sprintf("%.1f", minutes/60) }
+	// The plain-language report views (report_views.go): a reason read mid-sentence, and
+	// the top spot, which may not exist.
+	funcMap["lowerFirst"] = lowerFirst
+	funcMap["index0"] = func(s []storySpot) *storySpot {
+		if len(s) == 0 {
+			return nil
+		}
+		return &s[0]
+	}
 	// band colours an uptime meter: the legend in the report footer names these.
 	funcMap["band"] = func(pct int) string {
 		switch {
@@ -9775,6 +9784,19 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 	}
 	if v.Metrics != nil {
 		data["Metrics"] = *v.Metrics
+	}
+	// The plain-language views (report_views.go). The standard report stays the default,
+	// and is the only thing built when no view is asked for, so it costs nothing extra.
+	view, views := pickReportView(r.URL.Query().Get("view"))
+	data["View"], data["Views"] = view, views
+	if view != "" {
+		st, err := h.venueStoryFor(r.Context(), rest, v)
+		if err != nil {
+			log.Printf("[report] story %s: %v", id, err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		data["Story"] = st
 	}
 	h.render(w, r, "restaurant_report.html", data)
 }

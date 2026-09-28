@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Check-in queue on the Server page — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f7f7f7);margin:0;padding:26px 40px 160px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:38px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:850px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5bd2;background:#ece9fc;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .cur{background:rgba(122,128,246,.22);color:#a9adff;}
+.pros{display:flex;gap:26px;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;line-height:1.6;}
+.pros div{flex:1 1 300px;}
+.pros b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px;}
+.themebar{position:fixed;top:18px;right:22px;z-index:60;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button,.statebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on,.statebar button.on{background:var(--accent);color:#fff;}
+.statebar{display:inline-flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px;margin:14px 0 0;}
+.note{font-size:12px;color:var(--text-faint);margin:18px 0 0;line-height:1.6;max-width:850px;}
+.verdict{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin:36px 0 0;font-size:13px;line-height:1.6;max-width:850px;}
+.verdict b{font-weight:750;}
+
+/* ── Copied from templates/server_metrics.html so the mocks render as the page does ── */
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px}
+.sv-tile{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-tile .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.sv-tile .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.sv-tile .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:2px}
+.sv-tile .s{font-size:11.5px;color:var(--muted);margin-top:4px;min-height:17px}
+.sv-tile.warn .v{color:var(--warn)}
+.sv-tile .sw{position:absolute;top:13px;right:13px;width:9px;height:9px;border-radius:3px}
+.sv-tile.off{opacity:.62}
+.sv-tile.off .sw{background:var(--surface-3) !important}
+.sv-tile.new{box-shadow:0 0 0 2px var(--accent-edge,#b9bcf9)}
+.sv-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:22px 0 9px}
+.sv-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:940px){.sv-two{grid-template-columns:1fr}}
+.sv-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-row{display:grid;grid-template-columns:minmax(0,1fr) 92px 62px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.sv-row:first-of-type{border-top:0}
+.sv-row.new{background:var(--accent-soft);margin:0 -15px;padding:8px 15px}
+.sv-bar{height:7px;border-radius:4px;background:var(--surface2);overflow:hidden}
+.sv-bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.sv-bar i.ok{background:var(--ok)}
+.sv-bar i.warn{background:var(--warn)}
+.sv-num{font-variant-numeric:tabular-nums;text-align:right;color:var(--text-2);font-weight:600}
+.sv-chart-card{margin-top:12px;padding:12px 14px 10px}
+.sv-chead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.sv-chead .t{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.sv-chead .hint{font-size:11px;color:var(--text-faint)}
+.sv-chart-wrap{position:relative;height:170px}
+.sv-chart-wrap svg{width:100%;height:170px;display:block;overflow:visible}
+.sv-chart-wrap .ln{fill:none;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.sv-chart-wrap .gl{stroke:var(--chart-grid,var(--border-soft));stroke-width:1}
+.sv-read{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--text-faint)}
+.sv-read i{width:7px;height:7px;border-radius:2px;display:inline-block;margin-right:5px}
+
+/* ── Option C: the pipeline card ── */
+.pipe{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch}
+.pipe .st{background:var(--surface2);border-radius:10px;padding:10px 12px}
+.pipe .st .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.pipe .st .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.pipe .st .v small{font-size:12px;color:var(--muted);font-weight:500}
+.pipe .st .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.pipe .st.warn .v{color:var(--warn)}
+.pipe .ar{align-self:center;color:var(--text-faint);font-size:16px}
+.pipe-foot{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.pipe-foot b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.pipe-foot .warn b{color:var(--warn)}
+@media(max-width:720px){body{padding:20px 16px 120px;}.themebar{top:auto;bottom:16px;right:16px;}
+  .pipe{grid-template-columns:1fr}.pipe .ar{display:none}}
+</style>
+</head>
+<body>
+<div class="themebar"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+  <h1>The check-in queue on the Server page</h1>
+  <p class="lead">
+    Since <code>4fb4458</code> a check-in's history goes through an in-process queue: at most 16 check-ins run at once,
+    history is written in batches, and when the queue passes 80% an HTTP check-in is told <code>429</code> to come back in
+    20–60 s. None of that is on the Server page yet — only in <code>/debug/vars</code>. Three ways to show it. Each is
+    drawn twice: a quiet minute, and the burst after a deploy when the fleet reconnects at once. The burst is the only
+    time the numbers mean anything, so judge each option on it.
+  </p>
+  <div class="statebar" role="group" aria-label="Moment shown">
+    <button data-s="quiet" class="on">Quiet minute</button><button data-s="burst">Burst after a deploy</button>
+  </div>
+
+  <div class="eyebrow">Deployed today</div>
+  <div class="dname">Nothing on the page <span class="cur">Deployed</span></div>
+  <p class="ddesc">The queue exists only as JSON under <code>/debug/vars</code> → <code>ingest</code>, behind the admin key. Nobody
+    looking at this page can tell whether devices are being turned away.</p>
+
+  <div class="eyebrow">Option A</div>
+  <div class="dname">Two rows in Work in flight</div>
+  <p class="ddesc">A "check-in history queued" bar against the queue's capacity, and a "check-ins turned away" count. Same shape as
+    the rows already there; no collector change.</p>
+  <div class="sv-card" id="optA"></div>
+  <div class="pros">
+    <div><b>Good at</b>Smallest change; reads like the rest of the block; the shed count is always visible.</div>
+    <div><b>Bad at</b>It is a snapshot every 2 s of something that lasts seconds. A burst that filled the queue and drained
+      between frames never shows, and after it the bar sits at 0 with no sign anything happened — only the lifetime shed
+      count remembers, and it does not say when.</div>
+  </div>
+
+  <div class="eyebrow">Option B</div>
+  <div class="dname">A Load tile and a line on the hour <span class="rec">Recommended</span></div>
+  <p class="ddesc">A "Check-in queue" tile beside Check-ins, showing the <em>peak</em> depth in each 10 s sample rather than the depth
+    at that instant, with batch time and shed count underneath. Like every tile it is also the chart's legend: switch
+    it on and the burst draws against requests and check-ins.</p>
+  <div class="sv-grid" id="optB-tiles"></div>
+  <div class="sv-card sv-chart-card">
+    <div class="sv-chead"><span class="t">The hour</span><span class="hint">Check-ins and Check-in queue switched on</span></div>
+    <div class="sv-chart-wrap"><svg id="optB-chart" viewBox="0 0 1000 170" preserveAspectRatio="none"></svg></div>
+    <div class="sv-read" id="optB-read"></div>
+  </div>
+  <div class="pros">
+    <div><b>Good at</b>The burst stays on the chart for an hour, lined up with the check-in spike that caused it, so "the
+      deploy at 10:28 brought the fleet back and we turned 40 away for 20 s" is readable after the fact. Peak-per-sample
+      catches a burst the 2 s frame would miss.</div>
+    <div><b>Bad at</b>Needs the collector to keep one more series (the queue reports its peak since the last sample). A
+      seventh tile; on a quiet day it reads 0 and takes a slot in the grid.</div>
+  </div>
+
+  <div class="eyebrow">Option C</div>
+  <div class="dname">A check-in pipeline card</div>
+  <p class="ddesc">Its own card under Work in flight: slots in use → queued → written, with shed, written-inline and lost counts
+    beneath. Explains the whole path in one place.</p>
+  <div class="sv-card" id="optC"></div>
+  <div class="pros">
+    <div><b>Good at</b>The most complete picture, and the only one that shows the 16-slot cap filling, which is what turns a
+      check-in away before the queue does.</div>
+    <div><b>Bad at</b>Most of the page's height for numbers that are 0 on every normal day at 190 devices, and still a snapshot:
+      the same blindness to a burst that has passed as A.</div>
+  </div>
+
+  <div class="verdict"><b>My pick: B.</b> The queue only does anything for the few seconds after a deploy or a restaurant power
+    cut, so the question this page has to answer is "did that burst hurt, and when" — a trend, not a snapshot. B is the
+    only option that keeps the answer after the burst is over. The shed count rides in the tile's second line, so A's
+    one real strength comes with it.</div>
+  <p class="note">Mock numbers: quiet = 190 devices checking in normally; burst = the minute after a deploy, when every
+    device reconnects at once (the live deploy on 28 Sep brought 55 back in 2.5 min; this shows the whole fleet).</p>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.querySelectorAll('.themebar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.setAttribute('data-theme', b.dataset.t);
+      document.querySelectorAll('.themebar button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
+
+  var S = {
+    quiet: { depth: 0, peak: 6, cap: 2048, slots: 1, shed: 0, inline: 0, lost: 0, written: 18240, flush: 9, cpm: 42, req: 3.1,
+             series: null },
+    burst: { depth: 1210, peak: 1690, cap: 2048, slots: 16, shed: 41, inline: 0, lost: 0, written: 19870, flush: 212, cpm: 390, req: 24.6,
+             series: null }
+  };
+  // 360 ten-second samples, the same hour in both states: check-ins sit near 40/min,
+  // and the deploy at sample 300 (10:28) sends them to ~400 for a minute, the queue's
+  // peak with them. In the quiet state that burst is history — which is the point.
+  function mkSeries() {
+    var ck = [], q = [], hit = [380, 1690, 1420, 900, 410, 150, 60, 20, 8];
+    for (var i = 0; i < 360; i++) {
+      var n = 38 + Math.sin(i / 9) * 6 + (i * 7919 % 13), qp = i * 104729 % 7;
+      if (i >= 300 && i < 309) { n = 420 - (i - 300) * 38; qp = hit[i - 300]; }
+      ck.push(n); q.push(qp);
+    }
+    return { ck: ck, q: q };
+  }
+  S.quiet.series = S.burst.series = mkSeries();
+
+  function bar(label, n, of, cls, isNew) {
+    var pct = of > 0 ? Math.min(100, Math.round(n / of * 100)) : (n > 0 ? 100 : 0);
+    return '<div class="sv-row' + (isNew ? ' new' : '') + '"><span>' + label + '</span>' +
+      '<span class="sv-bar"><i class="' + (cls || '') + '" style="width:' + pct + '%"></i></span>' +
+      '<span class="sv-num">' + n + '</span></div>';
+  }
+  function tile(k, v, unit, sub, cls, color, off, isNew) {
+    return '<div class="sv-tile ' + (cls || '') + (off ? ' off' : '') + (isNew ? ' new' : '') + '">' +
+      '<span class="sw" style="background:' + color + '"></span>' +
+      '<div class="k">' + k + '</div><div class="v">' + v + (unit ? '<small>' + unit + '</small>' : '') + '</div>' +
+      '<div class="s">' + sub + '</div></div>';
+  }
+  function line(vals, color, from) {
+    var v = vals.slice(from), max = Math.max.apply(null, v) || 1;
+    return '<polyline class="ln" stroke="' + color + '" points="' + v.map(function (y, i) {
+      return (i / (v.length - 1) * 1000).toFixed(1) + ',' + (165 - y / max * 150).toFixed(1);
+    }).join(' ') + '"/>';
+  }
+
+  function render(state) {
+    var s = S[state];
+    document.getElementById('optA').innerHTML =
+      bar('Commands awaiting a device', 3, 190) +
+      bar('Deployments active', 0, 3, 'ok') +
+      bar('OTA downloads in flight', 0, 190, 'warn') +
+      bar('Check-in history queued', s.depth, s.cap, s.depth > s.cap * 0.8 ? 'warn' : '', true) +
+      bar('Check-ins turned away', s.shed, 50, s.shed ? 'warn' : 'ok', true) +
+      bar('Remote screen sessions', 0, 4) +
+      bar('Peer outbox', 0, 20, 'ok') +
+      bar('Open alerts', 12, 190, 'warn');
+
+    document.getElementById('optB-tiles').innerHTML =
+      tile('Requests', s.req, '/s', 'peak p95 ' + (state === 'burst' ? 310 : 48) + ' ms · 91204 total', '', '#7a80f6', true) +
+      tile('Check-ins', s.cpm, '/min', '6480 since boot', '', '#f9674e', false) +
+      tile('Check-in queue', s.peak, '/' + s.cap, 'batch ' + s.flush + ' ms · ' + (s.shed ? s.shed + ' turned away' : 'none turned away'),
+           s.peak > s.cap * 0.8 ? 'warn' : '', '#2bb673', false, true) +
+      tile('WebSockets', state === 'burst' ? 121 : 186, '', (state === 'burst' ? 121 : 186) + ' of 193 devices', '', '#d98b1a', true) +
+      tile('DB pool', state === 'burst' ? 22 : 4, '/60', '0 waits since boot', '', '#9b59b6', true);
+    var ser = s.series;
+    document.getElementById('optB-chart').innerHTML =
+      '<line class="gl" x1="0" x2="1000" y1="165" y2="165"/><line class="gl" x1="0" x2="1000" y1="90" y2="90"/>' +
+      line(ser.ck, '#f9674e', 0) + line(ser.q, '#2bb673', 0);
+    document.getElementById('optB-read').innerHTML =
+      '<span><i style="background:#f9674e"></i>Check-ins, 10:28 — 420/min</span>' +
+      '<span><i style="background:#2bb673"></i>Check-in queue, 10:28 — peak 1690 of 2048, 41 turned away</span>';
+
+    document.getElementById('optC').innerHTML =
+      '<div class="pipe">' +
+        '<div class="st' + (s.slots >= 16 ? ' warn' : '') + '"><div class="k">Running now</div><div class="v">' + s.slots + '<small>/16</small></div><div class="s">check-ins in their synchronous half</div></div>' +
+        '<div class="ar">→</div>' +
+        '<div class="st' + (s.depth > s.cap * 0.8 ? ' warn' : '') + '"><div class="k">History queued</div><div class="v">' + s.depth + '<small>/' + s.cap + '</small></div><div class="s">429 past ' + Math.round(s.cap * 0.8) + '</div></div>' +
+        '<div class="ar">→</div>' +
+        '<div class="st"><div class="k">Written</div><div class="v">' + s.written.toLocaleString() + '</div><div class="s">last batch ' + s.flush + ' ms</div></div>' +
+      '</div>' +
+      '<div class="pipe-foot">' +
+        '<span class="' + (s.shed ? 'warn' : '') + '">Turned away <b>' + s.shed + '</b></span>' +
+        '<span>Written inline <b>' + s.inline + '</b></span>' +
+        '<span>Lost <b>' + s.lost + '</b></span>' +
+        '<span>since boot</span>' +
+      '</div>';
+  }
+  document.querySelectorAll('.statebar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.statebar button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      render(b.dataset.s);
+    });
+  });
+  render('quiet');
+})();
+</script>
+</body>
+</html>

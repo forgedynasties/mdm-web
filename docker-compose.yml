@@ -13,8 +13,10 @@ services:
     # Tuned for the t2.xlarge (16 GB, since 25 Sep 2026) that live and stage share with
     # other stacks; the defaults assumed a 128 MB buffer pool on a 1.2 GB database, so
     # most reads went to the OS. Stage keeps smaller numbers in its .env (PG_*).
-    # Changing these takes a recreate of this container, not a deploy: deploy.yml only
-    # recreates the server.
+    # A deploy that changes anything here restarts Postgres too: deploy.yml's
+    # `compose up server` recreates a dependency whose config differs (seen on the
+    # 28 Sep deploy, ~6 s without a database). Stage's PG_* must be in its .env
+    # before that deploy, or stage comes up with live's sizes.
     command:
       - postgres
       - -c
