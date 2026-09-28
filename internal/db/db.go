@@ -5075,21 +5075,41 @@ func (d *DB) GetCommandDeviceIDs(ctx context.Context, commandID uuid.UUID) ([]uu
 
 func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
-		FROM commands c
-		WHERE (
-			c.target_type = 'all'
-			OR (c.target_type = 'devices' AND EXISTS (
-				SELECT 1 FROM command_targets ct
-				WHERE ct.command_id = c.id AND ct.target_id = $1
-			))
-			OR (c.target_type = 'groups' AND EXISTS (
-				SELECT 1 FROM command_targets ct
-				JOIN device_groups dg ON dg.group_id = ct.target_id
-				WHERE ct.command_id = c.id AND dg.device_id = $1
-			))
+		-- live = this device's commands that are still CURRENT: created within the hour, or
+		-- actively downloading/installing on this device at any age. A command older than an
+		-- hour is stale and must NOT suddenly run when a device reconnects (a day-old queued
+		-- reboot firing on reconnect is exactly the surprise-reboot we must avoid). This
+		-- matches the Queue tab's display window, so what you see queued is what will run.
+		--
+		-- The same set is both what may be delivered and what may block (below), so it is
+		-- built once, from the two small indexed sources. Filtering the whole commands table
+		-- row by row instead ran a command_status probe per command ever created: 740 ms for
+		-- zero rows on live, on every connect, ack and minute flush — a CPU core, fleet-wide.
+		WITH live AS MATERIALIZED (
+			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
+			FROM commands c
+			WHERE c.id IN (
+				SELECT id FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
+				UNION
+				SELECT command_id FROM command_status
+				WHERE device_id = $1 AND status IN ('downloading', 'installing')
+			)
+			AND (
+				c.target_type = 'all'
+				OR (c.target_type = 'devices' AND EXISTS (
+					SELECT 1 FROM command_targets ct
+					WHERE ct.command_id = c.id AND ct.target_id = $1
+				))
+				OR (c.target_type = 'groups' AND EXISTS (
+					SELECT 1 FROM command_targets ct
+					JOIN device_groups dg ON dg.group_id = ct.target_id
+					WHERE ct.command_id = c.id AND dg.device_id = $1
+				))
+			)
 		)
-		AND NOT EXISTS (
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
+		FROM live c
+		WHERE NOT EXISTS (
 			SELECT 1 FROM command_status cs
 			WHERE cs.command_id = c.id AND cs.device_id = $1
 			AND (
@@ -5126,44 +5146,15 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- applying an OTA around other work on its own.
 		AND (
 			c.type = 'ota'
+			-- A blocker must itself be in live: a command past its delivery window (older than an
+			-- hour and not actively downloading/installing) never delivers, so it must not wedge
+			-- the queue behind it — otherwise stale pending commands (e.g. offline-device
+			-- screenshots that pile up) block every newer command forever.
 			OR NOT EXISTS (
-				SELECT 1 FROM commands c2
+				SELECT 1 FROM live c2
 				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.type <> 'ota'
-				  AND (
-					c2.target_type = 'all'
-					OR (c2.target_type = 'devices' AND EXISTS (
-						SELECT 1 FROM command_targets ct2 WHERE ct2.command_id = c2.id AND ct2.target_id = $1))
-					OR (c2.target_type = 'groups' AND EXISTS (
-						SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
-						WHERE ct2.command_id = c2.id AND dg2.device_id = $1))
-				  )
 				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
-				  -- A blocker must still be LIVE: a command past its delivery window (older than an hour
-				  -- and not actively downloading/installing) never delivers, so it must not wedge the queue
-				  -- behind it — otherwise stale pending commands (e.g. offline-device screenshots that pile
-				  -- up) block every newer command forever.
-				  AND (
-						c2.created_at > NOW() - INTERVAL '1 hour'
-						OR EXISTS (SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $1
-							AND s3.status IN ('downloading','installing'))
-				  )
-			)
-		)
-		-- Only deliver commands that are still CURRENT: a command older than an hour is stale
-		-- and must NOT suddenly run when a device reconnects (a day-old queued reboot firing
-		-- on reconnect is exactly the surprise-reboot we must avoid). This matches the Queue
-		-- tab's display window, so what you see queued is what will run. An install already
-		-- actively downloading/installing stays deliverable regardless of age so it can finish.
-		-- NOTE: this outer query has NO command_status join, so the "still running" exception
-		-- must be a correlated subquery — referencing a bare cs.status here is a missing-FROM
-		-- error that makes the WHOLE query fail (silently killing reconnect-flush + advance).
-		AND (
-			c.created_at > NOW() - INTERVAL '1 hour'
-			OR EXISTS (
-				SELECT 1 FROM command_status cs3
-				WHERE cs3.command_id = c.id AND cs3.device_id = $1
-				AND cs3.status IN ('downloading', 'installing')
 			)
 		)
 		ORDER BY c.created_at ASC
