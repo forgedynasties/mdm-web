@@ -123,6 +123,9 @@
 /* one home-screen grid: each widget spans 1 (half) or 2 (full) columns */
 .ov3-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 @media(max-width:980px){.ov3-grid{grid-template-columns:1fr}}
+/* masonry: once the script measures the cards, rows are 4px and each card spans
+   its own height, so a short card no longer leaves a hole beside a tall one */
+.ov3-grid.ov3-masonry{grid-auto-rows:4px;row-gap:0}
 .ov3-w[data-cw="2"]{grid-column:1/-1}
 .ov3-w[data-ch="1"] > .ov3-card{max-height:300px;overflow:auto}
 .ov3-w[data-ch="3"] > .ov3-card{min-height:560px}
@@ -397,6 +400,25 @@
   var root = document.getElementById('ov3');
   if (!root) return;
   var grid = document.getElementById('ov3-grid');
+
+  // ── masonry: each grid child spans as many 4px rows as it is tall (plus the gap),
+  // re-measured whenever a card's content changes size ──
+  var ROW = 4, GAP = 16;
+  function span(el) {
+    var h = el.getBoundingClientRect().height;
+    el.style.gridRowEnd = h ? 'span ' + Math.ceil((h + GAP) / ROW) : '';
+  }
+  function pack() { Array.prototype.forEach.call(grid.children, span); }
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function (es) { es.forEach(function (e) { span(e.target); }); });
+    Array.prototype.forEach.call(grid.children, function (c) { ro.observe(c); });
+    new MutationObserver(function (ms) {
+      ms.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1) ro.observe(n); }); });
+    }).observe(grid, { childList: true });
+    grid.classList.add('ov3-masonry');
+    pack();
+  }
+
   function readJSON(id, fallback) {
     try {
       var v = JSON.parse(document.getElementById(id).textContent);
