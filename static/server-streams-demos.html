@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIO MDM — Server page: live streams</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg)}
+.dm-wrap{max-width:1120px;margin:0 auto;padding:30px 16px 90px}
+.dm-h1{font-size:23px;font-weight:650;margin:0 0 6px;letter-spacing:-.01em}
+.dm-lede{font-size:13px;color:var(--muted);line-height:1.6;max-width:80ch;margin:0 0 10px}
+.dm-opt{margin:32px 0 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 18px 22px;box-shadow:var(--shadow-sm)}
+.dm-opt>h2{font-size:15px;font-weight:650;margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dm-badge{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 8px}
+.dm-badge.pick{background:var(--ok-bg,#e6f6ee);color:var(--ok,#1c7d50)}
+.dm-badge.live{background:var(--surface2);color:var(--muted)}
+.dm-why{font-size:12.5px;color:var(--text-2);line-height:1.6;margin:8px 0 16px;max-width:84ch}
+.dm-stage{background:var(--bg);border:1px solid var(--border-soft);border-radius:13px;padding:16px}
+.dm-note{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:14px}
+.dm-note div{font-size:12px;line-height:1.55;color:var(--text-2);background:var(--surface2);border-radius:10px;padding:10px 12px}
+.dm-note b{display:block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+code{font-family:var(--mono);font-size:.92em}
+
+/* The real page's classes, copied from templates/server_metrics.html */
+.sv-sec{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:0 0 9px}
+.sv-sec+.sv-card{margin-bottom:18px}
+.sv-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:12px;margin-bottom:18px}
+.sv-tile{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px}
+.sv-tile .k{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px}
+.sv-tile .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.sv-tile .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:2px}
+.sv-tile .s{font-size:11.5px;color:var(--muted);margin-top:4px}
+.sv-tile.warn .v{color:var(--warn)}
+table.sv-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+table.sv-tbl th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:0 8px 7px 0;font-weight:700}
+table.sv-tbl th.n,table.sv-tbl td.n{text-align:right}
+table.sv-tbl td{padding:6px 8px 6px 0;border-top:1px solid var(--border-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.sv-tbl td.rt{font-family:var(--mono);font-size:11px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;max-width:260px}
+table.sv-tbl td.slow{color:var(--warn);font-weight:600}
+table.sv-tbl tr.grp td{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);font-weight:700;padding-top:12px}
+table.sv-tbl td.dim{color:var(--text-faint)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media(max-width:1024px){.two{grid-template-columns:1fr}}
+.tbl-scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="dm-wrap">
+
+<h1 class="dm-h1">Server page: where SSE streams go</h1>
+<p class="dm-lede">
+  The "slowest routes" table used to be topped by <code>GET /events/devices</code> at a p95 of
+  4,627,450 ms, which is 77 minutes. It wasn't slow. It was a dashboard tab left open, because an SSE
+  stream's "duration" is how long it stayed connected. The fix now live takes streams out of that table
+  and measures them on their own terms. The data is already in every frame as <code>snapshot.streams</code>.
+  This page is about whether to show it, and how.
+</p>
+<p class="dm-lede">
+  Three numbers carry meaning for a stream. <b>Open now</b>: a number that keeps climbing is a leak.
+  <b>Time to first byte</b>: slow auth or a slow first query. <b>Typical life</b>: seconds instead of
+  minutes means clients are reconnecting in a loop.
+</p>
+
+<div class="dm-opt">
+  <h2>A. Own table under the routes <span class="dm-badge pick">Recommended</span></h2>
+  <p class="dm-why">A second card called "Live streams" goes right below "Where the time goes", with the columns that matter for streams. Warning colours: time to first byte p95 over 500 ms, or a typical life under 30 s once a route has opened 20+ streams (a reconnect loop).</p>
+  <div class="dm-stage">
+    <div class="sv-sec"><span>Where the time goes</span></div>
+    <div class="sv-card tbl-scroll">
+      <table class="sv-tbl">
+        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n">Total</th><th class="n">Err</th></tr></thead>
+        <tbody>
+          <tr><td class="rt">GET /commands</td><td class="n">40</td><td class="n">181</td><td class="n">291</td><td class="n">7.6 s</td><td class="n">0</td></tr>
+          <tr><td class="rt">GET /devices</td><td class="n">40</td><td class="n">159</td><td class="n">278</td><td class="n">6.7 s</td><td class="n">0</td></tr>
+          <tr><td class="rt">GET /</td><td class="n">39</td><td class="n">114</td><td class="n">238</td><td class="n">4.8 s</td><td class="n slow">4</td></tr>
+          <tr><td class="rt">GET /releases</td><td class="n">43</td><td class="n">63</td><td class="n">202</td><td class="n">3.1 s</td><td class="n">0</td></tr>
+          <tr><td class="rt">GET /settings</td><td class="n">2</td><td class="n">266</td><td class="n" title="Too few calls for a p95">—</td><td class="n">532 ms</td><td class="n">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sv-sec"><span>Live streams</span></div>
+    <div class="sv-card tbl-scroll">
+      <table class="sv-tbl">
+        <thead><tr><th>Stream</th><th class="n">Open</th><th class="n">Opened</th><th class="n">First byte p50</th><th class="n">p95</th><th class="n">Typical life</th></tr></thead>
+        <tbody>
+          <tr><td class="rt">GET /alerts/events</td><td class="n">3</td><td class="n">41</td><td class="n">2</td><td class="n">6</td><td class="n">12m</td></tr>
+          <tr><td class="rt">GET /devices/{serial}/events</td><td class="n">2</td><td class="n">33</td><td class="n">3</td><td class="n">9</td><td class="n slow" title="Many short-lived streams: clients reconnecting">18s</td></tr>
+          <tr><td class="rt">GET /events/devices</td><td class="n">1</td><td class="n">6</td><td class="n">4</td><td class="n">7</td><td class="n">5h 12m</td></tr>
+          <tr><td class="rt">GET /server/events</td><td class="n">1</td><td class="n">2</td><td class="n">3</td><td class="n">—</td><td class="n">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b>Each table has columns that mean something for what's in it. A leak (Open keeps climbing) or a reconnect loop (short Typical life) is visible per route, which is the level you'd fix it at.</div>
+    <div><b>Bad at</b>One more card on a page that's already long. On a quiet day it's four calm rows.</div>
+  </div>
+</div>
+
+<div class="dm-opt">
+  <h2>B. One tile next to WebSockets</h2>
+  <p class="dm-why">A "Streams" tile in the top row: the total open, how many were opened since boot, and a warning colour if any route shows a reconnect loop. No per-route breakdown.</p>
+  <div class="dm-stage">
+    <div class="sv-grid">
+      <div class="sv-tile"><div class="k">WebSockets</div><div class="v">31</div><div class="s">31 of 36 devices</div></div>
+      <div class="sv-tile"><div class="k">Streams</div><div class="v">7</div><div class="s">82 opened · first byte p95 9 ms</div></div>
+      <div class="sv-tile warn"><div class="k">Streams</div><div class="v">7</div><div class="s">/devices/{serial}/events reconnecting</div></div>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b>Costs no space. It sits beside WebSockets, the other long-lived connection count, so the two read together.</div>
+    <div><b>Bad at</b>The tile row has sparklines, and this would need one too. It also can't show which stream is leaking without a hover.</div>
+  </div>
+</div>
+
+<div class="dm-opt">
+  <h2>C. Streams as a group inside the routes table</h2>
+  <p class="dm-why">One table with a "Streams" divider row. The stream rows reuse the same five columns, relabelled in place: Calls → opened, p50/p95 → first byte, Total → open now.</p>
+  <div class="dm-stage">
+    <div class="sv-card tbl-scroll">
+      <table class="sv-tbl">
+        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n">Total</th><th class="n">Err</th></tr></thead>
+        <tbody>
+          <tr><td class="rt">GET /commands</td><td class="n">40</td><td class="n">181</td><td class="n">291</td><td class="n">7.6 s</td><td class="n">0</td></tr>
+          <tr><td class="rt">GET /devices</td><td class="n">40</td><td class="n">159</td><td class="n">278</td><td class="n">6.7 s</td><td class="n">0</td></tr>
+          <tr class="grp"><td colspan="6">Streams · opened · first byte · open now</td></tr>
+          <tr><td class="rt">GET /alerts/events</td><td class="n">41</td><td class="n">2</td><td class="n">6</td><td class="n">3 open</td><td class="n dim">—</td></tr>
+          <tr><td class="rt">GET /devices/{serial}/events</td><td class="n">33</td><td class="n">3</td><td class="n">9</td><td class="n">2 open</td><td class="n dim">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="dm-note">
+    <div><b>Good at</b>No new card. Everything the server handles is in one place.</div>
+    <div><b>Bad at</b>The column headers lie for half the rows, which is the confusion this change was meant to remove. There's no room for Typical life, the most useful stream number.</div>
+  </div>
+</div>
+
+<div class="dm-opt">
+  <h2>D. Don't show streams <span class="dm-badge live">Deployed now</span></h2>
+  <p class="dm-why">Streams are measured and sent in the frame but not drawn. The routes table stays clean.</p>
+  <div class="dm-note">
+    <div><b>Good at</b>Nothing to add. The misleading numbers are already gone.</div>
+    <div><b>Bad at</b>A stream leak or reconnect loop goes unnoticed until goroutines or the DB pool climb, and by then the Server page shows the symptom, not the route.</div>
+  </div>
+</div>
+
+<p class="dm-lede" style="margin-top:28px">
+  <b>My pick: A.</b> The point of the fix was to give each table columns that mean something. B hides the
+  per-route answer you'd need to act on, and C brings back the mixed-meaning columns we just removed.
+</p>
+
+</div>
+</body>
+</html>

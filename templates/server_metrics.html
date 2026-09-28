@@ -139,10 +139,12 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
     <div class="sv-sec"><span>Database</span><span class="live" style="font-weight:500" id="sv-db-age"></span></div>
     <div class="sv-card" id="sv-db"></div>
 
-    <div class="sv-sec"><span>Slowest routes</span></div>
+    {{/* Ordered by total time spent, so the top row is what the server is busiest with.
+         SSE streams are not here: their duration is how long a tab stayed open. */}}
+    <div class="sv-sec"><span>Where the time goes</span></div>
     <div class="sv-card">
       <table class="sv-tbl" id="sv-routes">
-        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n">Err</th></tr></thead>
+        <thead><tr><th>Route</th><th class="n">Calls</th><th class="n">p50</th><th class="n">p95</th><th class="n" title="All calls' time added up">Total</th><th class="n">Err</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -170,6 +172,12 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
   function fmt(n, digits) {
     if (n === null || n === undefined || isNaN(n)) return '—';
     return Number(n).toFixed(digits === undefined ? 0 : digits);
+  }
+  var MIN_P95_CALLS = 20;
+  function total(ms) {
+    if (ms >= 60000) return fmt(ms / 60000, 1) + ' min';
+    if (ms >= 1000) return fmt(ms / 1000, 1) + ' s';
+    return fmt(ms) + ' ms';
   }
   function dur(sec) {
     if (!sec) return '—';
@@ -351,10 +359,14 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
     var s = p.snapshot, l = s.latest || {}, q = p.queues, series = s.series || [];
 
     var poolCls = l.db_total && l.db_used / l.db_total > 0.7 ? 'warn' : '';
-    var p95 = (s.routes || []).reduce(function (m, r) { return Math.max(m, r.p95_ms); }, 0);
+    // Only routes with enough calls for a p95 to mean anything; below that it is just
+    // the slowest single call. Mirrors metrics.MinCallsForP95.
+    var p95 = (s.routes || []).reduce(function (m, r) {
+      return r.calls >= MIN_P95_CALLS ? Math.max(m === null ? 0 : m, r.p95_ms) : m;
+    }, null);
 
     document.getElementById('sv-tiles').innerHTML =
-      tile('Requests', fmt(l.requests, 1), '/s', 'peak p95 ' + fmt(p95) + ' ms · ' + s.req_total + ' total',
+      tile('Requests', fmt(l.requests, 1), '/s', (p95 === null ? 'peak p95 —' : 'peak p95 ' + fmt(p95) + ' ms') + ' · ' + s.req_total + ' total',
         '', 'requests') +
       tile('Check-ins', fmt(l.checkins), '/min', s.checkin_total + ' since boot',
         '', 'checkins') +
@@ -408,10 +420,13 @@ table.sv-tbl td.slow{color:var(--warn);font-weight:600}
           return '<tr><td class="rt" title="' + esc(r.route) + '">' + esc(r.route) + '</td>' +
             '<td class="n">' + r.calls + '</td>' +
             '<td class="n">' + fmt(r.p50_ms) + '</td>' +
-            '<td class="n' + (r.p95_ms > 500 ? ' slow' : '') + '">' + fmt(r.p95_ms) + '</td>' +
-            '<td class="n">' + (r.errors || 0) + '</td></tr>';
+            (r.calls >= MIN_P95_CALLS
+              ? '<td class="n' + (r.p95_ms > 500 ? ' slow' : '') + '">' + fmt(r.p95_ms) + '</td>'
+              : '<td class="n" title="Too few calls for a p95">—</td>') +
+            '<td class="n">' + total(r.total_ms) + '</td>' +
+            '<td class="n' + (r.errors ? ' slow' : '') + '">' + (r.errors || 0) + '</td></tr>';
         }).join('')
-      : '<tr><td colspan="5" class="sv-empty">No requests measured yet.</td></tr>';
+      : '<tr><td colspan="6" class="sv-empty">No requests measured yet.</td></tr>';
 
     document.getElementById('sv-feed').innerHTML = (s.events || []).length
       ? s.events.map(function (e) {

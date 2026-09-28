@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"mdm/internal/metrics"
@@ -24,21 +25,35 @@ var (
 // doesn't break the streaming endpoints.
 type logRW struct {
 	http.ResponseWriter
+	r      *http.Request
+	start  time.Time
 	status int
 	bytes  int
 	wrote  bool
+	stream bool // the response is an SSE stream (decided at the first write)
+}
+
+// first runs once, when the headers go out. That is the only point at which an SSE
+// response can be told apart from an ordinary one — by the Content-Type its handler
+// set — and the stream is counted open from then, with the wait so far as its TTFB.
+func (w *logRW) first(code int) {
+	w.status, w.wrote = code, true
+	if code < 300 && strings.HasPrefix(w.Header().Get("Content-Type"), "text/event-stream") {
+		w.stream = true
+		metrics.Default.StreamOpen(w.r.Method, w.r.URL.Path, time.Since(w.start))
+	}
 }
 
 func (w *logRW) WriteHeader(code int) {
 	if !w.wrote {
-		w.status, w.wrote = code, true
+		w.first(code)
 	}
 	w.ResponseWriter.WriteHeader(code)
 }
 
 func (w *logRW) Write(b []byte) (int, error) {
 	if !w.wrote {
-		w.status, w.wrote = http.StatusOK, true
+		w.first(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(b)
 	w.bytes += n
@@ -66,7 +81,7 @@ func (w *logRW) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 func AccessLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		lw := &logRW{ResponseWriter: w, status: http.StatusOK}
+		lw := &logRW{ResponseWriter: w, r: r, start: start, status: http.StatusOK}
 		next.ServeHTTP(lw, r)
 		dur := time.Since(start)
 
@@ -76,15 +91,19 @@ func AccessLog(next http.Handler) http.Handler {
 		}
 		// Feed the in-process collector behind the Server page. This middleware already
 		// wraps every route, so instrumenting here means no handler has to remember to
-		// do it — and a route added later is measured the day it is added. A hijacked
-		// connection (WS upgrade) is skipped: its "duration" is the life of the socket,
-		// which would swamp every percentile on the page.
-		if lw.wrote {
+		// do it — and a route added later is measured the day it is added. Long-lived
+		// connections stay out of the latency table: their "duration" is how long a
+		// tab stayed open, and one 77-minute SSE stream swamps every percentile on the
+		// page. A hijacked connection (WS upgrade, wrote==false) is skipped; an SSE
+		// stream is closed out on its own stats.
+		switch {
+		case lw.stream:
+			metrics.Default.StreamClose(r.Method, r.URL.Path, dur)
+		case lw.wrote:
 			metrics.Default.Observe(r.Method, r.URL.Path, lw.status, dur)
 		}
-		// wrote==false means the handler hijacked the connection (a WS upgrade), so
-		// skip it; bound the slow window below 60s so a live SSE stream isn't logged.
-		if lw.status >= 400 || (lw.wrote && dur > 2*time.Second && dur < 60*time.Second) {
+		// Slow means a slow ordinary request; the 60s cap keeps large downloads out.
+		if lw.status >= 400 || (lw.wrote && !lw.stream && dur > 2*time.Second && dur < 60*time.Second) {
 			log.Printf("[http] %s %s %d %dms %dB %s", r.Method, r.URL.Path, lw.status, dur.Milliseconds(), lw.bytes, clientIP(r))
 		}
 	})
