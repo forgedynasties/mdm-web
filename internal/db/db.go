@@ -7798,27 +7798,43 @@ func (d *DB) DownsampleSamples(ctx context.Context, olderThanDays, bucketSec, ma
 }
 
 
-// RollupDailyStatsFor computes a day from the shaped tables when they can answer it
-// and from the check-in snapshots when they cannot. Callers should use this rather than
-// either path directly.
+// RollupDailyStatsFor computes a day from the shaped tables for every device that can
+// be answered, and leaves the rest alone. Callers should use this rather than
+// RollupDailyStatsShaped directly.
+//
+// It used to be all or nothing: one device anywhere in the fleet without a state
+// baseline failed the whole day. On live that was always some unassigned tablet, so
+// every venue's day stopped updating at whatever hour that tablet first reported —
+// 21 Sep was frozen at 06:46 and read as 6.9 powered hours for tablets that were on
+// all day. Now the unanswerable devices are skipped, keep their last row, and get
+// their online minutes (which need no state) corrected on their own.
 func (d *DB) RollupDailyStatsFor(ctx context.Context, day time.Time) (int64, error) {
-	ready, err := d.shapedRollupReady(ctx, day)
+	total, unready, err := d.shapedRollupUnready(ctx, day)
 	if err != nil {
 		return 0, err
 	}
-	if ready {
-		return d.RollupDailyStatsShaped(ctx, day)
+	if total == 0 || len(unready) == total {
+		// With the checkins table retired there is no second source. A device the shaped
+		// tables cannot answer would otherwise roll up with every state-derived figure
+		// zero, written as fact; better not rolled up at all, and said so.
+		return 0, fmt.Errorf("rollup %s: shaped tables cannot answer the day (%d of %d device(s) without a state baseline)",
+			day.Format("2006-01-02"), len(unready), total)
 	}
-	// With the checkins table retired there is no second source. A day the shaped tables
-	// cannot answer would otherwise roll up with every state-derived figure zero, written
-	// as fact; better not rolled up at all, and said so.
-	return 0, fmt.Errorf("rollup %s: shaped tables cannot answer the day (a device without a state baseline)",
-		day.Format("2006-01-02"))
+	n, err := d.rollupDailyStatsShaped(ctx, day, unready)
+	if err != nil {
+		return n, err
+	}
+	if len(unready) > 0 {
+		if _, err := d.recomputeOnlineMinutes(ctx, day, unready); err != nil {
+			return n, err
+		}
+	}
+	return n, nil
 }
 
-// shapedRollupReady reports whether every device that reported during the day already
-// had a recorded baseline for each state the aggregates read, at or before its first
-// sample of that day.
+// shapedRollupUnready returns how many devices reported during the day, and which of
+// them did not yet have a recorded baseline for each state the aggregates read, at or
+// before their first sample of that day.
 //
 // It asks that question of the data rather than comparing against the date the fix
 // shipped. A date would be a claim about deployment; this is a check of the thing that
@@ -7828,30 +7844,46 @@ func (d *DB) RollupDailyStatsFor(ctx context.Context, day time.Time) (int64, err
 // the same transaction as its first sample — and events sort before samples at equal
 // timestamps, so it is covered from that very first row.
 //
-// A single device short of it sends the whole day to the check-in path, because the
-// failure it guards against is silent: an unknown state reads as a device that was
-// never charging, not as an error.
-func (d *DB) shapedRollupReady(ctx context.Context, day time.Time) (bool, error) {
-	var ready bool
-	err := d.pool.QueryRow(ctx, `
+// A device short of it is left out of the rollup, because the failure it guards
+// against is silent: an unknown state reads as a device that was never charging, not
+// as an error.
+func (d *DB) shapedRollupUnready(ctx context.Context, day time.Time) (int, []uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
 		WITH first_sample AS (
 			SELECT device_id, MIN(at) AS t
 			FROM device_samples
 			WHERE at >= $1::date AND at < ($1::date + INTERVAL '1 day')
 			GROUP BY device_id
 		)
-		SELECT NOT EXISTS (
+		SELECT f.device_id, EXISTS (
 			SELECT 1
-			FROM first_sample f
-			JOIN devices dv ON dv.id = f.device_id
+			FROM devices dv
 			CROSS JOIN unnest($2::text[]) AS k(key)
-			WHERE dv.latest_extra ? k.key
+			WHERE dv.id = f.device_id
+			  AND dv.latest_extra ? k.key
 			  AND NOT EXISTS (
 				SELECT 1 FROM device_state_events e
-				WHERE e.device_id = f.device_id AND e.key = k.key AND e.at <= f.t)
-		) AND EXISTS (SELECT 1 FROM first_sample)`,
-		day.Format("2006-01-02"), rollupStateKeys).Scan(&ready)
-	return ready, err
+				WHERE e.device_id = f.device_id AND e.key = k.key AND e.at <= f.t))
+		FROM first_sample f`,
+		day.Format("2006-01-02"), rollupStateKeys)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer rows.Close()
+	total := 0
+	var unready []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		var bad bool
+		if err := rows.Scan(&id, &bad); err != nil {
+			return 0, nil, err
+		}
+		total++
+		if bad {
+			unready = append(unready, id)
+		}
+	}
+	return total, unready, rows.Err()
 }
 
 // RollupDailyStatsShaped computes the same day from device_samples and
@@ -7875,7 +7907,16 @@ func (d *DB) shapedRollupReady(ctx context.Context, day time.Time) (bool, error)
 // venue timezone configured, which fall through to the device's own timezone, of which
 // there were no events at all.
 func (d *DB) RollupDailyStatsShaped(ctx context.Context, day time.Time) (int64, error) {
-	tag, err := d.pool.Exec(ctx, rollupSQL(rollupSamplesFromShaped), day.Format("2006-01-02"), rollupStateKeys)
+	return d.rollupDailyStatsShaped(ctx, day, nil)
+}
+
+// rollupDailyStatsShaped is the rollup with some devices left out; their rows are not
+// touched.
+func (d *DB) rollupDailyStatsShaped(ctx context.Context, day time.Time, skip []uuid.UUID) (int64, error) {
+	if skip == nil {
+		skip = []uuid.UUID{}
+	}
+	tag, err := d.pool.Exec(ctx, rollupSQL(rollupSamplesFromShaped), day.Format("2006-01-02"), rollupStateKeys, skip)
 	if err != nil {
 		return 0, err
 	}
@@ -8109,6 +8150,7 @@ const rollupSamplesFromShaped = `
 				       NULL::text AS ev_screen, NULL::text AS ev_tz, NULL::text AS ev_build
 				FROM device_samples s, bounds b
 				WHERE s.at >= b.d0 AND s.at < b.d1
+				  AND NOT (s.device_id = ANY($3::uuid[]))
 				UNION ALL
 				SELECT ev.device_id, ev.at, FALSE,
 				       NULL::smallint, NULL::float8, NULL::int, NULL::int, NULL::float8,
@@ -8245,7 +8287,38 @@ func (d *DB) BackfillCommandAuthors(ctx context.Context) (int64, error) {
 // charge counts every day was skipped and the flag was written as though the work was
 // done — leaving 32,000 "charges" on days 13 and 14 while fresh days read correctly.
 // v4: the last sample of each day was weighted 600s, so online time ran 10 minutes over.
-const siteMetricsBackfillFlag = "site_metrics_backfilled_v4"
+// v5: v4 skipped every day with one device the shaped tables cannot answer; the rollup
+// now leaves out only that device, so those days recompute in full.
+const siteMetricsBackfillFlag = "site_metrics_backfilled_v5"
+
+// recomputeOnlineMinutes rewrites one day's online_minutes from device_samples, with
+// the same weighting as the rollup (each sample credited the gap to the next, capped
+// at ten minutes; the day's last sample credited nothing). For the devices, or days, the
+// full rollup cannot answer; nil means every device. computed_at moves so cached report
+// PDFs of that week go stale.
+func (d *DB) recomputeOnlineMinutes(ctx context.Context, day time.Time, only []uuid.UUID) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE device_daily_stats s
+		SET online_minutes = x.m, computed_at = NOW()
+		FROM (
+			SELECT device_id, (SUM(w) / 60.0)::int AS m
+			FROM (
+				SELECT device_id,
+					LEAST(COALESCE(EXTRACT(EPOCH FROM (
+						LEAD(at) OVER (PARTITION BY device_id ORDER BY at) - at)), 0), 600) AS w
+				FROM device_samples
+				WHERE at >= $1::date AND at < ($1::date + INTERVAL '1 day')
+				  AND ($2::uuid[] IS NULL OR device_id = ANY($2::uuid[]))
+			) g
+			GROUP BY device_id
+		) x
+		WHERE s.device_id = x.device_id AND s.day = $1::date AND s.online_minutes <> x.m`,
+		day.Format("2006-01-02"), only)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
 
 // BackfillSiteMetrics recomputes recent days so the power/usage figures cover a whole
 // week immediately rather than filling in a day at a time, and so a corrected formula
@@ -8281,10 +8354,14 @@ func (d *DB) BackfillSiteMetrics(ctx context.Context, maxDays int) (int, error) 
 		if !hasRows {
 			continue
 		}
-		// A day the shaped tables cannot answer keeps its stored row; it must not stop
-		// the days after it, or the flag is never written and this re-runs every boot.
+		// A day the shaped tables cannot answer keeps its stored row, but its online
+		// minutes are still corrected: they come from sample timestamps alone, not from
+		// the state baselines the full rollup is waiting for. It must not stop the days
+		// after it, or the flag is never written and this re-runs every boot.
 		if _, err := d.RollupDailyStatsFor(ctx, day); err != nil {
-			log.Printf("[backfill] site metrics %s: %v", day.Format("2006-01-02"), err)
+			n2, err2 := d.recomputeOnlineMinutes(ctx, day, nil)
+			log.Printf("[backfill] site metrics %s: %v; online minutes recomputed for %d device(s) (err %v)",
+				day.Format("2006-01-02"), err, n2, err2)
 			continue
 		}
 		n++
