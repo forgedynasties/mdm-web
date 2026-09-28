@@ -3,6 +3,9 @@ package db
 import (
 	"encoding/json"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestJSONScalar(t *testing.T) {
@@ -196,5 +199,55 @@ func TestStateEventRowsIgnoresAbsentKeys(t *testing.T) {
 	keys, _, _, _ := stateEventRows(prev, map[string]json.RawMessage{})
 	if len(keys) != 0 {
 		t.Errorf("a frame mentioning nothing produced events for %v", keys)
+	}
+}
+
+// TestShapeRowsDropsRepeatSeedsWithinABatch: one INSERT cannot see its own rows, so
+// the "no event for this key yet" probe passes for every report in a batch. Written one
+// at a time the first report's seed made later ones redundant; batched, shapeRows must
+// drop them itself or a device gets a duplicate baseline per report in the batch.
+func TestShapeRowsDropsRepeatSeedsWithinABatch(t *testing.T) {
+	devA, devB := uuid.New(), uuid.New()
+	t0 := time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC)
+	tz := json.RawMessage(`{"timezone":"Asia/Karachi","charging":true}`)
+	items := []ShapedTelemetry{
+		{DeviceID: devA, At: t0, Prev: tz, Cur: tz, Battery: 50, Stored: true},                      // seeds timezone, charging
+		{DeviceID: devA, At: t0.Add(time.Second), Prev: tz, Cur: tz, Battery: 50},                   // same seeds again: dropped
+		{DeviceID: devB, At: t0.Add(2 * time.Second), Prev: tz, Cur: tz, Battery: 70, Stored: true}, // another device: its own seeds
+		{DeviceID: devA, At: t0.Add(3 * time.Second), Prev: tz, // a real change is never dropped
+			Cur: json.RawMessage(`{"timezone":"Asia/Karachi","charging":false}`), Battery: 49, Stored: true},
+	}
+	b, err := shapeRows(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type row struct {
+		dev  uuid.UUID
+		key  string
+		seed bool
+	}
+	var got []row
+	for i := range b.evKey {
+		got = append(got, row{b.evDev[i], b.evKey[i], b.evSeed[i]})
+	}
+	want := []row{
+		{devA, "charging", true}, {devA, "timezone", true},
+		{devB, "charging", true}, {devB, "timezone", true},
+		{devA, "charging", false},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("events %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("event %d = %+v, want %+v (all: %+v)", i, got[i], want[i], got)
+		}
+	}
+	// Samples only for the reports that stored, in order, at their own instants.
+	if len(b.smDev) != 3 || b.smDev[0] != devA || b.smDev[1] != devB || b.smDev[2] != devA {
+		t.Fatalf("sample devices %v", b.smDev)
+	}
+	if !b.smAt[2].Equal(t0.Add(3*time.Second)) || b.smBattery[2] != 49 {
+		t.Fatalf("last sample at %v battery %d", b.smAt[2], b.smBattery[2])
 	}
 }

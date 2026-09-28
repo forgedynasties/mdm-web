@@ -1522,7 +1522,12 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 // when nil (omitted from a delta) the prior value is carried forward. RETURNING the resolved
 // extra + battery makes the checkins history row a full snapshot regardless of frame type
 // (windowed alerts + daily rollups read checkins.extra).
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool, product string) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, arrival bool, err error) {
+//
+// The history this report produces — state transitions and, when it stored, a numeric
+// sample — comes back as shaped rather than being written here: nothing in the reply
+// depends on it, so the caller queues it (WriteShapedBatch) and this transaction only
+// holds the device row.
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool, product string) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, arrival bool, shaped ShapedTelemetry, err error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
@@ -1556,7 +1561,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, 0, false, false, err
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -1569,7 +1574,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
 			ON CONFLICT DO NOTHING
 		`, serial, buildID); err != nil {
-			return uuid.Nil, 0, false, false, err
+			return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 		}
 		// A new build can carry a different app set — a re-flash wipes the lot. The
 		// client only re-sends its app list when ITS OWN hash changes, so a wiped device
@@ -1579,7 +1584,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			UPDATE devices SET packages_hash = ''
 			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
 		`, serial, buildID); err != nil {
-			return uuid.Nil, 0, false, false, err
+			return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 		}
 	}
 
@@ -1591,7 +1596,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	var prevCustody string
 	if err := tx.QueryRow(ctx, `SELECT latest_extra, last_seen_at, custody_server FROM devices WHERE serial_number = $1`,
 		serial).Scan(&prevExtra, &prevSeen, &prevCustody); err != nil && err != pgx.ErrNoRows {
-		return uuid.Nil, 0, false, false, err
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
 	// An arrival is worth telling our peers about: a device we have never seen, one we
 	// believed was on another server, or one silent long enough that another server may
@@ -1604,6 +1609,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	}
 	var merged json.RawMessage
 	var battery int
+	var at time.Time
 	err = tx.QueryRow(ctx, fmt.Sprintf(`
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
 		                     device_class, agent_kind, capabilities, capabilities_degraded)
@@ -1648,10 +1654,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    custody_seen_at    = NULL,
 			    custody_source     = '',
 			    custody_set_at     = NULL
-		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
-	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
+		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra, NOW()
+	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
 	if err != nil {
-		return uuid.Nil, 0, false, false, err
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
 
 	// crash_events is a bulky per-crash trace list (hundreds of KB) the client resends
@@ -1718,31 +1724,19 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		  )
 	`, deviceID, battery, buildID, histCur, sample)
 	if err != nil {
-		return uuid.Nil, 0, false, false, err
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
 	stored := ct.RowsAffected() > 0
 
-	// Write the shaped tables: the state events always, the numeric sample when this
-	// report stored (the same condition that used to store a checkins row).
-	//
-	// Inside a SAVEPOINT, because an error anywhere in a transaction poisons the whole
-	// transaction — "log it and carry on" would still fail the commit, and take the
-	// check-in down with a parallel write that nothing depends on yet. The savepoint
-	// lets this half roll back on its own.
-	//
-	// A failure here is therefore silent, which is only acceptable because it is
-	// detectable: device_samples rows and checkins rows are written under the same
-	// condition, so the two counts diverging is the signal. Phase 2 compares them
-	// before a single reader moves over.
-	if sp, spErr := tx.Begin(ctx); spErr == nil {
-		if err := d.writeShapedTelemetry(ctx, sp, deviceID, histPrev, histCur, battery, stored); err != nil {
-			_ = sp.Rollback(ctx)
-		} else {
-			_ = sp.Commit(ctx)
-		}
+	// The shaped rows to write: the state events always, the numeric sample when this
+	// report stored (the same condition that used to store a checkins row). Stamped with
+	// this transaction's NOW(), so a queued write lands at the instant it described, the
+	// same instant hist_at records, however long it waited.
+	shaped = ShapedTelemetry{DeviceID: deviceID, At: at, Prev: histPrev, Cur: histCur, Battery: battery, Stored: stored}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
-
-	return deviceID, pollIntervalMs, isNew, arrival, tx.Commit(ctx)
+	return deviceID, pollIntervalMs, isNew, arrival, shaped, nil
 }
 
 // stateKeys are the fields stored as transitions: they describe a state that holds,
@@ -1756,61 +1750,135 @@ var stateKeys = []string{
 	"adb_enabled", "screen_lock_set", "storage_encrypted",
 }
 
-// writeShapedTelemetry records state transitions and, when this report stored a
-// history row, one narrow numeric sample. Runs inside the caller's transaction so a
-// sample and the events around it cannot disagree.
-func (d *DB) writeShapedTelemetry(ctx context.Context, tx pgx.Tx, deviceID uuid.UUID, prev, cur json.RawMessage, battery int, stored bool) error {
-	var prevMap, curMap map[string]json.RawMessage
-	if len(prev) > 0 {
-		_ = json.Unmarshal(prev, &prevMap)
+// ShapedTelemetry is the history one check-in produces, computed while the device row
+// was locked (so Prev and Cur are the right pair) and written later by WriteShapedBatch.
+type ShapedTelemetry struct {
+	DeviceID uuid.UUID
+	At       time.Time       // the check-in transaction's NOW()
+	Prev     json.RawMessage // projection before this report
+	Cur      json.RawMessage // projection after it
+	Battery  int
+	Stored   bool // this report stored a sample; false = coalesced, events only
+}
+
+// shapedBatch is a batch of reports flattened into the column arrays one INSERT each
+// takes, so a hundred reports cost two statements rather than two hundred.
+type shapedBatch struct {
+	evDev                    []uuid.UUID
+	evAt                     []time.Time
+	evKey, evFrom, evTo      []string
+	evSeed                   []bool
+	smDev                    []uuid.UUID
+	smAt                     []time.Time
+	smBattery                []int16
+	smTemp, smStorage, smCPU []*float64
+	smRSSI                   []*int16
+	smRAMUsed, smRAMTotal    []*int32
+}
+
+// shapeRows flattens reports in order. Transitions: a key absent from the current
+// report is not a change — a delta frame simply did not mention it — so only keys
+// present now are considered.
+//
+// A key whose value has NOT changed still needs one event if it has never been
+// recorded: without it the stream has no baseline and a reader cannot say what the
+// state was, only when it last flipped. That is not hypothetical — comparing against
+// devices.latest_extra, which already held every value when dual writing began, meant
+// no device that existed then ever got a first event. On the fleet that left timezone
+// with 0 events against 150 devices reporting it, wifi with 2 against 147, and
+// charging with 44 against 128: only keys that happened to flip afterwards existed at
+// all. Such keys are marked as seeds and inserted only where the device has no event
+// for them yet, so this costs one indexed probe per key and writes once per device.
+//
+// One statement cannot see its own rows, so the "no event yet" probe would pass for
+// every report of the same device in the batch. Written one at a time, the first
+// report's row made the later seeds redundant; here that is done before the insert —
+// any seed for a (device, key) an earlier report in the batch already wrote is dropped.
+func shapeRows(items []ShapedTelemetry) (shapedBatch, error) {
+	var b shapedBatch
+	type devKey struct {
+		dev uuid.UUID
+		key string
 	}
-	if err := json.Unmarshal(cur, &curMap); err != nil {
+	written := map[devKey]bool{}
+	for _, it := range items {
+		var prevMap, curMap map[string]json.RawMessage
+		if len(it.Prev) > 0 {
+			_ = json.Unmarshal(it.Prev, &prevMap)
+		}
+		if err := json.Unmarshal(it.Cur, &curMap); err != nil {
+			return b, err
+		}
+		keys, froms, tos, seeds := stateEventRows(prevMap, curMap)
+		for i, k := range keys {
+			dk := devKey{it.DeviceID, k}
+			if seeds[i] && written[dk] {
+				continue
+			}
+			written[dk] = true
+			b.evDev = append(b.evDev, it.DeviceID)
+			b.evAt = append(b.evAt, it.At)
+			b.evKey = append(b.evKey, k)
+			b.evFrom = append(b.evFrom, froms[i])
+			b.evTo = append(b.evTo, tos[i])
+			b.evSeed = append(b.evSeed, seeds[i])
+		}
+		if !it.Stored {
+			continue // the history row was coalesced away; its sample would be too
+		}
+		used, total := ramUsedTotal(curMap["ram_usage_mb"])
+		b.smDev = append(b.smDev, it.DeviceID)
+		b.smAt = append(b.smAt, it.At)
+		b.smBattery = append(b.smBattery, int16(it.Battery))
+		b.smTemp = append(b.smTemp, jsonFloat(curMap["battery_temp_c"]))
+		b.smRSSI = append(b.smRSSI, scaledInt(curMap["wifi_rssi"], 1))
+		b.smRAMUsed = append(b.smRAMUsed, used)
+		b.smRAMTotal = append(b.smRAMTotal, total)
+		b.smStorage = append(b.smStorage, jsonFloat(curMap["storage_free_gb"]))
+		b.smCPU = append(b.smCPU, jsonFloat(curMap["cpu_temp_c"]))
+	}
+	return b, nil
+}
+
+// WriteShapedBatch records the state transitions and numeric samples of a batch of
+// check-ins in one transaction, so a sample and the events around it cannot disagree.
+// Items for one device must be in the order they were reported.
+func (d *DB) WriteShapedBatch(ctx context.Context, items []ShapedTelemetry) error {
+	if len(items) == 0 {
+		return nil
+	}
+	b, err := shapeRows(items)
+	if err != nil {
 		return err
 	}
-
-	// Transitions. A key absent from the current report is not a change — a delta frame
-	// simply did not mention it — so only keys present now are considered.
-	//
-	// A key whose value has NOT changed still needs one event if it has never been
-	// recorded: without it the stream has no baseline and a reader cannot say what the
-	// state was, only when it last flipped. That is not hypothetical — comparing against
-	// devices.latest_extra, which already held every value when dual writing began, meant
-	// no device that existed then ever got a first event. On the fleet that left timezone
-	// with 0 events against 150 devices reporting it, wifi with 2 against 147, and
-	// charging with 44 against 128: only keys that happened to flip afterwards existed at
-	// all. Such keys are marked as seeds and inserted only where the device has no event
-	// for them yet, so this costs one indexed probe per key and writes once per device.
-	keys, froms, tos, seeds := stateEventRows(prevMap, curMap)
-	if len(keys) > 0 {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if len(b.evKey) > 0 {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO device_state_events (device_id, at, key, from_val, to_val)
-			SELECT $1, NOW(), k, f, t
-			FROM unnest($2::text[], $3::text[], $4::text[], $5::bool[]) AS u(k, f, t, seed)
+			SELECT u.d, u.a, u.k, u.f, u.t
+			FROM unnest($1::uuid[], $2::timestamptz[], $3::text[], $4::text[], $5::text[], $6::bool[])
+			     AS u(d, a, k, f, t, seed)
 			WHERE NOT u.seed
 			   OR NOT EXISTS (SELECT 1 FROM device_state_events e
-			                  WHERE e.device_id = $1 AND e.key = u.k)
-			ON CONFLICT DO NOTHING`, deviceID, keys, froms, tos, seeds); err != nil {
+			                  WHERE e.device_id = u.d AND e.key = u.k)
+			ON CONFLICT DO NOTHING`, b.evDev, b.evAt, b.evKey, b.evFrom, b.evTo, b.evSeed); err != nil {
 			return err
 		}
 	}
-
-	if !stored {
-		return nil // the history row was coalesced away; its sample would be too
+	if len(b.smDev) > 0 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c)
+			SELECT * FROM unnest($1::uuid[], $2::timestamptz[], $3::int2[], $4::float8[], $5::int2[], $6::int4[], $7::int4[], $8::float8[], $9::float8[])
+			ON CONFLICT (device_id, at) DO NOTHING`,
+			b.smDev, b.smAt, b.smBattery, b.smTemp, b.smRSSI, b.smRAMUsed, b.smRAMTotal, b.smStorage, b.smCPU); err != nil {
+			return err
+		}
 	}
-	used, total := ramUsedTotal(curMap["ram_usage_mb"])
-	_, err := tx.Exec(ctx, `
-		INSERT INTO device_samples (device_id, at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (device_id, at) DO NOTHING`,
-		deviceID,
-		battery,
-		jsonFloat(curMap["battery_temp_c"]),
-		scaledInt(curMap["wifi_rssi"], 1),
-		used, total,
-		jsonFloat(curMap["storage_free_gb"]),
-		jsonFloat(curMap["cpu_temp_c"]),
-	)
-	return err
+	return tx.Commit(ctx)
 }
 
 // stateEventRows decides which state events a report produces. Split out from the
@@ -2088,7 +2156,9 @@ func (d *DB) TouchLastSeen(ctx context.Context, deviceID uuid.UUID, t time.Time)
 // across the many check-ins of one boot). No-op when neither signal is present — cheap
 // on the hot path. Best-effort: parse/insert errors are swallowed rather than failing
 // the check-in the caller already committed.
-func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID string, extra json.RawMessage) {
+// at is when the report arrived — the check-in's own timestamp, since this may run from
+// the ingest queue a moment later and a reboot's time is derived from it and uptime.
+func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID string, extra json.RawMessage, at time.Time) {
 	if len(extra) == 0 {
 		return
 	}
@@ -2114,7 +2184,7 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID
 	if len(e.Crashes) > maxCrashEvents {
 		e.Crashes = e.Crashes[:maxCrashEvents]
 	}
-	now := time.Now().UTC()
+	now := at.UTC()
 	for _, c := range e.Crashes {
 		if c.Kind == "" || c.TimeMs <= 0 {
 			continue
