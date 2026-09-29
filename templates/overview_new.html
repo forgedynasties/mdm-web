@@ -13,7 +13,7 @@
 .ovd .cc-ch{padding:10px 14px;min-height:42px}
 .ovd .cc-ch h2{font-size:13px;font-weight:650}
 
-.ovd-head{margin-bottom:12px}
+.ovd-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
 .ovd-head h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
 .ovd-meta{font-size:12px;color:var(--muted);margin-top:3px}
 
@@ -85,12 +85,6 @@
 
 .ovd-map{height:420px;background:var(--surface2)}
 @media(max-width:720px){.ovd-map{height:320px}}
-/* Toolbar under the title: flat buttons in groups, the switch at the far end. */
-.ovd-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;white-space:nowrap}
-.ovd-btn:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
-.ovd-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-.ovd-btn.primary:hover{background:var(--accent-h);color:#fff}
-.ovd-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* Fleet health hero, shared with the classic Overview (its markup is "ov3-w-hero" in
    overview.html). Corners and shadow match this page's flat cards. */
@@ -172,31 +166,16 @@
 .ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11px/1.2 var(--font);color:var(--text);text-shadow:0 0 3px var(--surface),0 0 3px var(--surface),0 0 3px var(--surface),0 0 4px var(--surface)}
 .ovd-mlbl.off{opacity:0}
 .ovd-mlbl.off.peek{opacity:1}
-.ovd-tb{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px}
-.ovd-tb .ovd-btn{border-color:transparent;background:transparent}
-.ovd-tb .ovd-btn:hover{background:var(--surface2);border-color:transparent}
-.ovd-tb .ovd-btn.primary{background:var(--accent)}
-.ovd-tb .ovd-btn.primary:hover{background:var(--accent-h)}
-.ovd-tb-div{width:1px;height:22px;background:var(--border);margin:0 2px}
-.ovd-tb-sp{flex:1}
 </style>
 
 <div class="ovd">
 
   <div class="ovd-head">
-    <h1>Overview</h1>
-    <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
-  </div>
-
-  {{/* Toolbar: page tools, then the New / Classic switch at the far end. */}}
-  <div class="ovd-tb" role="toolbar" aria-label="Overview tools">
-    <a class="ovd-btn primary" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Fleet health</a>
-    {{if canAdmin .Role}}<span class="ovd-tb-div"></span><a class="ovd-btn" href="/enrollment"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/></svg>Enroll device</a>{{end}}
-    <span class="ovd-tb-div"></span>
-    {{if canAppLibrary .Role}}<a class="ovd-btn" href="/apps" title="Upload APKs and manage the app library"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</a>{{end}}
-    <a class="ovd-btn" href="/export" title="Export device telemetry as CSV — pick devices and a time range"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Export</a>
-    <a class="ovd-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>
-    {{if .OverviewSwitch}}<span class="ovd-tb-sp"></span>{{template "ov-switch" "new"}}{{end}}
+    <div>
+      <h1>Overview</h1>
+      <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
+    </div>
+    {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
   </div>
 
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}

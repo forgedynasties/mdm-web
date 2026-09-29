@@ -73,9 +73,7 @@ func TestOverviewNewRenders(t *testing.T) {
 		`id="ovd-map-data"`,                          // map data shipped
 		`"name":"Pho 88"`,                            // restaurant on the map
 		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
-		`href="/fleet-health"`,                       // header actions, as on the classic page
-		`href="/export/visualize"`,
-		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
+		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
 	} {
 		if !strings.Contains(out, want) {
