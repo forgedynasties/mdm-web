@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview switch · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* the mock: top bar + the start (or end) of the Overview */
+.scr{position:relative;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg)}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.brand{font-size:21px;font-weight:500;letter-spacing:-.01em;margin-right:auto}
+.brand b{font-weight:500;background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ib{width:38px;height:38px;border:1px solid var(--border);border-radius:10px;display:grid;place-items:center;color:var(--text-2);background:var(--surface);position:relative}
+.ib svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib .tt{position:absolute;top:calc(100% + 8px);right:0;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap}
+.acct{display:flex;align-items:center;gap:8px;height:38px;border:1px solid var(--border);border-radius:10px;padding:0 6px 0 10px;background:var(--surface)}
+.acct .who{font-size:12.5px;font-weight:650;line-height:1.1;text-align:right}.acct .who span{display:block;font-size:10.5px;color:var(--muted);font-weight:500}
+.acct .av{width:26px;height:26px;border-radius:50%;background:var(--brand-grad);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg span{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;border-left:1px solid var(--border)}
+.seg span:first-child{border-left:0}.seg span.on{background:var(--surface-3);color:var(--text)}
+.pg{padding:16px 18px 18px}
+.hero{height:120px;border:1px solid var(--border);border-radius:8px;background:linear-gradient(118deg,var(--ok-bg),transparent 55%),var(--surface);position:relative}
+.hero .fh{position:absolute;left:18px;top:18px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 280px;gap:14px;margin-top:14px}
+.card{height:90px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+
+/* A · account menu drawn open */
+.menu{position:absolute;right:14px;top:62px;width:250px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;z-index:5}
+.menu .mh{display:flex;align-items:center;gap:10px;padding:8px 8px 10px;border-bottom:1px solid var(--border-soft);margin-bottom:4px}
+.menu .mh b{font-size:13px}.menu .mh span{display:block;font-size:11px;color:var(--muted)}
+.mi{display:flex;align-items:center;gap:10px;padding:8px;border-radius:7px;font-size:13px;color:var(--text-2)}
+.mi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted);flex:none}
+.mi.hl{background:var(--surface2);color:var(--text)}
+.mi .sw{margin-left:auto;width:30px;height:17px;border-radius:99px;background:var(--surface-3);position:relative;flex:none}
+.mi .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.mi .sw.on{background:var(--accent)}.mi .sw.on::after{left:15px}
+.msep{height:1px;background:var(--border-soft);margin:4px 2px}
+
+/* B · line at the end of the page */
+.endline{text-align:center;font-size:12px;color:var(--text-faint);padding:18px 0 4px}
+.endline a{color:var(--accent-text);font-weight:600;text-decoration:none}
+
+/* C · small link in the first card */
+.hero .cl{position:absolute;right:14px;top:12px;font-size:11.5px;font-weight:600;color:var(--text-faint);text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.hero .cl svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* E · command palette */
+.pal{position:absolute;left:50%;top:70px;transform:translateX(-50%);width:520px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:8px;z-index:5}
+.pal .in{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px;border-bottom:1px solid var(--border-soft);font-size:14px}
+.pal .in svg{width:17px;height:17px;fill:none;stroke:var(--muted);stroke-width:1.9;stroke-linecap:round}
+.pal .r{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;color:var(--text-2);margin-top:4px}
+.pal .r.hl{background:var(--surface2);color:var(--text)}
+.pal .r svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.pal .r span{margin-left:auto;font-size:11px;color:var(--text-faint)}
+.dim{position:absolute;inset:0;background:var(--overlay);opacity:.35;z-index:4}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>A quieter New / Classic switch</h1>
+<p class="lead">The two-button switch in the top bar is always on screen, and it's the loudest thing up there for something most people will set once or never. Below are quieter ways to offer the same choice. Each one works the same way in both directions: from Classic, the same place offers the new Overview. Your choice is still remembered either way.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a" class="rec">A · Account menu ★</a><a href="#b">B · A line at the end</a><a href="#c">C · Small link on the first card</a><a href="#d">D · One icon button</a><a href="#e">E · Only in search</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current: two buttons in the top bar <span class="tag live">Deployed</span></h2>
+<div class="scr" id="m-cur"></div>
+
+<h2 class="sec" id="a">A · A setting in the account menu <span class="tag rec">Recommended</span></h2>
+<p class="desc">"Classic Overview" becomes an on/off row in the account menu, next to your profile and theme. It's a preference, so it lives with the other preferences. Nothing is on the page itself.</p>
+<div class="scr" id="m-a" style="height:330px"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Takes no room anywhere, on any page.</li><li>It's where people look for "change how the app looks for me".</li></ul></div>
+<div><b>Bad at</b><ul><li>Hidden: someone who wants the old page back has to know to open the menu. The first-visit popup would say so once.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · One line at the end of the Overview</h2>
+<p class="desc">A muted line under the last card: "Prefer the old Overview? Switch to Classic". On Classic, the same line offers the new one.</p>
+<div class="scr" id="m-b"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>On the page it affects, but out of the way. The top bar stays clean.</li></ul></div>
+<div><b>Bad at</b><ul><li>You have to scroll to the bottom to find it.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · A small link on the first card</h2>
+<p class="desc">A faint "Classic view" link in the corner of the Fleet health card, like a "view source" link on an article.</p>
+<div class="scr" id="m-c"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Visible without scrolling, but small enough to ignore.</li></ul></div>
+<div><b>Bad at</b><ul><li>It sits inside a data card, where it reads as if it belonged to Fleet health.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · One icon button in the top bar</h2>
+<p class="desc">The two buttons become a single icon button the same size as the theme and alerts buttons, with a tooltip that says what it does.</p>
+<div class="scr" id="m-d"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>One click, same place on both pages, and it matches the buttons next to it.</li></ul></div>
+<div><b>Bad at</b><ul><li>An icon for "switch page version" isn't obvious. It needs the tooltip.</li></ul></div>
+</div>
+
+<h2 class="sec" id="e">E · Only in the search</h2>
+<p class="desc">No control at all. Typing "classic" in the dock search offers "Switch to classic Overview" (and "Switch to new Overview" from Classic). The first-visit popup mentions it.</p>
+<div class="scr" id="m-e" style="height:300px"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The quietest. It works from any page, not just the Overview.</li></ul></div>
+<div><b>Bad at</b><ul><li>Only discoverable if you're told about it.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: A, with E as well</h2>
+<div class="pick"><b>A: a "Classic Overview" setting in the account menu</b>, and the same switch available in the search (E), since adding it there is cheap. The choice is a personal preference that most people set once, so it belongs with the other preferences, not on the page. The first-visit popup already tells people where to find the old page, and it would point at the account menu instead. <b>B</b> is the pick if you want it on the Overview itself but out of the way.</div>
+</div>
+
+<script>
+const ICON = {
+  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>', spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  bell:'<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>', user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  cog:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', swap:'<path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>', out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'};
+const ic = k => `<svg viewBox="0 0 24 24">${ICON[k]}</svg>`;
+const bar = extra => `<div class="bar"><span class="brand"><b>AIO</b> MDM</span>${extra || ''}<span class="ib">${ic('moon')}</span><span class="ib">${ic('spark')}</span><span class="ib">${ic('bell')}</span><span class="acct"><span class="who">Ali<span>Super Admin</span></span><span class="av">A</span></span></div>`;
+const page = (heroExtra) => `<div class="pg"><div class="hero"><span class="fh">Fleet health</span>${heroExtra || ''}</div><div class="row2"><div class="card"></div><div class="card"></div></div></div>`;
+const $ = id => document.getElementById(id);
+
+$('m-cur').innerHTML = bar('<span class="seg"><span class="on">New</span><span>Classic</span></span>') + page();
+
+$('m-a').innerHTML = bar() + page() + `<div class="menu"><div class="mh"><span class="av" style="width:32px;height:32px;border-radius:50%;background:var(--brand-grad);color:#fff;display:grid;place-items:center;font-weight:700">A</span><div><b>Ali</b><span>Super Admin · v1.0</span></div></div>
+  <div class="mi">${ic('user')}My profile</div><div class="msep"></div><div class="mi">${ic('cog')}Settings</div><div class="msep"></div>
+  <div class="mi hl">${ic('layout')}Classic Overview<span class="sw"></span></div><div class="msep"></div><div class="mi">${ic('out')}Sign out</div></div>`;
+
+$('m-b').innerHTML = bar() + `<div class="pg"><div class="row2"><div class="card"></div><div class="card"></div></div><div class="endline">Prefer the old Overview? <a href="#">Switch to Classic</a></div></div>`;
+
+$('m-c').innerHTML = bar() + page(`<a class="cl" href="#">${ic('swap')}Classic view</a>`);
+
+$('m-d').innerHTML = bar(`<span class="ib" title="Switch to the classic Overview">${ic('layout')}<span class="tt">Switch to the classic Overview</span></span>`) + page();
+
+$('m-e').innerHTML = bar() + page() + `<div class="dim"></div><div class="pal"><div class="in">${ic('search')}<span>classic</span></div>
+  <div class="r hl">${ic('layout')}Switch to classic Overview<span>Enter</span></div><div class="r">${ic('layout')}Overview<span>page</span></div></div>`;
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>
