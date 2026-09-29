@@ -28,7 +28,8 @@ type wallSquare struct {
 	Tip    string
 }
 
-// wallBlock is one restaurant's squares, or one device type's devices with no restaurant.
+// wallBlock is one restaurant's squares, or one device type's devices with no
+// restaurant ("Tableside AI · Not deployed").
 type wallBlock struct {
 	ID      string // restaurant id; "" for the devices with no restaurant
 	Name    string
@@ -99,7 +100,7 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	unplaced := map[string]*wallBlock{} // by device type label
 	for _, d := range devs {
 		sq := wallSquare{Serial: d.Serial, State: "on"}
-		label := "Unassigned type"
+		label := "Other devices"
 		if d.Class != "" {
 			label = product.ClassLabel(d.Class)
 		}
@@ -122,7 +123,7 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 		var b *wallBlock
 		if d.RestaurantID == nil {
 			if b = unplaced[label]; b == nil {
-				b = &wallBlock{Name: "No restaurant · " + label}
+				b = &wallBlock{Name: label + " · Not deployed"}
 				unplaced[label] = b
 			}
 		} else {

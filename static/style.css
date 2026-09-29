@@ -5738,6 +5738,11 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 }
 .dock .nav-link:hover { background: var(--surface2); color: var(--text); }
 .dock .nav-link.active { background: var(--accent-soft); color: var(--accent-text); }
+/* Sized to its content. Anchored at left:50%, the dock is otherwise only allowed half
+   the viewport, and once the live figures made it wider than that the links shrank
+   below their content: the Fleet ring spilled out of its own highlight. */
+.dock { width: max-content; max-width: calc(100vw - 24px); }
+.dock > .nav-link { flex: none; white-space: nowrap; }
 .dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
 
 /* The dock's "More" opens the command palette (pages mode), not a menu. */
@@ -5804,7 +5809,7 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
   .appbar-right { gap: 6px; }
   /* Touch targets: keep icons ≥40px on phones. */
   .appbar-icon { width: 40px; height: 40px; }
-  .dock { left: 12px; right: 12px; transform: none; justify-content: space-around; bottom: 14px; }
+  .dock { left: 12px; right: 12px; transform: none; justify-content: space-around; bottom: 14px; width: auto; max-width: none; }
   .dock .nav-link { padding: 8px 6px; min-height: 46px; flex-direction: column; gap: 3px; font-size: 11px; }
   .appbar-acct .who { display: none; }
   .appbar-acct { height: 40px; padding: 0 6px; }
