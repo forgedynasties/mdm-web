@@ -63,6 +63,44 @@
 .ovd-bar{display:flex;height:6px;border-radius:2px;overflow:hidden;background:var(--surface-3);margin-top:6px;min-width:120px}
 .ovd-bar i{display:block;height:100%}
 .ovd-bar .done{background:var(--text-2)}.ovd-bar .down{background:var(--rule-2)}.ovd-bar .fail{background:var(--danger)}
+/* Device wall: a block per restaurant, a square per device. */
+.ovd-wall{--sq:10px;display:flex;flex-wrap:wrap;gap:14px 18px;padding:14px}
+.ovd-wall.sm{--sq:7px;gap:10px 12px}
+.ovd-wb{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ovd-wb .nm{display:flex;align-items:center;font-size:11.5px;font-weight:600;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovd-wb .nm .ovd-dot{width:6px;height:6px;margin-right:5px;flex:none}
+.ovd-wb .nm a,.ovd-wb .nm span:not(.ovd-dot){color:var(--text-2);text-decoration:none;overflow:hidden;text-overflow:ellipsis}
+.ovd-wb .nm a:hover{color:var(--text);text-decoration:underline}
+.ovd-wb.bad .nm a{color:var(--danger)}
+.ovd-wb .sq{display:grid;gap:2px}
+.ovd-wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
+.ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
+.ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
+.ovd-wb .sq a.on,.ovd-wfoot i.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
+.ovd-wb .sq a.warn,.ovd-wfoot i.warn{background:var(--warn)}
+.ovd-wb .sq a.off,.ovd-wfoot i.off{background:var(--danger)}
+.ovd-wb .sq a.dormant,.ovd-wfoot i.dormant{background:var(--rule-2)}
+.ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.ovd-wfoot span{display:inline-flex;align-items:center}
+.ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.ovd-wfoot .ovd-dot{margin-right:5px}
+#ovd-tip{position:fixed;z-index:80;pointer-events:none;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:550;padding:5px 8px;border-radius:5px;white-space:nowrap;opacity:0;transition:opacity .08s;box-shadow:var(--shadow-md)}
+#ovd-tip.on{opacity:1}
+
+/* Needs attention: a compact worklist beside the wall. */
+.ovd-q{list-style:none;margin:0;padding:0}
+.ovd-q li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.ovd-q li:first-child{border-top:0}
+.ovd-q li:hover{background:var(--surface2)}
+.ovd-q .ovd-dot{margin:5px 0 0}
+.ovd-q .t{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;line-height:1.35}
+.ovd-q .t:hover{text-decoration:underline}
+.ovd-q .w{font-size:11.5px;color:var(--muted);margin-top:1px}
+.ovd-q .ser{font-family:var(--mono);font-size:11px}
+.ovd-q .a{font-size:11.5px;color:var(--text-faint);white-space:nowrap}
+
+.ovd-map{height:420px;background:var(--surface2)}
+@media(max-width:720px){.ovd-map{height:320px}}
 </style>
 
 <div class="ovd">
@@ -107,27 +145,64 @@
 
   <div class="ovd-mid">
 
+    {{/* ── Device wall: every device one square, restaurants worst first ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Fleet</h2>{{if .Wall}}<span class="m">every square is a device · worst restaurants first</span>{{end}}<a class="r" href="/devices">All devices</a></div>
+      {{if .Wall}}
+      <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
+        {{range .Wall}}
+        <div class="ovd-wb {{.Health}}">
+          <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
+          <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
+        </div>
+        {{end}}
+      </div>
+      <div class="ovd-wfoot">
+        <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
+      </div>
+      {{else}}
+      <div class="ovd-empty"><b>No devices enrolled yet.</b></div>
+      {{end}}
+    </div>
+
     {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
     <div class="cc-card">
-      <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}} open</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>View all</a></div>
+      <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
       {{if .AttentionRows}}
-      <div class="ovd-tw"><table class="ovd-t">
-        <thead><tr><th>Severity</th><th>Issue</th><th>Affected</th><th>Where</th><th class="num">Since</th></tr></thead>
-        <tbody>
+      <ul class="ovd-q">
         {{range .AttentionRows}}
-        <tr>
-          <td><span class="ovd-sev {{.Severity}}">{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}</span></td>
-          <td class="wrap"><a href="{{.Href}}">{{.Issue}}</a></td>
-          <td>{{if .Serial}}<a class="ser" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}</td>
-          <td class="{{if not .Restaurant}}mut{{end}}">{{if .Restaurant}}{{.Restaurant}}{{else if eq .Href "/enrollment"}}Unassigned{{else}}—{{end}}</td>
-          <td class="num mut">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</td>
-        </tr>
+        <li>
+          <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}" title="{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}"></span>
+          <div>
+            <a class="t" href="{{.Href}}">{{.Issue}}</a>
+            <div class="w">{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{else if eq .Href "/enrollment"}} · Unassigned{{end}}</div>
+          </div>
+          <span class="a">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</span>
+        </li>
         {{end}}
-        </tbody>
-      </table></div>
+      </ul>
       {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
       {{else}}
       <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="ovd-mid">
+
+    {{/* ── Restaurant map: a dot per restaurant, sized by devices, coloured by state ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Map</h2>{{if .MapSiteCount}}<span class="m">{{.MapSiteCount}} restaurant{{if ne .MapSiteCount 1}}s{{end}} located</span>{{end}}<a class="r" href="/map">Device map</a></div>
+      {{if and .MapSiteCount .MapsEmbedKey}}
+      <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
+      <div class="ovd-wfoot">
+        <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Dot size is device count</span>
+      </div>
+      <script type="application/json" id="ovd-map-data">{{.MapSites}}</script>
+      {{else if .MapSiteCount}}
+      <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
+      {{else}}
+      <div class="ovd-empty"><b>No restaurant locations yet.</b> Add an address to a restaurant, or turn on device location, and it appears here.</div>
       {{end}}
     </div>
 
@@ -169,32 +244,6 @@
     </div>
   </div>
 
-  {{/* ── Restaurants, worst first ── */}}
-  <div class="cc-card">
-    <div class="cc-ch"><h2>Restaurants</h2>{{if .Sites}}<span class="m">worst first</span>{{end}}<a class="r" href="/restaurants"{{if not .Sites}} style="margin-left:auto"{{end}}>All restaurants</a></div>
-    {{if .Sites}}
-    <div class="ovd-tw"><table class="ovd-t">
-      <thead><tr><th>Restaurant</th><th>Status</th><th class="num">Online</th><th class="num">Alerts</th><th class="num">Crashes · 24h</th><th class="num">Hottest</th><th>Main issue</th></tr></thead>
-      <tbody>
-      {{range $i, $s := .Sites}}{{if lt $i 6}}
-      <tr>
-        <td><a href="/restaurants/{{$s.ID}}">{{$s.Name}}</a></td>
-        <td><span class="ovd-dot {{$s.Class}}"></span>{{if eq $s.Class "ok"}}Healthy{{else if eq $s.Class "warn"}}Watch{{else}}At risk{{end}}</td>
-        <td class="num">{{$s.Online}} / {{$s.Devices}}</td>
-        <td class="num{{if not (add $s.Critical $s.Warning)}} mut{{end}}">{{add $s.Critical $s.Warning}}</td>
-        <td class="num{{if not $s.Crashes}} mut{{end}}">{{$s.Crashes}}</td>
-        <td class="num{{if $s.Hot}} hot{{else}} mut{{end}}">{{if $s.HasTemp}}{{$s.TempMax}} °C{{else}}—{{end}}</td>
-        <td class="mut wrap">{{if $s.MainIssue}}{{$s.MainIssue}}{{else}}—{{end}}</td>
-      </tr>
-      {{end}}{{end}}
-      </tbody>
-    </table></div>
-    {{if gt (len .Sites) 6}}<a class="ovd-more" href="/restaurants">{{sub (len .Sites) 6}} more</a>{{end}}
-    {{else}}
-    <div class="ovd-empty"><b>No restaurants yet.</b> Assign devices to a restaurant and it appears here.</div>
-    {{end}}
-  </div>
-
 </div>
 
 <script>
@@ -205,7 +254,80 @@
   if (!isNaN(d)) t.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (window.mdmTickRel) window.mdmTickRel();
 })();
+
+// Wall tooltips: one floating label, instead of a title per square.
+(function () {
+  var wall = document.querySelector('.ovd-wall');
+  if (!wall) return;
+  var tip = document.createElement('div');
+  tip.id = 'ovd-tip';
+  document.body.appendChild(tip);
+  wall.addEventListener('mousemove', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (!t) { tip.classList.remove('on'); return; }
+    tip.textContent = t.getAttribute('data-tip');
+    var x = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px';
+    tip.classList.add('on');
+  });
+  wall.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+})();
+
+// Restaurant map: a circle per restaurant, sized by devices, coloured by state.
+window.ovdInitMap = function () {
+  var el = document.getElementById('ovd-map'), raw = document.getElementById('ovd-map-data');
+  if (!el || !raw || !window.google) return;
+  var sites = JSON.parse(raw.textContent || '[]');
+  var MUTED = [{ stylers: [{ saturation: -70 }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }];
+  var DARK = [
+    {elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},{featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
+    {featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
+    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+    {featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
+    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
+  ];
+  var map = new google.maps.Map(el, { zoom: 10, center: { lat: sites[0].lat, lng: sites[0].lng }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, keyboardShortcuts: false, gestureHandling: 'cooperative' });
+  var iw = new google.maps.InfoWindow(), markers = [];
+  function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function color(h) {
+    var cs = getComputedStyle(document.body);
+    return cs.getPropertyValue(h === 'bad' ? '--danger' : h === 'warn' ? '--warn' : '--ok').trim();
+  }
+  function draw() {
+    var dark = window.mdmTheme && window.mdmTheme() === 'dark';
+    map.setOptions({ styles: dark ? DARK : MUTED });
+    markers.forEach(function (m) { m.setMap(null); });
+    markers = [];
+    var bounds = new google.maps.LatLngBounds(), rank = { ok: 0, warn: 1, bad: 2 };
+    sites.slice().sort(function (a, b) { return rank[a.health] - rank[b.health]; }).forEach(function (s) {
+      var mk = new google.maps.Marker({
+        position: { lat: s.lat, lng: s.lng }, map: map, title: s.name, zIndex: 10 + rank[s.health],
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5 + Math.sqrt(s.total) * 1.6, fillColor: color(s.health), fillOpacity: s.health === 'ok' ? 0.75 : 0.95, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 2 }
+      });
+      mk.addListener('click', function () {
+        iw.setContent('<div style="min-width:170px;font-size:13px"><b>' + esc(s.name) + '</b>'
+          + '<div style="margin:3px 0">' + s.online + ' of ' + s.total + ' online</div>'
+          + (s.issue ? '<div style="opacity:.75">' + esc(s.issue) + '</div>' : '')
+          + '<a href="/restaurants/' + encodeURIComponent(s.id) + '">Open restaurant →</a></div>');
+        iw.open(map, mk);
+      });
+      markers.push(mk);
+      bounds.extend(mk.getPosition());
+    });
+    return bounds;
+  }
+  var b = draw();
+  if (sites.length > 1) {
+    google.maps.event.addListenerOnce(map, 'bounds_changed', function () { if (map.getZoom() > 14) map.setZoom(14); });
+    map.fitBounds(b, 40);
+  }
+  window.addEventListener('mdm:themechange', function () { draw(); });
+};
 </script>
+{{if and .MapSiteCount .MapsEmbedKey}}
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovdInitMap"></script>
+{{end}}
 
 {{template "footer" .}}
 {{end}}

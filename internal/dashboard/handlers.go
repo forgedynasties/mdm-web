@@ -3791,6 +3791,8 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 	activeSecs := h.cfg.CheckinInterval() * 3
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, nil, 0)
 	sneakPeekOverviewExtras(data, summary, groups)
+	data["Wall"] = sneakPeekWall(groups)
+	data["WallTotal"] = summary.Total
 
 	// Per-user widget layout (default arrangement for the unknown preview user).
 	for k, v := range h.overviewLayoutData(r) {
@@ -5189,6 +5191,12 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	)
 	run(func() { active, _ = h.db.ListActiveAlerts(ctx, 300) })
 	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), h.access(r).hidesDPC()) })
+	var (
+		wallDevs []db.WallDevice
+		rests    []db.Restaurant
+	)
+	run(func() { wallDevs, _ = h.db.FleetWall(ctx, h.access(r).hidesDPC()) })
+	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
 	wg.Wait()
 
 	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
@@ -5228,10 +5236,23 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
 	}
 
-	// Fleet map: every device with a resolved location from the geolocation pipeline.
-	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
-	data["DeviceLocations"] = locs
-	data["DeviceMapCount"] = locCount
+	// Device wall: every device as one square, grouped by restaurant, worst first.
+	names := make(map[uuid.UUID]string, len(rests))
+	for _, rs := range rests {
+		names[rs.ID] = rs.Name
+	}
+	wall := buildWall(wallDevs, h.hub.ConnectedIDsForDisplay(), h.access(r).keepVisibleAlerts(active), groups, names, time.Now())
+	data["Wall"] = wall
+	data["WallTotal"] = len(wallDevs)
+
+	// Restaurant map: each restaurant at its stored coordinates, else at the median of
+	// its devices' resolved locations.
+	locFilter := db.DeviceFilter{}
+	if h.access(r).hidesDPC() {
+		locFilter.AgentKind = "firmware"
+	}
+	pts := h.devicePoints(ctx, locFilter)
+	data["MapSites"], data["MapSiteCount"] = buildMapSites(wall, rests, pts, groups)
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 
 	// Fleet composition by product role (Menu board, Tableside AI, …), the same axis as
