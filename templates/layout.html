@@ -2630,7 +2630,7 @@
       + '<button type="button" class="di-x" aria-label="Dismiss">×</button>';
     dock.appendChild(box);
     function close() { clearTimeout(timer); dock.classList.remove('island-on'); }
-    function arm() { clearTimeout(timer); timer = setTimeout(close, 7000); }
+    function arm() { clearTimeout(timer); timer = setTimeout(close, 5000); }
     box.querySelector('.di-x').addEventListener('click', close);
     box.querySelector('.di-go').addEventListener('click', close);
     box.addEventListener('mouseenter', function () { clearTimeout(timer); });
