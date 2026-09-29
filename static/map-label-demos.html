@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Map labels · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1240px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:1024px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* a pair of maps per option: sparse (like live) and busy */
+.pair{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:14px}
+@media(max-width:1024px){.pair{grid-template-columns:1fr}}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.mcard .h{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;font-weight:650}
+.mcard .h span{font-weight:400;color:var(--muted);font-size:12px}
+.mbox{position:relative;overflow:hidden;background:var(--surface2)}
+.mbox svg.base{display:block;width:100%;height:auto}
+.mbox .layer{position:absolute;inset:0}
+.mbox .ctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-sm)}
+.mbox .ctl i{font-style:normal;width:26px;height:26px;display:grid;place-items:center;font-size:15px;color:var(--text-2);border-top:1px solid var(--border)}
+.mbox .ctl i:first-child{border-top:0}
+
+/* every marker is absolutely placed at its point; each option styles the parts */
+.mk{position:absolute;transform:translate(-50%,-50%);cursor:pointer}
+.mk .c{border-radius:50%;border:2px solid var(--surface);box-sizing:border-box;display:grid;place-items:center;color:#fff;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.mk.ok .c{background:color-mix(in srgb,var(--ok) 80%,var(--surface))}
+.mk.warn .c{background:var(--warn)}
+.mk.bad .c{background:var(--danger)}
+.mk.bad .c{box-shadow:0 0 0 4px var(--danger-bg)}
+.lbl{position:absolute;white-space:nowrap;pointer-events:auto}
+.halo{color:var(--text);text-shadow:0 0 3px var(--surface),0 0 3px var(--surface),0 0 3px var(--surface),0 0 4px var(--surface)}
+
+/* A · name pill */
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 9px 3px 8px;font-size:11.5px;font-weight:650;box-shadow:0 1px 4px rgba(0,0,0,.14);color:var(--text)}
+.pill b{font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill.bad{border-color:var(--danger-edge)}.pill.bad b{color:var(--danger)}
+.pill.warn b{color:var(--warn)}
+
+/* C · callout card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 9px 7px;box-shadow:0 2px 10px rgba(0,0,0,.16);min-width:110px;border-left:3px solid var(--ok)}
+.card.warn{border-left-color:var(--warn)}.card.bad{border-left-color:var(--danger)}
+.card .n{font-size:12px;font-weight:650;color:var(--text)}
+.card .s{font-size:11px;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+.card .s em{font-style:normal;color:var(--danger);font-weight:600}
+.card .bar{display:flex;height:4px;border-radius:2px;overflow:hidden;background:var(--surface-3);margin-top:5px}
+.card .bar i{display:block;height:100%}
+.card.below::after{display:none}
+.card::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);transform:translateX(-50%) rotate(45deg)}
+
+/* D · status chip */
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11.5px;font-weight:650;box-shadow:0 1px 4px rgba(0,0,0,.14);color:var(--text)}
+.chip .on,.chip .off{display:inline-flex;align-items:center;gap:3px;font-weight:600;font-variant-numeric:tabular-nums}
+.chip .on{color:var(--ok)}.chip .off{color:var(--danger)}
+.chip .on::before,.chip .off::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.hidden-lbl{opacity:0;transition:opacity .1s}
+.mk:hover+.lbl.hidden-lbl,.lbl.hidden-lbl:hover{opacity:1}
+.note-more{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:3px 7px}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>Map labels: restaurant name and device count</h1>
+<p class="lead">Today a restaurant is a bare coloured dot on the new Overview's map, and you have to click it to see which one it is. Below are five ways to label it with its name and how many devices it has. Each option is drawn twice: <b>left</b> is a fleet like live today (two restaurants), <b>right</b> is a busy one (31 restaurants in one county), where labels start to collide. The map underneath is a stand-in drawing; on the real page it is the Google map. The names are made up.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a">A · Name pill</a><a href="#b" class="rec">B · Count in the dot ★</a><a href="#c">C · Callout card</a><a href="#d">D · Status chip</a><a href="#e">E · Count only, names when it matters</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current: dot only <span class="tag live">Deployed</span></h2>
+<p class="desc">Size is device count and colour is state. The name and count only appear in a popup after a click.</p>
+<div class="pair" data-opt="cur"></div>
+
+<h2 class="sec" id="a">A · Name pill beside the dot</h2>
+<p class="desc">A white pill next to the dot reads "Pho 88 · 20". The count turns red when the restaurant is at risk. When pills overlap, a label moves to the other side of its dot, and if there is still no room it is hidden until you hover.</p>
+<div class="pair" data-opt="a"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The easiest to read: the name is at normal size on a solid background.</li><li>Looks like Google's own place labels, so it fits the map.</li></ul></div>
+<div><b>Bad at</b><ul><li>Takes the most room. In a busy area about a third of the labels have to hide.</li></ul></div>
+<div><b>Build</b><ul><li>An HTML overlay on the Google map (an <code>OverlayView</code>). No new Google setup needed.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · Count in the dot, name underneath <span class="tag rec">Recommended</span></h2>
+<p class="desc">The device count is printed inside the dot, and the name sits under it in small text with a halo, the way Google labels a town. The count never hides. Only a name gives way when two collide, and restaurants at risk get their name drawn first.</p>
+<div class="pair" data-opt="b"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The count is always visible, even in the busiest area, because it lives inside the dot.</li><li>Takes the least room of the options that show both, so the fewest names hide.</li></ul></div>
+<div><b>Bad at</b><ul><li>Small text on a map background is harder to read than a pill, especially over busy streets.</li></ul></div>
+<div><b>Build</b><ul><li>The count inside the dot is Google's built-in marker label, so it needs no custom code. The name underneath is a small overlay.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · Callout card</h2>
+<p class="desc">A small card above each restaurant shows its name, "18 of 20 online" and a bar with the offline share in red. This is the most information without clicking.</p>
+<div class="pair" data-opt="c"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The best fit for a fleet like today's: with two or three restaurants, each one gets a proper status card.</li></ul></div>
+<div><b>Bad at</b><ul><li>Doesn't scale. In a busy area the cards cover the map, so most have to hide.</li></ul></div>
+<div><b>Build</b><ul><li>An HTML overlay, the same as A.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · Status chip: name, online, offline</h2>
+<p class="desc">A chip with the name, a green online count and a red offline count, e.g. "Pho 88 ●14 ●6". The offline count only appears when there is one.</p>
+<div class="pair" data-opt="d"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Answers "how many are down there" without a click, which a total count doesn't.</li></ul></div>
+<div><b>Bad at</b><ul><li>Two numbers per label is busier, and the dot's colour already says there's a problem.</li></ul></div>
+<div><b>Build</b><ul><li>An HTML overlay, the same as A.</li></ul></div>
+</div>
+
+<h2 class="sec" id="e">E · Count only, names when it matters</h2>
+<p class="desc">Every dot shows its count, but only restaurants at risk or on watch show their name. Healthy ones show theirs on hover. The map stays clean and the trouble spots are named.</p>
+<div class="pair" data-opt="e"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The cleanest busy map, and the names you see are the ones you need.</li></ul></div>
+<div><b>Bad at</b><ul><li>On a good day with no problems you see numbers and no names. That doesn't meet "labelled with the name" all the time.</li></ul></div>
+<div><b>Build</b><ul><li>The same as B.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: B</h2>
+<div class="pick"><b>B, the count in the dot with the name underneath.</b> It's the only option that shows both on every restaurant today and still works when the map fills up: the count can't be hidden, and when names collide the healthy ones give way to the ones at risk. C is nicer with two restaurants but falls apart at thirty. A is easier to read but hides the most labels. If you like the pill style, <b>B with A's pill for the name</b> is a reasonable mix. Pick a letter and I'll put it on the new Overview.</div>
+</div>
+
+<script>
+/* ── data: a sparse fleet (like live) and a busy county ── */
+const BUSY = [
+ ['Pho 88','bad',20,6],['Taco Loco','bad',5,5],['Seoul BBQ','warn',18,2],['Golden Wok','warn',15,0],['Sakura Ramen','warn',16,0],
+ ['Bella Pasta',,12],['Blue Fin Sushi',,19],['Burger Barn',,17],["Mama Rosa's",,16,1],['Saigon Kitchen',,19],['Curry House',,16],
+ ['El Toro Grill',,13],['Harbor Fish Co.',,15],['Surf City Tacos',,13],['Little Seoul',,18,1],['Poke Bar',,18,1],['Bangkok Garden',,14],
+ ['Tokyo Table',,14,1],['Olive & Vine',,19],['Smokehouse 57',,13,1],['Dim Sum Palace',,14],['Brew & Bao',,15],['Casa Verde',,11,1],
+ ['Kebab Corner',,17,1],['Noodle Lab',,19],['Crab Shack','warn',22,2],['Spice Route',,18],['Bistro 22',,11,1],['Honey Pot Café',,14,1],
+ ['Pizza Forno',,13,1],['Tandoori Nights',,14]];
+const LL = [[33.7739,-117.9414],[33.8366,-117.9143],[33.8675,-117.9981],[33.7458,-117.8262],[33.6846,-117.8265],[33.6411,-117.9187],[33.7455,-117.8677],[33.8704,-117.9242],[33.7879,-117.8531],[33.7513,-117.9940],[33.6500,-117.7430],[33.6470,-117.6892],[33.6189,-117.9298],[33.6603,-117.9992],[33.9319,-117.9462],[33.5427,-117.7854],[33.7092,-117.9536],[33.8170,-118.0373],[33.8886,-117.8131],[33.8722,-117.8703],[33.8025,-117.9931],[33.9167,-117.9001],[33.4270,-117.6120],[33.6000,-117.6720],[33.5676,-117.7256],[33.7414,-118.1048],[33.5225,-117.7076],[33.6409,-117.6031],[33.8031,-118.0726],[33.4672,-117.6981],[33.8520,-117.7600]];
+const busy = BUSY.map((r,i) => ({name:r[0], health:r[1]||'ok', n:r[2], off:r[3]||0, lat:LL[i][0], lng:LL[i][1]}));
+const sparse = [
+  {name:'Pho 88', health:'warn', n:18, off:1, lat:33.7739, lng:-117.9414},
+  {name:'Golden Wok', health:'ok', n:10, off:0, lat:33.7458, lng:-117.8262}];
+
+/* ── the stand-in map: coastline, freeways, a dot grid ── */
+function baseMap(W, H, view){
+  const [L0,L1,A0,A1] = view;
+  const k = Math.min(W / ((L1-L0)*.832), H / (A1-A0));
+  const ox = (W - (L1-L0)*.832*k)/2, oy = (H - (A1-A0)*k)/2;
+  const P = (lat,lng) => [ox + (lng-L0)*.832*k, oy + (A1-lat)*k];
+  const line = pts => pts.map(p => P(p[0],p[1]).map(v => v.toFixed(1)).join(',')).join(' ');
+  const coast = [[33.76,-118.14],[33.745,-118.10],[33.72,-118.06],[33.68,-118.02],[33.655,-117.99],[33.63,-117.955],[33.605,-117.91],[33.595,-117.88],[33.58,-117.85],[33.555,-117.81],[33.54,-117.785],[33.51,-117.75],[33.48,-117.72],[33.46,-117.70],[33.45,-117.66],[33.43,-117.625],[33.40,-117.59],[33.38,-117.56]];
+  const ocean = line(coast)+' '+P(33.0,-117.3).join(',')+' '+P(33.0,-119).join(',')+' '+P(33.76,-119).join(',');
+  const fwy = [[[33.87,-118.03],[33.86,-117.99],[33.84,-117.93],[33.81,-117.90],[33.77,-117.87],[33.74,-117.83],[33.69,-117.78],[33.65,-117.73],[33.61,-117.68],[33.56,-117.66],[33.50,-117.65],[33.44,-117.62],[33.40,-117.59]],
+    [[33.80,-118.10],[33.77,-118.05],[33.75,-117.99],[33.72,-117.94],[33.69,-117.90],[33.67,-117.85],[33.65,-117.78],[33.63,-117.73]],
+    [[33.87,-118.12],[33.865,-118.03],[33.86,-117.95],[33.86,-117.87],[33.855,-117.79],[33.86,-117.70],[33.88,-117.62]],
+    [[33.84,-117.83],[33.78,-117.84],[33.73,-117.86],[33.68,-117.88],[33.64,-117.91]]];
+  const streets = [];
+  for (let i = 0; i < 26; i++){ const a = 33.4 + i*.022; streets.push([[a,-118.2],[a,-117.5]]); }
+  for (let i = 0; i < 34; i++){ const g = -118.15 + i*.02; streets.push([[33.35,g],[34.0,g]]); }
+  let s = `<svg class="base" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="var(--surface2)"/>`;
+  streets.forEach(p => s += `<polyline points="${line(p)}" stroke="var(--border)" stroke-width="1" fill="none"/>`);
+  s += `<polygon points="${ocean}" fill="color-mix(in srgb,var(--info) 16%,var(--surface2))"/>`;
+  fwy.forEach(p => s += `<polyline points="${line(p)}" fill="none" stroke="var(--rule-2)" stroke-width="3" stroke-linejoin="round" opacity=".8"/>`);
+  return {svg: s + '</svg>', P};
+}
+
+/* ── label placement: try each spot in order, skip anything that overlaps ── */
+function place(boxes, cand){
+  for (const b of cand){
+    if (!boxes.some(o => b.x < o.x+o.w && b.x+b.w > o.x && b.y < o.y+o.h && b.y+b.h > o.y)){ boxes.push(b); return b; }
+  }
+  return null;
+}
+const tw = (t, px) => t.length * px * .56;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const R = s => Math.round(7 + Math.sqrt(s.n) * 2.2);
+
+function render(opt, sites, W, H, view){
+  const {svg, P} = baseMap(W, H, view);
+  const rank = {bad:0, warn:1, ok:2};
+  const order = sites.slice().sort((a,b) => rank[a.health]-rank[b.health] || b.n-a.n);
+  let mk = '', lb = '', hidden = 0;
+  const boxes = [];
+  order.forEach(s => { const [x,y] = P(s.lat,s.lng), r = opt === 'cur' ? R(s) - 1 : R(s); boxes.push({x:x-r, y:y-r, w:2*r, h:2*r}); });
+  order.slice().reverse().forEach(s => {
+    const [x,y] = P(s.lat,s.lng), r = opt === 'cur' ? R(s) - 1 : R(s), d = 2*r;
+    const inDot = (opt === 'b' || opt === 'e') ? `<span style="font-size:${r > 13 ? 11.5 : 10}px">${s.n}</span>` : '';
+    mk += `<div class="mk ${s.health}" style="left:${x}px;top:${y}px" title="${esc(s.name)} · ${s.n} devices"><div class="c" style="width:${d}px;height:${d}px">${inDot}</div></div>`;
+  });
+  order.forEach(s => {
+    if (opt === 'cur') return;
+    const [x,y] = P(s.lat,s.lng), r = R(s);
+    let html, w, h, cand;
+    if (opt === 'a'){
+      html = `<span class="pill ${s.health}">${esc(s.name)}<b>${s.n}</b></span>`; w = tw(s.name,11.5) + 34; h = 22;
+      cand = [{x:x+r+4, y:y-h/2}, {x:x-r-4-w, y:y-h/2}, {x:x-w/2, y:y-r-4-h}, {x:x-w/2, y:y+r+4}];
+    } else if (opt === 'b' || opt === 'e'){
+      if (opt === 'e' && s.health === 'ok'){ lb += `<div class="lbl hidden-lbl halo" style="left:${x - tw(s.name,11)/2}px;top:${y+r+2}px;font-size:11px;font-weight:650">${esc(s.name)}</div>`; return; }
+      html = `<span class="halo" style="font-size:11px;font-weight:650">${esc(s.name)}</span>`; w = tw(s.name,11); h = 14;
+      cand = [{x:x-w/2, y:y+r+2}, {x:x+r+3, y:y-h/2}, {x:x-r-3-w, y:y-h/2}, {x:x-w/2, y:y-r-2-h}];
+    } else if (opt === 'c'){
+      const on = s.n - s.off;
+      html = `<div class="card ${s.health}" style="position:relative"><div class="n">${esc(s.name)}</div><div class="s">${on} of ${s.n} online${s.off ? ` · <em>${s.off} offline</em>` : ''}</div><div class="bar"><i style="width:${on/s.n*100}%;background:var(--ok)"></i><i style="width:${s.off/s.n*100}%;background:var(--danger)"></i></div></div>`;
+      w = Math.max(116, tw(s.name,12) + 26, (s.off ? 150 : 104)); h = 52;
+      cand = [{x:x-w/2, y:y-r-10-h}, {x:x-18, y:y-r-10-h}, {x:x-w+18, y:y-r-10-h}, {x:x-w/2, y:y+r+10}, {x:x-18, y:y+r+10}, {x:x-w+18, y:y+r+10}];
+    } else if (opt === 'd'){
+      html = `<span class="chip">${esc(s.name)}<span class="on">${s.n - s.off}</span>${s.off ? `<span class="off">${s.off}</span>` : ''}</span>`;
+      w = tw(s.name,11.5) + 34 + (s.off ? 28 : 0); h = 22;
+      cand = [{x:x+r+4, y:y-h/2}, {x:x-r-4-w, y:y-h/2}, {x:x-w/2, y:y-r-4-h}, {x:x-w/2, y:y+r+4}];
+    }
+    const cand2 = cand.filter(b => b.x > 2 && b.x + w < W - (b.y < 70 ? 44 : 4) && b.y > 2 && b.y + h < H - 4).map(b => ({...b, w, h}));
+    const b = place(boxes, cand2);
+    if (b) lb += `<div class="lbl" style="left:${b.x}px;top:${b.y}px">${opt === 'c' && b.y > y ? html.replace('class="card ', 'class="card below ') : html}</div>`;
+    else { hidden++; lb += `<div class="lbl hidden-lbl" style="left:${cand[0].x}px;top:${cand[0].y}px;z-index:5">${html}</div>`; }
+  });
+  const more = hidden ? `<div class="note-more">${hidden} label${hidden === 1 ? '' : 's'} hidden to avoid overlap · hover a dot</div>` : '';
+  return `<div class="mbox" style="height:${H}px">${svg}<div class="layer">${mk}${lb}</div><div class="ctl"><i>+</i><i>−</i></div>${more}</div>`;
+}
+
+// Each map is drawn at its card's real width, and redrawn when that changes.
+function drawAll(){
+  document.querySelectorAll('.pair').forEach(el => {
+    const opt = el.dataset.opt;
+    if (!el.children.length) el.innerHTML =
+      '<div class="mcard"><div class="h">Like live today <span>2 restaurants · fitted to them</span></div><div class="m"></div></div>' +
+      '<div class="mcard"><div class="h">Busy <span>31 restaurants in one county</span></div><div class="m"></div></div>';
+    const [a, b] = el.querySelectorAll('.m');
+    a.innerHTML = render(opt, sparse, a.clientWidth, 520, [-118.02, -117.74, 33.70, 33.82]);
+    b.innerHTML = render(opt, busy, b.clientWidth, 520, [-118.14, -117.58, 33.40, 33.95]);
+  });
+}
+drawAll();
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(drawAll, 150); });
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>
