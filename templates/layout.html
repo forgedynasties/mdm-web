@@ -451,9 +451,9 @@
   {{if ne .Role "owner"}}
   <nav class="dock" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>
-    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>
-    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
+    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span><span class="dock-live dock-ring" hidden></span></a>
+    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span><span class="dock-live dock-spin" hidden></span></a>
+    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span><span class="dock-live dock-count" hidden></span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
@@ -2534,6 +2534,9 @@
       return box;
     }
     function show(a) {
+      // With a dock, the dock itself turns into the alert (the "island"); the toast
+      // is the fallback for pages without one.
+      if (window.mdmIsland && window.mdmIsland(a)) return;
       var el = document.createElement('div');
       el.className = 'mtoast';
       el.innerHTML = '<span class="mt-i"></span><div class="mt-m"><div class="mt-t"></div><div class="mt-s"></div><div class="mt-a"></div></div><button class="mt-x" aria-label="Dismiss">×</button>';
@@ -2557,6 +2560,89 @@
         .then(function (a) { if (a && a.severity === 'critical' && !seen[a.id]) { seen[a.id] = 1; show(a); } })
         .catch(function () {});
     });
+  })();
+  </script>
+  <script>
+  // ── Live dock ────────────────────────────────────────────────────────────
+  // The dock reports on the fleet: an online ring on Fleet, the open-alert count on
+  // Alerts (pulsing only while something is critical), a spinner on Actions while
+  // commands sent in the last 15 minutes are still running. Figures come from
+  // /dock/status (server-cached 15 s), fetched on load, every 30 s while the tab is
+  // visible, and whenever the alerts stream ticks.
+  (function () {
+    var dock = document.querySelector('.dock');
+    if (!dock || !window.fetch) return;
+    var busy = false;
+    function el(label, cls) {
+      var a = dock.querySelector('a.nav-link[data-cmdk-label="' + label + '"]');
+      return a && a.querySelector('.' + cls);
+    }
+    function ring(on, total) {
+      var r = 6, c = 2 * Math.PI * r, f = total ? on / total : 0;
+      return '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="' + r + '" class="trk"/>'
+        + '<circle cx="8" cy="8" r="' + r + '" class="val" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) + '" transform="rotate(-90 8 8)"/></svg>'
+        + '<span class="t">' + on + ' / ' + total + '</span>';
+    }
+    function paint(s) {
+      var f = el('Fleet', 'dock-ring'), a = el('Alerts', 'dock-count'), x = el('Actions', 'dock-spin');
+      if (f) {
+        f.hidden = !s.fleet || !s.total;
+        if (!f.hidden) { f.innerHTML = ring(s.online, s.total); f.title = s.online + ' of ' + s.total + ' devices online'; }
+      }
+      if (a) {
+        a.hidden = !s.alerts;
+        a.textContent = s.alerts;
+        a.classList.toggle('crit', s.critical > 0);
+        a.title = s.alerts + ' open alert' + (s.alerts === 1 ? '' : 's') + (s.critical ? ' · ' + s.critical + ' critical' : '');
+      }
+      if (x) {
+        x.hidden = !s.running;
+        x.title = s.running + ' command' + (s.running === 1 ? '' : 's') + ' still running';
+      }
+    }
+    function load() {
+      if (busy || document.hidden) return;
+      busy = true;
+      fetch('/dock/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) { if (s) paint(s); })
+        .catch(function () {})
+        .then(function () { busy = false; });
+    }
+    load();
+    setInterval(load, 30000);
+    document.addEventListener('visibilitychange', load);
+    document.addEventListener('mdm:alerts-update', load);
+  })();
+
+  // ── Island ───────────────────────────────────────────────────────────────
+  // When a new critical alert arrives the dock morphs into it for a few seconds —
+  // headline, one line, View — then shrinks back into the navigation. Hovering
+  // holds it open. Returns false when there is no dock, so the caller can toast.
+  (function () {
+    var dock = document.querySelector('.dock');
+    if (!dock) return;
+    var box = document.createElement('div'), timer = null;
+    box.className = 'dock-island';
+    box.setAttribute('role', 'status');
+    box.innerHTML = '<span class="di-i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>'
+      + '<span class="di-m"><b class="di-t"></b><span class="di-s"></span></span><a class="di-go">View</a>'
+      + '<button type="button" class="di-x" aria-label="Dismiss">×</button>';
+    dock.appendChild(box);
+    function close() { clearTimeout(timer); dock.classList.remove('island-on'); }
+    function arm() { clearTimeout(timer); timer = setTimeout(close, 7000); }
+    box.querySelector('.di-x').addEventListener('click', close);
+    box.querySelector('.di-go').addEventListener('click', close);
+    box.addEventListener('mouseenter', function () { clearTimeout(timer); });
+    box.addEventListener('mouseleave', arm);
+    window.mdmIsland = function (a) {
+      box.querySelector('.di-t').textContent = a.headline || 'New alert';
+      box.querySelector('.di-s').textContent = a.sentence || '';
+      box.querySelector('.di-go').href = a.href || '/alerts';
+      dock.classList.add('island-on');
+      arm();
+      return true;
+    };
   })();
   </script>
   <script>

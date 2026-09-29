@@ -9448,6 +9448,24 @@ func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// DockCounts feeds the live dock: open critical alerts that are not snoozed, and
+// commands sent in the last 15 minutes that some device has not finished. The
+// window keeps a command wedged at 'delivered' for days from spinning forever.
+func (d *DB) DockCounts(ctx context.Context) (critical, running int, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM alerts a
+			 LEFT JOIN devices dv ON dv.id = a.device_id
+			 WHERE a.status = 'open' AND a.severity = 'critical'
+			   AND (a.muted_until IS NULL OR a.muted_until < NOW())
+			   AND (a.device_id IS NULL OR NOT dv.hidden)),
+			(SELECT COUNT(*) FROM commands c
+			 WHERE c.created_at > NOW() - INTERVAL '15 minutes'
+			   AND EXISTS (SELECT 1 FROM command_status cs
+			               WHERE cs.command_id = c.id AND cs.status IN ('pending', 'delivered')))`).Scan(&critical, &running)
+	return critical, running, err
+}
+
 // RestaurantAlerts is a per-restaurant open-alert rollup for the Daily Report's
 // live breakdown.
 type RestaurantAlerts struct {

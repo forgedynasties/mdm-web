@@ -21535,6 +21535,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /sw.js", h.ServiceWorker)
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
+	mux.HandleFunc("GET /dock/status", h.requireAuth(h.DockStatus))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdmin(h.AlertConfigView))
