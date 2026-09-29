@@ -5820,7 +5820,7 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 
 /* ── Live dock ─────────────────────────────────────────────────────────────────
    Small live figures inside the dock links (layout.html, "Live dock"): the online
-   ring on Fleet, the open-alert count on Alerts, a spinner on Actions. */
+   ring on Fleet and the open-alert count on Alerts. */
 .dock .dock-live { flex: none; }
 .dock .dock-live[hidden] { display: none; }
 .dock .dock-ring { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 650; color: var(--text-2);
@@ -5835,8 +5835,6 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 /* Pulses only while something is critical — a badge that always pulses gets tuned out. */
 .dock .dock-count.crit::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; border: 2px solid var(--danger); animation: dock-pulse 1.8s ease-out infinite; }
 @keyframes dock-pulse { to { transform: scale(1.7); opacity: 0; } }
-.dock .dock-spin { width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--info-bg); border-top-color: var(--info); animation: dock-spin 1s linear infinite; }
-@keyframes dock-spin { to { transform: rotate(360deg); } }
 /* Phones stack icon over label: the figures become corner badges, and the ring
    drops its text. */
 @media (max-width: 640px) {
@@ -5847,45 +5845,40 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 }
 
 /* ── Search dock (nav.dock-s in layout.html) ───────────────────────────────────
-   Icon-only destinations and a search field that opens the ⌘K palette. Icons are
-   outlines, and the page you are on turns solid in the brand colour with a dot under
-   it. Names stay in the DOM for screen readers and show as a label on hover. The
-   live figures sit on the icons: a ring round Fleet, a count on Alerts, a spinning
-   ring round Actions. */
+   Destinations as an icon with its name underneath, and a search field that opens
+   the ⌘K palette. Icons are outlines; the page you are on turns solid in the brand
+   colour on a tint. The live figures sit on the icons: a ring round Fleet, a count
+   on Alerts; hovering one shows its figure. */
 .dock.dock-s { align-items: center; gap: 2px; padding: 6px; }
-.dock-s > .nav-link { position: relative; width: 44px; height: 44px; padding: 0; gap: 0; justify-content: center; border-radius: 12px; }
+.dock-s > .nav-link { position: relative; flex-direction: column; justify-content: center; gap: 4px; height: 50px; min-width: 52px; padding: 0 8px; box-sizing: border-box; border-radius: 12px; }
 .dock-s > .nav-link:hover { background: var(--surface2); }
-.dock-s > .nav-link.active, .dock-s > .nav-link.js-freq.active { background: transparent; color: var(--accent-text); }
-.dock-s .dock-lbl { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-.dock-s .nav-link .ui-icon { display: grid; place-items: center; }
+.dock-s > .nav-link.active, .dock-s > .nav-link.js-freq.active { background: var(--accent-soft); color: var(--accent-text); }
+.dock-s .dock-lbl { font-size: 10.5px; font-weight: 650; line-height: 1; white-space: nowrap; }
+.dock-s > .nav-link.js-freq { padding: 0 8px; font-size: 10.5px; }
+.dock-s .nav-link .ui-icon { position: relative; display: grid; place-items: center; }
 .dock-s .nav-link .ui-icon, .dock-s .nav-link .ui-icon svg,
-.dock-s .nav-link.js-freq .ui-icon, .dock-s .nav-link.js-freq .ui-icon svg { width: 21px; height: 21px; }
+.dock-s .nav-link.js-freq .ui-icon, .dock-s .nav-link.js-freq .ui-icon svg { width: 19px; height: 19px; }
 .dock-s .nav-link .ui-icon svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .dock-s .ic-f { display: none; }
 .dock-s .nav-link.active .ic-o { display: none; }
 .dock-s .nav-link.active .ic-f { display: block; }
 .dock-s .ic-f .fill { fill: currentColor; stroke: none; }
 .dock-s .ic-f .cut { stroke: var(--surface); stroke-width: 1.9; }
-.dock-s > .nav-link.active::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
-/* The hover label: the name, or name · figure once the live dock has one. */
-.dock-s > .nav-link::before { content: attr(data-cmdk-label); position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+/* Hover label: only when there is a figure to show. */
+.dock-s > .nav-link[data-tip]::before { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
   background: var(--text); color: var(--bg); font-size: 11.5px; font-weight: 600; line-height: 1.3; padding: 3px 8px; border-radius: 5px; white-space: nowrap;
   opacity: 0; pointer-events: none; transition: opacity .1s; }
-.dock-s > .nav-link[data-tip]::before { content: attr(data-tip); }
-.dock-s > .js-more::before { content: "More"; }
-.dock-s > .nav-link:hover::before, .dock-s > .nav-link:focus-visible::before { opacity: 1; }
+.dock-s > .nav-link[data-tip]:hover::before, .dock-s > .nav-link[data-tip]:focus-visible::before { opacity: 1; }
 .dock-s .dock-sep { margin: 8px 4px; }
-/* Live figures, on the icons rather than beside the name. */
-.dock-s .dock-ring, .dock-s .dock-spin { position: absolute; top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); pointer-events: none; }
-.dock-s .dock-ring { width: 42px; height: 42px; padding: 0; background: none; border-radius: 50%; }
-.dock-s .dock-ring svg { width: 100%; height: 100%; }
+/* Live figures, on the icon (they live inside .ui-icon). */
+.dock-s .dock-ring { position: absolute; top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); pointer-events: none; }
+.dock-s .dock-ring { width: 31px; height: 31px; padding: 0; background: none; border-radius: 50%; }
+.dock-s .nav-link .ui-icon .dock-ring svg { width: 100%; height: 100%; } /* not the 19px icon size */
 .dock-s .dock-ring .trk, .dock-s .dock-ring .val { stroke-width: 2.2; }
 .dock-s .dock-ring .val { stroke-linecap: round; }
-.dock-s .dock-count { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; box-shadow: 0 0 0 2px var(--surface); }
-.dock-s .dock-spin { width: 36px; height: 36px; border: 2px solid transparent; border-top-color: var(--info); animation: dock-spin-c 1s linear infinite; }
-@keyframes dock-spin-c { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.dock-s .dock-count { position: absolute; top: -7px; right: -10px; left: auto; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; box-shadow: 0 0 0 2px var(--surface); }
 /* The search field is a button: it opens the palette, which does the searching. */
-.dock-search { flex: none; display: flex; align-items: center; gap: 9px; width: 300px; height: 44px; margin-left: 6px; padding: 0 12px; box-sizing: border-box;
+.dock-search { flex: none; display: flex; align-items: center; gap: 9px; width: 300px; height: 50px; margin-left: 6px; padding: 0 12px; box-sizing: border-box;
   border: 0; border-radius: 12px; background: var(--surface2); color: var(--text-faint); font: inherit; font-size: 13px; cursor: text; }
 .dock-search:hover { color: var(--text-2); }
 .dock-search svg { flex: none; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
@@ -5893,13 +5886,12 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock-search kbd { font: 600 10.5px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; background: var(--surface); }
 .dock.island-on > .dock-search { opacity: 0; pointer-events: none; }
 @media (max-width: 1024px) { .dock-search { width: 220px; } }
-/* Phones: the icons share the width and the search shrinks to its icon. */
+/* Phones: the items share the width and the search shrinks to its icon. */
 @media (max-width: 640px) {
-  .dock-s > .nav-link { flex: 1; width: auto; height: 46px; min-height: 46px; padding: 0; }
+  .dock-s > .nav-link { flex: 1; min-width: 0; padding: 0 2px; }
   .dock-s > .nav-link::before { display: none; }
-  .dock-search { width: 44px; margin-left: 2px; padding: 0; justify-content: center; }
+  .dock-search { width: 46px; margin-left: 2px; padding: 0; justify-content: center; }
   .dock-search .ph, .dock-search kbd { display: none; }
-  .dock-s .dock-count { top: 2px; right: calc(50% - 20px); left: auto; transform: none; }
 }
 
 /* ── Island ────────────────────────────────────────────────────────────────────
@@ -5923,7 +5915,7 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock .di-x { flex: none; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #a0a1ab; font-size: 18px; line-height: 1; cursor: pointer; }
 .dock .di-x:hover { background: #262633; color: #fff; }
 @media (prefers-reduced-motion: reduce) {
-  .dock .dock-count.crit::after, .dock .dock-spin { animation: none; }
+  .dock .dock-count.crit::after { animation: none; }
   .dock .dock-island, .dock > .nav-link { transition: none; }
 }
 
