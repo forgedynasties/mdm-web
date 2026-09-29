@@ -47,9 +47,6 @@
 .ovd-sev.warning{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-bg)}
 .ovd-sev.info{color:var(--info);border-color:var(--info-edge);background:var(--info-bg)}
 
-.ovd-bar{display:flex;height:6px;border-radius:2px;overflow:hidden;background:var(--surface-3);margin-top:6px;min-width:120px}
-.ovd-bar i{display:block;height:100%}
-.ovd-bar .done{background:var(--text-2)}.ovd-bar .down{background:var(--rule-2)}.ovd-bar .fail{background:var(--danger)}
 /* Device wall: a block per restaurant, a square per device. */
 .ovd-wall{--sq:10px;display:flex;flex-wrap:wrap;gap:14px 18px;padding:14px}
 .ovd-wall.sm{--sq:7px;gap:10px 12px}
@@ -175,7 +172,7 @@
 .ovd-main{display:grid;gap:14px;min-width:0;align-content:start}
 .ovd-side{align-content:start}
 /* One column: keep the reading order wall → attention → map → rollouts → types. */
-@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o4{order:4}.ovd-o5{order:5}}
+@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o5{order:4}}
 .ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11px/1.2 var(--font);color:var(--text);text-shadow:0 0 3px var(--surface),0 0 3px var(--surface),0 0 3px var(--surface),0 0 4px var(--surface)}
 .ovd-mlbl.off{opacity:0}
 .ovd-mlbl.off.peek{opacity:1}
@@ -204,7 +201,7 @@
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
   {{template "ov3-w-hero" .}}
 
-  {{/* Two independent columns, so a short attention list leaves no gap before Rollouts. */}}
+  {{/* Two independent columns, so a short attention list leaves no gap under it. */}}
   <div class="ovd-mid">
     <div class="ovd-main">
       {{/* ── Device wall: every device one square, restaurants worst first ── */}}
@@ -264,24 +261,6 @@
         {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
         {{else}}
         <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
-        {{end}}
-      </div>
-
-      {{/* ── Rollouts in flight ── */}}
-      <div class="cc-card ovd-o4">
-        <div class="cc-ch"><h2>Rollouts</h2>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates</a>{{end}}</div>
-        {{if .Rollouts}}
-        <table class="ovd-t"><tbody>
-          {{range .Rollouts}}
-          <tr><td class="wrap">
-            <a href="/updates">{{if .Version}}{{.Version}}{{else}}Update #{{.ID}}{{end}}</a>{{if .Product}} <span class="mut">· {{.Product}}</span>{{end}}
-            <div class="ovd-bar"><i class="done" style="width:{{.PctDone}}%"></i><i class="down" style="width:{{.PctDown}}%"></i><i class="fail" style="width:{{.PctFail}}%"></i></div>
-          </td><td class="num mut" style="vertical-align:top">{{.Installed}} / {{.Total}}{{if gt .Failed 0}}<br><span style="color:var(--danger)">{{.Failed}} failed</span>{{end}}</td></tr>
-          {{end}}
-        </tbody></table>
-        {{if gt .RolloutsCount 4}}<a class="ovd-more" href="/updates">{{sub .RolloutsCount 4}} more</a>{{end}}
-        {{else}}
-        <div class="ovd-empty">No rollouts in flight.</div>
         {{end}}
       </div>
 
