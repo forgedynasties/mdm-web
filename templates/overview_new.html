@@ -13,9 +13,6 @@
 .ovd .cc-ch{padding:10px 14px;min-height:42px}
 .ovd .cc-ch h2{font-size:13px;font-weight:650}
 
-.ovd-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
-.ovd-head h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
-.ovd-meta{font-size:12px;color:var(--muted);margin-top:3px}
 
 
 .ovd-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start;margin-bottom:14px}
@@ -171,12 +168,8 @@
 <div class="ovd">
 
   {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
-  <div class="ovd-head">
-    <div>
-      <h1>Overview</h1>
-      <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
-    </div>
-  </div>
+  {{/* No visible title: the page is the dock's Overview. The heading stays for screen readers. */}}
+  <h1 class="sr-only">Overview</h1>
 
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
   {{template "ov3-w-hero" .}}
