@@ -1,0 +1,358 @@
+{{define "overview_new.html"}}
+{{template "header" .}}
+
+<style>
+/* ── Overview ──────────────────────────────────────────────────────────────
+   Counts, then what needs attention, then where. Fixed layout: the reading
+   order is the design. Colour appears only on status (dots, severity tags,
+   an over-limit temperature); cards are flat, 8px, no header icons. */
+.ovd{max-width:1280px;margin:0 auto;font-size:13px}
+.ovd .tn,.ovd td{font-variant-numeric:tabular-nums}
+.ovd .cc-card{border-radius:8px;box-shadow:none}
+.ovd .cc-card+.cc-card{margin-top:0}
+.ovd .cc-ch{padding:10px 14px;min-height:42px}
+.ovd .cc-ch h2{font-size:13px;font-weight:650}
+
+.ovd-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.ovd-head h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
+.ovd-meta{font-size:12px;color:var(--muted);margin-top:3px}
+
+.ovd-stats{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.ovd-stat{display:block;padding:12px 16px;border-left:1px solid var(--border-soft);color:inherit;text-decoration:none}
+.ovd-stat:first-child{border-left:0}
+.ovd-stat:hover{background:var(--surface2)}
+.ovd-stat:first-child:hover{border-radius:8px 0 0 8px}.ovd-stat:last-child:hover{border-radius:0 8px 8px 0}
+.ovd-stat .l{font-size:12px;color:var(--muted)}
+.ovd-stat .v{display:flex;align-items:baseline;gap:8px;font-size:22px;font-weight:600;letter-spacing:-.01em;margin-top:4px;font-variant-numeric:tabular-nums}
+.ovd-stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+.ovd-stat .v svg{margin-left:auto;align-self:center;flex:none}
+.ovd-stat .s{font-size:11.5px;color:var(--text-faint);margin-top:2px}
+.ovd-stat .bad{color:var(--danger)}.ovd-stat .good{color:var(--ok)}
+@media(max-width:1024px){.ovd-stats{grid-template-columns:repeat(3,1fr)}.ovd-stat:nth-child(4){border-left:0}.ovd-stat:nth-child(n+4){border-top:1px solid var(--border-soft)}}
+@media(max-width:720px){.ovd-stats{grid-template-columns:1fr 1fr}.ovd-stat{border-left:0!important;border-top:1px solid var(--border-soft)}.ovd-stat:nth-child(-n+2){border-top:0}.ovd-stat:nth-child(even){border-left:1px solid var(--border-soft)!important}}
+
+.ovd-mid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start;margin-bottom:14px}
+.ovd-side{display:grid;gap:14px}
+@media(max-width:1024px){.ovd-mid{grid-template-columns:1fr}}
+
+.ovd-tw{overflow-x:auto}
+.ovd-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.ovd-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+.ovd-t td{padding:8px 14px;border-top:1px solid var(--border-soft);white-space:nowrap}
+.ovd-t tbody tr:first-child td{border-top:0}
+.ovd-t tbody tr:hover td{background:var(--surface2)}
+.ovd-t .num{text-align:right}
+.ovd-t .mut{color:var(--muted)}
+.ovd-t .wrap{white-space:normal}
+.ovd-t a{color:var(--text);text-decoration:none;font-weight:550}
+.ovd-t a:hover{text-decoration:underline}
+.ovd-t .ser{font-family:var(--mono);font-size:11.5px;font-weight:500}
+.ovd-t .hot{color:var(--danger);font-weight:600}
+.ovd-more{display:block;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.ovd-more:hover{background:var(--surface2)}
+.ovd-empty{padding:18px 14px;font-size:12.5px;color:var(--muted)}
+.ovd-empty b{color:var(--text);font-weight:600}
+
+.ovd-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-faint);margin-right:7px;vertical-align:1px}
+.ovd-dot.ok{background:var(--ok)}.ovd-dot.warn{background:var(--warn)}.ovd-dot.danger{background:var(--danger)}
+.ovd-sev{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:4px;border:1px solid var(--border);color:var(--text-2)}
+.ovd-sev.critical{color:var(--danger);border-color:var(--danger-edge);background:var(--danger-bg)}
+.ovd-sev.warning{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-bg)}
+.ovd-sev.info{color:var(--info);border-color:var(--info-edge);background:var(--info-bg)}
+
+.ovd-bar{display:flex;height:6px;border-radius:2px;overflow:hidden;background:var(--surface-3);margin-top:6px;min-width:120px}
+.ovd-bar i{display:block;height:100%}
+.ovd-bar .done{background:var(--text-2)}.ovd-bar .down{background:var(--rule-2)}.ovd-bar .fail{background:var(--danger)}
+/* Device wall: a block per restaurant, a square per device. */
+.ovd-wall{--sq:10px;display:flex;flex-wrap:wrap;gap:14px 18px;padding:14px}
+.ovd-wall.sm{--sq:7px;gap:10px 12px}
+.ovd-wb{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ovd-wb .nm{display:flex;align-items:center;font-size:11.5px;font-weight:600;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovd-wb .nm .ovd-dot{width:6px;height:6px;margin-right:5px;flex:none}
+.ovd-wb .nm a,.ovd-wb .nm span:not(.ovd-dot){color:var(--text-2);text-decoration:none;overflow:hidden;text-overflow:ellipsis}
+.ovd-wb .nm a:hover{color:var(--text);text-decoration:underline}
+.ovd-wb.bad .nm a{color:var(--danger)}
+.ovd-wb .sq{display:grid;gap:2px}
+.ovd-wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
+.ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
+.ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
+.ovd-wb .sq a.on,.ovd-wfoot i.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
+.ovd-wb .sq a.warn,.ovd-wfoot i.warn{background:var(--warn)}
+.ovd-wb .sq a.off,.ovd-wfoot i.off{background:var(--danger)}
+.ovd-wb .sq a.dormant,.ovd-wfoot i.dormant{background:var(--rule-2)}
+.ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.ovd-wfoot span{display:inline-flex;align-items:center}
+.ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.ovd-wfoot .ovd-dot{margin-right:5px}
+#ovd-tip{position:fixed;z-index:80;pointer-events:none;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:550;padding:5px 8px;border-radius:5px;white-space:nowrap;opacity:0;transition:opacity .08s;box-shadow:var(--shadow-md)}
+#ovd-tip.on{opacity:1}
+
+/* Needs attention: a compact worklist beside the wall. */
+.ovd-q{list-style:none;margin:0;padding:0}
+.ovd-q li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.ovd-q li:first-child{border-top:0}
+.ovd-q li:hover{background:var(--surface2)}
+.ovd-q .ovd-dot{margin:5px 0 0}
+.ovd-q .t{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;line-height:1.35}
+.ovd-q .t:hover{text-decoration:underline}
+.ovd-q .w{font-size:11.5px;color:var(--muted);margin-top:1px}
+.ovd-q .ser{font-family:var(--mono);font-size:11px}
+.ovd-q .a{font-size:11.5px;color:var(--text-faint);white-space:nowrap}
+
+.ovd-map{height:420px;background:var(--surface2)}
+@media(max-width:720px){.ovd-map{height:320px}}
+</style>
+
+<div class="ovd">
+
+  <div class="ovd-head">
+    <div>
+      <h1>Overview</h1>
+      <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">{{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}<a class="cc-btn sm" href="/export" title="Export device telemetry as CSV">Export</a></div>
+  </div>
+
+  {{/* ── Stat strip: every cell a measured count that opens its list ── */}}
+  {{$sitesN := add (add .SitesOK .SitesWarn) .SitesBad}}
+  <div class="ovd-stats">
+    <a class="ovd-stat" href="/devices?status=online">
+      <div class="l"><span class="ovd-dot ok"></span>Online</div>
+      <div class="v">{{.Summary.RecentlyActive}}<small>of {{.Summary.Total}}</small>{{if .SparkActive}}<svg width="58" height="22" viewBox="0 0 58 22" aria-hidden="true"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="{{.SparkActive}}"/></svg>{{end}}</div>
+      <div class="s">{{if .OnlinePct}}{{.OnlinePct}}%{{end}}{{with .OnlineDelta}}{{if .Show}} · <span class="{{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}+{{else}}−{{end}}{{.N}}</span> vs yesterday{{end}}{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/devices?status=offline">
+      <div class="l"><span class="ovd-dot{{if gt .Offline 0}} danger{{end}}"></span>Offline</div>
+      <div class="v">{{.Offline}}</div>
+      <div class="s">{{with .OfflineDelta}}{{if .Show}}<span class="{{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}+{{else}}−{{end}}{{.N}}</span> vs yesterday{{else}}same as yesterday{{end}}{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/alerts">
+      <div class="l">Needs attention</div>
+      <div class="v">{{.AttentionTotal}}</div>
+      <div class="s">{{if .AttentionCritical}}<span class="bad">{{.AttentionCritical}} critical</span>{{else}}none critical{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/alerts?view=crashes">
+      <div class="l">Crashes · 24h</div>
+      <div class="v">{{.Crashes24h}}{{if .CrashSpark}}<svg width="58" height="22" viewBox="0 0 58 22" aria-hidden="true"><polyline fill="none" stroke="var(--rule-2)" stroke-width="1.5" points="{{.CrashSpark}}"/></svg>{{end}}</div>
+      <div class="s">on {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div>
+    </a>
+    <a class="ovd-stat" href="/restaurants">
+      <div class="l">Restaurants healthy</div>
+      <div class="v">{{.SitesOK}}<small>of {{$sitesN}}</small></div>
+      <div class="s">{{if .SitesBad}}<span class="bad">{{.SitesBad}} at risk</span>{{else}}none at risk{{end}} · {{.SitesWarn}} to watch</div>
+    </a>
+  </div>
+
+  <div class="ovd-mid">
+
+    {{/* ── Device wall: every device one square, restaurants worst first ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Fleet</h2>{{if .Wall}}<span class="m">every square is a device · worst restaurants first</span>{{end}}<a class="r" href="/devices"{{if not .Wall}} style="margin-left:auto"{{end}}>All devices</a></div>
+      {{if .Wall}}
+      <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
+        {{range .Wall}}
+        <div class="ovd-wb {{.Health}}">
+          <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
+          <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
+        </div>
+        {{end}}
+      </div>
+      <div class="ovd-wfoot">
+        <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
+      </div>
+      {{else}}
+      <div class="ovd-empty"><b>No devices enrolled yet.</b></div>
+      {{end}}
+    </div>
+
+    {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
+      {{if .AttentionRows}}
+      <ul class="ovd-q">
+        {{range .AttentionRows}}
+        <li>
+          <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}" title="{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}"></span>
+          <div>
+            <a class="t" href="{{.Href}}">{{.Issue}}</a>
+            <div class="w">{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{else if eq .Href "/enrollment"}} · Unassigned{{end}}</div>
+          </div>
+          <span class="a">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</span>
+        </li>
+        {{end}}
+      </ul>
+      {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
+      {{else}}
+      <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="ovd-mid">
+
+    {{/* ── Restaurant map: a dot per restaurant, sized by devices, coloured by state ── */}}
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Map</h2><a class="r" href="/map" style="margin-left:auto">Device map</a></div>
+      {{if and .MapDots .MapsEmbedKey}}
+      <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
+      <div class="ovd-wfoot">
+        <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Big dots are restaurants, sized by devices · small dots are devices with no located restaurant</span>
+      </div>
+      <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
+      {{else if .MapDots}}
+      <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
+      {{else}}
+      <div class="ovd-empty"><b>Nothing located yet.</b> Give a restaurant its coordinates, or turn on device location, and it appears here.</div>
+      {{end}}
+    </div>
+
+    <div class="ovd-side">
+      {{/* ── Rollouts in flight ── */}}
+      <div class="cc-card">
+        <div class="cc-ch"><h2>Rollouts</h2>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates</a>{{end}}</div>
+        {{if .Rollouts}}
+        <table class="ovd-t"><tbody>
+          {{range .Rollouts}}
+          <tr><td class="wrap">
+            <a href="/updates">{{if .Version}}{{.Version}}{{else}}Update #{{.ID}}{{end}}</a>{{if .Product}} <span class="mut">· {{.Product}}</span>{{end}}
+            <div class="ovd-bar"><i class="done" style="width:{{.PctDone}}%"></i><i class="down" style="width:{{.PctDown}}%"></i><i class="fail" style="width:{{.PctFail}}%"></i></div>
+          </td><td class="num mut" style="vertical-align:top">{{.Installed}} / {{.Total}}{{if gt .Failed 0}}<br><span style="color:var(--danger)">{{.Failed}} failed</span>{{end}}</td></tr>
+          {{end}}
+        </tbody></table>
+        {{if gt .RolloutsCount 4}}<a class="ovd-more" href="/updates">{{sub .RolloutsCount 4}} more</a>{{end}}
+        {{else}}
+        <div class="ovd-empty">No rollouts in flight.</div>
+        {{end}}
+      </div>
+
+      {{/* ── Devices by type ── */}}
+      <div class="cc-card">
+        <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
+        {{if .ClassOnline}}
+        <table class="ovd-t">
+          <thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead>
+          <tbody>
+          {{range .ClassOnline}}
+          <tr><td>{{if .Class}}<a href="/devices?class={{.Class}}">{{.Label}}</a>{{else}}{{.Label}}{{end}}</td><td class="num">{{.Online}}</td><td class="num mut">{{.Total}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="ovd-empty">No devices enrolled yet.</div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var t = document.getElementById('ovd-at');
+  if (!t) return;
+  var d = new Date(t.getAttribute('datetime'));
+  if (!isNaN(d)) t.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (window.mdmTickRel) window.mdmTickRel();
+})();
+
+// Wall tooltips: one floating label, instead of a title per square.
+(function () {
+  var wall = document.querySelector('.ovd-wall');
+  if (!wall) return;
+  var tip = document.createElement('div');
+  tip.id = 'ovd-tip';
+  document.body.appendChild(tip);
+  wall.addEventListener('mousemove', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (!t) { tip.classList.remove('on'); return; }
+    tip.textContent = t.getAttribute('data-tip');
+    var x = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px';
+    tip.classList.add('on');
+  });
+  wall.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+})();
+
+// Restaurant map: a circle per restaurant, sized by devices, coloured by state.
+window.ovdInitMap = function () {
+  var el = document.getElementById('ovd-map'), raw = document.getElementById('ovd-map-data');
+  if (!el || !raw || !window.google) return;
+  var data = JSON.parse(raw.textContent || '{}'), sites = data.sites || [], devs = data.devices || [];
+  var first = sites[0] || devs[0];
+  var MUTED = [{ stylers: [{ saturation: -70 }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }];
+  var DARK = [
+    {elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},{featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
+    {featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
+    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+    {featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
+    {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
+  ];
+  var map = new google.maps.Map(el, { zoom: 10, center: { lat: first.lat, lng: first.lng }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, keyboardShortcuts: false, gestureHandling: 'cooperative' });
+  var iw = new google.maps.InfoWindow(), markers = [];
+  function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function color(h) {
+    var cs = getComputedStyle(document.body);
+    return cs.getPropertyValue(h === 'bad' ? '--danger' : h === 'warn' ? '--warn' : '--ok').trim();
+  }
+  function draw() {
+    var dark = window.mdmTheme && window.mdmTheme() === 'dark';
+    map.setOptions({ styles: dark ? DARK : MUTED });
+    markers.forEach(function (m) { m.setMap(null); });
+    markers = [];
+    var bounds = new google.maps.LatLngBounds(), rank = { ok: 0, warn: 1, bad: 2 };
+    devs.forEach(function (d) {
+      var mk = new google.maps.Marker({
+        position: { lat: d.lat, lng: d.lng }, map: map, title: d.serial, zIndex: 1,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: color(d.online ? 'ok' : 'bad'), fillOpacity: 0.85, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 1.5 }
+      });
+      mk.addListener('click', function () {
+        iw.setContent('<div style="min-width:150px;font-size:13px"><b style="font-family:var(--mono)">' + esc(d.serial) + '</b>'
+          + '<div style="margin:3px 0">' + (d.online ? 'Online' : 'Offline') + ' · no restaurant on the map</div>'
+          + '<a href="/devices/' + encodeURIComponent(d.serial) + '">Open device →</a></div>');
+        iw.open(map, mk);
+      });
+      markers.push(mk);
+      bounds.extend(mk.getPosition());
+    });
+    sites.slice().sort(function (a, b) { return rank[a.health] - rank[b.health]; }).forEach(function (s) {
+      var mk = new google.maps.Marker({
+        position: { lat: s.lat, lng: s.lng }, map: map, title: s.name, zIndex: 10 + rank[s.health],
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5 + Math.sqrt(s.total) * 1.6, fillColor: color(s.health), fillOpacity: s.health === 'ok' ? 0.75 : 0.95, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 2 }
+      });
+      mk.addListener('click', function () {
+        iw.setContent('<div style="min-width:170px;font-size:13px"><b>' + esc(s.name) + '</b>'
+          + '<div style="margin:3px 0">' + s.online + ' of ' + s.total + ' online</div>'
+          + (s.issue ? '<div style="opacity:.75">' + esc(s.issue) + '</div>' : '')
+          + '<a href="/restaurants/' + encodeURIComponent(s.id) + '">Open restaurant →</a></div>');
+        iw.open(map, mk);
+      });
+      markers.push(mk);
+      bounds.extend(mk.getPosition());
+    });
+    return bounds;
+  }
+  var b = draw();
+  if (markers.length > 1) {
+    google.maps.event.addListenerOnce(map, 'bounds_changed', function () { if (map.getZoom() > 14) map.setZoom(14); });
+    map.fitBounds(b, 40);
+  }
+  window.addEventListener('mdm:themechange', function () { draw(); });
+};
+</script>
+{{if and .MapDots .MapsEmbedKey}}
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovdInitMap"></script>
+{{end}}
+
+{{template "footer" .}}
+{{end}}
+
+
+{{/* New / Classic switch, shown to super admins on both Overviews while the new one is tried out. */}}
+{{define "ov-switch"}}<style>
+.ov-switch{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);flex:none}
+.ov-switch a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;text-decoration:none;border-left:1px solid var(--border);line-height:1.4}
+.ov-switch a:first-child{border-left:0}
+.ov-switch a:hover{color:var(--text)}
+.ov-switch a.on{background:var(--surface-3);color:var(--text)}
+</style><span class="ov-switch" role="group" aria-label="Overview version" title="Only super admins see this switch"><a href="/?overview=new"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span>{{end}}

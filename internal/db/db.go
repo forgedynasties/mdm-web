@@ -3154,6 +3154,91 @@ func (d *DB) FleetComposition(ctx context.Context, excludeDPC bool) (classes []C
 	return classes, firmware, dpc, nil
 }
 
+// ClassOnline is one device class with its online share, for the Overview's
+// devices-by-type table.
+type ClassOnline struct {
+	Class  string
+	Total  int
+	Online int
+}
+
+// FleetClassOnline counts active devices per class and how many of them are in
+// connected (the hub's live set), in the class order of prod.Classes(), with
+// unclassified devices last under Class "".
+func (d *DB) FleetClassOnline(ctx context.Context, connected []uuid.UUID, excludeDPC bool) ([]ClassOnline, error) {
+	kindWhere := ""
+	if excludeDPC {
+		kindWhere = " AND agent_kind <> 'dpc'"
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT `+derivedClassSQL()+` AS cls,
+		       COUNT(*), COUNT(*) FILTER (WHERE id = ANY($1::uuid[]))
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		GROUP BY 1`, connected)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byClass := map[string]ClassOnline{}
+	for rows.Next() {
+		var c ClassOnline
+		if err := rows.Scan(&c.Class, &c.Total, &c.Online); err != nil {
+			return nil, err
+		}
+		byClass[c.Class] = c
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var out []ClassOnline
+	for _, c := range prod.Classes() {
+		if v, ok := byClass[c]; ok && v.Total > 0 {
+			out = append(out, v)
+		}
+	}
+	if v, ok := byClass[""]; ok && v.Total > 0 {
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+// WallDevice is one square of the Overview's device wall.
+type WallDevice struct {
+	ID           uuid.UUID
+	Serial       string
+	Class        string
+	RestaurantID *uuid.UUID
+	LastSeenAt   time.Time
+}
+
+// FleetWall lists every active device with its class and restaurant, for the
+// Overview's device wall. Same population as FleetClassOnline.
+func (d *DB) FleetWall(ctx context.Context, excludeDPC bool) ([]WallDevice, error) {
+	kindWhere := ""
+	if excludeDPC {
+		kindWhere = " AND agent_kind <> 'dpc'"
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, serial_number, `+derivedClassSQL()+`, restaurant_id, last_seen_at
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		ORDER BY serial_number`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []WallDevice
+	for rows.Next() {
+		var w WallDevice
+		if err := rows.Scan(&w.ID, &w.Serial, &w.Class, &w.RestaurantID, &w.LastSeenAt); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
 // EnrollmentStats feeds the Enroll page's number strip.
 type EnrollmentStats struct {
 	Inbox       int // waiting for assignment

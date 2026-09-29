@@ -5108,6 +5108,16 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/devices", http.StatusFound)
 		return
 	}
+	// The new Overview (device wall + map) is super admin only while it is tried
+	// out; ?overview=new|classic flips it and is remembered in a cookie.
+	superAdmin := h.role(r) == "admin"
+	if v := r.URL.Query().Get("overview"); superAdmin && (v == "new" || v == "classic") {
+		http.SetCookie(w, &http.Cookie{Name: overviewCookie, Value: v, Path: "/", MaxAge: 365 * 24 * 3600,
+			HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteLaxMode})
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	newOverview := superAdmin && overviewChoice(r) == "new"
 	ctx := r.Context()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	var summary db.Summary
@@ -5158,6 +5168,12 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		inboxN = fc.Inbox
 	}
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
+	data["OverviewSwitch"] = superAdmin
+	if newOverview {
+		h.overviewNewData(r, data, summary, groups, inboxN)
+		h.render(w, r, "overview_new.html", data)
+		return
+	}
 
 	// Power & usage widget: the same figures the restaurant page shows per site, summed
 	// across every placed device (uuid.Nil = the whole deployed fleet).
