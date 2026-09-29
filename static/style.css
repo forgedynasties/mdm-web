@@ -7170,6 +7170,8 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 .dl-sc-l2 { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 12.5px; color: var(--muted); }
 .dl-sc-l2 .sep { color: var(--border); }
 .dl-sc-l2 > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-sc-l3 { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Copy-a-serial, shared by the serial and column layouts. Delegated in JS so it keeps
    working across htmx re-renders; sits inside the row, which is itself clickable. */
