@@ -19597,7 +19597,7 @@ var alertRuleDefs = []struct {
 }{
 	// ── Thermal ──
 	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the limit; a device on the wireless charger uses the higher on-pad limit. Auto-resolves once it cools.", "Thermal", []alertParamField{
-		{"temp_c", "Limit (off pad)", "°C", 1, 45},
+		{"temp_c", "Limit (off pad)", "°C", 1, 52},
 		{"temp_c_wlc", "Limit (on charger)", "°C", 1, 65},
 	}, false, true},
 	{"temp_elevated", "Temperature elevated", "Fires when device temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
@@ -19644,9 +19644,10 @@ var alertRuleDefs = []struct {
 		{"flaps_per_min", "Toggles / min", "", 1, 10},
 		{"window_min", "Measured over", "min", 1, 5},
 	}, false, true},
-	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window (stalled/trickle charge).", "Power", []alertParamField{
+	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window and ends below the cutoff (charging slows on purpose as a battery fills).", "Power", []alertParamField{
 		{"max_gain_pct", "Max gain", "%", 1, 15},
 		{"window_hours", "Over", "h", 1, 2},
+		{"below_pct", "Only below", "%", 5, 80},
 	}, true, true},
 	// ── System health ──
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Daily Report uses for memory.", "System", []alertParamField{

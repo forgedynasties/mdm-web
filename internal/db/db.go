@@ -9026,7 +9026,7 @@ var defaultAlertRules = []struct {
 	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
 	// overheating is WLC-aware: temp_c off the pad, temp_c_wlc while wireless-charging.
-	{"overheating", "Device overheating", `{"temp_c":45,"temp_c_wlc":65}`, "always", true},
+	{"overheating", "Device overheating", `{"temp_c":52,"temp_c_wlc":65}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"storage_filling", "Storage filling fast", `{"drop_gb":0.2}`, "always", true},
@@ -9035,10 +9035,12 @@ var defaultAlertRules = []struct {
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"storage_low", "Storage critically low", `{"free_gb":1}`, "always", true},
 	{"storage_warning", "Storage low", `{"free_gb":14}`, "always", true},
-	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
+	// Off by default: the T7 lives in this band every day (30 Sep alert review).
+	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", false},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
-	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
+	// Off by default: a tablet on its charger reaching 100% overnight is normal.
+	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", false},
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
 	{"charger_flapping", "Charger flapping / faulty", `{"window_min":5,"flaps_per_min":10}`, "always", true},
 	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
@@ -9046,7 +9048,7 @@ var defaultAlertRules = []struct {
 	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
 	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
 	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
-	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2}`, "overnight", true},
+	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2,"below_pct":80}`, "overnight", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -10500,7 +10502,9 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64, c
 			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
 			  -- Not offline: reporting to another MDM. See internal/db/custody.go.
 			  AND custody_server = ''
-			  AND id <> ALL($2::uuid[])`, mins, connected)
+			  AND id <> ALL($2::uuid[])
+			  AND NOT EXISTS (SELECT 1 FROM alerts p WHERE p.device_id = devices.id
+			    AND p.type = 'offline_peak' AND p.status <> 'resolved')`, mins, connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -10823,13 +10827,23 @@ const offlineHitsQuery = `
 	      AND a.fired_at >= d.last_seen_at
 	  )`
 
+// offlineNotPeakClause extends offlineHitsQuery for plain "offline": a device already
+// covered by an open "offline during peak" alert is left out.
+const offlineNotPeakClause = `
+	  AND NOT EXISTS (
+	    SELECT 1 FROM alerts p
+	    WHERE p.device_id = d.id AND p.type = 'offline_peak' AND p.status <> 'resolved'
+	  )`
+
 // detectRecentRule returns devices currently violating a recent-tier rule. Window gating
 // is applied by the caller (EvaluateRecentAlerts).
 func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline", connected)
+		// One outage is one alert: while "offline during peak" is open for a device,
+		// plain offline stays quiet instead of doubling up on it.
+		rows, err := d.pool.Query(ctx, offlineHitsQuery+offlineNotPeakClause, mins, "offline", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -10881,7 +10895,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// runs hotter by design, so it only alerts at the higher limit; off the pad the
 		// lower limit applies. Point-in-time on the latest reading, so the alert lands
 		// within ~1 min of the spike and auto-resolves once it cools.
-		limit := param(p, "temp_c", 45)        // off-pad limit
+		limit := param(p, "temp_c", 52)        // off-pad limit (the T7 runs 41-48 °C every day)
 		limitWLC := param(p, "temp_c_wlc", 65) // on-pad (wireless charging) limit
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
@@ -11305,10 +11319,13 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 
 	case "slow_charge_night":
 		// Over the last window_hours the device was continuously charging yet its
-		// battery barely rose (≤ max_gain_pct) and isn't essentially full — a stalled
+		// battery barely rose (≤ max_gain_pct) and ended below below_pct — a stalled
 		// / trickle charge that won't be ready by morning. Overnight-windowed.
 		maxGain := param(p, "max_gain_pct", 15)
 		windowH := param(p, "window_hours", 2)
+		// Charging slows down on purpose as a battery fills, so a small gain near the
+		// top is normal: 116 of 130 alerts in the 30 Sep review ended at 80% or more.
+		belowPct := param(p, "below_pct", 80)
 		rows, err := d.pool.Query(ctx, `
 			-- Window start inline and state lookups per device, for the same reasons
 			-- as wlc_continuous above: this ran 3.8s a minute on live as a CTE.
@@ -11344,9 +11361,9 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				  AND e.to_val IS DISTINCT FROM 'true')
 			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
 			  AND (s.last_batt - s.first_batt) <= $2
-			  AND s.last_batt < 95`, windowH, maxGain)
+			  AND s.last_batt < $3`, windowH, maxGain, belowPct)
 		if err != nil {
-			return nil, "critical", err
+			return nil, "warning", err
 		}
 		defer rows.Close()
 		var hits []alertHit
@@ -11355,13 +11372,14 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			var serial string
 			var first, last int
 			if err := rows.Scan(&id, &serial, &first, &last); err != nil {
-				return nil, "critical", err
+				return nil, "warning", err
 			}
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Charging for %.0fh but battery only went %d%%→%d%%", windowH, first, last),
 				map[string]any{"gain_pct": last - first, "first_pct": first, "last_pct": last}})
 		}
-		return hits, "critical", rows.Err()
+		// A warning, not critical: it fires at night, when nobody can act on it.
+		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
 }
