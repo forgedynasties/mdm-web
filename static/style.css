@@ -5741,8 +5741,6 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock > .nav-link { flex: none; white-space: nowrap; }
 .dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
 
-/* The dock's "More" opens the command palette (pages mode), not a menu. */
-.dock .nav-link.js-more { background: none; border: 0; font: inherit; cursor: pointer; }
 
 /* ── Your three ────────────────────────────────────────────────────────────────
    The three pages this browser opens most, injected before More (syncFrequent in

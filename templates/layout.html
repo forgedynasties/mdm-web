@@ -457,9 +457,6 @@
     {{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}}{{template "nav-manage" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "products"}}{{template "nav-products" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
-    {{/* Every non-owner role has entries in the directory now (Fleet and several
-         Control pages are open to all), so More is no longer admin-only. */}}
-    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="dialog" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-keyshortcuts="Meta+K Control+K"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></span><span class="dock-lbl">More</span></button>
     {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
     {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></button>{{end}}
   </nav>
@@ -770,7 +767,8 @@
       // or it would appear twice.
       var promoted = dock.querySelector('.js-promoted');
       var promotedHref = promoted ? promoted.getAttribute('href') : null;
-      var more = document.getElementById('dock-more'), first = true, shown = 0;
+      // Frequent pages go before the search field (the dock's last item).
+      var more = dock.querySelector('.dock-search'), first = true, shown = 0;
       FREQ_PATHS.forEach(function (url) {
         // The server sends ten candidates; take the first three that survive.
         // A path drops out here when it is a detail page rather than a navigation
@@ -830,7 +828,7 @@
           clone.innerHTML = dockIcon(hit) +
             '<span class="dock-lbl">' + (hit.getAttribute('data-cmdk-label') || hit.textContent).trim() + '</span>';
           clone.setAttribute('data-cmdk-label', hit.getAttribute('data-cmdk-label') || '');
-          var more = document.getElementById('dock-more');
+          var more = dock.querySelector('.dock-search');
           dock.insertBefore(clone, more || null);
           if (window.htmx) htmx.process(clone);
         }
