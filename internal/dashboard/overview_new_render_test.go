@@ -60,6 +60,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		"AttentionRows": att, "AttentionTotal": attN, "AttentionCritical": attCrit,
 		"Wall": wall, "WallTotal": len(devs), "MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
+		"Uptime": uptimeRows([]db.RestaurantUptime{{ID: rid, Name: "Pho 88", Days: []db.UptimeDay{
+			{Date: now.AddDate(0, 0, -1), Expected: 100, Up: 97, DownDevice: 1}, {Date: now, Expected: 0}}}}, nil),
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "overview_new.html", data); err != nil {
@@ -76,6 +78,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
 		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
+		`<span class="p warn">97.0%</span>`,          // service uptime, one restaurant
+		`97.0% up · 1 device missed time`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)

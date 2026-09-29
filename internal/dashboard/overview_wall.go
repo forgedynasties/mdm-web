@@ -294,6 +294,7 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		rests    []db.Restaurant
 		pts      []deviceMapPoint
 		products []compRole
+		uptime   []db.RestaurantUptime
 		wg       sync.WaitGroup
 	)
 	run := func(f func()) {
@@ -305,6 +306,7 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	run(func() { wallDevs, _ = h.db.FleetWall(ctx, acc.hidesDPC()) })
 	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
 	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
+	run(func() { uptime = h.serviceUptime(ctx) })
 	run(func() {
 		f := db.DeviceFilter{}
 		if acc.hidesDPC() {
@@ -323,6 +325,19 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	data["AttentionTotal"] = attN
 	data["AttentionCritical"] = attCrit
 	data["ClassOnline"] = classOnlineRows(classOn)
+	// A scoped viewer sees the restaurants they have a device in.
+	var seeRestaurant func(db.RestaurantUptime) bool
+	if acc.hidesDevices() {
+		seeRestaurant = func(r db.RestaurantUptime) bool {
+			for _, id := range r.Devices {
+				if acc.visible(id) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	data["Uptime"] = uptimeRows(uptime, seeRestaurant)
 	if summary.Total > 0 {
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}

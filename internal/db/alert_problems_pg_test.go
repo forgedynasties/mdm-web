@@ -127,4 +127,7 @@ func TestProblemQueriesAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = d.IsReleaseCrash(ctx, "x — y")
+	if _, err := d.ServiceUptime(ctx, 7, time.Now()); err != nil {
+		t.Fatal(err)
+	}
 }

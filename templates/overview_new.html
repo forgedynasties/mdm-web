@@ -68,6 +68,22 @@
 #ovd-tip{position:fixed;z-index:80;pointer-events:none;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:550;padding:5px 8px;border-radius:5px;white-space:nowrap;opacity:0;transition:opacity .08s;box-shadow:var(--shadow-md)}
 #ovd-tip.on{opacity:1}
 
+/* Service uptime: a row per restaurant, one cell per day of opening hours. */
+.ovd-up{padding:4px 14px 12px}
+.ovd-up .r{display:grid;grid-template-columns:minmax(0,1fr) auto 52px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--border-soft)}
+.ovd-up .r:first-child{border-top:0}
+.ovd-up .n{font-size:12.5px;font-weight:600;color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovd-up .n:hover{text-decoration:underline}
+.ovd-up .c{display:flex;gap:3px}
+.ovd-up .c i{width:12px;height:18px;border-radius:3px;background:var(--ok)}
+.ovd-up .c i.warn{background:var(--warn)}
+.ovd-up .c i.bad{background:var(--danger)}
+.ovd-up .c i.none{background:var(--surface-3)}
+.ovd-up .p{font-size:12px;font-weight:650;text-align:right;font-variant-numeric:tabular-nums}
+.ovd-up .p.warn{color:var(--warn)}.ovd-up .p.bad{color:var(--danger)}
+.ovd-up .lg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-faint);margin-top:6px}
+.ovd-up .lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:0}
+
 /* Needs attention: a compact worklist beside the wall. */
 .ovd-q{list-style:none;margin:0;padding:0}
 .ovd-q li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 14px;border-top:1px solid var(--border-soft)}
@@ -159,7 +175,7 @@
 .ovd-main{display:grid;gap:14px;min-width:0;align-content:start}
 .ovd-side{align-content:start}
 /* One column: keep the reading order wall → attention → map → rollouts → types. */
-@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o5{order:4}}
+@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o4{order:3}.ovd-o3{order:4}.ovd-o5{order:5}}
 .ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11.5px/1.2 var(--font);color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .ovd-mlbl.warn{border-color:var(--warn-edge)}
 .ovd-mlbl.bad{border-color:var(--danger-edge);color:var(--danger)}
@@ -267,6 +283,23 @@
         <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
         {{end}}
       </div>
+
+      {{/* ── Service uptime: were the devices up while each restaurant was open ── */}}
+      {{if .Uptime}}
+      <div class="cc-card ovd-o4">
+        <div class="cc-ch"><h2>Service uptime</h2><span class="m">7 days, opening hours</span><a class="r" href="/restaurants">Restaurants</a></div>
+        <div class="ovd-up">
+          {{range .Uptime}}
+          <div class="r">
+            <a class="n" href="/restaurants/{{.ID}}">{{.Name}}</a>
+            <div class="c" role="img" aria-label="{{.Name}}: {{.Pct}} up over 7 days">{{range .Days}}<i class="{{.Class}}" title="{{.Title}}"></i>{{end}}</div>
+            <span class="p {{.Class}}">{{.Pct}}</span>
+          </div>
+          {{end}}
+          <div class="lg"><span>Oldest → today</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div>
+        </div>
+      </div>
+      {{end}}
 
       {{/* ── Devices by type ── */}}
       <div class="cc-card ovd-o5">
