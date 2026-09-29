@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dock labels · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1320px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:900px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* the screen: a strip of page with the dock at the bottom, at two widths */
+.scroll{overflow-x:auto;margin-bottom:10px}
+.scr{position:relative;height:118px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg)}
+.scr .cap{position:absolute;left:12px;top:8px;font-size:11px;font-weight:650;color:var(--text-faint);letter-spacing:.03em}
+
+/* the dock shell (same glass as live) */
+.sd{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;padding:6px;border-radius:20px;width:max-content;
+  background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(8px) saturate(180%);-webkit-backdrop-filter:blur(8px) saturate(180%);
+  border:1.5px solid color-mix(in srgb,var(--surface) 40%,transparent);box-shadow:0 14px 36px rgba(0,0,0,.2),0 0 0 1.5px var(--accent-edge)}
+.it{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;height:44px;min-width:44px;padding:0 11px;box-sizing:border-box;border-radius:12px;color:var(--muted);cursor:pointer;flex:none;white-space:nowrap;font-size:13px;font-weight:600}
+.it:hover{background:var(--surface2);color:var(--text)}
+.it .ico{position:relative;display:grid;place-items:center;width:21px;height:21px;flex:none}
+.it svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.it .f{display:none}
+.it.on{color:var(--accent-text)}
+.it.on .o{display:none}.it.on .f{display:block}
+.it .f .fill{fill:currentColor;stroke:none}.it .f .cut{stroke:var(--surface);stroke-width:1.9}
+.it.q{font-size:12.5px;color:var(--text-faint)}
+.sep{width:1px;height:26px;background:var(--border);margin:0 4px;flex:none}
+.srch{flex:none;display:flex;align-items:center;gap:9px;height:44px;margin-left:6px;padding:0 12px;box-sizing:border-box;border-radius:12px;background:var(--surface2);color:var(--text-faint);font-size:13px;white-space:nowrap}
+.srch svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;flex:none}
+.srch{width:300px}
+.narrow .srch{width:220px}
+.srch .ph{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.srch kbd{margin-left:auto;font:600 10.5px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface)}
+/* live figures */
+.ring{position:absolute;left:50%;top:50%;width:31px;height:31px;transform:translate(-50%,-50%);pointer-events:none}
+.ring svg{width:100%;height:100%;stroke-width:2.2}
+.spin{position:absolute;left:50%;top:50%;width:28px;height:28px;border-radius:50%;border:2px solid transparent;border-top-color:var(--info);transform:translate(-50%,-50%);animation:sp 1s linear infinite;pointer-events:none;box-sizing:border-box}
+@keyframes sp{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.bdg{position:absolute;top:-7px;right:-8px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;font-size:10px;font-weight:750;display:grid;place-items:center;background:var(--danger);color:#fff;box-shadow:0 0 0 2px var(--surface);box-sizing:border-box}
+.bdg::after{content:"";position:absolute;inset:-2px;border-radius:inherit;border:2px solid var(--danger);animation:bp 1.8s ease-out infinite}
+@keyframes bp{to{transform:scale(1.7);opacity:0}}
+.pill{font-size:10.5px;font-weight:650;color:var(--text-2);background:var(--surface-3);border-radius:99px;padding:1px 6px;font-variant-numeric:tabular-nums}
+
+/* current (deployed): icons only, dot under the active one */
+.v-cur .it{padding:0;width:44px}
+.v-cur .it .lb{display:none}
+.v-cur .it.on::after{content:"";position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--accent)}
+
+/* A · label beside every icon */
+.v-a .it.on{background:var(--accent-soft)}
+
+/* B · label under every icon */
+.v-b .it{flex-direction:column;gap:4px;height:50px;padding:0 8px;min-width:52px;font-size:10.5px;font-weight:650}
+.v-b .it .ico,.v-b .it svg{width:19px;height:19px}
+.v-b .it.on{background:var(--accent-soft)}
+.v-b .srch{height:50px}
+.v-b .ring{width:30px;height:30px}.v-b .spin{width:26px;height:26px}
+.v-b .it.q{font-size:10.5px}
+
+/* C · only the current page shows its name */
+.v-c .it{padding:0;width:44px;transition:width .2s}
+.v-c .it .lb{display:none}
+.v-c .it.on{width:auto;padding:0 14px 0 12px;background:var(--accent-soft)}
+.v-c .it.on .lb{display:inline}
+
+/* D · names on the four main pages, icons for the rest */
+.v-d .it.q,.v-d .it.more{padding:0;width:44px}
+.v-d .it.q .lb,.v-d .it.more .lb{display:none}
+.v-d .it.on{background:var(--accent-soft)}
+
+/* E · names beside icons; the search collapses to an icon + ⌘K */
+.v-e .it.on{background:var(--accent-soft)}
+.v-e .srch,.narrow.v-e .srch{width:auto;gap:7px}
+.v-e .srch .ph{display:none}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>The dock with names</h1>
+<p class="lead">The icons stay as they are: outline, turning solid on the page you're on, with the live figures on them (online ring on Fleet, spinner on Actions, count on Alerts). These options add the names back in different ways. Text costs width, so each dock is drawn at the page's full width (1,280px) and on a smaller laptop (1,000px), where the search field narrows to 220px as it does on the live site. Your three most-visited pages sit after the divider. Here they're Updates, Releases and Server.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a">A · Name beside every icon</a><a href="#b">B · Name under every icon</a><a href="#c">C · Only the current page named</a><a href="#d" class="rec">D · Main four named ★</a><a href="#e">E · All named, compact search</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current: icons only <span class="tag live">Deployed</span></h2>
+<p class="desc">Names only on hover.</p>
+<div id="m-cur"></div>
+
+<h2 class="sec" id="a">A · Name beside every icon</h2>
+<p class="desc">Every destination shows its name next to the icon, as the dock did before the search field. The current page gets a tint behind it as well as the solid icon.</p>
+<div id="m-a"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Nothing to learn: every item says what it is.</li></ul></div>
+<div><b>Bad at</b><ul><li>The widest. With the search field it needs about 1,200px, so on a smaller laptop the dock is wider than the page.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · Name under every icon</h2>
+<p class="desc">Small names under the icons, like a phone's tab bar. Every item is labelled and the dock is only a little wider than icons alone.</p>
+<div id="m-b"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Every item named, and it fits a smaller laptop with room to spare.</li><li>The same layout on phones, where it already stacks like this.</li></ul></div>
+<div><b>Bad at</b><ul><li>10.5px text is small, and the dock gets a few pixels taller.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · Only the current page shows its name</h2>
+<p class="desc">Icons only, except the page you're on, which widens to show its name. Moving to another page slides the name across.</p>
+<div id="m-c"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The narrowest option with text, and "where am I" is spelled out.</li></ul></div>
+<div><b>Bad at</b><ul><li>You still hover to learn what the other icons are, which is the problem you want fixed.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · Names on the four main pages, icons for the rest <span class="tag rec">Recommended</span></h2>
+<p class="desc">Overview, Fleet, Actions and Alerts get their names. Your frequent pages and More stay icon-only, with names on hover, so they read as shortcuts rather than main navigation.</p>
+<div id="m-d"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The pages everyone uses are named. The shortcuts that change per person stay compact.</li><li>Fits both widths, and keeps the old dock's split between "what everyone gets" and "what you built up".</li></ul></div>
+<div><b>Bad at</b><ul><li>The frequent pages still need a hover the first time.</li></ul></div>
+</div>
+
+<h2 class="sec" id="e">E · Every name, compact search</h2>
+<p class="desc">Every item keeps its name, and the search shrinks to a magnifier with ⌘K to make room. Clicking it opens the same search.</p>
+<div id="m-e"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Every item named, and it fits a smaller laptop.</li></ul></div>
+<div><b>Bad at</b><ul><li>The search stops looking like a search field, which is what made the search dock worth having.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: D</h2>
+<div class="pick"><b>D: names on Overview, Fleet, Actions and Alerts; icons for your frequent pages and More.</b> The four pages everyone lands on are named, the search field stays a real search field, and it fits both widths. It also brings back the split the old dock had: named main pages, then quieter shortcuts after the divider. <b>B</b> is the pick if you want every item named. It's compact and matches the phone layout, at the cost of small text.</div>
+</div>
+
+<script>
+const IC = {
+  Overview:['<path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/>','<path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/>'],
+  Fleet:['<rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/>','<rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/>'],
+  Actions:['<path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/>','<path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/>'],
+  Alerts:['<path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/>','<path class="fill" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/>'],
+  Updates:['<path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/>'],
+  Releases:['<path d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>'],
+  Server:['<rect x="3.5" y="4" width="17" height="7" rx="1.8"/><rect x="3.5" y="13" width="17" height="7" rx="1.8"/>'],
+  More:['<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>'],
+};
+const ringSvg = (on, n) => { const r = 16, c = 2 * Math.PI * r;
+  return `<span class="ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="${r}" fill="none" stroke="var(--danger-bg)"/><circle cx="18" cy="18" r="${r}" fill="none" stroke="var(--ok)" stroke-linecap="round" stroke-dasharray="${c*on/n} ${c}" transform="rotate(-90 18 18)"/></svg></span>`; };
+function item(name, opts){
+  opts = opts || {};
+  const [o, f] = IC[name];
+  const extra = name === 'Fleet' ? ringSvg(54, 151) : name === 'Actions' ? '<span class="spin"></span>' : '';
+  const bdg = name === 'Alerts' ? '<span class="bdg">2</span>' : '';
+  return `<span class="it${opts.on ? ' on' : ''}${opts.q ? ' q' : ''}${name === 'More' ? ' more' : ''}" title="${name}">`
+    + `<span class="ico"><svg class="o" viewBox="0 0 24 24">${o}</svg>${f ? `<svg class="f" viewBox="0 0 24 24">${f}</svg>` : ''}${extra}${bdg}</span><span class="lb">${name}</span></span>`;
+}
+function dock(active){
+  const main = ['Overview','Fleet','Actions','Alerts'].map(n => item(n, {on: n === active})).join('');
+  const freq = ['Updates','Releases','Server'].map(n => item(n, {q: 1})).join('');
+  return `<nav class="sd">${main}<span class="sep"></span>${freq}${item('More')}<div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></div></nav>`;
+}
+function screens(id, v){
+  document.getElementById(id).innerHTML = [[1280, 'Full page width · 1,280px'], [1000, 'Smaller laptop · 1,000px']].map(([w, cap]) =>
+    `<div class="scroll"><div class="scr v-${v}${w < 1024 ? ' narrow' : ''}" style="width:${w}px"><span class="cap">${cap}</span>${dock('Overview')}</div></div>`).join('');
+  // Flag a dock wider than its screen: that is the option failing at that width.
+  document.querySelectorAll('#' + id + ' .scr').forEach(s => { const d = s.querySelector('.sd');
+    if (d.offsetWidth > s.clientWidth - 16) { const c = s.querySelector('.cap'); c.innerHTML += ' · <span style="color:var(--danger)">does not fit</span>'; } });
+}
+screens('m-cur', 'cur'); screens('m-a', 'a'); screens('m-b', 'b'); screens('m-c', 'c'); screens('m-d', 'd'); screens('m-e', 'e');
+// C: click an item to move the name there
+document.querySelectorAll('#m-c .sd').forEach(d => d.addEventListener('click', e => { const it = e.target.closest('.it'); if (!it || it.classList.contains('q') || it.classList.contains('more')) return;
+  d.querySelectorAll('.it').forEach(x => x.classList.toggle('on', x === it)); }));
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>
