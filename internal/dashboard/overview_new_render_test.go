@@ -67,13 +67,13 @@ func TestOverviewNewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`href="/devices/T7-0002" class="off"`,   // offline square
-		`href="/devices/K22-0003" class="warn"`, // alerting square
-		`No restaurant · Menu board`,            // loose device, grouped by type
-		`id="ovd-map-data"`,                     // map data shipped
-		`"name":"Pho 88"`,                       // restaurant on the map
-		`href="/?overview=classic"`,             // the switch
-		`href="/fleet-health"`,                  // header actions, as on the classic page
+		`href="/devices/T7-0002" class="off"`,        // offline square
+		`href="/devices/K22-0003" class="warn"`,      // alerting square
+		`No restaurant · Menu board`,                 // loose device, grouped by type
+		`id="ovd-map-data"`,                          // map data shipped
+		`"name":"Pho 88"`,                            // restaurant on the map
+		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
+		`href="/fleet-health"`,                       // header actions, as on the classic page
 		`href="/export/visualize"`,
 		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,

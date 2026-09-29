@@ -428,11 +428,13 @@ window.ovdInitMap = function () {
 {{end}}
 
 
-{{/* New / Classic switch, shown to super admins on both Overviews while the new one is tried out. */}}
+{{/* New / Classic switch, shown to super admins on both Overviews while the new one is tried out.
+     A full page load, not a boosted one: the boosted "/" is briefly browser-cached (see
+     prefetchableTemplates), so a boosted switch could get back the page it just left. */}}
 {{define "ov-switch"}}<style>
 .ov-switch{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);flex:none}
 .ov-switch a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;text-decoration:none;border-left:1px solid var(--border);line-height:1.4}
 .ov-switch a:first-child{border-left:0}
 .ov-switch a:hover{color:var(--text)}
 .ov-switch a.on{background:var(--surface-3);color:var(--text)}
-</style><span class="ov-switch" role="group" aria-label="Overview version" title="Only super admins see this switch"><a href="/?overview=new"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span>{{end}}
+</style><span class="ov-switch" role="group" aria-label="Overview version" title="Only super admins see this switch"><a href="/?overview=new" hx-boost="false"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic" hx-boost="false"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span>{{end}}
