@@ -449,11 +449,11 @@
   </header>
 
   {{if ne .Role "owner"}}
-  <nav class="dock" aria-label="Primary navigation">
-    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span><span class="dock-live dock-ring" hidden></span></a>
-    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span><span class="dock-live dock-spin" hidden></span></a>
-    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span><span class="dock-live dock-count" hidden></span></a>
+  <nav class="dock dock-s" aria-label="Primary navigation">
+    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
+    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg></span><span class="dock-lbl">Fleet</span><span class="dock-live dock-ring" hidden></span></a>
+    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/></svg></span><span class="dock-lbl">Actions</span><span class="dock-live dock-spin" hidden></span></a>
+    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg></span><span class="dock-lbl">Alerts</span><span class="dock-live dock-count" hidden></span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
@@ -463,7 +463,9 @@
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{/* Every non-owner role has entries in the directory now (Fleet and several
          Control pages are open to all), so More is no longer admin-only. */}}
-    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="dialog" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-keyshortcuts="Meta+K Control+K"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>
+    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="dialog" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-keyshortcuts="Meta+K Control+K"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></span><span class="dock-lbl">More</span></button>
+    {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
+    {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></button>{{end}}
   </nav>
 
   {{/* Everyone gets the same dock: the four pages the job is done in. Everything
@@ -2577,27 +2579,33 @@
       var a = dock.querySelector('a.nav-link[data-cmdk-label="' + label + '"]');
       return a && a.querySelector('.' + cls);
     }
+    // A ring around the Fleet icon, filled to the online share.
     function ring(on, total) {
-      var r = 6, c = 2 * Math.PI * r, f = total ? on / total : 0;
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="' + r + '" class="trk"/>'
-        + '<circle cx="8" cy="8" r="' + r + '" class="val" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) + '" transform="rotate(-90 8 8)"/></svg>'
-        + '<span class="t">' + on + ' / ' + total + '</span>';
+      var r = 19, c = 2 * Math.PI * r, f = total ? on / total : 0;
+      return '<svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="' + r + '" class="trk"/>'
+        + '<circle cx="21" cy="21" r="' + r + '" class="val" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) + '" transform="rotate(-90 21 21)"/></svg>';
+    }
+    // The hover label: the page name, plus its figure when there is one.
+    function tip(label, text) {
+      var a = dock.querySelector('a.nav-link[data-cmdk-label="' + label + '"]');
+      if (a) a.setAttribute('data-tip', text ? label + ' · ' + text : label);
     }
     function paint(s) {
       var f = el('Fleet', 'dock-ring'), a = el('Alerts', 'dock-count'), x = el('Actions', 'dock-spin');
       if (f) {
         f.hidden = !s.fleet || !s.total;
-        if (!f.hidden) { f.innerHTML = ring(s.online, s.total); f.title = s.online + ' of ' + s.total + ' devices online'; }
+        if (!f.hidden) f.innerHTML = ring(s.online, s.total);
+        tip('Fleet', f.hidden ? '' : s.online + ' of ' + s.total + ' online');
       }
       if (a) {
         a.hidden = !s.alerts;
         a.textContent = s.alerts;
         a.classList.toggle('crit', s.critical > 0);
-        a.title = s.alerts + ' open alert' + (s.alerts === 1 ? '' : 's') + (s.critical ? ' · ' + s.critical + ' critical' : '');
+        tip('Alerts', s.alerts ? s.alerts + ' open' + (s.critical ? ', ' + s.critical + ' critical' : '') : '');
       }
       if (x) {
         x.hidden = !s.running;
-        x.title = s.running + ' command' + (s.running === 1 ? '' : 's') + ' still running';
+        tip('Actions', s.running ? s.running + ' running' : '');
       }
     }
     function load() {
