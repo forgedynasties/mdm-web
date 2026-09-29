@@ -452,10 +452,6 @@
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
     <div class="appbar-right">
       {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
-      {{/* The page's own control for the top bar (the Overview's New / Classic switch).
-           The page renders it inside <main>; the script below moves it here on every
-           navigation, because the top bar is not part of a boosted swap. */}}
-      <span id="appbar-slot"></span>
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
@@ -2573,30 +2569,6 @@
         backdrop.hidden ? open() : close();
       }
     });
-  })();
-  </script>
-  <script>
-  // ── Top-bar slot ─────────────────────────────────────────────────────────
-  // A page can hand the top bar one control (.appbar-slot-item inside <main>). The
-  // slot is emptied on every navigation and refilled with a copy from the new page,
-  // so the control never outlives its page and always comes back with it.
-  (function () {
-    function fill() {
-      var slot = document.getElementById('appbar-slot');
-      if (!slot) return;
-      // A copy, not the element: the original stays (hidden) in <main>, so a history
-      // snapshot of the page still carries it and Back can bring it back.
-      var item = document.querySelector('main .appbar-slot-item');
-      slot.innerHTML = '';
-      if (item) slot.appendChild(item.cloneNode(true));
-      document.dispatchEvent(new CustomEvent('mdm:appbar-slot'));
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fill); else fill();
-    // After every swap and every history restore, whatever the event names as its
-    // target: coming back to a page (a fresh load, a cached one, or Back) must bring
-    // its control back. fill() is idempotent and cheap.
-    ['htmx:afterSettle', 'htmx:historyRestore'].forEach(function (ev) { document.addEventListener(ev, fill); });
-    window.addEventListener('popstate', function () { setTimeout(fill, 0); });
   })();
   </script>
   <script>

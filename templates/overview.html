@@ -315,7 +315,6 @@
 </style>
 
 <div class="ov3" id="ov3">
-  {{if .OverviewSwitch}}{{template "ov-switch" "classic"}}{{end}}{{/* shown in the top bar */}}
 
   {{/* ── Top bar ── */}}
   <div class="ov3-top">
@@ -355,6 +354,7 @@
     {{range .Layout.Order}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}
     <div class="ov3-tray" id="ov3-tray"><div class="cap">Add a widget</div><div class="row" id="ov3-tray-row"></div></div>
   </div>
+  {{if .OverviewSwitch}}{{template "ov-switch" "classic"}}{{end}}
 
 </div>
 

@@ -167,8 +167,7 @@
 .ovd-mlbl.off.peek{opacity:1}
 /* First-visit intro, hanging under the New / Classic switch. */
 .ovd{position:relative}
-.ovd-intro{position:absolute;right:0;top:0;z-index:70;width:340px;max-width:calc(100vw - 32px);box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:14px 16px 14px}
-.ovd-intro::before{content:"";position:absolute;top:-6px;right:var(--arrow,40px);width:10px;height:10px;background:var(--surface);border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg)}
+.ovd-intro{position:absolute;right:0;top:0;z-index:30;width:340px;max-width:calc(100vw - 32px);box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:14px 16px 14px}
 .ovd-intro-k{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent-text)}
 .ovd-intro h2{font-size:15px;font-weight:650;margin:4px 0 8px;letter-spacing:-.01em}
 .ovd-intro ul{margin:0 0 8px;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--text-2)}
@@ -184,7 +183,7 @@
 
 <div class="ovd">
 
-  {{if .OverviewSwitch}}{{template "ov-switch" "new"}}
+  {{if .OverviewSwitch}}
   {{/* First visit (per browser): what changed, and that Classic is one click away.
        Not while the first-run tour is showing, so the two never stack. */}}
   {{if not .ShowTour}}
@@ -196,7 +195,7 @@
       <li><b>A map</b> of your restaurants, with each one's device count.</li>
       <li><b>Needs attention</b> sits beside them, so the red squares have a reason next to them.</li>
     </ul>
-    <p>Prefer the old page? Switch to <b>Classic</b> here any time. Your choice is remembered.</p>
+    <p>Prefer the old page? There's a link at the end of the Overview to switch to <b>Classic</b> any time, and your choice is remembered.</p>
     <div class="ovd-intro-b"><a class="ovd-intro-alt" href="/?overview=classic" hx-boost="false">Switch to Classic</a><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
   {{end}}{{end}}
@@ -288,6 +287,9 @@
     </div>
   </div>
 
+
+  {{/* New / Classic: one quiet line at the end of the page. */}}
+  {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
 </div>
 
 <script>
@@ -299,22 +301,7 @@
   try { if (localStorage.getItem(KEY)) return; } catch (e) { return; }
   function done() { box.hidden = true; try { localStorage.setItem(KEY, '1'); } catch (e) {} }
   document.addEventListener('htmx:beforeSwap', function gone() { box.remove(); document.removeEventListener('htmx:beforeSwap', gone); });
-  // Hang it under the switch, which lives in the top bar.
-  function place() {
-    var sw = document.querySelector('#appbar-slot .ov-switch');
-    if (!sw) return false;
-    if (box.parentNode !== document.body) document.body.appendChild(box);
-    var r = sw.getBoundingClientRect(), w = box.offsetWidth || 340;
-    // Right-aligned to the switch, but never off the left edge of a narrow screen.
-    var right = Math.min(Math.max(8, window.innerWidth - r.right), Math.max(8, window.innerWidth - w - 8));
-    box.style.top = (r.bottom + window.scrollY + 10) + 'px';
-    box.style.right = right + 'px';
-    box.style.setProperty('--arrow', Math.max(14, Math.min(w - 24, window.innerWidth - right - (r.left + r.width / 2) - 5)) + 'px');
-    return true;
-  }
   box.hidden = false;
-  if (!place()) document.addEventListener('mdm:appbar-slot', function once() { if (place()) document.removeEventListener('mdm:appbar-slot', once); });
-  window.addEventListener('resize', place);
   document.getElementById('ovd-intro-ok').addEventListener('click', done);
   box.querySelector('.ovd-intro-alt').addEventListener('click', done);
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape' && !box.hidden) { done(); document.removeEventListener('keydown', esc); } });
@@ -462,18 +449,11 @@ window.ovdInitMap = function () {
 {{end}}
 
 
-{{/* New / Classic switch. Both Overviews render it; it shows in the top bar, so it takes
-     no room on the page and sits in the same place whichever page is showing.
+{{/* New / Classic switch: one muted line at the end of both Overviews.
      A full page load, not a boosted one: the boosted "/" is briefly browser-cached (see
      prefetchableTemplates), so a boosted switch could get back the page it just left. */}}
 {{define "ov-switch"}}<style>
-/* Rendered in the page, shown in the top bar (layout.html moves it into #appbar-slot);
-   hidden until then so the page never reserves a row for it. */
-main .appbar-slot-item{display:none}
-#appbar-slot{display:inline-flex;align-items:center}
-.ov-switch{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);flex:none}
-.ov-switch a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;text-decoration:none;border-left:1px solid var(--border);line-height:1.4}
-.ov-switch a:first-child{border-left:0}
-.ov-switch a:hover{color:var(--text)}
-.ov-switch a.on{background:var(--surface-3);color:var(--text)}
-</style><span class="ov-switch appbar-slot-item" role="group" aria-label="Overview version"><a href="/?overview=new" hx-boost="false"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic" hx-boost="false"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span>{{end}}
+.ov-switch-line{text-align:center;font-size:12px;color:var(--text-faint);margin:0;padding:22px 0 6px}
+.ov-switch-line a{color:var(--accent-text);font-weight:600;text-decoration:none}
+.ov-switch-line a:hover{text-decoration:underline}
+</style><p class="ov-switch-line">{{if eq . "new"}}Prefer the old Overview? <a href="/?overview=classic" hx-boost="false">Switch to Classic</a>{{else}}There's a new Overview. <a href="/?overview=new" hx-boost="false">Switch to New</a>{{end}}</p>{{end}}
