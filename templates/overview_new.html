@@ -160,7 +160,9 @@
 .ovd-side{align-content:start}
 /* One column: keep the reading order wall → attention → map → rollouts → types. */
 @media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o5{order:4}}
-.ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11px/1.2 var(--font);color:var(--text);text-shadow:0 0 3px var(--surface),0 0 3px var(--surface),0 0 3px var(--surface),0 0 4px var(--surface)}
+.ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11.5px/1.2 var(--font);color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.ovd-mlbl.warn{border-color:var(--warn-edge)}
+.ovd-mlbl.bad{border-color:var(--danger-edge);color:var(--danger)}
 .ovd-mlbl.off{opacity:0}
 .ovd-mlbl.off.peek{opacity:1}
 /* First-visit intro, hanging under the New / Classic switch. */
@@ -334,12 +336,13 @@ window.ovdInitMap = function () {
   if (!el || !raw || !window.google) return;
   var sites = JSON.parse(raw.textContent || '[]');
   if (!sites.length) return;
-  var MUTED = [{ stylers: [{ saturation: -70 }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }];
+  // Google's own labels are dimmed so the restaurants' names are what stands out.
+  var MUTED = [{ stylers: [{ saturation: -70 }] }, { elementType: 'labels', stylers: [{ lightness: 35 }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }];
   var DARK = [
-    {elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+    {elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#6b7486'}]},
     {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},{featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
     {featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
-    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#5d6678'}]},{featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
     {featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
     {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
   ];
@@ -364,7 +367,7 @@ window.ovdInitMap = function () {
     var pane = this.getPanes().overlayLayer;
     sites.forEach(function (s) {
       s.lbl = document.createElement('div');
-      s.lbl.className = 'ovd-mlbl';
+      s.lbl.className = 'ovd-mlbl ' + s.health;
       s.lbl.textContent = s.name;
       pane.appendChild(s.lbl);
     });
