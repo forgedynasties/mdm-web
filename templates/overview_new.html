@@ -172,6 +172,10 @@
 .ov3-foot{display:block;text-align:center;padding:10px;font-size:12.5px;font-weight:600;color:var(--accent-text);border-top:1px solid var(--border-soft);text-decoration:none}
 .ov3-foot:hover{background:var(--surface2)}
 .ovd .ov3-hero{border-radius:8px;box-shadow:none;margin-bottom:14px}
+.ovd-main{display:grid;gap:14px;min-width:0;align-content:start}
+.ovd-side{align-content:start}
+/* One column: keep the reading order wall → attention → map → rollouts → types. */
+@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o4{order:4}.ovd-o5{order:5}}
 </style>
 
 <div class="ovd">
@@ -197,72 +201,71 @@
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
   {{template "ov3-w-hero" .}}
 
+  {{/* Two independent columns, so a short attention list leaves no gap before Rollouts. */}}
   <div class="ovd-mid">
-
-    {{/* ── Device wall: every device one square, restaurants worst first ── */}}
-    <div class="cc-card">
-      <div class="cc-ch"><h2>Fleet</h2>{{if .Wall}}<span class="m">every square is a device · worst restaurants first</span>{{end}}<a class="r" href="/devices"{{if not .Wall}} style="margin-left:auto"{{end}}>All devices</a></div>
-      {{if .Wall}}
-      <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
-        {{range .Wall}}
-        <div class="ovd-wb {{.Health}}">
-          <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
-          <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
-        </div>
-        {{end}}
-      </div>
-      <div class="ovd-wfoot">
-        <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
-      </div>
-      {{else}}
-      <div class="ovd-empty"><b>No devices enrolled yet.</b></div>
-      {{end}}
-    </div>
-
-    {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
-    <div class="cc-card">
-      <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
-      {{if .AttentionRows}}
-      <ul class="ovd-q">
-        {{range .AttentionRows}}
-        <li>
-          <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}" title="{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}"></span>
-          <div>
-            <a class="t" href="{{.Href}}">{{.Issue}}</a>
-            <div class="w">{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{else if eq .Href "/enrollment"}} · Unassigned{{end}}</div>
+    <div class="ovd-main">
+      {{/* ── Device wall: every device one square, restaurants worst first ── */}}
+      <div class="cc-card ovd-o1">
+        <div class="cc-ch"><h2>Fleet</h2>{{if .Wall}}<span class="m">every square is a device · worst restaurants first</span>{{end}}<a class="r" href="/devices"{{if not .Wall}} style="margin-left:auto"{{end}}>All devices</a></div>
+        {{if .Wall}}
+        <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
+          {{range .Wall}}
+          <div class="ovd-wb {{.Health}}">
+            <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
+            <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
           </div>
-          <span class="a">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</span>
-        </li>
+          {{end}}
+        </div>
+        <div class="ovd-wfoot">
+          <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
+        </div>
+        {{else}}
+        <div class="ovd-empty"><b>No devices enrolled yet.</b></div>
         {{end}}
-      </ul>
-      {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
-      {{else}}
-      <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
-      {{end}}
-    </div>
-  </div>
-
-  <div class="ovd-mid">
-
-    {{/* ── Restaurant map: a dot per restaurant, sized by devices, coloured by state ── */}}
-    <div class="cc-card">
-      <div class="cc-ch"><h2>Map</h2><a class="r" href="/map" style="margin-left:auto">Device map</a></div>
-      {{if and .MapDots .MapsEmbedKey}}
-      <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
-      <div class="ovd-wfoot">
-        <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Dot size is device count</span>
       </div>
-      <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
-      {{else if .MapDots}}
-      <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
-      {{else}}
-      <div class="ovd-empty"><b>No restaurants on the map yet.</b> Give a restaurant its coordinates, or turn on location on its devices, and it appears here.</div>
-      {{end}}
+
+      {{/* ── Restaurant map: a dot per restaurant, sized by devices, coloured by state ── */}}
+      <div class="cc-card ovd-o3">
+        <div class="cc-ch"><h2>Map</h2><a class="r" href="/map" style="margin-left:auto">Device map</a></div>
+        {{if and .MapDots .MapsEmbedKey}}
+        <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
+        <div class="ovd-wfoot">
+          <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Dot size is device count</span>
+        </div>
+        <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
+        {{else if .MapDots}}
+        <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
+        {{else}}
+        <div class="ovd-empty"><b>No restaurants on the map yet.</b> Give a restaurant its coordinates, or turn on location on its devices, and it appears here.</div>
+        {{end}}
+      </div>
     </div>
 
     <div class="ovd-side">
+      {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
+      <div class="cc-card ovd-o2">
+        <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
+        {{if .AttentionRows}}
+        <ul class="ovd-q">
+          {{range .AttentionRows}}
+          <li>
+            <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}" title="{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}"></span>
+            <div>
+              <a class="t" href="{{.Href}}">{{.Issue}}</a>
+              <div class="w">{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{else if eq .Href "/enrollment"}} · Unassigned{{end}}</div>
+            </div>
+            <span class="a">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</span>
+          </li>
+          {{end}}
+        </ul>
+        {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
+        {{else}}
+        <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
+        {{end}}
+      </div>
+
       {{/* ── Rollouts in flight ── */}}
-      <div class="cc-card">
+      <div class="cc-card ovd-o4">
         <div class="cc-ch"><h2>Rollouts</h2>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates</a>{{end}}</div>
         {{if .Rollouts}}
         <table class="ovd-t"><tbody>
@@ -280,7 +283,7 @@
       </div>
 
       {{/* ── Devices by type ── */}}
-      <div class="cc-card">
+      <div class="cc-card ovd-o5">
         <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
         {{if .ClassOnline}}
         <table class="ovd-t">
