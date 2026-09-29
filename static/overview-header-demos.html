@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview header · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1320px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* the mock frames: a page's content area at two widths */
+.frame{border:1px solid var(--rule);border-radius:10px;background:var(--bg);margin-bottom:10px}
+.frame .cap{font-size:11px;font-weight:650;color:var(--text-faint);padding:6px 12px;border-bottom:1px dashed var(--border);letter-spacing:.03em}
+.frame .in{padding:18px 20px 130px;position:relative}
+.frame .ghost{height:44px;border-radius:8px;background:var(--surface);border:1px solid var(--border);margin-top:14px;opacity:.6}
+.scroll{overflow-x:auto}
+
+/* shared header pieces (same styles as the live page) */
+.hd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.hd h2{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
+.meta{font-size:12px;color:var(--muted);margin-top:3px;white-space:nowrap}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;white-space:nowrap;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn .n{font-size:10.5px;font-weight:750;padding:1px 6px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
+.btn.ico{padding:7px 9px}
+.btn .car{width:10px;height:10px;margin-left:-2px}
+.sw{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);flex:none}
+.sw span{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;border-left:1px solid var(--border);line-height:1.4}
+.sw span:first-child{border-left:0}.sw span.on{background:var(--surface-3);color:var(--text)}
+.sw.sm span{padding:3px 9px;font-size:11.5px}
+.titlerow{display:flex;align-items:center;gap:12px}
+
+/* a dropdown drawn open */
+.menuwrap{position:relative;display:inline-block}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:210px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-md);padding:5px}
+.menu a{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:5px;font-size:12.5px;font-weight:550;color:var(--text-2);text-decoration:none}
+.menu a:hover,.menu a.hl{background:var(--surface2);color:var(--text)}
+.menu a svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.menu .sep{height:1px;background:var(--border-soft);margin:4px 2px}
+.menu .lk{margin-left:auto;font-size:11px;color:var(--text-faint)}
+
+/* D · toolbar row */
+.tb{display:flex;align-items:center;gap:8px;margin-top:14px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap}
+.tb .btn{border-color:transparent;background:transparent}
+.tb .btn:hover{background:var(--surface2)}
+.tb .btn.primary{background:var(--accent)}
+.tb .div{width:1px;height:22px;background:var(--border)}
+.tb .sp{flex:1}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>New Overview: header</h1>
+<p class="lead">The header has ten controls (the New / Classic switch and nine buttons), and they don't fit on one line. Visualize CSV wraps onto a second row and the "updated" time breaks under the title. Four ways to fix it are below. Each one is drawn twice. The first is at 1,280px, the widest the page ever gets: the content stops growing there, which is why it wraps even on a big screen. The second is at 1,000px, a smaller laptop, where wrapping gets worse. Buttons keep the same role rules they have now: locked for roles that can't use them, and Enroll / App library only for roles that have them.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a">A · More menu</a><a href="#b" class="rec">B · Switch by the title + Tools menu ★</a><a href="#c">C · Icon buttons</a><a href="#d">D · Toolbar row</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current <span class="tag live">Deployed</span></h2>
+<p class="desc">All ten in one row, right-aligned. At the page's full width they already need a second row.</p>
+<div id="mcur"></div>
+
+<h2 class="sec" id="a">A · Three buttons and a "More" menu</h2>
+<p class="desc">The switch, Fleet health, Alerts and Send action stay visible. Everything else moves into a "More" menu, drawn open in the laptop version.</p>
+<div id="ma"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Fits on one line at both widths, with room to spare.</li></ul></div>
+<div><b>Bad at</b><ul><li>Deploy update and Enroll device are one click further away, and they are real daily actions for some roles.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · Switch next to the title, actions + a "Tools" menu <span class="tag rec">Recommended</span></h2>
+<p class="desc">The New / Classic switch changes the page, not the fleet, so it moves next to the "Overview" title. On the right are the actions you take on the fleet (Fleet health, Alerts, Send action, Deploy update, Enroll device), and a "Tools" menu holds the three that are about data, not devices (App library, Export, Visualize CSV).</p>
+<div id="mb"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>One line at the page's full width. Below about 1,100px, Enroll device moves into Tools so it stays one line on a smaller laptop too. The time under the title stops wrapping.</li><li>Groups things by what they do: the switch is about the page, the buttons act on the fleet, the menu handles data.</li></ul></div>
+<div><b>Bad at</b><ul><li>Export and Visualize CSV move behind a click, and so does Enroll device on a smaller laptop.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · Label the actions, icons for the rest</h2>
+<p class="desc">The five fleet actions keep their labels. App library, Export and Visualize CSV become icon-only buttons with a tooltip.</p>
+<div id="mc"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Everything is still one click away.</li></ul></div>
+<div><b>Bad at</b><ul><li>Three unlabeled icons that look alike (download, chart, grid) mean hovering to find the right one.</li><li>Still wraps on a laptop.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · A toolbar row under the title</h2>
+<p class="desc">The title gets the full width, and the buttons move to their own row underneath, as a flat toolbar with the switch on the far right.</p>
+<div id="md"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Room for all nine buttons at almost any width, with nothing hidden.</li></ul></div>
+<div><b>Bad at</b><ul><li>Costs a row of height above the fleet.</li><li>A toolbar strip is a new pattern; no other page has one.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: B</h2>
+<div class="pick"><b>B, the switch next to the title and a Tools menu.</b> It fixes both problems in the screenshot (the wrapped button and the wrapped time) at the page's full width and on a smaller laptop. It keeps the actions people use every day as visible buttons, and it puts the switch where it belongs: it changes the page you're looking at, not the fleet. A hides too much. C and D both still wrap on a smaller laptop, and D also adds height and a new pattern. Pick a letter and I'll build it.</div>
+</div>
+
+<script>
+const I = {
+  health:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>', bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  enroll:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/>', act:'<path d="M13 2 3 14h7l-1 8 10-12h-7z"/>',
+  deploy:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+  apps:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  export:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', viz:'<path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/>',
+  more:'<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>', tools:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+  car:'<path d="M6 9l6 6 6-6"/>'};
+const ic = k => `<svg viewBox="0 0 24 24">${I[k]}</svg>`;
+const B = (k, label, cls) => `<span class="btn${cls ? ' ' + cls : ''}">${ic(k)}${label}</span>`;
+const SW = sm => `<span class="sw${sm ? ' sm' : ''}"><span class="on">New</span><span>Classic</span></span>`;
+const title = sw => `<div>${sw ? `<div class="titlerow"><h2>Overview</h2>${SW(true)}</div>` : '<h2>Overview</h2>'}<div class="meta">All restaurants · updated 06:34 PM</div></div>`;
+const MI = (k, label) => `<a>${ic(k)}${label}</a>`;
+const fleet = [B('health','Fleet health','primary'), B('bell','Alerts <span class="n">1</span>'), B('enroll','Enroll device'), B('act','Send action'), B('deploy','Deploy update')];
+const menu = (label, icon, items, open) => `<span class="menuwrap"><span class="btn">${ic(icon)}${label}<svg class="car" viewBox="0 0 24 24">${I.car}</svg></span>${open ? `<div class="menu">${items}</div>` : ''}</span>`;
+
+function frame(w, label, inner){ return `<div class="scroll"><div class="frame" style="width:${w}px;max-width:none"><div class="cap">${label} · ${w}px of content</div><div class="in">${inner}<div class="ghost"></div></div></div></div>`; }
+function both(id, fn){ document.getElementById(id).innerHTML = frame(1280, 'Your screen (the page stops growing at 1,280px)', fn(false)) + frame(1000, 'Smaller laptop', fn(true)); }
+
+both('mcur', () => `<div class="hd">${title(false)}<div class="acts">${SW()}${fleet.slice(0,3).join('')}${fleet.slice(3).join('')}${B('apps','App library')}${B('export','Export')}${B('viz','Visualize CSV')}</div></div>`);
+both('ma', open => `<div class="hd">${title(false)}<div class="acts">${SW()}${B('health','Fleet health','primary')}${B('bell','Alerts <span class="n">1</span>')}${B('act','Send action')}${menu('More','more',
+  MI('deploy','Deploy update') + MI('enroll','Enroll device') + '<div class="sep"></div>' + MI('apps','App library') + MI('export','Export CSV') + MI('viz','Visualize CSV'), open)}</div></div>`);
+// Narrow: Enroll device joins the Tools menu so the row still fits.
+both('mb', narrow => `<div class="hd">${title(true)}<div class="acts">${(narrow ? fleet.filter((_, i) => i !== 2) : fleet).join('')}${menu('Tools','tools',
+  (narrow ? MI('enroll','Enroll device') + '<div class="sep"></div>' : '') + MI('apps','App library') + '<div class="sep"></div>' + MI('export','Export CSV') + MI('viz','Visualize CSV'), narrow)}</div></div>`);
+both('mc', () => `<div class="hd">${title(false)}<div class="acts">${SW()}${fleet.join('')}<span class="btn ico" title="App library">${ic('apps')}</span><span class="btn ico" title="Export CSV">${ic('export')}</span><span class="btn ico" title="Visualize CSV">${ic('viz')}</span></div></div>`);
+both('md', () => `<div class="hd">${title(false)}</div><div class="tb">${B('health','Fleet health','primary')}${B('bell','Alerts <span class="n">1</span>')}<span class="div"></span>${B('act','Send action')}${B('deploy','Deploy update')}${B('enroll','Enroll device')}<span class="div"></span>${B('apps','App library')}${B('export','Export')}${B('viz','Visualize CSV')}<span class="sp"></span>${SW(true)}</div>`);
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>
