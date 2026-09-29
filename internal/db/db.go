@@ -2924,28 +2924,6 @@ func (d *DB) DeploymentCounts(ctx context.Context) (deployed, lab int, err error
 	return deployed, lab, err
 }
 
-// HideDevice marks a device as hidden. It stays in the DB but is excluded from
-// listings and summaries. The flag is cleared automatically on the next check-in.
-func (d *DB) HideDevice(ctx context.Context, serial string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = $1`, serial)
-	return err
-}
-
-func (d *DB) BulkHideDevices(ctx context.Context, serials []string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = ANY($1)`, serials)
-	return err
-}
-
-func (d *DB) UnhideDevice(ctx context.Context, serial string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = false WHERE serial_number = $1`, serial)
-	return err
-}
-
-func (d *DB) BulkUnhideDevices(ctx context.Context, serials []string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = false WHERE serial_number = ANY($1)`, serials)
-	return err
-}
-
 func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE devices SET poll_interval_ms = $2 WHERE serial_number = $1
@@ -7853,19 +7831,6 @@ func (d *DB) ListAuditActors(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
-// HideStaleDevices hides visible devices not seen within the last `days` days.
-func (d *DB) HideStaleDevices(ctx context.Context, days int) (int64, error) {
-	if days <= 0 {
-		return 0, nil
-	}
-	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
-		`UPDATE devices SET hidden = true WHERE NOT hidden AND last_seen_at < NOW() - INTERVAL '%d days'`, days))
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
 // PruneResolvedAlerts deletes resolved alerts older than `days` days so the table
 // doesn't grow without bound (open/acknowledged alerts are always kept).
 func (d *DB) PruneResolvedAlerts(ctx context.Context, days int) (int64, error) {
@@ -7879,21 +7844,6 @@ func (d *DB) PruneResolvedAlerts(ctx context.Context, days int) (int64, error) {
 	}
 	return tag.RowsAffected(), nil
 }
-
-// ResolveAlertsForHiddenDevices resolves any open/acknowledged alert belonging to a
-// device that is now inactive (hidden), so an auto-inactivated unit's alerts clear
-// out instead of lingering. Runs after the stale-device sweep.
-func (d *DB) ResolveAlertsForHiddenDevices(ctx context.Context) (int64, error) {
-	tag, err := d.pool.Exec(ctx, `
-		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
-		WHERE status <> 'resolved'
-		  AND device_id IN (SELECT id FROM devices WHERE hidden)`)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
 
 // PruneShaped applies the check-in retention setting to the history that replaced the
 // checkins table: samples older than `days` go, and so do state events — except each

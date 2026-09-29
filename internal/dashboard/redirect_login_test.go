@@ -3,6 +3,7 @@ package dashboard
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -37,5 +38,24 @@ func TestRedirectLogin(t *testing.T) {
 				t.Fatalf("got %d %v, want %d", w.Code, w.Header(), c.code)
 			}
 		})
+	}
+}
+
+// A signed-out answer that a person ends up looking at (a framed page, an in-app
+// browser) must take them to the login page, not show the word "Unauthorized".
+func TestRedirectLoginBodyForPeople(t *testing.T) {
+	r := httptest.NewRequest("GET", "/commands", nil)
+	r.Header.Set("Sec-Fetch-Dest", "iframe")
+	w := httptest.NewRecorder()
+	redirectLogin(w, r)
+	body := w.Body.String()
+	if w.Code != http.StatusUnauthorized || w.Header().Get("X-Auth-Required") != "1" {
+		t.Fatalf("scripts need 401 + X-Auth-Required, got %d %v", w.Code, w.Header())
+	}
+	if !strings.Contains(body, "location.replace('/login')") || !strings.Contains(body, `url=/login`) {
+		t.Fatalf("body does not send the page to /login: %q", body)
+	}
+	if strings.TrimSpace(body) == "Unauthorized" {
+		t.Fatal("body is the bare word Unauthorized")
 	}
 }

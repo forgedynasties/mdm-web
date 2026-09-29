@@ -112,12 +112,25 @@ func redirectLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fetchedByJS(r) {
+		// Scripts act on the status and header. The body is for when a person ends up
+		// looking at this response anyway (a frame, an in-app browser, a link whose
+		// request looks scripted): it sends the whole window to the login page instead
+		// of showing the word "Unauthorized".
 		w.Header().Set("X-Auth-Required", "1")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(loginRedirectPage))
 		return
 	}
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
+
+// loginRedirectPage is the body of a signed-out response to a script-looking
+// request: harmless to the scripts, and a redirect to /login for anyone who sees it.
+const loginRedirectPage = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/login"><title>Sign in</title>` +
+	`<script>try{(window.top||window).location.replace('/login')}catch(e){location.replace('/login')}</script></head>` +
+	`<body style="font-family:system-ui,sans-serif;padding:24px">Your session has ended. <a href="/login" target="_top">Sign in</a></body></html>`
 
 // hxTriggerEvents sets HX-Trigger so htmx dispatches the named events on the
 // client; page regions listen via hx-trigger="<name> from:body" and refetch.
@@ -832,8 +845,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOTA":     roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,
-		// canSeeInactive: the Inactive device view, roles above operator.
-		"canSeeInactive": roleAboveOperator,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
 		"canCreateUsers": roleCreatesUsers,
@@ -4603,13 +4614,6 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
-	// The "Inactive" view (hidden=only) is for the roles above operator (access
-	// admin, super op, dev, admin), read-only; marking a device inactive stays
-	// admin-only. Any other value collapses to active-only (there is no mixed view).
-	hiddenParam := ""
-	if r.URL.Query().Get("hidden") == "only" && roleAboveOperator(h.role(r)) {
-		hiddenParam = "only"
-	}
 	return db.DeviceFilter{
 		Search:              r.URL.Query().Get("q"),
 		GroupID:             groupID,
@@ -4629,7 +4633,6 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Class:               r.URL.Query().Get("class"),
 		Onboarding:          r.URL.Query().Get("onboarding"),
 		Lifecycle:           r.URL.Query().Get("lifecycle"),
-		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
 		// counts (GetSummaryFiltered) resolve it against this connected set.
@@ -10584,41 +10587,6 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 }
 
-func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if err := h.db.HideDevice(r.Context(), serial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.hide", device.ID, serial, "")
-	h.hub.PublishDeviceUpdate(device.ID)
-	// 204 + device-updated instead of a full /devices reload: the fleet SSE row patch
-	// (patchRow) drops the now-hidden card in place, so nothing flashes.
-	h.hxDone(w, r, "/devices", "device-updated")
-}
-
-func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if err := h.db.UnhideDevice(r.Context(), serial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.unhide", device.ID, serial, "")
-	h.hub.PublishDeviceUpdate(device.ID)
-	// 204 + device-updated: the row patch handles the change in place (no full reload).
-	h.hxDone(w, r, "/devices?hidden=only", "device-updated")
-}
-
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -10632,46 +10600,6 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
-}
-
-func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := r.Form["serials"]
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices", http.StatusSeeOther)
-		return
-	}
-	if err := h.db.BulkHideDevices(r.Context(), serials); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.bulk_hide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
-	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
-		for _, id := range ids {
-			h.hub.PublishDeviceUpdate(id)
-		}
-	}
-	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Hid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
-}
-
-func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := r.Form["serials"]
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
-		return
-	}
-	if err := h.db.BulkUnhideDevices(r.Context(), serials); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.bulk_unhide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
-	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
-		for _, id := range ids {
-			h.hub.PublishDeviceUpdate(id)
-		}
-	}
-	h.hxDoneToastEvents(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
 }
 
 // BulkNickname renames the selected devices from one pattern. {n} is the 1-based
@@ -18880,13 +18808,9 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 	h.alerts.Dispatch(ctx, created)
 }
 
-// RunHousekeeping applies the configured auto-hide and retention policies.
+// RunHousekeeping applies the configured retention policies. (Devices are no longer
+// auto-hidden: a device that stops reporting stays in the fleet until it is retired.)
 // Safe to call repeatedly; each step is a no-op when its setting is 0.
-// inactiveAfterDays is how long a device may go silent before it is auto-marked
-// inactive (hidden) and dropped from every list, count, and health stat. It comes
-// back automatically the moment it checks in again.
-const inactiveAfterDays = 100
-
 func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
 	// are always aggregated before the retention prune below can delete them.
@@ -18911,23 +18835,6 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			h.hub.PublishAlertUpdate()
 		}
 		h.dispatchAlertNotifications(ctx, created)
-	}
-	// Auto-inactivate devices that have been silent for over inactiveAfterDays: they
-	// stop appearing in every list, count, and health stat so long-dead units don't
-	// skew the fleet. They return automatically on their next check-in (UpsertCheckin
-	// clears hidden). Runs before the summary refresh so the cached counts drop them.
-	if n, err := h.db.HideStaleDevices(ctx, inactiveAfterDays); err != nil {
-		log.Printf("[housekeeping] auto-inactivate stale devices: %v", err)
-	} else if n > 0 {
-		log.Printf("[housekeeping] marked %d device(s) inactive (silent > %dd)", n, inactiveAfterDays)
-		h.hub.PublishAlertUpdate() // nudge the dashboard's live counts to refresh
-	}
-	// Clear out any alerts still open on now-inactive devices.
-	if n, err := h.db.ResolveAlertsForHiddenDevices(ctx); err != nil {
-		log.Printf("[housekeeping] resolve inactive-device alerts: %v", err)
-	} else if n > 0 {
-		log.Printf("[housekeeping] resolved %d alert(s) on inactive devices", n)
-		h.hub.PublishAlertUpdate()
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
@@ -21482,8 +21389,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceWlcUpdate)))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.deviceRoute("kiosk", h.DeviceRotateOfflineCode)))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.deviceRoute("kiosk", h.DeviceOfflineCode)))
-	post("POST /devices/{serial}/hide", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceHide)))
-	post("POST /devices/{serial}/unhide", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnhide)))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.deviceRoute("view", h.DeviceClearOTA)))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
@@ -21491,8 +21396,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/remote/token", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemoteToken)))
 	post("POST /devices/views", h.requireAuth(h.FleetViewSave))
 	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
-	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
-	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
 	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))

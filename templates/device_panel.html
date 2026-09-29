@@ -89,7 +89,6 @@
     {{if canAdmin $.Role}}
     <div class="dvp-actions-row dvp-admin-row">
       <button type="button" class="btn-outline cc-btn" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorReboot && window.mdmInspectorReboot(this.dataset.serial)">Reboot</button>
-      <button type="button" class="btn-danger-sm cc-btn danger" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorHide && window.mdmInspectorHide(this.dataset.serial)">Mark inactive</button>
     </div>
     {{end}}
   </div>
