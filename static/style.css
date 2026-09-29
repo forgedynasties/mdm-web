@@ -5314,6 +5314,12 @@ html[data-theme="dark"] .ddc-gtag { color: #a9adfb; }
 .ddc-kv .k { color: var(--muted); }
 .ddc-kv .v { font-weight: 600; min-width: 0; display: flex; align-items: center; gap: 6px; justify-content: flex-end; text-align: right; }
 .ddc-kv .v.tags { flex-wrap: wrap; }
+/* A value with several parts (the wireless adb row: state, address, timer, link)
+   wraps between parts instead of pushing out of its card, and never inside one. */
+.ddc-kv .v.wrap { flex-wrap: wrap; row-gap: 4px; }
+.ddc-kv .v.wrap > * { white-space: nowrap; }
+#adb-tcp-row .k { flex: none; white-space: nowrap; }
+#adb-tcp-row { align-items: flex-start; }
 .ddc-main { min-width: 0; }
 /* recent activity timeline (Overview) */
 .ddc-activity { display: flex; flex-direction: column; }

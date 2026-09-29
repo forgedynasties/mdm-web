@@ -3260,7 +3260,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="ddc-card" id="security-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Security</h2>{{if $s.AdbOn}}<span class="cc-tag warn">adb open</span>{{end}}</div>
       <div class="ddc-kv"><span class="k">USB debugging</span><span class="v">{{$s.USBDebugging}}</span></div>
-      <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v">
+      <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v wrap">
         {{if $s.AdbOn}}<span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}{{else if $s.AdbKnown}}Off{{else}}—{{end}}
         {{if and (canAdmin .Role) $s.CanAdbTCP}} <a href="#settings" class="link-detail small" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change in Settings</a>{{end}}
       </span></div>
