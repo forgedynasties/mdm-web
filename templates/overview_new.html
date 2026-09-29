@@ -170,12 +170,12 @@
 
 <div class="ovd">
 
+  {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
   <div class="ovd-head">
     <div>
       <h1>Overview</h1>
       <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
     </div>
-    {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
   </div>
 
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
@@ -407,13 +407,15 @@ window.ovdInitMap = function () {
 {{end}}
 
 
-{{/* New / Classic switch, shown to super admins on both Overviews while the new one is tried out.
+{{/* New / Classic switch, in a bar of its own at the top of both Overviews so it sits in
+     exactly the same place whichever page is showing.
      A full page load, not a boosted one: the boosted "/" is briefly browser-cached (see
      prefetchableTemplates), so a boosted switch could get back the page it just left. */}}
 {{define "ov-switch"}}<style>
+.ov-switch-bar{display:flex;justify-content:flex-end;margin:0 0 10px}
 .ov-switch{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);flex:none}
 .ov-switch a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 11px;text-decoration:none;border-left:1px solid var(--border);line-height:1.4}
 .ov-switch a:first-child{border-left:0}
 .ov-switch a:hover{color:var(--text)}
 .ov-switch a.on{background:var(--surface-3);color:var(--text)}
-</style><span class="ov-switch" role="group" aria-label="Overview version" title="Only super admins see this switch"><a href="/?overview=new" hx-boost="false"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic" hx-boost="false"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span>{{end}}
+</style><div class="ov-switch-bar"><span class="ov-switch" role="group" aria-label="Overview version"><a href="/?overview=new" hx-boost="false"{{if eq . "new"}} class="on" aria-current="page"{{end}}>New</a><a href="/?overview=classic" hx-boost="false"{{if eq . "classic"}} class="on" aria-current="page"{{end}}>Classic</a></span></div>{{end}}
