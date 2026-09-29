@@ -1067,6 +1067,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	}
 	addOfflineExit(cfg, deviceCfg)
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
+	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
 
 	// Publish AFTER processOfflineExit so this check-in's own (immediate) broadcast
 	// already carries the flipped kiosk state — the dashboard updates as promptly as
