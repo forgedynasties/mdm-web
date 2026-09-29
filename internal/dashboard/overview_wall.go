@@ -179,24 +179,10 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	return out
 }
 
-// mapDevice is a located device drawn on its own, because it has no located restaurant.
-type mapDevice struct {
-	Serial string  `json:"serial"`
-	Lat    float64 `json:"lat"`
-	Lng    float64 `json:"lng"`
-	Online bool    `json:"online"`
-}
-
-// overviewMap is the Overview map's data: restaurants, plus loose devices.
-type overviewMap struct {
-	Sites   []mapSite   `json:"sites"`
-	Devices []mapDevice `json:"devices"`
-}
-
 // buildMap places each restaurant on the map: its stored coordinates, or else the
-// median of its located devices. Located devices whose restaurant is not on the
-// map (or that have none) are drawn one by one. Returns the JSON and how many
-// dots it holds.
+// median of its located devices. Only restaurants are drawn, so the map frames
+// where the fleet is deployed, not wherever a bench or test device happens to be.
+// Returns the JSON and how many restaurants it holds.
 func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth) (template.JS, int) {
 	coords := map[string][2]float64{}
 	for _, r := range restaurants {
@@ -232,21 +218,11 @@ func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPo
 		sites = append(sites, mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
 			Online: b.Online, Health: b.Health, Issue: issues[b.ID]})
 	}
-	placed := make(map[string]bool, len(sites))
-	for _, st := range sites {
-		placed[st.ID] = true
-	}
-	devs := []mapDevice{}
-	for _, p := range pts {
-		if !placed[p.RestaurantID] {
-			devs = append(devs, mapDevice{Serial: p.Serial, Lat: p.Lat, Lng: p.Lon, Online: p.Online})
-		}
-	}
-	j, err := json.Marshal(overviewMap{sites, devs})
+	j, err := json.Marshal(sites)
 	if err != nil {
-		return template.JS("{}"), 0
+		return template.JS("[]"), 0
 	}
-	return template.JS(j), len(sites) + len(devs)
+	return template.JS(j), len(sites)
 }
 
 func median(v []float64) float64 {

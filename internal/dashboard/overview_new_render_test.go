@@ -75,6 +75,6 @@ func TestOverviewNewRenders(t *testing.T) {
 		}
 	}
 	if dots != 1 {
-		t.Errorf("map dots = %d, want 1 (the restaurant; the loose device has no location)", dots)
+		t.Errorf("map dots = %d, want 1 (restaurants only)", dots)
 	}
 }

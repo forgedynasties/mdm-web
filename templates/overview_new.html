@@ -196,13 +196,13 @@
       {{if and .MapDots .MapsEmbedKey}}
       <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
       <div class="ovd-wfoot">
-        <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Big dots are restaurants, sized by devices · small dots are devices with no located restaurant</span>
+        <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Dot size is device count</span>
       </div>
       <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
       {{else if .MapDots}}
       <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
       {{else}}
-      <div class="ovd-empty"><b>Nothing located yet.</b> Give a restaurant its coordinates, or turn on device location, and it appears here.</div>
+      <div class="ovd-empty"><b>No restaurants on the map yet.</b> Give a restaurant its coordinates, or turn on location on its devices, and it appears here.</div>
       {{end}}
     </div>
 
@@ -277,8 +277,8 @@
 window.ovdInitMap = function () {
   var el = document.getElementById('ovd-map'), raw = document.getElementById('ovd-map-data');
   if (!el || !raw || !window.google) return;
-  var data = JSON.parse(raw.textContent || '{}'), sites = data.sites || [], devs = data.devices || [];
-  var first = sites[0] || devs[0];
+  var sites = JSON.parse(raw.textContent || '[]');
+  if (!sites.length) return;
   var MUTED = [{ stylers: [{ saturation: -70 }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }];
   var DARK = [
     {elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
@@ -288,7 +288,7 @@ window.ovdInitMap = function () {
     {featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
     {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
   ];
-  var map = new google.maps.Map(el, { zoom: 10, center: { lat: first.lat, lng: first.lng }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, keyboardShortcuts: false, gestureHandling: 'cooperative' });
+  var map = new google.maps.Map(el, { zoom: 10, center: { lat: sites[0].lat, lng: sites[0].lng }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, keyboardShortcuts: false, gestureHandling: 'cooperative' });
   var iw = new google.maps.InfoWindow(), markers = [];
   function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function color(h) {
@@ -301,20 +301,6 @@ window.ovdInitMap = function () {
     markers.forEach(function (m) { m.setMap(null); });
     markers = [];
     var bounds = new google.maps.LatLngBounds(), rank = { ok: 0, warn: 1, bad: 2 };
-    devs.forEach(function (d) {
-      var mk = new google.maps.Marker({
-        position: { lat: d.lat, lng: d.lng }, map: map, title: d.serial, zIndex: 1,
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: color(d.online ? 'ok' : 'bad'), fillOpacity: 0.85, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 1.5 }
-      });
-      mk.addListener('click', function () {
-        iw.setContent('<div style="min-width:150px;font-size:13px"><b style="font-family:var(--mono)">' + esc(d.serial) + '</b>'
-          + '<div style="margin:3px 0">' + (d.online ? 'Online' : 'Offline') + ' · no restaurant on the map</div>'
-          + '<a href="/devices/' + encodeURIComponent(d.serial) + '">Open device →</a></div>');
-        iw.open(map, mk);
-      });
-      markers.push(mk);
-      bounds.extend(mk.getPosition());
-    });
     sites.slice().sort(function (a, b) { return rank[a.health] - rank[b.health]; }).forEach(function (s) {
       var mk = new google.maps.Marker({
         position: { lat: s.lat, lng: s.lng }, map: map, title: s.name, zIndex: 10 + rank[s.health],
@@ -332,10 +318,13 @@ window.ovdInitMap = function () {
     });
     return bounds;
   }
+  // Frame the restaurants: one is centred at street level, several are fitted.
   var b = draw();
-  if (markers.length > 1) {
-    google.maps.event.addListenerOnce(map, 'bounds_changed', function () { if (map.getZoom() > 14) map.setZoom(14); });
-    map.fitBounds(b, 40);
+  if (sites.length === 1) {
+    map.setZoom(14);
+  } else {
+    google.maps.event.addListenerOnce(map, 'bounds_changed', function () { if (map.getZoom() > 15) map.setZoom(15); });
+    map.fitBounds(b, 48);
   }
   window.addEventListener('mdm:themechange', function () { draw(); });
 };
