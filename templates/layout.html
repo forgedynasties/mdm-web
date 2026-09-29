@@ -452,6 +452,10 @@
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
     <div class="appbar-right">
       {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
+      {{/* The page's own control for the top bar (the Overview's New / Classic switch).
+           The page renders it inside <main>; the script below moves it here on every
+           navigation, because the top bar is not part of a boosted swap. */}}
+      <span id="appbar-slot"></span>
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
@@ -2572,6 +2576,27 @@
   })();
   </script>
   <script>
+  // ── Top-bar slot ─────────────────────────────────────────────────────────
+  // A page can hand the top bar one control (.appbar-slot-item inside <main>). The
+  // slot is emptied on every navigation and refilled from the new page, so the
+  // control never outlives its page.
+  (function () {
+    function fill() {
+      var slot = document.getElementById('appbar-slot');
+      if (!slot) return;
+      slot.innerHTML = '';
+      var item = document.querySelector('main .appbar-slot-item');
+      if (item) slot.appendChild(item);
+      document.dispatchEvent(new CustomEvent('mdm:appbar-slot'));
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fill); else fill();
+    document.addEventListener('htmx:afterSettle', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && t.tagName === 'MAIN') fill();
+    });
+  })();
+  </script>
+  <script>
   // ── Live alerts counter ──────────────────────────────────────────────────
   // One EventSource per page owns the alerts feed: it keeps the sidebar's open
   // alert badge current and re-dispatches a DOM event so the alerts list (when
@@ -2901,7 +2926,6 @@
   </div></template>
 
   <template id="skel-overview"><div class="skel-page">
-    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;"><div class="skel skel-pill" style="width:128px;height:30px;border-radius:7px;"></div></div>
     <div class="skel-block" style="height:188px;margin-bottom:14px;border-radius:8px;"></div>
     <div class="skel-2col" style="gap:14px;">
       <div><div class="skel-block" style="height:230px;margin-bottom:14px;border-radius:8px;"></div><div class="skel-block" style="height:470px;border-radius:8px;"></div></div>
