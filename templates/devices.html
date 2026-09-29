@@ -155,6 +155,10 @@ if (!window.__dlRowNav) {
       {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
       </div>
       <div class="dl-sc-l2">{{if $nick}}<span>{{$nick}}</span><span class="sep">·</span>{{end}}<span>{{$model}}</span><span class="sep">·</span><span class="dl-agent">{{.KindLabel}}</span></div>
+      {{/* The firmware build, under the agent: our images name their builds (v2.1.022),
+           which is what someone scanning the fleet for stragglers looks for. DPC and
+           Lite report the stock Android fingerprint, too long to help here. */}}
+      {{if and (not .IsDPC) .BuildID}}<div class="dl-sc-l3" title="Firmware build">{{.BuildID}}</div>{{end}}
     </div>
     <div class="dl-stats">
       <span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>

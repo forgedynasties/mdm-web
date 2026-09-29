@@ -102,6 +102,10 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 			if !strings.Contains(out, `<span class="pre">AT070AABU00</span>`) {
 				t.Errorf("layout %q did not split the serial's prefix", layout)
 			}
+			// A firmware device's card carries its build under the agent line.
+			if !strings.Contains(out, `<div class="dl-sc-l3" title="Firmware build">v2.1.017</div>`) {
+				t.Errorf("layout %q does not show the firmware build", layout)
+			}
 		}
 	}
 }
