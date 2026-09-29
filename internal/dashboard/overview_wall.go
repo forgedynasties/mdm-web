@@ -24,7 +24,7 @@ type wallSquare struct {
 	Tip    string
 }
 
-// wallBlock is one restaurant's squares, or the devices with no restaurant.
+// wallBlock is one restaurant's squares, or one device type's devices with no restaurant.
 type wallBlock struct {
 	ID      string // restaurant id; "" for the devices with no restaurant
 	Name    string
@@ -92,8 +92,7 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	}
 
 	blocks := map[uuid.UUID]*wallBlock{}
-	var none wallBlock
-	none.Name = "No restaurant"
+	unplaced := map[string]*wallBlock{} // by device type label
 	for _, d := range devs {
 		sq := wallSquare{Serial: d.Serial, State: "on"}
 		label := "Unassigned type"
@@ -116,8 +115,13 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 		}
 		sq.Tip = d.Serial + " · " + label + " · " + status
 
-		b := &none
-		if d.RestaurantID != nil {
+		var b *wallBlock
+		if d.RestaurantID == nil {
+			if b = unplaced[label]; b == nil {
+				b = &wallBlock{Name: "No restaurant · " + label}
+				unplaced[label] = b
+			}
+		} else {
 			b = blocks[*d.RestaurantID]
 			if b == nil {
 				b = &wallBlock{ID: d.RestaurantID.String(), Name: names[*d.RestaurantID], Health: "ok"}
@@ -150,9 +154,17 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 		}
 		return a.Name < b.Name
 	})
-	if none.Total > 0 {
-		out = append(out, none)
+	rest := make([]wallBlock, 0, len(unplaced))
+	for _, b := range unplaced {
+		rest = append(rest, *b)
 	}
+	sort.Slice(rest, func(i, j int) bool {
+		if rest[i].Total != rest[j].Total {
+			return rest[i].Total > rest[j].Total
+		}
+		return rest[i].Name < rest[j].Name
+	})
+	out = append(out, rest...)
 	for i := range out {
 		out[i].Cols = int(math.Max(3, math.Ceil(math.Sqrt(float64(out[i].Total)*1.5))))
 		// Offline before alerting before online, so a block's trouble reads as one clump.
@@ -164,9 +176,25 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	return out
 }
 
-// buildMapSites places each restaurant on the map: its stored coordinates, or
-// else the median of its located devices. Restaurants with neither are left off.
-func buildMapSites(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth) (template.JS, int) {
+// mapDevice is a located device drawn on its own, because it has no located restaurant.
+type mapDevice struct {
+	Serial string  `json:"serial"`
+	Lat    float64 `json:"lat"`
+	Lng    float64 `json:"lng"`
+	Online bool    `json:"online"`
+}
+
+// overviewMap is the Overview map's data: restaurants, plus loose devices.
+type overviewMap struct {
+	Sites   []mapSite   `json:"sites"`
+	Devices []mapDevice `json:"devices"`
+}
+
+// buildMap places each restaurant on the map: its stored coordinates, or else the
+// median of its located devices. Located devices whose restaurant is not on the
+// map (or that have none) are drawn one by one. Returns the JSON and how many
+// dots it holds.
+func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth) (template.JS, int) {
 	coords := map[string][2]float64{}
 	for _, r := range restaurants {
 		if r.Latitude != nil && r.Longitude != nil && (*r.Latitude != 0 || *r.Longitude != 0) {
@@ -201,11 +229,21 @@ func buildMapSites(blocks []wallBlock, restaurants []db.Restaurant, pts []device
 		sites = append(sites, mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
 			Online: b.Online, Health: b.Health, Issue: issues[b.ID]})
 	}
-	j, err := json.Marshal(sites)
-	if err != nil {
-		return template.JS("[]"), 0
+	placed := make(map[string]bool, len(sites))
+	for _, st := range sites {
+		placed[st.ID] = true
 	}
-	return template.JS(j), len(sites)
+	devs := []mapDevice{}
+	for _, p := range pts {
+		if !placed[p.RestaurantID] {
+			devs = append(devs, mapDevice{Serial: p.Serial, Lat: p.Lat, Lng: p.Lon, Online: p.Online})
+		}
+	}
+	j, err := json.Marshal(overviewMap{sites, devs})
+	if err != nil {
+		return template.JS("{}"), 0
+	}
+	return template.JS(j), len(sites) + len(devs)
 }
 
 func median(v []float64) float64 {

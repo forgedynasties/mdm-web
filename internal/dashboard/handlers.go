@@ -5245,14 +5245,14 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	data["Wall"] = wall
 	data["WallTotal"] = len(wallDevs)
 
-	// Restaurant map: each restaurant at its stored coordinates, else at the median of
-	// its devices' resolved locations.
+	// Map: each restaurant at its stored coordinates, else at the median of its
+	// devices' resolved locations; located devices outside those drawn one by one.
 	locFilter := db.DeviceFilter{}
 	if h.access(r).hidesDPC() {
 		locFilter.AgentKind = "firmware"
 	}
 	pts := h.devicePoints(ctx, locFilter)
-	data["MapSites"], data["MapSiteCount"] = buildMapSites(wall, rests, pts, groups)
+	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups)
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 
 	// Fleet composition by product role (Menu board, Tableside AI, …), the same axis as
