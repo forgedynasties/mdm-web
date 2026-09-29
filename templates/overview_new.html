@@ -176,6 +176,9 @@
 .ovd-side{align-content:start}
 /* One column: keep the reading order wall → attention → map → rollouts → types. */
 @media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o3{order:3}.ovd-o4{order:4}.ovd-o5{order:5}}
+.ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11px/1.2 var(--font);color:var(--text);text-shadow:0 0 3px var(--surface),0 0 3px var(--surface),0 0 3px var(--surface),0 0 4px var(--surface)}
+.ovd-mlbl.off{opacity:0}
+.ovd-mlbl.off.peek{opacity:1}
 </style>
 
 <div class="ovd">
@@ -230,7 +233,7 @@
         {{if and .MapDots .MapsEmbedKey}}
         <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
         <div class="ovd-wfoot">
-          <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>Dot size is device count</span>
+          <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>The number in each dot is its device count</span>
         </div>
         <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
         {{else if .MapDots}}
@@ -352,16 +355,64 @@ window.ovdInitMap = function () {
     var cs = getComputedStyle(document.body);
     return cs.getPropertyValue(h === 'bad' ? '--danger' : h === 'warn' ? '--warn' : '--ok').trim();
   }
+  // Each restaurant is a dot with its device count inside and its name underneath.
+  // Worst first, so when names collide the ones at risk keep theirs.
+  var rank = { ok: 2, warn: 1, bad: 0 };
+  sites.forEach(function (s) { s.r = Math.round(9 + Math.sqrt(s.total) * 1.8); });
+  var order = sites.slice().sort(function (a, b) { return rank[a.health] - rank[b.health] || b.total - a.total; });
+
+  // Names: an overlay under each dot; one that would overlap a dot or another name
+  // is hidden and shows while its dot is hovered.
+  function Names() {}
+  Names.prototype = new google.maps.OverlayView();
+  Names.prototype.onAdd = function () {
+    var pane = this.getPanes().overlayLayer;
+    sites.forEach(function (s) {
+      s.lbl = document.createElement('div');
+      s.lbl.className = 'ovd-mlbl';
+      s.lbl.textContent = s.name;
+      pane.appendChild(s.lbl);
+    });
+  };
+  Names.prototype.draw = function () {
+    var proj = this.getProjection(), boxes = [];
+    if (!proj) return;
+    sites.forEach(function (s) {
+      s.px = proj.fromLatLngToDivPixel(new google.maps.LatLng(s.lat, s.lng));
+      boxes.push({ x: s.px.x - s.r, y: s.px.y - s.r, w: 2 * s.r, h: 2 * s.r });
+    });
+    function free(b) { return !boxes.some(function (o) { return b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y; }); }
+    order.forEach(function (s) {
+      var w = s.lbl.offsetWidth, h = s.lbl.offsetHeight, x = s.px.x, y = s.px.y, r = s.r;
+      // Under the dot first, then right, left, above.
+      var spots = [{ x: x - w / 2, y: y + r + 3 }, { x: x + r + 4, y: y - h / 2 }, { x: x - r - 4 - w, y: y - h / 2 }, { x: x - w / 2, y: y - r - 3 - h }];
+      var b = null;
+      for (var i = 0; i < spots.length && !b; i++) {
+        var c = { x: spots[i].x, y: spots[i].y, w: w, h: h };
+        if (free(c)) b = c;
+      }
+      var at = b || { x: spots[0].x, y: spots[0].y };
+      s.lbl.style.left = at.x + 'px';
+      s.lbl.style.top = at.y + 'px';
+      s.lbl.classList.toggle('off', !b);
+      if (b) boxes.push(b);
+    });
+  };
+  Names.prototype.onRemove = function () { sites.forEach(function (s) { if (s.lbl) s.lbl.remove(); }); };
+
   function draw() {
     var dark = window.mdmTheme && window.mdmTheme() === 'dark';
+    var font = getComputedStyle(document.body).fontFamily;
     map.setOptions({ styles: dark ? DARK : MUTED });
     markers.forEach(function (m) { m.setMap(null); });
     markers = [];
-    var bounds = new google.maps.LatLngBounds(), rank = { ok: 0, warn: 1, bad: 2 };
-    sites.slice().sort(function (a, b) { return rank[a.health] - rank[b.health]; }).forEach(function (s) {
+    var bounds = new google.maps.LatLngBounds();
+    order.slice().reverse().forEach(function (s) {
       var mk = new google.maps.Marker({
-        position: { lat: s.lat, lng: s.lng }, map: map, title: s.name, zIndex: 10 + rank[s.health],
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5 + Math.sqrt(s.total) * 1.6, fillColor: color(s.health), fillOpacity: s.health === 'ok' ? 0.75 : 0.95, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 2 }
+        position: { lat: s.lat, lng: s.lng }, map: map, title: s.name + ' · ' + s.total + ' device' + (s.total === 1 ? '' : 's'), zIndex: 10 + (2 - rank[s.health]),
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: s.r, fillColor: color(s.health), fillOpacity: 1, strokeColor: dark ? '#16161d' : '#ffffff', strokeWeight: 2 },
+        // Dark-theme status colours are light, so the count goes dark there.
+        label: { text: String(s.total), color: dark ? '#0d0d12' : '#ffffff', fontSize: (s.r > 14 ? 12 : 11) + 'px', fontWeight: '700', fontFamily: font }
       });
       mk.addListener('click', function () {
         iw.setContent('<div style="min-width:170px;font-size:13px"><b>' + esc(s.name) + '</b>'
@@ -370,11 +421,14 @@ window.ovdInitMap = function () {
           + '<a href="/restaurants/' + encodeURIComponent(s.id) + '">Open restaurant →</a></div>');
         iw.open(map, mk);
       });
+      mk.addListener('mouseover', function () { if (s.lbl) s.lbl.classList.add('peek'); });
+      mk.addListener('mouseout', function () { if (s.lbl) s.lbl.classList.remove('peek'); });
       markers.push(mk);
       bounds.extend(mk.getPosition());
     });
     return bounds;
   }
+  new Names().setMap(map);
   // Frame the restaurants: one is centred at street level, several are fitted.
   var b = draw();
   if (sites.length === 1) {
