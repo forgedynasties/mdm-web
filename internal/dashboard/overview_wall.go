@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -291,6 +292,7 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		wallDevs []db.WallDevice
 		rests    []db.Restaurant
 		pts      []deviceMapPoint
+		products []compRole
 		wg       sync.WaitGroup
 	)
 	run := func(f func()) {
@@ -301,6 +303,7 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), acc.hidesDPC()) })
 	run(func() { wallDevs, _ = h.db.FleetWall(ctx, acc.hidesDPC()) })
 	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
+	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
 	run(func() {
 		f := db.DeviceFilter{}
 		if acc.hidesDPC() {
@@ -310,6 +313,9 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	})
 	wg.Wait()
 
+	if products != nil {
+		data["Products"] = products
+	}
 	active = acc.keepVisibleAlerts(active)
 	att, attN, attCrit := buildAttention(active, inboxN)
 	data["AttentionRows"] = att
@@ -329,4 +335,34 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	data["WallTotal"] = len(wallDevs)
 	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups)
 	data["MapsEmbedKey"] = h.mapsEmbedKey
+}
+
+// compRole is one slice of the Overview's fleet-composition bar.
+type compRole struct {
+	Class, Label string
+	Count        int
+}
+
+// overviewProducts is the fleet composition by product role (Menu board, Tableside
+// AI, …), the same axis as the fleet rail, not by hardware model. Most devices
+// first; unassigned last. Shared by the classic and the new Overview's hero.
+func (h *Handler) overviewProducts(ctx context.Context, excludeDPC bool) ([]compRole, bool) {
+	cc, _, _, err := h.db.FleetComposition(ctx, excludeDPC)
+	if err != nil {
+		return nil, false
+	}
+	var roles []compRole
+	unassigned := 0
+	for _, c := range cc {
+		if c.Class == "" {
+			unassigned += c.N
+			continue
+		}
+		roles = append(roles, compRole{c.Class, product.ClassLabel(c.Class), c.N})
+	}
+	sort.SliceStable(roles, func(i, j int) bool { return roles[i].Count > roles[j].Count })
+	if unassigned > 0 {
+		roles = append(roles, compRole{"", "Unassigned", unassigned})
+	}
+	return roles, true
 }

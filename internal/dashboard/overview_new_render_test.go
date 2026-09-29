@@ -31,7 +31,8 @@ func TestOverviewNewRenders(t *testing.T) {
 	funcs["sub"] = func(a, b int) int { return a - b }
 	funcs["canAdminOrOperator"] = func(string) bool { return true }
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/overview_new.html"))
+	// overview.html too: the new page borrows its "ov3-w-hero" block.
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/overview_new.html", "../../templates/overview.html"))
 
 	now := time.Now()
 	rid := uuid.New()
@@ -51,8 +52,11 @@ func TestOverviewNewRenders(t *testing.T) {
 	att, attN, attCrit := buildAttention(alerts, 1)
 
 	data := map[string]any{
-		"Summary": db.Summary{Total: 4, RecentlyActive: 3}, "Offline": 1, "NowUTC": now.UTC().Format(time.RFC3339),
-		"SitesOK": 0, "SitesWarn": 0, "SitesBad": 1, "Crashes24h": 0, "CrashDevices24h": 0,
+		"Summary": db.Summary{Total: 4, RecentlyActive: 3, KioskCount: 2, UniqueBuilds: 2}, "Offline": 1, "NowUTC": now.UTC().Format(time.RFC3339),
+		"Score": 81, "ScoreClass": "warn", "RingOffset": "52.5", "StatusWord": "Healthy", "ScoreDelta": -5,
+		"Hot": 1, "KioskPct": 50, "DeployedCount": 3, "DeployedPct": 75, "RolloutsCount": 0,
+		"Products": []compRole{{"t7", "Tableside AI", 2}, {"", "Unassigned", 2}},
+		"SitesOK":  0, "SitesWarn": 0, "SitesBad": 1, "Crashes24h": 0, "CrashDevices24h": 0,
 		"AttentionRows": att, "AttentionTotal": attN, "AttentionCritical": attCrit,
 		"Wall": wall, "WallTotal": len(devs), "MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
@@ -71,6 +75,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		`href="/?overview=classic"`,             // the switch
 		`href="/fleet-health"`,                  // header actions, as on the classic page
 		`href="/export/visualize"`,
+		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
+		`Tableside AI <b>2</b>`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)
