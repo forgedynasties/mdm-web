@@ -2644,6 +2644,18 @@
       return true;
     };
   })();
+
+  // ?test-alert on any page plays a sample critical alert in this browser only: the
+  // dock's alert count turns critical and the island opens. Nothing is written or
+  // sent, and the next /dock/status poll (≤30 s) puts the real count back.
+  (function () {
+    if (!/[?&]test-alert(=|&|$)/.test(location.search) || !window.mdmIsland) return;
+    setTimeout(function () {
+      var c = document.querySelector('.dock a.nav-link[data-cmdk-label="Alerts"] .dock-count');
+      if (c) { c.hidden = false; c.textContent = (parseInt(c.textContent, 10) || 0) + 1; c.classList.add('crit'); }
+      window.mdmIsland({ headline: 'Test alert · Taco Loco is offline', sentence: 'A sample critical alert, shown only in this browser. Nothing was sent.', href: '/alerts' });
+    }, 900);
+  })();
   </script>
   <script>
   // ── Tiered confirmation ──────────────────────────────────────────────────
