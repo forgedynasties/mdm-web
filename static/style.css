@@ -4466,15 +4466,11 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
   min-width: 18px;
   border-radius: 9px;
 }
-/* ── Global top-right bar: search + alerts, shown on every page ── */
+/* ── Global top-right bar: alerts and account, shown on every page ── */
 .topbar { position: fixed; top: 14px; right: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; }
 .topbar .alerts-indicator { position: static; }
-.topbar-search { height: 38px; }
 @media (max-width: 1024px) {
-  /* Tablet & down: collapse the appbar search to an icon-only button. */
   .topbar { top: 9px; right: 56px; }
-  .topbar-search span, .topbar-search kbd { display: none; }
-  .topbar-search { width: 38px; min-width: 38px; padding: 0; justify-content: center; }
 }
 
 /* ── Fleet tab strip (Devices / Restaurants / Groups unified surface) ── */
@@ -7019,8 +7015,7 @@ a,button,[role=button]{touch-action:manipulation}
   .dock{bottom:max(10px,env(safe-area-inset-bottom));left:8px;right:8px;border-radius:18px;padding:6px}
   body.has-dock .container{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
   .appbar{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-soft)}
-  .topbar-search{flex:1;min-width:0;justify-content:flex-start}
-  .topbar-search kbd,#whatsnew-btn{display:none}
+  #whatsnew-btn{display:none}
   .container{padding:12px 12px 0}
   /* Any page-level top bar stacks on phones. */
   /* Page-level <style> blocks come later in the cascade, so these carry extra

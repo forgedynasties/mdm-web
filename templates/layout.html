@@ -348,11 +348,7 @@
   <header class="appbar">
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
     <div class="appbar-right">
-      {{if ne .Role "owner"}}<button type="button" class="ovx-search topbar-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices and pages" aria-keyshortcuts="Meta+K Control+K">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <span>Search devices, venues…</span>
-        <kbd>⌘K</kbd>
-      </button>{{end}}
+      {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
@@ -2896,7 +2892,7 @@
       { sel: '.dock .nav-link[href="/manage"]', title: 'Policies', body: 'Standing configuration such as kiosk lock that applies to every device it targets — set once, enforced continuously.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/alerts"]', title: 'Alerts', body: 'Devices that stopped checking in, ran hot, drained, or crashed. Acknowledge or resolve here; the bell up top shows the live count.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
-      { sel: '.topbar-search', title: 'Search anything', body: 'Jump to a device by serial, or to any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'bottom' },
+      { sel: '.dock-search', title: 'Search anything', body: 'Jump to a device by serial, a restaurant, or any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'top', optional: true },
       { sel: '#alerts-indicator', title: 'Live alerts', body: 'Open alerts update live. Click for the newest ones without leaving the page.', pos: 'bottom' },
       { sel: '#ov3-cust-btn', title: 'Make it yours', body: 'Choose a view (Operations, Releases, Minimal), hide widgets with the ×, drag cards by their header. It saves to your account.', pos: 'bottom', optional: true },
       { sel: '#acct-wrap', title: 'You are set', body: 'Theme, settings, users and this tour live under your account. Install MDM on your phone from the browser menu for a full-screen app.', pos: 'bottom' }
