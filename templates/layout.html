@@ -71,6 +71,13 @@
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+  {{/* The device picker's styles (co-* only), loaded here rather than by the pages
+       that use it: a stylesheet inside <main> arrives after a boosted swap has
+       already painted the page, which showed it unstyled for a moment. */}}
+  <link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
+  {{/* The device page's own stylesheet is too broad to apply everywhere, so it is only
+       fetched early: in cache, the swap guard below holds the page for a moment at most. */}}
+  <link rel="preload" href="/static/css/device.css?v={{.AssetVer}}" as="style">
   <script src="/static/vendor/htmx.min.js"></script>
   <script>
     // Turn off htmx's localStorage history-snapshot cache and drop any existing
@@ -266,6 +273,99 @@
       if (path === '/devices') return 'skel-fleet'; // two-column: collections rail + roster
       return 'skel-list'; // history, alerts, users, packages, setup, …
     }
+    // ── Page-shaped skeletons from the page itself ─────────────────────────────
+    // Each time a page settles, remember where its cards, tables and headings sit
+    // (per path, with ids folded: /devices/*, /releases/*). The next navigation to
+    // it shimmers in exactly that shape instead of a generic template, so the
+    // skeleton is right for every page without one being drawn by hand.
+    function mdmShapeKey(path) {
+      path = (path || '').split('?')[0].split('#')[0];
+      return 'mdm-shape:' + path.split('/').map(function (seg, i) {
+        if (i < 2) return seg;
+        return /^\d+$|^[0-9a-f-]{8,}$|^[A-Z0-9][A-Z0-9-]{5,}$/i.test(seg) && /\d/.test(seg) ? '*' : seg;
+      }).join('/');
+    }
+    function mdmCaptureShape() {
+      var main = document.querySelector('main');
+      if (!main || main.querySelector('.skel, .skel-shape') || !main.textContent.trim()) return;
+      var mr = main.getBoundingClientRect();
+      if (mr.width < 240) return;
+      var bodyBg = getComputedStyle(document.body).backgroundColor, boxes = [];
+      function cardLike(cs) {
+        var border = parseFloat(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && parseFloat(cs.borderLeftWidth) > 0;
+        var bg = cs.backgroundColor, filled = bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== bodyBg;
+        return border || filled;
+      }
+      (function walk(el, depth) {
+        for (var c = el.firstElementChild; c && boxes.length < 60; c = c.nextElementSibling) {
+          if (/^(SCRIPT|STYLE|TEMPLATE|LINK|DIALOG)$/.test(c.tagName)) continue;
+          var r = c.getBoundingClientRect();
+          if (r.width < 8 || r.height < 6 || r.top - mr.top > 1800) continue;
+          var cs = getComputedStyle(c);
+          // Floating things (popovers, map labels, dialogs) are not part of the page's shape.
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.position === 'fixed' || cs.position === 'absolute' || c.getAttribute('role') === 'dialog') continue;
+          if (/^H[1-3]$/.test(c.tagName)) {
+            var rg = document.createRange(); rg.selectNodeContents(c);
+            var t = rg.getBoundingClientRect();
+            if (t.width > 4) boxes.push([t.left - mr.left, t.top - mr.top, t.width, t.height, 1, 6]);
+            continue;
+          }
+          if (r.width * r.height > 1600 && cardLike(cs)) {
+            boxes.push([r.left - mr.left, r.top - mr.top, r.width, r.height, 0, parseFloat(cs.borderTopLeftRadius) || 8]);
+            continue;
+          }
+          if (depth < 7) walk(c, depth + 1);
+        }
+      })(main, 0);
+      if (boxes.length < 2) return;
+      var h = 0; boxes.forEach(function (b) { h = Math.max(h, b[1] + b[3]); });
+      try {
+        localStorage.setItem(mdmShapeKey(location.pathname), JSON.stringify({ w: Math.round(mr.width), h: Math.round(h),
+          b: boxes.map(function (b) { return b.map(function (v) { return Math.round(v); }); }) }));
+      } catch (e) {}
+    }
+    // The remembered shape as a skeleton, or null when there is none or it was taken
+    // at a width this layout would reflow away from.
+    function mdmShapeSkeleton(path, main) {
+      var s = null;
+      try { s = JSON.parse(localStorage.getItem(mdmShapeKey(path)) || 'null'); } catch (e) {}
+      if (!s || !s.b || !main) return null;
+      var w = main.getBoundingClientRect().width;
+      if (!w || Math.abs(w - s.w) / s.w > 0.12) return null;
+      var k = w / s.w, wrap = document.createElement('div');
+      wrap.className = 'skel-shape';
+      wrap.setAttribute('aria-hidden', 'true');
+      wrap.style.height = Math.min(s.h, Math.round(window.innerHeight * 1.5)) + 'px';
+      s.b.forEach(function (b) {
+        var d = document.createElement('div');
+        d.className = b[4] ? 'skel' : 'skel-block';
+        d.style.cssText = 'position:absolute;margin:0;left:' + Math.round(b[0] * k) + 'px;top:' + b[1] + 'px;width:' +
+          Math.round(b[2] * k) + 'px;height:' + b[3] + 'px;border-radius:' + b[5] + 'px';
+        wrap.appendChild(d);
+      });
+      return wrap;
+    }
+    // Capture once the page has settled, after its lazy parts had a moment to load.
+    var _shapeT = null;
+    function mdmScheduleCapture() { clearTimeout(_shapeT); _shapeT = setTimeout(mdmCaptureShape, 1200); }
+    window.addEventListener('load', mdmScheduleCapture);
+    document.addEventListener('htmx:afterSettle', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && t.tagName === 'MAIN') mdmScheduleCapture();
+    });
+
+    // A page that still brings its own stylesheet into <main> stays hidden until that
+    // stylesheet has loaded (at most 2.5 s), so a boosted swap never shows it unstyled.
+    document.addEventListener('htmx:afterSwap', function () {
+      var main = document.querySelector('main');
+      if (!main) return;
+      var pending = Array.prototype.filter.call(main.querySelectorAll('link[rel="stylesheet"]'), function (l) { return !l.sheet; });
+      if (!pending.length) return;
+      var left = pending.length, done = function () { if (--left <= 0) main.classList.remove('css-wait'); };
+      main.classList.add('css-wait');
+      pending.forEach(function (l) { l.addEventListener('load', done, { once: true }); l.addEventListener('error', done, { once: true }); });
+      setTimeout(function () { main.classList.remove('css-wait'); }, 2500);
+    });
     var _skelTimer = null, _navWatchdog = null, _navDest = '', _navActive = false;
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
     function mdmClearWatchdog() { if (_navWatchdog) { clearTimeout(_navWatchdog); _navWatchdog = null; } }
@@ -281,7 +381,7 @@
     // blow the good content away.
     function mdmMainStuck() {
       var main = document.querySelector('main');
-      return !!(main && (!main.textContent.trim() || main.querySelector('.skel')));
+      return !!(main && (!main.textContent.trim() || main.querySelector('.skel, .skel-shape')));
     }
     function mdmNavFail() {
       mdmCancelSkeleton(); mdmClearWatchdog();
@@ -303,11 +403,14 @@
       // server most pages return in well under this, so a fast nav goes straight
       // content→content (crossfaded) and never flashes a blank/skeleton frame.
       _skelTimer = setTimeout(function () {
-        var tpl = document.getElementById(mdmSkeletonFor(path));
+        // The page's own remembered shape when there is one, else the template.
+        var shape = mdmShapeSkeleton(path, main);
+        var tpl = shape ? null : document.getElementById(mdmSkeletonFor(path));
         main.innerHTML = '';
-        if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
+        if (shape) main.appendChild(shape);
+        else if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
         window.scrollTo(0, 0);
-      }, 280);
+      }, 150);
       // Watchdog: if the nav neither succeeds nor fails within 12s (genuinely hung)
       // AND left <main> stuck on a skeleton/blank, force a full reload so the page
       // can never stay blank — but never reload away good, already-rendered content.
@@ -2798,16 +2901,11 @@
   </div></template>
 
   <template id="skel-overview"><div class="skel-page">
-    <div class="skel skel-line" style="width:240px;height:26px;margin:6px 0 22px;border-radius:8px;"></div>
-    <div class="skel-2col">
-      <div>
-        <div class="skel-chips"><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div></div>
-        <div class="skel-block" style="height:230px;"></div>
-      </div>
-      <div>
-        <div class="skel-block" style="height:210px;margin-bottom:16px;"></div>
-        <div class="skel-block" style="height:150px;"></div>
-      </div>
+    <div style="display:flex;justify-content:flex-end;margin:0 0 10px;"><div class="skel skel-pill" style="width:128px;height:30px;border-radius:7px;"></div></div>
+    <div class="skel-block" style="height:188px;margin-bottom:14px;border-radius:8px;"></div>
+    <div class="skel-2col" style="gap:14px;">
+      <div><div class="skel-block" style="height:230px;margin-bottom:14px;border-radius:8px;"></div><div class="skel-block" style="height:470px;border-radius:8px;"></div></div>
+      <div><div class="skel-block" style="height:260px;margin-bottom:14px;border-radius:8px;"></div><div class="skel-block" style="height:190px;border-radius:8px;"></div></div>
     </div>
   </div></template>
 
