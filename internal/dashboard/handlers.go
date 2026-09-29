@@ -3834,10 +3834,10 @@ func (h *Handler) SneakPeekAlerts(w http.ResponseWriter, r *http.Request) {
 		"Title":         "Alerts",
 		"Summary":       summary,
 		"View":          "",
-		"Critical":      groupAlerts(crit),
-		"Watching":      groupAlerts(watch),
-		"NeedsCount":    len(crit),
-		"WatchCount":    len(watch),
+		"Needs":         problemsFromHumans(crit),
+		"WatchingP":     problemsFromHumans(watch),
+		"NeedsCount":    len(problemsFromHumans(crit)),
+		"WatchCount":    len(problemsFromHumans(watch)),
 		"ActiveCount":   len(crit) + len(watch),
 		"Crashes":       crashes,
 		"CrashCount":    len(crashes),
@@ -7646,7 +7646,8 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var crit, watch []humanAlert
-	for _, a := range active {
+	hs := make([]humanAlert, len(active))
+	for i, a := range active {
 		ha := humanizeAlert(a)
 		ha.CanAct = canAct
 		// Crash/ANR alerts carry the real diagnostic: attach the latest stored stack
@@ -7657,6 +7658,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 				ha.Trace = trace
 			}
 		}
+		hs[i] = ha
 		if a.Severity == "critical" {
 			crit = append(crit, ha)
 		} else {
@@ -7681,7 +7683,40 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		crashEvents, crashTotal, _ = h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
 	}
 	crashes := toCrashCards(crashEvents)
-	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch}, crashes)
+	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch, hs}, crashes)
+	// Problems: the alerts open on one device worked as one, worst first.
+	names := h.actorDisplayNames(r.Context())
+	var needs, watching, snoozed []problemView
+	for _, p := range buildProblems(active, hs, names) {
+		switch {
+		case p.Snoozed:
+			snoozed = append(snoozed, p)
+		case p.Severity == "critical":
+			needs = append(needs, p)
+		default:
+			watching = append(watching, p)
+		}
+	}
+	// Crash signatures on several devices are release issues, not device problems.
+	var issues []releaseIssueView
+	if deviceID == nil {
+		ci, _ := h.db.ListCrashIssues(r.Context(), 14)
+		for _, c := range ci {
+			label, class := crashKindBadge(c.Kind)
+			issues = append(issues, releaseIssueView{c, extractPackageName(c.Summary), label, class})
+		}
+	}
+	var assignees []assigneeOption
+	if canAct {
+		if users, err := h.db.ListUsers(r.Context()); err == nil {
+			for _, u := range users {
+				if u.Role == "viewer" {
+					continue
+				}
+				assignees = append(assignees, assigneeOption{u.Username, names[u.Username]})
+			}
+		}
+	}
 	// Fold each bucket by (type, site) AFTER icons are resolved, so a group's lead
 	// card keeps the icon its members resolved.
 	critGroups, watchGroups := groupAlerts(crit), groupAlerts(watch)
@@ -7698,9 +7733,12 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Watching":      watchGroups,
 		// Counts stay per-device: an operator wants "14 devices need attention", not
 		// "1 group". Only the rendering folds.
-		"NeedsCount":    len(crit),
-		"WatchCount":    len(watch),
-		"ActiveCount":   len(crit) + len(watch),
+		// Counts are problems now: "3 need action" is three faults to look at, however
+		// many alerts each one raised.
+		"NeedsCount":    len(needs),
+		"WatchCount":    len(watching),
+		"ActiveCount":   len(needs) + len(watching) + len(snoozed),
+		"AlertCount":    len(active),
 		"Crashes":       crashes,
 		// The KPI counts crashes; the list below counts distinct crashes. Both are shown
 		// because "3 signatures" and "212 crashes" answer different questions.
@@ -7710,8 +7748,27 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"CrashPage":     page,
 		"CrashPages":    crashPages,
 		"CrashPageBase": crashPageBase,
+		"Needs":         needs,
+		"WatchingP":     watching,
+		"Snoozed":       snoozed,
+		"Issues":        issues,
+		"Assignees":     assignees,
+		"Reasons":       problemReasons(),
+		"CanAct":        canAct,
+		"Me":            h.currentUsername(r),
 	})
 }
+
+// releaseIssueView is one crash signature on one build across several devices.
+type releaseIssueView struct {
+	db.CrashIssue
+	Pkg       string
+	KindLabel string
+	KindClass string
+}
+
+// assigneeOption is one person a problem can be assigned to.
+type assigneeOption struct{ Username, Name string }
 
 // alertGroup is one rule firing across one site, folded into a single row. The
 // crash feed has merged by signature for a while (ListRecentCrashGroupsPage); the
@@ -7938,6 +7995,48 @@ func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setAlertStatus(w, r, "resolved")
+}
+
+// AlertProblemAction works one problem: every open alert in it is assigned,
+// acknowledged (with an optional note), snoozed or resolved with a reason at once.
+// The ids come from the page; only alerts this user can see are touched.
+func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
+	op, value := r.FormValue("op"), strings.TrimSpace(r.FormValue("value"))
+	if op == "ack" {
+		value = strings.TrimSpace(r.FormValue("note"))
+		if len(value) > 500 {
+			value = value[:500]
+		}
+	}
+	active, err := h.db.ListActiveAlerts(r.Context(), 1000)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	visible := map[uuid.UUID]bool{}
+	for _, a := range h.access(r).keepVisibleAlerts(active) {
+		visible[a.ID] = true
+	}
+	var ids []uuid.UUID
+	for _, part := range strings.Split(r.FormValue("ids"), ",") {
+		if id, err := uuid.Parse(strings.TrimSpace(part)); err == nil && visible[id] {
+			ids = append(ids, id)
+		}
+	}
+	if op == "assign" && value == "me" {
+		value = h.currentUsername(r)
+	}
+	n, err := h.db.ProblemAction(r.Context(), ids, op, value)
+	if err != nil {
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "alert.problem_"+op, r.FormValue("ids"), fmt.Sprintf("%s (%d alerts)", value, n))
+	h.hub.PublishAlertUpdate()
+	h.hxDone(w, r, "/alerts")
 }
 
 func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
@@ -18799,6 +18898,10 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// on the alert). We deliberately do NOT auto-capture logcat here: a delayed *:E grab
 	// fires a minute+ after the crash and returns ambient system noise, not the crash.
 	h.dispatchAlertNotifications(ctx, created)
+	// A paged problem that has fully cleared gets one "resolved" message, and the
+	// overnight digest goes out at opening; both are cheap until there is work.
+	h.alerts.DispatchResolved(ctx)
+	h.alerts.MaybeSendMorningDigest(ctx, connected)
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -19806,6 +19909,7 @@ type alertRuleView struct {
 	Windowed, Recent     bool
 	ActiveWindow         string
 	DeployedOnly         bool
+	FalseAlarms          int // resolved as "false alarm" in the last 30 days
 }
 
 // alertRuleGroup buckets rules by category for the Settings UI, with an enabled count.
@@ -19826,6 +19930,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 	for _, r := range rules {
 		byType[r.Type] = r
 	}
+	falseAlarms, _ := h.db.FalseAlarmCounts(ctx, 30)
 	var groups []alertRuleGroup
 	idx := map[string]int{} // category -> groups index, preserving first-seen order
 	for _, def := range alertRuleDefs {
@@ -19851,7 +19956,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 			ID: r.ID.String(), Type: def.Type, Name: def.Label, Desc: def.Desc,
 			Enabled: r.Enabled, Fields: fields,
 			Windowed: def.Windowed, Recent: def.Recent, ActiveWindow: aw,
-			DeployedOnly: r.DeployedOnly,
+			DeployedOnly: r.DeployedOnly, FalseAlarms: falseAlarms[def.Type],
 		}
 		gi, ok := idx[def.Category]
 		if !ok {
@@ -21451,6 +21556,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
 	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
+	post("POST /alerts/problem", h.requireOperatorOrAdmin(h.AlertProblemAction))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	post("POST /groups/{id}", h.requireAdminOrOperator(h.GroupUpdate))

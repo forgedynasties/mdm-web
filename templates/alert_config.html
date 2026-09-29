@@ -56,6 +56,7 @@
           {{range .Fields}}<span class="ac-chip">{{.Label}}: <b>{{.Value}}{{.Unit}}</b></span>{{end}}
           {{if and .Windowed .ActiveWindow}}<span class="ac-chip ac-win">{{.ActiveWindow}}</span>{{end}}
           {{if not (or .Fields .Windowed)}}<span class="ac-chip">no thresholds</span>{{end}}
+          {{if .FalseAlarms}}<span class="ac-chip" style="color:var(--warn)" title="Problems resolved as a false alarm in the last 30 days: this rule may need retuning">{{.FalseAlarms}} false alarm{{if ne .FalseAlarms 1}}s{{end}} · 30d</span>{{end}}
         </div>
       </div>
       {{end}}

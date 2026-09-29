@@ -25,32 +25,36 @@ type attentionRow struct {
 // overviewAttentionLimit is how many rows the Overview shows before "View all".
 const overviewAttentionLimit = 8
 
-// buildAttention turns active alerts into the Overview's worst-first worklist.
-// Snoozed alerts are left out: someone already decided they can wait. It returns
-// the rows to show, the total number of rows, and how many are critical.
+// buildAttention turns active alerts into the Overview's worst-first worklist: one
+// row per problem (a device's alerts together, or a restaurant's outage), named by
+// its likely cause. Snoozed problems are left out: someone already decided they can
+// wait. It returns the rows to show, the total number of rows, and how many are critical.
 func buildAttention(alerts []db.Alert, inboxN int) (rows []attentionRow, total, critical int) {
-	var crit, warn, info []humanAlert
-	for _, a := range alerts {
-		ha := humanizeAlert(a)
-		if ha.Muted {
-			continue
-		}
-		switch a.Severity {
-		case "critical":
-			crit = append(crit, ha)
-		case "warning":
-			warn = append(warn, ha)
-		default:
-			info = append(info, ha)
-		}
+	hs := make([]humanAlert, len(alerts))
+	for i, a := range alerts {
+		hs[i] = humanizeAlert(a)
 	}
 	var all []attentionRow
-	for _, bucket := range [][]humanAlert{crit, warn, info} {
-		for _, g := range groupAlerts(bucket) {
-			all = append(all, attentionFromGroup(g))
+	for _, p := range buildProblems(alerts, hs, nil) {
+		if p.Snoozed {
+			continue
 		}
+		row := attentionRow{
+			Severity: p.Severity, Issue: p.Cause.Title,
+			Devices: p.Devices, Restaurant: p.Restaurant, Since: p.Since, Href: "/alerts",
+		}
+		if p.Cause.Key == "other" {
+			row.Issue = attentionIssue(p.Members[0])
+		}
+		if p.Devices == 1 && p.Serial != "" {
+			row.Serial = p.Serial
+			row.Href = "/alerts?device=" + p.Serial
+		}
+		if p.Severity == "critical" {
+			critical++
+		}
+		all = append(all, row)
 	}
-	critical = len(groupAlerts(crit))
 	if inboxN > 0 {
 		all = append(all, attentionRow{
 			Severity: "info", Issue: "Waiting for a restaurant", Devices: inboxN,

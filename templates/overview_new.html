@@ -246,7 +246,7 @@
     </div>
 
     <div class="ovd-side">
-      {{/* ── Needs attention: active alerts folded by (type, restaurant), worst first ── */}}
+      {{/* ── Needs attention: problems (a device's alerts together, or a restaurant outage), worst first ── */}}
       <div class="cc-card ovd-o2">
         <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
         {{if .AttentionRows}}

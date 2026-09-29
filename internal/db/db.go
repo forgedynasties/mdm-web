@@ -9002,6 +9002,11 @@ type Alert struct {
 	LastSeenAt     time.Time       `json:"last_seen_at"`
 	ResolvedAt     *time.Time      `json:"resolved_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+	// Problem workflow (set only by the active-alert lists).
+	Assignee    string `json:"assignee,omitempty"`
+	Note        string `json:"note,omitempty"`
+	DeviceClass  string `json:"device_class,omitempty"`
+	RestaurantID string `json:"restaurant_id,omitempty"`
 }
 
 // AlertSummary holds dashboard headline counts. Severity counts cover only
@@ -9125,11 +9130,25 @@ func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, pa
 // for (type, device). Returns true only when a row was actually created, so callers
 // broadcast/notify exactly once per occurrence.
 func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (bool, error) {
+	u, err := d.upsertAlert(ctx, ruleID, typ, deviceID, severity, summary, detail)
+	return u.Inserted, err
+}
+
+// alertUpsert is what one pass of the evaluator did to a (type, device) alert.
+type alertUpsert struct {
+	ID        uuid.UUID
+	Inserted  bool // a new episode: notify
+	Escalated bool // already open, and just became critical: notify as well
+}
+
+// upsertAlert is CreateAlertIfAbsent that also reports the row id and whether an open
+// alert was escalated to critical by this pass.
+func (d *DB) upsertAlert(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (alertUpsert, error) {
 	detailJSON := []byte("{}")
 	if detail != nil {
 		b, err := json.Marshal(detail)
 		if err != nil {
-			return false, err
+			return alertUpsert{}, err
 		}
 		detailJSON = b
 	}
@@ -9148,8 +9167,13 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 	// A muted (type, device) is skipped entirely: flap detection and "Clear all" both
 	// snooze rather than delete, and a snoozed condition must stay quiet.
 	var inserted bool
+	var id uuid.UUID
+	var prevSev string
 	err := d.pool.QueryRow(ctx, `
-		WITH recent AS (
+		WITH prev AS (
+			SELECT severity FROM alerts
+			WHERE type = $2 AND device_id = $3 AND status <> 'resolved'
+		), recent AS (
 			SELECT id, status, occurrences, muted_until
 			FROM alerts
 			WHERE type = $2 AND device_id = $3
@@ -9186,17 +9210,21 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 			              summary      = EXCLUDED.summary,
 			              detail       = EXCLUDED.detail,
 			              updated_at    = NOW()
-			RETURNING (xmax = 0) AS ins
+			RETURNING id, (xmax = 0) AS ins
 		)
-		SELECT COALESCE((SELECT ins FROM fresh), false)
-	`, ruleID, typ, deviceID, severity, summary, detailJSON, alertCooldownMin).Scan(&inserted)
+		SELECT COALESCE((SELECT ins FROM fresh), false),
+		       COALESCE((SELECT id FROM fresh), (SELECT id FROM reopened), '00000000-0000-0000-0000-000000000000'::uuid),
+		       COALESCE((SELECT severity FROM prev), '')
+	`, ruleID, typ, deviceID, severity, summary, detailJSON, alertCooldownMin).Scan(&inserted, &id, &prevSev)
 	if err != nil {
-		return false, err
+		return alertUpsert{}, err
 	}
+	u := alertUpsert{ID: id, Inserted: inserted,
+		Escalated: !inserted && prevSev != "" && prevSev != "critical" && severity == "critical"}
 	if err := d.muteFlappingAlert(ctx, typ, deviceID); err != nil {
-		return inserted, err
+		return u, err
 	}
-	return inserted, nil
+	return u, nil
 }
 
 // alertCooldownMin is how long after resolving the same condition counts as the same
@@ -9303,7 +9331,8 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       a.assignee, a.note, COALESCE(d.device_class, ''), COALESCE(d.restaurant_id::text, '')
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -9320,7 +9349,8 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt,
+			&a.Assignee, &a.Note, &a.DeviceClass, &a.RestaurantID); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -9853,6 +9883,11 @@ type AlertNotification struct {
 	// IANA zone for rendering EventAt locally ("" → UTC).
 	EventAt  time.Time
 	Timezone string
+	// AlertID is the row this notification is about; Escalated marks an open alert
+	// that just became critical (after hours → opening), which pages like a new one.
+	AlertID   uuid.UUID
+	Escalated bool
+	Detail    map[string]any
 }
 
 // notifyTimeFrom pulls an event time and timezone out of an alert's detail map for
@@ -10436,6 +10471,11 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 	if err != nil {
 		return nil, 0, err
 	}
+	windows, err := d.effectiveWindows(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	now := time.Now().UTC()
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
@@ -10460,13 +10500,15 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 				continue
 			}
 			ids = append(ids, h.DeviceID)
-			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			sev := hitSeverity(now, r.Type, severity, h, windowFor(windows, h.DeviceID))
+			u, e := d.upsertAlert(ctx, &ruleID, r.Type, h.DeviceID, sev, h.Summary, h.Detail)
 			if e != nil {
 				return created, resolved, e
 			}
-			if ok {
+			if u.Inserted || u.Escalated {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: sev, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz,
+					AlertID: u.ID, Escalated: u.Escalated, Detail: h.Detail})
 			}
 		}
 		// The device stopped violating — start the clear window rather than resolving at
@@ -10758,13 +10800,15 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 				continue
 			}
 			ids = append(ids, h.DeviceID)
-			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			sev := hitSeverity(now, r.Type, severity, h, windowFor(windows, h.DeviceID))
+			u, e := d.upsertAlert(ctx, &ruleID, r.Type, h.DeviceID, sev, h.Summary, h.Detail)
 			if e != nil {
 				return created, resolved, e
 			}
-			if ok {
+			if u.Inserted || u.Escalated {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: sev, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz,
+					AlertID: u.ID, Escalated: u.Escalated, Detail: h.Detail})
 			}
 		}
 		// Mid-night devices of venues not due this tick keep whatever tonight's check
@@ -13168,6 +13212,24 @@ CREATE TABLE IF NOT EXISTS device_temp_fast (
     temp_c    DOUBLE PRECISION NOT NULL,
     uptime_s  BIGINT,
     PRIMARY KEY (device_id, at)
+);
+
+-- Problems (30 Sep alert review). A problem is the set of alerts open on one device,
+-- worked as one: an owner, an acknowledgement with a note, a snooze (muted_until) and a
+-- reason when it is resolved by hand. notified_at marks the alerts a channel was told
+-- about, so a device already paged is not paged again for each new symptom, and
+-- resolve_notified closes that loop with one "resolved" message.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS assignee         TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS note             TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_reason   TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS notified_at      TIMESTAMPTZ;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_notified BOOLEAN NOT NULL DEFAULT false;
+-- One row per morning digest sent, keyed by the fleet's local date, so a restart does
+-- not send the same morning twice.
+CREATE TABLE IF NOT EXISTS alert_digests (
+    day     DATE        PRIMARY KEY,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    lines   INT         NOT NULL DEFAULT 0
 );
 
 `
@@ -16106,7 +16168,8 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       a.assignee, a.note, COALESCE(d.device_class, ''), COALESCE(d.restaurant_id::text, '')
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -16123,7 +16186,8 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt,
+			&a.Assignee, &a.Note, &a.DeviceClass, &a.RestaurantID); err != nil {
 			return nil, err
 		}
 		out = append(out, a)

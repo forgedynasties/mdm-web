@@ -28,13 +28,13 @@ func TestBuildAttention(t *testing.T) {
 	if total != 3 || crit != 1 || len(rows) != 3 {
 		t.Fatalf("total=%d crit=%d rows=%d, want 3/1/3", total, crit, len(rows))
 	}
-	if r := rows[0]; r.Severity != "critical" || r.Devices != 2 || r.Serial != "" || r.Restaurant != "Pho 88" || r.Issue != "Device offline" {
+	if r := rows[0]; r.Severity != "critical" || r.Devices != 2 || r.Serial != "" || r.Restaurant != "Pho 88" || r.Issue != "Offline" {
 		t.Errorf("folded offline row = %+v", r)
 	}
 	if !rows[0].Since.Equal(now.Add(-30 * time.Minute)) {
 		t.Errorf("since should be the oldest member, got %v", rows[0].Since)
 	}
-	if r := rows[1]; r.Severity != "warning" || r.Serial != "T7-3" || r.Href != "/alerts?device=T7-3" {
+	if r := rows[1]; r.Severity != "warning" || r.Serial != "T7-3" || r.Href != "/alerts?device=T7-3" || r.Issue != "Overheating" {
 		t.Errorf("single-device row = %+v", r)
 	}
 	if r := rows[2]; r.Severity != "info" || r.Devices != 5 || r.Href != "/enrollment" {
