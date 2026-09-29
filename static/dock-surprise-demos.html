@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dock ideas · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.sec .tag.fun{background:var(--accent-2-soft);color:var(--accent-2)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.try{font-size:12px;color:var(--accent-text);font-weight:600;margin:-6px 0 12px}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* ── the mock screen: faded page content, dock drawn on top ── */
+.scr{position:relative;height:300px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg)}
+.scr.tall{height:380px}
+.scr .pg{position:absolute;inset:0;padding:18px 22px;opacity:.55;pointer-events:none}
+.scr .pg .t{height:14px;width:140px;border-radius:4px;background:var(--text);opacity:.5;margin-bottom:6px}
+.scr .pg .m{height:8px;width:220px;border-radius:4px;background:var(--muted);opacity:.35;margin-bottom:16px}
+.scr .pg .row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.scr .pg .c{height:120px;border-radius:8px;background:var(--surface);border:1px solid var(--border)}
+.scr .pg .c.s{height:56px;margin-bottom:12px}
+.ui{position:absolute;inset:0}
+svg.i{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* shared dock look (the current glass pill) */
+.dk{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:4px;padding:7px;border-radius:20px;
+  background:color-mix(in srgb,var(--surface) 55%,transparent);backdrop-filter:blur(6px) saturate(180%);-webkit-backdrop-filter:blur(6px) saturate(180%);
+  border:1.5px solid color-mix(in srgb,var(--surface) 40%,transparent);box-shadow:0 14px 36px rgba(0,0,0,.21),0 0 0 1.5px var(--accent-edge);white-space:nowrap}
+.dk a{display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border-radius:11px;font-size:13.5px;font-weight:600;color:var(--muted);text-decoration:none;cursor:pointer;position:relative}
+.dk a:hover{background:var(--surface2);color:var(--text)}
+.dk a.on{background:var(--accent-soft);color:var(--accent-text)}
+.dk a.q{font-size:12.5px;color:var(--text-faint);padding:10px 13px}
+.dk .sep{width:1px;align-self:stretch;margin:5px;background:var(--border)}
+
+/* B · live dock */
+.bdg{position:relative;min-width:17px;height:17px;padding:0 5px;border-radius:99px;font-size:10.5px;font-weight:750;display:grid;place-items:center;color:#fff;background:var(--danger);box-shadow:0 0 0 2px var(--surface);box-sizing:border-box}
+.bdg.warn{background:var(--warn)}
+.bdg.pulse::after{content:"";position:absolute;inset:-2px;border-radius:inherit;border:2px solid var(--danger);animation:bp 1.8s ease-out infinite}
+@keyframes bp{to{transform:scale(1.7);opacity:0}}
+.mini{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:650;color:var(--text-2);background:var(--surface-3);border-radius:99px;padding:1px 7px 1px 3px;font-variant-numeric:tabular-nums}
+.mini svg{width:14px;height:14px}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--info-bg);border-top-color:var(--info);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* C · magnify */
+.mg{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:flex-end;gap:6px;padding:8px 10px;border-radius:18px;
+  background:color-mix(in srgb,var(--surface) 55%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--border);box-shadow:0 14px 36px rgba(0,0,0,.2)}
+.mg a{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--text-2);background:var(--surface);border:1px solid var(--border);position:relative;transition:width .12s,height .12s;cursor:pointer}
+.mg a svg.i{width:20px;height:20px;transition:width .12s,height .12s}
+.mg a.on{color:var(--accent-text);border-color:var(--accent-edge)}
+.mg a.on::after{content:"";position:absolute;bottom:-6px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.mg a .tt{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s}
+.mg a:hover .tt{opacity:1}
+
+/* D · search-first dock */
+.sd{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;border-radius:18px;background:var(--surface);border:1px solid var(--border);box-shadow:0 14px 36px rgba(0,0,0,.18);width:640px;box-sizing:border-box}
+.sd a{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;color:var(--muted);cursor:pointer}
+.sd a:hover{background:var(--surface2);color:var(--text)}
+.sd a.on{background:var(--accent-soft);color:var(--accent-text)}
+.sd .in{flex:1;display:flex;align-items:center;gap:8px;height:40px;border-radius:11px;background:var(--surface2);padding:0 12px;color:var(--text-faint);font-size:13px;margin-left:4px}
+.sd .in kbd{margin-left:auto;font:600 10.5px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface)}
+.sd .in .caret{width:1.5px;height:16px;background:var(--accent);animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.sug{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);width:640px;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-md);padding:6px;display:none}
+.sd.open+.sug{display:block}
+.sug div{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:12.5px;color:var(--text-2)}
+.sug div.hl{background:var(--surface2);color:var(--text)}
+.sug div span{margin-left:auto;font-size:11px;color:var(--text-faint)}
+.sug .k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:6px 10px 2px}
+
+/* E · orb */
+.orb{position:absolute;right:26px;bottom:24px;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;color:#fff;cursor:pointer;
+  background:var(--brand-grad);box-shadow:0 10px 26px rgba(249,103,78,.4);z-index:3;transition:transform .2s}
+.orb svg.i{width:22px;height:22px;transition:transform .25s}
+.orb.open svg.i{transform:rotate(45deg)}
+.orb .bdg{position:absolute;top:-2px;right:-2px}
+.petal{position:absolute;right:30px;bottom:28px;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--text-2);border:1px solid var(--border);box-shadow:var(--shadow-md);
+  transition:transform .28s cubic-bezier(.2,.9,.3,1.3),opacity .2s;opacity:0;pointer-events:none;cursor:pointer}
+.petal .lb{position:absolute;right:calc(100% + 8px);font-size:11.5px;font-weight:650;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.orbwrap.open .petal{opacity:1;pointer-events:auto}
+.petal.on{color:var(--accent-text);border-color:var(--accent-edge)}
+
+/* F · edge rail */
+.rail{position:absolute;left:12px;top:12px;bottom:12px;width:56px;border-radius:16px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:4px;padding:8px;box-sizing:border-box;overflow:hidden;transition:width .18s var(--ease);z-index:3}
+.rail:hover{width:196px}
+.rail a{display:flex;align-items:center;gap:12px;height:40px;border-radius:10px;padding:0 11px;color:var(--muted);font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;flex:none}
+.rail a:hover{background:var(--surface2);color:var(--text)}
+.rail a.on{background:var(--accent-soft);color:var(--accent-text)}
+.rail a .lb{opacity:0;transition:opacity .12s}
+.rail:hover a .lb{opacity:1}
+.rail .sp{flex:1}
+.rail .grp{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);padding:8px 12px 2px;white-space:nowrap;opacity:0;transition:opacity .15s}
+.rail:hover .grp{opacity:1}
+.scr.railed .pg{left:78px}
+
+/* G · contextual dock */
+.cx{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;border-radius:18px;background:color-mix(in srgb,var(--surface) 70%,transparent);backdrop-filter:blur(6px);border:1px solid var(--border);box-shadow:0 14px 36px rgba(0,0,0,.2);white-space:nowrap}
+.cx .home{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;color:var(--muted);cursor:pointer}
+.cx .home:hover{background:var(--surface2)}
+.cx .crumb{font-size:12.5px;font-weight:650;color:var(--text);padding:0 10px 0 4px;display:flex;align-items:center;gap:6px}
+.cx .crumb span{color:var(--text-faint);font-weight:500}
+.cx .sep{width:1px;height:26px;background:var(--border);margin:0 4px}
+.cx a.act{display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:11px;font-size:12.5px;font-weight:650;color:var(--text-2);cursor:pointer}
+.cx a.act:hover{background:var(--surface2);color:var(--text)}
+.cx a.act.pri{background:var(--accent);color:#fff}
+.ctxtabs{position:absolute;top:14px;right:16px;display:flex;gap:4px;z-index:4}
+.ctxtabs button{font:600 11.5px var(--font);border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer}
+.ctxtabs button.on{background:var(--surface-3);color:var(--text)}
+
+/* H · peek dock */
+.pk{position:absolute;bottom:78px;left:50%;width:250px;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);padding:12px 14px;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
+.pk.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.pk h4{margin:0 0 8px;font-size:12.5px;display:flex;align-items:center;gap:7px}
+.pk .l{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2);padding:4px 0;border-top:1px solid var(--border-soft)}
+.pk .l:first-of-type{border-top:0}
+.pk .l b{font-variant-numeric:tabular-nums}
+.pk .l b.bad{color:var(--danger)}.pk .l b.warn{color:var(--warn)}.pk .l b.ok{color:var(--ok)}
+.pk .ft{font-size:11px;color:var(--text-faint);margin-top:6px}
+
+/* I · island */
+.isl{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;border-radius:22px;background:#0d0d12;color:#f4f4f6;box-shadow:0 14px 36px rgba(0,0,0,.35);overflow:hidden;
+  transition:width .45s cubic-bezier(.3,1.2,.4,1),height .45s cubic-bezier(.3,1.2,.4,1),border-radius .45s;height:54px;width:470px}
+.isl .nav{display:flex;gap:2px;padding:0 7px;transition:opacity .2s}
+.isl .nav a{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border-radius:14px;font-size:13px;font-weight:600;color:#a0a1ab;cursor:pointer}
+.isl .nav a:hover{background:#1e1e27;color:#fff}
+.isl .nav a.on{background:#262633;color:#fff}
+.isl .ev{position:absolute;inset:0;display:flex;align-items:center;gap:12px;padding:0 16px;opacity:0;transition:opacity .2s;pointer-events:none}
+.isl .ev .dt{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(255,91,91,.18);color:#ff6b6b;flex:none}
+.isl .ev .tx b{display:block;font-size:13px}
+.isl .ev .tx span{font-size:11.5px;color:#a0a1ab}
+.isl .ev .go{margin-left:auto;font-size:12px;font-weight:650;background:#ff5b5b;color:#fff;border-radius:99px;padding:6px 12px}
+.isl.event{width:560px;height:70px;border-radius:26px}
+.isl.event .nav{opacity:0}
+.isl.event .ev{opacity:1;pointer-events:auto}
+
+/* J · command strip (full width bottom bar) */
+.cs{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:stretch;background:var(--surface);border-top:1px solid var(--border)}
+.cs a{display:flex;align-items:center;gap:8px;padding:0 18px;font-size:12.5px;font-weight:600;color:var(--muted);border-top:2px solid transparent;cursor:pointer}
+.cs a:hover{color:var(--text);background:var(--surface2)}
+.cs a.on{color:var(--text);border-top-color:var(--accent)}
+.cs a .n{font-size:10.5px;font-weight:750;background:var(--danger-bg);color:var(--danger);border-radius:99px;padding:0 6px}
+.cs .st{margin-left:auto;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:11.5px;color:var(--muted);border-left:1px solid var(--border);font-variant-numeric:tabular-nums}
+.cs .st i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:0}
+.cs kbd{font:600 10.5px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface2)}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>The dock: nine other ideas</h1>
+<p class="lead">The dock today is a floating glass pill with Overview, Fleet, Actions and Alerts, then your three most-visited pages, then More, which opens the page search. Below are nine other ways it could work. Some are small changes to the same pill and some replace it. Every mock is interactive: hover, click, and watch. Numbers are sample data from a fleet like live (151 devices, 95 offline, 2 alerts).</p>
+<div class="toc"><a href="#cur">Current</a><a href="#b" class="rec">B · Live dock ★</a><a href="#c">C · Magnify</a><a href="#d">D · Search bar</a><a href="#e">E · Orb</a><a href="#f">F · Edge rail</a><a href="#g">G · Page-aware</a><a href="#h">H · Peek</a><a href="#i">I · Island</a><a href="#j">J · Status bar</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current: glass pill <span class="tag live">Deployed</span></h2>
+<p class="desc">Four fixed destinations, your three most-visited pages (quieter, after the divider), and More.</p>
+<div class="scr" id="s-cur"></div>
+
+<h2 class="sec" id="b">B · Live dock: every item says how it's doing <span class="tag rec">Recommended</span></h2>
+<p class="desc">The same pill, but each destination carries its live state. Fleet shows a small online ring ("56 / 151"), Alerts a red count that pulses while something is critical, and Actions a spinner while commands are still running. You can tell whether a page needs you before you open it.</p>
+<div class="scr" id="s-b"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The smallest change with the biggest payoff: same layout and muscle memory, and the dock stops being decoration.</li><li>Uses numbers the server already sends: the alert count in the top bar, the online count, and commands in flight.</li></ul></div>
+<div><b>Bad at</b><ul><li>A permanently pulsing badge gets tuned out. It needs to pulse only while something is critical, not merely open.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · Magnify: icons only, grows under the cursor <span class="tag fun">Surprise</span></h2>
+<p class="desc">The macOS dock: square icon tiles that swell as the cursor passes over them, with the name in a tooltip. The dock takes up less than half the width.</p>
+<p class="try">Move the cursor slowly along it.</p>
+<div class="scr" id="s-c"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Takes very little space and feels playful.</li><li>Looks the same on a phone and a desktop.</li></ul></div>
+<div><b>Bad at</b><ul><li>No labels. New staff have to hover to learn what the lightning bolt means.</li><li>Motion in a work tool is fun for a week.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · Search bar dock</h2>
+<p class="desc">The dock <i>is</i> the search. Four icon buttons on the left, and a wide field on the right that takes a serial, a restaurant, a page or an action ("reboot T7-0412"). Click the field to see suggestions. This merges the dock and the ⌘K palette into one thing at the bottom of the screen.</p>
+<p class="try">Click the search field.</p>
+<div class="scr tall" id="s-d"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Most visits are "go to this device". Typing a serial is faster than Fleet → search → click.</li><li>It makes the palette easy to find. Today only people who know ⌘K use it.</li></ul></div>
+<div><b>Bad at</b><ul><li>The page names shrink to icons.</li><li>It duplicates the search box in the top bar, so one of the two should go.</li></ul></div>
+</div>
+
+<h2 class="sec" id="e">E · Orb: one button, everything fans out <span class="tag fun">Surprise</span></h2>
+<p class="desc">No dock at all, just one brand-gradient button in the corner with the alert count on it. Click it and the destinations fan out in an arc. The bottom of every page is free for content.</p>
+<p class="try">Click the orb.</p>
+<div class="scr tall" id="s-e"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Frees the whole screen. Tables and the device wall stop hiding behind the dock.</li><li>Memorable, and a nice fit with the brand gradient.</li></ul></div>
+<div><b>Bad at</b><ul><li>Every page change is now two clicks instead of one.</li><li>You can't see where you are from the navigation.</li></ul></div>
+</div>
+
+<h2 class="sec" id="f">F · Edge rail</h2>
+<p class="desc">A slim icon rail on the left edge that widens on hover to show names and groups (Fleet, Operate, Admin). This is the Linear / Vercel / Stripe pattern. Everything in the "More" directory can live here, so nothing needs the palette.</p>
+<p class="try">Hover the rail.</p>
+<div class="scr tall railed" id="s-f"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Room for every page, grouped. It ends the "page with no inbound link" problem for good.</li><li>The most familiar pattern for admin consoles.</li></ul></div>
+<div><b>Bad at</b><ul><li>Takes 56px of width on every page, which is a lot on a phone. It needs its own mobile treatment.</li><li>The dock was a deliberate move away from a sidebar.</li></ul></div>
+</div>
+
+<h2 class="sec" id="g">G · Page-aware dock</h2>
+<p class="desc">The dock changes with the page. The main navigation shrinks to a home button and a breadcrumb, and the rest of the dock becomes the page's own actions: Screenshot / Reboot / Shell on a device, Send to selection / Export on Fleet. The navigation lives in the top bar and the palette.</p>
+<p class="try">Switch pages with the buttons at the top right.</p>
+<div class="scr" id="s-g"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The things you do on a page are always under your thumb, even while scrolling a long device page.</li></ul></div>
+<div><b>Bad at</b><ul><li>A dock that changes all the time can't be learned. It fights with the pages' own buttons.</li><li>It's the biggest change: every page has to declare its actions.</li></ul></div>
+</div>
+
+<h2 class="sec" id="h">H · Peek: hover to see the page before you open it</h2>
+<p class="desc">The same pill. Hovering an item pops a small card with that page's key numbers: Fleet's online and offline counts, Alerts' newest critical, Actions' last command. Often the card is enough, and you don't have to go there.</p>
+<p class="try">Hover Fleet, Actions or Alerts.</p>
+<div class="scr tall" id="s-h"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Answers "anything new?" without a page change.</li><li>Pairs well with B: the badge says something changed, the peek says what.</li></ul></div>
+<div><b>Bad at</b><ul><li>No hover on touch screens, so a phone never sees it.</li><li>Every hover is another request, so it needs a short cache.</li></ul></div>
+</div>
+
+<h2 class="sec" id="i">I · Island: the dock turns into the news <span class="tag fun">Surprise</span></h2>
+<p class="desc">Like the iPhone's Dynamic Island. When something happens (a restaurant goes offline, a rollout finishes), the dark dock morphs into a notification for a few seconds with a button to go there, then shrinks back into the navigation. It replaces toasts.</p>
+<p class="try">Watch it for five seconds, or click the dock to trigger an event.</p>
+<div class="scr" id="s-i"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>News lands where your eyes already go, and the animation makes it impossible to miss.</li><li>Uses the live event stream the dashboard already has.</li></ul></div>
+<div><b>Bad at</b><ul><li>A busy fleet would keep the dock in notification mode, so events need throttling to critical-only.</li><li>Always dark, whatever the theme.</li></ul></div>
+</div>
+
+<h2 class="sec" id="j">J · Status bar: flat, full width, with live counts</h2>
+<p class="desc">No floating pill. A slim bar pinned to the bottom edge, like VS Code's: tabs on the left, with live fleet counts and the ⌘K hint on the right. Quiet, dense, and it never covers content.</p>
+<div class="scr" id="s-j"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Never covers a table row or the last card on a page.</li><li>Room for live status next to the navigation.</li></ul></div>
+<div><b>Bad at</b><ul><li>The least distinctive. It gives up the dock's character.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: B, and H later</h2>
+<div class="pick"><b>B, the live dock.</b> It keeps what works today (four fixed destinations, your frequent pages, More) and makes the dock report on the fleet: online ring on Fleet, a count on Alerts that pulses only while something is critical, a spinner on Actions while commands run. It's the smallest change that makes the dock useful, and all the numbers already exist. <b>H (peek)</b> fits on top of it later: the badge says something changed, the peek says what. <b>I (island)</b> is the fun one if you want the dock to become the news. Pick a letter or a mix.</div>
+</div>
+
+<script>
+const P = {
+  overview:'<path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/>',
+  fleet:'<rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/>',
+  actions:'<path d="M13 2 3 14h7l-1 8 10-12h-7z"/>', alerts:'<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  updates:'<path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/>', clients:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', more:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>', policies:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', home:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>', cam:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7l2-3h4l2 3"/>',
+  reboot:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/>', shell:'<path d="M4 17l6-5-6-5"/><path d="M12 19h8"/>', send:'<path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>',
+  export:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', off:'<path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/>',
+  restaurants:'<path d="M4 21V10l8-6 8 6v11"/><path d="M9 21v-6h6v6"/>', releases:'<path d="M20 12V8l-8-5-8 5v8l8 5 4-2.5"/><path d="M12 12l8-4M12 12v9M12 12L4 8"/>'};
+const ic = k => `<svg class="i" viewBox="0 0 24 24">${P[k]}</svg>`;
+const page = '<div class="pg"><div class="t"></div><div class="m"></div><div class="row"><div><div class="c s"></div><div class="c"></div></div><div><div class="c s"></div><div class="c s"></div><div class="c s"></div></div></div></div>';
+const S = (id, ui) => { document.getElementById(id).innerHTML = page + `<div class="ui">${ui}</div>`; };
+const ring = (on, n) => { const r = 5.5, c = 2 * Math.PI * r;
+  return `<svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="${r}" fill="none" stroke="var(--danger-bg)" stroke-width="2.4"/><circle cx="7" cy="7" r="${r}" fill="none" stroke="var(--ok)" stroke-width="2.4" stroke-dasharray="${c*on/n} ${c}" transform="rotate(-90 7 7)"/></svg>`; };
+
+/* current */
+S('s-cur', `<nav class="dk"><a class="on">${ic('overview')}Overview</a><a>${ic('fleet')}Fleet</a><a>${ic('actions')}Actions</a><a>${ic('alerts')}Alerts</a><span class="sep"></span><a class="q">${ic('updates')}Updates</a><a class="q">${ic('clients')}Clients</a><a class="q">${ic('users')}Users</a><a>${ic('more')}More</a></nav>`);
+
+/* B · live */
+S('s-b', `<nav class="dk"><a class="on">${ic('overview')}Overview</a><a>${ic('fleet')}Fleet <span class="mini">${ring(56,151)}56 / 151</span></a><a>${ic('actions')}Actions <span class="spin" title="3 commands running"></span></a><a>${ic('alerts')}Alerts <span class="bdg pulse">2</span></a><span class="sep"></span><a class="q">${ic('updates')}Updates</a><a class="q">${ic('clients')}Clients</a><a>${ic('more')}More</a></nav>`);
+
+/* C · magnify */
+{ const items = [['overview','Overview',1],['fleet','Fleet'],['actions','Actions'],['alerts','Alerts'],['updates','Updates'],['clients','Clients'],['users','Users'],['search','Search ⌘K']];
+  S('s-c', `<nav class="mg" id="mg">${items.map(i => `<a class="${i[2] ? 'on' : ''}">${ic(i[0])}<span class="tt">${i[1]}</span></a>`).join('')}</nav>`);
+  const mg = document.getElementById('mg'), as = [...mg.querySelectorAll('a')];
+  mg.addEventListener('mousemove', e => as.forEach(a => { const r = a.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2));
+    const s = 44 + Math.max(0, 1 - d / 110) * 26; a.style.width = a.style.height = s + 'px'; const ii = a.querySelector('svg'); ii.style.width = ii.style.height = (20 + (s - 44) * .45) + 'px'; }));
+  mg.addEventListener('mouseleave', () => as.forEach(a => { a.style.width = a.style.height = ''; const ii = a.querySelector('svg'); ii.style.width = ii.style.height = ''; })); }
+
+/* D · search */
+S('s-d', `<nav class="sd" id="sd"><a class="on" title="Overview">${ic('overview')}</a><a title="Fleet">${ic('fleet')}</a><a title="Actions">${ic('actions')}</a><a title="Alerts">${ic('alerts')}</a>
+  <div class="in" id="sdin">${ic('search')}<span id="sdtx">Search devices, restaurants, pages, actions…</span><kbd>⌘K</kbd></div></nav>
+  <div class="sug"><div class="k">Devices</div><div class="hl">${ic('fleet')}T7-0412 · Pho 88<span>online</span></div><div>${ic('fleet')}T7-0413 · Pho 88<span>offline 2 h</span></div>
+  <div class="k">Actions</div><div>${ic('reboot')}Reboot T7-0412<span>Enter</span></div><div>${ic('cam')}Screenshot T7-0412</div>
+  <div class="k">Pages</div><div>${ic('restaurants')}Restaurants</div></div>`);
+document.getElementById('sdin').addEventListener('click', () => { const sd = document.getElementById('sd'); sd.classList.toggle('open');
+  document.getElementById('sdtx').innerHTML = sd.classList.contains('open') ? '<span style="color:var(--text)">T7-041</span><span class="caret"></span>' : 'Search devices, restaurants, pages, actions…'; });
+
+/* E · orb */
+{ const pet = [['overview','Overview',1],['fleet','Fleet'],['actions','Actions'],['alerts','Alerts · 2'],['updates','Updates'],['more','More…']];
+  S('s-e', `<div class="orbwrap" id="ow">${pet.map((p,i) => `<a class="petal${p[2] ? ' on' : ''}" data-i="${i}">${ic(p[0])}<span class="lb">${p[1]}</span></a>`).join('')}<div class="orb" id="orb">${ic('plus')}<span class="bdg">2</span></div></div>`);
+  document.getElementById('orb').addEventListener('click', () => { const w = document.getElementById('ow'), open = !w.classList.contains('open'); w.classList.toggle('open', open);
+    document.getElementById('orb').classList.toggle('open', open);
+    w.querySelectorAll('.petal').forEach((p, i) => { const a = (Math.PI / 2) * (i / (pet.length - 1)), R = 128;
+      p.style.transform = open ? `translate(${-Math.sin(a) * R}px, ${-Math.cos(a) * R}px)` : ''; p.style.transitionDelay = open ? i * 30 + 'ms' : '0ms'; }); }); }
+
+/* F · rail */
+S('s-f', `<nav class="rail"><a class="on">${ic('overview')}<span class="lb">Overview</span></a><div class="grp">Fleet</div><a>${ic('fleet')}<span class="lb">Devices</span></a><a>${ic('restaurants')}<span class="lb">Restaurants</span></a><a>${ic('alerts')}<span class="lb">Alerts</span></a>
+  <div class="grp">Operate</div><a>${ic('actions')}<span class="lb">Actions</span></a><a>${ic('updates')}<span class="lb">Updates</span></a><a>${ic('releases')}<span class="lb">Releases</span></a><div class="sp"></div><a>${ic('search')}<span class="lb">Search ⌘K</span></a></nav>`);
+
+/* G · page-aware */
+{ const ctx = {
+    'Device': `<a class="act pri">${ic('cam')}Screenshot</a><a class="act">${ic('reboot')}Reboot</a><a class="act">${ic('shell')}Shell</a><a class="act">${ic('export')}Logs</a>`,
+    'Fleet': `<a class="act pri">${ic('send')}Send to 12 selected</a><a class="act">${ic('export')}Export</a><a class="act">${ic('restaurants')}Assign restaurant</a>`,
+    'Overview': `<a class="act pri">${ic('fleet')}Fleet</a><a class="act">${ic('actions')}Actions</a><a class="act">${ic('alerts')}Alerts</a>`};
+  const crumbs = {'Device':'Fleet <span>/</span> T7-0412', 'Fleet':'Fleet <span>/</span> 12 selected', 'Overview':'Overview'};
+  const draw = k => S('s-g', `<div class="ctxtabs">${Object.keys(ctx).map(n => `<button class="${n === k ? 'on' : ''}" data-k="${n}">${n} page</button>`).join('')}</div>
+    <nav class="cx"><span class="home">${ic('home')}</span><span class="crumb">${crumbs[k]}</span><span class="sep"></span>${ctx[k]}<span class="sep"></span><span class="home">${ic('search')}</span></nav>`);
+  draw('Device');
+  document.getElementById('s-g').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) draw(b.dataset.k); }); }
+
+/* H · peek */
+{ const pk = {
+    fleet: `<h4>${ic('fleet')}Fleet</h4><div class="l">Online<b class="ok">56</b></div><div class="l">Offline<b class="bad">95</b></div><div class="l">New today<b>2</b></div><div class="ft">Worst: Pho 88 · 6 offline</div>`,
+    actions: `<h4>${ic('actions')}Actions</h4><div class="l">Running<b>3</b></div><div class="l">Last: clear cache ×26<b class="ok">done</b></div><div class="l">Failed today<b class="warn">1</b></div><div class="ft">Scheduled: nightly reboot at 04:00</div>`,
+    alerts: `<h4>${ic('alerts')}Alerts</h4><div class="l">Critical<b class="bad">1</b></div><div class="l">Warning<b class="warn">1</b></div><div class="l">Newest<b>Battery 47 °C · 12 min</b></div><div class="ft">T7-0388 · Golden Wok</div>`};
+  S('s-h', `<div class="pk" id="pk"></div><nav class="dk" id="hdk"><a class="on">${ic('overview')}Overview</a><a data-p="fleet">${ic('fleet')}Fleet</a><a data-p="actions">${ic('actions')}Actions</a><a data-p="alerts">${ic('alerts')}Alerts <span class="bdg">2</span></a><a>${ic('more')}More</a></nav>`);
+  const box = document.getElementById('pk'), dk = document.getElementById('hdk'), scr = document.getElementById('s-h');
+  dk.addEventListener('mouseover', e => { const a = e.target.closest('a[data-p]'); if (!a) { box.classList.remove('show'); return; }
+    box.innerHTML = pk[a.dataset.p]; const r = a.getBoundingClientRect(), sr = scr.getBoundingClientRect(); box.style.left = (r.left - sr.left + r.width / 2) + 'px'; box.classList.add('show'); });
+  dk.addEventListener('mouseleave', () => box.classList.remove('show')); }
+
+/* I · island */
+{ const evs = [
+    ['off','Taco Loco went offline','All 5 devices · Anaheim · just now','Open'],
+    ['alerts','Battery at 47 °C','T7-0388 · Golden Wok','View'],
+    ['updates','v2.1.021 rollout finished','188 of 192 installed · 4 failed','Review']];
+  S('s-i', `<div class="isl" id="isl"><div class="nav"><a class="on">${ic('overview')}Overview</a><a>${ic('fleet')}Fleet</a><a>${ic('actions')}Actions</a><a>${ic('alerts')}Alerts</a></div>
+    <div class="ev"><span class="dt" id="idt"></span><span class="tx"><b id="it1"></b><span id="it2"></span></span><span class="go" id="igo"></span></div></div>`);
+  const isl = document.getElementById('isl'); let k = 0, t;
+  const fire = () => { const e = evs[k++ % evs.length];
+    document.getElementById('idt').innerHTML = ic(e[0]); document.getElementById('it1').textContent = e[1]; document.getElementById('it2').textContent = e[2]; document.getElementById('igo').textContent = e[3];
+    isl.classList.add('event'); clearTimeout(t); t = setTimeout(() => isl.classList.remove('event'), 3200); };
+  isl.addEventListener('click', fire);
+  setTimeout(fire, 1500); setInterval(fire, 7000); }
+
+/* J · status bar */
+S('s-j', `<nav class="cs"><a class="on">${ic('overview')}Overview</a><a>${ic('fleet')}Fleet</a><a>${ic('actions')}Actions</a><a>${ic('alerts')}Alerts <span class="n">2</span></a><a>${ic('updates')}Updates</a><a>${ic('more')}More</a>
+  <span class="st"><span><i style="background:var(--ok)"></i>56 online</span><span><i style="background:var(--danger)"></i>95 offline</span><span>3 commands running</span><kbd>⌘K</kbd></span></nav>`);
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>
