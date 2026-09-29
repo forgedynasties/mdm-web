@@ -174,6 +174,18 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
         <tbody></tbody>
       </table>
     </div>
+
+    {{/* SSE streams, measured on their own terms (option A of static/server-streams-demos.html):
+         open now — a number that keeps climbing is a leak; time to first byte — slow
+         auth or a slow first query; typical life — seconds rather than minutes means
+         clients reconnecting in a loop. Counts are since the server started. */}}
+    <div class="sv-sec"><span>Live streams</span><span class="live" style="font-weight:500">since restart</span></div>
+    <div class="sv-card" style="overflow-x:auto">
+      <table class="sv-tbl" id="sv-streams">
+        <thead><tr><th>Stream</th><th class="n">Open</th><th class="n">Opened</th><th class="n" title="Time until the stream's headers went out">First byte p50</th><th class="n">p95</th><th class="n" title="Median time a stream stayed connected">Typical life</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <div>
@@ -204,6 +216,13 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
     if (ms >= 60000) return fmt(ms / 60000, 1) + ' min';
     if (ms >= 1000) return fmt(ms / 1000, 1) + ' s';
     return fmt(ms) + ' ms';
+  }
+  // A stream's life: seconds matter here (a reconnect loop), so unlike dur() it
+  // shows them below a minute. — until a stream has closed at least once.
+  function life(sec) {
+    if (!sec) return '—';
+    if (sec < 60) return Math.round(sec) + 's';
+    return dur(sec);
   }
   function dur(sec) {
     if (!sec) return '—';
@@ -481,6 +500,20 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
             '<td class="n' + (r.errors ? ' slow' : '') + '">' + (r.errors || 0) + '</td></tr>';
         }).join('')
       : '<tr><td colspan="8" class="sv-empty">No requests in the last 15 minutes.</td></tr>';
+
+    // Warn on a slow start (p95 over 500 ms) or a reconnect loop: a route that has
+    // opened 20+ streams whose median life is under 30 s.
+    document.querySelector('#sv-streams tbody').innerHTML = (s.streams || []).length
+      ? s.streams.map(function (st) {
+          var loop = st.opened >= 20 && st.life_p50_sec > 0 && st.life_p50_sec < 30;
+          return '<tr><td class="rt" title="' + esc(st.route) + '">' + esc(st.route) + '</td>' +
+            '<td class="n">' + st.open + '</td>' +
+            '<td class="n">' + st.opened + '</td>' +
+            '<td class="n">' + fmt(st.ttfb_p50_ms) + '</td>' +
+            '<td class="n' + (st.ttfb_p95_ms > 500 ? ' slow' : '') + '">' + (st.opened >= 2 ? fmt(st.ttfb_p95_ms) : '—') + '</td>' +
+            '<td class="n' + (loop ? ' slow" title="Many short-lived streams: clients reconnecting' : '') + '">' + life(st.life_p50_sec) + '</td></tr>';
+        }).join('')
+      : '<tr><td colspan="6" class="sv-empty">No streams opened since the server started.</td></tr>';
 
     document.getElementById('sv-feed').innerHTML = (s.events || []).length
       ? s.events.map(function (e) {
