@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 	c.Observe("GET", "/devices/AT070AABU00231", 200, 42*time.Millisecond, nil)
 	c.Observe("POST", "/api/v1/checkin", 200, 8*time.Millisecond, nil)
 	c.Observe("POST", "/api/v1/checkin", 500, 12*time.Millisecond, nil)
+	c.StreamOpen("GET", "/events/devices", 3*time.Millisecond)
 	c.Checkin()
 	c.Emit("peer", "ok", "arrival announced for AT070AABU00231")
 	c.SampleNow(31, 6, 25, 0)
@@ -40,7 +42,7 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 		`"series"`, `"latest"`, `"routes"`, `"events"`, `"uptime_sec"`, `"req_total"`, `"checkin_total"`,
 		`"requests"`, `"checkins"`, `"ws"`, `"goroutines"`, `"heap_mb"`, `"sys_mb"`,
 		`"db_used"`, `"db_total"`, `"db_waiting"`,
-		`"route"`, `"calls"`, `"p50_ms"`, `"p95_ms"`, `"errors"`, `"total_ms"`, `"share_pct"`, `"db_ms_per_call"`, `"queries_per_call"`,
+		`"route"`, `"calls"`, `"p50_ms"`, `"p95_ms"`, `"errors"`, `"total_ms"`, `"streams"`, `"open"`, `"opened"`, `"ttfb_p50_ms"`, `"ttfb_p95_ms"`, `"life_p50_sec"`, `"share_pct"`, `"db_ms_per_call"`, `"queries_per_call"`,
 		`"db"`, `"size_mb"`, `"cache_hit_pct"`, `"conn_active"`, `"conn_max"`, `"longest_query_sec"`, `"tables"`,
 		`"commands_pending"`, `"deployments_live"`, `"ota_in_flight"`, `"shell_sessions"`,
 		`"peer_outbox"`, `"devices_total"`, `"devices_online"`, `"devices_elsewhere"`, `"alerts_open"`,
@@ -71,5 +73,18 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 	}
 	if checkin.Calls != 2 || checkin.Errors != 1 {
 		t.Errorf("check-in route: %d calls / %d errors, want 2 / 1", checkin.Calls, checkin.Errors)
+	}
+}
+
+// TestServerStreamsTable pins the live-streams table to the fields it reads.
+func TestServerStreamsTable(t *testing.T) {
+	page, err := os.ReadFile("../../templates/server_metrics.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`id="sv-streams"`, "s.streams", "ttfb_p50_ms", "ttfb_p95_ms", "life_p50_sec"} {
+		if !strings.Contains(string(page), want) {
+			t.Errorf("server page is missing %s", want)
+		}
 	}
 }
