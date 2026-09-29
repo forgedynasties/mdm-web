@@ -120,6 +120,8 @@ All endpoints below require the **admin** key. Same rate-limit behaviour as the 
 | GET | `/api/v1/devices` | List all devices |
 | GET | `/api/v1/devices/{serial}` | Device detail + recent checkins |
 | POST | `/api/v1/devices/{serial}/ping` | Live WS liveness/latency probe |
+| GET | `/api/v1/devices/{serial}/temp-fast` | Fast-temperature setting + readings kept for 24 h |
+| POST | `/api/v1/devices/{serial}/temp-fast` | Switch fast temperature on for N hours, or off |
 
 `GET /devices` → array of device objects:
 ```json
@@ -131,6 +133,14 @@ All endpoints below require the **admin** key. Same rate-limit behaviour as the 
 ```
 `GET /devices/{serial}` → `{ "device": {…}, "checkins": [ {…} ] }` (`404` if unknown).
 `POST /devices/{serial}/ping` → `{ "connected":bool, "responsive":bool, "latency_ms":0, "error":"string" }` (`404` if unknown).
+
+**Fast temperature.** `POST /devices/{serial}/temp-fast` `{"hours":24,"interval_sec":10}` (defaults shown;
+`hours` 0–72, 0 = off; `interval_sec` 2–3600) → `{ "serial","enabled":bool,"interval_sec","until" }`.
+The device gets `temp_fast_sec` in the config its next frame is answered with; client 1.5.0+ on
+firmware v2.1.023+ then sends its temperature when it moved 0.2 °C (at most every `interval_sec`,
+at least every 60 s). Every reading a switched-on device sends is kept in `device_temp_fast` for
+24 h. `GET /devices/{serial}/temp-fast?since=<unix s>` → the same plus
+`"readings":[{"at":"RFC3339","temp_c":0.0,"uptime_s":0}]` (default: the last 24 h).
 
 ### Groups
 | Method | Path | Body | Purpose |

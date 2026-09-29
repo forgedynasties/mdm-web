@@ -19049,6 +19049,13 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] pruned %d sample/event row(s) older than %dd", n, d)
 		}
 	}
+	// Fast temperature readings are a day's close-up, whatever the retention setting;
+	// device_samples keeps the minute-by-minute history.
+	if n, err := h.db.PruneTempFast(ctx); err != nil {
+		log.Printf("[retention] prune fast temperature: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] pruned %d fast temperature row(s) older than %dh", n, db.TempFastKeepHours)
+	}
 	if d := h.cfg.LogcatRetentionDays(); d > 0 {
 		if n, err := h.db.PruneLogcat(ctx, d); err != nil {
 			log.Printf("[retention] prune logcat: %v", err)

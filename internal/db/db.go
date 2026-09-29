@@ -13129,6 +13129,25 @@ CREATE TABLE IF NOT EXISTS fleet_views (
 );
 CREATE INDEX IF NOT EXISTS idx_fleet_views_user ON fleet_views(user_id, created_at);
 
+-- Fast temperature: a device switched on here sends its temperature every few seconds
+-- (client 1.5.0+, firmware v2.1.023+ where healthd smooths the reading), and every one
+-- of those readings is kept in device_temp_fast for a day. device_samples keeps its one
+-- row a minute and is not touched. Switching on always carries an end time, so a test
+-- left running stops by itself.
+CREATE TABLE IF NOT EXISTS temp_fast_devices (
+    device_id    UUID        PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+    interval_sec INT         NOT NULL,
+    until        TIMESTAMPTZ NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS device_temp_fast (
+    device_id UUID             NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    at        TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    temp_c    DOUBLE PRECISION NOT NULL,
+    uptime_s  BIGINT,
+    PRIMARY KEY (device_id, at)
+);
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
