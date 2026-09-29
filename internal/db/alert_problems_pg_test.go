@@ -123,7 +123,7 @@ func TestProblemQueriesAgainstPostgres(t *testing.T) {
 		t.Fatal("digest claimed twice")
 	}
 	d.ReleaseDigest(ctx, day)
-	if _, err := d.ListCrashIssues(ctx, 14); err != nil {
+	if _, err := d.ListCrashIssues(ctx, 14, 20); err != nil {
 		t.Fatal(err)
 	}
 	_ = d.IsReleaseCrash(ctx, "x — y")

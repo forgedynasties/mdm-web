@@ -7700,7 +7700,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// Crash signatures on several devices are release issues, not device problems.
 	var issues []releaseIssueView
 	if deviceID == nil {
-		ci, _ := h.db.ListCrashIssues(r.Context(), 14)
+		ci, _ := h.db.ListCrashIssues(r.Context(), 14, 20)
 		for _, c := range ci {
 			label, class := crashKindBadge(c.Kind)
 			issues = append(issues, releaseIssueView{c, extractPackageName(c.Summary), label, class})
@@ -10987,6 +10987,52 @@ type versionRow struct {
 	Merged            bool         // branch: has been merged onto main (terminal)
 	MergedIntoVersion string       // branch: the mainline release it merged into
 	MergedFromVersion string       // mainline node: the branch it absorbed on merge
+	Crash             *releaseCrashTag // crash issues on this build (release issues), nil when none
+}
+
+// releaseCrashTag is the tag on a release row naming its crash issues: crashes that
+// hit this build on several devices in the last two weeks (see ListCrashIssues).
+type releaseCrashTag struct {
+	Issues  int
+	Devices int    // the widest issue's reach
+	Apps    string // "pkg crash (34 devices), …" for the tooltip
+	Warn    bool   // only ANRs: slow, not crashing
+}
+
+// releaseCrashTags groups the fleet's release issues by release id.
+func (h *Handler) releaseCrashTags(ctx context.Context) map[int]*releaseCrashTag {
+	issues, err := h.db.ListCrashIssues(ctx, 14, 500)
+	if err != nil {
+		return nil
+	}
+	out := map[int]*releaseCrashTag{}
+	for _, c := range issues {
+		if c.ReleaseID == 0 {
+			continue
+		}
+		t := out[c.ReleaseID]
+		if t == nil {
+			t = &releaseCrashTag{Warn: true}
+			out[c.ReleaseID] = t
+		}
+		t.Issues++
+		if c.Devices > t.Devices {
+			t.Devices = c.Devices
+		}
+		label, _ := crashKindBadge(c.Kind)
+		if label != "ANR" {
+			t.Warn = false
+		}
+		app := extractPackageName(c.Summary)
+		if app == "" {
+			app = c.Summary
+		}
+		if t.Apps != "" {
+			t.Apps += ", "
+		}
+		t.Apps += fmt.Sprintf("%s %s (%d devices)", app, strings.ToLower(label), c.Devices)
+	}
+	return out
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -11193,6 +11239,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	fleet, _ := h.db.GetFleetVersions(r.Context())
 	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
 	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
+	crashTags := h.releaseCrashTags(r.Context())
 	// The list-row problem badge should reflect what the workspace board shows —
 	// native PLUS carried-forward problems — so a build whose only open blockers are
 	// inherited doesn't read "0 open" in the list.
@@ -11313,6 +11360,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 			row.Problems = badgeFor(rel.ID)
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
+			row.Crash = crashTags[rel.ID]
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
 			if !row.Hidden {
@@ -11345,6 +11393,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
 			TestingDone: rel.TestingDoneAt != nil,
 			QfilURL:     h.latestQfilURL(r, rel.ID),
+			Crash:       crashTags[rel.ID],
 		}
 		branchRow(&row, rel)
 		addRow(row)

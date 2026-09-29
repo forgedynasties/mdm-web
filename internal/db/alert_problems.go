@@ -364,21 +364,30 @@ type CrashIssue struct {
 // release issue rather than one device's problem.
 const releaseIssueMinDevices = 3
 
+// crashSignatureSQL is a crash's signature: its summary up to the first comma. The same
+// fault can be worded several ways — permissioncontroller's crash names one of four
+// "safety sources" after the comma — and counting each wording apart split one crash on
+// 34 devices into four smaller ones.
+const crashSignatureSQL = `split_part(e.summary, ',', 1)`
+
 // ListCrashIssues groups the last days of crashes by kind, signature and build, keeping
 // those seen on at least releaseIssueMinDevices devices, widest first.
-func (d *DB) ListCrashIssues(ctx context.Context, days int) ([]CrashIssue, error) {
+func (d *DB) ListCrashIssues(ctx context.Context, days, limit int) ([]CrashIssue, error) {
+	if limit <= 0 {
+		limit = 20
+	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT e.kind, e.summary, e.build_id, COUNT(*), COUNT(DISTINCT e.device_id),
+		SELECT e.kind, `+crashSignatureSQL+`, e.build_id, COUNT(*), COUNT(DISTINCT e.device_id),
 		       MIN(e.occurred_at), MAX(e.occurred_at),
 		       COALESCE((SELECT rl.id FROM releases rl WHERE rl.version = e.build_id AND e.build_id <> ''
 		                 ORDER BY rl.id DESC LIMIT 1), 0)
 		FROM device_events e JOIN devices dv ON dv.id = e.device_id
 		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
 		  AND e.occurred_at > NOW() - make_interval(days => $1)
-		GROUP BY e.kind, e.summary, e.build_id
+		GROUP BY e.kind, `+crashSignatureSQL+`, e.build_id
 		HAVING COUNT(DISTINCT e.device_id) >= $2
 		ORDER BY COUNT(DISTINCT e.device_id) DESC, MAX(e.occurred_at) DESC
-		LIMIT 20`, days, releaseIssueMinDevices)
+		LIMIT $3`, days, releaseIssueMinDevices, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -402,8 +411,8 @@ func (d *DB) IsReleaseCrash(ctx context.Context, summary string) bool {
 	}
 	var n int
 	if err := d.pool.QueryRow(ctx, `
-		SELECT COUNT(DISTINCT device_id) FROM device_events
-		WHERE summary = $1 AND occurred_at > NOW() - INTERVAL '14 days'`, summary).Scan(&n); err != nil {
+		SELECT COUNT(DISTINCT e.device_id) FROM device_events e
+		WHERE `+crashSignatureSQL+` = split_part($1, ',', 1) AND e.occurred_at > NOW() - INTERVAL '14 days'`, summary).Scan(&n); err != nil {
 		return false
 	}
 	return n >= releaseIssueMinDevices
