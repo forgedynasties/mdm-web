@@ -1672,7 +1672,9 @@ func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA strin
 // Settings.
 // clientSlotOrder and clientSlotLabels are the client catalogue, shared by the
 // Clients page and the device page's client pill so the two can never drift.
-var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board", "lite-demo"}
+// "lite-demo" (the standalone Lite demo app, dropped 2026-09-24) keeps its label so a
+// device still running it names it, but is no longer listed.
+var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board"}
 
 var clientSlotLabels = map[string]string{
 	"dpc":           "DPC agent",
