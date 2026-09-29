@@ -55,7 +55,7 @@ func TestOverviewNewRenders(t *testing.T) {
 		"SitesOK": 0, "SitesWarn": 0, "SitesBad": 1, "Crashes24h": 0, "CrashDevices24h": 0,
 		"AttentionRows": att, "AttentionTotal": attN, "AttentionCritical": attCrit,
 		"Wall": wall, "WallTotal": len(devs), "MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
-		"OverviewSwitch": true, "Role": "admin",
+		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "overview_new.html", data); err != nil {
@@ -69,6 +69,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		`id="ovd-map-data"`,                     // map data shipped
 		`"name":"Pho 88"`,                       // restaurant on the map
 		`href="/?overview=classic"`,             // the switch
+		`href="/fleet-health"`,                  // header actions, as on the classic page
+		`href="/export/visualize"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)

@@ -101,6 +101,16 @@
 
 .ovd-map{height:420px;background:var(--surface2)}
 @media(max-width:720px){.ovd-map{height:320px}}
+/* Header actions: the same buttons as the classic Overview. */
+.ovd-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.ovd-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;white-space:nowrap}
+.ovd-btn:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
+.ovd-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.ovd-btn.primary:hover{background:var(--accent-h);color:#fff}
+.ovd-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ovd-btn .n{font-size:10.5px;font-weight:750;padding:1px 6px;border-radius:99px;background:var(--surface-3);color:var(--text-2)}
+.ovd-btn .n.warn{background:var(--warn-bg);color:var(--warn)}
+@media(max-width:1024px){.ovd-head{flex-direction:column;align-items:flex-start}.ovd-acts{justify-content:flex-start}}
 </style>
 
 <div class="ovd">
@@ -110,7 +120,17 @@
       <h1>Overview</h1>
       <div class="ovd-meta">All restaurants · updated <time id="ovd-at" datetime="{{.NowUTC}}"></time></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">{{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}<a class="cc-btn sm" href="/export" title="Export device telemetry as CSV">Export</a></div>
+    <div class="ovd-acts">
+      {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
+      <a class="ovd-btn primary" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Fleet health</a>
+      <a class="ovd-btn" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="n{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span></a>
+      {{if canAdmin .Role}}<a class="ovd-btn" href="/enrollment"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 11v4M10 13h4"/></svg>Enroll device</a>{{end}}
+      <a class="ovd-btn{{if not (canAct .Role)}} role-locked{{end}}" href="/commands"{{if not (canAct .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>
+      <a class="ovd-btn{{if not (canOTA .Role)}} role-locked{{end}}" href="/updates"{{if not (canOTA .Role)}} title="Requires the super op role" data-role-need="Super op"{{end}}><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Deploy update</a>
+      {{if canAppLibrary .Role}}<a class="ovd-btn" href="/apps" title="Upload APKs and manage the app library"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</a>{{end}}
+      <a class="ovd-btn" href="/export" title="Export device telemetry as CSV — pick devices and a time range"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Export</a>
+      <a class="ovd-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>
+    </div>
   </div>
 
   {{/* ── Stat strip: every cell a measured count that opens its list ── */}}
