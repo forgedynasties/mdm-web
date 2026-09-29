@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Temperature chart — fast readings demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/vendor/chart.umd.min.js"></script>
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+@media(max-width:720px){body{padding:18px 16px 80px;}}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 6px;max-width:820px;line-height:1.55;}
+.pros{font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.55;color:var(--text);}
+.pros b{font-weight:700;}
+.tag-rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.tag-now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-faint);background:var(--surface-3,#eee);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .tag-rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgba(20,22,40,.04);overflow:hidden;}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px 4px;flex-wrap:wrap;}
+.chead h2{margin:0;font-size:15px;letter-spacing:-.01em;}
+.durs{display:flex;gap:4px;}
+.durs button{border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font:inherit;font-size:11.5px;font-weight:700;
+  padding:4px 10px;border-radius:8px;cursor:pointer;}
+.durs button.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text);}
+.tabs{display:flex;gap:4px;padding:6px 18px 0;align-items:center;flex-wrap:wrap;}
+.tab{border:0;background:transparent;font:inherit;font-size:13px;font-weight:650;color:var(--text-faint);padding:7px 11px;border-bottom:2px solid transparent;}
+.tab.on{color:var(--text);border-bottom-color:var(--accent);}
+.note{font-size:11.5px;color:var(--text-faint);margin-left:auto;display:flex;gap:8px;align-items:center;}
+.plot{position:relative;height:300px;padding:10px 18px 16px;}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:750;color:var(--text);}
+.live i{width:7px;height:7px;border-radius:50%;background:#2bb673;display:inline-block;}
+/* option 3: live card beside a chart */
+.split{display:grid;grid-template-columns:260px 1fr;gap:14px;}
+@media(max-width:720px){.split{grid-template-columns:1fr;}}
+.hero{padding:16px 18px;}
+.hero .k{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);}
+.hero .v{font-size:40px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin:4px 0 2px;color:var(--text);}
+.hero .sub{font-size:12px;color:var(--text-faint);}
+.hero .mm{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--text-faint);}
+.hero .mm b{display:block;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums;}
+.spark{position:relative;height:70px;margin-top:10px;}
+/* option 4: readings table */
+.tblwrap{max-height:220px;overflow:auto;border-top:1px solid var(--border);}
+table.rd{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;}
+table.rd th{position:sticky;top:0;background:var(--surface);text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);padding:7px 18px;border-bottom:1px solid var(--border);}
+table.rd td{padding:5px 18px;border-bottom:1px solid var(--border-soft,rgba(0,0,0,.05));color:var(--text);}
+.tools{display:flex;gap:6px;}
+.tools button{border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:8px;cursor:pointer;}
+.verdict{margin-top:40px;padding:16px 18px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:13px;line-height:1.6;max-width:820px;}
+@media(max-width:720px){.themebar{position:static;width:max-content;margin:0 0 14px auto;}}
+</style></head>
+<body><div class="wrap">
+<div class="themebar" role="group" aria-label="Theme">
+  <button id="th-l" class="on" onclick="setTheme('light')">☀ Light</button>
+  <button id="th-d" onclick="setTheme('dark')">☾ Dark</button>
+</div>
+
+<h1>Temperature chart — fast readings</h1>
+<p class="lead">Firmware v2.1.023 smooths the battery temperature in healthd, and client 1.5.0 can send it every
+time it moves 0.2 °C (at most every 10 s, at least every 60 s) while the MDM has fast temperature switched on for
+that device. Every such reading is kept for 24 h. These are four ways to show it on the device page. The data is
+a mock of a T7 warming up on the charger and cooling after; the same six hours feed every option.</p>
+
+<!-- ============ 1 · TODAY ============ -->
+<div class="eyebrow">Option 1</div>
+<div class="dname">One point a minute <span class="tag-now">deployed today</span></div>
+<div class="ddesc">The Temp tab as it is: device_samples, at most one row a minute. The client only sent a new
+temperature when it moved 1 °C, so the stored rows repeat the last value sent and the line climbs in steps.</div>
+<div class="pros"><b>Good:</b> nothing to build. <b>Bad:</b> up to 0.9 °C behind the device at any moment; a charger
+warm-up looks like a staircase, so the rate of rise is unreadable.</div>
+<div class="card">
+  <div class="chead"><h2>Device graphs</h2><div class="durs" data-o="1"></div></div>
+  <div class="tabs"><button class="tab">Battery</button><button class="tab on">Temp</button><button class="tab">RAM</button><button class="tab">All</button></div>
+  <div class="plot"><canvas id="c1"></canvas></div>
+</div>
+
+<!-- ============ 2 · SAME TAB, FINER DATA ============ -->
+<div class="eyebrow">Option 2</div>
+<div class="dname">Same Temp tab, every reading for the last 24 h <span class="tag-rec">recommended</span></div>
+<div class="ddesc">When the device has fast readings, the Temp tab plots those for the last 24 h and falls back to
+the one-a-minute history before that. A small note beside the tabs says the line is every reading and how old the
+newest one is; the latest value is labelled at the end of the line.</div>
+<div class="pros"><b>Good:</b> no new place to look — the chart people already use simply becomes live and exact;
+devices without fast mode look exactly as today. <b>Bad:</b> nothing on the page tells you fast mode exists until
+it is on for that device.</div>
+<div class="card">
+  <div class="chead"><h2>Device graphs</h2><div class="durs" data-o="2"></div></div>
+  <div class="tabs"><button class="tab">Battery</button><button class="tab on">Temp</button><button class="tab">RAM</button><button class="tab">All</button>
+    <span class="note"><span class="live"><i></i>Every reading · last 24 h</span><span id="age2">newest 8 s ago</span></span></div>
+  <div class="plot"><canvas id="c2"></canvas></div>
+</div>
+
+<!-- ============ 3 · LIVE CARD ============ -->
+<div class="eyebrow">Option 3</div>
+<div class="dname">Live temperature card beside the graphs</div>
+<div class="ddesc">A separate card: the current reading as a large number with its age, the last hour's min and
+max, and a one-hour sparkline. The Temp tab keeps the one-a-minute history.</div>
+<div class="pros"><b>Good:</b> the live number is readable at a glance from across the room. <b>Bad:</b> two
+temperature views that disagree about the past (the tab still steps); one more card on a long page.</div>
+<div class="split">
+  <div class="card hero">
+    <div class="k">Battery temperature</div>
+    <div class="v" id="h3v">—</div>
+    <div class="sub"><span class="live"><i></i>live</span> · <span id="h3a">8 s ago</span></div>
+    <div class="mm"><div>Min 1 h<b id="h3min">—</b></div><div>Max 1 h<b id="h3max">—</b></div></div>
+    <div class="spark"><canvas id="c3s"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="chead"><h2>Device graphs</h2><div class="durs" data-o="3"></div></div>
+    <div class="tabs"><button class="tab">Battery</button><button class="tab on">Temp</button><button class="tab">RAM</button></div>
+    <div class="plot" style="height:230px"><canvas id="c3"></canvas></div>
+  </div>
+</div>
+
+<!-- ============ 4 · READINGS VIEW ============ -->
+<div class="eyebrow">Option 4</div>
+<div class="dname">Readings view — every reading as a point, with a table</div>
+<div class="ddesc">Option 2's chart with each reading drawn as a dot, and a table of readings underneath (time,
+°C, change, device uptime) with a CSV download. Admin-only; meant for validation against adb.</div>
+<div class="pros"><b>Good:</b> shows the cadence and every value exactly — the table is also the accessible view of
+the chart. <b>Bad:</b> noisy for an operator who only wants to know if the tablet is hot.</div>
+<div class="card">
+  <div class="chead"><h2>Temperature readings</h2><div class="tools"><div class="durs" data-o="4"></div><button onclick="csv()">CSV</button></div></div>
+  <div class="plot" style="height:240px"><canvas id="c4"></canvas></div>
+  <div class="tblwrap"><table class="rd"><thead><tr><th>Time</th><th>°C</th><th>Change</th><th>Uptime</th></tr></thead><tbody id="t4"></tbody></table></div>
+</div>
+
+<div class="verdict"><b>Pick: Option 2.</b> The question people bring to the device page is "how hot is it, and is
+it rising?" — the Temp tab already answers that, and with every reading it answers it correctly and live. It needs
+no new layout, and devices without fast mode are unchanged. Option 4's table is worth adding later as an admin
+toggle on the same tab, rather than as its own card, when fast mode leaves testing.</div>
+</div>
+
+<script>
+/* ---------------- mock data: 6 h of a T7 warming on the charger ---------------- */
+function rnd(s){var x=Math.sin(s*127.1)*43758.5453;return x-Math.floor(x);}
+var NOW=Date.now(), H=6, START=NOW-H*3600e3, UP0=40000;
+function truth(t){ // °C at time t: idle 31, charger from 1.5 h to 4 h, cool after
+  var h=(t-START)/3600e3;
+  if(h<1.5) return 31+0.3*Math.sin(h*3);
+  if(h<4)   return 31+11*(1-Math.exp(-(h-1.5)/0.7));
+  var top=31+11*(1-Math.exp(-2.5/0.7));
+  return 31+(top-31)*Math.exp(-(h-4)/0.9);
+}
+// fast readings: the client's rule — 0.2 °C step, >=10 s apart, heartbeat 60 s
+var FAST=[], last=null, lastT=0;
+for(var t=START;t<=NOW;t+=10e3){
+  var v=Math.round((truth(t)+(rnd(t/1e4)-.5)*0.12)*10)/10;
+  if(last===null||Math.abs(v-last)>=0.2||t-lastT>=60e3){FAST.push({t:t,v:v,up:UP0+Math.round((t-START)/1e3)});last=v;lastT=t;}
+}
+// today's history: one row a minute holding the last value sent under the 1 °C rule
+var SLOW=[], sent=null;
+for(var t=START;t<=NOW;t+=60e3){
+  var v=Math.round(truth(t)*10)/10;
+  if(sent===null||Math.abs(v-sent)>=1.0) sent=v;
+  SLOW.push({t:t,v:sent});
+}
+var DURS=[{l:'1h',h:1},{l:'3h',h:3},{l:'6h',h:6}], win={1:6,2:6,3:6,4:1};
+
+/* ---------------- theme + chart helpers ---------------- */
+function dark(){return document.documentElement.getAttribute('data-theme')==='dark';}
+function cssvar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function amber(){return dark()?'#bf7d22':'#e8a13a';}
+function ink(){return cssvar('--text')||'#222';}
+function faint(){return cssvar('--text-faint')||'#787167';}
+function grid(){return dark()?'rgba(255,255,255,.07)':'rgba(20,22,40,.07)';}
+function hhmm(t){var d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function hhmmss(t){var d=new Date(t);return hhmm(t)+':'+String(d.getSeconds()).padStart(2,'0');}
+function since(arr,h){var c=NOW-h*3600e3;return arr.filter(function(p){return p.t>=c;});}
+
+// crosshair: a thin vertical rule at the hovered x
+var crosshair={id:'crosshair',afterDraw:function(ch){var a=ch.tooltip&&ch.tooltip.getActiveElements();if(!a||!a.length)return;
+  var x=a[0].element.x,y=ch.scales.y,c=ch.ctx;c.save();c.strokeStyle=faint();c.globalAlpha=.5;c.lineWidth=1;
+  c.beginPath();c.moveTo(x,y.top);c.lineTo(x,y.bottom);c.stroke();c.restore();}};
+// direct label: the latest value at the end of the line, in ink (not the series colour)
+var endLabel={id:'endLabel',afterDatasetsDraw:function(ch){var m=ch.getDatasetMeta(0);if(!m.data.length)return;
+  var p=m.data[m.data.length-1],v=ch.data.datasets[0].data[m.data.length-1].y,c=ch.ctx;c.save();
+  c.font='700 11.5px '+(cssvar('--font-sans')||'system-ui');c.fillStyle=ink();c.textAlign='right';c.textBaseline='bottom';
+  c.fillText(v.toFixed(1)+' °C',p.x-6,p.y-12);c.restore();}};
+
+function lineChart(id,pts,opt,hours){
+  opt=opt||{};
+  return new Chart(document.getElementById(id),{type:'line',
+    data:{datasets:[{data:pts.map(function(p){return{x:p.t,y:p.v};}),borderColor:amber(),borderWidth:2,
+      backgroundColor:amber()+'22',fill:!opt.nofill,stepped:opt.stepped||false,tension:opt.stepped?0:.2,
+      pointRadius:opt.dots?2.5:0,pointBackgroundColor:amber(),pointBorderColor:cssvar('--surface')||'#fff',pointBorderWidth:opt.dots?1:0,
+      pointHoverRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,
+      interaction:{mode:'nearest',axis:'x',intersect:false},
+      plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{
+        title:function(i){return hhmmss(i[0].parsed.x);},label:function(i){return i.parsed.y.toFixed(1)+' °C';}}}},
+      scales:{x:{type:'linear',min:NOW-(hours||H)*3600e3,max:NOW,grid:{display:false},ticks:{color:faint(),font:{size:10},maxTicksLimit:7,callback:function(v){return hhmm(v);}}},
+              y:{grid:{color:grid()},border:{display:false},ticks:{color:faint(),font:{size:10},callback:function(v){return v+'°';}}}}},
+    plugins:opt.spark?[]:[crosshair,endLabel]});
+}
+
+/* ---------------- render ---------------- */
+var charts={};
+function kill(k){if(charts[k]){charts[k].destroy();delete charts[k];}}
+function draw(){
+  kill('c1');charts.c1=lineChart('c1',since(SLOW,win[1]),{stepped:true},win[1]);
+  kill('c2');charts.c2=lineChart('c2',since(FAST,win[2]),{},win[2]);
+  kill('c3');charts.c3=lineChart('c3',since(SLOW,win[3]),{stepped:true},win[3]);
+  var h1=since(FAST,1);
+  kill('c3s');charts.c3s=lineChart('c3s',h1,{spark:true},1);
+  charts.c3s.options.scales.x.display=false;charts.c3s.options.scales.y.display=false;charts.c3s.update();
+  var vs=h1.map(function(p){return p.v;});
+  document.getElementById('h3v').textContent=FAST[FAST.length-1].v.toFixed(1)+' °C';
+  document.getElementById('h3min').textContent=Math.min.apply(null,vs).toFixed(1)+' °C';
+  document.getElementById('h3max').textContent=Math.max.apply(null,vs).toFixed(1)+' °C';
+  kill('c4');charts.c4=lineChart('c4',since(FAST,win[4]),{dots:true,nofill:true},win[4]);
+  var rows=since(FAST,win[4]).slice().reverse(),html='';
+  rows.forEach(function(p,i){var prev=rows[i+1];var d=prev?(p.v-prev.v):0;
+    html+='<tr><td>'+hhmmss(p.t)+'</td><td>'+p.v.toFixed(1)+'</td><td>'+(prev?(d>0?'+':'')+d.toFixed(1):'—')+'</td><td>'+p.up+' s</td></tr>';});
+  document.getElementById('t4').innerHTML=html;
+}
+function buildDurs(){
+  document.querySelectorAll('.durs').forEach(function(host){
+    var o=host.getAttribute('data-o');host.innerHTML='';
+    DURS.forEach(function(d){var b=document.createElement('button');b.textContent=d.l;b.className=win[o]===d.h?'on':'';
+      b.onclick=function(){win[o]=d.h;buildDurs();draw();};host.appendChild(b);});
+  });
+}
+function csv(){
+  var s='time,temp_c,uptime_s\n'+since(FAST,win[4]).map(function(p){return new Date(p.t).toISOString()+','+p.v.toFixed(1)+','+p.up;}).join('\n');
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'text/csv'}));a.download='temp-readings.csv';a.click();
+}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('th-l').classList.toggle('on',t==='light');
+  document.getElementById('th-d').classList.toggle('on',t==='dark');
+  try{localStorage.setItem('mdm-theme',t);}catch(e){}
+  draw();
+}
+(function(){var t='light';try{t=localStorage.getItem('mdm-theme')==='dark'?'dark':'light';}catch(e){}
+  buildDurs();setTheme(t);})();
+</script>
+</body></html>
