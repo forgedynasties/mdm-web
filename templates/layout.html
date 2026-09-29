@@ -2578,22 +2578,25 @@
   <script>
   // ── Top-bar slot ─────────────────────────────────────────────────────────
   // A page can hand the top bar one control (.appbar-slot-item inside <main>). The
-  // slot is emptied on every navigation and refilled from the new page, so the
-  // control never outlives its page.
+  // slot is emptied on every navigation and refilled with a copy from the new page,
+  // so the control never outlives its page and always comes back with it.
   (function () {
     function fill() {
       var slot = document.getElementById('appbar-slot');
       if (!slot) return;
-      slot.innerHTML = '';
+      // A copy, not the element: the original stays (hidden) in <main>, so a history
+      // snapshot of the page still carries it and Back can bring it back.
       var item = document.querySelector('main .appbar-slot-item');
-      if (item) slot.appendChild(item);
+      slot.innerHTML = '';
+      if (item) slot.appendChild(item.cloneNode(true));
       document.dispatchEvent(new CustomEvent('mdm:appbar-slot'));
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fill); else fill();
-    document.addEventListener('htmx:afterSettle', function (e) {
-      var t = e.detail && e.detail.target;
-      if (t && t.tagName === 'MAIN') fill();
-    });
+    // After every swap and every history restore, whatever the event names as its
+    // target: coming back to a page (a fresh load, a cached one, or Back) must bring
+    // its control back. fill() is idempotent and cheap.
+    ['htmx:afterSettle', 'htmx:historyRestore'].forEach(function (ev) { document.addEventListener(ev, fill); });
+    window.addEventListener('popstate', function () { setTimeout(fill, 0); });
   })();
   </script>
   <script>
