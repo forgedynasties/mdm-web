@@ -33,7 +33,7 @@ code{font-size:12px}
 <div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
 <div class="wrap">
 <h1>Removing the hardcoded device key from the firmware client</h1>
-<p class="lead">A plan, 30 Sep 2026. Nothing here has been changed yet. The figures are from live today.</p>
+<p class="lead">A plan, 30 Sep 2026. Phases 1 and 2 are done; the figures in the first table are from the morning of 30 Sep.</p>
 
 <div class="box hi"><b>Why this matters now.</b> The firmware client (<code>aio-mdm-client</code>, a public repository) has a built-in default device key in <code>MdmApiService.java</code>, and <b>the live server's <code>DEVICE_API_KEY</code> is that same value</b> (checked today by comparing hashes, without printing it). The server's own comment in <code>internal/middleware/auth.go</code> says what the key allows: it proves only "some device in the fleet", so anyone with it can check in as any serial, and can open the WebSocket as any serial and receive the commands pushed to that device. It is in public git history, so it has to be treated as public from now on; deleting it from the source does not un-publish it.</div>
 
@@ -65,7 +65,8 @@ code{font-size:12px}
 <li><b>A count on the Clients page:</b> devices still on the shared key, by client version, so progress is visible.</li>
 </ul>
 
-<h3><span class="ph">Phase 2</span>Client 1.6.0: devices get their own key (1–2 weeks)</h3>
+<h3><span class="ph">Phase 2</span>Client 1.6.0: devices get their own key <span style="color:var(--ok)">· done 30 Sep</span></h3>
+<p>Live: <code>POST /api/v1/device-key</code> accepts one key per firmware serial, only from the address the device just checked in or connected from, and only with the boot id and build it last reported (a mismatch is 409, repeated ones alert); a repeat of the same key is accepted, so a lost reply is harmless. Client 1.6.0 generates the key on the device, keeps it wrapped by Android Keystore in device-protected storage, registers it after an HTTP check-in and reconnects with it; a 401 to its own key sends it back to the shared key to register again. Reset for a device that lost its key is the admin API <code>POST /api/v1/devices/{serial}/key-reset</code>; a button on the device page needs a demo first. First device: AT070AABU00231, registered and kept its key across a reboot.</p>
 <ul>
 <li>On start, if the client has no stored key, it generates one on the device (32 random bytes, kept in Android Keystore-protected storage, never in a system property) and registers it: <code>POST /api/v1/device-key</code> with its serial, boot id and build, authenticated with the shared key.</li>
 <li>The server accepts the registration <b>once per serial</b> (first come; the moment it is taken, Phase 1 locks the serial) and only when the claim is consistent with what it already knows: the serial exists, it is connected or checked in within minutes from the same address, and its build and boot id match its last report. Anything else is refused and alerted.</li>
