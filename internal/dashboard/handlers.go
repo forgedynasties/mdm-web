@@ -6446,6 +6446,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
 		"KioskExit":           h.kioskExitFor(r, device),
+		"LateSpans":           h.lateSpansFor(r, device),
 		"KioskRule":           kioskRule,
 		"KioskOverride":       kioskOverride,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),

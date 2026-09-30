@@ -2036,6 +2036,7 @@ type DeviceSample struct {
 	RAMTotalMB    *int32
 	StorageFreeGB *float64
 	CPUTempC      *float64 // SoC reading from battery-less TV boxes; see the schema note
+	Late          bool     // kept on the device while offline and sent later
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -2060,7 +2061,7 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c
+		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c, late
 		FROM device_samples
 		WHERE device_id = $1 AND at >= $2 AND at <= $3
 		ORDER BY at`, deviceID, from, until)
@@ -2071,7 +2072,7 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	var out []DeviceSample
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC, &s.Late); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -13207,6 +13208,9 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECI
 -- SoC temperature from battery-less TV boxes (extra.cpu_temp_c). Its own column, not
 -- temp_c: temp_c feeds the overheating rule at 45 °C, and an SoC idles above that.
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS cpu_temp_c      DOUBLE PRECISION;
+-- Readings the device kept while it couldn't reach the MDM and sent when it could
+-- (client 1.7.0, 1 Oct). History only: nothing alerts on them; the charts shade them.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS late            BOOLEAN NOT NULL DEFAULT false;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;

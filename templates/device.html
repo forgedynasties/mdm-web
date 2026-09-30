@@ -928,6 +928,18 @@ function mdmBootCharts() {
   // DeviceDischargeSeries: it is the series behind the Battery cycles card, so the two
   // finally answer the same question.
   const CYCLE_SERIES_RAW = {{.CycleSeries}};
+  // Readings the device kept while offline and sent later (client 1.7.0): shaded grey on
+  // every chart, their line dashed. Grows as chart-data windows arrive (mergeLate).
+  let lateSpans = {{.LateSpans}} || [];
+  function mergeLate(arr) {
+    (arr || []).forEach(function (s) {
+      if (!lateSpans.some(function (t) { return t.from === s.from && t.to === s.to; })) lateSpans.push(s);
+    });
+  }
+  function inLate(x) {
+    for (var i = 0; i < lateSpans.length; i++) if (x >= lateSpans[i].from && x <= lateSpans[i].to) return true;
+    return false;
+  }
   let allBattery = [{{if .ShowBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
   {{/* Temp/RAM stay out of the initial page HTML unless the visit is a deep link
        to that metric (?focus=temp/ram, which needs the data immediately to find
@@ -1008,7 +1020,7 @@ function mdmBootCharts() {
     if (!silent) showChartLoading();
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (d) {
           // Reassigns (not mutates) allTemp/allRam — window.mdmChart holds the old
           // (empty) reference for the live-SSE pusher, so repoint it here too or
@@ -1078,7 +1090,7 @@ function mdmBootCharts() {
     var spin = setTimeout(showChartLoading, 150);
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + to, { credentials: 'same-origin', signal: ctl.signal })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (ctl !== viewCtl) return;   // a newer window already replaced this one
         if (d) {
           viewData = d; viewKey = key;
@@ -1100,7 +1112,7 @@ function mdmBootCharts() {
     var until = Math.floor(loadedMinX) - 1;
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + Math.floor(fromMs) + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (d) {
           // Reassigns, not mutates — repoint window.mdmChart's copies too, or the
           // live-SSE pusher keeps appending to the array from before this widened
@@ -1147,7 +1159,7 @@ function mdmBootCharts() {
     if (from >= until) { markLoaded('temp'); markLoaded('ram'); widenWindow(); return; }
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (!d) return;
         if (!tempLoaded && d.temp) {
           allTemp = d.temp; markLoaded('temp');
@@ -1203,7 +1215,7 @@ function mdmBootCharts() {
     chartCatchingUp = true;
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + (Math.floor(newest) + 1) + '&until=' + Math.floor(Date.now()), { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (!d) return;
         var added = 0;
         function fresher(pts) { return (pts || []).filter(function (p) { return p.x > newest; }); }
@@ -2296,6 +2308,63 @@ function mdmBootCharts() {
       ctx.restore();
     },
   };
+  // Offline spans (1 Oct; static/offline-queue-plan.html, option C). Grey where the device
+  // was out of contact but kept readings and sent them later; hatched where there are no
+  // readings at all (a gap in the line: an older client, or its queue was full). Late
+  // stretches of every line are dashed, set here so no dataset definition has to know.
+  const LATE_SEGMENT = { borderDash: function (c) { return (inLate(c.p0.parsed.x) && inLate(c.p1.parsed.x)) ? [5, 4] : undefined; } };
+  let offlineHatch = null;
+  const offlinePlugin = {
+    id: 'offline',
+    beforeUpdate(chart) {
+      (chart.data.datasets || []).forEach(function (ds) { if (!ds.segment) ds.segment = LATE_SEGMENT; });
+    },
+    beforeDatasetsDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales.x;
+      if (!ca || !xs) return;
+      const ctx = chart.ctx;
+      const clip = function (a, b) { return [Math.max(ca.left, xs.getPixelForValue(a)), Math.min(ca.right, xs.getPixelForValue(b))]; };
+      const muted = (getComputedStyle(document.documentElement).getPropertyValue('--muted') || '').trim() || '#888';
+      const label = function (text, x1, x2) {
+        ctx.font = '600 10.5px system-ui, sans-serif';
+        if (x2 - x1 < ctx.measureText(text).width + 12) return; // only where it fits
+        ctx.fillStyle = muted;
+        ctx.fillText(text, x1 + 6, ca.top + 13);
+      };
+      ctx.save();
+      // Grey: late spans.
+      lateSpans.forEach(function (s) {
+        const p = clip(s.from, s.to);
+        if (p[1] - p[0] < 1) return;
+        ctx.fillStyle = 'rgba(128,128,128,0.13)';
+        ctx.fillRect(p[0], ca.top, p[1] - p[0], ca.bottom - ca.top);
+        label('Sent later', p[0], p[1]);
+      });
+      // Hatch: breaks in the first line that no late span covers.
+      const ds = chart.data.datasets && chart.data.datasets[0];
+      const data = (ds && ds.data) || [];
+      if (!offlineHatch) {
+        const pc = document.createElement('canvas'); pc.width = 8; pc.height = 8;
+        const g = pc.getContext('2d');
+        g.strokeStyle = 'rgba(128,128,128,0.35)'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(0, 8); g.lineTo(8, 0); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); g.stroke();
+        offlineHatch = ctx.createPattern(pc, 'repeat');
+      }
+      for (let i = 0; i < data.length; i++) {
+        if (!data[i] || data[i].y !== null) continue;
+        const prev = i > 0 ? data[i - 1] : null, next = i + 1 < data.length ? data[i + 1] : null;
+        const a = prev && prev.y !== null ? prev.x : data[i].x;
+        const b = next && next.y !== null ? next.x : (xs.max || data[i].x);
+        if (inLate(a) && inLate(b)) continue;
+        const p = clip(a, b);
+        if (p[1] - p[0] < 1) continue;
+        ctx.fillStyle = offlineHatch;
+        ctx.fillRect(p[0], ca.top, p[1] - p[0], ca.bottom - ca.top);
+        label('No data', p[0], p[1]);
+      }
+      ctx.restore();
+    },
+  };
   // Draws the blue drag-select rectangle while a zoom drag is in progress.
   const selectionPlugin = {
     id: 'selection',
@@ -2358,7 +2427,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -2414,7 +2483,7 @@ function mdmBootCharts() {
         y: { ticks: { color: TICK, callback: v => v + "°C", padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
@@ -2462,7 +2531,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
@@ -2533,7 +2602,7 @@ function mdmBootCharts() {
         },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   unifiedChart._isUnified = true;
   unifiedChart._commandMarkers = commandMarkers;

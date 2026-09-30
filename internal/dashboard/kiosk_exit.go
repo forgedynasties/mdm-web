@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -125,4 +126,15 @@ func (h *Handler) kioskExitFor(r *http.Request, dev *db.Device) *kioskExitView {
 		return nil
 	}
 	return &kioskExitView{KioskExit: *ex, AppName: appNameOf(h.fleetAppIndex(r), ex.Package)}
+}
+
+// lateSpansFor is the device page's first set of offline spans (readings sent later),
+// the last two weeks; the chart adds more as it loads other windows.
+func (h *Handler) lateSpansFor(r *http.Request, dev *db.Device) []db.TimeSpan {
+	now := time.Now()
+	spans, err := h.db.LateSpans(r.Context(), dev.ID, now.Add(-14*24*time.Hour), now, time.Duration(chartGapMs(dev.PollIntervalMs))*time.Millisecond)
+	if err != nil || spans == nil {
+		return []db.TimeSpan{}
+	}
+	return spans
 }

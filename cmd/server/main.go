@@ -413,6 +413,7 @@ func main() {
 
 	// Device-authenticated endpoints (body-size limited)
 	mux.Handle("POST /api/v1/checkin", devicePost(apiHandler.Checkin))
+	mux.Handle("POST /api/v1/checkins/backfill", deviceAuth(middleware.MaxBytes(1<<20, http.HandlerFunc(apiHandler.Backfill))))
 	mux.Handle("POST /api/v1/device-key", devicePost(apiHandler.RegisterDeviceKey))
 	mux.Handle("POST /api/v1/devices/{serial}/key-reset", adminAuth(http.HandlerFunc(apiHandler.ResetDeviceKey)))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
