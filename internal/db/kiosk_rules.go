@@ -142,3 +142,45 @@ func (d *DB) DeviceKeyCounts(ctx context.Context) (own, shared int, err error) {
 		  AND last_seen_at > NOW() - INTERVAL '30 days'`).Scan(&own, &shared)
 	return own, shared, err
 }
+
+// DeviceKeyClaim is what the server already knows about a device that asks to register
+// its own key: the claim must agree with it.
+type DeviceKeyClaim struct {
+	ID         uuid.UUID
+	AgentKind  string
+	BuildID    string
+	LastBootID string
+	HasKey     bool
+	KeyHash    string
+}
+
+func (d *DB) GetDeviceKeyClaim(ctx context.Context, serial string) (*DeviceKeyClaim, error) {
+	var c DeviceKeyClaim
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, COALESCE(agent_kind, ''), COALESCE(build_id, ''), last_boot_id, COALESCE(device_key_hash, '')
+		FROM devices WHERE serial_number = $1`, serial).Scan(&c.ID, &c.AgentKind, &c.BuildID, &c.LastBootID, &c.KeyHash)
+	if err != nil {
+		return nil, err
+	}
+	c.HasKey = c.KeyHash != ""
+	return &c, nil
+}
+
+// ClaimDeviceKey stores a device's own key hash, only if it has none (first claim wins).
+// Reports whether it was stored.
+func (d *DB) ClaimDeviceKey(ctx context.Context, serial, keyHash string) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE devices SET device_key_hash = $2, key_rotated_at = NOW()
+		WHERE serial_number = $1 AND device_key_hash IS NULL`, serial, keyHash)
+	return tag.RowsAffected() == 1, err
+}
+
+// ResetDeviceKey forgets a firmware device's own key so it can register a new one (a
+// device that lost its key after a wipe). Until it does, the shared key works for it
+// again. Reports whether a key was cleared.
+func (d *DB) ResetDeviceKey(ctx context.Context, serial string) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE devices SET device_key_hash = NULL, key_rotated_at = NOW()
+		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL`, serial)
+	return tag.RowsAffected() == 1, err
+}

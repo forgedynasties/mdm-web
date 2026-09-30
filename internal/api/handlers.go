@@ -1101,6 +1101,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceIdentity(w, r, req.SerialNumber) {
 		return
 	}
+	noteCheckinPeer(req.SerialNumber, ratelimit.ClientIP(r))
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
 		return
