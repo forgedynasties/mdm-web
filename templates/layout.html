@@ -866,10 +866,11 @@
       if (!index) return;
       var byUrl = {};
       index.querySelectorAll('a[href]').forEach(function (a) { byUrl[a.getAttribute('href')] = a; });
-      // Exclude the page already promoted into the dock for the current route,
-      // or it would appear twice.
-      var promoted = dock.querySelector('.js-promoted');
-      var promotedHref = promoted ? promoted.getAttribute('href') : null;
+      // Exclude every destination the dock already carries — the fixed items, the one
+      // promoted for this route, and an admin entry the server rendered in — or it
+      // shows twice ("Users" next to "Users").
+      var inDock = {};
+      dock.querySelectorAll('a.nav-link[href]').forEach(function (a) { inDock[a.getAttribute('href')] = true; });
       // Frequent pages go before the search field (the dock's last item).
       var more = dock.querySelector('.dock-search'), first = true, shown = 0;
       FREQ_PATHS.forEach(function (url) {
@@ -877,7 +878,7 @@
         // A path drops out here when it is a detail page rather than a navigation
         // destination (no page-index entry), or when this role cannot open it.
         if (shown >= 3) return;
-        if (url === promotedHref) return;
+        if (inDock[url]) return;
         var src = byUrl[url];
         if (!src) return;
         shown++;

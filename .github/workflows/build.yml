@@ -40,10 +40,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        # TestVisibleIDsAndHiding fails on a clean checkout and predates this pipeline;
-        # it is skipped by name rather than by disabling the gate, so everything else
-        # still blocks a broken image. Remove the -skip once that test is fixed.
-        run: go test ./... -skip 'TestVisibleIDsAndHiding'
+        run: go test ./...
 
       - name: Vet
         # Advisory: the tree has pre-existing vet findings, so this reports without

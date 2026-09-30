@@ -303,9 +303,12 @@ func (a *access) filterDevices(action string, ids []uuid.UUID) ([]uuid.UUID, int
 	return kept, len(ids) - len(kept)
 }
 
-// hidesDevices reports whether devices this user cannot view are removed from
-// lists (vs shown with actions disabled). Viewers and owners always hide: there
-// is nothing to disable for them.
+// hidesDevices reports whether devices this user cannot view are removed from lists.
+// "See device" is the visibility grant, so a device without it is hidden, for every
+// role. It used to take a second switch (HideOutOfScope) for operators and devs; with
+// it off, a user allowed to see one device was still listed the whole fleet read-only,
+// which is not what "See device" says (30 Sep access audit). A device the user may see
+// but not act on still shows, read-only.
 func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
@@ -313,10 +316,7 @@ func (a *access) hidesDevices() bool {
 	if a.role == "owner" {
 		return true
 	}
-	if a.role == "viewer" {
-		return a.hasViewRestriction()
-	}
-	return a.pol.HideOutOfScope && a.hasViewRestriction()
+	return a.hasViewRestriction()
 }
 
 func (a *access) hasViewRestriction() bool {

@@ -238,10 +238,8 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	for _, g := range pol.Grants {
 		out = append(out, grantSentence(g))
 	}
-	if pol.HideOutOfScope {
-		out = append(out, "Devices they cannot see are hidden from every list.")
-	} else if u.Role != "viewer" && (pol.Base == "deny" || len(pol.Grants) > 0) {
-		out = append(out, "Devices they cannot see still appear, with actions disabled.")
+	if pol.Base == "deny" || len(pol.Grants) > 0 {
+		out = append(out, "Devices they cannot see are hidden from every list; devices they can see but not act on are read-only.")
 	}
 	return out
 }
@@ -466,7 +464,9 @@ func (h *Handler) UserAccessSetBase(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("base") == "deny" {
 		pol.Base = "deny"
 	}
-	pol.HideOutOfScope = r.FormValue("hide_out_of_scope") == "1"
+	// Hiding is no longer a choice: a device without "See device" is hidden (see
+	// access.hidesDevices). The stored flag is cleared so it cannot mislead.
+	pol.HideOutOfScope = false
 	if err := h.db.SetUserAccess(r.Context(), u.ID, pol); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
 		return

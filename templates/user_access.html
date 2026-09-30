@@ -244,9 +244,9 @@
         <form class="ua-pad" id="ua-base" hx-boost="false" action="/users/{{.User.ID}}/access/base" method="POST" onsubmit="return false">
           <div class="ua-tiles">
             <label class="ua-tile"><input type="radio" name="base" value="allow"{{if ne .Policy.Base "deny"}} checked{{end}}><b>Everything, then exclude</b><span>Starts with all {{.RoleLower}} powers on every device. Add <b style="display:inline">deny</b> rules to carve things out.</span></label>
-            <label class="ua-tile"><input type="radio" name="base" value="deny"{{if eq .Policy.Base "deny"}} checked{{end}}><b>Nothing, then include</b><span>Starts with no access at all. Add <b style="display:inline">allow</b> rules for exactly what they may do, and where.</span></label>
+            <label class="ua-tile"><input type="radio" name="base" value="deny"{{if eq .Policy.Base "deny"}} checked{{end}}><b>Nothing, then include</b><span>Starts with no access at all, and no devices in view. Add <b style="display:inline">allow</b> rules for exactly what they may see and do, and where.</span></label>
           </div>
-          <label class="ua-switch"><input type="checkbox" name="hide_out_of_scope" value="1"{{if .Policy.HideOutOfScope}} checked{{end}}> Hide devices they can't see from every list <span class="muted small">(otherwise those devices show up with actions disabled)</span></label>
+          <p class="muted small" style="margin:10px 0 0">A device appears in their lists only if they may <b>see</b> it; one they can see but not act on is read-only.</p>
         </form>
       </div>
       {{end}}
