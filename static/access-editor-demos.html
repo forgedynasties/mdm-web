@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Access editor · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:44px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:20px}
+.who{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.av{width:40px;height:40px;border-radius:50%;background:var(--brand-grad,var(--accent));color:#fff;display:grid;place-items:center;font-weight:700}
+.who b{font-size:18px;letter-spacing:-.01em}
+.role{font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;background:var(--warn-bg);color:var(--warn);margin-left:6px}
+.ed{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
+@media(max-width:1024px){.ed{grid-template-columns:1fr}}
+.q{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;margin-bottom:12px}
+.q h3{font-size:14px;margin:0 0 3px}
+.q .hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.q .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);font-size:12px;font-weight:700;margin-right:8px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.opt{border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;background:var(--surface)}
+.opt b{display:block;font-size:13.5px}
+.opt small{color:var(--muted);font-size:12px;line-height:1.45;display:block;margin-top:2px}
+.opt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:12.5px;font-weight:600;background:var(--surface)}
+.chip.on{border-color:var(--accent);background:var(--accent-soft,var(--surface-3))}
+.chip small{color:var(--muted);font-weight:500}
+.chip .x{color:var(--muted)}
+.more{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--border);margin-top:12px;padding-top:10px}
+.prev{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;position:sticky;top:12px;font-size:13px;line-height:1.55}
+.prev h3{font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.prev .big{font-size:26px;font-weight:600;letter-spacing:-.02em}
+.prev ul{margin:8px 0 0;padding-left:18px;color:var(--text-2)}
+.prev .no{color:var(--muted)}
+.foot{display:flex;justify-content:flex-end;gap:8px}
+table.gr{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table.gr th,table.gr td{padding:10px 12px;border-top:1px solid var(--border-soft);text-align:center}
+table.gr th{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+table.gr td:first-child,table.gr th:first-child{text-align:left}
+.ck{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;border:1.5px solid var(--border)}
+.ck.on{background:var(--accent);border-color:var(--accent);color:#fff;font-size:12px}
+.pl{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.2fr) auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--border-soft);font-size:13px}
+.pl:first-child{border-top:0}
+.pl .m{color:var(--muted);font-size:12px}
+@media(max-width:720px){.pl{grid-template-columns:1fr}}
+.prof{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.prof .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.prof .card b{font-size:14px}
+.prof .card p{font-size:12.5px;color:var(--muted);margin:4px 0 8px;line-height:1.5}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Setting up someone's access</h1>
+<p class="lead">Today you set a <b>starting point</b> (everything, or nothing), then add <b>allow</b> and <b>deny</b> rules, each with a place and a list of about 17 actions. Both of today's "they can see everything" reports came from this: the right answer needed three separate settings to agree. The options below keep the same permissions engine and change how you describe them. The people are real, set up as they are on live today.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a" class="rec">A · Two questions ★</a><a href="#b">B · Places × powers</a><a href="#c">C · Access profiles</a><a href="#list">The people list</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current <span class="tag live">Deployed</span></h2>
+<div class="scr" style="font-size:13px;line-height:1.7;color:var(--text-2)">
+  <b>Starting point</b>: ( ) Everything, then exclude · (●) Nothing, then include<br>
+  <b>Rules</b>: <span class="cc-tag ok">allow</span> Flights Vegas <span class="k">venue</span> · See device<br>
+  <b>Add rule</b> → 1 Effect (Allow / Deny) → 2 Where (search venue, group, serial, or paste serials) → 3 Which actions (17 checkboxes in 6 groups, "Any action") → 4 Why + Expires<br>
+  Side: <b>In plain words</b> · <b>Check a device</b>
+</div>
+
+<h2 class="sec" id="a">A · Two questions: where, and what <span class="tag rec">Recommended</span></h2>
+<p class="desc">The page asks exactly what you mean: which devices they can see, and what they may do on them. "What" is a short list of ready-made levels, with the full checklist behind "Custom". Exceptions (deny rules, time limits) sit under "More", out of the way. A preview on the right says, in numbers, what the person will get. Shown for Ali Hassan as he is today.</p>
+<div class="scr">
+  <div class="who"><span class="av">AH</span><div><b>Ali Hassan</b><span class="role">Super op</span><div style="font-size:12.5px;color:var(--muted)">muhammadali.hassan@aioapp.com</div></div></div>
+  <div class="ed">
+    <div>
+      <div class="q"><h3><span class="n">1</span>Which devices can they see?</h3><p class="hint">Devices outside this are hidden everywhere: lists, alerts, map, counts.</p>
+        <div class="opts"><div class="opt"><b>Every device</b><small>The whole fleet, 181 devices.</small></div><div class="opt on"><b>Only these</b><small>Restaurants, groups or single devices.</small></div></div>
+        <div class="chips"><span class="chip on">Flights Vegas <small>restaurant · 20</small> <span class="x">×</span></span><span class="chip">+ Add a restaurant, group or device</span></div></div>
+      <div class="q"><h3><span class="n">2</span>What can they do there?</h3><p class="hint">Up to what a super op can ever do.</p>
+        <div class="opts">
+          <div class="opt on"><b>Look only</b><small>See devices and alerts. No commands.</small></div>
+          <div class="opt"><b>Look and fix</b><small>Screenshot, restart, reload the app, kiosk, run diagnostics, collect logs.</small></div>
+          <div class="opt"><b>Manage apps too</b><small>Everything in "fix", plus install and remove apps.</small></div>
+          <div class="opt"><b>Everything a super op can</b><small>Including remote control and firmware updates.</small></div>
+          <div class="opt"><b>Custom…</b><small>Pick actions one by one.</small></div>
+        </div>
+        <div class="more">More: <u>exceptions</u> (e.g. everything except OTA at Huanchaco) · <u>time limit</u> (e.g. for 7 days)</div></div>
+      <div class="foot"><span class="cc-btn">Cancel</span><span class="cc-btn primary">Save</span></div>
+    </div>
+    <div class="prev"><h3>Ali will</h3><div class="big">20 devices</div><div style="color:var(--muted)">see, at Flights Vegas</div>
+      <ul><li>see them, their alerts and history</li><li class="no">not run any command</li><li class="no">not see the other 161 devices or other restaurants</li></ul>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">Check a device: <u>AT070AABU00489</u> → can see, can't restart</div></div>
+  </div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>One place for "where"; one for "what". No starting point, no allow/deny to reason about.</li><li>The common setups are one click each; the preview says the result before saving.</li><li>Shahrukh's setup (install, remove, kiosk, screenshot at two restaurants) fits: two chips + "Custom".</li></ul></div>
+<div><b>Bad at</b><ul><li>Different powers at different places (fix at one restaurant, look only at another) needs "More → exceptions" or a second entry.</li></ul></div></div>
+
+<h2 class="sec" id="b">B · A grid of places and powers</h2>
+<p class="desc">Rows are the places they cover, columns are groups of powers. Every mix is visible and one click to change.</p>
+<div class="scr">
+  <div class="who"><span class="av">SB</span><div><b>Shahrukh Bashir</b><span class="role" style="background:var(--info-bg);color:var(--info)">Operator</span></div></div>
+  <table class="gr"><thead><tr><th>Place</th><th>See</th><th>Screenshot</th><th>Restart / reload</th><th>Apps</th><th>Kiosk</th><th>Diagnostics</th><th>Remote</th></tr></thead><tbody>
+  <tr><td><b>Flights Vegas</b> <span style="color:var(--muted);font-size:12px">restaurant · 20</span></td><td><span class="ck on">✓</span></td><td><span class="ck on">✓</span></td><td><span class="ck"></span></td><td><span class="ck on">✓</span></td><td><span class="ck on">✓</span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+  <tr><td><b>Huanchaco Peruvian</b> <span style="color:var(--muted);font-size:12px">restaurant · 8</span></td><td><span class="ck on">✓</span></td><td><span class="ck on">✓</span></td><td><span class="ck"></span></td><td><span class="ck on">✓</span></td><td><span class="ck on">✓</span></td><td><span class="ck"></span></td><td><span class="ck"></span></td></tr>
+  <tr><td style="color:var(--muted)">+ Add a place</td><td colspan="7"></td></tr>
+  </tbody></table>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Shows different powers per place at a glance.</li></ul></div>
+<div><b>Bad at</b><ul><li>Wide; hard on a phone.</li><li>Seven columns of decisions even when all you want is "look only".</li></ul></div></div>
+
+<h2 class="sec" id="c">C · Access profiles</h2>
+<p class="desc">Define a few named profiles once ("Restaurant support", "Field tech", "Viewer"), then give each person a profile and their places. Changing a profile changes everyone on it.</p>
+<div class="scr">
+  <div class="prof">
+    <div class="card"><b>Restaurant support</b><p>Look and fix, plus install and remove apps and kiosk.</p><span class="cc-tag">Shahrukh Bashir</span></div>
+    <div class="card"><b>Watch only</b><p>See devices and alerts, no commands.</p><span class="cc-tag">Ali Hassan</span> <span class="cc-tag">Aaron Paul</span></div>
+    <div class="card"><b>Full access</b><p>Everything their role allows on every device, remote control included.</p><span class="cc-tag">Tariq Jamil</span> <span class="cc-tag">demo</span></div>
+  </div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Scales: new staff get a profile, not a hand-built set.</li><li>Consistent: two people with the same job get the same powers.</li></ul></div>
+<div><b>Bad at</b><ul><li>One more thing to manage for 24 accounts, few of them limited today.</li><li>A one-off exception means a new profile or a per-person override.</li></ul></div></div>
+
+<h2 class="sec" id="list">The people list (goes with any option)</h2>
+<p class="desc">One line per person, saying in plain words what they can see and do, so a wrong setup is visible without opening anyone.</p>
+<div class="scr"><div class="cc-card">
+  <div class="pl"><div><b>Ali Hassan</b> <span class="role">Super op</span></div><div>Sees <b>Flights Vegas</b> <span class="m">20 devices</span></div><div>Look only</div><span class="cc-btn sm">Edit</span></div>
+  <div class="pl"><div><b>Shahrukh Bashir</b> <span class="role" style="background:var(--info-bg);color:var(--info)">Operator</span></div><div>Sees <b>Flights Vegas, Huanchaco</b> <span class="m">28 devices</span></div><div>Screenshot, apps, kiosk</div><span class="cc-btn sm">Edit</span></div>
+  <div class="pl"><div><b>Talmiz ur Rehman</b> <span class="role">Dev</span></div><div>Sees <b>AT070AABU00606</b> <span class="m">1 device</span></div><div>Look only</div><span class="cc-btn sm">Edit</span></div>
+  <div class="pl"><div><b>Tariq Jamil</b> <span class="role">Super op</span></div><div>Sees <b>every device</b></div><div>Everything a super op can, remote included</div><span class="cc-btn sm">Edit</span></div>
+</div></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A, the two questions, with the people list.</b> It removes the three-settings trap behind both of today's reports: "which devices can they see" is one answer, and it hides everything else, no switch needed. Every current setup maps onto it without changing anyone's access: Ali and Talmiz are "only these + look only", Shahrukh is "only these + custom", Tariq and demo are "every device + everything, remote included". Profiles (C) can come later if the team grows.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>
