@@ -238,6 +238,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 
 type Handler struct {
 	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
+	onKeyReset  func(serial string)    // tells the device API a key was reset (SetKeyResetHook)
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -6388,6 +6389,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
 		"AgentUpdate":         h.agentUpdateFor(r, device),
+		"KeyCred":             h.keyCredentialFor(r.Context(), device),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.
@@ -7752,7 +7754,9 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// Problems: the alerts open on one device worked as one, worst first.
 	names := h.actorDisplayNames(r.Context())
 	var needs, watching, snoozed []problemView
+	isAdmin := h.role(r) == "admin"
 	for _, p := range buildProblems(active, hs, names) {
+		p.KeyReset = p.KeyReset && isAdmin // resetting a key is admin-only
 		switch {
 		case p.Snoozed:
 			snoozed = append(snoozed, p)
@@ -18916,6 +18920,7 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// Kiosk rules are enforced, not applied once: devices that joined or left a
 	// rule's target, or installed its app, are brought in line every minute.
 	h.reconcileKiosk(ctx)
+	h.checkKeyResets(ctx)
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -19802,6 +19807,8 @@ func alertTypeCatalog() []alertTypeGroup {
 		add(d.Category, d.Type, d.Label)
 	}
 	add("Lifecycle", "new_device", "New device onboarded")
+	add("Security", "identity_conflict", "Possible impersonation")
+	add("Security", "key_not_registered", "Key not registered after a reset")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -21551,6 +21558,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.deviceRoute("view", h.DeviceSetPollInterval)))
 	post("POST /devices/{serial}/move-server", h.requireStrictAdmin(h.deviceRoute("shell", h.DeviceMoveServer)))
+	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))

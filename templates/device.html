@@ -3314,8 +3314,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="en-grp">Identity</div>
     {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
     {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
-    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Credential</span><span class="v">{{if .IsDPC}}Per-device key{{else}}Fleet device key{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
+    <div class="ddc-kv" id="credential-row"><span class="k">Credential</span><span class="v wrap">{{if .IsDPC}}Per-device key{{else}}{{with .KeyCred}}{{if .Own}}<span class="en-key"><span class="dot"></span>Own key</span>{{if .Since}} <span class="muted small">· since {{shortDate .Since}}</span>{{end}}{{else if .CanReg}}<span class="en-key warn"><span class="dot"></span>Shared key</span> <span class="muted small">· {{if .ResetAt}}reset {{timeSince .ResetAt}}; {{end}}registers its own at the next check-in</span>{{else}}<span class="en-key mut"><span class="dot"></span>Shared key</span> <span class="muted small">· needs client 1.6.0</span>{{if and $.AgentUpdate.Available (canOperate $.Role)}} <form method="POST" action="/devices/{{$.Device.SerialNumber}}/commands" style="display:inline;margin:0" hx-confirm="Update the agent on {{$.Device.SerialNumber}} to {{$.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="cc-btn sm">Update agent</button></form>{{end}}{{end}}{{else}}Fleet device key{{end}}{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
 
     <div class="en-grp">Settings</div>
@@ -3342,6 +3342,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="en-danger-t">Careful</div>
       <div class="en-danger-btns">
         {{if and (canAdmin .Role) (not .IsDPC)}}<button type="button" class="cc-btn sm" onclick="document.getElementById('move-server-dlg').showModal()">Move to another server…</button>{{end}}
+        {{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-btn sm danger" onclick="document.getElementById('key-reset-dlg').showModal()">Reset device key…</button>{{end}}{{end}}
         {{if .Device.Retired}}
         <form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm">Back to the fleet</button></form>
         {{else}}
@@ -3349,7 +3350,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
         {{end}}
         {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm en-wipe">Factory wipe</button></form>{{end}}
       </div>
-      <div class="en-danger-note">Retiring keeps the history. A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
+      <div class="en-danger-note">Retiring keeps the history.{{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}} Resetting the key lets the device register a new one; until it does, the shared key works for it again.{{end}}{{end}} A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
     </div>
 
     {{if and (canAdmin .Role) (not .IsDPC)}}
@@ -3357,6 +3358,28 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
          persist.sys.mdm.url at startup, so this writes the property and reboots into
          it. After that the device reports THERE, not here — hence admin-only and a
          confirm that says so. */}}
+    {{if .KeyCred}}{{if .KeyCred.Own}}
+    <dialog id="key-reset-dlg" class="en-dlg">
+      <form method="POST" action="/devices/{{.Device.SerialNumber}}/key-reset" hx-boost="false">
+        <h4>Reset the key of {{.Device.SerialNumber}}?</h4>
+        <p class="small">Only when the device has lost its key and is now refused. What happens:</p>
+        <ul class="small en-dlg-list">
+          <li>The server forgets its key. The device registers a new one at its next check-in, within 5 minutes.</li>
+          <li>Until then, anything holding the shared key can act as this device. The shared key is public.</li>
+          <li>If it doesn't register within an hour, you'll get an alert.</li>
+        </ul>
+        <div class="en-dlg-why">
+          <label><input type="radio" name="why" value="wiped" checked> It was factory reset or had its data cleared</label>
+          <label><input type="radio" name="why" value="reflashed"> Its firmware was reflashed</label>
+          <label><input type="radio" name="why" value="other"> Something else <input type="text" name="note" class="form-input" maxlength="200" placeholder="What happened" style="width:auto;flex:1;min-width:0"></label>
+        </div>
+        <div class="en-dlg-btns">
+          <button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="cc-btn danger sm">Reset key</button>
+        </div>
+      </form>
+    </dialog>
+    {{end}}{{end}}
     <dialog id="move-server-dlg" class="en-dlg">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/move-server" hx-boost="false"
             onsubmit="return confirm('Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.')">
@@ -3987,6 +4010,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     }
   }
   window.setDeviceTab = setDeviceTab;
+  // "Reset its key…" on an impersonation alert lands here: open Settings and the dialog.
+  if (location.hash === '#reset-key') {
+    var kd = document.getElementById('key-reset-dlg'), kt = document.getElementById('dd-tab-settings');
+    if (kd && kt) { setDeviceTab('settings', kt); kd.showModal(); }
+  }
 
   // Client pill popover: open on click, close on the next click outside or Escape.
   // The hero clips its overflow, so the wrapper carries .open for the :has() rule

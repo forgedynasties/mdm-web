@@ -77,6 +77,10 @@ func noteKeyClaimMiss(serial string) int {
 	return len(kept)
 }
 
+// ForgetOwnKey drops the cached "has its own key" answer for a serial (the dashboard
+// calls it after resetting a key, so the device can check in again at once).
+func (h *Handler) ForgetOwnKey(serial string) { forgetOwnKey(serial) }
+
 func forgetOwnKey(serial string) {
 	ownKeyCache.Lock()
 	delete(ownKeyCache.m, serial)
@@ -163,7 +167,7 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 		refuse("build differs from the device's last report")
 		return
 	}
-	stored, err := h.db.ClaimDeviceKey(ctx, req.Serial, req.KeySHA256)
+	stored, afterReset, err := h.db.ClaimDeviceKey(ctx, req.Serial, req.KeySHA256)
 	if err != nil {
 		log.Printf("[device-key] %s: %v", req.Serial, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
@@ -175,6 +179,12 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 	}
 	forgetOwnKey(req.Serial)
 	log.Printf("[device-key] %s registered its own key from %s", req.Serial, ip)
+	// Back after an admin reset: the refusals it raised while key-less were it, and the
+	// "hasn't registered" warning is answered.
+	_, _ = h.db.ResolveOpenAlert(ctx, "key_not_registered", claim.ID)
+	if afterReset {
+		_, _ = h.db.ResolveOpenAlert(ctx, "identity_conflict", claim.ID)
+	}
 	h.hub.PublishDeviceUpdate(claim.ID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

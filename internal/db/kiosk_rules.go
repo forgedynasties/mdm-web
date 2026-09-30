@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // KioskState is one device's kiosk configuration and what it last reported, for the
@@ -167,12 +169,17 @@ func (d *DB) GetDeviceKeyClaim(ctx context.Context, serial string) (*DeviceKeyCl
 }
 
 // ClaimDeviceKey stores a device's own key hash, only if it has none (first claim wins).
-// Reports whether it was stored.
-func (d *DB) ClaimDeviceKey(ctx context.Context, serial, keyHash string) (bool, error) {
-	tag, err := d.pool.Exec(ctx, `
-		UPDATE devices SET device_key_hash = $2, key_rotated_at = NOW()
-		WHERE serial_number = $1 AND device_key_hash IS NULL`, serial, keyHash)
-	return tag.RowsAffected() == 1, err
+// Reports whether it was stored, and whether it followed an admin reset.
+func (d *DB) ClaimDeviceKey(ctx context.Context, serial, keyHash string) (stored, afterReset bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		UPDATE devices d SET device_key_hash = $2, key_rotated_at = NOW(), key_reset_at = NULL
+		FROM (SELECT id, key_reset_at FROM devices WHERE serial_number = $1 FOR UPDATE) old
+		WHERE d.id = old.id AND d.device_key_hash IS NULL
+		RETURNING old.key_reset_at IS NOT NULL`, serial, keyHash).Scan(&afterReset)
+	if err == pgx.ErrNoRows {
+		return false, false, nil
+	}
+	return err == nil, afterReset, err
 }
 
 // ResetDeviceKey forgets a firmware device's own key so it can register a new one (a
@@ -180,7 +187,44 @@ func (d *DB) ClaimDeviceKey(ctx context.Context, serial, keyHash string) (bool, 
 // again. Reports whether a key was cleared.
 func (d *DB) ResetDeviceKey(ctx context.Context, serial string) (bool, error) {
 	tag, err := d.pool.Exec(ctx, `
-		UPDATE devices SET device_key_hash = NULL, key_rotated_at = NOW()
+		UPDATE devices SET device_key_hash = NULL, key_reset_at = NOW()
 		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL`, serial)
 	return tag.RowsAffected() == 1, err
+}
+
+// DeviceKeyState is what the device page says about a device's credential.
+type DeviceKeyState struct {
+	Own     bool
+	Since   *time.Time // when it registered its current key
+	ResetAt *time.Time // an admin reset it and it has not registered since
+}
+
+func (d *DB) GetDeviceKeyState(ctx context.Context, id uuid.UUID) (DeviceKeyState, error) {
+	var s DeviceKeyState
+	err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE(device_key_hash, '') <> '', key_rotated_at, key_reset_at FROM devices WHERE id = $1`, id).
+		Scan(&s.Own, &s.Since, &s.ResetAt)
+	return s, err
+}
+
+// OverdueKeyResets lists devices reset longer ago than age that have not registered.
+func (d *DB) OverdueKeyResets(ctx context.Context, age time.Duration) (map[uuid.UUID]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, serial_number FROM devices
+		WHERE key_reset_at IS NOT NULL AND device_key_hash IS NULL AND key_reset_at < NOW() - $1::interval`,
+		fmt.Sprintf("%d seconds", int(age.Seconds())))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]string{}
+	for rows.Next() {
+		var id uuid.UUID
+		var s string
+		if err := rows.Scan(&id, &s); err != nil {
+			return nil, err
+		}
+		out[id] = s
+	}
+	return out, rows.Err()
 }

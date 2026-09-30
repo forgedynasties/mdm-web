@@ -41,6 +41,7 @@ type problemView struct {
 	AppIcon    string
 	Search     string
 	CanAct     bool
+	KeyReset   bool // an impersonation alert: the device may have lost its key
 }
 
 type problemSymptom struct {
@@ -248,6 +249,11 @@ func deviceProblem(key string, as []db.Alert, hs []humanAlert, users map[string]
 	}
 	if p.Serial != "" {
 		p.Href, p.HrefLabel = "/devices/"+p.Serial, "Open device"
+		for _, a := range as {
+			if a.Type == "identity_conflict" {
+				p.KeyReset = true
+			}
+		}
 	}
 	if hs[0].Primary != nil && len(as) == 1 && p.Cause.Key == "crash" {
 		p.Href, p.HrefLabel = hs[0].Primary.Href, hs[0].Primary.Label

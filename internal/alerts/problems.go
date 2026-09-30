@@ -66,6 +66,10 @@ func CauseOf(types []string) Cause {
 		return Cause{"memory", "Low memory", "It is short of memory, which makes apps slow or restart."}
 	case any("wifi_weak", "wifi_unstable"):
 		return Cause{"wifi", "Weak Wi-Fi", "Its Wi-Fi signal is weak or keeps dropping."}
+	case has["identity_conflict"]:
+		return Cause{"identity", "Possible impersonation", "Something used this device's serial without its own key. If the device was just factory reset or had its data cleared, it is asking to come back: reset its key."}
+	case has["key_not_registered"]:
+		return Cause{"identity", "Key not registered", "Its key was reset over an hour ago and it has not registered a new one. Until it does, the shared key works for it."}
 	case has["new_device"]:
 		return Cause{"new", "New device", "A device checked in for the first time."}
 	}
