@@ -82,25 +82,53 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 	return true
 }
 
-// wsPeers remembers the address of each device's current socket.
+// wsPeers remembers the address of each device's current socket, and when the device
+// last moved its socket from one address to another while the old one was still open.
 var wsPeers struct {
 	sync.Mutex
-	ip map[uuid.UUID]string
+	ip    map[uuid.UUID]string
+	flips map[uuid.UUID][]time.Time
 }
 
-// noteSocketPeer records a new socket's address and alerts when the device already
-// had a live socket from a different address.
+// A device that changes networks (Wi-Fi to another uplink, a dual-WAN site switching
+// lines) opens its new socket before the server notices the old one is dead, so one
+// move between addresses is normal. Two devices using the same serial are different:
+// each new socket makes the server drop the other, which reconnects within seconds, so
+// the serial keeps flipping between two addresses. Alert on that, not on a single move.
+const (
+	socketFlipWindow = 10 * time.Minute
+	socketFlipAlert  = 3
+)
+
+// noteSocketPeer records a new socket's address and alerts when the device keeps
+// moving between addresses while its previous socket is still open.
 func (h *Handler) noteSocketPeer(ctx context.Context, deviceID uuid.UUID, serial, ip string) {
 	wsPeers.Lock()
 	if wsPeers.ip == nil {
 		wsPeers.ip = map[uuid.UUID]string{}
+		wsPeers.flips = map[uuid.UUID][]time.Time{}
 	}
 	prev := wsPeers.ip[deviceID]
 	wsPeers.ip[deviceID] = ip
-	wsPeers.Unlock()
+	flips := 0
 	if prev != "" && prev != ip && h.hub.IsConnected(deviceID) {
-		log.Printf("[device-auth] %s connected from %s while connected from %s", serial, ip, prev)
-		h.raiseIdentityAlert(ctx, serial, "Connected from two addresses at once", ip, prev)
+		var kept []time.Time
+		for _, t := range wsPeers.flips[deviceID] {
+			if time.Since(t) < socketFlipWindow {
+				kept = append(kept, t)
+			}
+		}
+		kept = append(kept, time.Now())
+		wsPeers.flips[deviceID] = kept
+		flips = len(kept)
+	}
+	wsPeers.Unlock()
+	if flips == 0 {
+		return
+	}
+	log.Printf("[device-auth] %s connected from %s while connected from %s (%d in %s)", serial, ip, prev, flips, socketFlipWindow)
+	if flips >= socketFlipAlert {
+		h.raiseIdentityAlert(ctx, serial, fmt.Sprintf("Connected from two addresses in turn, %d times in %d minutes", flips, int(socketFlipWindow.Minutes())), ip, prev)
 	}
 }
 
