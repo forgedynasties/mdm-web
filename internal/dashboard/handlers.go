@@ -2186,18 +2186,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	case strings.HasPrefix(path, "/releases"):
 		// One dock entry ("Updates") covers releases and rollouts alike.
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/updates-policy"):
-		data["ActivePage"] = "updates-policy"
 	case strings.HasPrefix(path, "/updates"):
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/network"):
-		data["ActivePage"] = "network"
-	case strings.HasPrefix(path, "/compliance"):
-		data["ActivePage"] = "compliance"
-	case strings.HasPrefix(path, "/geofencing"):
-		data["ActivePage"] = "geofencing"
-	case strings.HasPrefix(path, "/setup/managed-configs"):
-		data["ActivePage"] = "managed-configs" // lives under the Policies hub
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -6385,6 +6375,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
+	// The kiosk rule covering this device, and whether it was overridden by hand.
+	kioskRule := h.kioskRuleFor(r.Context(), *device)
+	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
+	if kioskRule == nil {
+		kioskOverride = false
+	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -6447,6 +6443,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"KioskRule":           kioskRule,
+		"KioskOverride":       kioskOverride,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"Security":            h.securityFor(r.Context(), device),
@@ -11072,6 +11070,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markKioskManual(r.Context(), deviceIDs)
 	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
 	verb := "Disabled kiosk on"
 	if enabled {
@@ -17231,6 +17230,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markKioskManual(r.Context(), ids)
 	h.pushKioskConfigToDevices(r.Context(), ids)
 	verb := "Enabled"
 	if !enabled {
@@ -17294,339 +17294,6 @@ func manageTargetLabel(p db.KioskPolicy, restaurants []db.Restaurant, groups []d
 	default:
 		return "—"
 	}
-}
-
-// Manage renders the standing device-configuration page: named kiosk policies (more
-// policy types — e.g. charging-pad — land here later), not a device list or a
-// one-shot bulk-apply form. A policy is a durable object (create/edit/duplicate/
-// delete); applying one writes device_config directly, same mechanism the page
-// always used, just now remembered as a named thing instead of a fire-and-forget
-// action. See resolvePolicyTargetIDs for what "device count" means here.
-func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	policies, err := h.db.ListKioskPolicies(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	restaurants, _ := h.db.ListRestaurants(ctx)
-	groups, _ := h.db.ListGroups(ctx)
-	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
-	pkgNames := make(map[string]string, len(fleetPackages))
-	for _, p := range fleetPackages {
-		if p.AppName != "" {
-			pkgNames[p.PackageName] = p.AppName
-		}
-	}
-
-	type policyView struct {
-		db.KioskPolicy
-		AppName      string
-		TargetLabel  string
-		DeviceCount  int
-		CoveragePct  int
-		Unsupported  int // targets whose agent cannot lock the screen
-	}
-	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
-	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
-
-	type resolved struct {
-		p   db.KioskPolicy
-		ids []uuid.UUID
-	}
-	resolvedPolicies := make([]resolved, 0, len(policies))
-	covered := 0
-	groupTargets := map[uuid.UUID]bool{}
-	// Mixed fleet: a kiosk policy only lands on devices whose agent can lock the
-	// screen. Count, per policy and overall, the targets that cannot honour it, and
-	// split coverage by kind so it is obvious when a policy misses one side.
-	coveredByKind := map[string]int{}
-	unsupportedByPolicy := map[uuid.UUID]int{}
-	seenCovered := map[uuid.UUID]bool{}
-	for _, p := range policies {
-		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
-		resolvedPolicies = append(resolvedPolicies, resolved{p, ids})
-		covered += len(ids)
-		if p.TargetType == "group" && p.TargetID != nil {
-			groupTargets[*p.TargetID] = true
-		}
-		if devs, err := h.db.GetDevicesByIDs(ctx, ids); err == nil {
-			for _, d := range devs {
-				if !d.Supports("kiosk_set") {
-					unsupportedByPolicy[p.ID]++
-				}
-				if !seenCovered[d.ID] {
-					seenCovered[d.ID] = true
-					coveredByKind[d.AgentKind]++
-				}
-			}
-		}
-	}
-	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx, h.access(r).hidesDPC())
-	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
-	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
-	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
-	// still sitting in a targeted group), so a raw fleet count can undercount.
-	if covered > totalDevices {
-		totalDevices = covered
-	}
-
-	views := make([]policyView, 0, len(resolvedPolicies))
-	for _, rp := range resolvedPolicies {
-		appName := rp.p.KioskPackage
-		if n, ok := pkgNames[rp.p.KioskPackage]; ok {
-			appName = n
-		}
-		pct := 0
-		if totalDevices > 0 {
-			pct = len(rp.ids) * 100 / totalDevices
-			if pct == 0 && len(rp.ids) > 0 {
-				pct = 1
-			}
-		}
-		views = append(views, policyView{
-			KioskPolicy: rp.p, AppName: appName,
-			TargetLabel: manageTargetLabel(rp.p, restaurants, groups),
-			DeviceCount: len(rp.ids),
-			CoveragePct: pct,
-			Unsupported: unsupportedByPolicy[rp.p.ID],
-		})
-	}
-
-	// "Default" — devices with no lock applied. Read live off device_config rather
-	// than derived set-subtraction from policy targets: a device can be unlocked
-	// directly (device page) without ever being "released" by a policy, and the
-	// stored device_config row is the actual truth of what's on the device.
-
-	role := h.role(r)
-	h.render(w, r, "manage.html", map[string]any{
-		"Title":          "Manage",
-		"Policies":       views,
-		"PolicyCount":    len(views),
-		"CoveredCount":   covered,
-		"UnlockedCount":  unlockedCount,
-		"TotalDevices":   totalDevices,
-		"GroupsTargeted": len(groupTargets),
-		"Restaurants":    restaurants,
-		"Groups":         groups,
-		"CanEdit":        roleCanOperate(role),
-		"CoveredFirmware": coveredByKind["firmware"],
-		"CoveredDPC":      coveredByKind["dpc"],
-		// Targets that resolve to inactive (hidden) devices: counted in "covered"
-		// but not in either kind, since the split reads active devices only.
-		"CoveredInactive": covered - coveredByKind["firmware"] - coveredByKind["dpc"],
-		"FleetFirmware":   fleetFirmware,
-		"FleetDPC":        fleetDPC,
-		"ActivePage":      "manage",
-	})
-}
-
-// managePolicyFormData builds the data every new/edit policy form page needs:
-// target pickers (restaurant/group dropdowns + a searchable device list) and the
-// app picker. Shared so the two page handlers below stay in sync.
-func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
-	ctx := r.Context()
-	restaurants, _ := h.db.ListRestaurants(ctx)
-	groups, _ := h.db.ListGroups(ctx)
-	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
-	devices, _ := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 10000, "", "")
-	connected := h.hub.ConnectedIDsForDisplay()
-	online := make(map[uuid.UUID]bool, len(connected))
-	for id := range connected {
-		online[id] = true
-	}
-	role := h.role(r)
-	return map[string]any{
-		"Restaurants":   restaurants,
-		"Groups":        groups,
-		"Devices":       devices,
-		"Online":        online,
-		"FleetPackages": fleetPackages,
-		"CanEdit":       roleCanOperate(role),
-	}
-}
-
-// ManagePolicyNew renders the "new kiosk policy" page — a standalone page rather
-// than a modal, so the target/app pickers have room to be more than cramped popup
-// widgets.
-func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	data := h.managePolicyFormData(r)
-	data["Title"] = "New kiosk policy"
-	h.render(w, r, "manage_policy_form.html", data)
-}
-
-// ManagePolicyEditPage renders the same form pre-filled for an existing policy.
-func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	policy, err := h.db.GetKioskPolicy(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	data := h.managePolicyFormData(r)
-	data["Title"] = "Edit kiosk policy"
-	data["Policy"] = policy
-	h.render(w, r, "manage_policy_form.html", data)
-}
-
-// ManagePolicySave creates a new kiosk policy or updates an existing one (an "id"
-// form field selects update), then immediately applies it to its target's current
-// devices — same write path applyKioskForTargets always used.
-func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	r.ParseForm()
-	name := strings.TrimSpace(r.FormValue("name"))
-	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
-	targetType := r.FormValue("target_type")
-	if name == "" || pkg == "" {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("A policy needs a name and a locked app.")+"&flash_type=info")
-		return
-	}
-	var targetID *uuid.UUID
-	if idStr := r.FormValue("target_id"); idStr != "" {
-		if id, err := uuid.Parse(idStr); err == nil {
-			targetID = &id
-		}
-	}
-	targetSerial := strings.TrimSpace(r.FormValue("target_serial"))
-	if targetType != "all" && targetType != "restaurant" && targetType != "group" && targetType != "device" {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("Pick what this policy applies to.")+"&flash_type=info")
-		return
-	}
-
-	ctx := r.Context()
-	var policyID uuid.UUID
-	if idStr := r.FormValue("id"); idStr != "" {
-		if id, err := uuid.Parse(idStr); err == nil {
-			policyID = id
-			if err := h.db.UpdateKioskPolicy(ctx, id, name, pkg, targetType, targetID, targetSerial); err != nil {
-				http.Error(w, "Internal error", http.StatusInternalServerError)
-				return
-			}
-		}
-	}
-	if policyID == uuid.Nil {
-		id, err := h.db.CreateKioskPolicy(ctx, name, pkg, targetType, targetID, targetSerial)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		policyID = id
-	}
-
-	ids, err := h.resolvePolicyTargetIDs(ctx, targetType, targetID, targetSerial)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	if !h.kioskPolicyInScope(w, r, ids) {
-		return
-	}
-	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
-		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetKioskConfigForDevices(ctx, ids, true, pkg, 0); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.pushKioskConfigToDevices(ctx, ids)
-	h.audit(r, "device.kiosk_policy_save", name, fmt.Sprintf("policy=%s, devices=%d, package=%s", policyID, len(ids), pkg))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Saved %q — locked %d device(s).", name, len(ids)))+"&flash_type=success")
-}
-
-// ManagePolicyDuplicate clones a policy (name suffixed) without re-applying it —
-// the clone starts as its own independent policy the user can retarget before saving.
-func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
-		return
-	}
-	ctx := r.Context()
-	p, err := h.db.GetKioskPolicy(ctx, id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	if _, err := h.db.CreateKioskPolicy(ctx, p.Name+" (copy)", p.KioskPackage, p.TargetType, p.TargetID, p.TargetSerial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.kiosk_policy_duplicate", p.Name, "")
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Duplicated %q.", p.Name))+"&flash_type=success")
-}
-
-// ManagePolicyDelete removes a policy and unlocks whatever devices it currently
-// covers — deleting the thing that locked them releases them, matching what a user
-// expects "delete the policy" to mean rather than leaving devices silently locked
-// with nothing left to manage them.
-// kioskPolicyInScope refuses a kiosk policy that reaches a device the user may not
-// kiosk-lock. A policy is a standing rule on its whole target, so it is not narrowed
-// the way a one-off command is: all of it must be theirs.
-func (h *Handler) kioskPolicyInScope(w http.ResponseWriter, r *http.Request, ids []uuid.UUID) bool {
-	acc := h.access(r)
-	if acc.unrestricted() {
-		return true
-	}
-	if _, dropped := acc.filterDevices("kiosk", ids); dropped > 0 {
-		h.denied(r, "kiosk", nil, decision{Reason: "kiosk policy reaches devices outside the policy"})
-		http.Error(w, fmt.Sprintf("This policy reaches %d device(s) outside your access policy.", dropped), http.StatusForbidden)
-		return false
-	}
-	return true
-}
-
-func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
-		return
-	}
-	ctx := r.Context()
-	p, err := h.db.GetKioskPolicy(ctx, id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
-	if !h.kioskPolicyInScope(w, r, ids) {
-		return
-	}
-	if len(ids) > 0 {
-		if err := h.db.SetKioskConfigForDevices(ctx, ids, false, "", 0); err == nil {
-			h.pushKioskConfigToDevices(ctx, ids)
-		}
-	}
-	if err := h.db.DeleteKioskPolicy(ctx, id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.kiosk_policy_delete", p.Name, fmt.Sprintf("devices_unlocked=%d", len(ids)))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q — unlocked %d device(s).", p.Name, len(ids)))+"&flash_type=success")
 }
 
 // BootLogo renders the Boot logo config page: a dedicated splash-upload + target
@@ -19246,6 +18913,9 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// overnight digest goes out at opening; both are cheap until there is work.
 	h.alerts.DispatchResolved(ctx)
 	h.alerts.MaybeSendMorningDigest(ctx, connected)
+	// Kiosk rules are enforced, not applied once: devices that joined or left a
+	// rule's target, or installed its app, are brought in line every minute.
+	h.reconcileKiosk(ctx)
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -21069,9 +20739,16 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Set by hand. If a kiosk rule covers this device, this is now an exception to it
+	// that the enforcer leaves alone (the device page offers "follow the rule again").
+	rule := h.kioskRuleFor(r.Context(), *device)
+	_ = h.db.MarkKioskManual(r.Context(), device.ID, rule != nil)
 	detail := boolWord(enabled)
 	if enabled && mode != "" {
 		detail += " (" + mode + ")"
+	}
+	if rule != nil {
+		detail += ", overrides rule " + rule.Name
 	}
 	h.auditDev(r, "device.kiosk", device.ID, serial, detail)
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
@@ -21877,6 +21554,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
+	post("POST /devices/{serial}/kiosk/follow-rule", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskFollowRule)))
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceWlcUpdate)))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.deviceRoute("kiosk", h.DeviceRotateOfflineCode)))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.deviceRoute("kiosk", h.DeviceOfflineCode)))
@@ -21896,7 +21574,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.fleetWide(h.ReportInventoryCSV)))
-	mux.HandleFunc("GET /export/report/compliance.csv", h.requireAuth(h.fleetWide(h.ReportComplianceCSV)))
 	mux.HandleFunc("GET /export/report/activity.csv", h.requireAuth(h.ReportActivityCSV))
 	// Admin-only for now (see the Overview card's same gate) — loosen to
 	// requireAuth if this opens up to other roles later.
@@ -22003,30 +21680,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
-	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
-	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
-	mux.HandleFunc("GET /compliance", h.requireAuth(h.fleetWide(h.CompliancePage)))
-	post("POST /compliance/rules", h.requireAdminOrOperator(h.ComplianceRuleCreate))
-	post("POST /compliance/rules/{id}/toggle", h.requireAdminOrOperator(h.ComplianceRuleToggle))
-	post("POST /compliance/rules/{id}/delete", h.requireAdminOrOperator(h.ComplianceRuleDelete))
-	// Remediation queues real device commands, so it stays admin-only (the
-	// template hides the button for everyone else).
-	post("POST /compliance/remediate/{serial}", h.requireStrictAdmin(h.ComplianceRemediate))
-	mux.HandleFunc("GET /geofencing", h.requireAuth(h.fleetWide(h.GeofencingPage)))
-	// Turns GPS reporting on or off for the whole fleet: a super admin decision.
-	post("POST /geofencing/location-toggle", h.requireStrictAdmin(h.GeofencingLocationToggle))
-	post("POST /geofencing/fences", h.requireAdminOrOperator(h.GeofenceCreate))
-	post("POST /geofencing/fences/{id}/delete", h.requireAdminOrOperator(h.GeofenceDelete))
-	mux.HandleFunc("GET /network", h.requireAuth(h.NetworkPage))
-	post("POST /network/wifi", h.requireStrictAdmin(h.NetworkWifiAdd))
-	post("POST /network/wifi/delete", h.requireStrictAdmin(h.NetworkWifiDelete))
-	post("POST /network/ca", h.requireStrictAdmin(h.NetworkCAAdd))
-	post("POST /network/ca/delete", h.requireStrictAdmin(h.NetworkCADelete))
-	post("POST /network/vpn", h.requireStrictAdmin(h.NetworkVPNSave))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /manage/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	post("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
-	post("POST /manage/policies/{id}/duplicate", h.requireAuth(h.ManagePolicyDuplicate))
+	post("POST /manage/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
 	post("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
@@ -22127,9 +21785,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	// Managed app configurations edit the fleet device_policy, so mutations are
 	// strict-admin like the other policy pages; the page itself is admin/dev.
-	mux.HandleFunc("GET /setup/managed-configs", h.requireAdmin(h.ManagedConfigsPage))
-	post("POST /setup/managed-configs", h.requireStrictAdmin(h.ManagedConfigSave))
-	post("POST /setup/managed-configs/delete", h.requireStrictAdmin(h.ManagedConfigDelete))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.

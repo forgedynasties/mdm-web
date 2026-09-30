@@ -7483,14 +7483,18 @@ type KioskPolicy struct {
 	TargetType   string     `json:"target_type"`
 	TargetID     *uuid.UUID `json:"target_id,omitempty"`
 	TargetSerial string     `json:"target_serial,omitempty"`
+	Priority     int        `json:"priority"`     // lower wins where two rules cover one device
+	OfflineExit  bool       `json:"offline_exit"` // switch on the offline exit code on its devices
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// ListKioskPolicies returns the kiosk rules in order: the first one covering a device
+// is the one it follows.
 func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
-		FROM kiosk_policies ORDER BY name ASC
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
+		FROM kiosk_policies ORDER BY priority ASC, created_at ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -7499,7 +7503,7 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	var out []KioskPolicy
 	for rows.Next() {
 		var p KioskPolicy
-		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -7510,27 +7514,68 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 func (d *DB) GetKioskPolicy(ctx context.Context, id uuid.UUID) (KioskPolicy, error) {
 	var p KioskPolicy
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
 		FROM kiosk_policies WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt)
+	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
-func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) (uuid.UUID, error) {
+// CreateKioskPolicy adds a rule at the top of the order — a new rule is usually the
+// more specific one and should win over the broad ones already there — except an
+// all-devices rule, which goes to the bottom so it catches only what nothing else does.
+func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial)
-		VALUES ($1, $2, $3, $4, $5) RETURNING id
-	`, name, pkg, targetType, targetID, targetSerial).Scan(&id)
+		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, offline_exit, priority)
+		VALUES ($1, $2, $3, $4, $5, $6,
+		        CASE WHEN $3 = 'all' THEN COALESCE((SELECT MAX(priority) FROM kiosk_policies), -1) + 1
+		             ELSE COALESCE((SELECT MIN(priority) FROM kiosk_policies), 1) - 1 END) RETURNING id
+	`, name, pkg, targetType, targetID, targetSerial, offlineExit).Scan(&id)
 	return id, err
 }
 
-func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) error {
+func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) error {
 	_, err := d.pool.Exec(ctx, `
-		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6, updated_at = NOW()
+		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6,
+		       offline_exit = $7, updated_at = NOW()
 		WHERE id = $1
-	`, id, name, pkg, targetType, targetID, targetSerial)
+	`, id, name, pkg, targetType, targetID, targetSerial, offlineExit)
 	return err
+}
+
+// MoveKioskPolicy swaps a rule with its neighbour above (up) or below.
+func (d *DB) MoveKioskPolicy(ctx context.Context, id uuid.UUID, up bool) error {
+	rules, err := d.ListKioskPolicies(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range rules {
+		if rules[i].ID != id {
+			continue
+		}
+		j := i + 1
+		if up {
+			j = i - 1
+		}
+		if j < 0 || j >= len(rules) {
+			return nil
+		}
+		// Renumber the whole list in its new order, so equal priorities left by older
+		// rows can't make the swap a no-op.
+		rules[i], rules[j] = rules[j], rules[i]
+		tx, err := d.pool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		for k, r := range rules {
+			if _, err := tx.Exec(ctx, `UPDATE kiosk_policies SET priority = $2 WHERE id = $1`, r.ID, k); err != nil {
+				return err
+			}
+		}
+		return tx.Commit(ctx)
+	}
+	return nil
 }
 
 func (d *DB) DeleteKioskPolicy(ctx context.Context, id uuid.UUID) error {
@@ -13244,6 +13289,15 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS notified_at      TIMESTAMPTZ;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_notified BOOLEAN NOT NULL DEFAULT false;
 -- One row per morning digest sent, keyed by the fleet's local date, so a restart does
 -- not send the same morning twice.
+-- Kiosk rules (30 Sep): policies are ordered (lowest priority number wins where two
+-- cover one device), can switch on the offline exit code, and are enforced
+-- continuously. device_config.kiosk_rule records which rule set a device's kiosk, and
+-- kiosk_override marks a device someone changed by hand while a rule covers it.
+ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS priority     INT     NOT NULL DEFAULT 0;
+ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS offline_exit BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_rule     UUID;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_override BOOLEAN NOT NULL DEFAULT false;
+
 CREATE TABLE IF NOT EXISTS alert_digests (
     day     DATE        PRIMARY KEY,
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

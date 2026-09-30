@@ -368,6 +368,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk mode">
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
         <div class="kiosk-modal-body">
+        {{if .KioskRule}}
+        {{/* A kiosk rule on the Policies page covers this device. */}}
+        <div class="kiosk-rule-note" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:var(--surface-3);font-size:13px">
+          {{if .KioskOverride}}
+          <span>Set by hand here. The kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
+          {{if canAdminOrOperator .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/kiosk/follow-rule" style="margin:0 0 0 auto"><button type="submit" class="cc-btn sm">Follow the rule again</button></form>{{end}}
+          {{else}}
+          <span>Managed by the kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
+          {{end}}
+        </div>
+        {{end}}
         {{if canAdminOrOperator .Role}}
         <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}" data-locked-mode="{{if .KioskConfig.KioskMode}}{{.KioskConfig.KioskMode}}{{else}}app{{end}}">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">

@@ -2,112 +2,106 @@
 {{template "header" .}}
 
 <style>
-/* ── Policies · command center ─────────────────────────────── */
-.mg-wrap{max-width:1280px;margin:0 auto}
-
-.mg-seg{margin-bottom:16px}
-.mg-seg .soon{opacity:.55;cursor:default;pointer-events:none}
-.mg-seg .soon .n{background:var(--surface2);color:var(--text-faint)}
-
-.mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.mg-toolbar .cc-sec{flex:1;margin:0}
-
-.mg-row{display:flex;align-items:center;gap:14px;padding:14px 17px;border-top:1px solid var(--border-soft)}
-.mg-row:first-of-type{border-top:none}
-.mg-row .body{flex:1;min-width:0}
-.mg-row .nm{font-size:14px;font-weight:700;letter-spacing:-.005em}
-.mg-row .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
-.mg-row .meta b{color:var(--text-2);font-weight:650}
-.mg-row .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
-.mg-cov{flex:none;width:120px}
-.mg-cov .n{font-size:11.5px;color:var(--muted);margin-bottom:5px;text-align:right;font-variant-numeric:tabular-nums}
-.mg-cov .n b{color:var(--text)}
-.mg-acts{display:flex;gap:6px;flex:none}
-.mg-acts form{margin:0}
-
-.mg-default{margin-top:16px;border-style:dashed;background:var(--surface2);box-shadow:none}
-.mg-default .cc-row{border-top:none}
-.mg-default .body .nm{font-weight:700}
-.mg-default .body .meta{margin-top:4px;max-width:60ch;line-height:1.5}
-
-@media(max-width:640px){
-  .mg-row{flex-wrap:wrap}
-  .mg-cov{order:3;width:100%}
-  .mg-cov .n{text-align:left}
-  .mg-acts{order:4;width:100%}
-  .mg-acts a,.mg-acts button{flex:1;justify-content:center;min-height:40px}
+/* ── Kiosk rules ─────────────────────────────────────────────
+   One job: which app each device is locked to. Rules are in order; a device
+   covered by two follows the higher one. Each row shows what happened on its
+   devices, not just the intent. */
+.kr-wrap{max-width:1100px;margin:0 auto}
+.kr-list{padding:0}
+.kr-row{display:grid;grid-template-columns:30px 44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 17px;border-top:1px solid var(--border-soft)}
+.kr-row:first-child{border-top:0}
+.kr-ord{display:flex;flex-direction:column;align-items:center;gap:2px}
+.kr-ord b{font-size:12.5px;color:var(--text-faint);font-variant-numeric:tabular-nums}
+.kr-ord form{margin:0}
+.kr-ord button{border:0;background:none;color:var(--text-faint);cursor:pointer;width:26px;height:22px;border-radius:5px;font-size:12px;line-height:1}
+.kr-ord button:hover,.kr-ord button:focus-visible{background:var(--surface-3);color:var(--text)}
+.kr-ord button[disabled]{visibility:hidden}
+.kr-app{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;background:var(--accent);overflow:hidden}
+.kr-app img{width:100%;height:100%;object-fit:cover}
+.kr-nm{font-size:14.5px;font-weight:700;letter-spacing:-.005em}
+.kr-mt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.kr-mt b{color:var(--text-2);font-weight:650}
+.kr-mt a{color:inherit;border-bottom:1px solid var(--rule-2);text-decoration:none}
+.kr-st{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kr-st span{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid var(--border);color:var(--text-2)}
+.kr-st .ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}
+.kr-st .wait{color:var(--info);background:var(--info-bg);border-color:transparent}
+.kr-st .warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+.kr-st .bad{color:var(--danger);background:var(--danger-bg);border-color:transparent}
+.kr-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.kr-acts form{margin:0}
+.kr-else{display:flex;gap:12px;align-items:center;padding:14px 17px;border:1px dashed var(--border);border-radius:var(--r-4);margin-top:12px;color:var(--muted);font-size:13px}
+.kr-else b{color:var(--text)}
+.kr-flash{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
+@media(max-width:720px){
+  .kr-row{grid-template-columns:44px minmax(0,1fr)}
+  .kr-ord{display:none}
+  .kr-acts{grid-column:1/-1;justify-content:flex-start}
+  .kr-acts .cc-btn{min-height:40px}
 }
 </style>
 
-{{template "policies-tabs" .}}
-<div class="mg-wrap cc-wrap">
-
+<div class="kr-wrap cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Policies</div>
-      <h1 class="cc-h1">{{if eq .PolicyCount 0}}No policies cover the fleet yet{{else}}{{.PolicyCount}} polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} cover{{if eq .PolicyCount 1}}s{{end}} <span class="hl {{if gt .UnlockedCount 0}}warn{{else}}ok{{end}}">{{.CoveredCount}} of {{.TotalDevices}} devices</span>{{if gt .UnlockedCount 0}} · {{.UnlockedCount}} unclaimed{{end}}{{end}}</h1>
-      <div class="cc-sub">Kiosk-lock policies are standing device configuration — apply once, keep enforcing. Unclaimed devices stay on whatever app they last had.</div>
+      <h1 class="cc-h1">Kiosk</h1>
+      <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
     </div>
     <div class="cc-actions">
-      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Create new policy</a>{{end}}
+      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
     </div>
   </div>
 
+  {{if .Flash}}<div class="kr-flash" role="status">{{.Flash}}</div>{{end}}
 
-  <div class="cc-kpis">
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Policies</span><div class="v">{{.PolicyCount}}</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Devices covered</span><div class="v {{if .CoveredCount}}ok{{end}}">{{.CoveredCount}}</div>{{if or .FleetDPC .CoveredDPC}}<div class="d" title="Coverage by agent kind (active devices)">{{.CoveredFirmware}} / {{.FleetFirmware}} firmware · {{.CoveredDPC}} / {{.FleetDPC}} DPC{{if gt .CoveredInactive 0}} · {{.CoveredInactive}} inactive{{end}}</div>{{end}}</div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Unclaimed</span><div class="v {{if gt .UnlockedCount 0}}warn{{end}}">{{.UnlockedCount}}</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Groups targeted</span><div class="v">{{.GroupsTargeted}}</div></div>
-  </div>
-
-  <div class="mg-toolbar">
-    <div class="cc-sec">Polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}}<span class="n">{{.PolicyCount}}</span></div>
-  </div>
-
-  <div class="cc-card">
-    {{if .Policies}}
-    {{range .Policies}}
-    <div class="mg-row">
-      <span class="cc-sq accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-      <div class="body">
-        <div class="nm">{{.Name}}</div>
-        <div class="meta">Locked to <b>{{.AppName}}</b> · {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</div>
-        <div class="tags"><span class="cc-tag accent">{{.TargetLabel}}</span>{{if .Unsupported}}<span class="cc-tag warn" title="These targets run an agent that cannot lock the screen; the policy skips them">{{.Unsupported}} can't be locked</span>{{end}}</div>
+  {{if .Rules}}
+  <div class="cc-card kr-list">
+    {{range .Rules}}
+    <div class="kr-row">
+      <div class="kr-ord">
+        {{if $.CanEdit}}<form method="POST" action="/manage/policies/{{.ID}}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="Move up" aria-label="Move {{.Name}} up"{{if .First}} disabled{{end}}>▲</button></form>{{end}}
+        <b title="Rule {{.Pos}}: a device covered by more than one rule follows the highest">{{.Pos}}</b>
+        {{if $.CanEdit}}<form method="POST" action="/manage/policies/{{.ID}}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="Move down" aria-label="Move {{.Name}} down"{{if .Last}} disabled{{end}}>▼</button></form>{{end}}
       </div>
-      <div class="mg-cov">
-        <div class="n"><b>{{.DeviceCount}}</b>{{if $.TotalDevices}} / {{$.TotalDevices}}{{end}}</div>
-        <div class="cc-meter"><i class="accent" style="width:{{.CoveragePct}}%"></i></div>
+      <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{slice .AppName 0 1}}{{end}}</span>
+      <div>
+        <div class="kr-nm">{{.Name}}</div>
+        <div class="kr-mt">Locked to <b>{{.AppName}}</b> · <a href="{{.TargetHref}}">{{.TargetLabel}}</a>{{if .OfflineExit}} · exit code on{{end}}</div>
+        <div class="kr-st">
+          {{if .Locked}}<span class="ok" title="Locked to the app">{{.Locked}} locked</span>{{end}}
+          {{if .Waiting}}<span class="wait" title="Not picked up yet: offline, or not checked in since the rule changed">{{.Waiting}} waiting</span>{{end}}
+          {{if .Exited}}<span class="warn" title="Staff left kiosk on the device with an exit code">{{.Exited}} exited on site</span>{{end}}
+          {{if .Missing}}<span class="warn" title="The app isn't installed; they lock once it is">{{.Missing}} app missing</span>{{end}}
+          {{if .Cant}}<span class="bad" title="Their agent can't lock the screen (MDM Lite)">{{.Cant}} can't lock</span>{{end}}
+          {{if .Override}}<span title="Changed by hand on the device page; follows the device's own setting">{{.Override}} set by hand</span>{{end}}
+          {{if .Higher}}<span title="In this rule's target but covered by a rule above it">{{.Higher}} follow a rule above</span>{{end}}
+          {{if not .Devices}}{{if not .Higher}}<span>no devices</span>{{end}}{{end}}
+        </div>
       </div>
-      {{if $.CanEdit}}
-      <div class="mg-acts">
+      <div class="kr-acts">
+        <a href="{{.TargetHref}}" class="cc-btn sm">Devices</a>
+        {{if $.CanEdit}}
         <a href="/manage/policies/{{.ID}}/edit" class="cc-btn sm">Edit</a>
-        <form method="POST" action="/manage/policies/{{.ID}}/duplicate"><button type="submit" class="cc-btn sm">Duplicate</button></form>
-        <form method="POST" action="/manage/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its {{.DeviceCount}} device(s) will be unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
+        <form method="POST" action="/manage/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its devices follow the next rule that covers them, or are unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
+        {{end}}
       </div>
-      {{end}}
-    </div>
-    {{end}}
-    {{else}}
-    <div class="cc-empty tall">
-      <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-      <b>No kiosk policies yet</b>
-      {{if .CanEdit}}Create one to lock a restaurant, group, or device to a single app.{{else}}Nothing is locked fleet-wide.{{end}}
-      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Create new policy</a>{{end}}
     </div>
     {{end}}
   </div>
+  {{else}}
+  <div class="cc-card"><div class="cc-empty tall">
+    <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <b>No kiosk rules yet</b>
+    Lock a restaurant, a group or a device to one app. The rule keeps applying: devices that join are locked, devices that leave are released.
+    {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
+  </div></div>
+  {{end}}
 
-  <div class="cc-card mg-default">
-    <div class="mg-row">
-      <span class="cc-sq"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
-      <div class="body">
-        <div class="nm">Everything else — Default</div>
-        <div class="meta">{{.UnlockedCount}} device{{if ne .UnlockedCount 1}}s{{end}} unlocked, running whatever app they last had. No policy claims them — create one above and target these devices to bring them under management.</div>
-      </div>
-    </div>
+  <div class="kr-else">
+    <span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
+    {{if .CanEdit}}<a href="/manage/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
   </div>
-
 </div>
 
 {{template "footer" .}}
