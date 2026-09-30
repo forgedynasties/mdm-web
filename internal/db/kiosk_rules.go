@@ -317,3 +317,21 @@ func (d *DB) ResolveAnsweredKioskExitAlerts(ctx context.Context) (int64, error) 
 		  AND NOT EXISTS (SELECT 1 FROM device_config dc WHERE dc.device_id = a.device_id AND dc.kiosk_exited_at IS NOT NULL)`)
 	return tag.RowsAffected(), err
 }
+
+// NoteOwnKeyIP records the address a device last used its own key from.
+func (d *DB) NoteOwnKeyIP(ctx context.Context, serial, ip string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET key_last_ip = $2 WHERE serial_number = $1 AND key_last_ip IS DISTINCT FROM $2`, serial, ip)
+	return err
+}
+
+// AutoResetDeviceKey forgets the key of a firmware device that has lost it (it keeps
+// calling with the shared key) when the calls come from the address it last used its
+// own key from, at most once a day. Reports whether it did.
+func (d *DB) AutoResetDeviceKey(ctx context.Context, serial, ip string) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE devices SET device_key_hash = NULL, key_reset_at = NOW(), key_auto_reset_at = NOW()
+		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL
+		  AND key_last_ip <> '' AND key_last_ip = $2
+		  AND (key_auto_reset_at IS NULL OR key_auto_reset_at < NOW() - interval '24 hours')`, serial, ip)
+	return tag.RowsAffected() == 1, err
+}

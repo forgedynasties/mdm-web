@@ -12979,6 +12979,10 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_key_hash TEXT;
 -- When an admin last reset the device's own key (device-key plan): set until it
 -- registers a new one, so a device that never does can be flagged.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_reset_at TIMESTAMPTZ;
+-- Where the device last used its own key, and when it was last let back in after losing
+-- it (30 Sep: an OTA left three devices unable to read their key and locked out).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_last_ip TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_auto_reset_at TIMESTAMPTZ;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via UUID;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash) WHERE device_key_hash IS NOT NULL;
 

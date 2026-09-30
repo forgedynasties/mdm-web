@@ -182,6 +182,7 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 	// Back after an admin reset: the refusals it raised while key-less were it, and the
 	// "hasn't registered" warning is answered.
 	_, _ = h.db.ResolveOpenAlert(ctx, "key_not_registered", claim.ID)
+	_, _ = h.db.ResolveOpenAlert(ctx, "key_recovered", claim.ID)
 	if afterReset {
 		_, _ = h.db.ResolveOpenAlert(ctx, "identity_conflict", claim.ID)
 	}

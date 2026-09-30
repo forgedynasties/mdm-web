@@ -70,6 +70,8 @@ func CauseOf(types []string) Cause {
 		return Cause{"kiosk", "Taken out of kiosk on site", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
 	case has["identity_conflict"]:
 		return Cause{"identity", "Possible impersonation", "Something used this device's serial without its own key. If the device was just factory reset or had its data cleared, it is asking to come back: reset its key."}
+	case has["key_recovered"]:
+		return Cause{"identity", "Let back in after losing its key", "It lost its own key (after a firmware update, or its data was cleared) and called from its usual address, so it was let back in to register a new one. Nothing to do unless this keeps happening."}
 	case has["key_not_registered"]:
 		return Cause{"identity", "Key not registered", "Its key was reset over an hour ago and it has not registered a new one. Until it does, the shared key works for it."}
 	case has["new_device"]:

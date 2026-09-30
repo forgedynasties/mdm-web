@@ -70,10 +70,14 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "serial does not match device credential"})
 			return false
 		}
+		h.noteOwnKeyIP(r.Context(), serial, ratelimit.ClientIP(r))
 		return true
 	}
 	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
 		ip := ratelimit.ClientIP(r)
+		if h.recoverLostKey(r.Context(), serial, ip) {
+			return true
+		}
 		log.Printf("[device-auth] refused the shared key for %s (it has its own key) from %s", serial, ip)
 		h.raiseIdentityAlert(r.Context(), serial, "The shared device key was used for this device, which has its own key", ip, "")
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "this device uses its own key"})
@@ -169,4 +173,88 @@ func (h *Handler) raiseIdentityAlert(ctx context.Context, serial, what, ip, prev
 		}
 		h.hub.PublishAlertUpdate()
 	}()
+}
+
+// ── A device that lost its own key ──────────────────────────────────────────────
+//
+// A device can lose its key without anyone doing anything wrong: 1.6.0/1.6.1 kept it
+// encrypted with an Android Keystore key, and a firmware update made that unreadable on
+// three devices on 30 Sep; clearing the client's data loses it too. The device then
+// calls with the shared key, which Phase 1 refuses for a serial that has its own key, so
+// it was locked out until an admin reset it. Now a device that keeps calling with the
+// shared key from the address it last used its own key from is let back in: its key is
+// forgotten, it registers a new one at its next check-in, and a warning says so. At
+// most once a day per device; from anywhere else it is refused and alerted as before.
+
+const (
+	lostKeyWindow = 10 * time.Minute
+	lostKeyCalls  = 3 // refusals in the window before it is let back in
+)
+
+var ownKeyIPs sync.Map // serial -> ip last written, to skip the database when unchanged
+
+func (h *Handler) noteOwnKeyIP(ctx context.Context, serial, ip string) {
+	if ip == "" {
+		return
+	}
+	if v, ok := ownKeyIPs.Load(serial); ok && v.(string) == ip {
+		return
+	}
+	if err := h.db.NoteOwnKeyIP(ctx, serial, ip); err == nil {
+		ownKeyIPs.Store(serial, ip)
+	}
+}
+
+var lostKeyCallsSeen struct {
+	sync.Mutex
+	m map[string][]time.Time
+}
+
+// recoverLostKey counts a refused shared-key call and, on the third within the window
+// from the device's usual address, forgets its key. Reports whether the call may go on.
+func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
+	lostKeyCallsSeen.Lock()
+	if lostKeyCallsSeen.m == nil {
+		lostKeyCallsSeen.m = map[string][]time.Time{}
+	}
+	var kept []time.Time
+	for _, t := range lostKeyCallsSeen.m[serial] {
+		if time.Since(t) < lostKeyWindow {
+			kept = append(kept, t)
+		}
+	}
+	kept = append(kept, time.Now())
+	lostKeyCallsSeen.m[serial] = kept
+	n := len(kept)
+	lostKeyCallsSeen.Unlock()
+	if n < lostKeyCalls {
+		return false
+	}
+	ok, err := h.db.AutoResetDeviceKey(ctx, serial, ip)
+	if err != nil || !ok {
+		return false
+	}
+	forgetOwnKey(serial)
+	lostKeyCallsSeen.Lock()
+	delete(lostKeyCallsSeen.m, serial)
+	lostKeyCallsSeen.Unlock()
+	log.Printf("[device-key] %s lost its own key and was let back in from its usual address %s", serial, ip)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancel()
+		dev, err := h.db.GetDevice(ctx, serial)
+		if err != nil || dev == nil {
+			return
+		}
+		summary := "Lost its own key (after an update, or its data was cleared) and was let back in from its usual address; it registers a new one at its next check-in"
+		created, err := h.db.CreateAlertIfAbsent(ctx, nil, "key_recovered", dev.ID, "warning", summary, map[string]any{"ip": ip})
+		if err == nil && created {
+			h.alerts.Dispatch(ctx, []db.AlertNotification{{Type: "key_recovered", Severity: "warning", Summary: summary,
+				Serial: serial, DeviceID: dev.ID, EventAt: time.Now().UTC()}})
+		}
+		// The refusals it raised while locked out were this, not someone else.
+		_, _ = h.db.ResolveOpenAlert(ctx, "identity_conflict", dev.ID)
+		h.hub.PublishAlertUpdate()
+	}()
+	return true
 }
