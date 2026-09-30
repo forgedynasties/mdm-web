@@ -66,8 +66,9 @@ func (h *Handler) serialHasOwnKey(ctx context.Context, serial string) bool {
 // must name that serial; the shared key is accepted only for serials that have no key
 // of their own. Writes a 403 and returns false otherwise.
 func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, serial string) bool {
-	if until, ok := simulatedOffline(serial); ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(until).Seconds())+1))
+	// No Retry-After: a real outage doesn't send one, and a client told to wait the
+	// whole outage wakes once and keeps one reading instead of one every 5 minutes.
+	if _, ok := simulatedOffline(serial); ok {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "unavailable"})
 		return false
 	}
