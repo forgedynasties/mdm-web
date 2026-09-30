@@ -124,6 +124,36 @@
 .ua-cr .why{margin-left:auto;font-size:11px;color:var(--text-faint);text-align:right;max-width:55%}
 .ua-cr-h{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:9px 0 3px}
 .ua-dev{font-size:12px;color:var(--muted);margin-top:8px}
+/* two questions */
+.ua-q{padding:16px 17px;border-top:1px solid var(--border-soft)}
+.ua-q:first-of-type{border-top:none}
+.ua-qh{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}
+.ua-qh .n{width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:750;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ua-qh h3{margin:0;font-size:14px;font-weight:700}
+.ua-qh small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.ua-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.ua-choices .ua-tile.off{opacity:.5;cursor:not-allowed}
+.ua-places{margin-top:12px}
+.ua-places[hidden]{display:none}
+.ua-scust{margin-top:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px}
+.ua-scust[hidden]{display:none}
+.ua-more{border-top:1px solid var(--border-soft)}
+.ua-more summary{padding:12px 17px;cursor:pointer;font-size:12.5px;font-weight:650;color:var(--muted)}
+.ua-more .ua-details{padding:0 17px 14px}
+.ua-more p{margin:0;padding:0 17px 14px;font-size:12px;color:var(--muted)}
+.ua-warnbox{margin:14px 17px 0;padding:11px 13px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;line-height:1.5}
+.ua-adv{margin-bottom:14px}
+.ua-adv>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--text-2);padding:10px 2px;list-style:none;display:flex;align-items:center;gap:8px}
+.ua-adv>summary::-webkit-details-marker{display:none}
+.ua-adv>summary::before{content:"▸";color:var(--text-faint);transition:transform var(--dur)}
+.ua-adv[open]>summary::before{transform:rotate(90deg)}
+.ua-adv>summary small{font-weight:500;color:var(--muted)}
+.ua-pv-big{font-size:22px;font-weight:750;letter-spacing:-.01em}
+.ua-pv-big small{font-size:13px;font-weight:500;color:var(--muted)}
+.ua-pv-l{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:12px 0 4px}
+.ua-pv-t{font-size:12.5px;line-height:1.5;color:var(--text-2)}
+.ua-pv-t.no{color:var(--muted)}
+.ua-pv-err{margin-top:10px;font-size:12.5px;color:var(--danger)}
 .ua-dev b{color:var(--text)}
 </style>
 
@@ -193,6 +223,53 @@
   {{else}}
   <div class="cc-grid ua-grid">
     <div>
+      <form class="cc-card ua-card" id="ua-simple" hx-boost="false" onsubmit="return uaSimpleSave(event)">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Access</h2><span class="m">two questions</span></div>
+        {{if not .Simple.OK}}<div class="ua-warnbox"><b>This account has a setup the two questions can't show.</b> {{.Simple.Why}} It is under <a href="#ua-adv" onclick="document.getElementById('ua-adv').open=true">Advanced rules</a>. Answering the questions and saving replaces it.</div>{{end}}
+        <div class="ua-q">
+          <div class="ua-qh"><span class="n">1</span><div><h3>Which devices can they see?</h3><small>Devices outside this are hidden everywhere: lists, alerts, the map and counts.</small></div></div>
+          <div class="ua-tiles">
+            <label class="ua-tile"><input type="radio" name="see" value="all"{{if and .Simple.OK .Simple.Every}} checked{{end}}><b>Every device</b><span>The whole fleet, {{.FleetSize}} devices, and any that join later.</span></label>
+            <label class="ua-tile"><input type="radio" name="see" value="only"{{if not (and .Simple.OK .Simple.Every)}} checked{{end}}><b>Only these</b><span>Restaurants, groups or single devices.</span></label>
+          </div>
+          <div class="ua-places" id="ua-s-places">
+            <div class="ua-search"><input type="text" class="form-input" id="ua-s-q" placeholder="Add a restaurant, group, or type a serial number…" autocomplete="off"><div class="ua-dd" id="ua-s-dd" hidden></div></div>
+            <div class="ua-chips" id="ua-s-chips"></div>
+          </div>
+        </div>
+        <div class="ua-q">
+          <div class="ua-qh"><span class="n">2</span><div><h3>What can they do there?</h3><small>Up to what {{.RoleArticle}} can ever do. <a href="/users/access/profiles" class="js-dest">Profiles</a></small></div></div>
+          <div class="ua-choices">
+            {{range .Choices}}<label class="ua-tile{{if not .Fits}} off{{end}}"><input type="radio" name="do" value="{{.Value}}"{{if and $.Simple.OK (eq .Value $.Simple.Do)}} checked{{end}}{{if not .Fits}} disabled{{end}}><b>{{.Name}}</b><span>{{.Desc}}{{if not .Fits}} More than {{$.RoleArticle}} can have.{{end}}</span></label>{{end}}
+            <label class="ua-tile"><input type="radio" name="do" value="custom"{{if and .Simple.OK (eq .Simple.Do "custom")}} checked{{end}}><b>Custom…</b><span>Pick actions one by one.</span></label>
+          </div>
+          <div class="ua-scust" id="ua-s-custom" hidden>
+            <div class="ua-acts-grid">
+              {{range .CustomActions}}<label class="ua-ck{{if .Sensitive}} hot{{end}}"><input type="checkbox" name="actions" value="{{.Key}}" data-sensitive="{{.Sensitive}}" data-label="{{.Label}}"{{if index $.SimpleHas .Key}} checked{{end}}><span><b>{{.Label}}</b>{{if .Help}}<small>{{.Help}}</small>{{end}}</span></label>{{end}}
+            </div>
+            <div class="ua-confirm" id="ua-s-confirm" hidden><input type="checkbox" name="confirm_sensitive" value="1" id="ua-s-confirm-ck"><label for="ua-s-confirm-ck" id="ua-s-confirm-txt">I understand this opens live sessions on these devices.</label></div>
+          </div>
+        </div>
+        <details class="ua-more"{{if or .SimpleExp .Simple.Note}} open{{end}}>
+          <summary>More: a time limit and a note</summary>
+          <div class="ua-details">
+            <div><label class="ua-lbl" for="ua-s-note">Why (shown in the rules)</label><input type="text" class="form-input" name="note" id="ua-s-note" maxlength="200" value="{{.Simple.Note}}" placeholder="e.g. Covers the Pier 9 opening week"></div>
+            <div><label class="ua-lbl" for="ua-s-exp">Access ends</label>
+              <select class="form-input" id="ua-s-exp">
+                <option value="never">Never</option><option value="1d">In 1 day</option><option value="7d">In 7 days</option><option value="30d">In 30 days</option><option value="90d">In 90 days</option><option value="custom"{{if .SimpleExp}} selected{{end}}>Pick a date…</option>
+              </select>
+              <input type="datetime-local" class="form-input" id="ua-s-exp-custom" style="margin-top:6px" value="{{.SimpleExp}}"{{if not .SimpleExp}} hidden{{end}}>
+              <input type="hidden" name="expires" id="ua-s-expires" value="{{if .SimpleExp}}{{.SimpleExp}}{{else}}never{{end}}">
+            </div>
+          </div>
+          <p>Exceptions (everything except one restaurant) and different actions in different places are set in <a href="#ua-adv" onclick="document.getElementById('ua-adv').open=true">Advanced rules</a>.</p>
+        </details>
+        <div class="ua-dfoot">
+          <button type="submit" class="cc-btn primary" id="ua-s-save">Save access</button>
+          <span class="err" id="ua-s-err"></span>
+        </div>
+      </form>
+
       <div class="cc-card ua-card" id="ua-account">
         <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h2>Account</h2><span class="m mono">{{.User.Username}}</span></div>
         <div class="ua-acct">
@@ -238,6 +315,8 @@
         </div>{{end}}
         {{end}}
       </div>
+      <details class="ua-adv" id="ua-adv"{{if not .Simple.OK}} open{{end}}>
+      <summary>Advanced rules <small>· starting point, allow and deny rules — what the questions above save</small></summary>
       {{if .HasBase}}
       <div class="cc-card ua-card">
         <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg></span><h2>Starting point</h2><span class="m" id="ua-base-state">saved</span></div>
@@ -352,9 +431,19 @@
           </div>
         </form>
       </div>
+      </details>
     </div>
 
     <div class="ua-side">
+      <div class="cc-card ua-card" style="margin:0" id="ua-pv">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><h2>If you save</h2><span class="m" id="ua-pv-state"></span></div>
+        <div class="ua-pad">
+          <div class="ua-pv-big" id="ua-pv-n">…</div>
+          <div class="ua-pv-l">Can</div><div class="ua-pv-t" id="ua-pv-can"></div>
+          <div class="ua-pv-l">Can't</div><div class="ua-pv-t no" id="ua-pv-cannot"></div>
+          <div class="ua-pv-err" id="ua-pv-err" hidden></div>
+        </div>
+      </div>
       <div class="cc-card ua-card" style="margin:0">
         <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h2>In plain words</h2></div>
         <div class="ua-pad"><ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul></div>
@@ -557,6 +646,76 @@
     }).catch(function(){});
   }
   refreshCheck();
+
+  /* ── the two questions ── */
+  var sf = $('ua-simple');
+  if (sf) {
+    var places = {};
+    ({{.Simple.Places}} || []).forEach(function(o){ places[o.type + ':' + o.id] = o; });
+    function placesRender(){
+      var host = $('ua-s-chips'); host.innerHTML = '';
+      Object.keys(places).forEach(function(k){
+        var o = places[k], el = document.createElement('span');
+        el.className = 'ua-sc ' + o.type; el.title = o.meta || '';
+        el.innerHTML = ICON[o.type] + '<span' + (o.type === 'device' ? ' class="mono"' : '') + '>' + esc(o.name) + '</span><span class="x" title="Remove">×</span>';
+        el.querySelector('svg').style.cssText = 'width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2';
+        el.querySelector('.x').onclick = function(){ delete places[k]; placesRender(); sPreview(); };
+        host.appendChild(el);
+      });
+      if (!Object.keys(places).length) host.innerHTML = '<span class="muted small">Nothing yet. With no places they see no devices.</span>';
+    }
+    typeahead($('ua-s-q'), $('ua-s-dd'), { filter: function(o){ return o.type !== 'all'; }, pick: function(o){ places[o.type + ':' + o.id] = o; $('ua-s-q').value = ''; placesRender(); sPreview(); } });
+    function sForm(){
+      var fd = new FormData(sf);
+      if (fd.get('see') === 'only') Object.keys(places).forEach(function(k){ fd.append('scopes', k); });
+      if (fd.get('do') !== 'custom') fd.delete('actions');
+      return fd;
+    }
+    function sSync(){
+      var see = (sf.querySelector('input[name=see]:checked') || {}).value;
+      $('ua-s-places').hidden = see !== 'only';
+      var dO = (sf.querySelector('input[name=do]:checked') || {}).value;
+      $('ua-s-custom').hidden = dO !== 'custom';
+      var hot = Array.prototype.slice.call(sf.querySelectorAll('#ua-s-custom input[name=actions]:checked')).filter(function(c){ return c.dataset.sensitive === 'true'; }).map(function(c){ return c.dataset.label.toLowerCase(); });
+      var conf = $('ua-s-confirm'); conf.hidden = !(dO === 'custom' && hot.length);
+      if (!conf.hidden) $('ua-s-confirm-txt').textContent = 'I understand this gives ' + NAME + ' ' + hot.join(' and ') + ' on every device they can see.';
+      var ex = $('ua-s-exp').value, c = $('ua-s-exp-custom'); c.hidden = ex !== 'custom';
+      $('ua-s-expires').value = ex === 'custom' ? (c.value || '') : ex;
+    }
+    var pvTimer, pvSeq = 0;
+    function sPreview(){
+      sSync(); clearTimeout(pvTimer);
+      pvTimer = setTimeout(function(){
+        var seq = ++pvSeq; $('ua-pv-state').textContent = 'checking…';
+        var enc = new URLSearchParams(); sForm().forEach(function(v, k){ enc.append(k, v); });
+        fetch(BASE + '/simple/preview', { method:'POST', credentials:'same-origin', headers:{'HX-Request':'true','Content-Type':'application/x-www-form-urlencoded'}, body: enc }).then(function(r){ return r.json(); }).then(function(d){
+          if (seq !== pvSeq) return;
+          $('ua-pv-state').textContent = '';
+          if (d.devices != null) {
+            $('ua-pv-n').innerHTML = esc(NAME.split(' ')[0]) + ' sees ' + d.devices + ' <small>of ' + d.total + ' device' + (d.total === 1 ? '' : 's') + '</small>';
+            $('ua-pv-can').textContent = d.devices ? (d.can && d.can.length ? join(d.can) + '.' : 'Only look: no commands.') : 'Nothing: no devices in view.';
+            $('ua-pv-cannot').textContent = d.cannot && d.cannot.length ? join(d.cannot) + '.' : 'Nothing held back.';
+          }
+          var e = $('ua-pv-err'); e.hidden = !d.error; e.textContent = d.error ? 'Can\'t save: ' + d.error : '';
+          $('ua-s-save').disabled = !!d.error;
+        }).catch(function(){ $('ua-pv-state').textContent = ''; });
+      }, 180);
+    }
+    sf.addEventListener('change', sPreview);
+    $('ua-s-note').addEventListener('input', sSync);
+    window.uaSimpleSave = function(e){
+      e.preventDefault(); sSync();
+      var err = $('ua-s-err'); err.textContent = '';
+      if (!sf.querySelector('input[name=do]:checked')) { err.textContent = 'Pick what they can do.'; return false; }
+      $('ua-s-save').disabled = true;
+      post(BASE + '/simple', sForm()).then(function(res){
+        $('ua-s-save').disabled = false;
+        if (res.ok) go(res.msg || 'Access saved'); else err.textContent = res.msg;
+      });
+      return false;
+    };
+    placesRender(); sPreview();
+  }
 })();
 </script>
 {{template "footer" .}}

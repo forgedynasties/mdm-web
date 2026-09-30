@@ -13298,6 +13298,27 @@ ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS offline_exit BOOLEAN NOT NUL
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_rule     UUID;
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_override BOOLEAN NOT NULL DEFAULT false;
 
+-- Access profiles (30 Sep): named, reusable "what they can do" sets — the second
+-- question of the access editor. A grant made from a profile carries its id, so editing
+-- the profile updates everyone on it.
+CREATE TABLE IF NOT EXISTS access_profiles (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    actions     TEXT[] NOT NULL DEFAULT '{}',
+    builtin     BOOLEAN NOT NULL DEFAULT false,
+    position    INT NOT NULL DEFAULT 0,
+    created_by  TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO access_profiles (name, description, actions, builtin, position) VALUES
+  ('Look only', 'See devices and alerts. No commands.', '{view}', true, 0),
+  ('Look and fix', 'Screenshot, restart, reload the app, kiosk, run diagnostics, collect logs, notes and the queue.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue}', true, 1),
+  ('Manage apps too', 'Everything in "Look and fix", plus install and remove apps.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue,install_apk,uninstall}', true, 2)
+ON CONFLICT (name) DO NOTHING;
+ALTER TABLE access_grants ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES access_profiles(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS alert_digests (
     day     DATE        PRIMARY KEY,
     sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -252,6 +252,10 @@ func roleArticle(role string) string {
 		return "an access admin"
 	case "super_op":
 		return "a super op"
+	case "viewer":
+		return "a viewer"
+	case "owner":
+		return "an owner"
 	default:
 		return "an operator"
 	}
@@ -306,7 +310,31 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 		groups[gi].Actions = append(groups[gi].Actions, a)
 	}
 	actor := h.accessFor(ctx, h.role(r), h.currentUsername(r))
+	profiles, _ := h.db.ListAccessProfiles(ctx)
+	scopes, _ := h.db.DeviceScopes(ctx)
+	simple := deriveSimple(u.Role, pol, profiles, scopes)
+	has := map[string]bool{}
+	for _, a := range simple.Actions {
+		has[a] = true
+	}
+	var custom []accessAction
+	for _, a := range grantableActions(u.Role) {
+		if a.Key != "view" {
+			custom = append(custom, a)
+		}
+	}
+	simpleExp := ""
+	if simple.Expires != nil {
+		simpleExp = simple.Expires.Local().Format("2006-01-02T15:04")
+	}
 	h.render(w, r, "user_access.html", map[string]any{
+		"Simple":        simple,
+		"SimpleHas":     has,
+		"SimpleExp":     simpleExp,
+		"Choices":       h.simpleChoices(u.Role, profiles),
+		"CustomActions": custom,
+		"FleetSize":     len(scopes),
+		"RoleArticle":   roleArticle(u.Role),
 		"Title":        "Manage · " + u.DisplayName(),
 		"Assignable":   assignableRoles(h.role(r)),
 		"CanEditAvatar": h.mayEditAvatar(r, u),
@@ -504,23 +532,31 @@ func parseGrantForm(r *http.Request) (effect string, actions []string, note stri
 	if len(note) > 200 {
 		note = note[:200]
 	}
+	if expires, err = parseExpires(r); err != nil {
+		return "", nil, "", nil, err
+	}
+	return
+}
+
+// parseExpires reads the "expires" field: never, 1d/7d/30d/90d, or a local date-time.
+func parseExpires(r *http.Request) (*time.Time, error) {
 	switch e := strings.TrimSpace(r.FormValue("expires")); e {
 	case "", "never":
+		return nil, nil
 	case "1d", "7d", "30d", "90d":
 		n := map[string]int{"1d": 1, "7d": 7, "30d": 30, "90d": 90}[e]
 		t := time.Now().Add(time.Duration(n) * 24 * time.Hour)
-		expires = &t
+		return &t, nil
 	default:
-		t, perr := time.ParseInLocation("2006-01-02T15:04", e, time.Local)
-		if perr != nil {
-			return "", nil, "", nil, fmt.Errorf("expiry must be a date and time")
+		t, err := time.ParseInLocation("2006-01-02T15:04", e, time.Local)
+		if err != nil {
+			return nil, fmt.Errorf("expiry must be a date and time")
 		}
 		if t.Before(time.Now()) {
-			return "", nil, "", nil, fmt.Errorf("expiry is in the past")
+			return nil, fmt.Errorf("expiry is in the past")
 		}
-		expires = &t
+		return &t, nil
 	}
-	return
 }
 
 // checkGrantAllowed enforces the ceiling and the delegation rule for an allow
@@ -782,7 +818,9 @@ func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) 
 
 // ── Overview: /users/access ─────────────────────────────────────────────────
 
-// UsersAccessPage lists every account with its rules in plain words.
+// UsersAccessPage lists every account on one line: what they see (and how many
+// devices that is) and what they can do there, so a wrong setup shows without
+// opening anyone.
 func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	users, err := h.db.ListUsers(ctx)
@@ -791,24 +829,86 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	counts, _ := h.db.CountAccessGrants(ctx, sensitiveActionKeys)
+	profiles, _ := h.db.ListAccessProfiles(ctx)
+	scopes, _ := h.db.DeviceScopes(ctx)
+	profileName := map[string]string{}
+	for _, p := range profiles {
+		profileName["profile:"+p.ID.String()] = p.Name
+	}
 	type row struct {
 		User      db.User
 		Bubble    any
-		Summary   []string
-		Grants    int
+		Sees      string
+		Devices   int
+		Does      string
+		Advanced  string // why the two questions can't show it
+		Expires   string
 		Sensitive bool
-		Custom    bool
+		Limited   bool
 		CanEdit   bool
 	}
 	var rows []row
-	custom, sensitive := 0, 0
+	limited, sensitive := 0, 0
 	for _, u := range users {
+		u := u
 		pol, _ := h.db.GetUserAccess(ctx, u.Username)
-		c := counts[u.ID]
-		rw := row{User: u, Bubble: userBubbleFn(u.Username), Summary: h.policySummary(ctx, &u, pol), Grants: c.Grants, Sensitive: c.Sensitive,
-			Custom: u.Role != "admin" && !pol.IsEmpty(), CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")}
-		if rw.Custom {
-			custom++
+		rw := row{User: u, Bubble: userBubbleFn(u.Username), Sensitive: counts[u.ID].Sensitive,
+			CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")}
+		a := &access{h: h, ctx: ctx, role: u.Role, pol: pol, scopes: scopes}
+		a.once.Do(func() {})
+		for id := range scopes {
+			if a.canDevice("view", id) {
+				rw.Devices++
+			}
+		}
+		if u.Role == "admin" {
+			rw.Sees, rw.Does = "Every device", "Everything"
+		} else if sa := deriveSimple(u.Role, pol, profiles, scopes); !sa.OK {
+			rw.Advanced = sa.Why
+			rw.Sees = fmt.Sprintf("%d of %d devices", rw.Devices, len(scopes))
+			rw.Does = "Custom rules"
+		} else {
+			switch {
+			case sa.Every:
+				rw.Sees = "Every device"
+			case len(sa.Places) == 0:
+				rw.Sees = "Nothing"
+			default:
+				var names []string
+				for i, p := range sa.Places {
+					if i == 2 {
+						names = append(names, fmt.Sprintf("%d more", len(sa.Places)-2))
+						break
+					}
+					names = append(names, p.Name)
+				}
+				rw.Sees = joinAnd(names)
+			}
+			switch {
+			case sa.Do == "role":
+				rw.Does = "Everything " + roleArticle(u.Role) + " can"
+			case profileName[sa.Do] != "":
+				rw.Does = profileName[sa.Do]
+			default:
+				var labels []string
+				for _, k := range sa.Actions {
+					if k != "view" {
+						labels = append(labels, lowerFirst(accessActionByKey[k].Label))
+					}
+				}
+				if len(labels) == 0 {
+					rw.Does = "Look only"
+				} else {
+					rw.Does = strings.ToUpper(labels[0][:1]) + joinAnd(labels)[1:]
+				}
+			}
+			if sa.Expires != nil {
+				rw.Expires = "ends " + humanUntil(*sa.Expires)
+			}
+		}
+		rw.Limited = u.Role != "admin" && rw.Devices < len(scopes)
+		if rw.Limited {
+			limited++
 		}
 		if rw.Sensitive {
 			sensitive++
@@ -820,8 +920,10 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":     "Access control",
 		"Rows":      rows,
-		"Custom":    custom,
+		"Limited":   limited,
 		"Sensitive": sensitive,
+		"Profiles":  len(profiles),
+		"FleetSize": len(scopes),
 		"UsersTab":  "access",
 	})
 }

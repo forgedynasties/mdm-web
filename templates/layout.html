@@ -630,6 +630,7 @@
         <div class="t">Admin</div>
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="Admin" data-cmdk-label="Users">Users</a>{{end}}
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="Admin" data-cmdk-label="Access rules">Access rules</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access/profiles"}} on{{end}}" href="/users/access/profiles" data-ic="lock" data-cmdk-sec="Admin" data-cmdk-label="Access profiles">Access profiles</a>{{end}}
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="Admin" data-cmdk-label="Activity log">Activity log</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-ic="monitor" data-cmdk-sec="Admin" data-cmdk-label="Products">Products</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="Admin" data-cmdk-label="Server">Server</a>{{end}}

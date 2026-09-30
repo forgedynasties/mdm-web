@@ -1,0 +1,92 @@
+{{define "access_profiles.html"}}
+{{template "header" .}}
+<style>
+.ap-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:14px 17px;border-top:1px solid var(--border-soft);align-items:start}
+.ap-row:first-child{border-top:none}
+.ap-nm{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ap-d{font-size:12.5px;color:var(--muted);margin-top:2px}
+.ap-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.ap-acts span{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.ap-who{font-size:12px;color:var(--muted);margin-top:8px}
+.ap-who b{color:var(--text-2);font-weight:650}
+.ap-btns{display:flex;gap:6px}
+.ap-btns form{margin:0}
+.ap-form{padding:16px 17px}
+.ap-form[hidden]{display:none}
+.ap-f2{display:grid;grid-template-columns:1fr 2fr;gap:12px;margin-bottom:12px}
+@media(max-width:720px){.ap-f2{grid-template-columns:1fr}.ap-row{grid-template-columns:1fr}}
+.ap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 18px}
+.ap-ck{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:13px;cursor:pointer}
+.ap-ck input{margin-top:2px;accent-color:var(--accent)}
+.ap-ck small{display:block;font-size:11px;color:var(--muted)}
+.ap-foot{display:flex;gap:8px;align-items:center;margin-top:14px}
+.ap-foot .err{color:var(--danger);font-size:12.5px}
+</style>
+<div class="cc-wrap" style="max-width:1000px">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow"><a href="/users/access" class="js-dest" style="color:inherit">Access control</a></div>
+      <h1 class="cc-h1">Access profiles</h1>
+      <div class="cc-sub">Named answers to "what can they do there?". Change a profile and everyone on it changes with it. Remote control, shell and firmware updates are never in a profile; they are given person by person.</div>
+    </div>
+    <div class="cc-actions">{{if .CanEdit}}<button type="button" class="cc-btn primary" onclick="apOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New profile</button>{{end}}</div>
+  </div>
+  {{template "users-tabs" .}}
+
+  <form class="cc-card ap-form" id="ap-form" hidden onsubmit="return apSave(event)">
+    <h2 id="ap-title" style="margin:0 0 12px;font-size:14px">New profile</h2>
+    <div class="ap-f2">
+      <div><label class="ua-lbl" for="ap-name">Name</label><input class="form-input" id="ap-name" name="name" maxlength="60" required placeholder="e.g. Field tech"></div>
+      <div><label class="ua-lbl" for="ap-desc">What it's for</label><input class="form-input" id="ap-desc" name="description" maxlength="200" placeholder="e.g. On-site installs: apps, kiosk and restarts"></div>
+    </div>
+    <div class="ua-lbl">They can</div>
+    <div class="ap-grid">
+      {{range .Actions}}<label class="ap-ck"><input type="checkbox" name="actions" value="{{.Key}}"{{if eq .Key "view"}} checked disabled{{end}}><span><b>{{.Label}}</b>{{if .Help}}<small>{{.Help}}</small>{{end}}</span></label>{{end}}
+    </div>
+    <div class="ap-foot"><button type="submit" class="cc-btn primary" id="ap-save">Save profile</button><button type="button" class="cc-btn" onclick="document.getElementById('ap-form').hidden=true">Cancel</button><span class="err" id="ap-err"></span></div>
+  </form>
+
+  <div class="cc-card">
+    {{range .Profiles}}
+    <div class="ap-row" data-id="{{.ID}}" data-name="{{.Name}}" data-desc="{{.Description}}" data-actions="{{.Keys}}">
+      <div>
+        <div class="ap-nm">{{.Name}}{{if .Builtin}}<span class="cc-pill">built in</span>{{end}}</div>
+        {{if .Description}}<div class="ap-d">{{.Description}}</div>{{end}}
+        <div class="ap-acts">{{range .Labels}}<span>{{.}}</span>{{end}}</div>
+        <div class="ap-who">{{if .People}}Used by <b>{{range $i, $p := .People}}{{if $i}}, {{end}}{{$p}}{{end}}</b>{{else}}Nobody uses it yet{{end}}</div>
+      </div>
+      {{if $.CanEdit}}<div class="ap-btns">
+        <button type="button" class="cc-btn sm" onclick="apEdit(this)">Edit</button>
+        {{if not .Builtin}}<form method="POST" action="/users/access/profiles/{{.ID}}/delete" hx-boost="true" hx-confirm="Remove {{printf "%q" .Name}}? {{if .People}}The people on it keep what they have now.{{end}}"><button type="submit" class="cc-btn sm danger">Remove</button></form>{{end}}
+      </div>{{end}}
+    </div>
+    {{end}}
+  </div>
+  {{if not .CanEdit}}<p class="muted small" style="margin-top:10px">Changing a profile changes everyone on it, so it takes unlimited access of your own.</p>{{end}}
+</div>
+<script>
+(function(){
+  var f = document.getElementById('ap-form'), editing = '';
+  function $(id){ return document.getElementById(id); }
+  window.apOpen = function(){ editing = ''; f.reset(); $('ap-title').textContent = 'New profile'; $('ap-err').textContent = ''; f.hidden = false; f.scrollIntoView({behavior:'smooth', block:'start'}); $('ap-name').focus(); };
+  window.apEdit = function(btn){
+    var row = btn.closest('.ap-row'); apOpen(); editing = row.dataset.id;
+    $('ap-title').textContent = 'Edit ' + row.dataset.name;
+    $('ap-name').value = row.dataset.name; $('ap-desc').value = row.dataset.desc;
+    var has = row.dataset.actions.split(',');
+    f.querySelectorAll('input[name=actions]').forEach(function(c){ if (!c.disabled) c.checked = has.indexOf(c.value) >= 0; });
+  };
+  window.apSave = function(e){
+    e.preventDefault(); $('ap-save').disabled = true;
+    var enc = new URLSearchParams(); new FormData(f).forEach(function(v, k){ enc.append(k, v); });
+    fetch('/users/access/profiles' + (editing ? '/' + editing : ''), { method:'POST', credentials:'same-origin', headers:{'HX-Request':'true','Content-Type':'application/x-www-form-urlencoded'}, body: enc }).then(function(r){
+      $('ap-save').disabled = false;
+      if (r.ok) { location.href = '/users/access/profiles?flash=' + encodeURIComponent('Profile saved') + '&flash_type=ok'; return; }
+      return r.text().then(function(t){ $('ap-err').textContent = t.trim(); });
+    });
+    return false;
+  };
+})();
+</script>
+{{template "footer" .}}
+{{end}}

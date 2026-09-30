@@ -28,6 +28,9 @@ type AccessGrant struct {
 	Username  string     `json:"username"` // owner of the grant (joined)
 	// Expired is set by ListAccessGrants(includeExpired=true) for display.
 	Expired bool `json:"expired"`
+	// ProfileID is the access profile this grant was made from (its actions follow the
+	// profile), nil for a hand-made rule.
+	ProfileID *uuid.UUID `json:"profile_id,omitempty"`
 }
 
 // Has reports whether the grant names the action (or "*").
@@ -46,7 +49,7 @@ SELECT g.id, g.user_id, g.effect, g.scope_type,
        COALESCE(r.name, gr.name, d.serial_number, ''),
        g.actions, g.note, g.expires_at, g.created_by, g.created_at,
        (g.expires_at IS NOT NULL AND g.expires_at <= NOW()),
-       COALESCE(u.username, '')
+       COALESCE(u.username, ''), g.profile_id
 FROM access_grants g
 LEFT JOIN users u ON u.id = g.user_id
 LEFT JOIN restaurants r ON r.id = g.restaurant_id
@@ -58,7 +61,7 @@ func scanGrants(rows pgx.Rows) ([]AccessGrant, error) {
 	var out []AccessGrant
 	for rows.Next() {
 		var g AccessGrant
-		if err := rows.Scan(&g.ID, &g.UserID, &g.Effect, &g.ScopeType, &g.ScopeID, &g.ScopeName, &g.Actions, &g.Note, &g.ExpiresAt, &g.CreatedBy, &g.CreatedAt, &g.Expired, &g.Username); err != nil {
+		if err := rows.Scan(&g.ID, &g.UserID, &g.Effect, &g.ScopeType, &g.ScopeID, &g.ScopeName, &g.Actions, &g.Note, &g.ExpiresAt, &g.CreatedBy, &g.CreatedAt, &g.Expired, &g.Username, &g.ProfileID); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -137,9 +140,9 @@ func (d *DB) AddAccessGrant(ctx context.Context, g AccessGrant) (*AccessGrant, e
 		return nil, err
 	}
 	var id uuid.UUID
-	err = d.pool.QueryRow(ctx, `INSERT INTO access_grants (user_id, effect, scope_type, restaurant_id, group_id, device_id, actions, note, expires_at, created_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-		g.UserID, g.Effect, g.ScopeType, rid, gid, did, g.Actions, g.Note, g.ExpiresAt, g.CreatedBy).Scan(&id)
+	err = d.pool.QueryRow(ctx, `INSERT INTO access_grants (user_id, effect, scope_type, restaurant_id, group_id, device_id, actions, note, expires_at, created_by, profile_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+		g.UserID, g.Effect, g.ScopeType, rid, gid, did, g.Actions, g.Note, g.ExpiresAt, g.CreatedBy, g.ProfileID).Scan(&id)
 	if err != nil {
 		return nil, err
 	}

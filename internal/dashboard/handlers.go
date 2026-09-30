@@ -21883,6 +21883,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/access/grants", h.requireUserManager(h.UserAccessAddGrant))
 	post("POST /users/{id}/access/grants/{gid}/edit", h.requireUserManager(h.UserAccessEditGrant))
 	post("POST /users/{id}/access/grants/{gid}/delete", h.requireUserManager(h.UserAccessDeleteGrant))
+	post("POST /users/{id}/access/simple", h.requireUserManager(h.UserAccessSimpleSave))
+	post("POST /users/{id}/access/simple/preview", h.requireUserManager(h.UserAccessSimplePreview))
+	mux.HandleFunc("GET /users/access/profiles", h.requireUserManager(h.AccessProfilesPage))
+	post("POST /users/access/profiles", h.requireUserManager(h.AccessProfileSave))
+	post("POST /users/access/profiles/{pid}", h.requireUserManager(h.AccessProfileSave))
+	post("POST /users/access/profiles/{pid}/delete", h.requireUserManager(h.AccessProfileDelete))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
