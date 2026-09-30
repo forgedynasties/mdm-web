@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosk policies · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.part{font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:56px 0 4px}
+.psec{font-size:21px;font-weight:700;margin:0 0 8px;letter-spacing:-.015em}
+.sec{font-size:17px;font-weight:700;margin:40px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:20px}
+table.au{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table.au th,table.au td{text-align:left;padding:9px 12px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.5}
+table.au th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+.pill{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;white-space:nowrap}
+.hi{background:var(--danger-bg);color:var(--danger)}.md{background:var(--warn-bg);color:var(--warn)}.lo{background:var(--surface-3);color:var(--text-2)}
+
+/* page chrome in the mocks */
+.h1m{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0}
+.subm{color:var(--muted);font-size:13px;margin:4px 0 14px}
+.tabsm{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.tabsm span{font-size:13px;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent}
+.tabsm span.cur{color:var(--text);border-color:var(--accent)}
+.topm{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.topm .grow{flex:1}
+/* policy rows */
+.pr{display:grid;grid-template-columns:28px 40px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:14px 16px;border-top:1px solid var(--border-soft)}
+.pr:first-child{border-top:0}
+.pr .ord{font-size:12px;font-weight:700;color:var(--text-faint);text-align:center;cursor:grab}
+.app{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px}
+.pr .nm{font-size:14px;font-weight:700}
+.pr .mt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.pr .mt b{color:var(--text-2)}
+.st{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.st span{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
+.st .ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}
+.st .wait{color:var(--info);background:var(--info-bg);border-color:transparent}
+.st .bad{color:var(--danger);background:var(--danger-bg);border-color:transparent}
+.st .warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+.pr .acts{display:flex;gap:6px}
+.dflt{display:flex;gap:12px;align-items:center;padding:14px 16px;border:1px dashed var(--border);border-radius:var(--r-4);margin-top:12px;color:var(--muted);font-size:13px}
+.dflt b{color:var(--text)}
+@media(max-width:720px){.pr{grid-template-columns:40px minmax(0,1fr)}.pr .ord{display:none}.pr .acts,.pr .cov{grid-column:1/-1}}
+/* by-place table */
+table.bp{width:100%;border-collapse:collapse;font-size:13px}
+table.bp th,table.bp td{padding:10px 14px;border-top:1px solid var(--border-soft);text-align:left}
+table.bp th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+.sel{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:5px 10px;background:var(--surface);font-size:12.5px;font-weight:600}
+.sel .app{width:20px;height:20px;border-radius:5px;font-size:11px}
+/* editor */
+.ed{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
+@media(max-width:1024px){.ed{grid-template-columns:1fr}}
+.q{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;margin-bottom:12px}
+.q h3{font-size:14px;margin:0 0 3px}
+.q .hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.q .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);font-size:12px;font-weight:700;margin-right:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;background:var(--surface)}
+.chip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.chip small{color:var(--muted);font-weight:500}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.apps .chip{justify-content:flex-start}
+.apps .chip .app{width:26px;height:26px;border-radius:7px;font-size:12px}
+.sw{display:flex;align-items:center;gap:10px;font-size:13px}
+.sw i{width:34px;height:20px;border-radius:99px;background:var(--accent);position:relative;flex:none}
+.sw i:after{content:"";position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.prev{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:16px 18px;position:sticky;top:12px}
+.prev h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.prev .big{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.prev ul{margin:10px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--text-2)}
+.prev .w{color:var(--warn)}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.sheet{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:0;border:1px solid var(--border);border-radius:var(--r-4);overflow:hidden}
+.sheet .left{opacity:.45;padding:14px}
+.sheet .right{background:var(--surface);border-left:1px solid var(--border);padding:16px;box-shadow:var(--shadow-lg)}
+@media(max-width:1024px){.sheet{grid-template-columns:1fr}.sheet .left{display:none}}
+/* device page mock */
+.dp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px}
+.dp .k{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Policies: kiosk only</h1>
+<p class="lead">You asked for the Policies page to be kiosk and nothing else, with a proper look at how kiosk policies work. Part 1 is the audit of the current page and its logic. Parts 2 and 3 are options for the page and for creating a policy. Part 4 is what changes behind them. Restaurant names, device counts and app names are from live on 30 Sep: Flights Vegas has 20 tablets running Nugget-uatv2 and Nugget-stagev2, Huanchaco Peruvian has 8 running Nugget. Today there are <b>no kiosk policies</b> and <b>no device is kiosk-locked</b>, so nothing on live changes behaviour until a policy is made.</p>
+<div class="toc"><a href="#audit">Audit</a><a href="#a" class="rec">A · Rules list ★</a><a href="#b">B · By place</a><a href="#c">C · Default + exceptions</a><a href="#e1" class="rec">E1 · Three questions ★</a><a href="#e2">E2 · Side sheet</a><a href="#logic">Behaviour changes</a><a href="#pick">Recommendation</a></div>
+
+<!-- ═════ PART 1 ═════ -->
+<div class="part" id="audit">Part 1</div>
+<h2 class="psec">Audit of the current kiosk policies</h2>
+<table class="au">
+<thead><tr><th style="width:80px">Severity</th><th>What's wrong</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td><span class="pill hi">High</span></td><td><b>It isn't enforced.</b> The page says "apply once, keep enforcing", but a policy writes kiosk settings to the devices in its target at the moment it is saved, and never again. A tablet added to Flights Vegas next week is not locked; one moved out stays locked.</td><td>Logic</td></tr>
+<tr><td><span class="pill hi">High</span></td><td><b>Policies and the device page fight silently.</b> Both write the same kiosk setting on the device; whichever saved last wins. The device page doesn't say a policy manages it, and turning kiosk off there quietly breaks the policy.</td><td>Logic, device page</td></tr>
+<tr><td><span class="pill hi">High</span></td><td><b>It can lock to an app the device doesn't have.</b> The policy picks from every app seen anywhere in the fleet. The device page refuses this for a reason: lock-task silently fails when the app isn't installed. The policy page gives no warning.</td><td>Editor</td></tr>
+<tr><td><span class="pill hi">High</span></td><td><b>Overlaps and deletes.</b> A device in two policies gets whichever was saved last, with no warning. "Duplicate" creates an instant overlap. Deleting a policy unlocks every device in it, even ones another policy still covers.</td><td>Logic</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td><b>No result.</b> After saving you see a device count, not whether the devices actually locked. There's no "locked / waiting / can't lock / app missing" per policy, and no list of the devices.</td><td>List</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td><b>Numbers that don't add up.</b> "Covers X of Y devices" adds up each policy's targets, so overlapping policies are counted twice. "Unclaimed" means "kiosk is off", not "no policy targets it".</td><td>Header</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td><b>Missing what kiosk can do on a device.</b> The offline exit code (a technician leaves kiosk on site without the server) exists per device but not in a policy.</td><td>Editor</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td><b>Five tabs that aren't kiosk:</b> Updates, Network, Managed configs, Compliance and Geofencing. You asked for them to go. The fleet GPS switch and the compliance/geofencing pages go with them.</td><td>Tabs</td></tr>
+<tr><td><span class="pill lo">Low</span></td><td>The editor is three separate cards (name, targets, app) with the name first, so you name a policy before knowing what it does. The device picker lists every device in the fleet. The "Everything else — Default" card doesn't let you do anything.</td><td>Editor, list</td></tr>
+</tbody></table>
+
+<!-- ═════ PART 2 ═════ -->
+<div class="part">Part 2</div>
+<h2 class="psec">The Policies page</h2>
+
+<h3 class="sec" id="cur">Current <span class="tag live">Deployed</span></h3>
+<div class="scr">
+  <p class="h1m">Policies</p>
+  <div class="tabsm"><span class="cur">Kiosk</span><span>Updates</span><span>Network</span><span>Managed configs</span><span>Compliance</span><span>Geofencing</span></div>
+  <p class="desc" style="margin:0">"No policies cover the fleet yet" · four KPI tiles · an empty list · a dashed "Everything else — Default" card.</p>
+</div>
+
+<h3 class="sec" id="a">A · A rules list, top rule wins <span class="tag rec">Recommended</span></h3>
+<p class="desc">No tabs. Each policy is one row: its app, where it applies, and what actually happened on the devices (locked, waiting for the device, can't lock, app missing). Rules are in order; a device covered by two uses the higher one, and the row says so. The last row is what happens to everything else, and it can be changed. The two rules below are illustrative; the device counts and the 4 silent Flights Vegas tablets are real, the "app missing" is made up to show the state.</p>
+<div class="scr">
+  <div class="topm"><div class="grow"><p class="h1m">Kiosk</p><div class="subm"><b>28</b> devices locked by 2 rules · 153 not covered (unlocked)</div></div><span class="cc-btn primary">New kiosk rule</span></div>
+  <div class="cc-card">
+    <div class="pr"><span class="ord" title="Drag to reorder">1</span><span class="app" style="background:#e3653b">N</span>
+      <div><div class="nm">Flights Vegas · guest tablets</div><div class="mt">Locked to <b>Nugget-uatv2</b> · restaurant <b>Flights Vegas</b> · exit code on</div>
+        <div class="st"><span class="ok">16 locked</span><span class="wait">4 waiting (offline)</span></div></div>
+      <div class="cov"></div><div class="acts"><span class="cc-btn sm">Devices</span><span class="cc-btn sm">Edit</span></div></div>
+    <div class="pr"><span class="ord" title="Drag to reorder">2</span><span class="app" style="background:#3b82e3">N</span>
+      <div><div class="nm">Huanchaco</div><div class="mt">Locked to <b>Nugget</b> · restaurant <b>Huanchaco Peruvian</b></div>
+        <div class="st"><span class="ok">1 locked</span><span class="wait">6 waiting (offline)</span><span class="warn">1 app missing</span></div></div>
+      <div class="cov"></div><div class="acts"><span class="cc-btn sm">Devices</span><span class="cc-btn sm">Edit</span></div></div>
+  </div>
+  <div class="dflt"><span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><div style="flex:1"><b>Everything else</b> · not locked · 153 devices</div><span class="cc-btn sm">Change</span></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Shows the outcome, not just the intent: you can see the 4 Flights Vegas tablets that haven't picked it up.</li><li>Order makes overlaps a rule, not an accident.</li><li>One page, one job.</li></ul></div>
+<div><b>Bad at</b><ul><li>Ordering is one more idea to explain (the row says which rule a device got, which helps).</li></ul></div></div>
+
+<h3 class="sec" id="b">B · By place</h3>
+<p class="desc">No policy objects on screen: a table of restaurants and groups, each with a kiosk app picker. Setting it creates the policy behind the scenes.</p>
+<div class="scr">
+  <div class="topm"><div class="grow"><p class="h1m">Kiosk</p><div class="subm">Choose what each place is locked to</div></div></div>
+  <div class="cc-card"><table class="bp"><thead><tr><th>Place</th><th>Devices</th><th>Locked to</th><th>Status</th></tr></thead><tbody>
+  <tr><td><b>Flights Vegas</b><div class="mt" style="font-size:12px;color:var(--muted)">restaurant</div></td><td>20</td><td><span class="sel"><span class="app" style="background:#e3653b">N</span>Nugget-uatv2 ▾</span></td><td><span class="st" style="margin:0"><span class="ok">16 locked</span></span></td></tr>
+  <tr><td><b>Huanchaco Peruvian</b><div class="mt" style="font-size:12px;color:var(--muted)">restaurant</div></td><td>8</td><td><span class="sel"><span class="app" style="background:#3b82e3">N</span>Nugget ▾</span></td><td><span class="st" style="margin:0"><span class="wait">6 waiting</span></span></td></tr>
+  <tr><td><b>SJ Office Test Devices</b><div class="mt" style="font-size:12px;color:var(--muted)">group</div></td><td>23</td><td><span class="sel">Not locked ▾</span></td><td>—</td></tr>
+  </tbody></table></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>The fastest way to lock a restaurant: one dropdown.</li></ul></div>
+<div><b>Bad at</b><ul><li>No room for a device-level exception or exit codes without a second screen.</li><li>A device in a restaurant and a group has two rows that can disagree, and the table can't show which wins.</li></ul></div></div>
+
+<h3 class="sec" id="c">C · One default and exceptions</h3>
+<p class="desc">One fleet-wide setting ("lock every placed device to Nugget"), then exceptions below it. Suits a fleet that runs one app everywhere; ours runs different Nugget builds per restaurant.</p>
+<div class="scr">
+  <div class="q" style="margin:0 0 10px"><h3>Every device in a restaurant</h3><div class="sw" style="margin-top:8px"><i></i> Locked to <span class="sel"><span class="app" style="background:#3b82e3">N</span>Nugget ▾</span></div></div>
+  <div class="cc-card"><div class="pr" style="grid-template-columns:40px minmax(0,1fr) auto"><span class="app" style="background:#e3653b">N</span><div><div class="nm">Except Flights Vegas</div><div class="mt">Locked to <b>Nugget-uatv2</b></div></div><span class="cc-btn sm">Edit</span></div></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Simple when one app runs everywhere.</li></ul></div>
+<div><b>Bad at</b><ul><li>Today two of the two restaurants would be exceptions.</li><li>Locks bench and test devices in groups unless they're excepted too.</li></ul></div></div>
+
+<!-- ═════ PART 3 ═════ -->
+<div class="part">Part 3</div>
+<h2 class="psec">Making a kiosk rule</h2>
+
+<h3 class="sec" id="e1">E1 · Three questions and a live preview <span class="tag rec">Recommended</span></h3>
+<p class="desc">One page asking, in order: where, which app, and how staff get out. The app list only offers apps installed on the chosen devices, with how many have each. The preview says what will happen before you save, including the problems. The name comes last and is filled in for you.</p>
+<div class="scr"><div class="ed">
+  <div>
+    <div class="q"><h3><span class="n">1</span>Where</h3><p class="hint">A restaurant, a group, or specific devices. Devices that join later are locked too.</p>
+      <div class="chips"><span class="chip on">Flights Vegas <small>20</small></span><span class="chip">Huanchaco Peruvian <small>8</small></span><span class="chip">A group…</span><span class="chip">Pick devices…</span></div></div>
+    <div class="q"><h3><span class="n">2</span>Which app</h3><p class="hint">Only apps installed on these devices.</p>
+      <div class="apps"><span class="chip on"><span class="app" style="background:#e3653b">N</span>Nugget-uatv2 <small>20/20</small></span><span class="chip"><span class="app" style="background:#8b5cf6">N</span>Nugget-stagev2 <small>20/20</small></span></div></div>
+    <div class="q"><h3><span class="n">3</span>How staff get out</h3><p class="hint">Without the server: a code from the MDM that changes every minute.</p>
+      <div class="sw"><i></i> Offline exit code on · locks again when the device restarts</div></div>
+    <div class="q"><h3>Name</h3><input class="pl-field" style="width:100%;max-width:420px;font:inherit;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)" value="Flights Vegas · Nugget-uatv2"></div>
+    <div class="foot"><span class="cc-btn">Cancel</span><span class="cc-btn primary">Lock 20 devices</span></div>
+  </div>
+  <div class="prev"><h3>What will happen</h3><div class="big">20 devices</div><div style="color:var(--muted);font-size:12.5px">at Flights Vegas lock to Nugget-uatv2</div>
+    <ul><li>16 are online and lock now</li><li>4 are offline and lock when they next check in</li><li class="w">Rule order: this becomes rule 1</li></ul></div>
+</div></div>
+<div class="notes"><div><b>Good at</b><ul><li>Can't pick an app that isn't there; shows problems before saving.</li><li>Matches how the device page does it (app list from the device, exit codes).</li></ul></div>
+<div><b>Bad at</b><ul><li>A full page for what is often one decision.</li></ul></div></div>
+
+<h3 class="sec" id="e2">E2 · A side sheet over the list</h3>
+<p class="desc">The same three questions in a panel that slides over the list, so you never leave it.</p>
+<div class="scr"><div class="sheet"><div class="left"><div class="cc-card"><div class="pr" style="grid-template-columns:40px minmax(0,1fr)"><span class="app" style="background:#3b82e3">N</span><div><div class="nm">Huanchaco</div><div class="mt">Locked to Nugget</div></div></div></div></div>
+<div class="right"><h3 style="margin:0 0 12px;font-size:15px">New kiosk rule</h3>
+  <div class="q" style="padding:12px"><h3><span class="n">1</span>Where</h3><div class="chips"><span class="chip on">Flights Vegas <small>20</small></span><span class="chip">Huanchaco <small>8</small></span></div></div>
+  <div class="q" style="padding:12px"><h3><span class="n">2</span>Which app</h3><div class="apps"><span class="chip on"><span class="app" style="background:#e3653b">N</span>Nugget-uatv2</span></div></div>
+  <div class="q" style="padding:12px"><h3><span class="n">3</span>Exit code</h3><div class="sw"><i></i> On</div></div>
+  <div class="foot"><span class="cc-btn">Cancel</span><span class="cc-btn primary">Lock 20 devices</span></div></div></div></div>
+<div class="notes"><div><b>Good at</b><ul><li>Quick; the list stays in view.</li></ul></div>
+<div><b>Bad at</b><ul><li>No room for the live preview; cramped on a phone.</li></ul></div></div>
+
+<!-- ═════ PART 4 ═════ -->
+<div class="part" id="logic">Part 4</div>
+<h2 class="psec">Behaviour behind either design</h2>
+<table class="au"><tbody>
+<tr><td style="width:220px"><b>Enforced, not applied once</b></td><td>The server works out each device's kiosk setting from the rules whenever a device checks in or moves restaurant/group, so new devices lock and moved ones unlock.</td></tr>
+<tr><td><b>Order decides overlaps</b></td><td>A device gets the highest rule that covers it. Deleting a rule falls back to the next one (or "everything else"), never to unlocked by accident.</td></tr>
+<tr><td><b>Device page knows</b></td><td>Kiosk on a device says "Locked by <i>Flights Vegas · guest tablets</i>". Changing it there asks whether to override this device (an exception that stays) or edit the rule.</td></tr>
+<tr><td><b>App must be installed</b></td><td>A device without the app shows "app missing" on the rule, isn't told to lock, and locks by itself once the app is installed.</td></tr>
+<tr><td><b>Exit codes per rule</b></td><td>The offline exit code and re-lock time are set on the rule and apply to its devices.</td></tr>
+<tr><td><b>Only kiosk</b></td><td>The Updates, Network, Managed configs, Compliance and Geofencing tabs and their pages are removed from the dashboard (the update behaviour already lives with releases). Their data stays in the database, so nothing is lost if one is wanted back.</td></tr>
+</tbody></table>
+<div class="dp" style="margin-top:14px"><span class="k">Device page</span><span class="cc-tag ok">Kiosk on</span><span>Locked to <b>Nugget-uatv2</b> by rule <b>Flights Vegas · guest tablets</b></span><span class="cc-btn sm" style="margin-left:auto">Override on this device</span></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A, the rules list, with E1, the three-question editor, and all of Part 4.</b> A is the only option that shows whether devices actually locked and makes overlaps predictable. E1 is the only one that can't lock to a missing app. The Part 4 changes are what make "policy" mean something: without continuous enforcement and the device page knowing about rules, any design shows numbers that stop being true a day later.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>
