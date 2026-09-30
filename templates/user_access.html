@@ -168,7 +168,7 @@
               <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
               <div class="ua-f-row">
                 <select name="role" class="form-input" style="width:auto;min-width:220px;">
-                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
+                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell, access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
                   {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
                 </select>
                 <button type="submit" class="cc-btn sm">Change role</button>
@@ -218,7 +218,7 @@
               <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
               <div class="ua-f-row">
                 <select name="role" class="form-input" style="width:auto;min-width:220px;">
-                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
+                  {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — device actions, per rules{{else if eq . "user_manager"}} — operator + users &amp; access{{else if eq . "dev"}} — operator + releases, OTA, shell, access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — their venue, read-only{{end}}</option>{{end}}
                   {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
                 </select>
                 <button type="submit" class="cc-btn sm">Change role</button>

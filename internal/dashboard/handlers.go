@@ -16593,7 +16593,12 @@ func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || r
 func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "super_op" }
 
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
-func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "super_op" }
+// roleManagesUsers: who reaches Users, Activity and access control. Devs were added on
+// 30 Sep; like the others they manage only accounts below their own level (dev: access
+// admins, super ops, operators, viewers, owners), and delegation limits what they grant.
+func roleManagesUsers(role string) bool {
+	return role == "admin" || role == "dev" || role == "user_manager" || role == "super_op"
+}
 
 // roleCreatesUsers: may create, delete or merge accounts. The super op manages
 // access rules, roles and passwords of existing accounts but does not add or

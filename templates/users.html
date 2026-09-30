@@ -153,7 +153,7 @@
       <div class="form-row">
         <label class="form-label" for="f-role">Role</label>
         <select name="role" id="f-role" class="form-input">
-          {{range .Assignable}}<option value="{{.}}"{{if eq . "viewer"}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — actions, queries, QA, per access policy{{else if eq . "user_manager"}} — operator + manage users &amp; access control{{else if eq . "dev"}} — operator + releases, OTA, deployments{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — sees only their restaurant's devices{{end}}</option>{{end}}
+          {{range .Assignable}}<option value="{{.}}"{{if eq . "viewer"}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — actions, queries, QA, per access policy{{else if eq . "user_manager"}} — operator + manage users &amp; access control{{else if eq . "dev"}} — operator + releases, OTA, deployments, access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — sees only their restaurant's devices{{end}}</option>{{end}}
         </select>
       </div>
       <div class="form-row" id="f-restaurants-row" hidden>
