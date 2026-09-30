@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventory card and logs · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.part{font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:56px 0 4px}
+.psec{font-size:21px;font-weight:700;margin:0 0 8px;letter-spacing:-.015em}
+.sec{font-size:17px;font-weight:700;margin:40px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.warnbox{background:var(--warn-bg);border:1px solid var(--warn-edge,var(--border));border-radius:10px;padding:14px 16px;font-size:13.5px;line-height:1.65;color:var(--text);max-width:900px;margin:10px 0 0}
+.scr{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:18px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px}
+.scr.one{grid-template-columns:1fr}
+@media(max-width:1024px){.scr{grid-template-columns:1fr}}
+.ghost{border:1px dashed var(--border);border-radius:12px;min-height:220px;display:grid;place-items:center;color:var(--text-faint);font-size:12px}
+table.d{width:100%;border-collapse:collapse;font-size:12.5px}
+table.d td,table.d th{padding:7px 8px;border-top:1px solid var(--border-soft);text-align:left}
+table.d th{font-size:11px;color:var(--text-faint);font-weight:650;border-top:0}
+table.d td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* the Overview side-card look (copied from overview_new.html) */
+.hy{list-style:none;margin:0;padding:0}
+.hy li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.hy li:first-child{border-top:0}
+.hy .t{font-size:12.5px;color:var(--text);line-height:1.4}
+.hy .t b{font-variant-numeric:tabular-nums}
+.hy .t small{display:block;color:var(--muted);font-size:11.5px}
+.hy a.go{font-size:12px;font-weight:650;white-space:nowrap}
+.fb{padding:12px 14px 14px}
+.fb .bar{display:flex;height:14px;border-radius:4px;overflow:hidden;gap:2px}
+.fb .bar i{display:block}
+.fb .lg{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:6px 8px;align-items:center;margin-top:12px;font-size:12.5px}
+.fb .lg i{width:10px;height:10px;border-radius:2px}
+.fb .lg b{font-variant-numeric:tabular-nums}
+.nudge{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px}
+.nudge .d{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}
+.nudge a{margin-left:auto;font-weight:650;font-size:12.5px}
+
+/* logs mocks */
+.dm{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;width:260px;box-shadow:var(--shadow-md)}
+.dm .mi{display:block;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--text-2)}
+.dm .mi.on{background:var(--accent-soft,var(--surface-3));color:var(--text);font-weight:600}
+.dm .mi small{display:block;color:var(--muted);font-size:11px;font-weight:500}
+.dm .sep{height:1px;background:var(--border-soft);margin:4px 6px}
+.res{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12.5px}
+.res .h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.res .h b{font-size:14px}
+.res .h .when{margin-left:auto;color:var(--text-faint);font-size:11.5px}
+.res .f{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:center}
+.res .f span.m{color:var(--muted);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+.chips span.new{border-color:var(--ok-edge);color:var(--ok)}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Inventory clean-up card, and "Collect logs"</h1>
+<p class="lead">Two things from the alert review. Part 1 is the Overview card that says whether the fleet list is honest. Part 2 is "Collect logs", with a correction to the review first. All figures are live data from 30 Sep.</p>
+<div class="toc"><a href="#c1" class="rec">C1 · Checklist ★</a><a href="#c2">C2 · Fleet bar</a><a href="#c3">C3 · One line</a><a href="#logs">Collect logs</a><a href="#l1">L1 · Full bundle</a><a href="#l2" class="rec">L2 · More presets ★</a><a href="#l3">L3 · Not now</a><a href="#pick">Recommendation</a></div>
+
+<!-- ═══════════ PART 1 ═══════════ -->
+<div class="part">Part 1</div>
+<h2 class="psec">C · Inventory to clean up</h2>
+<p class="desc">The fleet has 181 devices that are not retired. Of those, <b>86 (48%) have not reported for 14 days or more</b>, 47 of them for over 60 days. Every one is in a restaurant-less "bench" state. They make every fleet-wide count read low: "online %", adoption of the latest release, the wall. The card below the uptime card says so and offers the fix. Nothing on the Overview is gated on it; it is a to-do list.</p>
+<table class="d" style="max-width:720px"><thead><tr><th>Where the 181 are</th><th style="text-align:right">Devices</th></tr></thead><tbody>
+<tr><td>In a restaurant, reporting</td><td class="num">18</td></tr>
+<tr><td>In a restaurant, not reporting for a day or more (Huanchaco 6, Flights Vegas 4)</td><td class="num">10</td></tr>
+<tr><td>No restaurant, reported in the last 14 days (lab / bench)</td><td class="num">67</td></tr>
+<tr><td>No restaurant, silent 14 days or more</td><td class="num">86</td></tr>
+</tbody></table>
+<p class="desc" style="margin-top:10px">Also: 19 different builds among devices seen in the last 14 days (including "old-key", "clean-build" and a stock "TQ3C…" image); 9 devices had a dead wireless pad in the last 14 days; 4 devices report to another MDM.</p>
+
+<h3 class="sec" id="c1">C1 · A checklist card <span class="tag rec">Recommended</span></h3>
+<p class="desc">One row per clean-up job, each with its count and a link that opens the Devices list already filtered to those devices, where the existing bulk actions (retire, assign a restaurant) do the work. A row disappears when its count is zero; the card hides when all are.</p>
+<div class="scr">
+  <div class="ghost">wall + map (unchanged)</div>
+  <div>
+    <div class="cc-card">
+      <div class="cc-ch"><h2>Clean up</h2><span class="m">4 jobs</span><a class="r" href="#">Devices</a></div>
+      <ul class="hy">
+        <li><div class="t"><b>86</b> devices silent 14+ days<small>48% of the fleet, none in a restaurant. Retire what is gone.</small></div><a class="go" href="#">Review</a></li>
+        <li><div class="t"><b>10</b> restaurant devices not reporting<small>Huanchaco Peruvian 6, Flights Vegas 4. On site, or moved?</small></div><a class="go" href="#">Review</a></li>
+        <li><div class="t"><b>9</b> dead wireless pads in 14 days<small>Replace the pad or the tablet.</small></div><a class="go" href="#">Review</a></li>
+        <li><div class="t"><b>19</b> builds running<small>Includes old-key, clean-build and a stock image.</small></div><a class="go" href="#">Releases</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Each row is a job with a place to do it; nothing new to learn, the bulk actions already exist.</li><li>Says <i>why</i> the counts elsewhere look low.</li></ul></div>
+<div><b>Bad at</b><ul><li>Four rows of text. On a clean fleet it vanishes, which is right, but today it is long.</li><li>"19 builds" has no one-click fix; it is only a nudge.</li></ul></div></div>
+
+<h3 class="sec" id="c2">C2 · A fleet bar</h3>
+<p class="desc">One stacked bar splitting the 181 into where they are, with a legend that links each part to the filtered list. It shows the shape at a glance, but not what to do.</p>
+<div class="scr">
+  <div class="ghost">wall + map (unchanged)</div>
+  <div class="cc-card">
+    <div class="cc-ch"><h2>Fleet</h2><span class="m">181 devices</span><a class="r" href="#">Devices</a></div>
+    <div class="fb">
+      <div class="bar"><i style="width:9.9%;background:var(--ok)"></i><i style="width:5.5%;background:var(--danger)"></i><i style="width:37%;background:var(--accent-2)"></i><i style="width:47.5%;background:var(--surface-3)"></i></div>
+      <div class="lg">
+        <i style="background:var(--ok)"></i><span>In a restaurant, reporting</span><b>18</b>
+        <i style="background:var(--danger)"></i><a href="#">In a restaurant, silent</a><b>10</b>
+        <i style="background:var(--accent-2)"></i><a href="#">Bench / lab, reporting</a><b>67</b>
+        <i style="background:var(--surface-3)"></i><a href="#">Silent 14+ days</a><b>86</b>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>The clearest picture of how much of the fleet is real.</li></ul></div>
+<div><b>Bad at</b><ul><li>A picture, not a to-do list; pads and builds don't fit.</li><li>The "silent" slice overlaps with what the wall's grey squares already show.</li></ul></div></div>
+
+<h3 class="sec" id="c3">C3 · One line under the hero</h3>
+<p class="desc">No card: one sentence under the score, only while more than a tenth of the fleet is silent for 14+ days.</p>
+<div class="scr one">
+  <div class="nudge"><span class="d"></span><span><b>86 devices</b> (48%) haven't reported in 14 days. Every fleet-wide number counts them.</span><a href="#">Review and retire</a></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Smallest change, and it is the biggest of the four problems.</li></ul></div>
+<div><b>Bad at</b><ul><li>Drops the other three jobs, including the 10 silent restaurant devices, which matter most.</li></ul></div></div>
+
+<!-- ═══════════ PART 2 ═══════════ -->
+<div class="part" id="logs">Part 2</div>
+<h2 class="psec">"Collect logs"</h2>
+<div class="warnbox"><b>A correction to the review first.</b> It said the shell was used 1,223 times in 30 days, 986 of them to run <code>logcat</code>, and that "Collect logs" would replace the most common use of the shell. That was wrong. Looking at who ran them:
+<ul style="margin:8px 0 0;padding-left:18px">
+<li><b>919 had no person behind them</b>: the server's own legacy-OTA watcher (<code>internal/api/legacy_watch.go</code>) polling <code>logcat -d -s update_engine | tail -n 60</code>. 913 of the 919 are that one command.</li>
+<li><b>141</b> came from an API key (scripts, including mine), <b>163</b> from the shared <code>admin</code> account.</li>
+<li>Of the ~300 that people or scripts ran, the biggest groups were watching an OTA (87, <code>update_engine</code>) and reading thermal zones in a loop (~70, now covered by fast temperature). The rest are one-offs: <code>getprop</code>, <code>du</code>, <code>setprop</code>, <code>bootctl</code>.</li>
+<li>No one ran <code>bugreport</code> or a general <code>logcat</code> dump. There are already 9 one-click diagnostics (Battery, Storage, Wi-Fi, "logcat update engine", …), run 37 times in 30 days.</li>
+</ul>
+So there is no demonstrated demand for a log bundle. It may still be worth having for crash investigations, but it isn't replacing anything.</div>
+
+<h3 class="sec" id="l1">L1 · A full "Collect logs" bundle</h3>
+<p class="desc">A device action and a bulk action. The device (firmware client only; MDM-Lite can't) runs a fixed set, and the result is one file per device to download, or a zip for a bulk run. Operators may run it; no shell needed.</p>
+<div class="scr">
+  <div class="res">
+    <div class="h"><b>Logs · AT070AABU00864</b><span class="cc-tag ok">ready</span><span class="when">collected 2 min ago</span></div>
+    <div class="f">
+      <span>logcat (last 5,000 lines, all buffers)</span><span class="m">412 KB</span><a href="#">View</a>
+      <span>dumpsys battery, meminfo, wifi</span><span class="m">38 KB</span><a href="#">View</a>
+      <span>getprop</span><span class="m">21 KB</span><a href="#">View</a>
+      <span>update_engine (OTA) log</span><span class="m">6 KB</span><a href="#">View</a>
+      <span>recent crashes (already on the server)</span><span class="m">3</span><a href="#">View</a>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px"><span class="cc-btn sm primary">Download .zip</span><span class="cc-btn sm">Collect again</span></div>
+    <p class="desc" style="margin:10px 0 0">(Sizes are illustrative.)</p>
+  </div>
+  <div class="dm"><div class="mi">Reboot</div><div class="mi">Screenshot</div><div class="mi on">Collect logs<small>logcat, dumpsys, getprop, OTA log</small></div><div class="sep"></div><div class="mi">Shell</div></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>One click for everything a firmware engineer asks for after a crash, on 1 or 40 devices.</li><li>Safer than the shell: fixed commands, operator role.</li></ul></div>
+<div><b>Bad at</b><ul><li>The biggest build of the three: a new command type, storage for multi-MB results, a zip download, retention.</li><li>The data shows no one asking for it yet.</li></ul></div></div>
+
+<h3 class="sec" id="l2">L2 · More one-click diagnostics <span class="tag rec">Recommended</span></h3>
+<p class="desc">Use what is already there: the device page's one-click diagnostics (Settings → Queries). Add presets for what people actually ran through the shell, make them available as a bulk action from the Devices list, and let operators run them. The result lands in the command history like today.</p>
+<div class="scr one">
+  <div>
+    <div class="chips"><span>Battery</span><span>Storage</span><span>Wi-Fi</span><span>logcat update engine</span><span>…5 more today</span>
+      <span class="new">+ OTA progress</span><span class="new">+ Boot slot</span><span class="new">+ Build properties</span><span class="new">+ Recent errors (logcat *:E, 300 lines)</span></div>
+    <p class="desc" style="margin:12px 0 0">Bulk: select devices → "Run diagnostic" → pick one → results per device in the command history.</p>
+  </div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Covers what was really run: OTA progress, boot slot, getprop, a short error log.</li><li>Small: presets plus a bulk entry point and an operator permission. No new storage.</li></ul></div>
+<div><b>Bad at</b><ul><li>Not a full log bundle; a long logcat still means the live log viewer.</li></ul></div></div>
+
+<h3 class="sec" id="l3">L3 · Not now</h3>
+<p class="desc">Skip it and spend the time on the operating gaps next (rollouts that pause on failed installs, per-restaurant policies, two-factor login and scoped API keys). Revisit if people start asking for logs after crashes.</p>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>C1, the checklist card, and L2, more one-click diagnostics.</b> C1 turns the one big fact about the fleet list (half of it is silent) into jobs with a place to do them, and keeps the 10 silent restaurant devices in view. For logs, the review's reason for a bundle turned out to be wrong, so L2 covers what was actually run through the shell for a fraction of the work. L1 can follow if crash investigations start asking for it.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>
