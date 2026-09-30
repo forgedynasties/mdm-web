@@ -95,6 +95,7 @@
     <div class="cc-eyebrow">Fleet · Clients</div>
     <h1 class="cc-h1">Clients</h1>
     <div class="cc-sub">The MDM client on each device and the build this server hosts for it. A device is only offered a build signed with the same key it already trusts, so the firmware client has one entry per variant. Builds arrive from CI, not by hand.</div>
+    <div class="cc-sub" style="margin-top:6px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>
   </div>
 </div>
 

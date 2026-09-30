@@ -26,7 +26,6 @@ import (
 	"mdm/internal/geolocate"
 	"mdm/internal/ingest"
 	"mdm/internal/logstream"
-	"mdm/internal/middleware"
 	"mdm/internal/metrics"
 	"mdm/internal/otagate"
 	"mdm/internal/peers"
@@ -197,8 +196,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errInvalidSerial, http.StatusBadRequest)
 		return
 	}
-	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
-		http.Error(w, "serial does not match device credential", http.StatusForbidden)
+	if !h.requireDeviceIdentity(w, r, serial) {
 		return
 	}
 
@@ -209,6 +207,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.noteRemoteIP(serial, ratelimit.ClientIP(r))
+	h.noteSocketPeer(r.Context(), device.ID, serial, ratelimit.ClientIP(r))
 	client, err := h.hub.Upgrade(w, r, device.ID)
 	if err != nil {
 		log.Printf("[ws] upgrade error for %s: %v", serial, err)
@@ -758,16 +757,6 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// requireBoundSerial rejects a request whose per-device credential doesn't match the
-// serial it claims to act for. Legacy shared-key requests (no bound serial) pass —
-// their identity stays client-supplied until the fleet is migrated to enrollment keys.
-func requireBoundSerial(w http.ResponseWriter, r *http.Request, serial string) bool {
-	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "serial does not match device credential"})
-		return false
-	}
-	return true
-}
 
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
@@ -1109,7 +1098,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, req.SerialNumber) {
 		return
 	}
-	if !requireBoundSerial(w, r, req.SerialNumber) {
+	if !h.requireDeviceIdentity(w, r, req.SerialNumber) {
 		return
 	}
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
@@ -1770,6 +1759,9 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
@@ -2184,6 +2176,9 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 	interim := body.Status == "downloading" || body.Status == "installing" || body.Status == "running"
 	if !interim && body.Status != "received" && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be received, downloading, installing, running, installed, failed, or completed"})
@@ -2277,6 +2272,9 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
@@ -2300,6 +2298,9 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.deviceRateLimited(w, body.SerialNumber) {
+		return
+	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
 		return
 	}
 	if body.Status != "downloaded" && body.Status != "installed" && body.Status != "error" {

@@ -1358,6 +1358,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "clients-split", h.withRole(r, data))
 		return
 	}
+	// Device keys (device-key plan): how many devices still identify with the shared
+	// key, which is public, against those with their own.
+	data["KeysOwn"], data["KeysShared"], _ = h.db.DeviceKeyCounts(r.Context())
 	h.render(w, r, "clients.html", data)
 }
 

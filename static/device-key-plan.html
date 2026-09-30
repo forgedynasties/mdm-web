@@ -56,7 +56,8 @@ code{font-size:12px}
 <h2>The plan: give every device its own key, then retire the shared one</h2>
 <p>Old clients keep working at every step until the last one is gone. The shared key stops being an identity and becomes, at most, a way for a brand-new device to introduce itself.</p>
 
-<h3><span class="ph">Phase 1</span>Server only: contain the shared key (days)</h3>
+<h3><span class="ph">Phase 1</span>Server only: contain the shared key <span style="color:var(--ok)">· done 30 Sep</span></h3>
+<p>Live: a device with its own key no longer accepts the shared key on any device endpoint or the WebSocket, and a refused attempt or the same serial connected from two addresses at once raises a critical "possible impersonation" alert. New serials already land in the enrollment inbox with a "new device" alert. The Clients page shows how many devices are still on the shared key.</p>
 <ul>
 <li><b>Lock a serial once it has its own key.</b> A request using the shared key for a serial that has a per-device key is refused, including the WebSocket. No existing device changes behaviour; it closes impersonation for every device the moment it migrates.</li>
 <li><b>Flag impersonation.</b> The same serial connected twice at once, from two addresses, or with two boot ids raises a critical alert (these are rare in normal operation).</li>

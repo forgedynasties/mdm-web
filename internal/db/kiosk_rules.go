@@ -124,3 +124,21 @@ func (d *DB) KioskRuleMark(ctx context.Context, deviceID uuid.UUID) (rule *uuid.
 		Scan(&rule, &override)
 	return rule, override
 }
+
+// DeviceHasOwnKey reports whether a serial has a per-device key (so the shared fleet
+// key is no longer accepted for it).
+func (d *DB) DeviceHasOwnKey(ctx context.Context, serial string) (bool, error) {
+	var has bool
+	err := d.pool.QueryRow(ctx, `SELECT COALESCE(device_key_hash, '') <> '' FROM devices WHERE serial_number = $1`, serial).Scan(&has)
+	return has, err
+}
+
+// DeviceKeyCounts is how many active devices use their own key versus the shared key.
+func (d *DB) DeviceKeyCounts(ctx context.Context) (own, shared int, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FILTER (WHERE COALESCE(device_key_hash, '') <> ''),
+		       COUNT(*) FILTER (WHERE COALESCE(device_key_hash, '') = '')
+		FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		  AND last_seen_at > NOW() - INTERVAL '30 days'`).Scan(&own, &shared)
+	return own, shared, err
+}
