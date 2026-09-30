@@ -295,6 +295,8 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		pts      []deviceMapPoint
 		products []compRole
 		uptime   []db.RestaurantUptime
+		hygiene  db.FleetHygiene
+		hygErr   error
 		wg       sync.WaitGroup
 	)
 	run := func(f func()) {
@@ -307,6 +309,13 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
 	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
 	run(func() { uptime = h.serviceUptime(ctx) })
+	// The clean-up checklist is about the whole fleet list, so it is for viewers who
+	// see the whole fleet.
+	if !acc.hidesDevices() {
+		run(func() { hygiene, hygErr = h.db.GetFleetHygiene(ctx) })
+	} else {
+		hygErr = errNoHygiene
+	}
 	run(func() {
 		f := db.DeviceFilter{}
 		if acc.hidesDPC() {
@@ -338,6 +347,9 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		}
 	}
 	data["Uptime"] = uptimeRows(uptime, seeRestaurant)
+	if hygErr == nil {
+		data["Hygiene"] = hygieneRows(hygiene)
+	}
 	if summary.Total > 0 {
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}

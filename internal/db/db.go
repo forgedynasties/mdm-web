@@ -545,6 +545,7 @@ type DeviceFilter struct {
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
 	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
+	Hygiene             string    // a clean-up job from the Overview (see hygieneWhere), or ""
 	ActiveThresholdSecs int       // legacy: seconds before a device is considered offline (unused for online/offline now)
 	// Connected is the set of device IDs with a live WebSocket, used to compute
 	// online/offline from real presence rather than check-in recency. Supplied by the
@@ -2279,6 +2280,9 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		args = append(args, f.RestaurantID)
 		argN++
 	}
+	if w := hygieneWhere(f.Hygiene); w != "" {
+		wheres = append(wheres, w)
+	}
 	if f.ProductionID != uuid.Nil {
 		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
 		args = append(args, f.ProductionID)
@@ -2538,6 +2542,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, fmt.Sprintf("d.restaurant_id = $%d", argN))
 		args = append(args, f.RestaurantID)
 		argN++
+	}
+	if w := hygieneWhere(f.Hygiene); w != "" {
+		wheres = append(wheres, w)
 	}
 
 	if f.ProductionID != uuid.Nil {

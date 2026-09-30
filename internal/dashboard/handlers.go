@@ -4633,6 +4633,7 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Class:               r.URL.Query().Get("class"),
 		Onboarding:          r.URL.Query().Get("onboarding"),
 		Lifecycle:           r.URL.Query().Get("lifecycle"),
+		Hygiene:             r.URL.Query().Get("hygiene"),
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
 		// counts (GetSummaryFiltered) resolve it against this connected set.
@@ -5022,6 +5023,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterClass":          r.URL.Query().Get("class"),
 		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
 		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
+		"FilterHygiene":        db.HygieneJobLabel(r.URL.Query().Get("hygiene")),
 		"Classes":              product.Classes(),
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,

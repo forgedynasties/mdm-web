@@ -130,4 +130,15 @@ func TestProblemQueriesAgainstPostgres(t *testing.T) {
 	if _, err := d.ServiceUptime(ctx, 7, time.Now()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := d.GetFleetHygiene(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, job := range []string{"silent", "placed-silent", "pad"} {
+		if _, err := d.ListDevices(ctx, DeviceFilter{Hygiene: job}, 0, 10, "", ""); err != nil {
+			t.Fatalf("list %s: %v", job, err)
+		}
+		if _, err := d.GetSummaryFiltered(ctx, DeviceFilter{Hygiene: job}); err != nil {
+			t.Fatalf("summary %s: %v", job, err)
+		}
+	}
 }

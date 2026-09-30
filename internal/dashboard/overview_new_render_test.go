@@ -62,6 +62,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
 		"Uptime": uptimeRows([]db.RestaurantUptime{{ID: rid, Name: "Pho 88", Days: []db.UptimeDay{
 			{Date: now.AddDate(0, 0, -1), Expected: 100, Up: 97, DownDevice: 1}, {Date: now, Expected: 0}}}}, nil),
+		"Hygiene": hygieneRows(db.FleetHygiene{Fleet: 181, Silent: 86, PlacedSilent: 10, PlacedSilentAt: []string{"Huanchaco Peruvian 6", "Flights Vegas 4"},
+			DeadPad: 9, Builds: 19, OddBuilds: []string{"A15-v1.62-user", "old-key", "clean-build", "4.0.87"}}),
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "overview_new.html", data); err != nil {
@@ -80,6 +82,9 @@ func TestOverviewNewRenders(t *testing.T) {
 		`Tableside AI <b>2</b>`,
 		`<span class="p warn">97.0%</span>`,          // service uptime, one restaurant
 		`97.0% up · 1 device missed time`,
+		`<b>86</b> devices silent 14&#43; days<small>48% of the fleet, none in a restaurant.`, // clean-up checklist
+		`href="/devices?hygiene=placed-silent"`,
+		`4 are not a release: A15-v1.62-user, old-key, clean-build, ….`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)

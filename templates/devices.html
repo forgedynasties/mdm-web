@@ -280,8 +280,10 @@ if (!window.__dlRowNav) {
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterLifecycle .FilterHygiene}}
 <div class="fleet-chips">
+  {{/* A clean-up job from the Overview's checklist: only ever arrives by link. */}}
+  {{if .FilterHygiene}}<span class="fchip"><span class="k">Clean up</span> {{.FilterHygiene}} <button type="button" class="x" onclick="navigateDevices({page: '1', hygiene: ''})" aria-label="Clear clean-up filter">×</button></span>{{end}}
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
@@ -986,7 +988,8 @@ function getFilterVals(overrides) {
     kiosk: p.get('kiosk') || '',
     charging: p.get('charging') || '',
     timezone: p.get('timezone') || '',
-    hidden: p.get('hidden') || ''
+    hidden: p.get('hidden') || '',
+    hygiene: p.get('hygiene') || ''
   };
   var fg = document.getElementById('filter-group');
   var fp = document.getElementById('filter-production');
@@ -1067,7 +1070,7 @@ function scopeRoster(anchor, u) {
   clearSelectAllMatching();
   ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -1115,7 +1118,7 @@ function clearFilters() {
   // collection (group/restaurant) in scope.
   ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: ''});
+  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
