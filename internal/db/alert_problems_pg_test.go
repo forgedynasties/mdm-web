@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,6 +130,28 @@ func TestProblemQueriesAgainstPostgres(t *testing.T) {
 	_ = d.IsReleaseCrash(ctx, "x — y")
 	if _, err := d.ServiceUptime(ctx, 7, time.Now()); err != nil {
 		t.Fatal(err)
+	}
+	lc, err := d.CreateCommand(ctx, "collect_logs", "", []byte(`{"cmd":"x"}`), "devices", []uuid.UUID{id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SaveCommandResult(ctx, lc.ID, id, "===== device =====\nhello"); err != nil {
+		t.Fatal(err)
+	}
+	if logs, err := d.ListCommandLogs(ctx, lc.ID, ""); err != nil || len(logs) != 1 || !strings.Contains(logs[0].Output, "hello") {
+		t.Fatalf("logs = %+v, %v", logs, err)
+	}
+	if dl, err := d.GetCommandDeliveries(ctx, lc.ID, 300); err != nil || len(dl) != 1 || dl[0].Output != "" || dl[0].OutputBytes == 0 {
+		t.Fatalf("deliveries = %+v, %v", dl, err)
+	}
+	if dc, err := d.GetDeviceCommands(ctx, id, 300); err != nil {
+		t.Fatal(err)
+	} else {
+		for _, c := range dc {
+			if c.ID == lc.ID && c.Output != "" {
+				t.Fatal("device history loaded a log bundle")
+			}
+		}
 	}
 	if _, err := d.GetFleetHygiene(ctx); err != nil {
 		t.Fatal(err)

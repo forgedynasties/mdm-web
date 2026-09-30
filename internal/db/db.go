@@ -519,6 +519,7 @@ type CommandDelivery struct {
 	Progress     *int      `json:"progress,omitempty"` // 0-100 while an install is downloading; nil otherwise
 	UpdatedAt    time.Time `json:"updated_at"`
 	Output       string    `json:"output"`
+	OutputBytes  int       `json:"output_bytes"` // size of the stored output (a log bundle's is not loaded)
 	LastSeenAt   time.Time `json:"last_seen_at"`
 	Online       bool      `json:"online"` // set by the handler from the ws.Hub, not the DB
 }
@@ -4792,7 +4793,8 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 // diagnostic; the device runs it as an ordinary shell command, so it needs no new
 // type. Every place that serializes a command to a device must route through this.
 func DeviceCommandType(t string) string {
-	if t == "query" {
+	// A query and a log bundle are shell commands whose text the server wrote.
+	if t == "query" || t == "collect_logs" {
 		return "shell"
 	}
 	return t
@@ -6016,12 +6018,13 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
 		              AND COALESCE(cs.updated_at, c.created_at) <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
-		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		         WHEN c.type IN ('shell', 'collect_logs', 'screenshot', 'reboot')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         ELSE 'pending'
 		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
-		       COALESCE(cr.output, '') AS output,
+		       -- A log bundle is up to a megabyte; lists carry its size, not its text.
+		       CASE WHEN c.type = 'collect_logs' THEN '' ELSE COALESCE(cr.output, '') END AS output,
 		       cs.progress
 		FROM commands c
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
@@ -6145,7 +6148,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		SELECT td.device_id,
 		       d.serial_number,
 		       CASE
-		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		         WHEN c.type IN ('shell', 'collect_logs', 'screenshot', 'reboot')
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
@@ -6157,7 +6160,8 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		       END AS status,
 		       cs.progress,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
-		       COALESCE(cr.output, '') AS output,
+		       CASE WHEN c.type = 'collect_logs' THEN '' ELSE COALESCE(cr.output, '') END AS output,
+		       COALESCE(octet_length(cr.output), 0) AS output_bytes,
 		       d.last_seen_at
 		FROM target_devices td
 		JOIN devices d ON d.id = td.device_id
@@ -6174,7 +6178,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 	var out []CommandDelivery
 	for rows.Next() {
 		var cd CommandDelivery
-		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.Progress, &cd.UpdatedAt, &cd.Output, &cd.LastSeenAt); err != nil {
+		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.Progress, &cd.UpdatedAt, &cd.Output, &cd.OutputBytes, &cd.LastSeenAt); err != nil {
 			return nil, err
 		}
 		out = append(out, cd)

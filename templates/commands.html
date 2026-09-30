@@ -410,6 +410,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
         <option value="query">Query</option>
+        <option value="collect_logs">Collect logs</option>
         <option value="wipe">Wipe</option>
       </select>
       <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
@@ -615,6 +616,7 @@ window.CMD_PREFILL = {{.Prefill}};
     app_update: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/><path d="M11 18.5h2"/>',
     shell: '<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
     query: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    collect_logs: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
     wipe: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     all: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>',
     place: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>',
@@ -627,7 +629,7 @@ window.CMD_PREFILL = {{.Prefill}};
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
     ['Device', ['reboot']],
-    ['Diagnostics', ['screenshot', 'query']]
+    ['Diagnostics', ['screenshot', 'query', 'collect_logs']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
   var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true,
@@ -1161,6 +1163,7 @@ window.CMD_PREFILL = {{.Prefill}};
       case 'screenshot': return 'capture ' + n + ' screen' + (n === 1 ? '' : 's');
       case 'shell': return 'run on ' + n + ' device' + (n === 1 ? '' : 's');
       case 'query': return 'query ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'collect_logs': return 'collect logs from ' + n + ' device' + (n === 1 ? '' : 's');
       case 'update_splash': return 'reflash ' + n + ' splash image' + (n === 1 ? '' : 's');
       case 'wipe': return 'ERASE ' + n + ' device' + (n === 1 ? '' : 's') + ' completely';
     }

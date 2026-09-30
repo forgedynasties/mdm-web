@@ -115,6 +115,10 @@ var commands = []Command{
 	// accept it: it names no query_id, and taking the payload from the caller would
 	// hand an admin key arbitrary shell text labelled "query".
 	{Type: "query", Cap: CapShell, Roles: rolesOperator, Access: "query"},
+	// A log bundle: logcat, dumpsys, getprop and the OTA log, from one fixed script the
+	// server writes (see internal/dashboard/collect_logs.go). Same reasoning and grant as
+	// query — operators get it without raw-shell rights because the text is not theirs.
+	{Type: "collect_logs", Cap: CapShell, Roles: rolesOperator, Access: "query"},
 
 	// Live logs are not a queued command at all — a log stream is a logcat_request
 	// row and a stream frame pair. The entry carries the capability that decides

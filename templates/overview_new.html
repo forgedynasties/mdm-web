@@ -58,7 +58,8 @@
 .ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
 .ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
 .ovd-wb .sq a.on,.ovd-wfoot i.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
-.ovd-wb .sq a.warn,.ovd-wfoot i.warn{background:var(--warn)}
+/* Alerting squares are orange, clearly apart from offline red (the warn token reads brown). */
+.ovd-wb .sq a.warn,.ovd-wfoot i.warn{background:var(--chart-temp)}
 .ovd-wb .sq a.off,.ovd-wfoot i.off{background:var(--danger)}
 .ovd-wb .sq a.dormant,.ovd-wfoot i.dormant{background:var(--rule-2)}
 .ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}

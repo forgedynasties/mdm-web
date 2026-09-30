@@ -1100,6 +1100,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return template.HTML(out)
 		},
+		// sizeLabel renders a byte count as "412 KB" / "1.1 MB" (log bundles).
+		"sizeLabel": func(n int) string {
+			if n >= 1<<20 {
+				return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+			}
+			return fmt.Sprintf("%d KB", (n+1023)/1024)
+		},
 		"cmdDetail": func(cmd db.Command) string {
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
@@ -1161,6 +1168,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 						return p.Cmd
 					}
 				}
+			case "collect_logs":
+				return "logcat, dumpsys, getprop, OTA log"
 			case "logcat":
 				var p struct {
 					Level string `json:"level"`
@@ -6399,6 +6408,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
 		"CanRemote":           h.access(r).canDevice("remote", device.ID),
 		"CanShell":            h.access(r).canDevice("shell", device.ID),
+		"CanCollectLogs":      h.authorizeCommand(h.role(r), "collect_logs") == cmdAuthzOK && h.access(r).canDevice(policyActionForCommand("collect_logs"), device.ID),
 		"Restaurants":         restaurants,
 		"DeviceGroups":        deviceGroups,
 		"AddableGroups":       addableGroups,
@@ -14669,6 +14679,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
 			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
+			{Type: "collect_logs", Name: "Collect logs", Desc: "logcat, dumpsys, getprop, OTA log — a file per device", Payload: "none", Cap: "system app"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
@@ -15450,7 +15461,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupRows = append(unsupRows, skipRow{Serial: d.SerialNumber, Kind: k})
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "collect_logs", "shell", "set_kiosk", "update_splash", "wipe"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
@@ -16654,6 +16665,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Update app"
 	case "logcat":
 		return "Log capture"
+	case "collect_logs":
+		return "Collect logs"
 	case "ota":
 		return "OTA Update"
 	case "mic_gain_read":
@@ -18160,6 +18173,9 @@ func isDestructiveCmd(t string) bool {
 
 func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 	switch cmdType {
+	case "collect_logs":
+		return collectLogsPayload() // fixed; nothing from the form
+
 	case "shell":
 		cmd := strings.TrimSpace(r.FormValue("shell_cmd"))
 		b, _ := json.Marshal(map[string]string{"cmd": cmd})
@@ -20452,7 +20468,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
 				return
 			}
-			if cmdType == "screenshot" || cmdType == "shell" {
+			if cmdType == "screenshot" || cmdType == "shell" || cmdType == "collect_logs" {
 				// These types land the user on the command's own page once created — a
 				// duplicate should do the same instead of dead-ending on a flash, since
 				// there's already somewhere useful (and live) to send them: the pending
@@ -20482,7 +20498,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
 		return
 	}
-	if cmdType == "screenshot" || cmdType == "shell" {
+	if cmdType == "screenshot" || cmdType == "shell" || cmdType == "collect_logs" {
 		// Only jump to the command page when a result is imminent (device online). If the
 		// device is offline the command is merely QUEUED — stay on the device page so the
 		// user watches it in the Queue tab instead of landing on an empty "waiting…" command
@@ -21715,6 +21731,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/{id}/logcat/analyze", h.requireAuth(h.AlertLogcatAnalyze))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
+	mux.HandleFunc("GET /commands/{id}/logs.zip", h.requireAuth(h.CommandLogsZip))
+	mux.HandleFunc("GET /commands/{id}/logs/{serial}", h.requireAuth(h.CommandLogs))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(drainable(h.CommandEvents)))
 	post("POST /commands/{id}/delete", h.requireOperatorOrAdmin(h.CommandDelete))
