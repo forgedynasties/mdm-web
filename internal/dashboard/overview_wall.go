@@ -50,6 +50,10 @@ type mapSite struct {
 	Online int     `json:"online"`
 	Health string  `json:"health"`
 	Issue  string  `json:"issue,omitempty"`
+	// Silent is the serials not reporting, for the map card (offline and dormant).
+	Silent []string `json:"silent,omitempty"`
+	// Uptime is the last week's uptime cells (ok|warn|bad|none), oldest first.
+	Uptime []string `json:"uptime,omitempty"`
 }
 
 // wallHealth maps a GroupHealth score class onto the wall's three states.
@@ -185,7 +189,13 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 // median of its located devices. Only restaurants are drawn, so the map frames
 // where the fleet is deployed, not wherever a bench or test device happens to be.
 // Returns the JSON and how many restaurants it holds.
-func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth) (template.JS, int) {
+func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth, uptime []uptimeRow) (template.JS, int) {
+	upBy := map[string][]string{}
+	for _, u := range uptime {
+		for _, d := range u.Days {
+			upBy[u.ID] = append(upBy[u.ID], d.Class)
+		}
+	}
 	coords := map[string][2]float64{}
 	for _, r := range restaurants {
 		if r.Latitude != nil && r.Longitude != nil && (*r.Latitude != 0 || *r.Longitude != 0) {
@@ -217,8 +227,14 @@ func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPo
 		if !ok {
 			continue
 		}
-		sites = append(sites, mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
-			Online: b.Online, Health: b.Health, Issue: issues[b.ID]})
+		site := mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
+			Online: b.Online, Health: b.Health, Issue: issues[b.ID], Uptime: upBy[b.ID]}
+		for _, sq := range b.Squares {
+			if sq.State == "off" || sq.State == "dormant" {
+				site.Silent = append(site.Silent, sq.Serial)
+			}
+		}
+		sites = append(sites, site)
 	}
 	j, err := json.Marshal(sites)
 	if err != nil {
@@ -346,7 +362,8 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 			return false
 		}
 	}
-	data["Uptime"] = uptimeRows(uptime, seeRestaurant)
+	upRows := uptimeRows(uptime, seeRestaurant)
+	data["Uptime"] = upRows
 	if hygErr == nil {
 		data["Hygiene"] = hygieneRows(hygiene)
 	}
@@ -361,7 +378,7 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	wall := buildWall(wallDevs, h.hub.ConnectedIDsForDisplay(), active, groups, names, time.Now())
 	data["Wall"] = wall
 	data["WallTotal"] = len(wallDevs)
-	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups)
+	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups, upRows)
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 }
 

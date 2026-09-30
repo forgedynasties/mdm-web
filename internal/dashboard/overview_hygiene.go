@@ -52,8 +52,10 @@ func hygieneRows(h db.FleetHygiene) []hygieneRow {
 		note := fmt.Sprintf("%d are not a release: %s", n, strings.Join(names, ", "))
 		if n > 3 {
 			note += ", …"
+		} else {
+			note += "."
 		}
-		out = append(out, hygieneRow{h.Builds, "builds running", note + ".", "/releases", "Releases"})
+		out = append(out, hygieneRow{h.Builds, "builds running", note, "/releases", "Releases"})
 	}
 	return out
 }

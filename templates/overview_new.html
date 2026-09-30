@@ -188,6 +188,27 @@
 .ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11.5px/1.2 var(--font);color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .ovd-mlbl.warn{border-color:var(--warn-edge)}
 .ovd-mlbl.bad{border-color:var(--danger-edge);color:var(--danger)}
+/* The card a restaurant dot opens: drawn by the page (not Google's info window) so it
+   follows the theme. Anchored above the dot; the map pans to fit it. */
+.ovd-mcard{position:absolute;width:268px;max-width:calc(100vw - 48px);transform:translate(-50%,-100%);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);font:12.5px/1.45 var(--font);overflow:hidden;cursor:default;z-index:5}
+.ovd-mcard .h{display:flex;align-items:center;gap:6px;padding:12px 10px 2px 14px}
+.ovd-mcard .h b{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovd-mcard .h .ovd-dot{margin-right:2px}
+.ovd-mcard .x{margin-left:auto;flex:none;width:30px;height:30px;border:0;border-radius:7px;background:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer}
+.ovd-mcard .x:hover,.ovd-mcard .x:focus-visible{background:var(--surface-3);color:var(--text)}
+.ovd-mcard .b{padding:2px 14px 12px}
+.ovd-mcard .mt{height:6px;border-radius:99px;background:var(--danger-bg);overflow:hidden;margin:8px 0 5px}
+.ovd-mcard .mt i{display:block;height:100%;background:var(--ok)}
+.ovd-mcard .rw{display:flex;justify-content:space-between;color:var(--muted)}
+.ovd-mcard .rw b{color:var(--text);font-variant-numeric:tabular-nums}
+.ovd-mcard .sl{margin-top:9px;color:var(--text-2)}
+.ovd-mcard .sl a{font-family:var(--mono);font-size:11px;color:var(--text);background:var(--surface-3);border-radius:5px;padding:1px 5px;margin:0 3px 3px 0;display:inline-block;text-decoration:none}
+.ovd-mcard .sl a:hover{text-decoration:underline}
+.ovd-mcard .up{display:flex;gap:3px;margin-top:9px;align-items:center}
+.ovd-mcard .up i{width:12px;height:14px;border-radius:3px;background:var(--ok)}
+.ovd-mcard .up i.warn{background:var(--warn)}.ovd-mcard .up i.bad{background:var(--danger)}.ovd-mcard .up i.none{background:var(--surface-3)}
+.ovd-mcard .up small{margin-left:8px;color:var(--muted)}
+.ovd-mcard .f{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border-soft)}
 .ovd-mlbl.off{opacity:0}
 .ovd-mlbl.off.peek{opacity:1}
 /* First-visit intro, hanging under the New / Classic switch. */
@@ -296,7 +317,7 @@
       {{/* ── Service uptime: were the devices up while each restaurant was open ── */}}
       {{if .Uptime}}
       <div class="cc-card ovd-o4">
-        <div class="cc-ch"><h2>Service uptime</h2><span class="m">7 days, opening hours</span><a class="r" href="/restaurants">Restaurants</a></div>
+        <div class="cc-ch"><h2>Service uptime</h2><span class="m">7 days</span><a class="r" href="/restaurants">Restaurants</a></div>
         <div class="ovd-up">
           {{range .Uptime}}
           <div class="r">
@@ -305,7 +326,7 @@
             <span class="p {{.Class}}">{{.Pct}}</span>
           </div>
           {{end}}
-          <div class="lg"><span>Oldest → today</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div>
+          <div class="lg"><span>Opening hours only · oldest → today</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div>
         </div>
       </div>
       {{end}}
@@ -404,7 +425,7 @@ window.ovdInitMap = function () {
     {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
   ];
   var map = new google.maps.Map(el, { zoom: 10, center: { lat: sites[0].lat, lng: sites[0].lng }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, keyboardShortcuts: false, gestureHandling: 'cooperative' });
-  var iw = new google.maps.InfoWindow(), markers = [];
+  var markers = [];
   function esc(v) { return String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function color(h) {
     var cs = getComputedStyle(document.body);
@@ -469,13 +490,7 @@ window.ovdInitMap = function () {
         // Dark-theme status colours are light, so the count goes dark there.
         label: { text: String(s.total), color: dark ? '#0d0d12' : '#ffffff', fontSize: (s.r > 14 ? 12 : 11) + 'px', fontWeight: '700', fontFamily: font }
       });
-      mk.addListener('click', function () {
-        iw.setContent('<div style="min-width:170px;font-size:13px"><b>' + esc(s.name) + '</b>'
-          + '<div style="margin:3px 0">' + s.online + ' of ' + s.total + ' online</div>'
-          + (s.issue ? '<div style="opacity:.75">' + esc(s.issue) + '</div>' : '')
-          + '<a href="/restaurants/' + encodeURIComponent(s.id) + '">Open restaurant →</a></div>');
-        iw.open(map, mk);
-      });
+      mk.addListener('click', function () { card.show(s); });
       mk.addListener('mouseover', function () { if (s.lbl) s.lbl.classList.add('peek'); });
       mk.addListener('mouseout', function () { if (s.lbl) s.lbl.classList.remove('peek'); });
       markers.push(mk);
@@ -484,6 +499,64 @@ window.ovdInitMap = function () {
     return bounds;
   }
   new Names().setMap(map);
+
+  // The restaurant card: one at a time, above its dot. Closed by ×, Escape, or a click
+  // on the map; opening it pans the map so the whole card is in view.
+  function Card() { this.s = null; }
+  Card.prototype = new google.maps.OverlayView();
+  Card.prototype.onAdd = function () {
+    var el = this.el = document.createElement('div');
+    el.className = 'ovd-mcard';
+    el.hidden = true;
+    el.setAttribute('role', 'dialog');
+    google.maps.OverlayView.preventMapHitsAndGesturesFrom(el);
+    this.getPanes().floatPane.appendChild(el);
+    var self = this;
+    el.addEventListener('click', function (e) { if (e.target.closest('.x')) self.hide(); });
+  };
+  Card.prototype.draw = function () {
+    if (!this.s || !this.el) return;
+    var p = this.getProjection().fromLatLngToDivPixel(new google.maps.LatLng(this.s.lat, this.s.lng));
+    this.el.style.left = p.x + 'px';
+    this.el.style.top = (p.y - this.s.r - 8) + 'px';
+  };
+  Card.prototype.onRemove = function () { if (this.el) this.el.remove(); };
+  Card.prototype.show = function (s) {
+    this.s = s;
+    var el = this.el, on = s.online, off = s.total - s.online;
+    var dot = s.health === 'bad' ? 'danger' : s.health;
+    var h = '<div class="h"><span class="ovd-dot ' + esc(dot) + '"></span><b>' + esc(s.name) + '</b>'
+      + '<button type="button" class="x" aria-label="Close">×</button></div><div class="b">'
+      + '<div class="mt"><i style="width:' + (s.total ? Math.round(on * 100 / s.total) : 0) + '%"></i></div>'
+      + '<div class="rw"><span><b>' + on + '</b> of ' + s.total + ' online</span>' + (off ? '<span>' + off + ' silent</span>' : '<span>all reporting</span>') + '</div>';
+    if (s.silent && s.silent.length) {
+      var shown = s.silent.slice(0, 8);
+      h += '<div class="sl">Silent: ' + shown.map(function (x) {
+        return '<a href="/devices/' + encodeURIComponent(x) + '" title="' + esc(x) + '">' + esc(x.length > 7 ? x.slice(-5) : x) + '</a>';
+      }).join('') + (s.silent.length > shown.length ? ' +' + (s.silent.length - shown.length) : '') + '</div>';
+    }
+    if (s.uptime && s.uptime.length) {
+      h += '<div class="up">' + s.uptime.map(function (c) { return '<i class="' + esc(c) + '"></i>'; }).join('') + '<small>uptime, 7 days</small></div>';
+    }
+    h += '</div><div class="f"><a class="cc-btn sm primary" href="/restaurants/' + encodeURIComponent(s.id) + '">Open restaurant</a>'
+      + '<a class="cc-btn sm" href="/devices?restaurant=' + encodeURIComponent(s.id) + '">Its devices</a></div>';
+    el.innerHTML = h;
+    el.setAttribute('aria-label', s.name);
+    el.hidden = false;
+    this.draw();
+    // Pan so the card fits inside the map with a small margin.
+    var mr = map.getDiv().getBoundingClientRect(), cr = el.getBoundingClientRect(), m = 12, dx = 0, dy = 0;
+    if (cr.top < mr.top + m) dy = cr.top - mr.top - m;
+    if (cr.left < mr.left + m) dx = cr.left - mr.left - m;
+    else if (cr.right > mr.right - m) dx = cr.right - mr.right + m;
+    if (dx || dy) map.panBy(dx, dy);
+    var x = el.querySelector('.x'); if (x) x.focus({ preventScroll: true });
+  };
+  Card.prototype.hide = function () { this.s = null; if (this.el) this.el.hidden = true; };
+  var card = new Card();
+  card.setMap(map);
+  map.addListener('click', function () { card.hide(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && card.s) card.hide(); });
   // Frame the restaurants: one is centred at street level, several are fitted.
   var b = draw();
   if (sites.length === 1) {

@@ -48,7 +48,8 @@ func TestOverviewNewRenders(t *testing.T) {
 	groups := []db.GroupHealth{{GroupID: rid, Name: "Pho 88", DeviceCount: 3, OfflineCount: 1, Deployed: true, ScoreClass: "danger"}}
 	wall := buildWall(devs, connected, alerts, groups, map[uuid.UUID]string{rid: "Pho 88"}, now)
 	lat, lng := 33.77, -117.94
-	mapJS, dots := buildMap(wall, []db.Restaurant{{ID: rid, Name: "Pho 88", Latitude: &lat, Longitude: &lng}}, nil, groups)
+	mapJS, dots := buildMap(wall, []db.Restaurant{{ID: rid, Name: "Pho 88", Latitude: &lat, Longitude: &lng}}, nil, groups,
+		[]uptimeRow{{ID: rid.String(), Days: []uptimeCell{{Class: "ok"}, {Class: "warn"}}}})
 	att, attN, attCrit := buildAttention(alerts, 1)
 
 	data := map[string]any{
@@ -76,6 +77,8 @@ func TestOverviewNewRenders(t *testing.T) {
 		`Menu board · Not deployed`,                  // loose device, grouped by type
 		`id="ovd-map-data"`,                          // map data shipped
 		`"name":"Pho 88"`,                            // restaurant on the map
+		`"silent":["T7-0002"]`,                       // the map card lists who is silent
+		`"uptime":["ok","warn"]`,
 		`id="ovd-intro"`,                             // the first-visit intro
 		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
 		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
@@ -84,7 +87,7 @@ func TestOverviewNewRenders(t *testing.T) {
 		`97.0% up · 1 device missed time`,
 		`<b>86</b> devices silent 14&#43; days<small>48% of the fleet, none in a restaurant.`, // clean-up checklist
 		`href="/devices?hygiene=placed-silent"`,
-		`4 are not a release: A15-v1.62-user, old-key, clean-build, ….`,
+		`4 are not a release: A15-v1.62-user, old-key, clean-build, …<`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)
