@@ -115,11 +115,24 @@ func deriveSimple(role string, pol db.AccessPolicy, profiles []db.AccessProfile,
 	grants := pol.Grants
 	baseAllow := pol.Base != "deny" && role != "owner"
 	if baseAllow {
-		if len(grants) == 0 {
-			s.Every, s.Do = true, "role"
-			return s
+		// Allow rules that only repeat what the role already has (a super op's
+		// "remote control everywhere") change nothing.
+		has := map[string]bool{}
+		for _, a := range roleActions(role) {
+			has[a] = true
 		}
-		return simpleAccess{Why: "They start from everything, with exceptions."}
+		for _, g := range grants {
+			if g.Effect == "deny" {
+				return simpleAccess{Why: "They start from everything, with exceptions."}
+			}
+			for _, a := range g.Actions {
+				if !has[a] && (a == "*" || accessActionByKey[a].Sensitive) {
+					return simpleAccess{Why: "They start from everything, with " + lowerFirst(accessActionByKey[a].Label) + " added on top."}
+				}
+			}
+		}
+		s.Every, s.Do = true, "role"
+		return s
 	}
 	if len(grants) == 0 {
 		s.Do = lookOnly(profiles)
