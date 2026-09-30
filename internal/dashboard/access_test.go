@@ -230,3 +230,42 @@ func TestVisibleIDsOwnerNeverCollapsesToNil(t *testing.T) {
 		t.Fatalf("owner sees %d devices, want 4", len(ids))
 	}
 }
+
+// A viewer set to "allow nothing" sees nothing: the viewer's see-everything default
+// used to be checked before the base, so the base never applied (30 Sep audit).
+func TestViewerBaseDenySeesNothing(t *testing.T) {
+	a := newAccess("viewer", db.AccessPolicy{Base: "deny"})
+	if a.canDevice("view", d1) {
+		t.Fatal("viewer with base deny can still see a device")
+	}
+	if ids := a.visibleIDs(); ids == nil || len(ids) != 0 {
+		t.Fatalf("viewer with base deny sees %v", ids)
+	}
+	a = newAccess("viewer", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d3, "view")}})
+	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d3 {
+		t.Fatalf("got %v, want only d3", ids)
+	}
+	// The default still holds without a base: viewers see the fleet.
+	if !newAccess("viewer", db.AccessPolicy{}).canDevice("view", d1) {
+		t.Fatal("a plain viewer must see the fleet")
+	}
+}
+
+func TestRoleWidens(t *testing.T) {
+	for _, c := range []struct {
+		from, to string
+		want     bool
+	}{
+		{"viewer", "operator", true},
+		{"operator", "viewer", false},
+		{"operator", "dev", true},
+		{"dev", "operator", false},
+		{"operator", "admin", true},
+		{"admin", "operator", false},
+		{"operator", "operator", false},
+	} {
+		if got := widens(c.from, c.to); got != c.want {
+			t.Errorf("widens(%s→%s) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}

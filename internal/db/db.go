@@ -953,7 +953,8 @@ func (d *DB) GetUserAccess(ctx context.Context, username string) (AccessPolicy, 
 	err := d.pool.QueryRow(ctx, `SELECT id, access FROM users WHERE username = $1`, username).Scan(&id, &raw)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return pol, nil
+			// No account behind this name (deleted, renamed): nothing is granted.
+			return AccessPolicy{Base: "deny"}, nil
 		}
 		return pol, err
 	}

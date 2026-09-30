@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -153,7 +154,11 @@ func (h *Handler) accessFor(ctx context.Context, role, username string) *access 
 	}
 	pol, err := h.db.GetUserAccess(a.ctx, a.username)
 	if err != nil {
-		log.Printf("[access] policy for %q: %v", a.username, err)
+		// Fail closed, and don't cache it: a zero policy means "allow everything the
+		// role can do" and would have dropped every deny rule for 20 seconds.
+		log.Printf("[access] policy for %q: %v (denying)", a.username, err)
+		a.pol = db.AccessPolicy{Base: "deny"}
+		return a
 	}
 	policyCache.Store(a.username, policyEntry{pol: pol, at: time.Now()})
 	a.pol = pol
@@ -274,11 +279,13 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") && !(action == "remote" && (a.role == "super_op" || a.role == "user_manager")) {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
-	if action == "view" && a.role == "viewer" {
-		return decision{true, "Viewers see everything unless a rule hides it", nil}
-	}
+	// Base deny is checked before the viewer default: a viewer set to "allow nothing"
+	// must not still see the whole fleet (30 Sep access audit).
 	if a.pol.Base == "deny" {
 		return decision{false, "Base is \"allow nothing\" and no rule includes it", nil}
+	}
+	if action == "view" && a.role == "viewer" {
+		return decision{true, "Viewers see everything unless a rule hides it", nil}
 	}
 	return decision{true, "Base allows everything the role can do", nil}
 }
@@ -441,6 +448,17 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 	if acc.unrestricted() {
 		return ids, targetType, true
 	}
+	// "all" carries no ids; for anyone but the super admin it is the fleet narrowed to
+	// what they may touch, stored as a device list. Letting it through unfiltered is how
+	// a resend could broadcast to the whole fleet.
+	if targetType == "all" {
+		all, err := h.db.GetAllDeviceIDs(r.Context())
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return nil, "", false
+		}
+		ids, targetType = all, "devices"
+	}
 	if targetType == "groups" {
 		devIDs, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), ids)
 		if err != nil {
@@ -559,7 +577,9 @@ func (h *Handler) filterHiddenCommands(r *http.Request, cmds []db.Command) []db.
 	}
 	out := cmds[:0:0]
 	for _, c := range cmds {
-		ids, err := h.db.GetCommandTargetIDs(r.Context(), c.ID)
+		// Device ids the command reached — command_targets holds group ids for a group
+		// command, which never match a device.
+		ids, err := h.db.GetCommandDeviceIDs(r.Context(), c.ID)
 		if err != nil {
 			continue
 		}
@@ -608,6 +628,67 @@ func (h *Handler) deviceRoute(action string, next http.HandlerFunc) http.Handler
 				http.Error(w, "Your access policy does not allow this action on this device.", http.StatusForbidden)
 				return
 			}
+		}
+		next(w, r)
+	}
+}
+
+// keepVisibleDeliveries drops the per-device rows of a command (status, output,
+// screenshot) for devices the user may not see: a command they can open because one
+// target is theirs must not show the others' output.
+func (h *Handler) keepVisibleDeliveries(r *http.Request, ds []db.CommandDelivery) []db.CommandDelivery {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return ds
+	}
+	out := ds[:0:0]
+	for _, d := range ds {
+		if acc.visible(d.DeviceID) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// commandVisible reports whether the user may open a command at all: the super admin
+// always, anyone else when at least one device it reached is visible to them.
+func (h *Handler) commandVisible(r *http.Request, cmd db.Command) bool {
+	return len(h.filterHiddenCommands(r, []db.Command{cmd})) > 0
+}
+
+// keepVisibleSerials drops serials of devices the user may not see (and unknown ones,
+// for a restricted user).
+func (h *Handler) keepVisibleSerials(r *http.Request, serials []string) []string {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return serials
+	}
+	ids, err := h.db.SerialIDs(r.Context(), serials)
+	if err != nil {
+		return nil
+	}
+	out := serials[:0:0]
+	for _, s := range serials {
+		if id, ok := ids[s]; ok && acc.visible(id) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// fleetWide guards a page or endpoint that is about the whole fleet (the device map,
+// compliance, exports, productions, AI fleet summary…) and has no per-device filter:
+// a user with a visibility limit is sent to their own device list instead (a JSON or
+// write request gets a 403). The Overview and Fleet health already do this.
+func (h *Handler) fleetWide(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.access(r).hidesDevices() {
+			if r.Method != http.MethodGet || strings.Contains(r.Header.Get("Accept"), "application/json") {
+				http.Error(w, "This covers the whole fleet, which your access policy does not.", http.StatusForbidden)
+				return
+			}
+			http.Redirect(w, r, "/devices", http.StatusFound)
+			return
 		}
 		next(w, r)
 	}

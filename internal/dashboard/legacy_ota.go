@@ -135,6 +135,19 @@ func (h *Handler) LegacyOTAPush(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, "/updates/legacy", "OTA is for firmware devices only — none of these can take it", "error")
 		return
 	}
+	// The access policy: a restricted user may only push to fleet devices they hold
+	// "ota" on (a serial outside the fleet has no scope a rule could name).
+	acc := h.access(r)
+	allowed := serials[:0:0]
+	for _, s := range serials {
+		if h.legacySerialAllowed(r, acc, s, "ota") {
+			allowed = append(allowed, s)
+		}
+	}
+	if serials = allowed; len(serials) == 0 {
+		h.hxDoneToast(w, r, "/updates/legacy", "None of these devices are within your access policy", "error")
+		return
+	}
 	id, err := h.db.CreateLegacyDeployment(r.Context(), relID, serials, h.currentUsername(r))
 	if err != nil {
 		h.hxDoneToast(w, r, "/updates/legacy", "Could not create the deployment", "error")
@@ -195,6 +208,10 @@ func (h *Handler) LegacyOTAReboot(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, back, serial+" isn't in the fleet — reboot it on site", "error")
 		return
 	}
+	if !h.access(r).canDevice("reboot", device.ID) {
+		h.hxDoneToast(w, r, back, "Your access policy does not allow rebooting "+serial, "error")
+		return
+	}
 	// Same guard as the device page: never reboot a device that is still taking an OTA.
 	if blocked, why, err := h.db.RebootBlockedFor(r.Context(), device.ID); err == nil && blocked {
 		h.hxDoneToast(w, r, "/updates/legacy", "Reboot refused: "+why, "error")
@@ -219,6 +236,20 @@ func (h *Handler) LegacyOTAReboot(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) LegacyOTACancel(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
+	// Cancelling reaches every target: a restricted user must hold "ota" on all of them.
+	if acc := h.access(r); !acc.unrestricted() {
+		dep, err := h.db.GetLegacyDeployment(r.Context(), id)
+		if err != nil || dep == nil {
+			http.Error(w, "Deployment not found", http.StatusNotFound)
+			return
+		}
+		for _, dv := range dep.Devices {
+			if !h.legacySerialAllowed(r, acc, dv.Serial, "ota") {
+				h.hxDoneToast(w, r, "/updates/legacy", "This rollout includes devices outside your access policy", "error")
+				return
+			}
+		}
+	}
 	if err := h.db.CancelLegacyDeployment(r.Context(), id); err != nil {
 		h.hxDoneToast(w, r, "/updates/legacy", "Could not cancel", "error")
 		return
@@ -230,6 +261,10 @@ func (h *Handler) LegacyOTACancel(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) LegacyOTARetry(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.PathValue("id"))
 	serial := strings.TrimSpace(r.PathValue("serial"))
+	if !h.legacySerialAllowed(r, h.access(r), serial, "ota") {
+		h.hxDoneToast(w, r, "/updates/legacy", "Your access policy does not allow updating "+serial, "error")
+		return
+	}
 	if err := h.db.RetryLegacyDeploymentDevice(r.Context(), id, serial); err != nil {
 		h.hxDoneToast(w, r, "/updates/legacy", "Could not retry", "error")
 		return
@@ -365,4 +400,17 @@ type legacyPickerRow struct {
 	Device     db.LegacyOTADevice
 	Online     bool
 	LegacyOnly bool // the legacy path is the only way to update this one
+}
+
+// legacySerialAllowed reports whether the user may take action on a legacy serial: the
+// super admin always; anyone else only on a fleet device their policy allows.
+func (h *Handler) legacySerialAllowed(r *http.Request, acc *access, serial, action string) bool {
+	if acc.unrestricted() {
+		return true
+	}
+	d, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || d == nil {
+		return false
+	}
+	return acc.canDevice(action, d.ID)
 }

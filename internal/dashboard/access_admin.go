@@ -464,6 +464,14 @@ func (h *Handler) UserAccessSetBase(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("base") == "deny" {
 		pol.Base = "deny"
 	}
+	// "Everything, then exclude" hands out the whole role ceiling on every device —
+	// the same delegation rule as adding a grant: only someone who holds all of it.
+	if pol.Base == "allow" {
+		if err := h.canWiden(r, u); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+	}
 	// Hiding is no longer a choice: a device without "See device" is hidden (see
 	// access.hidesDevices). The stored flag is cleared so it cannot mislead.
 	pol.HideOutOfScope = false
@@ -517,6 +525,33 @@ func parseGrantForm(r *http.Request) (effect string, actions []string, note stri
 
 // checkGrantAllowed enforces the ceiling and the delegation rule for an allow
 // grant. Returns a user-facing reason when refused.
+// canWiden reports whether the actor may widen target's access without limits — set
+// their base to "allow everything", or lift a deny rule. The super admin may; anyone
+// else only when their own access is unlimited (base allow, no deny rules) and their
+// role's ceiling covers the target's. Otherwise a restricted access admin could give
+// an account more than they hold themselves (30 Sep access audit).
+func (h *Handler) canWiden(r *http.Request, target *db.User) error {
+	if h.role(r) == "admin" {
+		return nil
+	}
+	actor := h.accessFor(r.Context(), h.role(r), h.currentUsername(r))
+	if actor.pol.Base == "deny" {
+		return fmt.Errorf("your own access starts from \"nothing\", so you can't give someone everything")
+	}
+	for _, g := range actor.pol.Grants {
+		if g.Effect == "deny" {
+			return fmt.Errorf("your own access has exclusions, so you can't lift someone else's")
+		}
+	}
+	mine := roleCeiling(h.role(r))
+	for k := range roleCeiling(target.Role) {
+		if mine != nil && !mine[k] {
+			return fmt.Errorf("%s accounts can %s, which your role can't grant", roleLabel(target.Role), lowerFirst(accessActionByKey[k].Label))
+		}
+	}
+	return nil
+}
+
 func (h *Handler) checkGrantAllowed(r *http.Request, target *db.User, g db.AccessGrant) error {
 	ceiling := roleCeiling(target.Role)
 	var concrete []string
@@ -728,6 +763,13 @@ func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) 
 	g, ok := h.loadGrant(w, r, u)
 	if !ok {
 		return
+	}
+	// Removing a deny rule widens their access, so it needs what granting does.
+	if g.Effect == "deny" {
+		if err := h.canWiden(r, u); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
 	}
 	if err := h.db.DeleteAccessGrant(r.Context(), g.ID); err != nil {
 		http.Error(w, "Could not remove", http.StatusInternalServerError)

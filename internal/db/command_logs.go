@@ -45,3 +45,50 @@ func (d *DB) ListCommandLogs(ctx context.Context, commandID uuid.UUID, serial st
 	}
 	return out, rows.Err()
 }
+
+// SerialIDs maps serials to device ids (unknown serials are absent).
+func (d *DB) SerialIDs(ctx context.Context, serials []string) (map[string]uuid.UUID, error) {
+	out := map[string]uuid.UUID{}
+	if len(serials) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT serial_number, id FROM devices WHERE serial_number = ANY($1)`, serials)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s string
+		var id uuid.UUID
+		if err := rows.Scan(&s, &id); err != nil {
+			return out, err
+		}
+		out[s] = id
+	}
+	return out, rows.Err()
+}
+
+// UpdateDeviceIDs returns the devices a deployment targets.
+func (d *DB) UpdateDeviceIDs(ctx context.Context, updateID int) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `SELECT device_id FROM update_devices WHERE update_id = $1`, updateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// AlertDeviceID returns the device an alert is about (nil for a fleet alert).
+func (d *DB) AlertDeviceID(ctx context.Context, alertID uuid.UUID) (*uuid.UUID, error) {
+	var id *uuid.UUID
+	err := d.pool.QueryRow(ctx, `SELECT device_id FROM alerts WHERE id = $1`, alertID).Scan(&id)
+	return id, err
+}

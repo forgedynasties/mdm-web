@@ -34,6 +34,16 @@ var dockCache struct {
 func (h *Handler) DockStatus(w http.ResponseWriter, r *http.Request) {
 	acc := h.access(r)
 	hideDPC := acc.hidesDPC()
+	// Someone who sees part of the fleet gets counts of their part, never the shared
+	// fleet-wide figures (and never from the shared cache).
+	if acc.hidesDevices() {
+		st := dockStatus{}
+		st.Alerts, st.Critical = h.visibleAlertCounts(r)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(st)
+		return
+	}
 
 	dockCache.Lock()
 	st, fresh := dockCache.val[hideDPC], time.Since(dockCache.at[hideDPC]) < dockCacheTTL
@@ -71,4 +81,24 @@ func (h *Handler) DockStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(st)
+}
+
+// visibleAlertCounts is the open and critical (unsnoozed) alert counts over the alerts
+// this user can see.
+func (h *Handler) visibleAlertCounts(r *http.Request) (open, critical int) {
+	active, err := h.db.ListActiveAlerts(r.Context(), 5000)
+	if err != nil {
+		return 0, 0
+	}
+	now := time.Now()
+	for _, a := range h.access(r).keepVisibleAlerts(active) {
+		if a.Status != "open" {
+			continue
+		}
+		open++
+		if a.Severity == "critical" && (a.MutedUntil == nil || a.MutedUntil.Before(now)) {
+			critical++
+		}
+	}
+	return open, critical
 }
