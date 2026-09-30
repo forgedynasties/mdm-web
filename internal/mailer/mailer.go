@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -96,9 +97,16 @@ func (c *Client) Send(ctx context.Context, to, subject, htmlBody string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	// Log every send with SES's answer. Without it a signup whose email never arrived
+	// left no trace at all: success logged nothing and a failure only its status code,
+	// so "was it sent, and what did SES say" could not be answered (30 Sep).
+	out, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("ses returned status %d", resp.StatusCode)
+		return fmt.Errorf("ses returned status %d: %s", resp.StatusCode, bytes.TrimSpace(out))
 	}
+	var ok struct{ MessageId string }
+	_ = json.Unmarshal(out, &ok)
+	log.Printf("mailer: sent %q to %s (ses message %s)", subject, to, ok.MessageId)
 	return nil
 }
 
