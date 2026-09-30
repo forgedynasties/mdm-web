@@ -78,8 +78,13 @@ func BoundSerial(r *http.Request) string {
 // at enrollment. Per-device keys are resolved via lookup (SHA-256 hex of the presented
 // key → serial); on success the bound serial is attached to the request context so
 // handlers can enforce identity. Same rate limiting and uniform error body as APIKeyAuth.
-func DeviceAuth(sharedKey string, lookup func(ctx context.Context, keyHashHex string) (string, bool), next http.Handler) http.Handler {
-	shared := []byte(sharedKey)
+func DeviceAuth(sharedKeys []string, lookup func(ctx context.Context, keyHashHex string) (string, bool), next http.Handler) http.Handler {
+	var shared [][]byte
+	for _, k := range sharedKeys {
+		if k != "" {
+			shared = append(shared, []byte(k))
+		}
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := ratelimit.ClientIP(r)
 		if n, retry := apiAuthFailures.Count(ip); n >= apiMaxFailPerMin {
@@ -90,9 +95,11 @@ func DeviceAuth(sharedKey string, lookup func(ctx context.Context, keyHashHex st
 			return
 		}
 		provided := []byte(r.Header.Get("X-API-Key"))
-		if subtle.ConstantTimeCompare(provided, shared) == 1 {
-			next.ServeHTTP(w, r)
-			return
+		for _, k := range shared {
+			if subtle.ConstantTimeCompare(provided, k) == 1 {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 		if len(provided) > 0 {
 			sum := sha256.Sum256(provided)

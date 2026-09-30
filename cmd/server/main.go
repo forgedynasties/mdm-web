@@ -67,6 +67,11 @@ func main() {
 	dbPass := getEnv("DB_PASSWORD", "mdm")
 	dbName := getEnv("DB_NAME", "mdm")
 	deviceAPIKey := mustEnv("DEVICE_API_KEY")
+	// DEVICE_ENROLL_KEY (optional): a second shared key that is never in any source tree.
+	// Firmware images built from 30 Sep carry it instead of the public default, so the
+	// public DEVICE_API_KEY can be retired (device-key plan, phases 3 and 4) without
+	// cutting those images off. Both are accepted until then.
+	deviceEnrollKey := strings.TrimSpace(getEnv("DEVICE_ENROLL_KEY", ""))
 	adminAPIKey := mustEnv("ADMIN_API_KEY")
 	dashUser := getEnv("DASHBOARD_USER", "admin")
 	dashPass := mustEnv("DASHBOARD_PASSWORD")
@@ -77,6 +82,9 @@ func main() {
 	sessionSecret := mustEnv("SESSION_SECRET")
 	if len(sessionSecret) < 32 {
 		log.Fatalf("SESSION_SECRET must be at least 32 bytes for secure session cookie signing")
+	}
+	if deviceEnrollKey != "" && (len(deviceEnrollKey) < 32 || deviceEnrollKey == deviceAPIKey || deviceEnrollKey == adminAPIKey || deviceEnrollKey == sessionSecret) {
+		log.Fatalf("DEVICE_ENROLL_KEY must be at least 32 bytes and distinct from the other keys")
 	}
 	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
@@ -384,7 +392,7 @@ func main() {
 		_, serial, err := database.DeviceSerialByKeyHash(ctx, hash)
 		return serial, err == nil
 	}
-	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth(deviceAPIKey, deviceKeyLookup, h) }
+	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth([]string{deviceAPIKey, deviceEnrollKey}, deviceKeyLookup, h) }
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
 	// maxDeviceBody caps device POST bodies (post-inflation). Check-ins carry the
 	// installed-app list and a logcat result can be sizable, so it's generous, but
