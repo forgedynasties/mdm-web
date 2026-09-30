@@ -22,6 +22,7 @@ type KioskState struct {
 	ConfigAt    *time.Time // when the configuration last changed
 	LastSeen    time.Time
 	Suspended   bool // staff left kiosk on the device with an offline exit code
+	ExitedAt    *time.Time // taken out of kiosk on site; stays out until answered
 }
 
 // ListKioskStates returns the kiosk state of every device in the fleet (not hidden,
@@ -31,7 +32,7 @@ func (d *DB) ListKioskStates(ctx context.Context) (map[uuid.UUID]KioskState, err
 		SELECT d.id, COALESCE(dc.kiosk_enabled, false), COALESCE(dc.kiosk_package, ''), COALESCE(dc.kiosk_mode, ''),
 		       dc.kiosk_rule, COALESCE(dc.kiosk_override, false), COALESCE(dc.offline_exit_enabled, false),
 		       dc.updated_at, d.last_seen_at,
-		       COALESCE(d.latest_extra->>'kiosk_suspended', '') = 'true'
+		       COALESCE(d.latest_extra->>'kiosk_suspended', '') = 'true', dc.kiosk_exited_at
 		FROM devices d LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped')`)
 	if err != nil {
@@ -42,7 +43,7 @@ func (d *DB) ListKioskStates(ctx context.Context) (map[uuid.UUID]KioskState, err
 	for rows.Next() {
 		var s KioskState
 		if err := rows.Scan(&s.DeviceID, &s.Enabled, &s.Package, &s.Mode, &s.Rule, &s.Override, &s.OfflineExit,
-			&s.ConfigAt, &s.LastSeen, &s.Suspended); err != nil {
+			&s.ConfigAt, &s.LastSeen, &s.Suspended, &s.ExitedAt); err != nil {
 			return nil, err
 		}
 		out[s.DeviceID] = s
@@ -86,6 +87,7 @@ func (d *DB) SetKioskByRule(ctx context.Context, deviceID uuid.UUID, enabled boo
 			    kiosk_package = EXCLUDED.kiosk_package,
 			    kiosk_mode    = 'app',
 			    kiosk_rule    = EXCLUDED.kiosk_rule,
+			    kiosk_exited_at = CASE WHEN EXCLUDED.kiosk_enabled THEN NULL ELSE device_config.kiosk_exited_at END,
 			    updated_at    = NOW()`, deviceID, enabled, pkg, rule, DefaultKioskFeatures)
 	return err
 }
@@ -227,4 +229,91 @@ func (d *DB) OverdueKeyResets(ctx context.Context, age time.Duration) (map[uuid.
 		out[id] = s
 	}
 	return out, rows.Err()
+}
+
+// KioskExit is a device that was taken out of kiosk on site and not yet answered.
+type KioskExit struct {
+	DeviceID   uuid.UUID
+	Serial     string
+	Restaurant string
+	At         time.Time
+	Package    string     // what it was locked to
+	RuleID     *uuid.UUID // the rule that had locked it, nil when locked by hand
+	RuleName   string
+}
+
+const kioskExitSelect = `
+	SELECT d.id, d.serial_number, COALESCE(r.name, ''), dc.kiosk_exited_at, dc.kiosk_exited_package,
+	       dc.kiosk_exited_rule, COALESCE(p.name, '')
+	FROM device_config dc
+	JOIN devices d ON d.id = dc.device_id
+	LEFT JOIN restaurants r ON r.id = d.restaurant_id
+	LEFT JOIN kiosk_policies p ON p.id = dc.kiosk_exited_rule
+	WHERE dc.kiosk_exited_at IS NOT NULL AND NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped')`
+
+func scanKioskExits(rows pgx.Rows) ([]KioskExit, error) {
+	defer rows.Close()
+	var out []KioskExit
+	for rows.Next() {
+		var e KioskExit
+		if err := rows.Scan(&e.DeviceID, &e.Serial, &e.Restaurant, &e.At, &e.Package, &e.RuleID, &e.RuleName); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ListKioskExits returns the devices taken out of kiosk on site, newest first.
+func (d *DB) ListKioskExits(ctx context.Context) ([]KioskExit, error) {
+	rows, err := d.pool.Query(ctx, kioskExitSelect+` ORDER BY dc.kiosk_exited_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	return scanKioskExits(rows)
+}
+
+// GetKioskExit returns the device's unanswered exit, or nil.
+func (d *DB) GetKioskExit(ctx context.Context, deviceID uuid.UUID) *KioskExit {
+	rows, err := d.pool.Query(ctx, kioskExitSelect+` AND d.id = $1`, deviceID)
+	if err != nil {
+		return nil
+	}
+	es, err := scanKioskExits(rows)
+	if err != nil || len(es) == 0 {
+		return nil
+	}
+	return &es[0]
+}
+
+// MarkKioskExited records that the device was taken out of kiosk on site: kiosk off,
+// and what it was locked to (and by which rule) kept for "Lock again". Only a device
+// whose kiosk was on is marked. Reports whether it was.
+func (d *DB) MarkKioskExited(ctx context.Context, deviceID uuid.UUID, at time.Time) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE device_config
+		   SET kiosk_exited_at = $2, kiosk_exited_package = kiosk_package, kiosk_exited_rule = kiosk_rule,
+		       kiosk_enabled = false, updated_at = NOW()
+		 WHERE device_id = $1 AND kiosk_enabled`, deviceID, at)
+	return tag.RowsAffected() == 1, err
+}
+
+// ClearKioskExit answers an exit and returns it (nil if there was none).
+func (d *DB) ClearKioskExit(ctx context.Context, deviceID uuid.UUID) (*KioskExit, error) {
+	e := d.GetKioskExit(ctx, deviceID)
+	if e == nil {
+		return nil, nil
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE device_config SET kiosk_exited_at = NULL, updated_at = NOW() WHERE device_id = $1`, deviceID)
+	return e, err
+}
+
+// ResolveAnsweredKioskExitAlerts closes "taken out of kiosk" alerts whose device has been
+// locked again or left out, whichever way that happened.
+func (d *DB) ResolveAnsweredKioskExitAlerts(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts a SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE a.type = 'kiosk_exited' AND a.status <> 'resolved'
+		  AND NOT EXISTS (SELECT 1 FROM device_config dc WHERE dc.device_id = a.device_id AND dc.kiosk_exited_at IS NOT NULL)`)
+	return tag.RowsAffected(), err
 }

@@ -131,8 +131,17 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		}
 		views = kept
 	}
+	var exits []kioskExitView
+	if all, err := h.db.ListKioskExits(ctx); err == nil {
+		for _, e := range all {
+			if acc.visible(e.DeviceID) {
+				exits = append(exits, kioskExitView{KioskExit: e, AppName: appNameOf(apps, e.Package)})
+			}
+		}
+	}
 	h.render(w, r, "manage.html", map[string]any{
 		"Title":      "Kiosk",
+		"Exits":      exits,
 		"Rules":      views,
 		"Locked":     locked,
 		"NotCovered": notCovered,

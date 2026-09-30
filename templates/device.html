@@ -256,8 +256,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
            server-side the device is simply out of kiosk, and reporting a past PIN exit
            read as a fault on an ordinary unlocked device. */}}
       {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
-      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $ksusp}}Kiosk was exited on the device with the unlock PIN — the saved config still says on, so it re-locks on reboot{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $ksusp}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+      {{/* Taken out of kiosk on site: reported (ksusp) or recorded and not yet answered. */}}
+      {{$kout := or $ksusp .KioskExit}}
+      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Taken out of kiosk on site with the exit PIN or code. It stays unlocked until someone locks it again{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $kout}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
@@ -507,7 +509,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
 </div>
@@ -537,6 +539,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   });
 })();
 </script>
+
+{{with .KioskExit}}
+<div class="kx-ban" id="kiosk-exit-notice" role="status">
+  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
+  <div class="t"><b>Taken out of kiosk on site</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/manage" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  {{if canAdminOrOperator $.Role}}<div class="a">
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+  </div>{{end}}
+</div>
+{{end}}
 
 <div class="ddc-body">
 <aside class="ddc-side">

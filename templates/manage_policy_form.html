@@ -34,6 +34,10 @@
 .ke-sw{display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer}
 .ke-sw input{width:18px;height:18px;margin-top:1px}
 .ke-sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.kx-steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.kx-steps li{counter-increment:s;display:flex;gap:9px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-steps li::before{content:counter(s);flex:none;width:18px;height:18px;border-radius:50%;background:var(--surface-3);color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.kx-steps b{color:var(--text)}
 .ke-prev{padding:16px 18px;position:sticky;top:12px;font-size:13px;line-height:1.55}
 .ke-prev h2{font-size:11.5px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
 .ke-big{font-size:28px;font-weight:600;letter-spacing:-.02em}
@@ -80,8 +84,12 @@
 
         <div class="cc-card ke-q">
           <h2><span class="n">3</span>How staff get out</h2>
-          <label class="ke-sw"><input type="checkbox" name="offline_exit" value="1"{{if $p}}{{if $p.OfflineExit}} checked{{end}}{{end}}>
-            <span>Offline exit code<small>A technician can leave kiosk on the device with a code from the MDM that changes every minute, even with no connection. It locks again when the device restarts.</small></span></label>
+          <p class="ke-hint">The same on every device; nothing to set here.</p>
+          <ol class="kx-steps">
+            <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
+            <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
+            <li><span>The device <b>stays out of kiosk until someone locks it again</b> here. The Kiosk page and the device's page show that it was taken out.</span></li>
+          </ol>
         </div>
 
         <div class="cc-card ke-q">

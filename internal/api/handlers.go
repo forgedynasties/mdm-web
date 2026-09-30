@@ -1188,12 +1188,22 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 	}
 	e.OfflineExitAt = at
 	log.Printf("[offline-exit] device %s (%s) exited kiosk offline at %d — disabling kiosk", serial, deviceID, e.OfflineExitAt)
+	// Taken out of kiosk on site: it stays out until someone locks it again or says to
+	// leave it (the Kiosk page, the device page and the alert all offer both). A kiosk
+	// rule does not re-lock it meanwhile; see reconcileKiosk. The caller publishes the
+	// device update after this runs, so that broadcast carries the flipped state.
 	if cfg.KioskEnabled {
-		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {
+		if marked, err := h.db.MarkKioskExited(ctx, deviceID, time.Unix(e.OfflineExitAt, 0)); err == nil {
 			cfg.KioskEnabled = false
 			cfgMap["kiosk_enabled"] = false
-			// The caller publishes the device update AFTER this runs, so that broadcast
-			// already carries the flipped state — no separate re-publish needed here.
+			if marked {
+				summary := "Taken out of kiosk on site: someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."
+				if created, err := h.db.CreateAlertIfAbsent(ctx, nil, "kiosk_exited", deviceID, "warning", summary, map[string]any{"at": e.OfflineExitAt}); err == nil && created {
+					h.alerts.Dispatch(ctx, []db.AlertNotification{{Type: "kiosk_exited", Severity: "warning", Summary: summary,
+						Serial: serial, DeviceID: deviceID, EventAt: time.Unix(e.OfflineExitAt, 0).UTC()}})
+					h.hub.PublishAlertUpdate()
+				}
+			}
 		}
 	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)

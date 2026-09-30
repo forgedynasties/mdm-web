@@ -7395,6 +7395,7 @@ func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled boo
 			SET kiosk_enabled  = EXCLUDED.kiosk_enabled,
 			    kiosk_package  = EXCLUDED.kiosk_package,
 			    kiosk_features = EXCLUDED.kiosk_features,
+			    kiosk_exited_at = CASE WHEN EXCLUDED.kiosk_enabled THEN NULL ELSE device_config.kiosk_exited_at END,
 			    updated_at     = NOW()
 	`, deviceID, enabled, pkg, features)
 	return err
@@ -13300,6 +13301,12 @@ ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS priority     INT     NOT NUL
 ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS offline_exit BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_rule     UUID;
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_override BOOLEAN NOT NULL DEFAULT false;
+-- Taken out of kiosk on site (exit PIN or code on the device), 30 Sep: the device stays
+-- out of kiosk until someone locks it again or says to leave it; what it was locked to
+-- and by which rule is kept for "Lock again".
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_at      TIMESTAMPTZ;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_package TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_rule    UUID;
 
 -- Access profiles (30 Sep): named, reusable "what they can do" sets — the second
 -- question of the access editor. A grant made from a profile carries its id, so editing

@@ -321,6 +321,7 @@ function alxFilter(){
     </details>
     <div class="alx-foot">
       {{if $p.Href}}<a class="cc-btn sm primary" href="{{$p.Href}}"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{$p.HrefLabel}}</a>{{end}}
+      {{if $p.KioskExit}}{{if $p.CanAct}}<form method="POST" action="/devices/{{$p.Serial}}/kiosk/relock" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Lock again</button></form><form method="POST" action="/devices/{{$p.Serial}}/kiosk/leave-out" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Leave it out</button></form>{{end}}{{end}}
       {{if $p.KeyReset}}<a class="cc-btn sm danger" href="/devices/{{$p.Serial}}#reset-key" title="If the device was just factory reset, this is it asking to come back">Reset its key…</a>{{end}}
       {{if $p.CanAct}}
       <details class="alx-menu">

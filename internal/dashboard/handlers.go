@@ -6445,6 +6445,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"KioskExit":           h.kioskExitFor(r, device),
 		"KioskRule":           kioskRule,
 		"KioskOverride":       kioskOverride,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
@@ -18921,6 +18922,11 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// rule's target, or installed its app, are brought in line every minute.
 	h.reconcileKiosk(ctx)
 	h.checkKeyResets(ctx)
+	// A device locked again by any path (its dialog, bulk kiosk, a rule save) answers
+	// its "taken out of kiosk" alert.
+	if n, err := h.db.ResolveAnsweredKioskExitAlerts(ctx); err == nil && n > 0 {
+		h.hub.PublishAlertUpdate()
+	}
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -19809,6 +19815,7 @@ func alertTypeCatalog() []alertTypeGroup {
 	add("Lifecycle", "new_device", "New device onboarded")
 	add("Security", "identity_conflict", "Possible impersonation")
 	add("Security", "key_not_registered", "Key not registered after a reset")
+	add("Kiosk", "kiosk_exited", "Taken out of kiosk on site")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -21573,6 +21580,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
+	post("POST /devices/{serial}/kiosk/relock", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskRelock)))
+	post("POST /devices/{serial}/kiosk/leave-out", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
 	post("POST /devices/{serial}/kiosk/follow-rule", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskFollowRule)))
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceWlcUpdate)))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.deviceRoute("kiosk", h.DeviceRotateOfflineCode)))

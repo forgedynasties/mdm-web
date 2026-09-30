@@ -63,6 +63,12 @@ func TestKioskDeviceStatus(t *testing.T) {
 		t.Error("a device still on another rule's config is waiting")
 	}
 	k = base
+	exitAt := time.Now()
+	k.State.ExitedAt = &exitAt
+	if k.Status() != "exited" {
+		t.Error("a device taken out on site is exited, whatever its config says")
+	}
+	k = base
 	k.Rule = nil
 	if k.Status() != "" {
 		t.Error("no rule, no status")
@@ -88,19 +94,25 @@ func TestKioskPagesRender(t *testing.T) {
 	rules := []kioskRuleView{
 		{KioskPolicy: db.KioskPolicy{ID: id, Name: "Flights Vegas · Nugget", KioskPackage: "aio.app.nugget.uatv2", TargetType: "restaurant", TargetID: &rest, OfflineExit: true},
 			Pos: 1, First: true, Last: true, AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
-			Devices: 20, Locked: 16, Waiting: 4},
+			Devices: 20, Locked: 16, Waiting: 4, Exited: 1},
 	}
+	exits := []kioskExitView{{KioskExit: db.KioskExit{DeviceID: uuid.New(), Serial: "AT070AABU00875", Restaurant: "Flights Vegas",
+		Package: "aio.app.nugget.uatv2", RuleID: &id, RuleName: "Flights Vegas · Nugget"}, AppName: "Nugget-uatv2"}}
 	var buf bytes.Buffer
 	if err := kioskTmpl(t, "manage.html").ExecuteTemplate(&buf, "manage.html", map[string]any{
-		"Rules": rules, "Locked": 16, "NotCovered": 161, "ByHand": 0, "CanEdit": true,
+		"Rules": rules, "Locked": 16, "NotCovered": 161, "ByHand": 0, "CanEdit": true, "Exits": exits,
 	}); err != nil {
 		t.Fatalf("manage.html: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"16 locked", "4 waiting", "exit code on", "/manage/policies/" + id.String() + "/move", "161 devices no rule covers"} {
+	for _, want := range []string{"16 locked", "4 waiting", "1 taken out on site", "1 device was taken out of kiosk on site",
+		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by the rule "Flights Vegas · Nugget"`, "/manage/policies/" + id.String() + "/move", "161 devices no rule covers"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list missing %q", want)
 		}
+	}
+	if strings.Contains(out, "exit code on") {
+		t.Error("the rules list still says \"exit code on\"")
 	}
 	buf.Reset()
 	p := rules[0].KioskPolicy
@@ -112,7 +124,7 @@ func TestKioskPagesRender(t *testing.T) {
 		t.Fatalf("form: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`value="aio.app.nugget.uatv2"`, `data-id="` + rest.String() + `"`, "Offline exit code", "checked", "Every device"} {
+	for _, want := range []string{`value="aio.app.nugget.uatv2"`, `data-id="` + rest.String() + `"`, "Power five times", "stays out of kiosk until someone locks it again", "Every device"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("form missing %q", want)
 		}

@@ -35,6 +35,8 @@ func (k kioskDevice) Status() string {
 	switch {
 	case k.Rule == nil:
 		return ""
+	case k.State.ExitedAt != nil:
+		return "exited"
 	case k.State.Override:
 		return "override"
 	case !k.CanLock:
@@ -144,6 +146,9 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 		st := k.State
 		if st.Override {
 			continue // someone decided this device by hand
+		}
+		if st.ExitedAt != nil {
+			continue // taken out of kiosk on site: stays out until someone answers it
 		}
 		switch {
 		case k.Rule == nil:

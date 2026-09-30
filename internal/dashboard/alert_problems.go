@@ -42,6 +42,7 @@ type problemView struct {
 	Search     string
 	CanAct     bool
 	KeyReset   bool // an impersonation alert: the device may have lost its key
+	KioskExit  bool // taken out of kiosk on site: offer Lock again / Leave it out
 }
 
 type problemSymptom struct {
@@ -252,6 +253,9 @@ func deviceProblem(key string, as []db.Alert, hs []humanAlert, users map[string]
 		for _, a := range as {
 			if a.Type == "identity_conflict" {
 				p.KeyReset = true
+			}
+			if a.Type == "kiosk_exited" && a.Status != "resolved" {
+				p.KioskExit = true
 			}
 		}
 	}

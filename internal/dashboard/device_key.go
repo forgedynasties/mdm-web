@@ -26,11 +26,11 @@ const keyRegisterClient = "1.6.0"
 
 // keyCredential is the Enrollment card's Credential row for a firmware device.
 type keyCredential struct {
-	Own        bool
-	Since      *time.Time
-	ResetAt    *time.Time
-	CanReg     bool   // its client registers a key by itself
-	Client     string // the client version it reports
+	Own     bool
+	Since   *time.Time
+	ResetAt *time.Time
+	CanReg  bool   // its client registers a key by itself
+	Client  string // the client version it reports
 }
 
 func (h *Handler) keyCredentialFor(ctx context.Context, dev *db.Device) *keyCredential {

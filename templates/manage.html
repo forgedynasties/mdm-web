@@ -32,6 +32,22 @@
 .kr-acts form{margin:0}
 .kr-else{display:flex;gap:12px;align-items:center;padding:14px 17px;border:1px dashed var(--border);border-radius:var(--r-4);margin-top:12px;color:var(--muted);font-size:13px}
 .kr-else b{color:var(--text)}
+/* Taken out of kiosk on site: stays out until someone answers it. */
+.kx-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:14px;overflow:hidden}
+.kx-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px}
+.kx-strip-h h2{font-size:13.5px;font-weight:700;margin:0}
+.kx-strip-h small{display:block;font-size:12px;color:var(--text-2);margin-top:1px}
+.kx-strip-h .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
+.kx-strip-h .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kx-dev{display:flex;align-items:center;gap:12px;padding:11px 17px;background:var(--surface);border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.kx-dev .id{flex:1;min-width:200px}
+.kx-dev .id a{font-family:var(--mono);font-size:13px;font-weight:650;color:inherit;text-decoration:none}
+.kx-dev .id a:hover{text-decoration:underline}
+.kx-dev .id small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.kx-dev .a{display:flex;gap:6px;flex-wrap:wrap}
+.kx-dev form{margin:0}
+.kr-st a.warn{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid transparent;color:var(--warn);background:var(--warn-bg);text-decoration:none}
+.kr-st a.warn:hover{text-decoration:underline}
 .kr-flash{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
 @media(max-width:720px){
   .kr-row{grid-template-columns:44px minmax(0,1fr)}
@@ -45,7 +61,7 @@
   <div class="cc-top">
     <div>
       <h1 class="cc-h1">Kiosk</h1>
-      <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
+      <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} {{if .Exits}} · <a href="#kiosk-exits" style="color:var(--warn);font-weight:650">{{len .Exits}} taken out on site</a>{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
     </div>
     <div class="cc-actions">
       {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
@@ -53,6 +69,21 @@
   </div>
 
   {{if .Flash}}<div class="kr-flash" role="status">{{.Flash}}</div>{{end}}
+
+  {{if .Exits}}
+  <div class="kx-strip" id="kiosk-exits">
+    <div class="kx-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div><h2>{{len .Exits}} device{{if ne (len .Exits) 1}}s were{{else}} was{{end}} taken out of kiosk on site</h2><small>Someone used the exit PIN or code on the device. {{if ne (len .Exits) 1}}They stay{{else}}It stays{{end}} unlocked until you lock {{if ne (len .Exits) 1}}them{{else}}it{{end}} again.</small></div></div>
+    {{range .Exits}}
+    <div class="kx-dev">
+      <div class="id"><a href="/devices/{{.Serial}}">{{.Serial}}</a><small>{{if .Restaurant}}{{.Restaurant}} · {{end}}was locked to {{.AppName}}{{if .RuleName}} by the rule "{{.RuleName}}"{{else}} by hand{{end}} · taken out <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span></small></div>
+      {{if $.CanEdit}}<div class="a">
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/manage"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/manage"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+      </div>{{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
 
   {{if .Rules}}
   <div class="cc-card kr-list">
@@ -66,11 +97,11 @@
       <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{slice .AppName 0 1}}{{end}}</span>
       <div>
         <div class="kr-nm">{{.Name}}</div>
-        <div class="kr-mt">Locked to <b>{{.AppName}}</b> · <a href="{{.TargetHref}}">{{.TargetLabel}}</a>{{if .OfflineExit}} · exit code on{{end}}</div>
+        <div class="kr-mt">Locked to <b>{{.AppName}}</b> · <a href="{{.TargetHref}}">{{.TargetLabel}}</a></div>
         <div class="kr-st">
           {{if .Locked}}<span class="ok" title="Locked to the app">{{.Locked}} locked</span>{{end}}
           {{if .Waiting}}<span class="wait" title="Not picked up yet: offline, or not checked in since the rule changed">{{.Waiting}} waiting</span>{{end}}
-          {{if .Exited}}<span class="warn" title="Staff left kiosk on the device with an exit code">{{.Exited}} exited on site</span>{{end}}
+          {{if .Exited}}<a class="warn" href="#kiosk-exits" title="Taken out of kiosk on site with the exit PIN or code; they stay unlocked until someone locks them again">{{.Exited}} taken out on site</a>{{end}}
           {{if .Missing}}<span class="warn" title="The app isn't installed; they lock once it is">{{.Missing}} app missing</span>{{end}}
           {{if .Cant}}<span class="bad" title="Their agent can't lock the screen (MDM Lite)">{{.Cant}} can't lock</span>{{end}}
           {{if .Override}}<span title="Changed by hand on the device page; follows the device's own setting">{{.Override}} set by hand</span>{{end}}
