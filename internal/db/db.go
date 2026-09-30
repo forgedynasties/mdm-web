@@ -1019,13 +1019,18 @@ func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error
 	return out, rows.Err()
 }
 
+// teamAccountSQL admits an audit actor only when it is a real team account: a user row
+// with an @aioapp.com email. "API key", scheduled recipes, "System" and accounts that no
+// longer exist are not people on the leaderboard (same rule as the Activity page).
+const teamAccountSQL = `u.email ILIKE '%@aioapp.com'`
+
 // TopActors ranks people by recorded actions (page views excluded), with
 // display names resolved live from users; former usernames show as-is.
 func (d *DB) TopActors(ctx context.Context, limit int, exclude string) ([]NamedCount, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.actor, COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), a.actor), COUNT(*) AS n
-		FROM audit_log a LEFT JOIN users u ON u.username = a.actor
-		WHERE a.actor <> '' AND a.actor <> 'unknown' AND a.actor <> $2 AND a.action <> '`+PageViewAction+`'
+		FROM audit_log a JOIN users u ON u.username = a.actor AND `+teamAccountSQL+`
+		WHERE a.actor <> $2 AND a.action <> '`+PageViewAction+`'
 		GROUP BY a.actor, u.first_name, u.last_name ORDER BY n DESC LIMIT $1`, limit, exclude)
 	if err != nil {
 		return nil, err
@@ -1233,8 +1238,9 @@ func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*
 	rows.Close()
 	if st.Actions > 0 {
 		err = d.pool.QueryRow(ctx, `
-			WITH r AS (SELECT actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
-			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' AND actor <> $2 AND action <> '`+PageViewAction+`' GROUP BY actor)
+			WITH r AS (SELECT a.actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
+			           FROM audit_log a JOIN users u ON u.username = a.actor AND `+teamAccountSQL+`
+			           WHERE a.actor <> $2 AND a.action <> '`+PageViewAction+`' GROUP BY a.actor)
 			SELECT rk, n FROM r WHERE actor = $1`, username, excludeFromRank).Scan(&st.Rank, &st.Actors)
 		if err != nil && err != pgx.ErrNoRows {
 			return nil, err

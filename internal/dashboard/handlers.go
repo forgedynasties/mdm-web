@@ -4833,6 +4833,51 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Someone who sees part of the fleet gets rails, filters and counts over their part:
+	// only the restaurants and groups they have a device in, the builds and time zones
+	// their devices run, and their own total (30 Sep access audit).
+	if acc := h.access(r); acc.hidesDevices() {
+		seenR, seenG := acc.visibleCollections()
+		railRests, railGroups = scopeHealth(railRests, seenR), scopeHealth(railGroups, seenG)
+		keptR := restaurants[:0:0]
+		for _, x := range restaurants {
+			if seenR[x.ID] > 0 {
+				keptR = append(keptR, x)
+			}
+		}
+		restaurants = keptR
+		keptG := groups[:0:0]
+		for _, x := range groups {
+			if seenG[x.ID] > 0 {
+				x.DeviceCount = seenG[x.ID]
+				keptG = append(keptG, x)
+			}
+		}
+		groups = keptG
+		productions = nil
+		vis, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{OnlyIDs: acc.visibleIDs()}, 0, 10000, "", "")
+		fleetTotal = len(vis)
+		prodCounts = map[string]int{}
+		bset, tset := map[string]bool{}, map[string]bool{}
+		builds, timezones = nil, nil
+		for _, d := range vis {
+			prodCounts[d.Product]++
+			if d.BuildID != "" && !bset[d.BuildID] {
+				bset[d.BuildID] = true
+				builds = append(builds, d.BuildID)
+			}
+			var ex struct {
+				TZ string `json:"timezone"`
+			}
+			_ = json.Unmarshal(d.LatestExtra, &ex)
+			if tz := ex.TZ; tz != "" && !tset[tz] {
+				tset[tz] = true
+				timezones = append(timezones, tz)
+			}
+		}
+	}
+
+
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
 		totalPages = 1
@@ -8691,14 +8736,15 @@ func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Export Data",
 		"Serials":    serialList,
 		"FleetTotal": fleetTotal,
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"From":       backPath(r),
 	})
 }
 
 // pickerScopesJSON is the restaurants + groups list the shared device picker
 // offers as one-click shortcuts (templates/_picker.html).
-func (h *Handler) pickerScopesJSON(ctx context.Context) template.JS {
+func (h *Handler) pickerScopesJSON(r *http.Request) template.JS {
+	ctx := r.Context()
 	type scope struct {
 		Kind  string `json:"kind"`
 		ID    string `json:"id"`
@@ -8707,12 +8753,12 @@ func (h *Handler) pickerScopesJSON(ctx context.Context) template.JS {
 	}
 	out := []scope{}
 	if rests, err := h.db.ListRestaurants(ctx); err == nil {
-		for _, r := range rests {
-			out = append(out, scope{Kind: "restaurant", ID: r.ID.String(), Name: r.Name, Count: r.DeviceCount})
+		for _, x := range h.visibleRestaurantList(r, rests) {
+			out = append(out, scope{Kind: "restaurant", ID: x.ID.String(), Name: x.Name, Count: x.DeviceCount})
 		}
 	}
 	if groups, err := h.db.ListGroups(ctx); err == nil {
-		for _, g := range groups {
+		for _, g := range h.visibleGroupList(r, groups) {
 			out = append(out, scope{Kind: "group", ID: g.ID.String(), Name: g.Name, Count: g.DeviceCount})
 		}
 	}
@@ -9300,7 +9346,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "group_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":       "New Group",
 		"Devices":     devices,
 		"Online":      online,
@@ -9406,7 +9452,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
-	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+	data["ScopesJSON"] = h.pickerScopesJSON(r)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return
@@ -9665,7 +9711,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":     "New restaurant",
 		"Timezones": restaurantTimezones,
 	})
@@ -9795,7 +9841,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 			data["MetricsDailyMax"] = max
 		}
 	}
-	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+	data["ScopesJSON"] = h.pickerScopesJSON(r)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-kpis", h.withRole(r, data))
 		return
@@ -10145,7 +10191,7 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 	// footer/back-link) since layout.html's boosted shell already supplies it.
 	embed := r.Header.Get("HX-Request") == "true"
 	h.render(w, r, "restaurant_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":      "Edit " + rest.Name,
 		"Restaurant": rest,
 		"Timezones":  restaurantTimezones,
@@ -13377,7 +13423,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					return !blockedFor(pushDevices[i]) && blockedFor(pushDevices[j])
 				})
 				data["PushDevices"] = pushDevices
-				data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+				data["ScopesJSON"] = h.pickerScopesJSON(r)
 				// ?serials= (the fleet selection panel's "Push update") starts the
 				// picker with those devices already chosen.
 				data["PreSerials"] = parseSerialsField([]string{r.URL.Query().Get("serials")})
@@ -14766,6 +14812,11 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	// Collections for the palette's target dropdown (restaurants + releases with counts).
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
+	if acc := h.access(r); acc.hidesDevices() {
+		seenR, _ := acc.visibleCollections()
+		scopeRestaurants = scopeHealth(scopeRestaurants, seenR)
+		groups = h.visibleGroupList(r, groups)
+	}
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 	scopeReleases = visibleRail(h.role(r), scopeReleases)
 
@@ -21857,11 +21908,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrOperator(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	post("POST /groups", h.requireAdminOrOperator(h.GroupCreate))
-	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
-	mux.HandleFunc("GET /groups/{id}/devices-modal", h.requireAdminOrOperator(h.GroupDevicesModal))
-	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
-	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
-	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
+	mux.HandleFunc("GET /groups/{id}", h.collectionRoute("group", h.requireAuth(h.GroupDetail)))
+	mux.HandleFunc("GET /groups/{id}/devices-modal", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupDevicesModal)))
+	mux.HandleFunc("GET /groups/{id}/device-search", h.collectionRoute("group", h.requireAuth(h.GroupDeviceSearch)))
+	mux.HandleFunc("GET /groups/{id}/members", h.collectionRoute("group", h.requireAuth(h.GroupMembers)))
+	mux.HandleFunc("GET /groups/{id}/daily-stats", h.collectionRoute("group", h.requireAuth(h.GroupDailyStatsJSON)))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /map", h.requireAuth(h.fleetWide(h.MapPage)))
 	mux.HandleFunc("GET /devices/map.json", h.requireAuth(h.DeviceMapData))
@@ -21888,39 +21939,39 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/problem", h.requireOperatorOrAdmin(h.AlertProblemAction))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
-	post("POST /groups/{id}", h.requireAdminOrOperator(h.GroupUpdate))
-	post("POST /groups/{id}/delete", h.requireAdminOrOperator(h.GroupDelete))
-	post("POST /groups/{id}/devices", h.requireAdminOrOperator(h.GroupAddDevice))
+	post("POST /groups/{id}", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupUpdate)))
+	post("POST /groups/{id}/delete", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupDelete)))
+	post("POST /groups/{id}/devices", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupAddDevice)))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
 	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
-	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
-	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrOperator(h.RestaurantEdit))
-	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrOperator(h.RestaurantDevicesModal))
-	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
-	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
-	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
+	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))
+	mux.HandleFunc("GET /restaurants/{id}/edit", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantEdit)))
+	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicesModal)))
+	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDailyStatsJSON)))
+	mux.HandleFunc("GET /restaurants/{id}/members", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantMembers)))
+	mux.HandleFunc("GET /restaurants/{id}/report", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReport)))
 	// Deliberately unauthenticated: the token in the path is the credential, so a venue
 	// owner can open their report from an email without a dashboard account. See the
 	// note at the top of report_pdf.go.
 	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	mux.HandleFunc("GET /reports/{id}/{week}/{token}", h.ReportPDFToken)
-	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.requireAuth(h.RestaurantReportPDF))
+	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReportPDF)))
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
-	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
-	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
-	post("POST /restaurants/{id}/delete", h.requireAdminOrOperator(h.RestaurantDelete))
-	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrOperator(h.RestaurantDevicePicker))
-	post("POST /restaurants/{id}/devices", h.requireAdminOrOperator(h.RestaurantAssignDevices))
-	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.RestaurantRemoveDevice))
-	post("POST /restaurants/{id}/service-window", h.requireAdminOrOperator(h.RestaurantSetServiceWindow))
+	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
+	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
+	post("POST /restaurants/{id}/delete", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDelete)))
+	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicePicker)))
+	post("POST /restaurants/{id}/devices", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAssignDevices)))
+	post("POST /restaurants/{id}/devices/{serial}/remove", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRemoveDevice)))
+	post("POST /restaurants/{id}/service-window", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetServiceWindow)))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.deviceRoute("view", h.DeviceSetRestaurant)))
-	post("POST /groups/{id}/devices/remove", h.requireAdminOrOperator(h.GroupBulkRemoveDevice))
-	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.GroupRemoveDevice))
-	post("POST /groups/{id}/commands", h.requireAdminOrOperator(h.GroupCommandCreate))
+	post("POST /groups/{id}/devices/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupBulkRemoveDevice)))
+	post("POST /groups/{id}/devices/{serial}/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupRemoveDevice)))
+	post("POST /groups/{id}/commands", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupCommandCreate)))
 
 	// Productions is owned by the test team: admin/dev/operator can list, view,
 	// create and export (requireAdminOrOperator). Deletion stays admin/dev-only.

@@ -693,3 +693,98 @@ func (h *Handler) fleetWide(next http.HandlerFunc) http.HandlerFunc {
 		next(w, r)
 	}
 }
+
+// visibleCollections counts, per restaurant and per group, the devices this user can
+// see — the rails and pickers list only collections with at least one, sized by it.
+func (a *access) visibleCollections() (rests, groups map[uuid.UUID]int) {
+	rests, groups = map[uuid.UUID]int{}, map[uuid.UUID]int{}
+	a.loadScopes()
+	for id, sc := range a.scopes {
+		if !a.visible(id) {
+			continue
+		}
+		if sc.RestaurantID != nil {
+			rests[*sc.RestaurantID]++
+		}
+		for _, g := range sc.Groups {
+			groups[g]++
+		}
+	}
+	return rests, groups
+}
+
+// scopeHealth keeps the health rows of collections the user can see, with the device
+// count set to what they can see.
+func scopeHealth(rows []db.GroupHealth, seen map[uuid.UUID]int) []db.GroupHealth {
+	out := rows[:0:0]
+	for _, g := range rows {
+		if n := seen[g.GroupID]; n > 0 {
+			if g.DeviceCount > n {
+				// Partly visible: only their devices' count, not the venue's others.
+				g.DeviceCount, g.OfflineCount, g.DormantCount = n, 0, 0
+			}
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// collectionRoute guards /restaurants/{id}/… and /groups/{id}/…: a user with a
+// visibility limit reaches a restaurant or group only when they can see at least one of
+// its devices; otherwise it does not exist for them (404), as a hidden device does.
+func (h *Handler) collectionRoute(kind string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		acc := h.access(r)
+		if acc.hidesDevices() {
+			id, err := uuid.Parse(r.PathValue("id"))
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			rests, groups := acc.visibleCollections()
+			seen := rests
+			if kind == "group" {
+				seen = groups
+			}
+			if seen[id] == 0 {
+				http.NotFound(w, r)
+				return
+			}
+		}
+		next(w, r)
+	}
+}
+
+// visibleGroupList keeps the groups this user has a device in, sized by it.
+func (h *Handler) visibleGroupList(r *http.Request, gs []db.Group) []db.Group {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return gs
+	}
+	_, seen := acc.visibleCollections()
+	out := gs[:0:0]
+	for _, g := range gs {
+		if n := seen[g.ID]; n > 0 {
+			g.DeviceCount = n
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// visibleRestaurantList keeps the restaurants this user has a device in, sized by it.
+func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []db.Restaurant {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return rs
+	}
+	seen, _ := acc.visibleCollections()
+	out := rs[:0:0]
+	for _, x := range rs {
+		if n := seen[x.ID]; n > 0 {
+			x.DeviceCount = n
+			out = append(out, x)
+		}
+	}
+	return out
+}
