@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Access audit · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:860px;line-height:1.6}
+h2{font-size:17px;margin:40px 0 8px;letter-spacing:-.01em}
+.desc{color:var(--muted);font-size:13px;margin:0 0 12px;max-width:860px;line-height:1.6}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:10px 12px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.5}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0;background:var(--surface-2,var(--bg))}
+td code{font-size:11.5px}
+.pill{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;white-space:nowrap}
+.hi{background:var(--danger-bg);color:var(--danger)}.md{background:var(--warn-bg);color:var(--warn)}.lo{background:var(--surface-3);color:var(--text-2)}
+.ok{background:var(--ok-bg);color:var(--ok)}.open{background:var(--info-bg);color:var(--info)}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:13.5px;line-height:1.65;max-width:860px}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+@media(max-width:720px){table{display:block;overflow-x:auto}}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Access control audit, 30 Sep 2026</h1>
+<p class="lead">Started from a report that a user allowed to see one device could see the whole fleet. Every dashboard route that shows or changes devices was checked against the access policy (roles as ceilings, a per-user starting point, allow/deny rules scoped to all / restaurant / group / device). The fixes are live as of <code>4d91166f</code> and <code>d6aafde2</code>. On live today only three accounts have a visibility limit: Talmiz Rehman (dev, one device), Shahrukh Bashir (operator, one restaurant) and one restaurant owner.</p>
+
+<h2>The reported problem</h2>
+<div class="box">Talmiz's access was set up correctly — start from nothing, allow <i>See device</i> on one device — but a separate switch, "Hide devices they can't see", was off. With it off the MDM listed every other device read-only, by design. <b>Fixed:</b> not being allowed to see a device now hides it everywhere, for every role, and the switch is gone. A device someone can see but not act on is still shown, read-only. A test that covered exactly this had been failing and CI was skipping it; it passes now and CI runs every test.</div>
+
+<h2>Fixed</h2>
+<table>
+<thead><tr><th style="width:90px">Severity</th><th>What was wrong</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td><span class="pill hi">High</span></td><td>A limited access admin could widen another account past their own access: set its starting point to "everything", delete its deny rules, or create a new account (which defaults to "everything").</td><td>Widening needs unlimited access of your own and a role that covers the target's; new accounts made by a limited admin start from "nothing"; raising a role is refused while the account starts from "everything".</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Kiosk lock from the Actions page, kiosk policies and bulk kiosk checked only the role, so any operator could kiosk-lock the whole fleet. Kiosk policy forms had no CSRF guard.</td><td>Each device is checked against "Kiosk settings"; a policy reaching a device outside the user's scope is refused; CSRF guard added.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>"Resend to all" on an all-devices command broadcast to the whole fleet; a narrowed group resend was still sent to the whole group.</td><td>"All" becomes the devices the user may touch; the narrowed list is what gets sent.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Deleting an action cancels it on every device it reached, with no device check.</td><td>Refused unless every device it reached is within the user's queue rights.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>A command page opened because one target was visible showed every device's output and screenshot; screenshot download, live output stream, status refresh and "Duplicate &amp; edit" had no check at all.</td><td>Rows, screenshots, streams and duplicated targets are limited to visible devices; shell text only for shell roles.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Acknowledge / resolve (one, selected, all) worked on alerts about hidden devices.</td><td>Only alerts the user can see.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Schedules ran with no access check and stored only the creator's role.</td><td>Stored by username; every run is narrowed to the creator's current access.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Rollouts: reboot-all, delete and reboot-timing changes reached every target; legacy OTA push, reboot, retry and cancel took any serial.</td><td>Per-device checks; whole-rollout changes need rights on every target.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Adding/removing devices to groups and restaurants accepted any serial (moving a device changes whose rules cover it).</td><td>Only devices the user can see.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Fleet-wide pages with no per-device filter: device map, clients, compliance, geofencing, inventory/compliance CSV, productions, release crashes, legacy OTA pages, Wrapped, the AI fleet summary, activity log, restaurant report email, access scope search.</td><td>Users with a visibility limit are sent to their device list (JSON and writes get 403).</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Device pickers (new group, add to group/restaurant, group device search) listed every device; the Actions impact preview counted and named the whole fleet; AI log analysis worked on any alert.</td><td>Filtered to visible devices.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td>Policy engine: a viewer set to "nothing" still saw everything; a failed policy load was cached as "allow everything" for 20 s; an unknown account got "allow everything"; group commands were judged by group id, never matching a device.</td><td>Base checked first; load failures and unknown accounts deny; group commands resolved to devices.</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td>Alerts page <code>?device=</code> for any serial; the crash feed and release issues fleet-wide; the dock and the Alerts badge showed fleet-wide counts.</td><td>Device filter only for visible devices; crash feed only per visible device; counts over visible alerts, not from the shared cache.</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td>Rollout page target rows and add-targets list; release workspace crash samples and build roster.</td><td>Visible devices only; crash samples hidden for limited users.</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td>GPS reporting for the whole fleet could be switched by any operator; restaurant opening hours had no "manage venues" check.</td><td>Super admin only; venue check added.</td></tr>
+</tbody></table>
+
+<h2>Still open</h2>
+<p class="desc">Not fixed in this pass, most important first.</p>
+<table>
+<thead><tr><th style="width:90px">Severity</th><th>What</th><th>Suggested fix</th></tr></thead>
+<tbody>
+<tr><td><span class="pill hi">High</span></td><td><b>Device enrollment:</b> any enrollment token can re-enroll an existing serial, rotating its key and moving its restaurant/group (so changing whose rules cover it). Device API, not the dashboard.</td><td>Refuse re-enrolling a serial that is already enrolled unless the token is for that device or an admin allows it.</td></tr>
+<tr><td><span class="pill hi">High</span></td><td><b>Admin API key:</b> one shared key with super-admin rights; no user, role or device scope.</td><td>Per-user keys that carry the user's role and access policy (was on the operating-gaps list).</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td>Device API: log upload, command ack and OTA progress/status don't check that the caller is the device named.</td><td>Apply the existing bound-serial check.</td></tr>
+<tr><td><span class="pill md">Medium</span></td><td>Counts and names still fleet-wide for limited users: Devices-page rail (restaurant/group health, builds, timezones, fleet total), search palette's group and restaurant names, group/restaurant pages opened by id, venue report metrics, Updates hub counts.</td><td>Compute from visible devices, or hide for limited users.</td></tr>
+<tr><td><span class="pill lo">Low</span></td><td>An allow rule for an action without "See device" lets a user act on devices they can't see.</td><td>Decide whether actions should imply or require view.</td></tr>
+<tr><td><span class="pill lo">Low</span></td><td>Boosted pages are cached 10 s in the browser without a per-user key; policy changes reach a live event stream only when it reconnects; the policy cache is 20 s.</td><td>Vary on the session; re-check on stream events.</td></tr>
+</tbody></table>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>
