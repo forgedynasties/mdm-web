@@ -623,7 +623,7 @@
         <div class="t">Control</div>
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="grid" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Policies">Policies</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Kiosk">Kiosk</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
@@ -2976,7 +2976,7 @@
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
       { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
       { sel: '.dock .nav-link[href="/commands"]', title: 'Actions', body: 'Send an action to one device or the whole fleet: install apps, screenshots, shell, reboot, kiosk lock. Save recipes and schedule them.', pos: 'top', optional: true },
-      { sel: '.dock .nav-link[href="/manage"]', title: 'Policies', body: 'Standing configuration such as kiosk lock that applies to every device it targets — set once, enforced continuously.', pos: 'top', optional: true },
+      { sel: '.dock .nav-link[href="/manage"]', title: 'Kiosk', body: 'Kiosk rules: lock a restaurant, group or device to one app — set once, enforced continuously.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/alerts"]', title: 'Alerts', body: 'Devices that stopped checking in, ran hot, drained, or crashed. Acknowledge or resolve here; the bell up top shows the live count.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
       { sel: '.dock-search', title: 'Search anything', body: 'Jump to a device by serial, a restaurant, or any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'top', optional: true },
@@ -3096,6 +3096,6 @@
 {{define "nav-server"}}<a href="/server" class="{{.cls}}{{if eq .active "server"}} active{{end}}" data-cmdk-label="Server"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/></svg></span><span class="nav-t">Server</span></a>{{end}}
 
 {{define "nav-clients"}}<a href="/clients" class="{{.cls}}{{if eq .active "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
-{{define "nav-manage"}}<a href="/manage" class="{{.cls}}{{if eq .active "manage"}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}
+{{define "nav-manage"}}<a href="/manage" class="{{.cls}}{{if eq .active "manage"}} active{{end}}" data-cmdk-label="Kiosk"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Kiosk</span></a>{{end}}
 {{define "nav-products"}}<a href="/products" class="{{.cls}}{{if eq .active "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
