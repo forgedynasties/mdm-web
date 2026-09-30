@@ -21093,7 +21093,18 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	grantCounts, _ := h.db.CountAccessGrants(r.Context(), sensitiveActionKeys)
+	// People who signed up but can't sign in yet (email not verified). Only the super
+	// admin can vouch for them, so only the super admin sees them singled out.
+	var waiting []db.User
+	if h.role(r) == "admin" {
+		for _, u := range users {
+			if u.Email != nil && u.EmailVerifiedAt == nil {
+				waiting = append(waiting, u)
+			}
+		}
+	}
 	h.render(w, r, "users.html", map[string]any{
+		"Waiting":   waiting,
 		"Users":     users,
 		"Orphans":   orphans,
 		"Summaries": summaries,
@@ -21879,6 +21890,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/avatar/delete", h.requireAuth(h.UserClearAvatar))
 	post("POST /users/{id}/password", h.requireUserManager(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireAccountAdmin(h.UserDelete))
+	post("POST /users/{id}/verify-email", h.requireStrictAdmin(h.UserVerifyEmail))
 	post("POST /users/merge", h.requireAccountAdmin(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))

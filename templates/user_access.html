@@ -190,7 +190,7 @@
             </form>
             <div class="ua-f">
               <label class="ua-lbl">Email</label>
-              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{end}}</div>
+              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{if and (not .User.EmailVerifiedAt) .ActorIsAdmin}}<form method="POST" action="/users/{{.User.ID}}/verify-email" hx-boost="false" style="margin:0"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Mark as verified</button></form>{{end}}{{end}}</div>{{if .User.Email}}{{if not .User.EmailVerifiedAt}}<p class="muted small" style="margin:6px 0 0">They signed up {{shortDate .User.CreatedAt}} and haven't clicked the link we emailed. Until the address is verified they can't sign in.</p>{{end}}{{end}}
             </div>
             <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
               <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
@@ -287,7 +287,7 @@
             </form>
             <div class="ua-f">
               <label class="ua-lbl">Email</label>
-              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{end}}</div>
+              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{if and (not .User.EmailVerifiedAt) .ActorIsAdmin}}<form method="POST" action="/users/{{.User.ID}}/verify-email" hx-boost="false" style="margin:0"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Mark as verified</button></form>{{end}}{{end}}</div>{{if .User.Email}}{{if not .User.EmailVerifiedAt}}<p class="muted small" style="margin:6px 0 0">They signed up {{shortDate .User.CreatedAt}} and haven't clicked the link we emailed. Until the address is verified they can't sign in.</p>{{end}}{{end}}
             </div>
             <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
               <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
