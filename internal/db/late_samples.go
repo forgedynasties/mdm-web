@@ -99,3 +99,86 @@ func (d *DB) LateSpans(ctx context.Context, deviceID uuid.UUID, from, until time
 func (d *DB) RecordDeviceEvent(ctx context.Context, deviceID uuid.UUID, kind, summary string) {
 	_, _ = d.pool.Exec(ctx, `INSERT INTO device_events (device_id, kind, summary, occurred_at) VALUES ($1, $2, $3, NOW())`, deviceID, kind, summary)
 }
+
+// LateState is one reported value of a state key ("charging", "wlc_status") on a late
+// reading, as the event table stores it ("true", "2").
+type LateState struct {
+	At  time.Time
+	Val string
+}
+
+// InsertLateStates writes a key's changes from late readings into the state timeline.
+// Readings must be in time order. A change is written where a reading differs from what
+// the timeline holds at that moment; if the readings end in a different state from the
+// one the timeline already had, the state is put back just after the last one, so the
+// hours after the gap read as before. Sending the same readings again writes nothing.
+func (d *DB) InsertLateStates(ctx context.Context, deviceID uuid.UUID, key string, pts []LateState) error {
+	if len(pts) == 0 {
+		return nil
+	}
+	valueAt := func(t time.Time) string {
+		var v string
+		_ = d.pool.QueryRow(ctx, `
+			SELECT to_val FROM device_state_events WHERE device_id = $1 AND key = $2 AND at <= $3
+			ORDER BY at DESC LIMIT 1`, deviceID, key, t).Scan(&v)
+		return v
+	}
+	last := pts[len(pts)-1].At
+	after := valueAt(last) // what the timeline says holds at the end, before we write
+	cur := valueAt(pts[0].At.Add(-time.Millisecond))
+	for _, p := range pts {
+		if p.Val == "" || p.Val == cur {
+			continue
+		}
+		if _, err := d.pool.Exec(ctx, `
+			INSERT INTO device_state_events (device_id, at, key, from_val, to_val) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT DO NOTHING`, deviceID, p.At, key, cur, p.Val); err != nil {
+			return err
+		}
+		cur = p.Val
+	}
+	if after != "" && cur != after {
+		_, err := d.pool.Exec(ctx, `
+			INSERT INTO device_state_events (device_id, at, key, from_val, to_val) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT DO NOTHING`, deviceID, last.Add(time.Second), key, cur, after)
+		return err
+	}
+	return nil
+}
+
+// LateCrash is a crash the device recorded while offline.
+type LateCrash struct {
+	Kind    string
+	TimeMs  int64
+	Summary string
+	Trace   string
+}
+
+// InsertLateCrashes adds offline crashes to the device's history, marked late so they
+// never page. The time is the device's own, as for live reports, so a crash reported
+// both ways is one entry.
+func (d *DB) InsertLateCrashes(ctx context.Context, deviceID uuid.UUID, buildID string, cs []LateCrash) (int, error) {
+	n := 0
+	for _, c := range cs {
+		if c.Kind == "" || c.TimeMs <= 0 || c.Kind == "reboot" || c.Kind == "kiosk_exit_offline" || c.Kind == "offline_dropped" {
+			continue
+		}
+		summary, trace := c.Summary, c.Trace
+		if len(summary) > 300 {
+			summary = summary[:300]
+		}
+		if len(trace) > 64*1024 {
+			trace = trace[:64*1024]
+		}
+		tag, err := d.pool.Exec(ctx, `
+			INSERT INTO device_events (device_id, kind, summary, detail, build_id, occurred_at, late)
+			VALUES ($1, $2, $3, $4, $5, $6, true)
+			ON CONFLICT (device_id, kind, occurred_at) DO NOTHING`,
+			deviceID, c.Kind, summary, trace, buildID, time.UnixMilli(c.TimeMs).UTC())
+		if err != nil {
+			return n, err
+		}
+		n += int(tag.RowsAffected())
+	}
+	return n, nil
+}

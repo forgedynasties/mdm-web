@@ -638,6 +638,20 @@ func (h *Hub) Broadcast(msg []byte) {
 // socket. Holds the write lock, so it's mutually exclusive with register()/Push()
 // (no send-on-closed race). Call only during shutdown, after the HTTP server has
 // stopped accepting new upgrades.
+// Close drops one device's socket, if it has one.
+func (h *Hub) Close(deviceID uuid.UUID) {
+	h.mu.Lock()
+	c, ok := h.clients[deviceID]
+	if ok {
+		close(c.Send)
+		delete(h.clients, deviceID)
+	}
+	h.mu.Unlock()
+	if ok {
+		h.publishPresence(PresenceEvent{DeviceID: deviceID, Online: false})
+	}
+}
+
 func (h *Hub) CloseAll() {
 	h.mu.Lock()
 	defer h.mu.Unlock()

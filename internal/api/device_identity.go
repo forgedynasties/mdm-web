@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -65,6 +66,11 @@ func (h *Handler) serialHasOwnKey(ctx context.Context, serial string) bool {
 // must name that serial; the shared key is accepted only for serials that have no key
 // of their own. Writes a 403 and returns false otherwise.
 func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, serial string) bool {
+	if until, ok := simulatedOffline(serial); ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(time.Until(until).Seconds())+1))
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "unavailable"})
+		return false
+	}
 	if bound := middleware.BoundSerial(r); bound != "" {
 		if bound != serial {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "serial does not match device credential"})
@@ -257,4 +263,52 @@ func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 		h.hub.PublishAlertUpdate()
 	}()
 	return true
+}
+
+// ── Simulated outage, for testing ───────────────────────────────────────────────
+//
+// POST /api/v1/devices/{serial}/simulate-offline?minutes=N (admin) makes this server
+// refuse one device for N minutes: every device endpoint answers 503 and its socket is
+// dropped, so its client behaves exactly as in a real outage (1.7.0 keeps readings and
+// sends them afterwards). It ends by itself; nothing on the device changes. Added 1 Oct
+// because a system app can't switch its own device's network off to test that.
+
+var simOffline sync.Map // serial -> time.Time
+
+func simulatedOffline(serial string) (time.Time, bool) {
+	v, ok := simOffline.Load(serial)
+	if !ok {
+		return time.Time{}, false
+	}
+	until := v.(time.Time)
+	if time.Now().After(until) {
+		simOffline.Delete(serial)
+		return time.Time{}, false
+	}
+	return until, true
+}
+
+func (h *Handler) SimulateOffline(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	mins, _ := strconv.Atoi(r.URL.Query().Get("minutes"))
+	if mins < 0 || mins > 120 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "minutes must be 0 to 120 (0 ends it)"})
+		return
+	}
+	dev, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || dev == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown device"})
+		return
+	}
+	if mins == 0 {
+		simOffline.Delete(serial)
+		log.Printf("[simulate-offline] %s: ended", serial)
+		writeJSON(w, http.StatusOK, map[string]any{"serial": serial, "offline": false})
+		return
+	}
+	until := time.Now().Add(time.Duration(mins) * time.Minute)
+	simOffline.Store(serial, until)
+	h.hub.Close(dev.ID)
+	log.Printf("[simulate-offline] %s refused until %s", serial, until.UTC().Format(time.RFC3339))
+	writeJSON(w, http.StatusOK, map[string]any{"serial": serial, "offline_until": until.UTC()})
 }

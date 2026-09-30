@@ -382,7 +382,7 @@ func (d *DB) ListCrashIssues(ctx context.Context, days, limit int) ([]CrashIssue
 		       COALESCE((SELECT rl.id FROM releases rl WHERE rl.version = e.build_id AND e.build_id <> ''
 		                 ORDER BY rl.id DESC LIMIT 1), 0)
 		FROM device_events e JOIN devices dv ON dv.id = e.device_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > NOW() - make_interval(days => $1)
 		GROUP BY e.kind, `+crashSignatureSQL+`, e.build_id
 		HAVING COUNT(DISTINCT e.device_id) >= $2

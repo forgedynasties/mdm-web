@@ -1129,7 +1129,7 @@ func (d *DB) IncidentCounts(ctx context.Context, ids []uuid.UUID, days int) (per
 		       COUNT(*) FILTER (WHERE occurred_at >= NOW() - ($2 * INTERVAL '1 day')),
 		       COUNT(*) FILTER (WHERE occurred_at <  NOW() - ($2 * INTERVAL '1 day'))
 		FROM device_events
-		WHERE device_id = ANY($1) AND kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE device_id = ANY($1) AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND occurred_at >= NOW() - (2 * $2 * INTERVAL '1 day')
 		GROUP BY device_id`, ids, days)
 	if err != nil {
@@ -11404,7 +11404,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			       (array_agg(e.kind ORDER BY e.occurred_at DESC))[1],
 			       (array_agg(e.summary ORDER BY e.occurred_at DESC))[1]
 			FROM devices d JOIN device_events e ON e.device_id = d.id
-			WHERE NOT d.hidden AND e.kind <> 'reboot'
+			WHERE NOT d.hidden AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
+			  AND NOT e.late -- a crash that happened while the device was offline is history, not a page
 			  AND e.occurred_at > NOW() - ($1 * INTERVAL '1 minute')
 			GROUP BY d.id, d.serial_number`, mins)
 		if err != nil {
@@ -12321,6 +12322,10 @@ CREATE TABLE IF NOT EXISTS device_events (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_events_dedupe ON device_events(device_id, kind, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_device_events_device_time ON device_events(device_id, occurred_at DESC);
+-- Sent later by a device that was offline when it happened (client 1.7.1): history only,
+-- never an alert. Only these kinds are not crashes: 'reboot', 'kiosk_exit_offline',
+-- 'offline_dropped' (every crash query excludes exactly those).
+ALTER TABLE device_events ADD COLUMN IF NOT EXISTS late BOOLEAN NOT NULL DEFAULT false;
 -- Last per-boot id seen, to detect reboots (a change = the device rebooted).
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_boot_id TEXT NOT NULL DEFAULT '';
 
@@ -15915,7 +15920,7 @@ func (d *DB) LatestCrashTrace(ctx context.Context, deviceID uuid.UUID) (string, 
 	var detail string
 	err := d.pool.QueryRow(ctx, `
 		SELECT detail FROM device_events
-		WHERE device_id = $1 AND kind <> 'reboot'
+		WHERE device_id = $1 AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY occurred_at DESC LIMIT 1`, deviceID).Scan(&detail)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -15942,7 +15947,7 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 		SELECT e.id, dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.build_id = $1 AND e.kind <> 'reboot'
+		WHERE e.build_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, buildID, limit)
 	if err != nil {
@@ -15996,7 +16001,7 @@ func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, sinceDays, limit)
@@ -16023,7 +16028,7 @@ func (d *DB) CountDeviceCrashes(ctx context.Context, deviceID uuid.UUID) (int, e
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND e.build_id = dv.build_id`, deviceID).Scan(&n)
 	return n, err
 }
@@ -16047,7 +16052,7 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND e.build_id = dv.build_id
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, deviceID, limit)
@@ -16088,7 +16093,7 @@ func (d *DB) CountRecentCrashEvents(ctx context.Context, deviceID *uuid.UUID, si
 		SELECT COUNT(*)
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)`+scope, args...).Scan(&n)
 	return n, err
 }
@@ -16130,7 +16135,7 @@ func (d *DB) ListRecentCrashGroupsPage(ctx context.Context, deviceID *uuid.UUID,
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)`+scope+`
 		GROUP BY e.kind, e.summary
 		ORDER BY MAX(e.occurred_at) DESC
@@ -16168,7 +16173,7 @@ func (d *DB) ListRecentCrashEventsPage(ctx context.Context, sinceDays, limit, of
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, sinceDays, limit, offset)
@@ -16204,7 +16209,7 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, deviceID, limit, offset)
 	if err != nil {
@@ -16446,7 +16451,7 @@ func (d *DB) CrashGroupsOnBuild(ctx context.Context, buildID string, limit, offs
 			       (array_agg(e.detail ORDER BY (e.detail <> '') DESC, e.occurred_at DESC))[1] AS sample_detail
 			FROM device_events e
 			JOIN devices dv ON dv.id = e.device_id
-			WHERE e.build_id = $1 AND e.kind <> 'reboot'
+			WHERE e.build_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 			GROUP BY e.kind, `+sig+`
 		)
 		SELECT kind, sig, cnt, devs, last_at, sample_serial, sample_detail,
@@ -16542,7 +16547,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 		FROM device_events e
 		JOIN devices d ON d.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden
 		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
 		GROUP BY d.id, d.serial_number, d.restaurant_id, r.name
 		ORDER BY COUNT(*) DESC, MAX(e.occurred_at) DESC`)
@@ -16577,7 +16582,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 	_ = d.pool.QueryRow(ctx, `
 		SELECT COALESCE(NULLIF(e.build_id, ''), 'unknown'), COUNT(*)
 		FROM device_events e JOIN devices d ON d.id = e.device_id
-		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden
 		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
 		GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 1`).Scan(&st.WorstBuild, &st.WorstBuildN)
 
@@ -16589,7 +16594,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 		LEFT JOIN (
 			SELECT date_trunc('day', e.occurred_at)::date AS day, COUNT(*) c
 			FROM device_events e JOIN devices d ON d.id = e.device_id
-			WHERE e.kind <> 'reboot' AND NOT d.hidden AND e.occurred_at >= CURRENT_DATE - 6
+			WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden AND e.occurred_at >= CURRENT_DATE - 6
 			GROUP BY 1
 		) x ON x.day = g::date
 		ORDER BY g`)
