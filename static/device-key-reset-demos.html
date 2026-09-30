@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device key reset · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/css/device.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:18px}
+.row2{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:1024px){.row2{grid-template-columns:1fr}}
+.cap{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:0 0 8px}
+.states{display:flex;flex-direction:column;gap:10px}
+.state{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.state .ddc-kv{padding:4px 0}
+.state .lbl{font-size:11px;color:var(--text-faint);margin-bottom:2px}
+/* the reset dialog, drawn open */
+.dlg{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg,0 20px 50px rgba(0,0,0,.2));padding:20px 22px;max-width:460px}
+.dlg h3{margin:0 0 8px;font-size:16px}
+.dlg p{margin:0 0 10px;font-size:13px;line-height:1.55;color:var(--text-2)}
+.dlg ul{margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.55;color:var(--text-2)}
+.dlg .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.dlg .why{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.dlg .why label{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.dlg .why input{margin-top:3px;accent-color:var(--accent)}
+.kr{display:inline-flex;align-items:center;gap:6px}
+.kr .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.kr.warn .dot{background:var(--warn)}
+.kr.mut .dot{background:var(--text-faint)}
+.inline-reset{font-size:12px;font-weight:650;color:var(--danger);text-decoration:none;border-bottom:1px solid transparent;margin-left:6px}
+.inline-reset:hover{border-bottom-color:currentColor}
+/* the alert card, for option A's second half */
+.al{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:10px;padding:12px 14px;max-width:640px}
+.al b{font-size:13.5px}
+.al .m{font-size:12.5px;color:var(--muted);margin:4px 0 10px;line-height:1.5}
+.al .a{display:flex;gap:8px;flex-wrap:wrap}
+/* option C, the Clients page table */
+.kt{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.kt th,.kt td{text-align:left;padding:9px 12px;border-top:1px solid var(--border-soft)}
+.kt th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+@media(max-width:720px){.kt{display:block;overflow-x:auto}}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Resetting a device's key</h1>
+<p class="lead">Since client 1.6.0 a firmware device registers its own key, and from then on the server refuses the shared key for it. That is the point, and it has one cost: a device that loses its key (factory reset, app data cleared) is refused too, and it raises the impersonation alert when it tries. Someone has to be able to say "that was us, let it register again". Today that is an admin API call. The options below put it on the dashboard. Figures are from live, 30 Sep: 16 firmware devices on their own key, 176 on the shared key.</p>
+<p class="lead">Whatever is picked, the <b>Credential</b> row on the device page has to change: it says "Fleet device key" for every firmware device, which is now wrong for the 16.</p>
+<div class="toc"><a href="#now">Current</a><a href="#a" class="rec">A · Credential row + reset in "Careful" ★</a><a href="#b">B · Reset link on the row</a><a href="#c">C · Keys list on the Clients page</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="now">Current <span class="tag live">Deployed</span></h2>
+<p class="desc">Device page → Settings tab → Enrollment card. Every firmware device reads "Fleet device key", including the 16 that no longer use it. There is no way to reset a key from the dashboard.</p>
+<div class="scr"><div class="row2">
+  <div class="ddc-card en-card">
+    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2></div>
+    <div class="en-hero"><span class="en-hero-t">MDM Firmware</span><span class="mono en-hero-v">1.6.0</span><span class="cc-tag">system app</span></div>
+    <div class="en-grp">Identity</div>
+    <div class="ddc-kv"><span class="k">First seen</span><span class="v">6 May 2026</span></div>
+    <div class="ddc-kv"><span class="k">Credential</span><span class="v">Fleet device key</span></div>
+    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">mdm.dev.aioapp.com</span></div>
+  </div>
+  <div></div>
+</div></div>
+
+<h2 class="sec" id="a">A · The Credential row tells the truth, and Reset sits in "Careful" <span class="tag rec">Recommended</span></h2>
+<p class="desc">The row says which key the device uses, in one of three states. The reset button goes in the Enrollment card's "Careful" band, next to Move and Retire, because it weakens the device's protection until it registers again. It opens a dialog that says exactly that and asks why. The impersonation alert that a key-less device raises gets a "Reset its key" action that opens the same dialog, since that alert is where someone will be when it happens.</p>
+<div class="scr"><div class="row2">
+  <div class="ddc-card en-card">
+    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2></div>
+    <div class="en-hero"><span class="en-hero-t">MDM Firmware</span><span class="mono en-hero-v">1.6.0</span><span class="cc-tag">system app</span></div>
+    <div class="en-grp">Identity</div>
+    <div class="ddc-kv"><span class="k">First seen</span><span class="v">6 May 2026</span></div>
+    <div class="ddc-kv"><span class="k">Credential</span><span class="v"><span class="kr"><span class="dot"></span>Own key</span> <span class="muted small">· since 30 Sep, 16:14</span></span></div>
+    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">mdm.dev.aioapp.com</span></div>
+    <div class="en-danger">
+      <div class="en-danger-t">Careful</div>
+      <div class="en-danger-btns">
+        <button type="button" class="cc-btn sm">Move to another server…</button>
+        <button type="button" class="cc-btn sm">Retire</button>
+        <button type="button" class="cc-btn sm danger">Reset device key…</button>
+        <button type="button" class="cc-btn sm danger">Wipe device</button>
+      </div>
+      <div class="en-danger-note">Retiring keeps the history. Resetting the key lets the device register a new one; until it does, the shared key works for it again.</div>
+    </div>
+  </div>
+  <div>
+    <p class="cap">The dialog</p>
+    <div class="dlg" role="dialog" aria-label="Reset device key">
+      <h3>Reset the key of AT070AABU00875?</h3>
+      <p>Only when the device has lost its key and is now refused. What happens:</p>
+      <ul>
+        <li>The server forgets its key. The device registers a new one at its next check-in, within 5 minutes.</li>
+        <li>Until then, anything holding the shared key can act as this device. The shared key is public.</li>
+        <li>If it doesn't register within an hour, you'll get an alert.</li>
+      </ul>
+      <div class="why">
+        <label><input type="radio" name="w" checked> It was factory reset or had its data cleared</label>
+        <label><input type="radio" name="w"> Its firmware was reflashed</label>
+        <label><input type="radio" name="w"> Something else</label>
+      </div>
+      <div class="btns"><button class="cc-btn">Cancel</button><button class="cc-btn danger">Reset key</button></div>
+    </div>
+  </div>
+</div>
+<div style="margin-top:22px" class="row2">
+  <div>
+    <p class="cap">The three states of the Credential row</p>
+    <div class="states">
+      <div class="state"><div class="lbl">Registered (16 devices)</div><div class="ddc-kv"><span class="k">Credential</span><span class="v"><span class="kr"><span class="dot"></span>Own key</span> <span class="muted small">· since 30 Sep, 16:14</span></span></div></div>
+      <div class="state"><div class="lbl">Client can register, hasn't yet (1.6.0+, e.g. just reset)</div><div class="ddc-kv"><span class="k">Credential</span><span class="v"><span class="kr warn"><span class="dot"></span>Shared key</span> <span class="muted small">· registers its own at the next check-in</span></span></div></div>
+      <div class="state"><div class="lbl">Client too old (171 devices on old firmware, 5 on 1.2 – 1.5)</div><div class="ddc-kv"><span class="k">Credential</span><span class="v"><span class="kr mut"><span class="dot"></span>Shared key</span> <span class="muted small">· needs client 1.6.0</span> <a href="#" class="link-detail small">Update agent</a></span></div></div>
+    </div>
+  </div>
+  <div>
+    <p class="cap">The alert a key-less device raises, with the way out</p>
+    <div class="al">
+      <b>Possible impersonation · AT070AABU00875</b>
+      <div class="m">The shared device key was used for this device, which has its own key (from 125.209.65.146). If the device was just factory reset, this is it asking to come back.</div>
+      <div class="a"><button class="cc-btn sm danger">Reset its key…</button><button class="cc-btn sm">Open device</button><button class="cc-btn sm">Acknowledge</button></div>
+    </div>
+  </div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>The row finally says what is true, and says what to do when a device can't get a key (update the agent).</li><li>The reset is where the other irreversible-feeling actions are, behind a dialog that explains the risk.</li><li>The alert leads straight to the fix, which is where people will be when it happens.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Two ways into the same dialog.</li><li>Settings is admin-only, so an operator who sees the alert can't reset. Deliberately: resetting weakens a device's protection.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · A reset link on the Credential row</h2>
+<p class="desc">The same truthful row, with "Reset" as a small link right on it. No dialog, just a confirm.</p>
+<div class="scr"><div class="row2">
+  <div class="ddc-card en-card">
+    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2></div>
+    <div class="en-grp">Identity</div>
+    <div class="ddc-kv"><span class="k">First seen</span><span class="v">6 May 2026</span></div>
+    <div class="ddc-kv"><span class="k">Credential</span><span class="v"><span class="kr"><span class="dot"></span>Own key</span> <span class="muted small">· since 30 Sep</span><a href="#" class="inline-reset">Reset</a></span></div>
+    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">mdm.dev.aioapp.com</span></div>
+  </div>
+  <div></div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>Smallest change; the action sits next to the thing it changes.</li></ul></div>
+  <div><b>Bad at</b><ul><li>A security-weakening action looks like an ordinary edit, the exact thing the "Careful" band was made to stop.</li><li>A browser confirm can't explain the risk.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · A keys list on the Clients page</h2>
+<p class="desc">The Clients page already counts own-key versus shared-key devices. Turn the count into a list you can open, with Reset per row. The device page only shows the state.</p>
+<div class="scr">
+<table class="kt">
+  <thead><tr><th>Device</th><th>Client</th><th>Key</th><th>Since</th><th></th></tr></thead>
+  <tbody>
+    <tr><td class="mono">AT070AABU00875</td><td class="mono">1.6.0</td><td><span class="kr"><span class="dot"></span>Own</span></td><td>30 Sep 16:14</td><td><button class="cc-btn sm danger">Reset…</button></td></tr>
+    <tr><td class="mono">AT070AABU00231</td><td class="mono">1.6.0</td><td><span class="kr"><span class="dot"></span>Own</span></td><td>30 Sep 15:33</td><td><button class="cc-btn sm danger">Reset…</button></td></tr>
+    <tr><td class="mono">AT070AA2600030</td><td class="mono">1.4.9</td><td><span class="kr mut"><span class="dot"></span>Shared</span></td><td>—</td><td><a href="#" class="link-detail small">Update agent</a></td></tr>
+  </tbody>
+</table>
+</div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>One place to watch the rollout and act on it.</li></ul></div>
+  <div><b>Bad at</b><ul><li>When a device is refused, you are on its device page or its alert, not on Clients.</li><li>A 191-row list to find one device.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A.</b> Fix the Credential row first; it is wrong today for 16 devices. Put the reset in the "Careful" band behind a dialog that says what it weakens, and give the impersonation alert a "Reset its key" action, because a device that lost its key announces itself through that alert. Admin only. The server side already exists (<code>POST /api/v1/devices/{serial}/key-reset</code>); what A adds is the row, the dialog, the audit entry, and the "didn't register within an hour" alert.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>
