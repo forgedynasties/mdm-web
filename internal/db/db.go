@@ -4300,14 +4300,42 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, connected [
 }
 
 func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int) ([]Device, error) {
-	// Fuzzy serial match: the typed characters must appear in order anywhere in the
-	// serial (subsequence), so "at866" or "a070b86" both find "AT070AABU00866".
-	// The device's nickname is matched too, as a plain contiguous substring — a name
-	// someone typed ("front counter") is not a code to be fuzzed, and subsequence
-	// matching over free text matches almost everything.
-	// Results are ranked so an exact serial, then a contiguous substring, sort above
-	// scattered subsequence hits; shorter serials break ties. %/_/\ in the query are
-	// escaped so they're matched literally rather than acting as ILIKE wildcards.
+	hits, err := d.SearchDevices(ctx, query, limit, nil)
+	if err != nil {
+		return nil, err
+	}
+	devs := make([]Device, len(hits))
+	for i, h := range hits {
+		devs[i] = h.Device
+	}
+	return devs, nil
+}
+
+// DeviceHit is one search result: the device, how it matched (lower is better —
+// see SearchDevices) and its last reported IP address.
+type DeviceHit struct {
+	Device
+	Rank int
+	IP   string
+}
+
+// SearchDevices is the fleet search behind ⌘K and the type-ahead pickers.
+//
+// Fuzzy serial match: the typed characters must appear in order anywhere in the
+// serial (subsequence), so "at866" or "a070b86" both find "AT070AABU00866".
+// The nickname, the last IP and the venue name are matched as plain contiguous
+// substrings — a name someone typed ("front counter") is not a code to be fuzzed,
+// and subsequence matching over free text matches almost everything.
+//
+// Rank: 0 exact serial, 1 exact nickname or IP, 2 serial substring, 3 nickname
+// substring, 4 IP substring, 5 serial subsequence, 6 venue name. Shorter serials
+// break ties. %/_/\ in the query are escaped so they're matched literally rather
+// than acting as ILIKE wildcards.
+//
+// onlyIDs, when non-nil, limits the search to those devices. It is applied before
+// LIMIT: filtering afterwards let eight hidden devices fill the page and a
+// restricted user's own device never come back.
+func (d *DB) SearchDevices(ctx context.Context, query string, limit int, onlyIDs []uuid.UUID) ([]DeviceHit, error) {
 	var sub strings.Builder
 	sub.WriteByte('%')
 	for _, r := range query {
@@ -4320,42 +4348,53 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 	subseq := sub.String()
 	contig := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(query) + "%"
 	rows, err := d.pool.Query(ctx, `
-		SELECT
-			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			d.latest_battery_pct AS battery_pct,
-			d.poll_interval_ms,
-			COALESCE(dc.kiosk_enabled, false),
-			COALESCE(dc.kiosk_package, ''),
-			d.latest_extra AS latest_extra,
-			COALESCE(dn.name, '')
-		FROM devices d
-		LEFT JOIN device_config dc ON dc.device_id = d.id
-		LEFT JOIN device_nicknames dn ON dn.device_id = d.id
-		WHERE (d.serial_number ILIKE $1 OR dn.name ILIKE $3) AND NOT d.hidden
-		ORDER BY
-			CASE WHEN lower(d.serial_number) = lower($2) THEN 0
-			     WHEN lower(COALESCE(dn.name, '')) = lower($2) THEN 1
-			     WHEN d.serial_number ILIKE $3 THEN 2
-			     WHEN dn.name ILIKE $3 THEN 3
-			     ELSE 4 END,
-			length(d.serial_number),
-			d.serial_number
+		SELECT * FROM (
+			SELECT
+				d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
+				d.latest_battery_pct AS battery_pct,
+				d.poll_interval_ms,
+				COALESCE(dc.kiosk_enabled, false),
+				COALESCE(dc.kiosk_package, ''),
+				d.latest_extra AS latest_extra,
+				COALESCE(dn.name, ''),
+				COALESCE(r.name, ''), d.device_class, d.product, d.agent_kind,
+				COALESCE(d.latest_extra->>'ip_address', '') AS ip,
+				CASE WHEN lower(d.serial_number) = lower($2) THEN 0
+				     WHEN lower(COALESCE(dn.name, '')) = lower($2)
+				       OR COALESCE(d.latest_extra->>'ip_address', '') = $2 THEN 1
+				     WHEN d.serial_number ILIKE $3 THEN 2
+				     WHEN dn.name ILIKE $3 THEN 3
+				     WHEN d.latest_extra->>'ip_address' ILIKE $3 THEN 4
+				     WHEN d.serial_number ILIKE $1 THEN 5
+				     ELSE 6 END AS rank
+			FROM devices d
+			LEFT JOIN device_config dc ON dc.device_id = d.id
+			LEFT JOIN device_nicknames dn ON dn.device_id = d.id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE (d.serial_number ILIKE $1 OR dn.name ILIKE $3
+			       OR d.latest_extra->>'ip_address' ILIKE $3 OR r.name ILIKE $3)
+			  AND NOT d.hidden
+			  AND ($5::uuid[] IS NULL OR d.id = ANY($5))
+		) m
+		ORDER BY rank, length(serial_number), serial_number
 		LIMIT $4
-	`, subseq, query, contig, limit)
+	`, subseq, query, contig, limit, onlyIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var devices []Device
+	var hits []DeviceHit
 	for rows.Next() {
-		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Nickname); err != nil {
+		var h DeviceHit
+		dev := &h.Device
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Nickname,
+			&dev.RestaurantName, &dev.DeviceClass, &dev.Product, &dev.AgentKind, &h.IP, &h.Rank); err != nil {
 			return nil, err
 		}
-		devices = append(devices, dev)
+		hits = append(hits, h)
 	}
-	return devices, rows.Err()
+	return hits, rows.Err()
 }
 
 // GetDeviceIDsBySerials resolves serial numbers to device UUIDs.
