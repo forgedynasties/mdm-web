@@ -1857,6 +1857,7 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 				return
 			}
+			h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 		}
 	}
 	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); c != "" && product.IsClass(c) {

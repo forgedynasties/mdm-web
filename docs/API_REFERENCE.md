@@ -56,11 +56,22 @@ Response `200`:
   "commands": [ { "id": "uuid", "type": "string", "apk_url": "string", "payload": {} } ],
   "config": {
     "kiosk_enabled": false, "kiosk_package": "string",
-    "kiosk_features": 0, "checkin_interval_seconds": 0
+    "kiosk_features": 0, "checkin_interval_seconds": 0,
+    "guest": {                       // firmware clients only (not DPC / MDM-lite)
+      "restaurant_name": "string", "table_label": "string",
+      "wifi_ssid": "string", "wifi_password": "string",
+      "wifi_security": "WPA|WEP|nopass|",   // "" when no network is set
+      "guest_app_package": "string"         // "" = the client's default ordering app
+    }
   }
 }
 ```
 Status: `200` ok · `400` missing required fields · `500` internal.
+
+`config.guest` is what a T7 shows its guests: the venue (restaurant name and guest Wi-Fi,
+set on the restaurant page) and the table the tablet sits on (device page → Placement).
+Every key is always present, empty when unset, so a cleared value clears on the device.
+It rides HTTP check-ins only; over the WebSocket it comes as its own `guest` frame (below).
 
 ### POST `/api/v1/commands/{id}/ack`
 Device reports progress/terminal state for a command.
@@ -258,6 +269,7 @@ Device connects to `/api/v1/ws?serial=…`. Frames are JSON text frames dispatch
 | `command` | `{id, command_type, apk_url?, payload?}` — a command to execute |
 | `logcat_request` | `{id, level, lines, tag}` |
 | `config` | `{kiosk_enabled, kiosk_package, kiosk_features, checkin_interval_seconds}` |
+| `guest` | `{guest: {restaurant_name, table_label, wifi_ssid, wifi_password, wifi_security, guest_app_package}}` — firmware devices only; sent on connect and whenever the venue's name or guest Wi-Fi, the device's table or its venue changes. Its own type, not a partial `config`, because a `config` frame is applied as a whole (a missing `kiosk_enabled` reads as kiosk off). Older clients log it as an unknown type and ignore it. |
 | `start_capture` | `{quality, scale, max_fps}` — begins remote-control capture |
 
 Pen-test angles: the `default` dispatch to the shell manager means any authenticated device socket can drive shell I/O framing — verify a device can only affect its own session, and that the WS upgrade validates `Origin` (Go's default gorilla upgrader behaviour applies).

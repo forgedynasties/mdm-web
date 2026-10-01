@@ -562,6 +562,21 @@ func (h *Handler) FlushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 	h.flushPendingCommands(ctx, deviceID)
 }
 
+// PushGuest sends a connected firmware device its guest info (venue, table, guest
+// Wi-Fi) as a "guest" frame — wired to the hub's onConnect hook, next to the command
+// flush, so a socket starts with it. Edits on the dashboard push their own.
+func (h *Handler) PushGuest(ctx context.Context, deviceID uuid.UUID) {
+	g, err := h.db.GuestForDevice(ctx, deviceID)
+	if err != nil {
+		log.Printf("[ws] guest info for %s: %v", deviceID, err)
+		return
+	}
+	if g.AgentKind != product.KindFirmware {
+		return
+	}
+	h.hub.Push(deviceID, g.Guest.Frame())
+}
+
 func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
 	cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID)
 	if err != nil {
@@ -1055,6 +1070,16 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		}
 	}
 	addOfflineExit(cfg, deviceCfg)
+	// Guest info (venue, table, guest Wi-Fi) for the firmware client's home screen. It
+	// rides the HTTP check-in only: a socket gets it once on connect and again whenever
+	// it changes (PushGuest), so the telemetry frames over it don't each pay a lookup.
+	if src == sourceHTTP && !isDPCPayload(req.Extra) {
+		if g, err := h.db.GuestForDevice(ctx, deviceID); err != nil {
+			log.Printf("[%s] guest info for %s: %v", tag, req.SerialNumber, err)
+		} else {
+			cfg["guest"] = g.Guest
+		}
+	}
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
 	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
 

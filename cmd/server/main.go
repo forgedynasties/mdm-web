@@ -321,6 +321,8 @@ func main() {
 	hub.SetOnConnect(func(deviceID uuid.UUID) {
 		defer recoverLog("ws onConnect flush for " + deviceID.String())
 		apiHandler.FlushPendingCommands(context.Background(), deviceID)
+		// The venue, table and guest Wi-Fi the tablet shows its guests.
+		apiHandler.PushGuest(context.Background(), deviceID)
 		// A legacy install that started while this device was offline has no progress
 		// source until its socket is back — pick the update_engine log up now.
 		apiHandler.ResumeLegacyWatch(context.Background(), deviceID)

@@ -6429,6 +6429,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"IsOwner":             h.role(r) == "owner",
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
+		// The table guests are told they are at (home and lock screen on a T7).
+		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
 		"Activity":            activity,
 		"Commands":            commands,
@@ -9754,6 +9756,7 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 			for _, did := range ids {
 				h.hub.PublishDeviceUpdate(did)
 			}
+			h.pushGuestToDevices(r.Context(), ids)
 		}
 	}
 	http.Redirect(w, r, "/restaurants/"+rest.ID.String(), http.StatusFound)
@@ -9825,6 +9828,8 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
+	gw, _ := h.db.GetRestaurantGuestWifi(r.Context(), id) // zero value: shown as not set
+	data["GuestWifi"] = gw
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The
 	// same number of days feeds the tiles and the per-day strip below them, so the
@@ -10232,6 +10237,7 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.update", id.String(), name)
+	h.pushGuestToRestaurant(r.Context(), id) // the name is on every table's welcome
 	localRedirect(w, r, "/restaurants/"+id.String())
 }
 
@@ -10258,6 +10264,7 @@ func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.rename", id.String(), name)
+	h.pushGuestToRestaurant(r.Context(), id)
 	localRedirect(w, r, "/devices?restaurant="+id.String())
 }
 
@@ -10270,11 +10277,14 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
+	// Its tablets go back to the lab, so they stop showing its name and Wi-Fi.
+	members, _ := h.db.GetDeviceIDsByRestaurantIDs(r.Context(), []uuid.UUID{id})
 	if err := h.db.DeleteRestaurant(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.audit(r, "restaurant.delete", id.String(), "")
+	h.pushGuestToDevices(r.Context(), members)
 	localRedirect(w, r, "/restaurants")
 }
 
@@ -10304,6 +10314,7 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 		for _, did := range ids {
 			h.hub.PublishDeviceUpdate(did)
 		}
+		h.pushGuestToDevices(r.Context(), ids)
 	}
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
@@ -10354,6 +10365,7 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 	h.audit(r, "restaurant.unassign", id.String(), serial)
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
+		h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 	}
 	h.hxDone(w, r, "/restaurants/"+id.String(), "restaurant-updated")
 }
@@ -10468,6 +10480,7 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.auditDev(r, "device.restaurant", device.ID, serial, ridStr)
 		h.hub.PublishDeviceUpdate(device.ID)
+		h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 	} else {
 		h.audit(r, "device.restaurant", serial, ridStr)
 	}
@@ -11030,6 +11043,7 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 		for _, id := range ids {
 			h.hub.PublishDeviceUpdate(id)
 		}
+		h.pushGuestToDevices(r.Context(), ids)
 	}
 	// Navigate to the restaurant so the operator lands on the result (the default
 	// /devices view doesn't reflect a restaurant change in place). Boosted, so this
@@ -21648,6 +21662,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
+	post("POST /devices/{serial}/table", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetTableLabel)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
 	post("POST /devices/{serial}/kiosk/relock", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskRelock)))
 	post("POST /devices/{serial}/kiosk/leave-out", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
@@ -21742,6 +21757,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
 	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
+	post("POST /restaurants/{id}/guest-wifi", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetGuestWifi)))
 	post("POST /restaurants/{id}/delete", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDelete)))
 	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicePicker)))
 	post("POST /restaurants/{id}/devices", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAssignDevices)))

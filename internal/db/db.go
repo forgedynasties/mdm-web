@@ -13402,6 +13402,16 @@ CREATE TABLE IF NOT EXISTS alert_digests (
     lines   INT         NOT NULL DEFAULT 0
 );
 
+-- Guest info (1 Oct): what a guest at the table sees on a T7 — the venue's guest
+-- Wi-Fi (security as the Wi-Fi QR format spells it: WPA, WEP or nopass) and the
+-- guest ordering app when it is not the default, plus the table the tablet sits on.
+-- Sent to the firmware client as config.guest (see db.GuestInfo).
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_ssid     TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_password TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_security TEXT NOT NULL DEFAULT 'WPA';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_app_package   TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices     ADD COLUMN IF NOT EXISTS table_label         TEXT NOT NULL DEFAULT '';
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
