@@ -73,6 +73,16 @@ set on the restaurant page) and the table the tablet sits on (device page → Pl
 Every key is always present, empty when unset, so a cleared value clears on the device.
 It rides HTTP check-ins only; over the WebSocket it comes as its own `guest` frame (below).
 
+The same fields can be set with the admin key (`X-API-Key`), for scripts and test benches;
+each change is pushed to the connected firmware devices it affects:
+
+| Method / path | Body | Does |
+|---|---|---|
+| `POST /api/v1/restaurants` | `{"name", "address"?, "timezone"?, "notes"?}` | creates a restaurant (`201`, the restaurant) |
+| `POST /api/v1/restaurants/{id}/devices` | `{"serials": [...]}` | places the devices at the venue |
+| `POST /api/v1/restaurants/{id}/guest-wifi` | `{"ssid", "password"?, "security"?, "app_package"?}` | sets the venue's guest Wi-Fi (empty `ssid` clears it; same checks as the dashboard; the password is not echoed back) |
+| `POST /api/v1/devices/{serial}/table` | `{"table_label"}` | sets the table (`""` clears it) |
+
 ### POST `/api/v1/commands/{id}/ack`
 Device reports progress/terminal state for a command.
 

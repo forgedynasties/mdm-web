@@ -426,6 +426,10 @@ func main() {
 
 	// Admin-authenticated API endpoints
 	mux.Handle("GET /api/v1/restaurants", adminAuth(http.HandlerFunc(apiHandler.ListRestaurants)))
+	mux.Handle("POST /api/v1/restaurants", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.CreateRestaurant))))
+	mux.Handle("POST /api/v1/restaurants/{id}/devices", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AssignRestaurantDevices))))
+	mux.Handle("POST /api/v1/restaurants/{id}/guest-wifi", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetRestaurantGuestWifi))))
+	mux.Handle("POST /api/v1/devices/{serial}/table", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetDeviceTable))))
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("GET /api/v1/devices/{serial}/temp-fast", adminAuth(http.HandlerFunc(apiHandler.GetTempFast)))
