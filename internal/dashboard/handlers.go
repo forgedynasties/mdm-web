@@ -21483,6 +21483,19 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Rules the new role makes pointless go with the change: left behind, an
+	// operator's "remote control" grant kept showing on a super op's page as if it
+	// still added something. Also runs when the role is saved unchanged, which is
+	// how an account promoted before this existed gets tidied.
+	if pol, err := h.db.GetUserAccess(r.Context(), target.Username); err == nil {
+		for _, g := range pol.Grants {
+			if grantRedundant(role, pol.Base, g) {
+				if err := h.db.DeleteAccessGrant(r.Context(), g.ID); err == nil {
+					h.audit(r, "user.access.grant_redundant", target.Username, grantSentence(g))
+				}
+			}
+		}
+	}
 	invalidatePolicy(target.Username)
 	h.usersRedirect(w, r)
 }

@@ -95,6 +95,34 @@ func roleCeiling(role string) map[string]bool {
 	return map[string]bool{} // unknown role: nothing
 }
 
+// sensitiveByDefault: the sensitive actions a role holds without a rule — dev all of
+// them, the super op firmware pushes, and remote control for the super op and the
+// access admin. Everyone else needs an allow rule that names the action.
+func sensitiveByDefault(role, action string) bool {
+	return role == "dev" || (role == "super_op" && action == "ota") ||
+		(action == "remote" && (role == "super_op" || role == "user_manager"))
+}
+
+// grantRedundant reports an allow rule that gives nothing the role does not already
+// have: with a base of "everything", every action in it is within the role and
+// either not sensitive or one the role holds by default. An operator's "remote
+// control everywhere" becomes one of these the moment they are made a super op.
+func grantRedundant(role, base string, g db.AccessGrant) bool {
+	if g.Effect != "allow" || base == "deny" || role == "owner" || len(g.Actions) == 0 {
+		return false
+	}
+	c := roleCeiling(role)
+	for _, a := range g.Actions {
+		if a == "*" || c == nil {
+			continue
+		}
+		if !c[a] || (accessActionByKey[a].Sensitive && !sensitiveByDefault(role, a)) {
+			return false
+		}
+	}
+	return true
+}
+
 // grantableActions is the catalogue filtered to a role's ceiling, for the editor.
 func grantableActions(role string) []accessAction {
 	c := roleCeiling(role)
@@ -271,7 +299,7 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	// ceiling exists for them: dev (all of them), the super op (firmware pushes),
 	// and remote control, which the super op and the access admin have by default.
 	// Operators still need a rule that names the device.
-	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") && !(action == "remote" && (a.role == "super_op" || a.role == "user_manager")) {
+	if act.Sensitive && !sensitiveByDefault(a.role, action) {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
 	if action == "view" && a.role == "viewer" {
@@ -611,4 +639,57 @@ func (h *Handler) deviceRoute(action string, next http.HandlerFunc) http.Handler
 		}
 		next(w, r)
 	}
+}
+
+// visibleCollections counts, per restaurant and per group, the devices this user can
+// see — the rails and pickers list only collections with at least one, sized by it.
+func (a *access) visibleCollections() (rests, groups map[uuid.UUID]int) {
+	rests, groups = map[uuid.UUID]int{}, map[uuid.UUID]int{}
+	a.loadScopes()
+	for id, sc := range a.scopes {
+		if !a.visible(id) {
+			continue
+		}
+		if sc.RestaurantID != nil {
+			rests[*sc.RestaurantID]++
+		}
+		for _, g := range sc.Groups {
+			groups[g]++
+		}
+	}
+	return rests, groups
+}
+
+// visibleGroupList keeps the groups this user has a device in, sized by it.
+func (h *Handler) visibleGroupList(r *http.Request, gs []db.Group) []db.Group {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return gs
+	}
+	_, seen := acc.visibleCollections()
+	out := gs[:0:0]
+	for _, g := range gs {
+		if n := seen[g.ID]; n > 0 {
+			g.DeviceCount = n
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// visibleRestaurantList keeps the restaurants this user has a device in, sized by it.
+func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []db.Restaurant {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return rs
+	}
+	seen, _ := acc.visibleCollections()
+	out := rs[:0:0]
+	for _, x := range rs {
+		if n := seen[x.ID]; n > 0 {
+			x.DeviceCount = n
+			out = append(out, x)
+		}
+	}
+	return out
 }
