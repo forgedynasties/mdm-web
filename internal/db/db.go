@@ -4336,6 +4336,19 @@ type DeviceHit struct {
 // LIMIT: filtering afterwards let eight hidden devices fill the page and a
 // restricted user's own device never come back.
 func (d *DB) SearchDevices(ctx context.Context, query string, limit int, onlyIDs []uuid.UUID) ([]DeviceHit, error) {
+	return d.searchDevices(ctx, query, limit, onlyIDs, nil)
+}
+
+// DevicesBySerials loads the named devices in the same shape as a search hit (the
+// palette's recent devices), limited to onlyIDs like SearchDevices.
+func (d *DB) DevicesBySerials(ctx context.Context, serials []string, onlyIDs []uuid.UUID) ([]DeviceHit, error) {
+	if len(serials) == 0 {
+		return nil, nil
+	}
+	return d.searchDevices(ctx, "", len(serials), onlyIDs, serials)
+}
+
+func (d *DB) searchDevices(ctx context.Context, query string, limit int, onlyIDs []uuid.UUID, serials []string) ([]DeviceHit, error) {
 	var sub strings.Builder
 	sub.WriteByte('%')
 	for _, r := range query {
@@ -4371,14 +4384,16 @@ func (d *DB) SearchDevices(ctx context.Context, query string, limit int, onlyIDs
 			LEFT JOIN device_config dc ON dc.device_id = d.id
 			LEFT JOIN device_nicknames dn ON dn.device_id = d.id
 			LEFT JOIN restaurants r ON r.id = d.restaurant_id
-			WHERE (d.serial_number ILIKE $1 OR dn.name ILIKE $3
-			       OR d.latest_extra->>'ip_address' ILIKE $3 OR r.name ILIKE $3)
+			WHERE CASE WHEN $6::text[] IS NULL
+			           THEN d.serial_number ILIKE $1 OR dn.name ILIKE $3
+			                OR d.latest_extra->>'ip_address' ILIKE $3 OR r.name ILIKE $3
+			           ELSE d.serial_number = ANY($6) END
 			  AND NOT d.hidden
 			  AND ($5::uuid[] IS NULL OR d.id = ANY($5))
 		) m
 		ORDER BY rank, length(serial_number), serial_number
 		LIMIT $4
-	`, subseq, query, contig, limit, onlyIDs)
+	`, subseq, query, contig, limit, onlyIDs, serials)
 	if err != nil {
 		return nil, err
 	}

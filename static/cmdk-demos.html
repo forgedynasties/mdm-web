@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⌘K search · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px;margin-top:18px}
+.pick b{color:var(--text)}
+.fixed{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:13px;line-height:1.65;color:var(--text-2);max-width:900px;margin-top:14px}
+.fixed b{color:var(--text)}
+.fixed ul{margin:6px 0 0;padding-left:18px}
+
+/* state switcher */
+.states{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}
+.states button{border:1px solid var(--border);background:var(--surface);color:var(--text-2);font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:6px;cursor:pointer}
+.states button.on{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-edge)}
+
+/* mock stage: the dimmed page behind, the palette on top */
+.scr{position:relative;min-height:440px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:42px 16px 24px;box-sizing:border-box}
+.scr::before{content:"";position:absolute;inset:0;background:rgba(16,24,40,.22)}
+.scr .cmdk-panel{position:relative;margin:0 auto;transform:none}
+.scr.wide .cmdk-panel{max-width:760px}
+.cmdk-input-row .typed{flex:1;font-size:15px;color:var(--text);padding:4px 2px}
+.cmdk-input-row .typed.ph{color:var(--muted)}
+.caret{display:inline-block;width:1.5px;height:17px;background:var(--accent);vertical-align:-3px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* shared row parts */
+.ic{flex:none;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:var(--surface-3);color:var(--text-2)}
+.ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
+.dot.off{background:var(--text-faint)}
+mark{background:none;color:var(--accent-text);font-weight:700}
+.mono{font-family:var(--mono);font-size:12px}
+.foot{display:flex;gap:14px;padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.foot kbd{font:600 10px var(--mono);border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--bg);margin-right:3px}
+.cmdk-item.pending{color:var(--muted);cursor:default}
+.spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hint{font-size:11.5px;color:var(--muted);padding:6px 12px 8px}
+
+/* B: grouped */
+.grp{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:10px 10px 4px}
+.cmdk-list .grp:first-child{padding-top:4px}
+
+/* B, C, D: rich row */
+.rr{justify-content:flex-start!important;gap:11px!important;padding:7px 10px!important}
+.rr .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rr .l1{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr .l2{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr .rt{flex:none;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.rr .kind{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.cmdk-item.active.rr .l1{color:var(--accent-text);font-weight:600}
+.cmdk-item.active .ic{background:var(--surface);color:var(--accent-text)}
+.rr .ent{opacity:0;font:600 10px var(--mono);color:var(--accent-text);border:1px solid var(--accent-edge);border-radius:4px;padding:0 4px}
+.cmdk-item.active.rr .ent{opacity:1}
+
+/* D: split with preview */
+.split{display:grid;grid-template-columns:1.25fr 1fr;min-height:330px}
+.split .cmdk-list{border-right:1px solid var(--border);max-height:none}
+.pv{padding:16px 18px;display:flex;flex-direction:column;gap:12px;font-size:12.5px;color:var(--text-2)}
+.pv h3{margin:0;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px}
+.pv .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px}
+.pv .kv span:nth-child(odd){color:var(--muted)}
+.pv .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.pv .acts span{border:1px solid var(--border);border-radius:6px;padding:4px 9px;font-size:12px;font-weight:600;background:var(--bg);color:var(--text)}
+.pv .acts span:first-child{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pv .acts kbd{font:600 10px var(--mono);opacity:.75;margin-left:5px}
+@media(max-width:720px){.split{grid-template-columns:1fr}.pv{display:none}.split .cmdk-list{border-right:0}}
+</style>
+</head><body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+<div class="wrap">
+<h1>⌘K search: the new look</h1>
+<p class="lead">The palette got new behaviour today (on stage): one ranking across devices, venues and pages, Enter waits for the device search, and search covers IP and venue. The server now also sends each device's online state, venue and class. The list still looks the same and doesn't show any of that yet. Below are four ways it could look. Each mock has four states: open with nothing typed, a serial fragment, a word, and Enter pressed before the device search came back.</p>
+<div class="toc"><a href="#a">A · Current</a><a href="#b">B · Grouped</a><a href="#c" class="rec">C · One ranked list</a><a href="#d">D · List + preview</a><a href="#pick">My pick</a></div>
+
+<div class="fixed"><b>Already fixed, the same in every option (stage, commits ba4b7aa / f0c7add):</b>
+<ul>
+<li>Enter while the device search is still running now waits for it and opens the top result. Before, it went to <span class="mono">/devices/231</span> → "not found".</li>
+<li>Venues and groups are filtered by the user's access scope. The device search filters by scope <i>before</i> its limit of 8, so a restricted user's own device can't be pushed out by hidden ones.</li>
+<li>Devices, venues and pages are ranked together (exact → prefix → word → substring → fuzzy), so "front" puts the "Front counter" device first.</li>
+<li>Devices also match by IP and venue name. A query that looks like a version (<span class="mono">v2.1</span>, <span class="mono">1.025</span>) offers "Devices on build …".</li>
+<li>The index is kept between opens and loaded ahead of time, so ⌘K never waits for it.</li>
+</ul></div>
+
+<h2 class="sec" id="a">A · Current <span class="tag live">deployed</span></h2>
+<p class="desc">One line per row: the label, and an uppercase tag on the right. A device shows only "DEVICE", so you can't see whether it is online or where it is. With nothing typed it lists all ~28 pages in dock order.</p>
+<div class="states" data-for="a"></div><div class="scr" id="s-a"></div>
+<div class="notes"><div><b>Good</b><ul><li>Compact, quiet, fast to scan for pages.</li><li>Nothing to learn.</li></ul></div>
+<div><b>Bad</b><ul><li>Can't tell two similar serials apart, or an offline device from an online one, without opening it.</li><li>Empty state is a long list of pages you already have in the dock.</li></ul></div></div>
+
+<h2 class="sec" id="b">B · Grouped by kind</h2>
+<p class="desc">Section headers (Devices, Venues &amp; groups, Pages, People) with two-line rows. Each device shows its venue, type and build, plus an online dot. The empty state shows recent devices and recent pages.</p>
+<div class="states" data-for="b"></div><div class="scr" id="s-b"></div>
+<div class="notes"><div><b>Good</b><ul><li>Easy to scan when you know what kind of thing you want.</li><li>Rich device rows: dot, venue, type.</li></ul></div>
+<div><b>Bad</b><ul><li>Works against the new ranking: the best hit can sit in the second group, below weaker matches in the first, and Enter still takes the top row.</li><li>Headers cost height, so fewer results fit.</li></ul></div></div>
+
+<h2 class="sec" id="c">C · One ranked list, rich rows <span class="tag rec">my pick</span></h2>
+<p class="desc">The order follows the ranking exactly: whatever matched best is on top, whatever its kind. Every row has an icon for its kind, a two-line label (device: venue · type · build) and the online dot with how long it has been offline. The matched characters are highlighted, so you can see <i>why</i> a row matched (serial, IP, venue). The empty state shows recent devices and pages, then the full page list. A footer shows the keys.</p>
+<div class="states" data-for="c"></div><div class="scr" id="s-c"></div>
+<div class="notes"><div><b>Good</b><ul><li>What you see is what Enter opens: row 1 is the top match.</li><li>Shows why a row matched (highlighted IP, venue named in line 2).</li><li>Fits the existing panel width, and no new styles outside the palette.</li></ul></div>
+<div><b>Bad</b><ul><li>Two-line rows: about 7 results visible instead of 11.</li><li>With no headers, the kind shows only through the icon and a small label.</li></ul></div></div>
+
+<h2 class="sec" id="d">D · List + device preview</h2>
+<p class="desc">A wider panel. The ranked list is on the left; on the right, a preview of the highlighted device (status, battery, venue, build, last seen) with quick actions: Open, Screenshot, Reboot. Below 720px the preview is hidden and it behaves like C.</p>
+<div class="states" data-for="d"></div><div class="scr wide" id="s-d"></div>
+<div class="notes"><div><b>Good</b><ul><li>Answers "is it up?" without leaving the page.</li><li>Room for actions later ("reboot 231").</li></ul></div>
+<div><b>Bad</b><ul><li>The actions are new surface: each needs the access check, a confirm and the right per-device capabilities. That is a separate project.</li><li>A wide modal for what is mostly a jump bar; the preview is empty for pages.</li></ul></div></div>
+
+<h2 class="sec" id="pick">My pick</h2>
+<div class="pick"><b>C.</b> The new behaviour is a single ranking, and C is the only layout that shows that ranking as it is. Row 1 is what Enter opens, which is the guarantee the "231 + Enter" fix depends on. B's groups would put back the mismatch between what you see and what Enter does. D's preview and actions are worth doing, but as a later step on top of C, since C's rows are already the left side of D. To build C: the row markup, the online dot and "offline 2 h" (needs <span class="mono">last_seen</span> in the search JSON, a one-line change), recent devices (the recents list already records <span class="mono">/devices/…</span> visits), match highlighting, and the footer.</div>
+</div>
+
+<script>
+const IC = {
+  device:'<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M11 18h2"/>',
+  board:'<rect x="2.5" y="4" width="19" height="13" rx="1.5"/><path d="M8 20h8"/>',
+  venue:'<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/>',
+  group:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  page:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  build:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+const svg = k => `<svg viewBox="0 0 24 24">${IC[k]}</svg>`;
+
+// Sample data shaped like the real /devices/search and /cmdk-index answers.
+const D231 = [
+  {kind:'device', ic:'device', label:'AT070AABU00231', hl:[11,14], l2:'Pho 88 Downtown · Tableside AI · v2.1.025', on:true, st:'online', build:'v2.1.025', venue:'Pho 88 Downtown', cls:'Tableside AI', bat:'74%', seen:'now', ip:'10.32.3.29'},
+  {kind:'device', ic:'device', label:'AT070AABU00006', l2:'IP 192.168.19.<mark>231</mark> · Tableside AI · v2.1.019', on:false, st:'offline 3 h', build:'v2.1.019', venue:'—', cls:'Tableside AI', bat:'12%', seen:'3 h ago', ip:'192.168.19.231'},
+  {kind:'device', ic:'device', label:'AT070AA2600031', fz:true, l2:'Bench · Tableside AI · v2.1.024', on:true, st:'online', build:'v2.1.024', venue:'Bench', cls:'Tableside AI', bat:'98%', seen:'now', ip:'10.32.3.16'},
+  {kind:'device', ic:'device', label:'DP02253X11001', fz:true, l2:'Bench · POS terminal · d3_pro', on:false, st:'offline 6 d', build:'—', venue:'Bench', cls:'POS terminal', bat:'—', seen:'6 d ago', ip:'—'},
+];
+const DPHO = [
+  {kind:'venue', ic:'venue', label:'Pho 88 Downtown', hl:[0,3], l2:'Venue · 6 devices', st:''},
+  {kind:'device', ic:'board', label:'Front menu board', l2:'<mark>Pho</mark> 88 Downtown · Menu board · 1.4.2', on:true, st:'online', build:'1.4.2', venue:'Pho 88 Downtown', cls:'Menu board', bat:'—', seen:'now', ip:'10.32.2.204'},
+  {kind:'venue', ic:'venue', label:'Pho Saigon Mesa', hl:[0,3], l2:'Venue · 4 devices', st:''},
+  {kind:'device', ic:'device', label:'AT070AABU00231', l2:'<mark>Pho</mark> 88 Downtown · Tableside AI · v2.1.025', on:true, st:'online', build:'v2.1.025', venue:'Pho 88 Downtown', cls:'Tableside AI', bat:'74%', seen:'now', ip:'10.32.3.29'},
+  {kind:'group', ic:'group', label:'Pho chains — west', hl:[0,3], l2:'Group · 18 devices', st:''},
+  {kind:'device', ic:'device', label:'AT070AABU00240', l2:'<mark>Pho</mark> Saigon Mesa · Tableside AI · v2.1.025', on:false, st:'offline 40 m', build:'v2.1.025', venue:'Pho Saigon Mesa', cls:'Tableside AI', bat:'31%', seen:'40 m ago', ip:'10.40.1.12'},
+];
+const RECENT = [
+  {kind:'device', ic:'device', label:'AT070AABU00022', l2:'Pilot · Tableside AI · v2.1.025', on:true, st:'online', recent:true, build:'v2.1.025', venue:'Pilot', cls:'Tableside AI', bat:'88%', seen:'now', ip:'10.32.3.22'},
+  {kind:'page', ic:'page', label:'Releases', l2:'Deploy', recent:true},
+  {kind:'device', ic:'board', label:'Front menu board', l2:'Pho 88 Downtown · Menu board · 1.4.2', on:true, st:'online', recent:true, build:'1.4.2', venue:'Pho 88 Downtown', cls:'Menu board', bat:'—', seen:'now', ip:'10.32.2.204'},
+  {kind:'page', ic:'page', label:'Alerts', l2:'', recent:true},
+];
+const PAGES = ['Overview','Fleet','Actions','Alerts','Devices','Venues','Groups','Fleet map','Fleet health','Enrollment','Updates','Releases','Clients'].map(p => ({kind:'page', ic:'page', label:p, l2:''}));
+const STATES = [['empty','Nothing typed'],['231','“231”'],['pho','“pho”'],['wait','231 + Enter, still searching']];
+
+function label(r, q) {
+  if (r.hl) return r.label.slice(0, r.hl[0]) + '<mark>' + r.label.slice(r.hl[0], r.hl[1]) + '</mark>' + r.label.slice(r.hl[1]);
+  if (r.fz && q) { let i = 0, out = ''; for (const ch of r.label) { if (i < q.length && ch === q[i]) { out += '<mark>' + ch + '</mark>'; i++; } else out += ch; } return out; }
+  return r.label;
+}
+const kindName = {device:'Device', venue:'Venue', group:'Group', page:'Page', user:'Person', build:'Build'};
+
+function input(q, wait) {
+  const t = q ? `<span class="typed">${q}<span class="caret"></span></span>` : `<span class="typed ph">Jump to a page, or find a device by name, serial or IP…<span class="caret"></span></span>`;
+  return `<div class="cmdk-input-row"><span class="ui-icon ui-icon-sm cmdk-input-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>${t}<kbd class="cmdk-esc">esc</kbd></div>`;
+}
+function rowsFor(state) {
+  if (state === 'empty') return null;
+  if (state === 'pho') return DPHO;
+  return D231;
+}
+
+// A: today's markup
+function A(state) {
+  let rows;
+  if (state === 'empty') rows = PAGES.slice(0, 9).map(p => [p.label, '']);
+  else if (state === 'pho') rows = [['Pho 88 Downtown','Restaurant'],['Pho Saigon Mesa','Restaurant'],['Pho chains — west','Group'],['Front menu board','Device'],['AT070AABU00231','Device'],['AT070AABU00240','Device']];
+  else rows = [['AT070AABU00231','Device'],['AT070AABU00006','Device'],['AT070AA2600031','Device'],['DP02253X11001','Device']];
+  let li = rows.map((r, i) => `<li class="cmdk-item${i === 0 && state !== 'wait' ? ' active' : ''}"><span class="cmdk-item-label">${r[0]}</span><span class="cmdk-item-sub${r[1] === 'Device' ? ' cmdk-item-sub-device' : ''}">${r[1]}</span></li>`).join('');
+  if (state === 'wait') li = `<li class="cmdk-item active"><span class="cmdk-item-label">Searching devices…</span><span class="cmdk-item-sub"></span></li>`;
+  return `<div class="cmdk-panel">${input(state === 'empty' ? '' : state === 'pho' ? 'pho' : '231')}<ul class="cmdk-list">${li}</ul></div>`;
+}
+
+function rich(r, i, q, opts) {
+  const right = r.kind === 'device' ? `<span class="rt">${opts.status ? r.st : ''}<span class="dot ${r.on ? 'on' : 'off'}"></span></span>`
+    : `<span class="rt"><span class="kind">${r.recent ? 'Recent' : kindName[r.kind]}</span></span>`;
+  return `<li class="cmdk-item rr${i === 0 ? ' active' : ''}"><span class="ic">${svg(r.recent && r.kind === 'page' ? 'clock' : r.ic)}</span><span class="tx"><span class="l1">${label(r, q)}</span>${r.l2 ? `<span class="l2">${r.l2}</span>` : ''}</span>${right}<span class="ent">↵</span></li>`;
+}
+const waitRow = `<li class="cmdk-item pending"><span class="spin"></span><span class="cmdk-item-label">Searching devices for “231”… Enter will open the top match</span></li>`;
+const foot = `<div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd>move</span><span><kbd>↵</kbd>open</span><span><kbd>esc</kbd>close</span></div>`;
+
+// B: grouped
+function B(state) {
+  let body = '';
+  const g = (name, rows, q, start) => `<li class="grp">${name}</li>` + rows.map((r, i) => rich(r, start + i, q, {status:true})).join('');
+  if (state === 'empty') body = g('Recent', RECENT, '', 0) + g('Pages', PAGES.slice(0, 4), '', 9);
+  else if (state === 'wait') body = waitRow;
+  else if (state === 'pho') body = g('Devices', DPHO.filter(r => r.kind === 'device'), 'pho', 0) + g('Venues & groups', DPHO.filter(r => r.kind !== 'device'), 'pho', 9);
+  else body = g('Devices', D231, '231', 0);
+  return `<div class="cmdk-panel">${input(state === 'empty' ? '' : state === 'pho' ? 'pho' : '231')}<ul class="cmdk-list">${body}</ul></div>`;
+}
+
+// C: one ranked list
+function C(state) {
+  let body;
+  if (state === 'empty') body = RECENT.map((r, i) => rich(r, i, '', {status:true})).join('') + `<li class="grp">All pages</li>` + PAGES.slice(0, 3).map((r, i) => rich(r, 9, '', {})).join('');
+  else if (state === 'wait') body = waitRow;
+  else { const q = state === 'pho' ? 'pho' : '231'; body = rowsFor(state).map((r, i) => rich(r, i, q, {status:true})).join(''); }
+  return `<div class="cmdk-panel">${input(state === 'empty' ? '' : state === 'pho' ? 'pho' : '231')}<ul class="cmdk-list">${body}</ul>${foot}</div>`;
+}
+
+// D: list + preview
+function D(state) {
+  const rows = state === 'empty' ? RECENT : state === 'wait' ? [] : rowsFor(state);
+  const q = state === 'pho' ? 'pho' : state === 'empty' ? '' : '231';
+  const list = state === 'wait' ? waitRow : rows.map((r, i) => rich(r, i, q, {status:false})).join('');
+  const top = rows.find((r, i) => i === 0);
+  let pv = '<div class="pv" style="color:var(--muted)">Highlight a device to preview it.</div>';
+  if (state === 'wait') pv = '<div class="pv" style="color:var(--muted)">Waiting for the device search…</div>';
+  else if (top && top.kind === 'device') pv = `<div class="pv"><h3><span class="dot ${top.on ? 'on' : 'off'}"></span>${top.label}</h3>
+      <div class="kv"><span>Status</span><span>${top.st}</span><span>Venue</span><span>${top.venue}</span><span>Type</span><span>${top.cls}</span><span>Build</span><span class="mono">${top.build}</span><span>Battery</span><span>${top.bat}</span><span>IP</span><span class="mono">${top.ip}</span><span>Last seen</span><span>${top.seen}</span></div>
+      <div class="acts"><span>Open<kbd>↵</kbd></span><span>Screenshot<kbd>⌘S</kbd></span><span>Reboot<kbd>⌘R</kbd></span></div></div>`;
+  else if (top) pv = `<div class="pv"><h3><span class="ic">${svg(top.ic)}</span>${top.label}</h3><div>${top.l2}</div><div class="acts"><span>Open<kbd>↵</kbd></span></div></div>`;
+  return `<div class="cmdk-panel">${input(state === 'empty' ? '' : q)}<div class="split"><ul class="cmdk-list">${list}</ul>${pv}</div>${foot}</div>`;
+}
+
+const R = {a:A, b:B, c:C, d:D};
+Object.keys(R).forEach(k => {
+  const bar = document.querySelector(`.states[data-for="${k}"]`), scr = document.getElementById('s-' + k);
+  const show = s => { scr.innerHTML = R[k](s); bar.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === s)); };
+  bar.innerHTML = STATES.map(([s, n]) => `<button type="button" data-s="${s}">${n}</button>`).join('');
+  bar.addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(b.dataset.s); });
+  show('231');
+});
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>

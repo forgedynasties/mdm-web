@@ -10415,12 +10415,12 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 	// them, so their names must not turn up here either.
 	if gs, err := h.db.ListGroups(r.Context()); err == nil {
 		for _, g := range h.visibleGroupList(r, gs) {
-			out = append(out, entry{g.Name, "Group", "/groups/" + g.ID.String(), "Group"})
+			out = append(out, entry{g.Name, fmt.Sprintf("%d device%s", g.DeviceCount, plural(g.DeviceCount)), "/groups/" + g.ID.String(), "Group"})
 		}
 	}
 	if rs, err := h.db.ListRestaurants(r.Context()); err == nil {
 		for _, rest := range h.visibleRestaurantList(r, rs) {
-			out = append(out, entry{rest.Name, "Restaurant", "/restaurants/" + rest.ID.String(), "Restaurant"})
+			out = append(out, entry{rest.Name, fmt.Sprintf("%d device%s", rest.DeviceCount, plural(rest.DeviceCount)), "/restaurants/" + rest.ID.String(), "Restaurant"})
 		}
 	}
 	// People: anyone signed in may open a colleague's profile (owners have no Users area).
@@ -10455,6 +10455,23 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	// The Cmd-K palette asks for JSON; the HTMX type-ahead inputs want the HTML list.
 	wantJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
+	acc := h.access(r)
+	// ?serials=a,b,c: the palette's recent devices, looked up for their status.
+	if list := r.URL.Query().Get("serials"); list != "" && wantJSON {
+		var serials []string
+		for _, s := range strings.Split(list, ",") {
+			if s = strings.TrimSpace(s); s != "" && len(serials) < 10 {
+				serials = append(serials, s)
+			}
+		}
+		hits, err := h.db.DevicesBySerials(r.Context(), serials, acc.visibleIDs())
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.writeDeviceHits(w, hits)
+		return
+	}
 	if query == "" {
 		if wantJSON {
 			w.Header().Set("Content-Type", "application/json")
@@ -10464,38 +10481,13 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": "", "Devices": []db.Device{}})
 		return
 	}
-	acc := h.access(r)
 	hits, err := h.db.SearchDevices(r.Context(), query, 8, acc.visibleIDs())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	if wantJSON {
-		type hit struct {
-			Serial     string `json:"serial"`
-			Nickname   string `json:"nickname,omitempty"`
-			Build      string `json:"build,omitempty"`
-			Online     bool   `json:"online"`
-			Restaurant string `json:"restaurant,omitempty"`
-			Class      string `json:"class,omitempty"`
-			IP         string `json:"ip,omitempty"`
-			Rank       int    `json:"rank"` // how it matched; see db.SearchDevices
-		}
-		out := make([]hit, 0, len(hits))
-		for _, d := range hits {
-			e := hit{Serial: d.SerialNumber, Nickname: d.Nickname, Build: d.BuildID,
-				Online: h.hub.IsConnectedForDisplay(d.ID), Restaurant: d.RestaurantName, Rank: d.Rank}
-			if d.Class() != "" {
-				e.Class = d.ClassLabel()
-			}
-			// The IP only when it is what matched, so a serial hit stays one line.
-			if d.Rank == 1 || d.Rank == 4 {
-				e.IP = d.IP
-			}
-			out = append(out, e)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(out)
+		h.writeDeviceHits(w, hits)
 		return
 	}
 	devices := make([]db.Device, len(hits))
@@ -10503,6 +10495,39 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 		devices[i] = d.Device
 	}
 	h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": query, "Devices": devices})
+}
+
+// writeDeviceHits is the palette's JSON for a device list: enough to draw a row
+// (name, venue, type, build, online or how long offline) and to say why it matched.
+func (h *Handler) writeDeviceHits(w http.ResponseWriter, hits []db.DeviceHit) {
+	type hit struct {
+		Serial     string    `json:"serial"`
+		Nickname   string    `json:"nickname,omitempty"`
+		Build      string    `json:"build,omitempty"`
+		Online     bool      `json:"online"`
+		LastSeen   time.Time `json:"last_seen"`
+		Restaurant string    `json:"restaurant,omitempty"`
+		ClassKey   string    `json:"class_key,omitempty"`
+		Class      string    `json:"class,omitempty"`
+		IP         string    `json:"ip,omitempty"`
+		Rank       int       `json:"rank"` // how it matched; see db.SearchDevices
+	}
+	out := make([]hit, 0, len(hits))
+	for _, d := range hits {
+		e := hit{Serial: d.SerialNumber, Nickname: d.Nickname, Build: d.BuildID,
+			Online: h.hub.IsConnectedForDisplay(d.ID), LastSeen: d.LastSeenAt,
+			Restaurant: d.RestaurantName, Rank: d.Rank}
+		if c := d.Class(); c != "" {
+			e.ClassKey, e.Class = c, d.ClassLabel()
+		}
+		// The IP only when it is what matched, so a serial hit stays one line.
+		if d.Rank == 1 || d.Rank == 4 {
+			e.IP = d.IP
+		}
+		out = append(out, e)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
 }
 
 // ── Saved fleet views ─────────────────────────────────────────────────────────
