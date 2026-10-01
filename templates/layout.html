@@ -2287,7 +2287,9 @@
   // A keyboard-first jump bar. Destinations are read from the rendered sidebar,
   // so whatever the current user is allowed to see is exactly what the palette
   // offers — no separate, drift-prone route list, and role gating is automatic.
-  // Any non-empty query also offers a direct "Open device {serial}" jump.
+  // Groups, venues, people and builds come from /cmdk-index; devices are searched
+  // on the server as you type. Everything is ranked together, so a device whose
+  // name you typed is not stuck below a page that merely contains the word.
   (function () {
     var backdrop = document.getElementById('cmdk');
     var input = document.getElementById('cmdk-input');
@@ -2333,7 +2335,7 @@
       list.innerHTML = '';
       items.forEach(function (it, i) {
         var li = document.createElement('li');
-        li.className = 'cmdk-item' + (i === active ? ' active' : '');
+        li.className = 'cmdk-item' + (i === active ? ' active' : '') + (it.type === 'pending' ? ' cmdk-item-pending' : '');
         li.setAttribute('role', 'option');
         li.id = 'cmdk-opt-' + i;
         li.setAttribute('aria-selected', i === active ? 'true' : 'false');
@@ -2347,42 +2349,104 @@
         tag.textContent = it.type === 'device' ? 'Device' : it.sub;
         li.appendChild(tag);
         li.addEventListener('mousemove', function () { setActive(i); });
-        li.addEventListener('click', function () { choose(i); });
+        li.addEventListener('click', function () { choose(i, true); });
         list.appendChild(li);
       });
       empty.hidden = items.length > 0;
       input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
     }
 
-    var devTimer = null, devSeq = 0, entities = [];
-    // Pull the navigable entities (groups, restaurants, releases, productions) once
-    // per open so they can be matched alongside pages.
+    // The entity index (groups, venues, people, builds). It is kept between opens
+    // and refreshed in the background on each one, so only the very first open of a
+    // page load waits for it — and that one is usually warmed by the idle prefetch.
+    var entities = [], entitiesAt = 0, entitiesLoading = false;
     function loadEntities() {
+      if (entitiesLoading || Date.now() - entitiesAt < 15000) return;
+      entitiesLoading = true;
       fetch('/cmdk-index', { headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (e) { entities = e || []; if (!backdrop.hidden) filter(input.value); })
-        .catch(function () {});
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (e) {
+          entitiesLoading = false;
+          if (!e) return;
+          entities = e; entitiesAt = Date.now();
+          if (!backdrop.hidden && !pagesOnly) filter(input.value, true);
+        })
+        .catch(function () { entitiesLoading = false; });
     }
+
     // Fuzzy subsequence: do q's characters appear in order within text?
     function subseq(q, text) {
       var i = 0;
       for (var j = 0; j < text.length && i < q.length; j++) { if (text[j] === q[i]) i++; }
       return i === q.length;
     }
-    // Pages + indexed entities, ranked substring-first then fuzzy subsequence. An
-    // empty query shows just the pages so the palette opens clean.
-    function matchEntries(q) {
-      var ql = q.toLowerCase();
-      if (!ql) return dests.slice();
-      var seenUrl = {}; entities.forEach(function(e){ seenUrl[e.url] = true; }); // indexed entries carry a subtitle; drop the bare page link for the same URL
-      var sub = [], seq = [], all = dests.filter(function(d){ return !seenUrl[d.url]; }).concat(entities);
-      all.forEach(function (d) {
-        var hay = (d.label + ' ' + d.sub).toLowerCase();
-        if (hay.indexOf(ql) !== -1) sub.push(d);
-        else if (subseq(ql, d.label.toLowerCase())) seq.push(d);
-      });
-      return sub.concat(seq).slice(0, 12);
+    // How well ql (lower-case) matches text: 0 exact, 1 prefix, 2 a word starts
+    // with it, 3 substring, 5 fuzzy (only when allowed), -1 no match. Devices,
+    // pages and entities are all scored with this, so the list reads as one ranking.
+    function score(ql, text, fuzzy) {
+      var t = (text || '').toLowerCase();
+      if (!t) return -1;
+      if (t === ql) return 0;
+      var at = t.indexOf(ql);
+      if (at === 0) return 1;
+      if (at > 0) return /[\s\-_.·\/(]/.test(t[at - 1]) ? 2 : 3;
+      return fuzzy && subseq(ql, t) ? 5 : -1;
     }
+    // A build is offered only to a query that looks like a version ("v2.1", "1.025"),
+    // so digits typed for a serial are never answered with a column of builds.
+    function looksLikeVersion(q) { return /^v\d|\d\.\d/i.test(q); }
+
+    function scoreEntry(ql, d) {
+      if (d.type === 'Build') {
+        var b = score(ql, d.label, false);
+        return looksLikeVersion(ql) && b >= 0 ? b : -1;
+      }
+      var s = score(ql, d.label, true);
+      if (s < 0 && score(ql, d.sub, false) >= 0) s = 4; // section / role / username
+      return s;
+    }
+
+    function scoreDevice(ql, d) {
+      var best = -1;
+      [score(ql, d.nickname, false), score(ql, d.serial, true)].forEach(function (s) {
+        if (s >= 0 && (best < 0 || s < best)) best = s;
+      });
+      if (best >= 0) return best;
+      // Matched on something not shown in the label: its IP (rank 1/4), or its venue.
+      return d.rank === 1 ? 1 : d.rank === 4 ? 3 : 6;
+    }
+
+    // Pages + indexed entities, ranked by score, then (on a tie) devices first for a
+    // query with a digit in it — that is a serial or an IP — and pages first otherwise.
+    function rank(q, devs) {
+      var ql = q.toLowerCase();
+      var seenUrl = {}; entities.forEach(function (e) { seenUrl[e.url] = true; }); // indexed entries carry a subtitle; drop the bare page link for the same URL
+      var digit = /\d/.test(q);
+      var out = [];
+      dests.filter(function (d) { return !seenUrl[d.url]; }).forEach(function (d, i) {
+        var s = scoreEntry(ql, d); if (s >= 0) out.push({ it: d, s: s, k: digit ? 2 : 0, i: i });
+      });
+      entities.forEach(function (d, i) {
+        var s = scoreEntry(ql, d); if (s >= 0) out.push({ it: d, s: s, k: 1, i: i });
+      });
+      (devs || []).forEach(function (d, i) {
+        out.push({ it: deviceItem(d), s: scoreDevice(ql, d), k: digit ? 0 : 2, i: i });
+      });
+      out.sort(function (a, b) { return a.s - b.s || a.k - b.k || a.i - b.i; });
+      // Twelve rows of pages and entities at most, and every device the server sent.
+      var n = 0;
+      return out.filter(function (o) { return o.it.type === 'device' || ++n <= 12; })
+        .map(function (o) { return o.it; });
+    }
+
+    function deviceItem(d) {
+      return {
+        label: d.nickname || d.serial,
+        sub: d.nickname ? (d.serial + (d.build ? ' · ' + d.build : '')) : (d.build || ''),
+        url: '/devices/' + encodeURIComponent(d.serial), type: 'device', dev: d
+      };
+    }
+
     // pagesOnly is the mode "More" opens in: the same palette, scoped to
     // navigation. No device lookup, no entity index — just the ~28 pages, which
     // is a surface whose size does not change when the route table does.
@@ -2407,56 +2471,70 @@
       return out;
     }
 
-    function filter(q) {
-      q = q.trim();
+    // The device search for the current query. Enter waits on it (see onEnter):
+    // answering before it is back is how "231" + a quick Enter used to land on a
+    // dead /devices/231 while the device it was about to find was a few ms away.
+    var dev = { q: '', state: 'idle', hits: [] }; // state: idle | wait | done
+    var devTimer = null, devSeq = 0;
+    var pendingEnter = false; // Enter pressed while dev.state === 'wait'
+    var picked = false;       // the user arrowed to a row: Enter means that row
+
+    function current() { return input.value.trim(); }
+
+    // keep: re-rank in place (entity index or device results arrived) without
+    // moving the user's selection or abandoning a pending Enter.
+    function filter(raw, keep) {
+      var q = (raw || '').trim();
+      if (!keep) { pendingEnter = false; picked = false; }
       if (pagesOnly) {
         if (!q) { items = pagesEmptyState(); active = 0; render(); return; }
-        var ql = q.toLowerCase(), subm = [], seqm = [];
-        dests.forEach(function (d) {
-          var hay = (d.label + ' ' + d.sub).toLowerCase();
-          if (hay.indexOf(ql) !== -1) subm.push(d);
-          else if (subseq(ql, d.label.toLowerCase())) seqm.push(d);
-        });
-        items = subm.concat(seqm).slice(0, 12);
+        var ql = q.toLowerCase();
+        items = dests.map(function (d, i) { return { it: d, s: scoreEntry(ql, d), i: i }; })
+          .filter(function (o) { return o.s >= 0; })
+          .sort(function (a, b) { return a.s - b.s || a.i - b.i; })
+          .slice(0, 12).map(function (o) { return o.it; });
         active = 0; render();
         return;
       }
-      items = matchEntries(q).slice();
-      // A serial is a single token with no spaces; offer a direct jump immediately
-      // (flagged as a placeholder so Enter resolves it to the first fuzzy match),
-      // then replace it with ranked server-side device matches as they arrive.
-      if (q && !/\s/.test(q)) {
-        items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device', placeholder: true, q: q });
-        if (devTimer) clearTimeout(devTimer);
-        if (q.length >= 2) devTimer = setTimeout(function () { fetchDevices(q); }, 120);
+      if (!q) {
+        dev = { q: '', state: 'idle', hits: [] };
+        if (devTimer) { clearTimeout(devTimer); devTimer = null; }
+        items = dests.slice(); active = 0; render();
+        return;
       }
+      if (dev.q !== q) {
+        // A new query: the old results describe something else, so drop them.
+        dev = { q: q, state: q.length >= 2 ? 'wait' : 'idle', hits: [] };
+        if (devTimer) clearTimeout(devTimer);
+        devTimer = dev.state === 'wait' ? setTimeout(fetchDevices, 120) : null;
+      }
+      var prev = keep && items[active] && items[active].url;
+      items = rank(q, dev.hits);
+      if (dev.state === 'wait') items.push({ label: 'Searching devices…', sub: '', type: 'pending' });
       active = 0;
+      if (keep && picked && prev) {
+        for (var i = 0; i < items.length; i++) if (items[i].url === prev) { active = i; break; }
+      }
       render();
     }
+
     // Fuzzy device search: the server subsequence-matches the serial (so "866" or
-    // "at866" both find AT070AABU00866) and returns the ranked top matches.
-    function fetchDevices(q) {
-      var tok = ++devSeq;
+    // "at866" both find AT070AABU00866), substring-matches nickname, IP and venue,
+    // and returns the ranked top matches the viewer is allowed to see.
+    function fetchDevices() {
+      devTimer = null;
+      var q = dev.q, tok = ++devSeq;
       fetch('/devices/search?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; })
         .then(function (devs) {
-          if (tok !== devSeq || backdrop.hidden) return; // stale or closed
-          items = matchEntries(q).slice();
-          if (devs && devs.length) {
-            devs.forEach(function (d) {
-              items.push({
-                label: d.nickname || d.serial,
-                sub: d.nickname ? (d.serial + (d.build ? ' · ' + d.build : '')) : (d.build || ''),
-                url: '/devices/' + encodeURIComponent(d.serial), type: 'device'
-              });
-            });
-          } else {
-            items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device', placeholder: true, q: q });
-          }
-          active = 0;
-          render();
-        })
-        .catch(function () {});
+          // Stale (a newer query is out) or closed: a late answer must never repaint
+          // the list for a query the input no longer holds.
+          if (tok !== devSeq || backdrop.hidden || dev.q !== q || current() !== q) return;
+          dev.state = 'done'; dev.hits = devs || [];
+          filter(input.value, true);
+          if (pendingEnter) { pendingEnter = false; if (items.length) choose(active); }
+        });
     }
 
     function setActive(i) {
@@ -2473,35 +2551,35 @@
     function move(delta) {
       if (!items.length) return;
       var n = items.length;
+      picked = true;
       setActive((active + delta + n) % n);
       var el = list.children[active];
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
     }
 
-    function choose(i) {
+    // Enter takes the top row — but while the device search for this exact query is
+    // still out, the top row is not known yet. Wait for it (firing it now if it was
+    // still in its debounce) and take the top row of the answer. A row the user
+    // arrowed to is a choice already made and goes straight through.
+    function onEnter() {
+      var it = items[active];
+      if (dev.state === 'wait' && dev.q === current() && !(picked && it && it.type !== 'pending')) {
+        pendingEnter = true;
+        if (devTimer) { clearTimeout(devTimer); fetchDevices(); }
+        return;
+      }
+      choose(active);
+    }
+
+    function choose(i, clicked) {
       var it = items[i];
       if (!it) return;
+      if (it.type === 'pending') { if (clicked) onEnter(); return; }
       // A section row is a filter, not a destination: it types its own name.
       if (it.browse) {
         input.value = it.browse;
         filter(input.value);
         input.focus();
-        return;
-      }
-      // Enter on the "Open device …" placeholder before the fuzzy results arrived:
-      // resolve it now and jump to the first match (typing "32" + Enter lands on the
-      // first device whose serial fuzzy-matches, not a dead /devices/32).
-      if (it.placeholder) {
-        var q = it.q;
-        fetch('/devices/search?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
-          .then(function (r) { return r.ok ? r.json() : []; })
-          .then(function (devs) {
-            close();
-            window.location.href = (devs && devs.length)
-              ? '/devices/' + encodeURIComponent(devs[0].serial)
-              : '/devices/' + encodeURIComponent(q);
-          })
-          .catch(function () { close(); window.location.href = '/devices/' + encodeURIComponent(q); });
         return;
       }
       close();
@@ -2517,6 +2595,7 @@
       // The entity index (groups, venues, people) is only useful in full mode.
       if (!pagesOnly) loadEntities();
       input.value = '';
+      dev = { q: '', state: 'idle', hits: [] };
       input.setAttribute('placeholder', pagesOnly ? 'Go to a page…' : PLACEHOLDER_ALL);
       panel.classList.toggle('cmdk-pages', pagesOnly);
       filter('');
@@ -2529,6 +2608,7 @@
 
     function close() {
       if (backdrop.hidden) return;
+      pendingEnter = false;
       backdrop.classList.remove('open');
       backdrop.hidden = true;
       if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
@@ -2539,9 +2619,10 @@
     input.addEventListener('input', function () { filter(input.value); });
 
     input.addEventListener('keydown', function (e) {
+      if (e.isComposing) return;
       if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-      else if (e.key === 'Enter') { e.preventDefault(); choose(active); }
+      else if (e.key === 'Enter') { e.preventDefault(); onEnter(); }
       else if (e.key === 'Escape') { e.preventDefault(); close(); }
       // Trap Tab within the open palette: the input is its only focusable control
       // (results are arrow-navigated), so keep focus here instead of escaping to the
@@ -2553,6 +2634,12 @@
     backdrop.addEventListener('mousedown', function (e) {
       if (e.target === backdrop) close();
     });
+
+    // Warm the entity index once the page has settled, so the first ⌘K of a page
+    // load already has its groups and venues.
+    if (document.body.classList.contains('has-dock')) {
+      (window.requestIdleCallback || function (f) { setTimeout(f, 1500); })(loadEntities);
+    }
 
     // Global shortcut: ⌘K (mac) / Ctrl+K (win/linux), and "/" when not typing.
     document.addEventListener('keydown', function (e) {

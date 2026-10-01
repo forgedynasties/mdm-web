@@ -10550,13 +10550,16 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 		Type  string `json:"type"`
 	}
 	out := []entry{}
+	// Groups and venues go through the same filter as their list pages: a user with a
+	// visibility limit sees only those holding one of their devices — the rest 404 for
+	// them, so their names must not turn up here either.
 	if gs, err := h.db.ListGroups(r.Context()); err == nil {
-		for _, g := range gs {
+		for _, g := range h.visibleGroupList(r, gs) {
 			out = append(out, entry{g.Name, "Group", "/groups/" + g.ID.String(), "Group"})
 		}
 	}
 	if rs, err := h.db.ListRestaurants(r.Context()); err == nil {
-		for _, rest := range rs {
+		for _, rest := range h.visibleRestaurantList(r, rs) {
 			out = append(out, entry{rest.Name, "Restaurant", "/restaurants/" + rest.ID.String(), "Restaurant"})
 		}
 	}
@@ -10572,9 +10575,18 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Releases are deliberately not indexed: dozens of version strings drowned
-	// out the devices and sites people actually jump to. The Releases page itself
-	// is still reachable from the palette's page list.
+	// Builds the fleet is running, each a jump to the fleet filtered to it. Releases
+	// are deliberately not indexed: dozens of version strings drowned out the devices
+	// and sites people actually jump to. The palette keeps builds out of the way the
+	// same way — it offers them only to a query that looks like a version.
+	if bs, err := h.db.GetDistinctBuildIDs(r.Context()); err == nil {
+		for _, b := range bs {
+			out = append(out, entry{b, "Devices on this build", "/devices?build=" + url.QueryEscape(b), "Build"})
+		}
+	}
+	// Private and short: the palette keeps its own copy for a tab and refreshes it in
+	// the background, so this only spares a burst of opens the round trip.
+	w.Header().Set("Cache-Control", "private, max-age=30")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
 }
@@ -10592,26 +10604,43 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": "", "Devices": []db.Device{}})
 		return
 	}
-	devices, err := h.db.SearchDevicesBySerial(r.Context(), query, 8)
+	acc := h.access(r)
+	hits, err := h.db.SearchDevices(r.Context(), query, 8, acc.visibleIDs())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	devices = h.access(r).keepVisible(devices)
 	if wantJSON {
-		out := make([]map[string]string, 0, len(devices))
-		for _, d := range devices {
-			// A device that matched on its nickname leads with that name — the serial
-			// moves to the subtitle, because the name is what the person typed.
-			e := map[string]string{"serial": d.SerialNumber, "build": d.BuildID}
-			if d.Nickname != "" {
-				e["nickname"] = d.Nickname
+		type hit struct {
+			Serial     string `json:"serial"`
+			Nickname   string `json:"nickname,omitempty"`
+			Build      string `json:"build,omitempty"`
+			Online     bool   `json:"online"`
+			Restaurant string `json:"restaurant,omitempty"`
+			Class      string `json:"class,omitempty"`
+			IP         string `json:"ip,omitempty"`
+			Rank       int    `json:"rank"` // how it matched; see db.SearchDevices
+		}
+		out := make([]hit, 0, len(hits))
+		for _, d := range hits {
+			e := hit{Serial: d.SerialNumber, Nickname: d.Nickname, Build: d.BuildID,
+				Online: h.hub.IsConnectedForDisplay(d.ID), Restaurant: d.RestaurantName, Rank: d.Rank}
+			if d.Class() != "" {
+				e.Class = d.ClassLabel()
+			}
+			// The IP only when it is what matched, so a serial hit stays one line.
+			if d.Rank == 1 || d.Rank == 4 {
+				e.IP = d.IP
 			}
 			out = append(out, e)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(out)
 		return
+	}
+	devices := make([]db.Device, len(hits))
+	for i, d := range hits {
+		devices[i] = d.Device
 	}
 	h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": query, "Devices": devices})
 }
