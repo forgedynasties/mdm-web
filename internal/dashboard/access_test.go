@@ -269,3 +269,26 @@ func TestRoleWidens(t *testing.T) {
 		}
 	}
 }
+
+func TestGrantRedundant(t *testing.T) {
+	remoteAll := db.AccessGrant{Effect: "allow", ScopeType: "all", Actions: []string{"remote"}}
+	cases := []struct {
+		role, base string
+		g          db.AccessGrant
+		want       bool
+	}{
+		{"super_op", "allow", remoteAll, true},  // promoted operator: super ops have remote
+		{"operator", "allow", remoteAll, false}, // the rule is what gives an operator remote
+		{"super_op", "deny", remoteAll, false},  // base nothing: the rule is the only allow
+		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"reboot", "*"}}, true},
+		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell"}}, false}, // outside the ceiling
+		{"dev", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell", "ota"}}, true},
+		{"super_op", "allow", db.AccessGrant{Effect: "deny", Actions: []string{"remote"}}, false},
+		{"owner", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"view"}}, false},
+	}
+	for _, c := range cases {
+		if got := grantRedundant(c.role, c.base, c.g); got != c.want {
+			t.Errorf("grantRedundant(%s, %s, %v %v) = %v, want %v", c.role, c.base, c.g.Effect, c.g.Actions, got, c.want)
+		}
+	}
+}

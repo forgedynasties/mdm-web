@@ -96,6 +96,34 @@ func roleCeiling(role string) map[string]bool {
 	return map[string]bool{} // unknown role: nothing
 }
 
+// sensitiveByDefault: the sensitive actions a role holds without a rule — dev all of
+// them, the super op firmware pushes, and remote control for the super op and the
+// access admin. Everyone else needs an allow rule that names the action.
+func sensitiveByDefault(role, action string) bool {
+	return role == "dev" || (role == "super_op" && action == "ota") ||
+		(action == "remote" && (role == "super_op" || role == "user_manager"))
+}
+
+// grantRedundant reports an allow rule that gives nothing the role does not already
+// have: with a base of "everything", every action in it is within the role and
+// either not sensitive or one the role holds by default. An operator's "remote
+// control everywhere" becomes one of these the moment they are made a super op.
+func grantRedundant(role, base string, g db.AccessGrant) bool {
+	if g.Effect != "allow" || base == "deny" || role == "owner" || len(g.Actions) == 0 {
+		return false
+	}
+	c := roleCeiling(role)
+	for _, a := range g.Actions {
+		if a == "*" || c == nil {
+			continue
+		}
+		if !c[a] || (accessActionByKey[a].Sensitive && !sensitiveByDefault(role, a)) {
+			return false
+		}
+	}
+	return true
+}
+
 // grantableActions is the catalogue filtered to a role's ceiling, for the editor.
 func grantableActions(role string) []accessAction {
 	c := roleCeiling(role)
@@ -276,7 +304,7 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	// ceiling exists for them: dev (all of them), the super op (firmware pushes),
 	// and remote control, which the super op and the access admin have by default.
 	// Operators still need a rule that names the device.
-	if act.Sensitive && a.role != "dev" && !(a.role == "super_op" && action == "ota") && !(action == "remote" && (a.role == "super_op" || a.role == "user_manager")) {
+	if act.Sensitive && !sensitiveByDefault(a.role, action) {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
 	// Base deny is checked before the viewer default: a viewer set to "allow nothing"
