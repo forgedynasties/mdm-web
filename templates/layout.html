@@ -780,7 +780,7 @@
       try {
         var list = window.mdmRecentPages().filter(function (r) { return r.url !== url; });
         list.unshift({ url: url, label: label });
-        localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6)));
+        localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 10)));
       } catch (e) {}
     };
     window.mdmNoteVisit(location.pathname, (document.title || '').split(' \u2014 ')[0].trim());
@@ -993,12 +993,13 @@
       <div class="cmdk-input-row">
         <span class="ui-icon ui-icon-sm cmdk-input-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
         <input id="cmdk-input" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
-               placeholder="Jump to a page, or find a device by name or serial…" aria-label="Search pages and devices"
+               placeholder="Jump to a page, or find a device by name, serial or IP…" aria-label="Search pages and devices"
                role="combobox" aria-controls="cmdk-list" aria-expanded="true" aria-autocomplete="list">
         <kbd class="cmdk-esc">esc</kbd>
       </div>
       <ul id="cmdk-list" class="cmdk-list" role="listbox" aria-label="Results"></ul>
       <div class="cmdk-empty" id="cmdk-empty" hidden>No matches.</div>
+      <div class="cmdk-foot" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd>move</span><span><kbd>↵</kbd>open</span><span><kbd>esc</kbd>close</span></div>
     </div>
   </div>
   <div id="mdm-confirm" class="modal-backdrop">
@@ -2323,34 +2324,133 @@
       });
     }
 
-    // Resolve stored URLs back to live index entries, so a page the viewer's role
-    // can no longer reach silently drops out of their recents.
-    function recentDests() {
-      var byUrl = {}; dests.forEach(function (d) { byUrl[d.url] = d; });
-      return (window.mdmRecentPages ? window.mdmRecentPages() : []).map(function (r) { return byUrl[r.url]; })
-        .filter(function (d) { return d && d.url !== location.pathname; });
+    // Row icons, by kind (outline, the dock's stroke style).
+    var ICONS = {
+      device: '<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M11 18h2"/>',
+      screen: '<rect x="2.5" y="4" width="19" height="13" rx="1.5"/><path d="M8 20h8"/>',
+      Restaurant: '<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/>',
+      Group: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+      page: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+      User: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+      Build: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+      recent: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      browse: '<path d="M3 7h18M3 12h18M3 17h18"/>'
+    };
+    var KIND = { page: 'Page', Restaurant: 'Venue', Group: 'Group', User: 'Person', Build: 'Build' };
+    // Classes whose hardware is a screen on a wall rather than a handheld.
+    var SCREEN_CLASSES = { dongle: 1, kds: 1, kiosk: 1 };
+
+    function iconFor(it) {
+      var k = it.type === 'device'
+        ? (it.dev && SCREEN_CLASSES[it.dev.class_key] ? 'screen' : 'device')
+        : it.browse ? 'browse' : (it.recent && it.type === 'page') ? 'recent' : it.type;
+      var span = document.createElement('span');
+      span.className = 'cmdk-ic';
+      span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[k] || ICONS.page) + '</svg>';
+      return span;
     }
 
+    // text with q marked: a contiguous hit, else (fuzzy) each character of an
+    // in-order subsequence. Built from text nodes — labels are user data.
+    function marked(text, q, fuzzy) {
+      var frag = document.createDocumentFragment();
+      text = text || '';
+      var t = text.toLowerCase(), ql = (q || '').toLowerCase();
+      var at = ql ? t.indexOf(ql) : -1;
+      function add(str, hit) {
+        if (!str) return;
+        var n = hit ? document.createElement('mark') : document.createTextNode(str);
+        if (hit) n.textContent = str;
+        frag.appendChild(n);
+      }
+      if (at >= 0) {
+        add(text.slice(0, at)); add(text.slice(at, at + ql.length), true); add(text.slice(at + ql.length));
+      } else if (ql && fuzzy && subseq(ql, t)) {
+        var i = 0, run = '', hit = false;
+        for (var j = 0; j < text.length; j++) {
+          var h = i < ql.length && t[j] === ql[i];
+          if (h) i++;
+          if (h !== hit) { add(run, hit); run = ''; hit = h; }
+          run += text[j];
+        }
+        add(run, hit);
+      } else {
+        add(text);
+      }
+      return frag;
+    }
+
+    function ago(iso) {
+      var t = Date.parse(iso || '');
+      if (!t || t < 86400000) return '';
+      var m = Math.max(1, Math.round((Date.now() - t) / 60000));
+      return m < 60 ? m + ' m' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' d';
+    }
+
+    function right(it) {
+      var rt = document.createElement('span');
+      rt.className = 'cmdk-rt';
+      if (it.type === 'device' && it.dev && it.dev.serial) {
+        var on = !!it.dev.online, since = on ? '' : ago(it.dev.last_seen);
+        rt.appendChild(document.createTextNode(on ? 'online' : since ? 'offline ' + since : 'offline'));
+        var dot = document.createElement('span');
+        dot.className = 'cmdk-dot' + (on ? ' on' : '');
+        rt.appendChild(dot);
+      } else {
+        var k = document.createElement('span');
+        k.className = 'cmdk-kind';
+        // Recents sit under their own heading, so the label stays the kind.
+        k.textContent = it.browse ? it.sub + ' ›' : (KIND[it.type] || '');
+        rt.appendChild(k);
+      }
+      return rt;
+    }
+
+    var rows = []; // option <li> per item, by index (headers are not options)
     function render() {
       list.innerHTML = '';
+      rows = [];
+      var q = current();
       items.forEach(function (it, i) {
+        if (it.head) {
+          var h = document.createElement('li');
+          h.className = 'cmdk-head';
+          h.setAttribute('role', 'presentation');
+          h.textContent = it.head;
+          list.appendChild(h);
+        }
         var li = document.createElement('li');
-        li.className = 'cmdk-item' + (i === active ? ' active' : '') + (it.type === 'pending' ? ' cmdk-item-pending' : '');
-        li.setAttribute('role', 'option');
         li.id = 'cmdk-opt-' + i;
+        li.setAttribute('role', 'option');
         li.setAttribute('aria-selected', i === active ? 'true' : 'false');
-        var main = document.createElement('span');
-        main.className = 'cmdk-item-label';
-        main.textContent = it.label;
-        li.appendChild(main);
-        var tag = document.createElement('span');
-        tag.className = 'cmdk-item-sub' + (it.type === 'device' ? ' cmdk-item-sub-device' : '')
-          + (it.browse ? ' cmdk-item-browse' : '');
-        tag.textContent = it.type === 'device' ? 'Device' : it.sub;
-        li.appendChild(tag);
+        if (it.type === 'pending') {
+          li.className = 'cmdk-item cmdk-rich cmdk-pending' + (i === active ? ' active' : '');
+          var sp = document.createElement('span'); sp.className = 'cmdk-spin'; li.appendChild(sp);
+          var pl = document.createElement('span'); pl.className = 'cmdk-l1';
+          pl.textContent = pendingEnter ? 'Searching devices… Enter opens the top match' : 'Searching devices…';
+          li.appendChild(pl);
+        } else {
+          li.className = 'cmdk-item cmdk-rich' + (i === active ? ' active' : '');
+          li.appendChild(iconFor(it));
+          var tx = document.createElement('span'); tx.className = 'cmdk-tx';
+          var l1 = document.createElement('span'); l1.className = 'cmdk-l1';
+          l1.appendChild(marked(it.label, it.browse || it.recent ? '' : q, true));
+          tx.appendChild(l1);
+          var sub = it.type === 'device' ? it.l2 : it.browse ? '' : it.sub;
+          if (sub) {
+            var l2 = document.createElement('span'); l2.className = 'cmdk-l2';
+            l2.appendChild(marked(sub, it.recent ? '' : q, false));
+            tx.appendChild(l2);
+          }
+          li.appendChild(tx);
+          li.appendChild(right(it));
+          var ent = document.createElement('span'); ent.className = 'cmdk-ent'; ent.setAttribute('aria-hidden', 'true'); ent.textContent = '↵';
+          li.appendChild(ent);
+        }
         li.addEventListener('mousemove', function () { setActive(i); });
         li.addEventListener('click', function () { choose(i, true); });
         list.appendChild(li);
+        rows.push(li);
       });
       empty.hidden = items.length > 0;
       input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
@@ -2402,7 +2502,9 @@
         return looksLikeVersion(ql) && b >= 0 ? b : -1;
       }
       var s = score(ql, d.label, true);
-      if (s < 0 && score(ql, d.sub, false) >= 0) s = 4; // section / role / username
+      // The second line counts as a match for pages (their section) and people
+      // (role, username); for venues and groups it is a device count.
+      if (s < 0 && (d.type === 'page' || d.type === 'User') && score(ql, d.sub, false) >= 0) s = 4;
       return s;
     }
 
@@ -2439,11 +2541,16 @@
         .map(function (o) { return o.it; });
     }
 
-    function deviceItem(d) {
+    function deviceItem(d, recent) {
+      var l2 = [];
+      if (d.nickname) l2.push(d.serial);
+      if (d.ip) l2.push('IP ' + d.ip);
+      if (d.restaurant) l2.push(d.restaurant);
+      if (d.class) l2.push(d.class);
+      if (d.build) l2.push(d.build);
       return {
-        label: d.nickname || d.serial,
-        sub: d.nickname ? (d.serial + (d.build ? ' · ' + d.build : '')) : (d.build || ''),
-        url: '/devices/' + encodeURIComponent(d.serial), type: 'device', dev: d
+        label: d.nickname || d.serial, l2: l2.join(' · '),
+        url: '/devices/' + encodeURIComponent(d.serial), type: 'device', dev: d, recent: recent
       };
     }
 
@@ -2452,21 +2559,72 @@
     // is a surface whose size does not change when the route table does.
     var pagesOnly = false;
 
-    // The empty state in pages mode. Recents first (where you have been is the
-    // best guess at where you are going), then the four sections as one row
-    // each — so someone who does not yet know what anything is called can still
-    // browse, and everyone else types and never sees this.
-    function pagesEmptyState() {
-      var out = [], rec = recentDests();
-      rec.forEach(function (d) { out.push({ label: d.label, sub: d.sub || 'Recent', url: d.url, type: 'page' }); });
+    // Recently visited pages and devices, newest first. A device page is kept as
+    // its serial; its state is filled in by recentDevices() once it is known.
+    var recentDevs = {}; // serial -> search hit, for the open palette
+    function recentItems(withDevices) {
+      var byUrl = {}; dests.forEach(function (d) { byUrl[d.url] = d; });
+      var out = [];
+      (window.mdmRecentPages ? window.mdmRecentPages() : []).forEach(function (r) {
+        if (out.length >= 5 || r.url === location.pathname) return;
+        var m = /^\/devices\/([^\/?#]+)$/.exec(r.url);
+        if (m && withDevices) {
+          var serial = decodeURIComponent(m[1]), hit = recentDevs[serial];
+          out.push(hit ? deviceItem(hit, true) : { label: serial, l2: '', url: r.url, type: 'device', recent: true, dev: { serial: '' }, serial: serial });
+        } else if (byUrl[r.url]) {
+          var d = byUrl[r.url];
+          out.push({ label: d.label, sub: d.sub, url: d.url, type: 'page', recent: true });
+        }
+      });
+      return out;
+    }
+    // Look the recent devices up once per open, for their state and venue. A device
+    // the viewer can no longer see does not come back, and drops out of the list.
+    function recentDevices() {
+      var serials = recentItems(true).filter(function (it) { return it.type === 'device'; })
+        .map(function (it) { return it.serial || it.dev.serial; });
+      if (!serials.length) return;
+      fetch('/devices/search?serials=' + encodeURIComponent(serials.join(',')), { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (devs) {
+          if (!devs) return;
+          recentDevs = {};
+          devs.forEach(function (d) { recentDevs[d.serial] = d; });
+          // Not visible (or gone): forget it rather than offer a dead row.
+          serials.forEach(function (s) { if (!recentDevs[s]) recentDevs[s] = null; });
+          if (!backdrop.hidden && !current()) filter('', true);
+        })
+        .catch(function () {});
+    }
+
+    // The empty state. Recents first (where you have been is the best guess at
+    // where you are going), then — in full mode — every page under one heading;
+    // in pages mode the sections as one row each, so someone who does not yet know
+    // what anything is called can still browse.
+    function emptyState() {
+      var out = recentItems(!pagesOnly).filter(function (it) {
+        return !(it.type === 'device' && recentDevs[it.serial] === null);
+      });
+      if (!pagesOnly) {
+        var rec = {}; out.forEach(function (it) { rec[it.url] = true; });
+        dests.forEach(function (d, i) {
+          if (rec[d.url]) return;
+          var it = { label: d.label, sub: d.sub, url: d.url, type: 'page' };
+          out.push(it);
+        });
+        var first = out.filter(function (it) { return !it.recent; })[0];
+        if (first && out[0] !== first) first.head = 'All pages';
+        if (out[0] && out[0].recent) out[0].head = 'Recent';
+        return out;
+      }
       var secs = [], counts = {};
       dests.forEach(function (d) {
         if (!d.sub) return;
         if (!counts[d.sub]) { counts[d.sub] = 0; secs.push(d.sub); }
         counts[d.sub]++;
       });
-      secs.forEach(function (name) {
-        out.push({ label: name, sub: counts[name] + ' pages', browse: name, type: 'page' });
+      secs.forEach(function (name, i) {
+        out.push({ label: name, sub: counts[name] + (counts[name] === 1 ? ' page' : ' pages'), browse: name, type: 'page', head: i === 0 && out.length ? 'Sections' : '' });
       });
       return out;
     }
@@ -2487,7 +2645,7 @@
       var q = (raw || '').trim();
       if (!keep) { pendingEnter = false; picked = false; }
       if (pagesOnly) {
-        if (!q) { items = pagesEmptyState(); active = 0; render(); return; }
+        if (!q) { items = emptyState(); active = 0; render(); return; }
         var ql = q.toLowerCase();
         items = dests.map(function (d, i) { return { it: d, s: scoreEntry(ql, d), i: i }; })
           .filter(function (o) { return o.s >= 0; })
@@ -2499,7 +2657,7 @@
       if (!q) {
         dev = { q: '', state: 'idle', hits: [] };
         if (devTimer) { clearTimeout(devTimer); devTimer = null; }
-        items = dests.slice(); active = 0; render();
+        items = emptyState(); active = 0; render();
         return;
       }
       if (dev.q !== q) {
@@ -2510,7 +2668,7 @@
       }
       var prev = keep && items[active] && items[active].url;
       items = rank(q, dev.hits);
-      if (dev.state === 'wait') items.push({ label: 'Searching devices…', sub: '', type: 'pending' });
+      if (dev.state === 'wait') items.push({ label: '', type: 'pending' });
       active = 0;
       if (keep && picked && prev) {
         for (var i = 0; i < items.length; i++) if (items[i].url === prev) { active = i; break; }
@@ -2540,7 +2698,7 @@
     function setActive(i) {
       if (i === active) return;
       active = i;
-      Array.prototype.forEach.call(list.children, function (li, idx) {
+      rows.forEach(function (li, idx) {
         var on = idx === active;
         li.classList.toggle('active', on);
         li.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -2553,7 +2711,7 @@
       var n = items.length;
       picked = true;
       setActive((active + delta + n) % n);
-      var el = list.children[active];
+      var el = rows[active];
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
     }
 
@@ -2565,6 +2723,7 @@
       var it = items[active];
       if (dev.state === 'wait' && dev.q === current() && !(picked && it && it.type !== 'pending')) {
         pendingEnter = true;
+        render();
         if (devTimer) { clearTimeout(devTimer); fetchDevices(); }
         return;
       }
@@ -2593,7 +2752,7 @@
       lastFocus = document.activeElement;
       collectDests();
       // The entity index (groups, venues, people) is only useful in full mode.
-      if (!pagesOnly) loadEntities();
+      if (!pagesOnly) { loadEntities(); recentDevs = {}; recentDevices(); }
       input.value = '';
       dev = { q: '', state: 'idle', hits: [] };
       input.setAttribute('placeholder', pagesOnly ? 'Go to a page…' : PLACEHOLDER_ALL);

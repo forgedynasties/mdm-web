@@ -616,8 +616,58 @@ html[data-theme="dark"] .brand-hub { color: #fff; }
   font-size: var(--t-13);
 }
 
+/* Rich rows (cmdk-demos.html, option C): one ranked list, every row an icon for
+   its kind, a name with the matched characters marked, a second line (device:
+   venue · type · build) and on the right either the device's state or the kind. */
+.cmdk-item.cmdk-rich { justify-content: flex-start; gap: 11px; padding: 7px 10px; }
+.cmdk-ic {
+  flex: none; width: 28px; height: 28px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: var(--surface-3); color: var(--text-2);
+}
+.cmdk-ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cmdk-item.active .cmdk-ic { background: var(--surface); color: var(--accent-text); }
+.cmdk-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cmdk-l1 { font-size: var(--t-13); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-l2 { font-size: var(--t-11); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-item.active .cmdk-l1 { color: var(--accent-text); font-weight: var(--fw-semibold); }
+.cmdk-list mark { background: none; color: var(--accent-text); font-weight: 700; }
+.cmdk-rt { flex: none; display: flex; align-items: center; gap: 6px; font-size: var(--t-11); color: var(--muted); }
+.cmdk-kind { font-size: var(--t-10); letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.cmdk-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+.cmdk-dot.on { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+.cmdk-ent {
+  visibility: hidden; flex: none;
+  font: 600 var(--t-10) var(--mono); color: var(--accent-text);
+  border: 1px solid var(--accent-edge); border-radius: var(--r-1); padding: 0 4px;
+}
+.cmdk-item.active .cmdk-ent { visibility: visible; }
+.cmdk-head {
+  font-size: var(--t-10); font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 10px 10px 4px;
+}
+.cmdk-head:first-child { padding-top: 4px; }
+.cmdk-item.cmdk-pending { color: var(--muted); cursor: default; gap: 10px; }
+.cmdk-item.cmdk-pending.active { background: none; }
+.cmdk-spin {
+  flex: none; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: cmdk-spin .7s linear infinite;
+}
+@keyframes cmdk-spin { to { transform: rotate(360deg); } }
+.cmdk-foot {
+  display: flex; gap: 14px; padding: 8px 14px;
+  border-top: 1px solid var(--border); font-size: var(--t-11); color: var(--muted);
+}
+.cmdk-foot kbd {
+  font: 600 var(--t-10) var(--mono); border: 1px solid var(--border); border-radius: var(--r-1);
+  padding: 0 4px; background: var(--bg); margin-right: 3px;
+}
+@media (max-width: 720px) { .cmdk-foot { display: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .cmdk-backdrop, .cmdk-panel { transition: none; }
+  .cmdk-spin { animation-duration: 2s; }
   .cmdk-backdrop.open .cmdk-panel { transform: none; }
 }
 
