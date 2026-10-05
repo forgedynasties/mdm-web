@@ -8463,6 +8463,19 @@ type deviceMapPoint struct {
 	RestaurantID string `json:"restaurant_id,omitempty"`
 	Restaurant   string `json:"restaurant,omitempty"`
 	LastSeen     string `json:"last_seen"`
+	// Site groups devices that stand in the same place: the restaurant when there is one,
+	// else the position snapped to a ~30 m grid. The fleet map draws one blip per site.
+	Site string `json:"site"`
+}
+
+// mapSiteKey is the key devices share on the fleet map. A restaurant wins over position,
+// since wifi-derived fixes for its tablets differ by a few metres.
+func mapSiteKey(restaurantID *uuid.UUID, lat, lon float64) string {
+	if restaurantID != nil {
+		return "r:" + restaurantID.String()
+	}
+	const grid = 0.0003 // ~33 m of latitude
+	return fmt.Sprintf("g:%d,%d", int64(math.Floor(lat/grid)), int64(math.Floor(lon/grid)))
 }
 
 // deviceLocationsJSON returns every device with a resolved lat/lon in its latest
@@ -8532,6 +8545,7 @@ func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []de
 		if dv.RestaurantID != nil {
 			p.RestaurantID = dv.RestaurantID.String()
 		}
+		p.Site = mapSiteKey(dv.RestaurantID, lat, lon)
 		pts = append(pts, p)
 	}
 	return pts
