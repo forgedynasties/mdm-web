@@ -59,6 +59,8 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
+    {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
+    {{if .NuggetIDs}}{{if eq (len .NuggetIDs) 1}}{{$n := index .NuggetIDs 0}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="The Android ID {{$n.Package}} uses to identify this tablet. Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span></button>{{else}}<span class="ddc-chip ddc-aid" title="{{range .NuggetIDs}}{{.Package}}: {{.AndroidID}}&#10;{{end}}Open the Apps tab to copy one."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></span>{{end}}{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
 {{end}}
 
@@ -243,6 +245,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .ShowBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
     </div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
+    <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
       {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
@@ -3612,6 +3615,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="appinfo-row"><span class="k">Type</span><span class="v" id="ai-type"></span></div>
       <div class="appinfo-row"><span class="k">Version</span><span class="v" id="ai-ver"></span></div>
       <div class="appinfo-row"><span class="k">Package</span><span class="v mono" id="ai-pkg2"></span></div>
+      <div class="appinfo-row" id="ai-aid-row" hidden><span class="k">Android ID</span><span class="v mono"><span id="ai-aid"></span> <button type="button" class="ai-copy" onclick="aidCopy(this,document.getElementById('ai-aid').textContent)" title="Copy">Copy</button></span></div>
     </div>
     {{if canOperate .Role}}
     <div class="appinfo-foot">
@@ -3726,6 +3730,8 @@ window.appInfoOpen = function (el) {
   byId('ai-pkg').textContent = pkg;
   byId('ai-pkg2').textContent = pkg;
   byId('ai-ver').textContent = ver ? ('v' + ver) : '—';
+  var aid = el.getAttribute('data-aid') || '';
+  byId('ai-aid').textContent = aid; byId('ai-aid-row').hidden = !aid;
   byId('ai-type').innerHTML = sys ? '<span class="ai-badge ai-sys">System app</span>' : '<span class="ai-badge ai-user">User app</span>';
   var host = byId('ai-icon'); host.innerHTML = '';
   var ic = el.querySelector('.app-icon, .app-mono');
@@ -3738,6 +3744,11 @@ window.appInfoOpen = function (el) {
     if (note) note.hidden = !sys;
   }
   m.classList.add('modal-open');
+};
+// Copy an ID and say so for a second on the control that was clicked.
+window.aidCopy = function (btn, text) {
+  var done = function () { var k = btn.querySelector('.mono') || btn, old = k.textContent; k.textContent = 'Copied'; setTimeout(function () { k.textContent = old; }, 1000); };
+  try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) {}
 };
 window.appInfoClose = function () { var m = document.getElementById('appinfo-modal'); if (m) m.classList.remove('modal-open'); };
 window.appInfoBackdrop = function (e) { if (e.target.id === 'appinfo-modal') window.appInfoClose(); };
@@ -5023,6 +5034,7 @@ async function saveNewApp() {
 {{end}}
 
 {{define "device-apps-list"}}
+<style>.app-tsub.aid{font-family:var(--mono);font-size:9.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
 {{/* While installs are in flight, self-poll the drawer every 2s so download/install
      progress updates live (the /events SSE only fires device-updated on telemetry, not on
      command progress). The poller is re-rendered each refresh and vanishes — stopping the
@@ -5052,12 +5064,12 @@ async function saveNewApp() {
   {{range $p := .InstalledPackages}}{{if not $p.EffectiveSystem}}
   {{$isUn := index $.Uninstalling $p.PackageName}}
   <div class="app-row app-tile{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"{{with index $.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
+    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{else}}{{with index $.NuggetIDByPackage $p.PackageName}}<div class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</div>{{end}}{{end}}
     {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall")}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app

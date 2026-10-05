@@ -5865,6 +5865,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 		// Display only drawer apps; the pending-install reconciliation below still
 		// checks against the FULL list so a non-launchable install isn't re-shown.
 		"InstalledPackages": launchableOnly(installedPkgs),
+		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
 		"Uninstalling":      pendingUninstallPkgs(commands),
 	})
@@ -6412,6 +6413,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"HardwareSerial":      h.db.HardwareSerialOf(ctx, device.SerialNumber),
+		"NuggetIDs":           nuggetAndroidIDs(device.LatestExtra),
+		"NuggetIDByPackage":   nuggetIDByPackage(device.LatestExtra),
 		// The table guests are told they are at (home and lock screen on a T7).
 		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
