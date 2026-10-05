@@ -6411,6 +6411,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"IsOwner":             h.role(r) == "owner",
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
+		"HardwareSerial":      h.db.HardwareSerialOf(ctx, device.SerialNumber),
 		// The table guests are told they are at (home and lock screen on a T7).
 		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
@@ -19945,6 +19946,7 @@ func alertTypeCatalog() []alertTypeGroup {
 	add("Lifecycle", "new_device", "New device onboarded")
 	add("Security", "identity_conflict", "Possible impersonation")
 	add("Security", "key_not_registered", "Key not registered after a reset")
+	add("Security", "hardware_serial_changed", "Hardware serial mismatch")
 	add("Security", "key_recovered", "Let back in after losing its key")
 	add("Kiosk", "kiosk_exited", "Taken out of kiosk on site")
 	groups := make([]alertTypeGroup, 0, len(order))

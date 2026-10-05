@@ -70,6 +70,8 @@ func CauseOf(types []string) Cause {
 		return Cause{"kiosk", "Taken out of kiosk on site", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
 	case has["identity_conflict"]:
 		return Cause{"identity", "Possible impersonation", "Something used this device's serial without its own key. If the device was just factory reset or had its data cleared, it is asking to come back: reset its key."}
+	case has["hardware_serial_changed"]:
+		return Cause{"identity", "Hardware serial mismatch", "The chip serial this unit reports does not match what is on file for its AIO serial, or it was seen under another AIO serial. The AIO serial may have been corrupted, rewritten or copied. See /api/v1/hardware-serials?hw=..."}
 	case has["key_recovered"]:
 		return Cause{"identity", "Let back in after losing its key", "It lost its own key (after a firmware update, or its data was cleared) and called from its usual address, so it was let back in to register a new one. Nothing to do unless this keeps happening."}
 	case has["key_not_registered"]:

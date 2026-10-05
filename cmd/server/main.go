@@ -434,6 +434,7 @@ func main() {
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("GET /api/v1/devices/{serial}/temp-fast", adminAuth(http.HandlerFunc(apiHandler.GetTempFast)))
+	mux.Handle("GET /api/v1/hardware-serials", adminAuth(http.HandlerFunc(apiHandler.ListHardwareSerials)))
 	mux.Handle("POST /api/v1/devices/{serial}/temp-fast", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetTempFast))))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
 	mux.Handle("GET /api/v1/remote/{serial}", http.HandlerFunc(apiHandler.ConnectRemote))

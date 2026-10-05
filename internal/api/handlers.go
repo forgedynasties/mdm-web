@@ -781,6 +781,8 @@ type checkinRequest struct {
 	// Product is the hardware category the device reports (e.g. "t7", "kiosk27"). Sent
 	// on the full HTTP keyframe; delta/WS frames may omit it and the stored value sticks.
 	Product string `json:"product,omitempty"`
+	// HwSerial is the chip's own serial (hex), read from soc0/serial_number by client 1.8.5+.
+	HwSerial string `json:"hw_serial,omitempty"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -901,6 +903,9 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	if arrival && h.peers != nil {
 		metrics.Default.Emit("peer", "ok", "arrival announced for "+req.SerialNumber)
 		h.peers.AnnounceArrival(ctx, req.SerialNumber, req.BuildID, req.Product)
+	}
+	if hw := db.NormalizeHardwareSerial(req.HwSerial); hw != "" {
+		h.noteHardwareSerial(ctx, deviceID, req.SerialNumber, hw)
 	}
 	metrics.Default.Checkin()
 	metrics.Default.Emit("checkin", "", req.SerialNumber+" "+firstNonEmpty(req.BuildID, "—"))

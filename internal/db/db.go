@@ -13052,6 +13052,19 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_reset_at TIMESTAMPTZ;
 -- it (30 Sep: an OTA left three devices unable to read their key and locked out).
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_last_ip TEXT NOT NULL DEFAULT '';
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_auto_reset_at TIMESTAMPTZ;
+-- The chip's own serial (Qualcomm soc0/serial_number, as hex), which a reflash cannot change.
+-- hardware_serials is the map from it to every AIO serial it has been seen under, so a device
+-- whose AIO serial was corrupted can still be recognised.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hardware_serial TEXT;
+CREATE INDEX IF NOT EXISTS idx_devices_hardware_serial ON devices(hardware_serial) WHERE hardware_serial IS NOT NULL;
+CREATE TABLE IF NOT EXISTS hardware_serials (
+    hardware_serial TEXT        NOT NULL,
+    serial_number   TEXT        NOT NULL,
+    first_seen_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (hardware_serial, serial_number)
+);
+CREATE INDEX IF NOT EXISTS idx_hardware_serials_serial ON hardware_serials(serial_number);
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via UUID;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash) WHERE device_key_hash IS NOT NULL;
 
