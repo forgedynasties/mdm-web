@@ -1049,6 +1049,7 @@ function navigateDevices(overrides) {
   htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML' }).then(function() {
     history.pushState(null, '', url);
     syncFilterUI();
+    document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
   });
 }
 
@@ -1097,6 +1098,7 @@ function scopeRoster(anchor, u) {
     history.pushState(null, '', url);
     syncFilterUI();
     applyCols();
+    document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
   });
 }
 
@@ -2045,9 +2047,10 @@ document.addEventListener('keydown', function(e) {
      header's Map button; the roster stays in the DOM, hidden, so the live poll
      and selection keep working). ── */}}
 <div class="card fl-map-pane" id="fl-map-pane" hidden>
+  <div class="fl-map-bar" id="fl-map-bar" hidden><div class="fleet-chips" id="fl-map-chips"></div><span class="fl-map-un" id="fl-map-un"></span></div>
   <div class="fl-map"><div id="fl-map"></div>
     <div class="fl-map-count" id="fl-map-count">Loading…</div>
-    <div class="fl-map-legend"><span><i class="ok"></i>Online</span><span><i></i>Offline</span><span><i class="cl"></i>Cluster</span><a href="/map">Full map →</a></div>
+    <div class="fl-map-legend"><span><i class="ok"></i>All online</span><span><i class="bad"></i>Some offline</span><span class="dim">ring = share online · number = devices</span><a href="/map">Full map →</a></div>
   </div>
 </div>
 <style>
@@ -2060,6 +2063,38 @@ document.addEventListener('keydown', function(e) {
 .fl-map-legend i{width:9px;height:9px;border-radius:50%;background:var(--rule-2);display:inline-block}
 .fl-map-legend i.ok{background:var(--ok)}.fl-map-legend i.cl{background:var(--accent)}
 .fl-map-legend a{color:var(--accent-text);text-decoration:none;font-weight:650;margin-left:4px}
+/* the filters in force, mirrored from the list so the map says what it is showing */
+.fl-map-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--border)}
+.fl-map-bar .fleet-chips{margin:0;padding:0;border:0;flex:1 1 auto;min-width:0}
+.fl-map-un{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.fl-map-un button{border:0;background:transparent;font:inherit;font-weight:650;color:var(--accent-text);cursor:pointer;padding:0;margin-left:4px}
+.fl-map-legend i.bad{background:var(--danger)}.fl-map-legend .dim{color:var(--text-faint)}
+/* the popup: Google's info window restyled to a card (the markup is ours) */
+.fl-map .gm-style .gm-style-iw-c{padding:0!important;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);max-width:300px!important}
+.fl-map .gm-style .gm-style-iw-d{overflow:auto!important;max-height:340px!important;color:var(--text)}
+.fl-map .gm-style .gm-style-iw-tc::after{background:var(--surface)}
+.fl-map .gm-style-iw-chr,.fl-map .gm-ui-hover-effect{display:none!important}
+.fm-card{width:280px;font-size:12.5px;color:var(--text)}
+.fm-h{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 6px 14px}
+.fm-h b{font-size:14px;display:block}
+.fm-sub{color:var(--muted);font-size:11.5px;margin-top:1px}
+.fm-x{margin-left:auto;flex:none;width:26px;height:26px;border-radius:7px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+.fm-x:hover{background:var(--surface-3)}
+.fm-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--ok-bg);color:var(--ok);margin-left:auto;flex:none}
+.fm-pill.off{background:var(--surface-3);color:var(--text-2)}
+.fm-list a{display:flex;align-items:center;gap:9px;padding:7px 14px;border-top:1px solid var(--border);color:inherit;text-decoration:none}
+.fm-list a:hover{background:var(--surface-3)}
+.fm-list i{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.fm-list i.off{background:var(--text-faint)}
+.fm-sn{font-family:var(--mono);font-size:11.5px;font-weight:600}
+.fm-m{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px;white-space:nowrap}
+.fm-more{padding:6px 14px;border-top:1px solid var(--border);color:var(--muted);font-size:11.5px}
+.fm-body{padding:2px 14px 10px}
+.fm-meter{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin:7px 0 4px}.fm-meter i{display:block;height:100%;background:var(--ok)}
+.fm-row{display:flex;justify-content:space-between;color:var(--muted);padding:2px 0}.fm-row b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.fm-acts{display:flex;gap:6px;padding:10px 14px 12px;border-top:1px solid var(--border)}
+.fm-acts a,.fm-acts button{flex:1;text-align:center;font:inherit;font-weight:650;font-size:12px;text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:6px 0;color:var(--text-2);cursor:pointer}
+.fm-acts .p{background:var(--accent);border-color:var(--accent);color:#fff}
 .fl-map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;background:var(--surface);z-index:3;text-align:center;padding:20px}
 .fl-map-empty b{color:var(--text);font-weight:650}
 #fl-map-btn[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
@@ -2087,42 +2122,128 @@ document.addEventListener('keydown', function(e) {
   function initMap() {
     if (map) return;
     map = new google.maps.Map(document.getElementById('fl-map'), { zoom: 2, center: {lat:20,lng:0}, mapTypeControl:false, streetViewControl:false, fullscreenControl:true, keyboardShortcuts:false, gestureHandling:'greedy', styles: styles() });
-    iw = new google.maps.InfoWindow();
-    window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: styles()}); });
+    iw = new google.maps.InfoWindow({ headerDisabled:true, maxWidth:300 });
+    window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: styles()}); if (last) render(last.pts, last.total, true); });
   }
-  function render(pts, total) {
+  function cv(n){ return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+  function ago(iso){
+    var t = Date.parse(iso); if (!t) return '';
+    var m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    if (m < 2) return 'now'; if (m < 60) return m + ' min';
+    var h = Math.round(m / 60); if (h < 48) return h + ' h';
+    return Math.round(h / 24) + ' d';
+  }
+  // One blip per site: devices that share p.site (a restaurant, or a ~30 m cell) are one place.
+  function groupSites(pts){
+    var by = {}, order = [];
+    pts.forEach(function(p){
+      var k = p.site || p.serial, s = by[k];
+      if (!s) { s = by[k] = { key:k, devs:[], lat:0, lon:0, on:0 }; order.push(k); }
+      s.devs.push(p); s.lat += p.lat; s.lon += p.lon; if (p.online) s.on++;
+    });
+    return order.map(function(k){
+      var s = by[k], f = s.devs[0];
+      s.n = s.devs.length; s.lat /= s.n; s.lon /= s.n;
+      s.name = f.restaurant || f.name; s.rid = f.restaurant_id || ''; s.addr = f.address || '';
+      return s;
+    });
+  }
+  // Ring = share online (red under 60%), number = devices. A lone device is a plain dot.
+  function blipSvg(n, on){
+    var ok = cv('--ok') || '#22c55e', bad = cv('--danger') || '#ef4444', grey = cv('--text-faint') || '#94a3b8', face = cv('--surface') || '#fff';
+    var share = n ? on / n : 0;
+    if (n === 1) {
+      return { size:20, svg:'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="7.5" fill="'+(on?ok:grey)+'" stroke="'+face+'" stroke-width="2.5"/></svg>' };
+    }
+    var size = n < 10 ? 46 : n < 100 ? 52 : 58, r = (size - 6) / 2, c = 2 * Math.PI * r, col = share < 0.6 ? bad : ok;
+    return { size:size, svg:'<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+(r+3)+'" fill="'+face+'"/><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="'+grey+'" stroke-width="5"/><circle cx="'+(size/2)+'" cy="'+(size/2)+'" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="5" stroke-dasharray="'+(c*share)+' '+c+'" transform="rotate(-90 '+(size/2)+' '+(size/2)+')"/></svg>' };
+  }
+  function blipIcon(n, on, label){
+    var b = blipSvg(n, on), r = b.size / 2;
+    var o = { icon:{ url:'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(b.svg), scaledSize:new google.maps.Size(b.size, b.size), anchor:new google.maps.Point(r, r) } };
+    if (label) o.label = { text:String(n), color:cv('--text') || '#111', fontSize:'14px', fontWeight:'700' };
+    return o;
+  }
+  function popup(s){
+    if (s.n === 1) {
+      var p = s.devs[0], pct = Math.max(0, Math.min(100, p.battery || 0));
+      return '<div class="fm-card"><div class="fm-h"><div><b class="fm-sn" style="font-size:13px">'+esc(p.serial)+'</b><div class="fm-sub">'+esc(p.name)+(p.address?' · '+esc(p.address):'')+'</div></div><span class="fm-pill'+(p.online?'':' off')+'">'+(p.online?'Online':'Offline')+'</span></div>'
+        + '<div class="fm-body">'+(p.battery?'<div class="fm-meter"><i style="width:'+pct+'%"></i></div><div class="fm-row">Battery<b>'+pct+'%</b></div>':'')
+        + (p.product?'<div class="fm-row">Model<b>'+esc(p.product)+'</b></div>':'') + (p.build?'<div class="fm-row">Build<b>'+esc(p.build)+'</b></div>':'')
+        + '<div class="fm-row">Last seen<b>'+esc(ago(p.last_seen))+'</b></div></div>'
+        + '<div class="fm-acts"><a class="p" href="/devices/'+encodeURIComponent(p.serial)+'">Open device</a><button type="button" data-fm="close">Close</button></div></div>';
+    }
+    var devs = s.devs.slice().sort(function(a, b){ return (a.online - b.online) || a.serial.localeCompare(b.serial); });
+    var rows = devs.slice(0, 8).map(function(p){
+      return '<a href="/devices/'+encodeURIComponent(p.serial)+'"><i class="'+(p.online?'':'off')+'"></i><span class="fm-sn">'+esc(p.serial)+'</span><span class="fm-m">'+(p.battery?p.battery+'% · ':'')+esc(ago(p.last_seen))+'</span></a>';
+    }).join('');
+    var more = devs.length > 8 ? '<div class="fm-more">+ '+(devs.length - 8)+' more</div>' : '';
+    var acts = (s.rid ? '<a class="p" href="/restaurants/'+encodeURIComponent(s.rid)+'">Open restaurant</a><button type="button" data-fm="filter" data-rid="'+esc(s.rid)+'">Filter list to this</button>' : '<button type="button" data-fm="close">Close</button>');
+    return '<div class="fm-card"><div class="fm-h"><div><b>'+esc(s.name)+'</b><div class="fm-sub">'+(s.addr?esc(s.addr)+' · ':'')+s.n+' devices · '+s.on+' online</div></div><button type="button" class="fm-x" data-fm="close" aria-label="Close">✕</button></div><div class="fm-list">'+rows+'</div>'+more+'<div class="fm-acts">'+acts+'</div></div>';
+  }
+  pane.addEventListener('click', function(e){
+    var t = e.target.closest && e.target.closest('[data-fm]'); if (!t) return;
+    if (t.dataset.fm === 'close' && iw) iw.close();
+    if (t.dataset.fm === 'filter' && typeof navigateDevices === 'function') { if (iw) iw.close(); navigateDevices({ page:'1', restaurant:t.dataset.rid }); }
+  });
+  // Mirror the list's filter chips (plus the rail's restaurant/group, which has no chip there)
+  // above the map; their buttons call the same clearOne/clearFilters the list uses.
+  function syncChips(){
+    var bar = document.getElementById('fl-map-bar'), box = document.getElementById('fl-map-chips');
+    var src = document.querySelector('#device-table-container .fleet-chips');
+    var html = '';
+    var v = (typeof getFilterVals === 'function') ? getFilterVals() : {}, kind = v.restaurant ? 'restaurant' : v.group ? 'group' : '', id = v.restaurant || v.group || '';
+    var a = kind ? document.querySelector('.fleet-rail-list[data-sec="'+kind+'s"] a[href*="'+kind+'='+id+'"]') : null;
+    var nm = a && a.closest('.fleet-rail-item') && a.closest('.fleet-rail-item').querySelector('.nm');
+    if (nm) html += '<span class="fchip"><span class="k">'+(kind === 'group' ? 'Group' : 'Restaurant')+'</span> '+esc(nm.textContent.trim())+' <button type="button" class="x" onclick="navigateDevices({page:\'1\',restaurant:\'\',group:\'\'})" aria-label="Clear collection">×</button></span>';
+    if (src) html += src.innerHTML;
+    box.innerHTML = html;
+    box.hidden = !html;
+    bar.hidden = !html && !document.getElementById('fl-map-un').textContent;
+  }
+  function syncUnlocated(missing){
+    var un = document.getElementById('fl-map-un');
+    un.innerHTML = missing > 0 ? missing + ' without a location <button type="button" onclick="flToggleMap(false)">Back to list</button>' : '';
+    syncChips();
+  }
+  var last = null;
+  function render(pts, total, keepView) {
+    last = { pts:pts, total:total };
+    syncUnlocated(Math.max(0, total - pts.length));
     if (clusterer) { clusterer.clearMarkers(); clusterer = null; }
     markers.forEach(function(m){ m.setMap(null); }); markers = [];
+    if (iw) iw.close();
     var old = pane.querySelector('.fl-map-empty'); if (old) old.remove();
-    document.getElementById('fl-map-count').textContent = pts.length + ' of ' + total + ' located';
+    var sites = groupSites(pts);
+    document.getElementById('fl-map-count').textContent = pts.length + ' of ' + total + ' located' + (sites.length < pts.length ? ' · ' + sites.length + ' sites' : '');
     if (!pts.length) {
       var e = document.createElement('div'); e.className = 'fl-map-empty';
       e.innerHTML = '<b>No located devices in this view</b>Devices appear once the geolocation pipeline resolves their position.';
       pane.querySelector('.fl-map').appendChild(e); return;
     }
     var bounds = new google.maps.LatLngBounds();
-    pts.forEach(function(p){
-      var mk = new google.maps.Marker({ position:{lat:p.lat,lng:p.lon}, map:map, title:p.serial,
-        icon:{ path:google.maps.SymbolPath.CIRCLE, scale:8, fillColor:p.online?'#22c55e':'#94a3b8', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 } });
-      mk.addListener('click', function(){
-        iw.setContent('<div style="min-width:160px;font-size:13px"><b>'+esc(p.name)+'</b><div style="opacity:.7;font-family:monospace">'+esc(p.serial)+'</div>'+(p.address?'<div>'+esc(p.address)+'</div>':'')+'<div style="margin:4px 0">'+(p.online?'🟢 online':'⚪ offline')+(p.battery?' · 🔋 '+p.battery+'%':'')+'</div><a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a></div>');
-        iw.open(map, mk);
-      });
+    sites.forEach(function(s){
+      var o = blipIcon(s.n, s.on, s.n > 1);
+      var mk = new google.maps.Marker({ position:{lat:s.lat,lng:s.lon}, map:map, title:s.name + (s.n > 1 ? ' · ' + s.n + ' devices' : ''), icon:o.icon, label:o.label, optimized:false });
+      mk.nDev = s.n; mk.nOn = s.on;
+      mk.addListener('click', function(){ iw.setContent(popup(s)); iw.open(map, mk); });
       markers.push(mk); bounds.extend(mk.getPosition());
     });
     if (window.markerClusterer && markers.length > 1) {
-      var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#f9674e';
+      // A cluster of sites is still devices: sum them so the number never changes with zoom.
       clusterer = new markerClusterer.MarkerClusterer({ map:map, markers:markers, renderer:{ render:function(c){
-        var size = c.count<10?34:c.count<100?42:50, r=size/2;
-        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'"><circle cx="'+r+'" cy="'+r+'" r="'+(r-2)+'" fill="'+accent+'" stroke="#fff" stroke-width="2.5"/></svg>';
-        return new google.maps.Marker({ position:c.position, icon:{ url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(size,size), anchor:new google.maps.Point(r,r) }, label:{ text:String(c.count), color:'#fff', fontSize:'12.5px', fontWeight:'700' }, zIndex:1000+c.count });
+        var n = 0, on = 0; c.markers.forEach(function(m){ n += m.nDev; on += m.nOn; });
+        var o = blipIcon(n, on, true);
+        return new google.maps.Marker({ position:c.position, icon:o.icon, label:o.label, zIndex:1000 + n });
       } } });
     }
+    if (keepView) return;
     if (markers.length === 1) { map.setCenter(markers[0].getPosition()); map.setZoom(13); }
     else { google.maps.event.addListenerOnce(map, 'bounds_changed', function(){ if (map.getZoom() > 15) map.setZoom(15); }); map.fitBounds(bounds, 40); }
   }
   function load() {
     if (!active()) return;
+    syncChips();
     if (loading) { pending = true; return; }
     loading = true;
     var vals = (typeof getFilterVals === 'function') ? getFilterVals() : {};
@@ -2148,6 +2269,9 @@ document.addEventListener('keydown', function(e) {
   document.body.addEventListener('htmx:afterSwap', function (evt) {
     if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') load();
   });
+  // The roster swaps before history.pushState, so the afterSwap load above can read the
+  // previous scope from location.search; this one runs once the URL is the new one.
+  document.body.addEventListener('fleet:scoped', load);
   try { if (localStorage.getItem('mdm-fleet-view') === 'map') window.flToggleMap(true); } catch (e) {}
 })();
 </script>
