@@ -137,6 +137,25 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .cam-tile.on .cam-tick{display:flex}
 .cam-pick{font-size:11px;padding:3px 6px}
 .cam-pick[hidden]{display:none}
+.cam-meta{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cam-btn{overflow:hidden}
+.cam-caret{position:absolute;right:8px;bottom:6px;font-size:10px;color:var(--muted)}
+.cam-tile.open .cam-btn{border-color:var(--accent)}
+.cam-tickn{min-width:18px;width:auto;padding:0 5px;border-radius:99px;font-size:10.5px;font-weight:700}
+.cam-tile.on .cam-tickn{display:flex}
+.cam-panel{grid-column:1/-1;border:1px solid var(--accent);background:var(--surface);border-radius:12px;margin:2px 0 4px;overflow:hidden}
+.cam-ph{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-weight:650;font-size:13px}
+.cam-ph img,.cam-ph .cam-mono{width:28px;height:28px;border-radius:8px;font-size:13px}
+.cam-ph .hint{margin-left:auto;font-weight:400;color:var(--muted);font-size:12px}
+.cam-pr{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12.5px}
+.cam-pr:last-child{border-bottom:0}
+.cam-pr.on{background:var(--accent-soft)}
+.cam-pl{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer}
+.cam-vn{font-weight:650;min-width:72px}
+.cam-pk{color:var(--muted);font-family:var(--mono,monospace);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cam-lat{font-size:10.5px;color:var(--ok);font-weight:700}
+.cam-one{color:var(--muted);font-size:11.5px}
+.cam-pr .cam-pick{width:auto;flex:none;max-width:45%}
 .co-menu{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);overflow:hidden;z-index:40;display:none;width:min(400px,92vw)}
 .co-menu.on{display:block;animation:co-fade var(--dur-slow) var(--ease)}
 @keyframes co-fade{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
@@ -1285,7 +1304,13 @@ window.CMD_PREFILL = {{.Prefill}};
   // ── App picker popup: one tile per app family, variant/version chooser under a
   // selected tile, multi-select, one Add. Built from DS.apps (ordered family,
   // prod first, newest first; each row carries family/variant/latest). ──
-  var AM = { fams: [], sel: {} };
+  // Selection is per variant, not per app: a family can have several variants chosen at once
+  // (Nugget prod + internal + qa), each with its own version. AM.sel maps "family||variant"
+  // to the chosen build's url; AM.ver remembers the version picked for a variant even while it
+  // is unticked. A one-build app is a plain tile (one click selects it); anything with several
+  // variants or versions opens a panel under its row of tiles.
+  var AM = { fams: [], sel: {}, ver: {}, open: null, focus: null };
+  function amKey(f, v) { return f.key + '||' + v; }
   function amFamilies() {
     var map = {}, out = [];
     DS.apps.forEach(function (a) {
@@ -1298,52 +1323,102 @@ window.CMD_PREFILL = {{.Prefill}};
     out.forEach(function (f) { f.def = (f.variants.prod && f.variants.prod[0]) || f.entries[0]; });
     return out;
   }
+  function amLatest(list) { return list.filter(function (a) { return a.latest; })[0] || list[0]; }
+  function amCurrent(f, v) {
+    var k = amKey(f, v), list = f.variants[v], u = AM.ver[k];
+    return (u && list.filter(function (a) { return a.url === u; })[0]) || amLatest(list);
+  }
   window.openAppModal = function () {
     if (!CAN) return;
-    AM.fams = amFamilies(); AM.sel = {};
-    AM.fams.forEach(function (f) { f.entries.forEach(function (a) { if (S.apps.some(function (x) { return x.url === a.url; })) AM.sel[f.key] = a.url; }); });
+    AM.fams = amFamilies(); AM.sel = {}; AM.ver = {}; AM.open = null; AM.focus = null;
+    AM.fams.forEach(function (f) { f.entries.forEach(function (a) { if (S.apps.some(function (x) { return x.url === a.url; })) { var k = amKey(f, a.variant || 'prod'); AM.sel[k] = a.url; AM.ver[k] = a.url; } }); });
     var q = el('cam-q'); if (q) q.value = '';
-    amRender(); el('co-app-modal').classList.add('modal-open'); if (q) setTimeout(function () { q.focus(); }, 30);
+    el('co-app-modal').classList.add('modal-open');
+    amRender(); if (q) setTimeout(function () { q.focus(); }, 30);
   };
   window.closeAppModal = function (e) { if (e && e.target && e.target !== el('co-app-modal')) return; el('co-app-modal').classList.remove('modal-open'); };
+  function amPanel(f) {
+    var p = document.createElement('div'); p.className = 'cam-panel'; p.setAttribute('role', 'group'); p.setAttribute('aria-label', f.name + ' variants');
+    var ic = f.icon ? '<img src="data:image/png;base64,' + f.icon + '" alt="">' : '<span class="cam-mono">' + esc((f.name || '?').slice(0, 1)) + '</span>';
+    var h = '<div class="cam-ph">' + ic + esc(f.name) + '<span class="hint">tick any variants · choose a version for each</span></div>';
+    f.order.forEach(function (v) {
+      var k = amKey(f, v), list = f.variants[v], cur = amCurrent(f, v), on = !!AM.sel[k];
+      h += '<div class="cam-pr' + (on ? ' on' : '') + '" data-k="' + esc(k) + '"><label class="cam-pl"><input type="checkbox" class="cam-cb"' + (on ? ' checked' : '') + '><span class="cam-vn">' + esc(v) + '</span><span class="cam-pk">' + esc(cur.pkg || tail(cur.url)) + '</span>' + (cur.latest ? '<span class="cam-lat">latest</span>' : '') + '</label>';
+      if (list.length > 1) {
+        h += '<select class="form-input cam-pick" aria-label="Version of ' + esc(v) + '">';
+        list.forEach(function (a) { h += '<option value="' + esc(a.url) + '"' + (a.url === cur.url ? ' selected' : '') + '>' + esc(a.ver ? 'v' + a.ver : 'unversioned') + (a.latest ? ' (latest)' : '') + '</option>'; });
+        h += '</select>';
+      } else {
+        h += '<span class="cam-one">' + esc(cur.ver ? 'v' + cur.ver : 'unversioned') + '</span>';
+      }
+      h += '</div>';
+    });
+    p.innerHTML = h;
+    f.order.forEach(function (v) {
+      var k = amKey(f, v), row = p.querySelector('.cam-pr[data-k="' + k.replace(/"/g, '\\"') + '"]');
+      row.querySelector('.cam-cb').addEventListener('change', function () {
+        if (AM.sel[k]) delete AM.sel[k]; else AM.sel[k] = amCurrent(f, v).url;
+        AM.focus = { k: k, kind: 'input' }; amRender();
+      });
+      var sl = row.querySelector('.cam-pick');
+      if (sl) sl.addEventListener('change', function () { AM.ver[k] = sl.value; if (AM.sel[k]) AM.sel[k] = sl.value; AM.focus = { k: k, kind: 'select' }; amRender(); });
+    });
+    return p;
+  }
   function amRender() {
-    var q = (el('cam-q').value || '').toLowerCase(), grid = el('cam-grid'), n = 0, shown = 0;
+    var q = (el('cam-q').value || '').toLowerCase(), grid = el('cam-grid'), shown = [];
     grid.innerHTML = '';
     AM.fams.forEach(function (f) {
       var hay = (f.name + ' ' + f.entries.map(function (a) { return a.pkg + ' ' + (a.variant || ''); }).join(' ')).toLowerCase();
-      if (q && hay.indexOf(q) < 0) return;
-      shown++;
-      var cur = AM.sel[f.key], on = !!cur, pick = on ? f.entries.filter(function (a) { return a.url === cur; })[0] || f.def : f.def;
+      if (!q || hay.indexOf(q) >= 0) shown.push(f);
+    });
+    // Tiles per row, so the panel can open under the clicked tile's whole row.
+    var cols = Math.max(1, Math.floor((grid.clientWidth + 8) / 140));
+    var tiles = [], openAt = -1;
+    shown.forEach(function (f, i) {
       var nv = f.order.length, ne = f.entries.length, grouped = nv > 1 || ne > 1;
-      var w = document.createElement('div'); w.className = 'cam-tile' + (on ? ' on' : '') + (grouped ? ' is-family' : '');
+      var nsel = f.order.filter(function (v) { return AM.sel[amKey(f, v)]; }).length, on = nsel > 0, isOpen = AM.open === f.key;
+      var pick = grouped ? amCurrent(f, f.order.filter(function (v) { return AM.sel[amKey(f, v)]; })[0] || (f.variants.prod ? 'prod' : f.order[0])) : f.def;
+      var w = document.createElement('div'); w.className = 'cam-tile' + (on ? ' on' : '') + (grouped ? ' is-family' : '') + (isOpen ? ' open' : '');
       var ic = f.icon ? '<img src="data:image/png;base64,' + f.icon + '" alt="">' : '<span class="cam-mono">' + esc((f.name || '?').slice(0, 1)) + '</span>';
-      var vlabel = (pick.variant && pick.variant !== 'prod' ? pick.variant + ' · ' : '') + (pick.ver ? 'v' + pick.ver : '');
-      var h = '<button type="button" class="cam-btn">' + ic + '<span class="cam-name">' + esc(f.name) + '</span><span class="cam-ver">' + esc(vlabel) + '</span>' + (grouped ? '<span class="cam-meta">' + (nv > 1 ? nv + ' variant' + (nv === 1 ? '' : 's') + ' · ' : '') + ne + ' version' + (ne === 1 ? '' : 's') + '</span>' : '') + '<span class="cam-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span></button>';
-      if (f.entries.length > 1) {
-        h += '<select class="form-input cam-pick"' + (on ? '' : ' hidden') + '>';
-        f.order.forEach(function (v) {
-          h += '<optgroup label="' + esc(v) + '">';
-          f.variants[v].forEach(function (a) { h += '<option value="' + esc(a.url) + '"' + (a.url === pick.url ? ' selected' : '') + '>' + esc(a.ver ? 'v' + a.ver : 'unversioned') + (a.latest ? ' (latest)' : '') + '</option>'; });
-          h += '</optgroup>';
-        });
-        h += '</select>';
-      }
-      w.innerHTML = h;
+      var sub = grouped
+        ? (on ? nsel + ' of ' + nv + ' variant' + (nv === 1 ? '' : 's') + ' chosen' : (nv > 1 ? nv + ' variants' : '') + (nv > 1 && ne > 1 ? ' · ' : '') + (ne > 1 ? ne + ' versions' : ''))
+        : (pick.variant && pick.variant !== 'prod' ? pick.variant + ' · ' : '') + (pick.ver ? 'v' + pick.ver : '');
+      var tick = nsel > 1 ? '<span class="cam-tick cam-tickn">' + nsel + '</span>' : '<span class="cam-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>';
+      w.innerHTML = '<button type="button" class="cam-btn"' + (grouped ? ' aria-expanded="' + isOpen + '"' : '') + '>' + ic + '<span class="cam-name">' + esc(f.name) + '</span><span class="cam-ver">' + esc(sub) + '</span>' + (grouped ? '<span class="cam-caret" aria-hidden="true">' + (isOpen ? '▴' : '▾') + '</span>' : '') + tick + '</button>';
       w.querySelector('.cam-btn').addEventListener('click', function () {
-        if (AM.sel[f.key]) delete AM.sel[f.key]; else { var sl = w.querySelector('.cam-pick'); AM.sel[f.key] = sl ? sl.value : f.def.url; }
+        if (grouped) { AM.open = isOpen ? null : f.key; }
+        else { var k = amKey(f, f.def.variant || 'prod'); if (AM.sel[k]) delete AM.sel[k]; else AM.sel[k] = f.def.url; }
         amRender();
       });
-      var sl = w.querySelector('.cam-pick'); if (sl) sl.addEventListener('change', function () { AM.sel[f.key] = sl.value; amRender(); });
-      grid.appendChild(w);
+      tiles.push(w);
+      if (isOpen) openAt = i;
     });
-    n = Object.keys(AM.sel).length;
+    var panelAfter = openAt < 0 ? -1 : Math.min(tiles.length - 1, (Math.floor(openAt / cols) + 1) * cols - 1);
+    tiles.forEach(function (w, i) {
+      grid.appendChild(w);
+      if (i === panelAfter) grid.appendChild(amPanel(shown[openAt]));
+    });
+    var n = Object.keys(AM.sel).length;
     el('cam-count').textContent = n ? n + ' selected' : 'Pick one or more apps';
     el('cam-add').disabled = !n; el('cam-add').textContent = n ? 'Add ' + n + ' app' + (n === 1 ? '' : 's') : 'Add';
-    el('cam-empty').hidden = shown > 0;
+    el('cam-empty').hidden = shown.length > 0;
+    if (AM.focus) {
+      var row = grid.querySelector('.cam-pr[data-k="' + AM.focus.k.replace(/"/g, '\\"') + '"]'), tgt = row && row.querySelector(AM.focus.kind === 'select' ? 'select' : 'input');
+      if (tgt) tgt.focus();
+      AM.focus = null;
+    }
   }
+  window.addEventListener('resize', function () { if (el('co-app-modal').classList.contains('modal-open')) amRender(); });
   window.amApply = function () {
     var picked = [];
-    AM.fams.forEach(function (f) { var u = AM.sel[f.key]; if (!u) return; var a = f.entries.filter(function (x) { return x.url === u; })[0]; if (a) picked.push({ url: a.url, name: f.name + (a.variant && a.variant !== 'prod' ? ' · ' + a.variant : '') + (a.ver ? ' v' + a.ver : '') }); });
+    AM.fams.forEach(function (f) {
+      f.order.forEach(function (v) {
+        var u = AM.sel[amKey(f, v)]; if (!u) return;
+        var a = f.entries.filter(function (x) { return x.url === u; })[0];
+        if (a) picked.push({ url: a.url, name: f.name + (a.variant && a.variant !== 'prod' ? ' · ' + a.variant : '') + (a.ver ? ' v' + a.ver : '') });
+      });
+    });
     S.apps = picked; updateUI(); el('co-app-modal').classList.remove('modal-open');
   };
   window.amSearch = function () { amRender(); };
