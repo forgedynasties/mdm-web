@@ -106,6 +106,10 @@ type Config struct {
 	// Minimum seconds between two stored check-in rows for one device when nothing
 	// but volatile fields changed (0 -> default 30). Transitions always store a row.
 	CheckinSampleSecVal int `json:"checkin_sample_sec"`
+	// How far (metres) a device may be from its venue before the fleet map calls it away from
+	// venue (0 -> DefaultAwayLimitM). A Wi-Fi fix is often 50-150 m out and a big site is
+	// 200 m across, so the default is not tight.
+	AwayLimitMVal int `json:"away_limit_m"`
 	// History older than CheckinDownsampleDaysVal is thinned to one row per device per
 	// CheckinDownsampleSecVal, instead of being deleted: the shape of the week stays
 	// readable years later, at a fraction of the rows. 0 days = off.
@@ -866,6 +870,18 @@ func (c *Config) LogcatRetentionDays() int {
 // applied anyway, because sensor jitter was counting as a state change; with that
 // fixed the window is what actually governs the row rate.
 const DefaultCheckinSampleSec = 60
+
+// DefaultAwayLimitM is the venue distance beyond which a device counts as away.
+const DefaultAwayLimitM = 300
+
+func (c *Config) AwayLimitM() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AwayLimitMVal <= 0 {
+		return DefaultAwayLimitM
+	}
+	return c.AwayLimitMVal
+}
 
 func (c *Config) CheckinSampleSec() int {
 	c.mu.RLock()
