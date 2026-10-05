@@ -21160,16 +21160,10 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			viewers++
 		}
 	}
-	// The old built-in login (actor "admin") has no users row, so it would otherwise
-	// show up here as "unlinked" for as long as its history exists.
+	// The old built-in login (actor "admin") has no users row, so its history shows up
+	// as "unlinked" here, to be merged into a person (the existing Merge on this page).
 	summaries, _ := h.db.ActorSummaries(r.Context())
 	orphans, _ := h.db.ListOrphanActors(r.Context())
-	for i := 0; i < len(orphans); i++ {
-		if orphans[i].Username == legacyAdminActor {
-			orphans = append(orphans[:i], orphans[i+1:]...)
-			i--
-		}
-	}
 	grantCounts, _ := h.db.CountAccessGrants(r.Context(), sensitiveActionKeys)
 	h.render(w, r, "users.html", map[string]any{
 		"Users":     users,
