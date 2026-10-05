@@ -26,6 +26,16 @@ type wallSquare struct {
 	Serial string
 	State  string // on | warn | off | dormant
 	Tip    string
+	Class  string // device-class label (product.ClassLabel), for grouping within a block
+}
+
+// wallClassGroup is one device class's squares within a restaurant block — a T7 can't be
+// told apart from a KDS by colour alone (status is the only thing colour carries), so the
+// wall groups squares by class instead of one flat grid per restaurant.
+type wallClassGroup struct {
+	Label   string
+	Cols    int
+	Squares []wallSquare
 }
 
 // wallBlock is one restaurant's squares, or one device type's devices with no
@@ -36,8 +46,8 @@ type wallBlock struct {
 	Health  string // ok | warn | bad; "" for the no-restaurant block
 	Online  int
 	Total   int
-	Cols    int
-	Squares []wallSquare
+	Groups  []wallClassGroup
+	squares []wallSquare // accumulator; folded into Groups by buildWall before returning
 }
 
 // mapSite is one restaurant dot on the Overview map.
@@ -123,6 +133,7 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 			status += " · " + a.issue
 		}
 		sq.Tip = d.Serial + " · " + label + " · " + status
+		sq.Class = label
 
 		var b *wallBlock
 		if d.RestaurantID == nil {
@@ -140,7 +151,7 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 				blocks[*d.RestaurantID] = b
 			}
 		}
-		b.Squares = append(b.Squares, sq)
+		b.squares = append(b.squares, sq)
 		b.Total++
 		if sq.State == "on" || sq.State == "warn" {
 			b.Online++
@@ -174,13 +185,39 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 		return rest[i].Name < rest[j].Name
 	})
 	out = append(out, rest...)
+	// Offline before alerting before online, so a group's trouble reads as one clump; a
+	// group containing worse trouble sorts before a calmer one, same idea one level up.
+	order := map[string]int{"off": 0, "warn": 1, "dormant": 2, "on": 3}
 	for i := range out {
-		out[i].Cols = int(math.Max(3, math.Ceil(math.Sqrt(float64(out[i].Total)*1.5))))
-		// Offline before alerting before online, so a block's trouble reads as one clump.
-		order := map[string]int{"off": 0, "warn": 1, "dormant": 2, "on": 3}
-		sort.SliceStable(out[i].Squares, func(a, b int) bool {
-			return order[out[i].Squares[a].State] < order[out[i].Squares[b].State]
+		byClass := map[string][]wallSquare{}
+		for _, sq := range out[i].squares {
+			byClass[sq.Class] = append(byClass[sq.Class], sq)
+		}
+		groups := make([]wallClassGroup, 0, len(byClass))
+		for label, sqs := range byClass {
+			sort.SliceStable(sqs, func(a, b int) bool { return order[sqs[a].State] < order[sqs[b].State] })
+			groups = append(groups, wallClassGroup{
+				Label:   label,
+				Cols:    int(math.Max(3, math.Ceil(math.Sqrt(float64(len(sqs))*1.5)))),
+				Squares: sqs,
+			})
+		}
+		sort.Slice(groups, func(a, b int) bool {
+			worst := func(g wallClassGroup) int {
+				w := order["on"]
+				for _, sq := range g.Squares {
+					if order[sq.State] < w {
+						w = order[sq.State]
+					}
+				}
+				return w
+			}
+			if wa, wb := worst(groups[a]), worst(groups[b]); wa != wb {
+				return wa < wb
+			}
+			return groups[a].Label < groups[b].Label
 		})
+		out[i].Groups = groups
 	}
 	return out
 }
@@ -229,9 +266,11 @@ func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPo
 		}
 		site := mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
 			Online: b.Online, Health: b.Health, Issue: issues[b.ID], Uptime: upBy[b.ID]}
-		for _, sq := range b.Squares {
-			if sq.State == "off" || sq.State == "dormant" {
-				site.Silent = append(site.Silent, sq.Serial)
+		for _, g := range b.Groups {
+			for _, sq := range g.Squares {
+				if sq.State == "off" || sq.State == "dormant" {
+					site.Silent = append(site.Silent, sq.Serial)
+				}
 			}
 		}
 		sites = append(sites, site)

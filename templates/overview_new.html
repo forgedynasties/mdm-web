@@ -54,6 +54,11 @@
 .ovd-wb .nm a:hover{color:var(--text);text-decoration:underline}
 .ovd-wb.bad .nm a{color:var(--danger)}
 .ovd-wb .sq{display:grid;gap:2px}
+/* Grouped by class: a labeled row per class instead of one flat grid, so two classes in
+   the same restaurant never look like the same device at a glance. */
+.ovd-wb .ovd-grp{display:flex;flex-direction:column;gap:5px}
+.ovd-wb .ovd-grp .row{display:flex;align-items:center;gap:7px}
+.ovd-wb .ovd-grp .gl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);min-width:40px;flex:none}
 .ovd-wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
 .ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
 .ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
@@ -263,7 +268,9 @@
           {{range .Wall}}
           <div class="ovd-wb {{.Health}}">
             <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
-            <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
+            <div class="ovd-grp">{{range .Groups}}
+            <div class="row"><span class="gl">{{.Label}}</span><div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div></div>
+            {{end}}</div>
           </div>
           {{end}}
         </div>

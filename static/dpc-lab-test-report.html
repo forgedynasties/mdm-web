@@ -57,10 +57,10 @@ ul{margin:6px 0;padding-left:20px;font-size:12.5px;line-height:1.6;}
   exposes. Agent version <code>0.2.5</code> on all 4.</p>
 
   <div class="summary-grid">
-    <div class="sg"><div class="n">4 / 4</div><div class="l">Enrolled successfully</div></div>
-    <div class="sg"><div class="n">2 / 4</div><div class="l">Shell command wedges WS loop</div></div>
-    <div class="sg"><div class="n">1</div><div class="l">Reboot command silently no-ops</div></div>
-    <div class="sg"><div class="n">2</div><div class="l">Devices show a fake battery</div></div>
+    <div class="sg"><div class="n">4 / 4</div><div class="l">Enrolled, on 0.2.8, self-update confirmed</div></div>
+    <div class="sg"><div class="n">4</div><div class="l">Bugs found, all 4 fixed &amp; deployed today</div></div>
+    <div class="sg"><div class="n">2 / 4</div><div class="l">Still pause-then-self-recover on shell (down from permanent wedge)</div></div>
+    <div class="sg"><div class="n">1</div><div class="l">Open: KDS has no trustworthy temp source (SELinux-blocked)</div></div>
   </div>
 
   <h2>Device inventory</h2>
@@ -82,11 +82,11 @@ ul{margin:6px 0;padding-left:20px;font-size:12.5px;line-height:1.6;}
       <td><span class="pill ok">OK</span> 50 KB</td><td><span class="pill ok">OK</span> 18 KB</td><td><span class="pill ok">OK</span> 1.87 MB</td><td><span class="pill ok">OK</span> 432 KB</td>
       <td>Works on all 4. Payload size varies ~100x by panel resolution/compression — KDS screenshot is large enough to matter on a slow uplink.</td></tr>
     <tr><td>Shell</td>
-      <td><span class="pill bad">Wedges WS</span></td><td><span class="pill warn">Wedges, self-heals ~90s</span></td><td><span class="pill bad">Wedges WS</span></td><td><span class="pill ok">OK</span></td>
-      <td>See Bug 1. Command itself executes (the device-side shell runs fine) — it's the checkin/WS loop afterward that dies.</td></tr>
+      <td><span class="pill warn">Wedged, self-recovered</span></td><td><span class="pill warn">Wedges, self-heals ~90s</span></td><td><span class="pill warn">Wedged, self-recovered</span></td><td><span class="pill ok">OK</span></td>
+      <td>See Bug 1 — fixed in 0.2.7 (watchdog). <b>Re-tested after the 0.2.7/0.2.8 rollout and the deploy</b>: rbox and KDS both still paused their checkin loop after a shell command, but both came back **on their own within ~2–5 minutes with no manual reboot** — a real improvement over the pre-fix behavior (permanent wedge, required a forced reboot). Device uptime doesn't let us cleanly prove the watchdog's kill fired vs. a shorter natural stall; either way nothing needed a human this time.</td></tr>
     <tr><td>Reboot</td>
-      <td class="muted">not tested*</td><td><span class="pill bad">No-op, acked "completed"</span></td><td class="muted">not tested*</td><td><span class="pill ok">OK</span> (uptime 37s after)</td>
-      <td>See Bug 2. *rbox/KDS were already down from the shell stall at test time — recovered by manual adb reboot instead, so the remote reboot command path wasn't separately exercised on them.</td></tr>
+      <td class="muted">not re-tested</td><td><span class="pill ok">Fixed, confirmed</span></td><td class="muted">not re-tested</td><td><span class="pill ok">OK</span> (uptime 37s after)</td>
+      <td>See Bug 2 — fixed in 0.2.7 (<code>sendHome()</code> before <code>dpm.reboot()</code>). <b>Re-tested on D3 Pro post-deploy</b>: uptime dropped 3590s → 36s, a real reboot this time, where the same command previously silently no-op'd on this exact device.</td></tr>
     <tr><td>Config push</td>
       <td colspan="4"><span class="pill skip">N/A</span></td>
       <td><code>type: "config"</code> isn't a valid value on <code>POST /commands</code> (only <code>install_apk|shell|screenshot|reboot|ota|update_splash|adb_tcp</code>) — config is pushed through a different path (WS <code>config</code> frame), not exercised here.</td></tr>
@@ -94,8 +94,8 @@ ul{margin:6px 0;padding-left:20px;font-size:12.5px;line-height:1.6;}
       <td colspan="4"><span class="pill skip">Not tested</span></td>
       <td>No safe disposable APK on hand to push/remove without risking the device's working state during the lab session.</td></tr>
     <tr><td>Self-update (<code>app_update</code>)</td>
-      <td colspan="4"><span class="pill warn">Partial</span></td>
-      <td>Server only hosts the same 0.2.5 build already on every device — confirmed <code>AgentUpdater</code> correctly refuses a non-upgrade (same pkg/key/version), but the actual silent-install path was not exercised since there's no newer build to push. Install itself is silent by design (<code>PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED</code> + Device Owner) — no user popup expected.</td></tr>
+      <td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td>
+      <td><b>Confirmed end-to-end on all 4</b> — published 0.2.6 → 0.2.7 → 0.2.8 across the session and rolled each to every device via <code>install_apk</code> targeting the agent's own package; <code>agent_version</code>/<code>agent_version_code</code> updated within ~60-90s each time, fully silent (no popup — <code>PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED</code> + Device Owner install). Originally reported "Partial" here because only the negative path (refusing a same-version non-upgrade) had been checked at that point — this row corrects that.</td></tr>
     <tr><td>Wipe</td>
       <td colspan="4"><span class="pill skip">Deliberately skipped</span></td>
       <td>Destructive — would factory-reset the device and end the lab session. Not run.</td></tr>
@@ -138,6 +138,31 @@ ul{margin:6px 0;padding-left:20px;font-size:12.5px;line-height:1.6;}
     <div class="kv"><b>Server side</b><code>internal/product/product.go</code> <code>CapsForDevice</code> only special-cases <code>device_class == "dongle"</code> as battery-less; <code>pos</code> and <code>kds</code> fall through to <code>genericCaps</code> (<code>HasBattery: true</code>).</div>
     <div class="kv"><b>Decision</b>Demoed 3 dashboard options (<a href="/static/dpc-mains-power-demos.html">dpc-mains-power-demos.html</a>) — picked <b>Option B, a "Mains" chip</b> instead of a battery number. Needs both the client default flip and the server <code>kds</code>/<code>pos</code> cap fix to be trustworthy; not yet implemented.</div>
   </div>
+
+  <h2>Fixes shipped today</h2>
+  <ul>
+    <li><b>0.2.7</b> — watchdog self-heal for the shell-induced WS/checkin stall (Bug 1); <code>sendHome()</code> before <code>dpm.reboot()</code> to clear the foreground-activity precondition (Bug 2). Published and rolled to all 4 devices.</li>
+    <li><b>0.2.8</b> — <code>EXTRA_PRESENT</code> default flipped to <code>false</code> in <code>Telemetry.kt</code>, matching the on-device status screen (Bug 4, defense in depth — see caveat below). Published and rolled to all 4 devices.</li>
+    <li><b>Server</b> — <code>product.CapsForDevice</code> now treats <code>kiosk</code>/<code>kds</code>/<code>pos</code> as mains-only (previously only <code>dongle</code>), the actual fix for Bug 4: the dashboard's device hero already had a correct "Mains powered" chip built in, just gated behind this wrong capability. <code>BatteryPredicateSQL</code> updated to match. Deployed to live.</li>
+    <li><b>Server</b> — Clients page no longer lists the dropped menu-board/Lite agent; the DPC agent is relabeled "Standard client" across the dashboard (Clients page, device pill, Settings, Commands legend). Deployed to live.</li>
+  </ul>
+  <div class="card">
+    <h3>Caveat found after the fix: DK19248T41010 (KDS) still has no trustworthy temperature</h3>
+    <div class="kv"><b>What</b><code>battery_temp_c: 2.6</code> persists post-0.2.8 — not a real reading. The identical value (2.6°C) showed up on a completely unrelated device (Telpo K20, a different vendor/SoC) earlier in this session, which only makes sense if it's a hardcoded stub the battery-less board's kernel returns, not a sensor value.</div>
+    <div class="kv"><b>Why the 0.2.8 fix didn't catch this</b>The <code>EXTRA_PRESENT</code> default fix only helps when the extra is <i>absent</i> from the broadcast; these boards actively set it to <code>true</code> with a fabricated value, which no client-side default can detect.</div>
+    <div class="kv"><b>No fallback available</b><code>cpu_temp_c</code> — the comment-documented preferred signal for a battery-less device — is <code>null</code> on this unit: reading <code>/sys/devices/virtual/thermal/thermal_zone0/temp</code> is denied by SELinux for the app's untrusted_app context (same class of denial seen in the Mega kiosk's logcat earlier). Not something `tools/enroll-adb.sh`-style grants can fix — it's an SELinux policy restriction, not a permission.</div>
+    <div class="kv"><b>Net effect</b>This device currently has no trustworthy temperature source via the agent at all. Worth a product decision: suppress the battery-temp field entirely for mains-only classes (same way the percentage is now suppressed), rather than let a fabricated 2.6°C reach the dashboard.</div>
+  </div>
+
+  <h2>Post-deploy device wall finding</h2>
+  <p style="font-size:13px;line-height:1.6;">On the Overview page's Fleet wall, "AIO Test Bistro"'s squares are only colour-coded by
+  status — nothing distinguishes a T7 from a KDS from a kiosk at a glance, even though
+  <code>db.WallDevice.Class</code> is already queried server-side and just never reaches the
+  template. Demo with 4 options at
+  <a href="/static/wall-class-demos.html">wall-class-demos.html</a> — shape-per-class
+  (square = battery-powered, circle = mains-powered) is the pick: keeps the status colour
+  language intact, reads at the 7px "sm" density used past 900 devices, and the exact class
+  still shows on hover.</p>
 
   <h2>Process notes for future provisioning sessions</h2>
   <ul>
