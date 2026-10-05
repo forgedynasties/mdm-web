@@ -6414,6 +6414,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"HardwareSerial":      h.db.HardwareSerialOf(ctx, device.SerialNumber),
 		"NuggetIDs":           nuggetAndroidIDs(device.LatestExtra),
+		"NuggetIDsSame":       nuggetIDsAllSame(nuggetAndroidIDs(device.LatestExtra)),
+		"NuggetIDsJSON":       nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
 		"NuggetIDByPackage":   nuggetIDByPackage(device.LatestExtra),
 		// The table guests are told they are at (home and lock screen on a T7).
 		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),

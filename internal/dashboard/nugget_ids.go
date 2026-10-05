@@ -34,6 +34,26 @@ func nuggetAndroidIDs(extra json.RawMessage) []NuggetID {
 	return out
 }
 
+// nuggetIDsJSON is the list as JSON, for the header chip to hand to its dialog.
+func nuggetIDsJSON(ids []NuggetID) string {
+	b, err := json.Marshal(ids)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+// nuggetIDsAllSame reports whether every variant has the same ID, which is the case when they
+// are signed with the same key. The header then shows the one ID instead of a count.
+func nuggetIDsAllSame(ids []NuggetID) bool {
+	for _, id := range ids {
+		if id.AndroidID != ids[0].AndroidID {
+			return false
+		}
+	}
+	return len(ids) > 0
+}
+
 // nuggetIDByPackage is the same as a lookup by package name, for the Apps tab.
 func nuggetIDByPackage(extra json.RawMessage) map[string]string {
 	m := map[string]string{}

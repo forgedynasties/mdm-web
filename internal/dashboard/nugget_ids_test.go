@@ -70,3 +70,11 @@ func TestAppsListShowsNuggetAndroidID(t *testing.T) {
 		t.Errorf("only the Nugget tile should carry an Android ID, got %d", strings.Count(out, "data-aid="))
 	}
 }
+
+func TestNuggetIDsAllSame(t *testing.T) {
+	same := []NuggetID{{"aio.app.nugget", "a1"}, {"aio.app.nugget.qa", "a1"}}
+	diff := []NuggetID{{"aio.app.nugget", "a1"}, {"aio.app.nugget.qa", "b2"}}
+	if !nuggetIDsAllSame(same) || nuggetIDsAllSame(diff) || nuggetIDsAllSame(nil) {
+		t.Errorf("same=%v diff=%v nil=%v", nuggetIDsAllSame(same), nuggetIDsAllSame(diff), nuggetIDsAllSame(nil))
+	}
+}

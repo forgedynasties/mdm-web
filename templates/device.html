@@ -60,7 +60,7 @@
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
     {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
-    {{if .NuggetIDs}}{{if eq (len .NuggetIDs) 1}}{{$n := index .NuggetIDs 0}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="The Android ID {{$n.Package}} uses to identify this tablet. Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span></button>{{else}}<span class="ddc-chip ddc-aid" title="{{range .NuggetIDs}}{{.Package}}: {{.AndroidID}}&#10;{{end}}Open the Apps tab to copy one."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></span>{{end}}{{end}}
+    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}}<span class="k">&times;{{len .NuggetIDs}}</span>{{end}}</button>{{else}}<button type="button" class="ddc-chip ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
 {{end}}
 
@@ -3604,6 +3604,12 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 
 {{/* App-info popup — click any app tile (user or system). Shows details; uninstall is
      enabled for user apps and disabled for system apps. Reuses data already on the tile. */}}
+<div class="modal-backdrop" id="aid-modal" onclick="if(event.target===this)aidClose()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Nugget Android IDs">
+    <div class="appinfo-head"><div class="appinfo-id"><div class="appinfo-name">Nugget Android IDs</div><div class="appinfo-pkg">What each Nugget app uses to identify this tablet</div></div><button type="button" class="modal-close" onclick="aidClose()" aria-label="Close">&times;</button></div>
+    <div class="appinfo-body" id="aid-list"></div>
+  </div>
+</div>
 <div class="modal-backdrop" id="appinfo-modal" onclick="appInfoBackdrop(event)">
   <div class="modal-box" role="dialog" aria-modal="true" aria-label="App info">
     <div class="appinfo-head">
@@ -3750,6 +3756,24 @@ window.aidCopy = function (btn, text) {
   var done = function () { var k = btn.querySelector('.mono') || btn, old = k.textContent; k.textContent = 'Copied'; setTimeout(function () { k.textContent = old; }, 1000); };
   try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) {}
 };
+// Header chip with several different Nugget IDs: list them in a dialog. The chip row is
+// re-fetched on every device update, so the dialog lives outside it and is built on click.
+window.aidList = function (btn) {
+  var m = document.getElementById('aid-modal'), host = document.getElementById('aid-list'); if (!m || !host) return;
+  var ids = []; try { ids = JSON.parse(btn.getAttribute('data-ids') || '[]'); } catch (e) {}
+  host.innerHTML = '';
+  ids.forEach(function (x) {
+    var row = document.createElement('div'); row.className = 'appinfo-row';
+    var k = document.createElement('span'); k.className = 'k'; k.textContent = x.package;
+    var v = document.createElement('span'); v.className = 'v mono'; v.textContent = x.android_id + ' ';
+    var c = document.createElement('button'); c.type = 'button'; c.className = 'ai-copy'; c.textContent = 'Copy';
+    c.onclick = function () { window.aidCopy(c, x.android_id); };
+    v.appendChild(c); row.appendChild(k); row.appendChild(v); host.appendChild(row);
+  });
+  m.classList.add('modal-open');
+};
+window.aidClose = function () { var m = document.getElementById('aid-modal'); if (m) m.classList.remove('modal-open'); };
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.aidClose(); });
 window.appInfoClose = function () { var m = document.getElementById('appinfo-modal'); if (m) m.classList.remove('modal-open'); };
 window.appInfoBackdrop = function (e) { if (e.target.id === 'appinfo-modal') window.appInfoClose(); };
 // Direct-to-S3 APK upload: presigned PUT (browser → S3), then register (server parses
