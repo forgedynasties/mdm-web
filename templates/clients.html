@@ -2,10 +2,11 @@
 {{template "header" .}}
 {{/* Clients: the MDM client each device runs, the build this server hosts for it, and
      what has been published to it. The client list stays on the left while you work in
-     one of them — there are five and they are picked between constantly. A slot exists
-     per thing that must be signed differently: the DPC agent has its own key, the
-     firmware client is signed with the platform key of its build variant, and the Lite
-     hosts are separate apps. A device is only ever offered its own slot's build. */}}
+     one of them. A slot exists per thing that must be signed differently: the standard
+     client has its own key, and the firmware client is signed with the platform key of its
+     build tree (QCOM is the only one actively published — GMS is frozen but kept
+     visible for any device still on it). A device is only ever offered its own slot's
+     build. */}}
 <style>
 .cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
 .cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}

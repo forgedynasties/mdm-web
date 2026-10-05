@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DPC lab test report — 4 devices · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1100px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+h2{font-size:16px;margin:36px 0 10px;letter-spacing:-.01em;border-top:1px solid var(--border);padding-top:22px;}
+h2:first-of-type{border-top:0;padding-top:0;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px;}
+th{text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);
+  padding:7px 10px;border-bottom:1px solid var(--border);}
+td{padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+tr:last-child td{border-bottom:0;}
+code{background:var(--surface-3);border-radius:4px;padding:1px 5px;font-size:11.5px;}
+.pill{display:inline-block;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap;}
+.pill.ok{background:var(--ok-bg);color:var(--ok);}
+.pill.bad{background:var(--danger-bg);color:var(--danger);}
+.pill.warn{background:rgba(229,170,10,.14);color:#8a6600;}
+html[data-theme="dark"] .pill.warn{background:rgba(229,170,10,.22);color:#f0c050;}
+.pill.skip{background:var(--surface-3);color:var(--text-faint);}
+.card{border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;background:var(--surface);}
+.card h3{margin:0 0 6px;font-size:13.5px;}
+.card .meta{color:var(--text-faint);font-size:11.5px;margin-bottom:10px;}
+.bugnum{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;
+  background:var(--danger);color:#fff;font-size:11px;font-weight:800;margin-right:8px;flex:none;}
+.sev{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;margin-left:8px;}
+.sev.high{background:var(--danger-bg);color:var(--danger);}
+.sev.med{background:rgba(229,170,10,.14);color:#8a6600;}
+html[data-theme="dark"] .sev.med{background:rgba(229,170,10,.22);color:#f0c050;}
+.kv{display:flex;gap:6px;font-size:12px;margin:3px 0;}
+.kv b{min-width:120px;color:var(--text-faint);font-weight:650;}
+ul{margin:6px 0;padding-left:20px;font-size:12.5px;line-height:1.6;}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 24px;}
+.sg{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surface);}
+.sg .n{font-size:22px;font-weight:800;}
+.sg .l{font-size:11px;color:var(--text-faint);font-weight:650;}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme">
+  <button data-t="light">Light</button><button data-t="dark">Dark</button>
+</div>
+<div class="wrap">
+  <h1>DPC agent — lab provisioning &amp; capability test report</h1>
+  <p class="lead">4 off-the-shelf devices enrolled via the DPC agent (adb path, since GMS Play
+  Protect still blocks QR/zero-touch for a non-allowlisted custom DPC) against
+  <code>mdm.dev.aioapp.com</code> on 2026-10-05, then run through every command the admin API
+  exposes. Agent version <code>0.2.5</code> on all 4.</p>
+
+  <div class="summary-grid">
+    <div class="sg"><div class="n">4 / 4</div><div class="l">Enrolled successfully</div></div>
+    <div class="sg"><div class="n">2 / 4</div><div class="l">Shell command wedges WS loop</div></div>
+    <div class="sg"><div class="n">1</div><div class="l">Reboot command silently no-ops</div></div>
+    <div class="sg"><div class="n">2</div><div class="l">Devices show a fake battery</div></div>
+  </div>
+
+  <h2>Device inventory</h2>
+  <table>
+    <tr><th>Device</th><th>Serial</th><th>Class</th><th>Android</th><th>Notes</th></tr>
+    <tr><td>Google HK1 RBOX D8</td><td><code>ADRB0AAK600026</code></td><td>dongle (menu board)</td><td>13</td><td>No touch, remote/D-pad only, leanback</td></tr>
+    <tr><td>Sunmi D3 Pro</td><td><code>DP02253X11001</code></td><td>pos</td><td>13</td><td>Already known to the server (enrolled 2026-09-11) — re-enrolled, key rotated</td></tr>
+    <tr><td>Sunmi D2s KDS</td><td><code>DK19248T41010</code></td><td>kds</td><td>11</td><td>Brand-new device, no prior record</td></tr>
+    <tr><td>ZC-3568K ("Mega" kiosk)</td><td><code>f8b99e0b509abf89</code></td><td>kiosk</td><td>11</td><td>Brand-new device; <code>device_class</code> got the right value on the <i>second</i> enroll attempt (first token was mis-scoped, see Bug 3)</td></tr>
+  </table>
+
+  <h2>Capability test matrix</h2>
+  <table>
+    <tr><th>Capability</th><th>rbox</th><th>D3 Pro</th><th>KDS</th><th>Kiosk</th><th>Notes</th></tr>
+    <tr><td>Enrollment / telemetry</td>
+      <td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td>
+      <td>All 4 check in every ~30s over WS, correct capability list advertised.</td></tr>
+    <tr><td>Screenshot</td>
+      <td><span class="pill ok">OK</span> 50 KB</td><td><span class="pill ok">OK</span> 18 KB</td><td><span class="pill ok">OK</span> 1.87 MB</td><td><span class="pill ok">OK</span> 432 KB</td>
+      <td>Works on all 4. Payload size varies ~100x by panel resolution/compression — KDS screenshot is large enough to matter on a slow uplink.</td></tr>
+    <tr><td>Shell</td>
+      <td><span class="pill bad">Wedges WS</span></td><td><span class="pill warn">Wedges, self-heals ~90s</span></td><td><span class="pill bad">Wedges WS</span></td><td><span class="pill ok">OK</span></td>
+      <td>See Bug 1. Command itself executes (the device-side shell runs fine) — it's the checkin/WS loop afterward that dies.</td></tr>
+    <tr><td>Reboot</td>
+      <td class="muted">not tested*</td><td><span class="pill bad">No-op, acked "completed"</span></td><td class="muted">not tested*</td><td><span class="pill ok">OK</span> (uptime 37s after)</td>
+      <td>See Bug 2. *rbox/KDS were already down from the shell stall at test time — recovered by manual adb reboot instead, so the remote reboot command path wasn't separately exercised on them.</td></tr>
+    <tr><td>Config push</td>
+      <td colspan="4"><span class="pill skip">N/A</span></td>
+      <td><code>type: "config"</code> isn't a valid value on <code>POST /commands</code> (only <code>install_apk|shell|screenshot|reboot|ota|update_splash|adb_tcp</code>) — config is pushed through a different path (WS <code>config</code> frame), not exercised here.</td></tr>
+    <tr><td>Install APK / Uninstall</td>
+      <td colspan="4"><span class="pill skip">Not tested</span></td>
+      <td>No safe disposable APK on hand to push/remove without risking the device's working state during the lab session.</td></tr>
+    <tr><td>Self-update (<code>app_update</code>)</td>
+      <td colspan="4"><span class="pill warn">Partial</span></td>
+      <td>Server only hosts the same 0.2.5 build already on every device — confirmed <code>AgentUpdater</code> correctly refuses a non-upgrade (same pkg/key/version), but the actual silent-install path was not exercised since there's no newer build to push. Install itself is silent by design (<code>PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED</code> + Device Owner) — no user popup expected.</td></tr>
+    <tr><td>Wipe</td>
+      <td colspan="4"><span class="pill skip">Deliberately skipped</span></td>
+      <td>Destructive — would factory-reset the device and end the lab session. Not run.</td></tr>
+    <tr><td>Logcat pull / remote screen+input</td>
+      <td colspan="4"><span class="pill skip">Not tested</span></td>
+      <td>WS-only paths (<code>logcat_request</code>, <code>/api/v1/remote/{serial}</code>), need a dashboard session token rather than the admin REST key — out of scope for this pass.</td></tr>
+  </table>
+
+  <h2>Bugs found</h2>
+
+  <div class="card">
+    <h3><span class="bugnum">1</span>Shell command wedges the WS/checkin loop <span class="sev high">High</span></h3>
+    <div class="meta">Reproduced on rbox and KDS (permanent stall, needed a reboot to recover); D3 Pro showed the same stall but self-recovered after ~90s.</div>
+    <div class="kv"><b>Where</b>CommandExecutor / ShellSession (<code>aio-mdm-client-dpc/.../net/CommandExecutor.kt</code>, <code>device/ShellSession.kt</code>)</div>
+    <div class="kv"><b>Symptom</b>Shell command itself runs fine (<code>ShellSession: shell session started</code> logs, device confirmed "Enrolled" etc. earlier worked the same way) — but no further WS traffic or checkins happen afterward. No crash, no exception in logcat.</div>
+    <div class="kv"><b>Recovery</b><code>adb force-stop</code> is blocked by the OS for a Device-Owner-protected package ("Ignoring request to force stop protected package") — only a full reboot recovers a permanently-stalled device.</div>
+    <div class="kv"><b>Impact</b>Any admin who runs a shell command against a fielded device risks silently losing checkins/remote control until someone reboots it — on something like a kiosk or menu board that could mean a trip on-site.</div>
+  </div>
+
+  <div class="card">
+    <h3><span class="bugnum">2</span>Reboot command can silently no-op <span class="sev high">High</span></h3>
+    <div class="meta">Observed on Sunmi D3 Pro — command delivery flipped to <code>completed</code> immediately, but <code>last_seen_at</code> checkins never gapped and <code>uptime_seconds</code> never reset. Same command genuinely rebooted the Mega kiosk (uptime 37s after, mDNS adb session dropped).</div>
+    <div class="kv"><b>Where</b><code>CommandExecutor.reboot()</code> — acks <code>"completed"</code> unconditionally before calling <code>deviceOwner.dpm.reboot(admin)</code>, then only acks <code>"failed"</code> if that call throws.</div>
+    <div class="kv"><b>Likely cause</b><code>DevicePolicyManager.reboot()</code> requires no foreground activity / keyguard shown to actually execute — if the condition isn't met, some OEM builds silently ignore the call rather than throwing, so the pre-emptive "completed" ack never gets corrected.</div>
+    <div class="kv"><b>Impact</b>The dashboard would show a reboot as having succeeded when the device never rebooted — misleading during an incident where a reboot was the intended fix.</div>
+  </div>
+
+  <div class="card">
+    <h3><span class="bugnum">3</span>New device inherits a wrong <code>device_class</code> from the enrollment token <span class="sev med">Medium</span></h3>
+    <div class="meta">Happened live during this session: the KDS and the first Mega-kiosk enroll attempt both got <code>device_class: "dongle"</code> from a token that was originally minted for the rbox, because the server only fills <code>device_class</code> on a device's <i>first</i> insert and the KDS/kiosk had no prior record.</div>
+    <div class="kv"><b>Where</b><code>internal/db/db.go</code> upsert: <code>device_class = CASE WHEN devices.device_class = '' THEN EXCLUDED.device_class ELSE devices.device_class END</code> — correct once set, but nothing stops a mis-scoped token from setting it wrong in the first place.</div>
+    <div class="kv"><b>Fix applied in-session</b>Corrected via the dashboard's <code>/devices/bulk-class</code> (session-auth only, not reachable with the admin API key — see note below).</div>
+    <div class="kv"><b>Process note</b>Mint one enrollment profile per device class before a multi-device enroll session, not one reused token — a pre-existing device (like the D3 Pro) is safe to re-enroll with any token since its class is already set and protected, but a brand-new device is not.</div>
+  </div>
+
+  <div class="card">
+    <h3><span class="bugnum">4</span>Mains-powered devices report a fake battery <span class="sev med">Medium</span></h3>
+    <div class="meta">All 3 brand-new devices (rbox, D3 Pro, KDS) are mains-powered with no battery, but all reported a <code>battery_pct</code> (0%, 50%, 50%).</div>
+    <div class="kv"><b>Client side</b><code>net/Telemetry.kt:52</code> — the no-battery guard exists but trusts <code>BatteryManager.EXTRA_PRESENT</code> (default <code>true</code>); these boards' battery HAL reports <code>present=true</code> with a synthetic level regardless of real hardware. <code>ui/MainActivity.kt:401</code> defaults the opposite way (<code>false</code>), so the on-device screen and the dashboard can already disagree about the same device.</div>
+    <div class="kv"><b>Server side</b><code>internal/product/product.go</code> <code>CapsForDevice</code> only special-cases <code>device_class == "dongle"</code> as battery-less; <code>pos</code> and <code>kds</code> fall through to <code>genericCaps</code> (<code>HasBattery: true</code>).</div>
+    <div class="kv"><b>Decision</b>Demoed 3 dashboard options (<a href="/static/dpc-mains-power-demos.html">dpc-mains-power-demos.html</a>) — picked <b>Option B, a "Mains" chip</b> instead of a battery number. Needs both the client default flip and the server <code>kds</code>/<code>pos</code> cap fix to be trustworthy; not yet implemented.</div>
+  </div>
+
+  <h2>Process notes for future provisioning sessions</h2>
+  <ul>
+    <li>No camera-based QR enroll on GMS hardware — Play Protect blocks it at provisioning. adb is the only path until the DPC package is allowlisted with Google.</li>
+    <li>Check <code>dumpsys device_policy | grep "Device Owner"</code> before anything else — if it's set to a <i>different</i> package, a factory reset is mandatory first; if it's already <code>aio.app.mdmclient.dpc</code>, just reinstall/update.</li>
+    <li><code>tools/enroll-adb.sh</code>'s 20-second "confirm enrollment" check is unreliable on at least these board families — its logcat <code>-T</code> timestamp filter breaks when the device's own <code>date</code> binary doesn't support <code>+'%m-%d %H:%M:%S.000'</code> (seen truncating to just <code>10-05</code>). The script reports failure even when enrollment succeeded. Always verify against <code>GET /api/v1/devices/{serial}</code> rather than trusting the script's exit message.</li>
+    <li>Wireless-debug (mDNS pairing) sessions do not survive a device reboot — expect to re-pair after every reboot during a lab session; a static <code>adb tcpip 5555</code> session also doesn't persist across reboot on these boards.</li>
+    <li>Mint one enrollment profile per target device class, not a shared one, to avoid Bug 3 above.</li>
+  </ul>
+
+  <h2>Related demos from this session</h2>
+  <ul>
+    <li><a href="/static/dpc-mains-power-demos.html">dpc-mains-power-demos.html</a> — no-battery device card options (Mains chip picked)</li>
+    <li><a href="/static/dpc-app-ui-demos.html">dpc-app-ui-demos.html</a> — on-device status screen layout options (current two-column layout kept)</li>
+  </ul>
+</div>
+<script>
+(function(){
+  var saved = localStorage.getItem('demo-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  document.querySelectorAll('.themebar button').forEach(function(b){
+    if(b.dataset.t === (saved||'light')) b.classList.add('on');
+    b.addEventListener('click', function(){
+      document.documentElement.setAttribute('data-theme', b.dataset.t);
+      try{ localStorage.setItem('demo-theme', b.dataset.t); }catch(e){}
+      document.querySelectorAll('.themebar button').forEach(function(x){x.classList.toggle('on', x===b);});
+    });
+  });
+})();
+</script>
+</body>
+</html>

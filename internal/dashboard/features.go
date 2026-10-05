@@ -1049,16 +1049,14 @@ func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA strin
 // Settings.
 // clientSlotOrder and clientSlotLabels are the client catalogue, shared by the
 // Clients page and the device page's client pill so the two can never drift.
-// "lite-demo" (the standalone Lite demo app, dropped 2026-09-24) keeps its label so a
-// device still running it names it, but is no longer listed.
-var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc", "menu-board"}
+// Menu board + Lite dropped from the active client lineup entirely (2026-10-05) — just
+// firmware and the standard (DPC) client now.
+var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc"}
 
 var clientSlotLabels = map[string]string{
-	"dpc":           "DPC agent",
+	"dpc":           "Standard client",
 	"firmware-qcom": "Firmware client · QCOM (T7, kiosks)",
-	"firmware-gms":  "Firmware client · GMS",
-	"menu-board":    "Menu board",
-	"lite-demo":     "MDM Lite demo app",
+	"firmware-gms":  "Firmware client · GMS (frozen)",
 }
 
 // ClientPillView is the device hero's client pill: which client manages this device,
@@ -1066,7 +1064,7 @@ var clientSlotLabels = map[string]string{
 // pill opens — every client with its hosted version plus this client's changelog.
 // One pill in one place for firmware, DPC and Lite alike.
 type ClientPillView struct {
-	Kind    string // "MDM Firmware" | "MDM DPC" | "MDM Lite"
+	Kind    string // "MDM Firmware" | "MDM Standard"
 	Title   string // the tooltip the old tag carried
 	Version string // what the device reports ("" = it has never said)
 	// Set when the device reported the framework's version rather than its own; the
@@ -1101,8 +1099,8 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.Kind = "MDM Lite"
 		v.Title = "Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection."
 	case d.IsDPC():
-		v.Kind = "MDM DPC"
-		v.Title = "Managed by the AIO MDM Device-Owner agent on a stock device."
+		v.Kind = "MDM Standard"
+		v.Title = "Managed by the AIO MDM standard client (Device Owner) on a stock device."
 	}
 	v.Version, _ = clientVersionOf(d)
 	if frameworkVersionReported(v.Version, clientPackageOf(d)) {
@@ -1154,11 +1152,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	const firmwareLabel = "Firmware client"
 	const firmwareNote = "The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant."
 	notes := map[string]string{
-		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR.",
-		"firmware-qcom": "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build.",
-		"firmware-gms":  "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's.",
-		"menu-board":    "The menu board app with MDM Lite inside it (aio.app.menuboards). Updating it updates the whole app, not just the library.",
-		"lite-demo":     "The standalone MDM Lite app (com.aioapp.mdmlite.demo) — what Lite is tested with before it goes into a shipping app.",
+		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
+		"firmware-qcom": "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build. The only actively published firmware line.",
+		"firmware-gms":  "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's. GMS is no longer built — this slot stays only for devices still out there on it.",
 	}
 
 	views := map[string]*ClientSlotView{}
@@ -1398,8 +1394,6 @@ var AgentAPKSlots = map[string]string{
 	"dpc":           agentAPKFile,
 	"firmware-qcom": "aio-mdm-firmware-qcom.apk",
 	"firmware-gms":  "aio-mdm-firmware-gms.apk",
-	"lite-demo":     "aio-mdm-lite-demo.apk",
-	"menu-board":    "aio-menu-board.apk",
 }
 
 // firmwareSlotFor picks which firmware client a device can install. The key that signs
@@ -1429,14 +1423,11 @@ func firmwareSlotFor(buildID, buildType string) string {
 	return "firmware-qcom"
 }
 
-// liteSlotPackages maps the MDM-lite host apps we ship to their slot. Lite lives inside
-// someone else's app, so "which build is this device on" is a question about the host:
-// a device reports extra.host_app.package and gets the slot for that app, and nothing
-// else. An app not listed here carries Lite but is not ours to update.
-var liteSlotPackages = map[string]string{
-	"com.aioapp.mdmlite.demo": "lite-demo",
-	"aio.app.menuboards":      "menu-board",
-}
+// liteSlotPackages mapped MDM-lite host apps to a slot. Lite was dropped from the
+// active client lineup (menu board + Lite demo app) — kept empty rather than removed
+// so agentSlotFor's "nothing to offer it" fallback still applies cleanly to any
+// MDM-lite device still out there instead of needing a special case.
+var liteSlotPackages = map[string]string{}
 
 // agentAPKPath is where a slot's APK lives on disk ("" for an unknown slot).
 func agentAPKPath(slot string) string {

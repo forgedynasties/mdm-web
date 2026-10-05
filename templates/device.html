@@ -3347,7 +3347,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
       <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
         {{if and $cv (ne $cv "—")}}{{if misreportedVersion $cv $cp}}<span class="muted">pre-1.0.2</span> <span class="muted small">· reported the platform release ({{$cv}}), not its own — fixed in client 1.0.2</span>{{else}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}{{end}}
-          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}DPC agent{{else}}firmware client{{end}}</span>
+          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}Standard client{{else}}firmware client{{end}}</span>
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
       <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>

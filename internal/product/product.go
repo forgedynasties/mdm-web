@@ -20,7 +20,10 @@
 //     charger, no bespoke wireless-charging guest pad).
 package product
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // Caps describes which hardware features a product category has. A false flag means
 // the hardware is absent, so the corresponding telemetry/alerts/UI should be hidden
@@ -123,12 +126,23 @@ func CapsFor(key string) Caps {
 	return p.Caps
 }
 
-// CapsForDevice is CapsFor with the device's class applied. A stock device's product
-// key rarely says what the hardware is ("rockchip029"), so the generic caps assume a
-// phone-like battery; the class, once known, overrides that. A dongle (TV box on an
-// HDMI screen) is always mains-powered: no battery, no charger, no pad.
+// mainsOnlyClasses are device classes that are always mains-powered regardless of
+// product key — a stock device's product key rarely says what the hardware actually
+// is ("rockchip029", "d3_pro"), so without this the generic caps assume a phone-like
+// battery and the dashboard shows a fabricated battery reading. Confirmed needed for
+// kiosk/kds/pos in the 2026-10-05 DPC lab pass (Sunmi D3 Pro and D2s KDS both reported
+// a battery despite being mains units) — dongle was already covered. mpos (handheld),
+// payment and tablet keep the generic assumption since those commonly do have one.
+var mainsOnlyClasses = map[string]bool{
+	ClassDongle: true,
+	ClassKiosk:  true,
+	ClassKDS:    true,
+	ClassPOS:    true,
+}
+
+// CapsForDevice is CapsFor with the device's class applied — see [mainsOnlyClasses].
 func CapsForDevice(key, class string) Caps {
-	if class == ClassDongle {
+	if mainsOnlyClasses[class] {
 		return Caps{}
 	}
 	return CapsFor(key)
@@ -145,7 +159,12 @@ func BatteryPredicateSQL(alias string) string {
 			none = append(none, "'"+p.Key+"'")
 		}
 	}
-	pred := alias + ".device_class <> '" + ClassDongle + "'"
+	var mainsClasses []string
+	for c := range mainsOnlyClasses {
+		mainsClasses = append(mainsClasses, "'"+c+"'")
+	}
+	sort.Strings(mainsClasses) // stable SQL text across calls
+	pred := alias + ".device_class NOT IN (" + strings.Join(mainsClasses, ", ") + ")"
 	if len(none) > 0 {
 		// An empty product resolves to the default (T7), which has a battery.
 		pred += " AND COALESCE(NULLIF(" + alias + ".product, ''), '" + DefaultKey + "') NOT IN (" + strings.Join(none, ", ") + ")"
