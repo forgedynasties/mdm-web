@@ -5126,7 +5126,7 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 		SELECT command_id, status, COUNT(*) FROM (
 			SELECT cs.command_id,
 				CASE
-					WHEN c.type IN ('shell','screenshot','reboot')
+					WHEN c.type IN `+shortLivedCommandsSQL+`
 						AND cs.status IN ('pending','delivered')
 						AND c.created_at <= NOW() - INTERVAL '%d seconds'
 					THEN 'expired'
@@ -5896,6 +5896,12 @@ func (d *DB) ExpireStalledInstalls(ctx context.Context, stallMinutes int) ([]Sta
 	return out, rows.Err()
 }
 
+// shortLivedCommandsSQL: the command types that are only worth running right away. Past
+// the expiry window, a still-pending or delivered one is shown 'expired' by every command
+// view. A diagnostic query (or mic-gain read) sent to a device that was offline used to sit
+// at pending/delivered forever, because 'query' was missing from these lists.
+const shortLivedCommandsSQL = "('shell', 'collect_logs', 'screenshot', 'reboot', 'query', 'mic_gain_read', 'mic_gain_set')"
+
 // ExpireOverdueCommands marks 'expired' any command that has sat non-terminal past its
 // per-type delivery deadline WITHOUT ever starting — i.e. still 'pending'/'delivered'
 // (never progressed to downloading/installing and never got a terminal ack). This is the
@@ -6084,8 +6090,11 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         WHEN c.type IN `+prod.InstallShapedSQL()+`
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
 		              AND COALESCE(cs.updated_at, c.created_at) <= NOW() - INTERVAL '%d seconds' THEN 'expired'
+		         WHEN c.type IN ('query', 'mic_gain_read', 'mic_gain_set')
+		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
+		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
-		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		         WHEN c.type IN `+shortLivedCommandsSQL+`
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         ELSE 'pending'
 		       END AS status,
@@ -6110,7 +6119,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		-- device's command history.
 		AND c.type != 'update_splash'
 		ORDER BY c.created_at DESC
-	`, installExpiry, expirySec), deviceID)
+	`, installExpiry, expirySec, expirySec), deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -6214,7 +6223,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		SELECT td.device_id,
 		       d.serial_number,
 		       CASE
-		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		         WHEN c.type IN `+shortLivedCommandsSQL+`
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
