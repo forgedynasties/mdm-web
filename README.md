@@ -59,8 +59,10 @@ until that SHA is on its remote.
 
 ```bash
 cp .env.example .env    # documents every variable; at minimum set DEVICE_API_KEY,
-                        # ADMIN_API_KEY, DASHBOARD_PASSWORD and SESSION_SECRET
+                        # ADMIN_API_KEY and SESSION_SECRET
 docker compose up -d --build
+# first login: there is no built-in account, create a super admin from the console
+printf '%s' 'a-long-password' | docker compose exec -T server ./server admin-create you@example.com
 ```
 
 Dashboard on `http://localhost:8082`. The server refuses to start without those four.

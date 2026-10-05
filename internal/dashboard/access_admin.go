@@ -338,7 +338,7 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 		"Title":        "Manage · " + u.DisplayName(),
 		"Assignable":   assignableRoles(h.role(r)),
 		"CanEditAvatar": h.mayEditAvatar(r, u),
-		"CanDelete":    u.Username != h.user,
+		"CanDelete":    u.Username != h.currentUsername(r),
 		"Self":         u.Username == h.currentUsername(r),
 		"User":         u,
 		"Bubble":       userBubbleFn(u.Username),

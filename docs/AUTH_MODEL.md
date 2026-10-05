@@ -31,8 +31,7 @@ Key facts to internalise:
 |---|---|---|
 | `DEVICE_API_KEY` | Device API shared key | **required** |
 | `ADMIN_API_KEY` | Admin REST shared key | **required** |
-| `DASHBOARD_USER` | Dashboard bootstrap username | default `admin` |
-| `DASHBOARD_PASSWORD` | Dashboard bootstrap password | **required**; plaintext env compare (see §5) |
+| ~~`DASHBOARD_USER` / `DASHBOARD_PASSWORD`~~ | removed | There is no built-in dashboard login any more; every account is a `users` row. First super admin or lost password: `server admin-create <email> [--reset]` (password on stdin) |
 | `SESSION_SECRET` | Cookie signing key | **falls back to `DEVICE_API_KEY`** if unset; must be ≥ 32 bytes or the server refuses to start |
 | `COOKIE_SECURE` | Toggles the `Secure` cookie flag | `Secure` is on unless `COOKIE_SECURE == "false"` |
 | `CONFIG_PATH` | Display/config JSON path | — |
@@ -115,8 +114,7 @@ Pen-test focus: reaching a hidden device through any route not wrapped in `devic
 - **Dual timeout:** absolute expiry `ExpiresAt` (default `SessionTimeout()` = 86400 s / 24 h) **and** idle timeout (`sessionIdleTimeout = 24 h` since `LastSeen`). Every authenticated request calls `touchSession` to slide the idle window; expired sessions are deleted on next access.
 
 **Login flow** (`POST /login`):
-- Env credentials checked with **`subtle.ConstantTimeCompare`** on both username and password.
-- Fallback to DB users via **bcrypt** (`bcrypt.CompareHashAndPassword`).
+- DB users only, via **bcrypt** (`bcrypt.CompareHashAndPassword`).
 - **Rate limit:** `loginMaxFailures = 8` within a `15 * time.Minute` window, keyed by **both** source IP **and** account (`"u:"+username`) — hitting the threshold on *either* blocks (`429` + `Retry-After`). Both counters reset on successful login. No permanent lockout; the window simply expires.
 
 ---
