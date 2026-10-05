@@ -163,7 +163,7 @@ func TestCapsForDevice(t *testing.T) {
 
 func TestBatteryPredicateSQL(t *testing.T) {
 	got := BatteryPredicateSQL("d")
-	for _, want := range []string{"d.device_class <> 'dongle'", "'kiosk18'", "'kiosk22'", "'kiosk27'", "'" + DefaultKey + "')"} {
+	for _, want := range []string{"d.device_class NOT IN (", "'dongle'", "'kds'", "'kiosk'", "'pos'", "'kiosk18'", "'kiosk22'", "'kiosk27'", "'" + DefaultKey + "')"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("BatteryPredicateSQL: %q missing %q", got, want)
 		}
