@@ -2156,7 +2156,7 @@ document.addEventListener('keydown', function(e) {
 (function () {
   var pane = document.getElementById('fl-map-pane'), btn = document.getElementById('fl-map-btn');
   if (!pane || !btn) return;
-  var map = null, markers = [], clusterer = null, iw = null, loading = false, pending = false;
+  var map = null, markers = [], clusterMarks = [], clusterer = null, iw = null, loading = false, pending = false;
   var DARK = [{elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},{featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]}];
   function styles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DARK : []; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
@@ -2262,7 +2262,10 @@ document.addEventListener('keydown', function(e) {
   function render(pts, total, keepView) {
     last = { pts:pts, total:total };
     syncUnlocated(Math.max(0, total - pts.length));
-    if (clusterer) { clusterer.clearMarkers(); clusterer = null; }
+    // Tear the old clusterer down completely: clearMarkers() alone leaves its drawn cluster
+    // markers on the map, and a live refresh then stacks a new count over the old one ("35" on "36").
+    if (clusterer) { clusterer.clearMarkers(); clusterer.setMap(null); clusterer = null; }
+    clusterMarks.forEach(function(m){ m.setMap(null); }); clusterMarks = [];
     markers.forEach(function(m){ m.setMap(null); }); markers = [];
     if (iw) iw.close();
     var old = pane.querySelector('.fl-map-empty'); if (old) old.remove();
@@ -2286,7 +2289,9 @@ document.addEventListener('keydown', function(e) {
       clusterer = new markerClusterer.MarkerClusterer({ map:map, markers:markers, renderer:{ render:function(c){
         var n = 0, on = 0; c.markers.forEach(function(m){ n += m.nDev; on += m.nOn; });
         var o = blipIcon(n, on, true);
-        return new google.maps.Marker({ position:c.position, icon:o.icon, label:o.label, zIndex:1000 + n });
+        var cm = new google.maps.Marker({ position:c.position, icon:o.icon, label:o.label, zIndex:1000 + n });
+        clusterMarks.push(cm);
+        return cm;
       } } });
     }
     if (keepView) return;
