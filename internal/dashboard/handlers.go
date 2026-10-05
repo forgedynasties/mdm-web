@@ -9,7 +9,6 @@ import (
 	"image/png"
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
@@ -230,8 +229,6 @@ type Handler struct {
 	logs        *logstream.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template
-	user        string
-	password    string
 	cfg         *config.Config
 	adminAPIKey string
 	// reportSecret signs the unguessable weekly-report PDF links.
@@ -661,7 +658,7 @@ var updateEngineErrors = map[string]string{
 	"62": "Package excluded for this device.",
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey, mapsEmbedKey string, geo *geolocate.Resolver, geocoder *geolocate.Geocoder) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret string, cfg *config.Config, adminAPIKey, mapsEmbedKey string, geo *geolocate.Resolver, geocoder *geolocate.Geocoder) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -1752,8 +1749,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		logs:          logMgr,
 		store:         store,
 		tmpl:          tmpl,
-		user:          user,
-		password:      password,
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
 		reportSecret:  sessionSecret,
@@ -3139,7 +3134,7 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther, canManage bool) {
 	ctx := r.Context()
-	stats, err := h.db.UserStats(ctx, username, h.user)
+	stats, err := h.db.UserStats(ctx, username, legacyAdminActor)
 	if err != nil {
 		log.Printf("[profile] stats for %q: %v", username, err)
 		stats = &db.UserStats{Username: username}
@@ -3219,7 +3214,7 @@ func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Target user not found", http.StatusNotFound)
 		return
 	}
-	if u, err := h.db.GetUserByUsername(r.Context(), from); (err == nil && u != nil) || from == h.user {
+	if u, err := h.db.GetUserByUsername(r.Context(), from); (err == nil && u != nil) {
 		http.Error(w, "That username still has an account; delete it first if you really mean to merge it", http.StatusConflict)
 		return
 	}
@@ -4240,20 +4235,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		h.loginFails.Reset(userKey)
 	}
 
-	// Check admin credentials first (constant-time).
-	userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(h.user)) == 1
-	passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(h.password)) == 1
-	if userMatch && passMatch {
-		loginOK()
-		if err := h.startSession(w, r, nil, h.user, "admin"); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
-	// Fall back to DB users.
+	// Accounts are DB users only; there is no built-in login in the environment.
 	dbUser, err := h.db.GetUserByUsername(r.Context(), user)
 	if err == nil {
 		if bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(pass)) == nil {
@@ -16787,14 +16769,14 @@ func filterShellCommands(role string, cmds []db.Command) []db.Command {
 }
 
 // hideAdminCommandsForRole reports whether a role must not see commands the
-// (env-configured, single) admin account created — operators shouldn't see
+// old built-in admin login (actor "admin", now gone) created — operators shouldn't see
 // admin-issued actions (e.g. an internal test install) in their Actions view.
 func hideAdminCommandsForRole(role string) bool { return roleIsOperatorLike(role) }
 
 // filterAdminCommands drops commands created by the admin account from an
 // Actions/history slice when the viewer must not see them
-// (hideAdminCommandsForRole). "admin" is env-configured only (never a DB
-// user, see validUserRole), so its username is always h.user.
+// (hideAdminCommandsForRole). "admin" is the old built-in login (never a DB
+// user), so what is left of it is history stamped legacyAdminActor.
 func (h *Handler) filterAdminCommands(r *http.Request, cmds []db.Command) []db.Command {
 	if !h.hideAdminActions(r) {
 		return cmds
@@ -16840,13 +16822,17 @@ func (h *Handler) hideAdminActions(r *http.Request) bool {
 	return err != nil || c.Value != "1"
 }
 
-// isAdminAuthor: only the built-in (env-configured) super admin login. Team
+// legacyAdminActor is the name the old built-in dashboard login (DASHBOARD_USER, removed)
+// stamped on its history. It has no users row; its commands and audit rows are all that is left.
+const legacyAdminActor = "admin"
+
+// isAdminAuthor: only that old built-in login. Team
 // accounts, whatever their role, are people whose actions always show.
 func (h *Handler) isAdminAuthor(name string) bool {
 	if name == "" {
 		return false // system-sent (e.g. OTA reboots) — shown, labelled automatic
 	}
-	return name == h.user || strings.EqualFold(name, "admin")
+	return strings.EqualFold(name, legacyAdminActor)
 }
 
 // isSystemReboot: a reboot nobody typed — the OTA flow's post-install reboot.
@@ -20104,8 +20090,8 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // WrappedPage renders "Fleet Wrapped" — a playful, full-screen year-in-review of
 // the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
 func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
-	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r), h.user)
-	topUsers, _ := h.db.TopActors(r.Context(), 5, h.user) // the env admin login is not a person on the team
+	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r), legacyAdminActor)
+	topUsers, _ := h.db.TopActors(r.Context(), 5, legacyAdminActor) // the old built-in login is not a person on the team
 	wr, err := h.db.GetFleetWrapped(r.Context())
 	if err != nil {
 		log.Printf("[wrapped] compute: %v", err)
@@ -21174,15 +21160,12 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			viewers++
 		}
 	}
-	// The env-configured admin account isn't a DB row, but it always exists —
-	// count it so the KPI strip isn't misleadingly "0 admins".
-	admins++
-	// The env-configured dashboard login (DASHBOARD_USER) has no users row by
-	// design, so it would otherwise always show up here as "unlinked".
+	// The old built-in login (actor "admin") has no users row, so it would otherwise
+	// show up here as "unlinked" for as long as its history exists.
 	summaries, _ := h.db.ActorSummaries(r.Context())
 	orphans, _ := h.db.ListOrphanActors(r.Context())
 	for i := 0; i < len(orphans); i++ {
-		if orphans[i].Username == h.user {
+		if orphans[i].Username == legacyAdminActor {
 			orphans = append(orphans[:i], orphans[i+1:]...)
 			i--
 		}

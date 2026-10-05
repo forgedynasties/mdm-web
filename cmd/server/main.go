@@ -58,6 +58,9 @@ func (s geoStore) BumpAPHits(ctx context.Context, bssids []string) error {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "admin-create" {
+		os.Exit(runAdminCreate(os.Args[2:]))
+	}
 	ctx := context.Background()
 
 	port := getEnv("PORT", "8080")
@@ -68,8 +71,6 @@ func main() {
 	dbName := getEnv("DB_NAME", "mdm")
 	deviceAPIKey := mustEnv("DEVICE_API_KEY")
 	adminAPIKey := mustEnv("ADMIN_API_KEY")
-	dashUser := getEnv("DASHBOARD_USER", "admin")
-	dashPass := mustEnv("DASHBOARD_PASSWORD")
 	// SESSION_SECRET signs the dashboard session cookie. It must be its OWN secret:
 	// the previous fallback to DEVICE_API_KEY meant the cookie-signing key was the
 	// fleet-wide key every managed device holds, so a single extracted device key
@@ -455,7 +456,7 @@ func main() {
 	mux.Handle("GET /api/v1/commands/{id}", adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
-	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
 
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting
