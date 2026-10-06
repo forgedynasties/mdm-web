@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — less text in the device panel — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1180px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:880px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 10px;max-width:880px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.pc{font-size:12px;color:var(--muted);margin:8px 0 0;max-width:880px;line-height:1.5}.pc b{color:var(--text)}
+.mono{font-family:var(--font-mono,monospace);font-size:11px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px;gap:2px;flex-wrap:wrap;margin:0 0 14px;position:sticky;top:8px;z-index:5;box-shadow:0 6px 18px rgba(20,22,40,.08)}
+.seg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;color:var(--muted);padding:6px 14px;border-radius:11px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+.col h4{margin:0 0 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.col.now h4{color:var(--danger)}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* the panel mock */
+.pnl{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;min-height:340px;position:relative;box-shadow:0 8px 22px rgba(20,22,40,.08)}
+.big{width:60px;height:60px;border-radius:17px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--muted);margin-bottom:2px}
+.pnl h3{margin:0;font-size:15px}
+.meta{font-family:var(--font-mono,monospace);font-size:10.5px;color:var(--muted);line-height:1.5}
+.txt{font-size:12px;color:var(--muted);line-height:1.5}
+.warnbox{background:var(--danger-bg);color:var(--danger);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.45;margin-top:4px}
+.okbox{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;margin-top:4px}
+.tiny{font-size:11px;color:var(--muted)}
+.row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:2px 0 4px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--surface-3);color:var(--muted)}
+.chip .ic{width:12px;height:12px}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.bad{background:var(--danger-bg);color:var(--danger)}.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+.pill{padding:5px 12px;border-radius:99px;border:1px solid var(--border);font-size:11.5px;font-weight:600}
+.pill.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ibtn{width:32px;height:32px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+.ibtn .ic{width:16px;height:16px}
+.ibtn:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.ibtn::after{content:attr(data-tip);position:absolute;bottom:38px;left:50%;transform:translateX(-50%);background:#1b1d24;color:#fff;font-size:10.5px;font-weight:600;white-space:nowrap;padding:4px 8px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .15s}
+.ibtn:hover::after{opacity:1}
+.pop{position:absolute;left:10px;right:10px;top:170px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 34px rgba(20,22,40,.25);padding:11px 12px;text-align:left;font-size:11.5px;line-height:1.5;z-index:3;animation:pop .25s both}
+.pop ol{margin:4px 0 0;padding-left:16px}.pop b{font-size:12px}
+.acc{width:100%;text-align:left;margin-top:8px;border-top:1px solid var(--border-soft);padding-top:6px}
+.acc summary{font-size:11.5px;font-weight:700;color:var(--accent-text);cursor:pointer}
+.acc div{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:5px}
+.kv{width:100%;text-align:left;display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.kv .r{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:9px;background:var(--surface2);font-size:11.5px}
+.kv .r .ic{width:14px;height:14px;color:var(--muted);flex:none}
+.kv .r b{flex:1;font-weight:600}.kv .r span{color:var(--muted)}
+.kv .r.bad{background:var(--danger-bg)}.kv .r.bad .ic,.kv .r.bad span{color:var(--danger)}
+.kv .r.ok .ic,.kv .r.ok span{color:var(--ok)}
+.kv .r .lk{color:var(--accent-text);font-weight:700;cursor:pointer;font-size:11px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — less text in the device panel</h1>
+<p class="lead">Today the panel stacks sentences: <i>“Has an account — factory reset, don't add an account. Then plug it in again.”</i>, then <i>“Connected by USB and Wi-Fi — you can unplug the cable.”</i>, then a connections line, then notes under each button. It reads like a manual. The idea in all three options: <b>say the state in a word, show the action as a button or icon, and put the explanation one click away</b> — only when someone wants it.</p>
+<p class="lead">Use the switch to compare the same situation in every design. The first column is what the app shows today.</p>
+
+<div class="seg" id="sc"><button class="on" data-s="blocked">Blocked: has an account</button><button data-s="both">Ready: USB + Wi-Fi</button><button data-s="usb">Ready: USB only</button><button data-s="fw">Firmware, registered</button></div>
+
+<div class="grid">
+ <div class="col now"><h4>Today</h4><div id="now"></div></div>
+ <div class="col"><h4>Option A · chips + “?” popover</h4><div id="A"></div></div>
+ <div class="col"><h4>Option B · details collapsed</h4><div id="B"></div></div>
+ <div class="col"><h4>Option C · info rows</h4><div id="C"></div></div>
+</div>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">Status chips, one short line, “?” opens the how-to <span class="rec">recommended</span></div>
+<div class="ddesc">Facts become small chips (Android 17 · USB + Wi-Fi · Has account). The problem is one short line (“Has an account”) with a <b>“How to fix ?”</b> button that opens a small popover with the steps. Secondary actions turn into icon buttons with hover tooltips (switch to Wi-Fi, forget).</div>
+<p class="pc"><b>Good:</b> the panel is almost text-free; everything is still reachable. <b>Bad:</b> icon-only buttons need a hover to learn (tooltips and a consistent set of icons fix that).</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">Same short headline, long explanations in a “Details” fold</div>
+<div class="ddesc">Keeps normal text buttons (clearer than icons), but every explanatory sentence moves behind a <b>Details ›</b> fold that stays closed. The app remembers if you open it.</div>
+<p class="pc"><b>Good:</b> simplest, no icon learning. <b>Bad:</b> a first-timer might not open the fold — fine for “blocked”, where the one-liner already says what is wrong.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">A small info card: icon rows instead of sentences</div>
+<div class="ddesc">Each fact is a row with an icon, a label and a value (Connection · USB + Wi-Fi ✓, Account · has one ✗ “Fix”, MDM · registered ✓). One primary button below. No paragraphs at all.</div>
+<p class="pc"><b>Good:</b> very scannable and uniform for every device type. <b>Bad:</b> most structural change; a bit “dashboard-y” for a setup tool.</p>
+
+<span class="eyebrow">Wording diet (all options)</span>
+<p class="lead">• “Has an account — factory reset, don't add an account. Then plug it in again.” → <b>“Has an account”</b> (steps in the popover/fold).<br>
+• “Connected by USB and Wi-Fi — you can unplug the cable.” → <b>“USB + Wi-Fi ✓”</b> chip and a small <b>“OK to unplug”</b>.<br>
+• “No pairing and no codes. Reads the phone's IP over the cable…” → button <b>“Switch to Wi-Fi”</b>, explanation only in a tooltip.<br>
+• “Only disconnects it from this computer. It stays enrolled in the MDM.” → tooltip on <b>Forget</b>.<br>
+• “Already runs AIO MDM firmware” + “Registered in the MDM as t7. Nothing to do here.” → <b>“AIO firmware ✓ Registered”</b>.<br>
+• Everything keeps working in the same places; only the amount of text changes.</p>
+<p class="lead"><b>Pick A, B or C.</b></p>
+</div>
+
+<script>
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const I={
+ phone:ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>'),
+ tab:ic('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M10.5 17h3"/>'),
+ usb:ic('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>'),
+ wifi:ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>'),
+ user:ic('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>'),
+ cloud:ic('<path d="M7 18a4 4 0 0 1-.6-7.9A6 6 0 0 1 18 9.5 4.3 4.3 0 0 1 17.5 18z"/>'),
+ q:ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 1 1 3.6 2.4c-.7.4-1.1.9-1.1 1.8M12 17h.01"/>'),
+ x:ic('<path d="M6 6l12 12M18 6L6 18"/>'),
+ chk:ic('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+};
+const FIX=`<b>How to fix</b><ol><li>Factory reset the phone.</li><li>Don’t sign in to Google.</li><li>Plug it in again.</li></ol>`;
+const S={
+ blocked:{icon:I.phone,name:'Google Pixel 6',meta:'18121FDF60022T · Android 17',conn:'USB',bad:'Has an account'},
+ both:{icon:I.phone,name:'Google Pixel 6',meta:'18121FDF60022T · Android 17',conn:'USB + Wi-Fi',ok:true,both:true},
+ usb:{icon:I.phone,name:'Google Pixel 6',meta:'18121FDF60022T · Android 17',conn:'USB',ok:true},
+ fw:{icon:I.tab,name:'AIO T7',meta:'AT070AABU00231 · Android 15',conn:'Wi-Fi',fw:true},
+};
+const sc=()=>S[document.querySelector('#sc .on').dataset.s];
+const enrollBtn='<button class="cc-btn primary" style="margin-top:8px;padding:8px 22px">Enroll this device</button>';
+const pills='<div class="pills"><span class="pill on">dongle</span><span class="pill">pos</span><span class="pill">kds</span><span class="pill">kiosk</span></div>';
+
+/* today */
+function now(s){
+  let h=`<div class="pnl"><div class="big">${s.icon}</div><h3>${s.name}</h3><div class="meta">${s.meta} · ${s.conn}</div>`;
+  if(s.bad)h+=`<div class="warnbox">Has an account — factory reset, don't add an account<br>Then plug it in again.</div>`;
+  if(s.fw)h+=`<div class="okbox" style="margin-top:8px">Already runs AIO MDM firmware</div><div class="meta">MDM client 1.8.8 · build v2.1.025</div><div class="okbox">Registered in the MDM as t7. Nothing to do here.</div><div class="tiny">Only disconnects it from this computer. It stays enrolled in the MDM.</div><button class="cc-btn sm">Forget this device</button>`;
+  if(s.ok){h+=`<div class="txt" style="margin-top:6px">What is this device used for?</div>${pills}${enrollBtn}`;
+    if(s.both)h+=`<div class="okbox">Connected by USB and Wi-Fi — you can unplug the cable.</div><div class="tiny">Connections: USB · 10.32.2.210:5555 <button class="cc-btn sm">Forget Wi-Fi</button></div>`;
+    else h+=`<button class="cc-btn" style="margin-top:6px">Switch to Wi-Fi</button><div class="tiny">No pairing and no codes. Reads the phone’s IP over the cable, then connects to it. You can unplug it afterwards. It stays on Wi-Fi until the phone restarts.</div>`;}
+  return h+'</div>';
+}
+/* A */
+let aPop=false;
+function A(s){
+  const chips=`<div class="chips"><span class="chip">Android ${s.meta.split('Android ')[1]}</span><span class="chip ${s.both?'ok':''}">${s.conn.includes('USB')?I.usb:''}${s.conn.includes('Wi-Fi')?I.wifi:''} ${s.conn}</span>${s.bad?`<span class="chip bad">${I.user} ${s.bad}</span>`:''}${s.fw?`<span class="chip ok">${I.chk} AIO firmware</span><span class="chip ok">${I.cloud} Registered</span>`:''}</div>`;
+  let h=`<div class="pnl"><div class="big">${s.icon}</div><h3>${s.name}</h3><div class="meta">${s.meta.split(' · ')[0]}</div>${chips}`;
+  if(s.bad)h+=`<div class="row"><button class="cc-btn sm" id="fixA">How to fix ${I.q.replace('class="ic"','class="ic" style="width:13px;height:13px;display:inline-block;vertical-align:-2px"')}</button></div>${aPop?`<div class="pop">${FIX}</div>`:''}`;
+  if(s.ok){h+=pills+enrollBtn+`<div class="row" style="margin-top:12px">${s.both?`<span class="chip ok">OK to unplug</span><button class="ibtn" data-tip="Forget Wi-Fi link">${I.x}</button>`:`<button class="ibtn" data-tip="Switch to Wi-Fi (no pairing needed)">${I.wifi}</button>`}</div>`;}
+  if(s.fw)h+=`<div class="row" style="margin-top:12px"><button class="ibtn" data-tip="Forget (stays enrolled in the MDM)">${I.x}</button></div>`;
+  return h+'</div>';
+}
+/* B */
+function B(s){
+  let h=`<div class="pnl"><div class="big">${s.icon}</div><h3>${s.name}</h3><div class="meta">${s.meta} · ${s.conn}</div>`;
+  if(s.bad)h+=`<div class="warnbox">Has an account</div>`;
+  if(s.fw)h+=`<div class="okbox" style="margin-top:8px">AIO firmware · Registered</div>`;
+  if(s.ok){h+=pills+enrollBtn;h+=s.both?`<div class="okbox">USB + Wi-Fi · OK to unplug</div>`:`<button class="cc-btn" style="margin-top:6px">Switch to Wi-Fi</button>`;}
+  const det=s.bad?'Factory reset the phone and don’t sign in to Google, then plug it in again.':s.both?'Connected by USB and Wi-Fi. You can unplug the cable; the phone stays on Wi-Fi. Forget Wi-Fi removes only the wireless link.':s.fw?'MDM client 1.8.8, build v2.1.025. This phone enrolls itself, so nothing to do here. Forget only disconnects it from this computer.':'Switching reads the phone’s IP over the cable and connects to it. No pairing, no codes. It stays on Wi-Fi until the phone restarts.';
+  h+=`<details class="acc"><summary>Details</summary><div>${det}${s.both?'<br><button class="cc-btn sm" style="margin-top:6px">Forget Wi-Fi</button>':''}${s.fw?'<br><button class="cc-btn sm" style="margin-top:6px">Forget this device</button>':''}</div></details>`;
+  return h+'</div>';
+}
+/* C */
+function C(s){
+  const r=(i,l,v,c='',extra='')=>`<div class="r ${c}">${i}<b>${l}</b><span>${v}</span>${extra}</div>`;
+  let h=`<div class="pnl"><div class="big">${s.icon}</div><h3>${s.name}</h3><div class="meta">${s.meta.split(' · ')[0]}</div><div class="kv">`;
+  h+=r(s.conn.includes('Wi-Fi')&&!s.conn.includes('USB')?I.wifi:I.usb,'Connection',s.conn,s.both?'ok':'');
+  if(s.bad)h+=r(I.user,'Account','has one','bad','<span class="lk" id="fixC">Fix</span>');
+  else if(s.fw)h+=r(I.cloud,'MDM','registered','ok')+r(I.chk,'Firmware','AIO 1.8.8','ok');
+  else h+=r(I.cloud,'MDM','not enrolled yet');
+  h+='</div>';
+  if(s.ok)h+=pills+enrollBtn+`<div class="row" style="margin-top:10px">${s.both?'<button class="cc-btn sm">Forget Wi-Fi</button>':'<button class="cc-btn sm">Switch to Wi-Fi</button>'}</div>`;
+  if(s.fw)h+=`<div class="row" style="margin-top:10px"><button class="cc-btn sm">Forget</button></div>`;
+  if(s.bad&&window.cFix)h+=`<div class="pop" style="top:150px">${FIX}</div>`;
+  return h+'</div>';
+}
+function draw(){
+  const s=sc();
+  document.getElementById('now').innerHTML=now(s);
+  document.getElementById('A').innerHTML=A(s);
+  document.getElementById('B').innerHTML=B(s);
+  document.getElementById('C').innerHTML=C(s);
+  const fa=document.getElementById('fixA');if(fa)fa.onclick=()=>{aPop=!aPop;draw();};
+  const fc=document.getElementById('fixC');if(fc)fc.onclick=()=>{window.cFix=!window.cFix;draw();};
+}
+document.querySelectorAll('#sc button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#sc button').forEach(x=>x.classList.toggle('on',x===b));aPop=false;window.cFix=false;draw();});
+draw();
+</script></body></html>
