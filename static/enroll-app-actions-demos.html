@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — device actions area — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1180px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:880px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 10px;max-width:880px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.pc{font-size:12px;color:var(--muted);margin:8px 0 0;max-width:880px;line-height:1.5}.pc b{color:var(--text)}
+.mono{font-family:var(--font-mono,monospace);font-size:11px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px;gap:2px;flex-wrap:wrap;margin:0 0 14px;position:sticky;top:8px;z-index:9;box-shadow:0 6px 18px rgba(20,22,40,.08)}
+.seg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;color:var(--muted);padding:6px 14px;border-radius:11px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+.col h4{margin:0 0 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.col.now h4{color:var(--danger)}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+@keyframes pop{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slidein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.pnl{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px 14px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;min-height:360px;position:relative;box-shadow:0 8px 22px rgba(20,22,40,.08)}
+.big{width:56px;height:56px;border-radius:16px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)}
+.pnl h3{margin:2px 0 0;font-size:15px}
+.meta{font-family:var(--font-mono,monospace);font-size:10.5px;color:var(--muted)}
+.chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:3px 0}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--surface-3);color:var(--muted)}
+.chip .ic{width:12px;height:12px}.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.bad{background:var(--danger-bg);color:var(--danger)}
+.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+.pill{padding:5px 12px;border-radius:99px;border:1px solid var(--border);font-size:11.5px;font-weight:600}.pill.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tools{width:100%;margin-top:auto;padding-top:10px}
+
+/* TODAY */
+.tnow{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px;position:relative}
+.ibtn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+.ibtn .ic{width:16px;height:16px}
+.ibtn::after{content:attr(data-tip);position:absolute;bottom:42px;left:50%;transform:translateX(-50%);background:#1b1d24;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;padding:5px 9px;border-radius:8px;opacity:1;z-index:5}
+.ibtn.x{color:var(--accent);border-color:var(--accent-edge)}
+
+/* A: labelled quiet buttons in a footer strip */
+.sep{width:100%;border-top:1px solid var(--border-soft);margin:10px 0 8px}
+.foot{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.qb{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--muted);font:inherit;font-size:11.5px;font-weight:600;padding:5px 9px;border-radius:8px;cursor:pointer}
+.qb .ic{width:14px;height:14px}.qb:hover{background:var(--surface2);color:var(--text)}
+.qb.danger:hover{background:var(--danger-bg);color:var(--danger)}
+.note{font-size:11px;color:var(--ok);font-weight:600;display:flex;align-items:center;gap:5px}.note .ic{width:13px;height:13px}
+
+/* B: overflow menu */
+.more{position:relative;display:inline-block}
+.more>button{width:32px;height:32px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.more>button:hover,.more>button.on{border-color:var(--accent-edge);color:var(--accent-text)}
+.menu{position:absolute;right:0;bottom:38px;min-width:190px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 34px rgba(20,22,40,.25);padding:5px;text-align:left;z-index:6;animation:pop .18s both;transform-origin:bottom right}
+.menu button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.menu button:hover{background:var(--surface2)}.menu button.danger{color:var(--danger)}.menu button.danger:hover{background:var(--danger-bg)}
+.menu .ic{width:15px;height:15px;color:var(--muted)}.menu .danger .ic{color:var(--danger)}
+.menu hr{border:0;border-top:1px solid var(--border-soft);margin:4px 2px}
+.menu small{display:block;font-size:10.5px;color:var(--muted);font-weight:500;margin-top:1px}
+
+/* C: connections card */
+.cc{width:100%;text-align:left;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface2);padding:4px;margin-top:10px}
+.cc .ln{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:11.5px;border-radius:8px}
+.cc .ln+.ln{border-top:1px solid var(--border-soft)}
+.cc .ln .ic{width:15px;height:15px;color:var(--muted);flex:none}
+.cc .ln b{font-weight:700}.cc .ln span{color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc .ln .st{color:var(--ok);font-weight:700;flex:none}
+.cc .ln .qb{padding:2px 7px;font-size:11px;flex:none}
+@media(max-width:1000px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — the actions area of the device panel</h1>
+<p class="lead">The icon row we just built has three problems (visible in your screenshot): <b>1)</b> the hover tooltip is big and <b>covers the buttons next to it</b> (here, “How to fix”); <b>2)</b> a lone <b>✕ in an orange box</b> doesn't say what it removes — it looks like a delete button; <b>3)</b> the “OK to unplug” chip floats loose beside it, so it isn't clear what it belongs to.</p>
+<p class="lead">Three calmer ways to group the same actions. Switch situation to compare; the first column is today.</p>
+
+<div class="seg" id="sc"><button class="on" data-s="both">USB + Wi-Fi</button><button data-s="usb">USB only</button><button data-s="wifi">Wi-Fi only</button></div>
+
+<div class="grid">
+ <div class="col now"><h4>Today</h4><div id="now"></div></div>
+ <div class="col"><h4>Option A · labelled quiet strip</h4><div id="A"></div></div>
+ <div class="col"><h4>Option B · “⋯” menu</h4><div id="B"></div></div>
+ <div class="col"><h4>Option C · connections card</h4><div id="C"></div></div>
+</div>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">A footer strip with <u>words</u>, not mystery icons <span class="rec">recommended</span></div>
+<div class="ddesc">A thin divider, then small quiet text buttons that say what they do — <b>Forget Wi-Fi link</b>, <b>Switch to Wi-Fi</b>, <b>Forget device</b> — and a plain green line “✓ OK to unplug the cable” when it is on both. No tooltips needed, nothing overlaps, and nothing looks like a primary action. Destructive ones turn red only on hover.</div>
+<p class="pc"><b>Good:</b> self-explanatory, tiny, one tidy place. <b>Bad:</b> uses a little more width than icons.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">One “⋯” button that opens a menu</div>
+<div class="ddesc">A single small button in the corner of the panel opens a labelled menu (with a one-line description under each item). Zero clutter in the panel itself; everything occasional lives in the menu.</div>
+<p class="pc"><b>Good:</b> cleanest panel, room for more actions later. <b>Bad:</b> one extra click, and “OK to unplug” has to become a chip somewhere else.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">A small “Connections” card, one line per connection</div>
+<div class="ddesc">A tiny card lists how the phone is connected — <b>USB cable ✓ · in</b> and <b>Wi-Fi 10.32.2.210:5555 [Forget]</b> — each action sits on the line it affects, so it is obvious what “Forget” removes. A phone on cable only gets one line plus a “Switch to Wi-Fi” link.</div>
+<p class="pc"><b>Good:</b> most explicit, impossible to misread. <b>Bad:</b> the most visible UI for something used rarely.</p>
+
+<span class="eyebrow">Also (any option)</span>
+<p class="lead">• Tooltips stay for the few icons left, but small, placed <b>below</b> the control and never over a neighbouring button.<br>
+• “How to fix” stays where it is, with the actions area clearly separated below it.<br>
+• Success/failure messages show in the same strip, replacing the buttons for a few seconds.</p>
+<p class="lead"><b>Pick A, B or C.</b></p>
+</div>
+
+<script>
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const I={
+ phone:ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>'),
+ usb:ic('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>'),
+ wifi:ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>'),
+ x:ic('<path d="M6 6l12 12M18 6L6 18"/>'),
+ chk:ic('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+ dots:ic('<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>'),
+ trash:ic('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
+};
+const sc=()=>document.querySelector('#sc .on').dataset.s;
+const pills='<div class="pills"><span class="pill on">dongle</span><span class="pill">pos</span><span class="pill">kds</span><span class="pill">kiosk</span></div>';
+const enroll='<button class="cc-btn primary" style="padding:8px 22px">Enroll this device</button>';
+const conn=s=>s==='both'?'USB + Wi-Fi':s==='usb'?'USB':'Wi-Fi';
+const connIcons=s=>(s!=='wifi'?I.usb:'')+(s!=='usb'?I.wifi:'');
+function top(s){return `<div class="big">${I.phone}</div><h3>Google Pixel 6</h3><div class="meta">18121FDF60022T</div><div class="chips"><span class="chip">Android 17</span><span class="chip ${s==='both'?'ok':''}">${connIcons(s)} ${conn(s)}</span></div>${pills}${enroll}`;}
+
+function now(s){
+  const t=s==='both'?`<span class="chip ok">OK to unplug</span><button class="ibtn x" data-tip="Forget the Wi-Fi link">${I.x}</button>`:s==='usb'?`<button class="ibtn" data-tip="Switch to Wi-Fi (no pairing needed)">${I.wifi}</button>`:`<button class="ibtn x" data-tip="Forget (stays enrolled in the MDM)">${I.x}</button>`;
+  return `<div class="pnl">${top(s)}<div class="tnow">${t}</div></div>`;
+}
+function A(s){
+  const parts=s==='both'?`<span class="note">${I.chk} OK to unplug the cable</span><button class="qb danger">${I.wifi} Forget Wi-Fi link</button>`
+    :s==='usb'?`<button class="qb">${I.wifi} Switch to Wi-Fi</button>`
+    :`<button class="qb danger">${I.trash} Forget device</button>`;
+  return `<div class="pnl">${top(s)}<div class="tools"><div class="sep"></div><div class="foot">${parts}</div></div></div>`;
+}
+let bOpen=false;
+function B(s){
+  const items=s==='both'?`<button class="danger">${I.wifi}<div>Forget Wi-Fi link<small>Keeps the USB connection</small></div></button>`
+   :s==='usb'?`<button>${I.wifi}<div>Switch to Wi-Fi<small>No pairing needed</small></div></button>`
+   :`<button class="danger">${I.trash}<div>Forget device<small>It stays enrolled in the MDM</small></div></button>`;
+  return `<div class="pnl"><div style="position:absolute;right:10px;top:10px" class="more"><button id="bm" class="${bOpen?'on':''}" aria-label="More actions">${I.dots}</button>${bOpen?`<div class="menu" style="bottom:auto;top:38px;transform-origin:top right">${items}</div>`:''}</div>${top(s).replace('<div class="chips">','<div class="chips">'+(s==='both'?'<span class="chip ok">OK to unplug</span>':''))}</div>`;
+}
+function C(s){
+  const lines=(s!=='wifi'?`<div class="ln">${I.usb}<b>USB cable</b><span>in</span><span class="st">${I.chk.replace('class="ic"','class="ic" style="width:13px;height:13px;display:inline-block;vertical-align:-2px"')}</span></div>`:'')+
+   (s!=='usb'?`<div class="ln">${I.wifi}<b>Wi-Fi</b><span class="mono">10.32.2.210:5555</span><button class="qb danger">Forget</button></div>`:'')+
+   (s==='usb'?`<div class="ln">${I.wifi}<b>Wi-Fi</b><span>not connected</span><button class="qb">Switch</button></div>`:'');
+  return `<div class="pnl">${top(s)}<div class="tools"><div class="cc">${lines}</div>${s==='both'?`<div class="note" style="justify-content:center;margin-top:7px">${I.chk} OK to unplug the cable</div>`:''}</div></div>`;
+}
+function draw(){const s=sc();
+  document.getElementById('now').innerHTML=now(s);
+  document.getElementById('A').innerHTML=A(s);
+  document.getElementById('B').innerHTML=B(s);
+  document.getElementById('C').innerHTML=C(s);
+  const bm=document.getElementById('bm');if(bm)bm.onclick=(e)=>{e.stopPropagation();bOpen=!bOpen;draw();};
+}
+document.addEventListener('click',()=>{if(bOpen){bOpen=false;draw();}});
+document.querySelectorAll('#sc button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#sc button').forEach(x=>x.classList.toggle('on',x===b));bOpen=false;draw();});
+draw();
+</script></body></html>
