@@ -1869,10 +1869,59 @@ type qaTestDataRow struct {
 
 // ListTestDataDevices is the QA-key-gated, read-only fleet snapshot behind the testing
 // team's own dashboard — replaces them pulling the Fleet page's CSV export by hand.
-// Full fleet, one row per device, same fields as that export plus device_class/
-// restaurant/groups so they can filter client-side instead of the server doing it.
+// One row per device, same fields as that export plus device_class/restaurant/groups.
+// Optional ?group=<name> / ?restaurant=<name> narrow the result server-side — the
+// testing team works within a specific lab group or site, not the whole fleet, and
+// there's no reason to ship rows they're going to throw away client-side anyway.
 func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	filter := db.DeviceFilter{
+		// Scoped to firmware-client devices (T7/Kiosk) only — that's what the testing
+		// team is actually running test cycles against right now. Drop this (or make
+		// it a query param) once they need DPC-agent devices too.
+		AgentKind: product.KindFirmware,
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
+		groupList, err := h.db.ListGroups(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		id, ok := uuid.Nil, false
+		for _, g := range groupList {
+			if strings.EqualFold(g.Name, name) {
+				id, ok = g.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "group not found"})
+			return
+		}
+		filter.GroupID = id
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("restaurant")); name != "" {
+		restaurants, err := h.db.ListRestaurants(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		id, ok := uuid.Nil, false
+		for _, rest := range restaurants {
+			if strings.EqualFold(rest.Name, name) {
+				id, ok = rest.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "restaurant not found"})
+			return
+		}
+		filter.RestaurantID = id
+	}
+
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 10000, "", "")
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -1908,6 +1957,34 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// ListTestDataFilters gives the testing team's dashboard the group/restaurant names it
+// can pass to ListTestDataDevices, without needing the admin key just to populate a
+// picker. Names only — device counts, IDs, timestamps are an admin-key concern.
+func (h *Handler) ListTestDataFilters(w http.ResponseWriter, r *http.Request) {
+	groups, err := h.db.ListGroups(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	restaurants, err := h.db.ListRestaurants(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	groupNames := make([]string, 0, len(groups))
+	for _, g := range groups {
+		groupNames = append(groupNames, g.Name)
+	}
+	restaurantNames := make([]string, 0, len(restaurants))
+	for _, rest := range restaurants {
+		restaurantNames = append(restaurantNames, rest.Name)
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{
+		"groups":      groupNames,
+		"restaurants": restaurantNames,
+	})
+}
+
 // ListTestDataDeviceHistory is the time-series sibling of ListTestDataDevices, for
 // battery-cycle runs and anything else that needs more than the latest snapshot — a
 // full per-sample feed over a date range, rather than a once-a-cycle fleet pull.
@@ -1919,6 +1996,10 @@ func (h *Handler) ListTestDataDeviceHistory(w http.ResponseWriter, r *http.Reque
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	if device.AgentKind != product.KindFirmware {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
 		return
 	}
