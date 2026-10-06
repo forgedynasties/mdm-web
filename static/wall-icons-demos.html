@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device wall — icon per class · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:820px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:720px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:720px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#b4282d;background:rgba(229,72,77,.13);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .cur{background:rgba(229,72,77,.22);color:#f08a8d;}
+
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+.card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:0;overflow:hidden;}
+.cc-ch{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border-soft);font-weight:700;font-size:13.5px;}
+.cc-ch .m{font-weight:500;color:var(--text-faint);font-size:11.5px;}
+
+.ovd-wall{display:flex;flex-wrap:wrap;gap:14px 18px;padding:16px}
+.ovd-wb{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ovd-wb .nm{font-size:11.5px;font-weight:650;color:var(--text-2)}
+.sq{display:grid;gap:3px}
+.sq a{display:flex;align-items:center;justify-content:center;cursor:default;position:relative}
+.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface));}
+.warn{background:var(--chart-temp);}
+.off{background:var(--danger);}
+.dormant{background:var(--rule-2);}
+.ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.ovd-wfoot span{display:inline-flex;align-items:center}
+.ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.ovd-wfoot svg.k{width:11px;height:11px;margin-right:5px;vertical-align:-2px}
+
+/* Big (14px) icon tiles: coloured by status, white glyph on top — this is "normal" density */
+.sz-14 a{width:14px;height:14px;border-radius:3px}
+.sz-14 svg{width:9px;height:9px;stroke:#fff;fill:none;stroke-width:2.4}
+[data-theme=dark] .sz-14 svg{stroke:#0e0e12}
+
+/* Small (7px) tiles — the "sm" density past 900 devices. A glyph this small is the real test. */
+.sz-7 a{width:7px;height:7px;border-radius:2px}
+.sz-7 svg{width:5px;height:5px;stroke:#fff;fill:none;stroke-width:3.2}
+[data-theme=dark] .sz-7 svg{stroke:#0e0e12}
+
+/* Outline-only variant: a thin white icon just as a stroke, no fill change, status stays the square's background */
+.outline a{background:var(--surface-2,var(--surface));border:1.5px solid var(--text-faint)}
+.outline.on a{background:color-mix(in srgb,var(--ok) 20%,var(--surface));border-color:var(--ok)}
+.outline.warn a{background:color-mix(in srgb,var(--chart-temp) 20%,var(--surface));border-color:var(--chart-temp)}
+.outline a svg{stroke:var(--text-2)!important}
+
+.legend-icons{display:flex;flex-wrap:wrap;gap:10px 16px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:11px;color:var(--muted)}
+.legend-icons span{display:inline-flex;align-items:center;gap:5px}
+.legend-icons svg{width:13px;height:13px;stroke:var(--text-2);fill:none;stroke-width:2}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme">
+  <button data-t="light">Light</button><button data-t="dark">Dark</button>
+</div>
+<div class="wrap">
+  <h1>Device wall — an icon per class, instead of a shape</h1>
+  <p class="lead">What just shipped uses two shapes (square = battery, circle = mains) plus
+  the tooltip for the exact class. This explores going further: a distinct glyph per class
+  (8 of them — T7, kiosk, KDS, POS, mpos, payment, dongle, tablet) instead of grouping
+  battery/mains into two buckets. Same SVG set used in the nav/device-type icons elsewhere
+  in the app (<code>#dk-t7</code>, <code>#dk-kiosk</code>, etc. — simplified glyphs here).</p>
+
+  <div class="eyebrow">Shipped now <span class="cur">deployed today</span></div>
+  <div class="dname">Two shapes (square / circle), no icons</div>
+  <div class="ddesc">Square = T7/mpos/payment/tablet, circle = kiosk/KDS/POS/dongle. Reads at
+  any size because a shape has no internal detail to lose. Doesn't distinguish all 8 classes —
+  that's what the tooltip is for.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">today's shapes</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq" style="grid-template-columns:repeat(5,13px)">
+          <a class="on" style="width:13px;height:13px;border-radius:2px" title="T7"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="Kiosk"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="KDS"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="POS"></a>
+          <a class="on" style="width:13px;height:13px;border-radius:2px" title="T7"></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="eyebrow">Option A — 8 glyphs, 14px tiles</div>
+  <div class="dname">One icon per class, at today's normal density</div>
+  <div class="ddesc">Legible at 14px — each glyph is recognisable on its own, not just "not a
+  circle". The honest problem is density: this fleet view can show 900+ devices, and most
+  restaurants render several classes side by side, so the wall gets visually noisier than two
+  plain shapes — more for the eye to parse per glance, which cuts against the wall's "glance and
+  move on" job.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">14px tiles</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq sz-14" style="grid-template-columns:repeat(5,14px)">
+          <a class="on" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg></a>
+          <a class="warn" title="Kiosk"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></a>
+          <a class="warn" title="KDS"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M6 17v4M18 17v4"/></svg></a>
+          <a class="warn" title="POS"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg></a>
+          <a class="on" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg></a>
+        </div>
+      </div>
+      <div class="ovd-wb">
+        <div class="nm">Flights Vegas</div>
+        <div class="sq sz-14" style="grid-template-columns:repeat(4,14px)">
+          <a class="on" title="Handheld"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 18h4"/></svg></a>
+          <a class="on" title="Payment terminal"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></a>
+          <a class="on" title="Menu board"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M12 17v4M8 21h8"/></svg></a>
+          <a class="dormant" title="Tablet"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M12 18h.01"/></svg></a>
+        </div>
+      </div>
+    </div>
+    <div class="legend-icons">
+      <span><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>T7</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>Kiosk</span>
+      <span><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M6 17v4M18 17v4"/></svg>KDS</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>POS</span>
+      <span><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 18h4"/></svg>Handheld</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Payment</span>
+      <span><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M12 17v4M8 21h8"/></svg>Menu board</span>
+      <span><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M12 18h.01"/></svg>Tablet</span>
+    </div>
+  </div>
+
+  <div class="eyebrow">Option B — same glyphs, shrunk to the "sm" 7px density</div>
+  <div class="dname">What Option A looks like past 900 devices</div>
+  <div class="ddesc">This is the actual risk with per-class icons: the wall drops to 7px squares
+  once a restaurant/fleet view crosses 900 devices, and at that size every glyph below collapses
+  into the same grey smudge — T7 and tablet are already indistinguishable, kiosk/KDS/POS blur
+  into one blob. The two-shape version (square/circle) has no detail to lose and stays readable
+  at any size — that's the whole reason it was picked over this.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">7px tiles, same 8 classes</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro (900+ devices)</div>
+        <div class="sq sz-7" style="grid-template-columns:repeat(9,7px)">
+          <a class="on" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></a>
+          <a class="warn" title="Kiosk"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/></svg></a>
+          <a class="warn" title="KDS"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/></svg></a>
+          <a class="warn" title="POS"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/></svg></a>
+          <a class="on" title="Handheld"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/></svg></a>
+          <a class="on" title="Payment"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></a>
+          <a class="on" title="Menu board"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/></svg></a>
+          <a class="dormant" title="Tablet"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/></svg></a>
+          <a class="off" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></a>
+        </div>
+      </div>
+    </div>
+    <div class="ddesc" style="padding:0 16px 14px;margin:0">Zoom your browser in to actually see
+    the glyphs here — at real size (7px, the screenshot-accurate rendering) they're just coloured
+    dots, which is the point being demonstrated.</div>
+  </div>
+
+  <div class="eyebrow">Option C — icon only in the tooltip/legend, square/circle on the tile <span class="rec">Recommended if you still want icons somewhere</span></div>
+  <div class="dname">Keep today's two shapes on the grid; use real icons only where size isn't a constraint</div>
+  <div class="ddesc">The tile stays a plain square/circle at every density (no legibility cliff),
+  but the device page, the Apps/Commands picker, and the wall's own legend/footer — none of
+  which shrink to 7px — get a proper glyph per class. This is additive on top of what's already
+  shipped; no regression risk on the wall itself.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">tiles unchanged · legend gets icons</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq" style="grid-template-columns:repeat(5,13px)">
+          <a class="on" style="width:13px;height:13px;border-radius:2px" title="T7"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="Kiosk"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="KDS"></a>
+          <a class="warn" style="width:13px;height:13px;border-radius:50%" title="POS"></a>
+          <a class="on" style="width:13px;height:13px;border-radius:2px" title="T7"></a>
+        </div>
+      </div>
+    </div>
+    <div class="legend-icons">
+      <span><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>T7 (square)</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>Kiosk (circle)</span>
+      <span><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M6 17v4M18 17v4"/></svg>KDS (circle)</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>POS (circle)</span>
+    </div>
+  </div>
+
+  <div class="eyebrow">Option D — outline icon, status as a faint tint instead of full fill</div>
+  <div class="dname">A calmer look: thin grey icon, status reads as a soft background wash</div>
+  <div class="ddesc">Less visually loud than a solid colour fill per device, which could help
+  at high density — but it trades away the current wall's strongest property (status jumps out
+  in solid red/orange/green from across the screen) for a subtler cue that needs more attention
+  to read. Same 7px legibility problem as A/B once the glyph shrinks.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">14px, outline style</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq sz-14 outline" style="grid-template-columns:repeat(5,14px)">
+          <a class="on" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></a>
+          <a class="warn" title="Kiosk"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/></svg></a>
+          <a class="warn" title="KDS"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/></svg></a>
+          <a class="warn" title="POS"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/></svg></a>
+          <a class="on" title="T7"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="eyebrow">Recommendation</div>
+  <div class="ddesc" style="font-size:13px;color:var(--text);max-width:720px;">
+  <b>Keep the shipped square/circle on the wall tile itself</b> — it's the only option here that
+  doesn't fall apart at the 7px "sm" density this view actually has to handle past 900 devices.
+  If the goal is "I want to actually see a kiosk icon somewhere," <b>Option C</b> is the safe way
+  to get that: real per-class glyphs in the legend, the device page's client pill, and the
+  Apps/Commands picker — anywhere icon size is fixed and generous — while the wall's tiles stay
+  exactly as they are today. Options A/B/D are here mainly to show <i>why</i> not: a full icon
+  grid looks great at 14px and turns into noise (A) or a grey smear (B) the moment density forces
+  7px tiles, which this view does today.</div>
+
+</div>
+<script>
+(function(){
+  var saved = localStorage.getItem('demo-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  document.querySelectorAll('.themebar button').forEach(function(b){
+    if(b.dataset.t === (saved||'light')) b.classList.add('on');
+    b.addEventListener('click', function(){
+      document.documentElement.setAttribute('data-theme', b.dataset.t);
+      try{ localStorage.setItem('demo-theme', b.dataset.t); }catch(e){}
+      document.querySelectorAll('.themebar button').forEach(function(x){x.classList.toggle('on', x===b);});
+    });
+  });
+})();
+</script>
+</body>
+</html>
