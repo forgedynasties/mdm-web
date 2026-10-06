@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — one phone, two connections — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1100px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:860px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.5;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:860px;line-height:1.5;}.pc b{color:var(--text);}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.mono{font-family:var(--font-mono,monospace);font-size:11px;}
+.ctl{display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap}
+.cap{font-size:12px;color:var(--accent-text);font-weight:700;min-height:18px;margin:0 0 8px}
+.win{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 14px 36px rgba(20,22,40,.14);max-width:860px}
+.tb{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border-soft)}
+.tb i{width:10px;height:10px;border-radius:50%;display:block}.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.body{display:grid;grid-template-columns:250px 1fr;min-height:360px}
+.rail{padding:12px;display:flex;flex-direction:column;gap:7px;border-right:1px solid var(--border-soft)}
+.main{padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ri{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;transition:all .3s}
+.ri.sel{border-color:var(--accent-edge);background:var(--accent-soft)}
+.ri .ph{width:28px;height:28px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+.ri .ph .ic{width:15px;height:15px}
+.ri .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none}
+.cn{display:flex;gap:4px;align-items:center;color:var(--muted)}
+.cn .ic{width:14px;height:14px}
+.cn .c{display:flex;transition:all .35s}
+.cn .c.new{animation:pop .45s cubic-bezier(.2,.9,.3,1.3) both;color:var(--accent-text)}
+.cn .c.gone{opacity:0;width:0;transform:scale(.3);overflow:hidden}
+@keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pulse{50%{opacity:.35}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes mergeIn{0%{transform:translateY(40px);opacity:.2}100%{transform:none;opacity:1}}
+.ghost{opacity:.5;border-style:dashed}
+.btn2{display:inline-flex;align-items:center;gap:6px}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rot .8s linear infinite;display:inline-block}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;margin:8px 0}
+.seg button{border:0;background:transparent;font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 14px;border-radius:99px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.seg button.on{background:var(--accent);color:#fff}
+.seg .ic{width:13px;height:13px}
+.note{font-size:11.5px;color:var(--muted);max-width:400px;line-height:1.5}
+.tip{background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;animation:slidein .35s both}
+.sub{margin-left:38px;display:flex;flex-direction:column;gap:5px;animation:slidein .3s both}
+.sr{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:9px;border:1px solid var(--border-soft);background:var(--surface);font-size:11.5px}
+.sr .ic{width:13px;height:13px;color:var(--muted)}
+.sr .mono{flex:1;color:var(--muted)}
+.sr .x{border:0;background:transparent;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer}
+.sr .x:hover{color:var(--danger)}
+.badge2{background:var(--accent);color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media(max-width:860px){.body{grid-template-columns:200px 1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — one phone connected two ways</h1>
+<p class="lead">After <b>Switch to Wi-Fi</b> (or any time a phone is on the cable <i>and</i> on Wi-Fi) the same Pixel 6 shows up <b>twice</b> in the list: once for USB, once for Wi-Fi. They are one phone (same serial), so they should be <b>one row</b>. The app already knows this: both rows report the same serial number.</p>
+<p class="lead">Each demo plays the story: <b>USB only → press “Switch to Wi-Fi” → the Wi-Fi link joins the same row → unplug the cable</b>. Press ▶ Play. What the app does behind the scenes is the same in all three: it keeps both connections, <b>uses USB for actions while the cable is in</b> (more reliable), and falls back to Wi-Fi when it's unplugged.</p>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">One row, two connection icons <span class="rec">recommended</span></div>
+<div class="ddesc">The row shows both icons side by side (cable + Wi-Fi). When the Wi-Fi link appears its icon pops in next to the USB one; when you unplug, the cable icon fades out and only Wi-Fi remains. The panel tells you what to do: “Connected by USB and Wi-Fi — you can unplug the cable.”</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="A">▶ Play</button></div><div class="cap" id="capA"></div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="railA"></div><div class="main" id="mainA"></div></div></div>
+<p class="pc"><b>Good:</b> simplest, immediately understandable, no new controls. <b>Bad:</b> per-connection actions (e.g. forget only the Wi-Fi link) need a place — the panel has a small “Connections” line for that.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">One row, with a “Connected via” switch in the panel</div>
+<div class="ddesc">Row shows both icons, and the panel has a segmented control <b>[ USB | Wi-Fi ]</b> showing which connection the app uses right now (USB by default while plugged in). Lets people deliberately test the Wi-Fi path without unplugging.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="B">▶ Play</button></div><div class="cap" id="capB"></div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="railB"></div><div class="main" id="mainB"></div></div></div>
+<p class="pc"><b>Good:</b> full control, explains itself. <b>Bad:</b> an extra control most people never need.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">One row with a “2” badge that expands into its connections</div>
+<div class="ddesc">The row shows a small count badge. Click it and the row unfolds into one slim line per connection (<span class="mono">USB</span>, <span class="mono">10.32.2.210:5555</span>) each with its own “Forget” (Wi-Fi only) — the same pattern as the Nearby phones group.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="C">▶ Play</button></div><div class="cap" id="capC"></div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="railC"></div><div class="main" id="mainC"></div></div></div>
+<p class="pc"><b>Good:</b> every connection is visible and manageable. <b>Bad:</b> the most UI; overkill when nearly everyone has one or two.</p>
+
+<span class="eyebrow">Rules for all options</span>
+<p class="lead">• <b>Merge key:</b> the phone's serial number. Different phones are never merged; a phone whose serial can't be read stays unmerged.<br>
+• <b>Which connection acts:</b> USB while plugged in (faster, doesn't drop), otherwise Wi-Fi. Enroll, reboot etc. go through that one.<br>
+• <b>Forget</b> only removes the Wi-Fi link (USB can't be forgotten from software). If both exist it forgets just Wi-Fi and says so.<br>
+• <b>Saved phones</b> list still remembers the Wi-Fi address, so after you unplug and later disconnect it can be reconnected in one click.<br>
+• The status mark (✓ / dot) and the model name are shown once, not twice.</p>
+<p class="lead"><b>Pick A, B or C.</b></p>
+</div>
+
+<script>
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const PH=ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+const USB=ic('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>');
+const WIFI=ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>');
+const TAB=ic('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M10.5 17h3"/>');
+const runs={};
+const other=`<div class="ri"><div class="ph">${TAB}</div><span class="nm">AIO T7</span><span class="cn"><span class="c">${WIFI}</span></span><span class="dot" style="background:var(--ok)"></span></div>`;
+const sp='<span class="spin"></span>';
+
+function rowHTML(st,extra=''){ // st: {usb,wifi,newWifi,goneUsb}
+  const icons=(st.usb?`<span class="c ${st.goneUsb?'gone':''}">${USB}</span>`:'')+(st.wifi?`<span class="c ${st.newWifi?'new':''}">${WIFI}</span>`:'');
+  return `<div class="ri sel"><div class="ph">${PH}</div><span class="nm">Google Pixel 6</span>${extra}<span class="cn">${icons}</span><span class="dot"></span></div>`;
+}
+const play=(key)=>{const t=runs[key]={};return ()=>runs[key]===t;};
+
+/* ── shared story driver ── */
+async function story(key,draw,alive,cap){
+  const C=document.getElementById('cap'+key);
+  C.textContent='1 · The phone is plugged in by USB';draw({usb:true,wifi:false},'usb');await sleep(1700);if(!alive())return;
+  C.textContent='2 · Press “Switch to Wi-Fi”';draw({usb:true,wifi:false},'switching');await sleep(1700);if(!alive())return;
+  C.textContent='3 · It is now also on Wi-Fi — still ONE row';draw({usb:true,wifi:true,newWifi:true},'both');await sleep(2800);if(!alive())return;
+  C.textContent='4 · Unplug the cable — the cable icon fades out, nothing else changes';draw({usb:true,wifi:true,goneUsb:true},'both');await sleep(900);if(!alive())return;
+  draw({usb:false,wifi:true},'wifi');await sleep(500);
+  C.textContent='Done — one phone, one row, whichever way it is connected.';
+}
+
+/* A */
+async function playA(){const alive=play('A');
+  const rail=document.getElementById('railA'),main=document.getElementById('mainA');
+  const draw=(st,mode)=>{rail.innerHTML=rowHTML(st)+other;
+    const both=st.usb&&st.wifi,usbOnly=st.usb&&!st.wifi;
+    main.innerHTML=`<div class="ph" style="width:70px;height:70px;border-radius:20px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--muted)">${PH}</div><h3 style="margin:6px 0 0;font-size:16px">Google Pixel 6</h3><div class="mono" style="color:var(--muted)">18121FDF60022T · Android 17 · ${both?'USB + Wi-Fi':usbOnly?'USB':'Wi-Fi'}</div>`+
+      (mode==='usb'?`<button class="cc-btn primary btn2" style="margin-top:10px">${WIFI.replace('class="ic"','class="ic" style="width:14px;height:14px"')} Switch to Wi-Fi</button>`:'')+
+      (mode==='switching'?`<button class="cc-btn primary btn2" style="margin-top:10px">${sp} Switching…</button>`:'')+
+      (both?`<div class="tip" style="margin-top:10px">Connected by USB and Wi-Fi — you can unplug the cable.</div><div class="note" style="margin-top:6px">Connections: USB · 10.32.2.210:5555 <a style="color:var(--accent-text);font-weight:700;cursor:pointer">Forget Wi-Fi</a></div>`:'')+
+      (mode==='wifi'?`<div class="note" style="margin-top:8px">On Wi-Fi at 10.32.2.210:5555.</div>`:'');};
+  story('A',draw,alive);}
+
+/* B */
+async function playB(){const alive=play('B');
+  const rail=document.getElementById('railB'),main=document.getElementById('mainB');let via='usb';
+  const draw=(st,mode)=>{rail.innerHTML=rowHTML(st)+other;
+    const both=st.usb&&st.wifi;if(!both)via=st.usb?'usb':'wifi';
+    main.innerHTML=`<div style="width:70px;height:70px;border-radius:20px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--muted)">${PH}</div><h3 style="margin:6px 0 0;font-size:16px">Google Pixel 6</h3><div class="mono" style="color:var(--muted)">18121FDF60022T · Android 17</div>`+
+      (both?`<div class="note" style="margin-top:6px">Connected via</div><div class="seg"><button class="${via==='usb'?'on':''}">${USB} USB</button><button class="${via==='wifi'?'on':''}">${WIFI} Wi-Fi</button></div><div class="note">The app uses ${via==='usb'?'the cable':'Wi-Fi'} for actions.</div>`
+       :`<div class="seg"><button class="on">${st.usb?USB+' USB':WIFI+' Wi-Fi'}</button></div>`)+
+      (mode==='usb'?`<button class="cc-btn primary btn2" style="margin-top:6px">${WIFI.replace('class="ic"','class="ic" style="width:14px;height:14px"')} Switch to Wi-Fi</button>`:'')+
+      (mode==='switching'?`<button class="cc-btn primary btn2" style="margin-top:6px">${sp} Switching…</button>`:'');};
+  story('B',draw,alive);}
+
+/* C */
+async function playC(){const alive=play('C');
+  const rail=document.getElementById('railC'),main=document.getElementById('mainC');
+  const draw=(st,mode)=>{const both=st.usb&&st.wifi;
+    rail.innerHTML=rowHTML(st,both?'<span class="badge2">2</span>':'')+(both?`<div class="sub"><div class="sr">${USB}<span class="mono">USB cable</span></div><div class="sr">${WIFI}<span class="mono">10.32.2.210:5555</span><button class="x">Forget</button></div></div>`:'')+other;
+    main.innerHTML=`<div style="width:70px;height:70px;border-radius:20px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--muted)">${PH}</div><h3 style="margin:6px 0 0;font-size:16px">Google Pixel 6</h3><div class="mono" style="color:var(--muted)">18121FDF60022T · Android 17</div>`+
+      (mode==='usb'?`<button class="cc-btn primary btn2" style="margin-top:10px">${WIFI.replace('class="ic"','class="ic" style="width:14px;height:14px"')} Switch to Wi-Fi</button>`:'')+
+      (mode==='switching'?`<button class="cc-btn primary btn2" style="margin-top:10px">${sp} Switching…</button>`:'')+
+      (both?`<div class="tip" style="margin-top:10px">Two connections — you can unplug the cable.</div>`:'');};
+  story('C',draw,alive);}
+
+document.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>({A:playA,B:playB,C:playC})[b.dataset.play]());
+playA();playB();playC();
+</script></body></html>
