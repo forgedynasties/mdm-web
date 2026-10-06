@@ -1935,7 +1935,11 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 	for _, d := range devices {
 		row := qaTestDataRow{
 			SerialNumber:        d.SerialNumber,
-			DeviceClass:         d.DeviceClass,
+			// d.DeviceClass is the raw stored column — empty for most devices (they
+			// inherit their class from their product instead, e.g. T7 -> "t7"). d.Class()
+			// resolves that the same way the real dashboard does; using the raw field
+			// here left every device showing device_class: "".
+			DeviceClass:         d.Class(),
 			RestaurantName:      d.RestaurantName,
 			Groups:              groups[d.ID],
 			LastSeenAt:          d.LastSeenAt.UTC().Format(time.RFC3339),
