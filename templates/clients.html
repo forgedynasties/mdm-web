@@ -2,10 +2,11 @@
 {{template "header" .}}
 {{/* Clients: the MDM client each device runs, the build this server hosts for it, and
      what has been published to it. The client list stays on the left while you work in
-     one of them — there are five and they are picked between constantly. A slot exists
-     per thing that must be signed differently: the DPC agent has its own key, the
-     firmware client is signed with the platform key of its build variant, and the Lite
-     hosts are separate apps. A device is only ever offered its own slot's build. */}}
+     one of them. A slot exists per thing that must be signed differently: the standard
+     client has its own key, and the firmware client is signed with the platform key of its
+     build tree (QCOM is the only one actively published — GMS is frozen but kept
+     visible for any device still on it). A device is only ever offered its own slot's
+     build. */}}
 <style>
 .cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
 .cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}
@@ -95,6 +96,7 @@
     <div class="cc-eyebrow">Fleet · Clients</div>
     <h1 class="cc-h1">Clients</h1>
     <div class="cc-sub">The MDM client on each device and the build this server hosts for it. A device is only offered a build signed with the same key it already trusts, so the firmware client has one entry per variant. Builds arrive from CI, not by hand.</div>
+    <div class="cc-sub" style="margin-top:6px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>
   </div>
 </div>
 

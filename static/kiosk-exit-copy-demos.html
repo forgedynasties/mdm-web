@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosk exit wording · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:18px}
+.col{max-width:620px}
+
+/* The rule editor pieces, copied from templates/manage_policy_form.html */
+.ke-q{padding:16px 18px;margin-bottom:12px}
+.ke-q h2{font-size:14.5px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+.ke-q .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);font-size:12px;font-weight:700}
+.ke-hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.ke-sw{display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer}
+.ke-sw input{width:18px;height:18px;margin-top:1px}
+.ke-sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.ke-foot{display:flex;gap:8px;align-items:center;margin-top:4px}
+/* A: the steps */
+.kx-steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.kx-steps li{counter-increment:s;display:flex;gap:9px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-steps li::before{content:counter(s);flex:none;width:18px;height:18px;border-radius:50%;background:var(--surface-3);color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.kx-steps b{color:var(--text)}
+.kx-pin{font-family:var(--mono);font-weight:700;letter-spacing:.08em;background:var(--surface-3);border-radius:5px;padding:0 5px}
+/* B: the footnote */
+.kx-note{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 2px 0}
+/* rules list row, from templates/manage.html */
+.kr-row{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;align-items:center;padding:15px 17px}
+.kr-app{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;background:var(--accent)}
+.kr-nm{font-size:14.5px;font-weight:700}
+.kr-mt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.kr-mt b{color:var(--text-2);font-weight:650}
+.kr-mt s{color:var(--danger)}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>How staff get out of kiosk: saying what is true</h1>
+<p class="lead">The kiosk rule editor asks "How staff get out" and offers an "Offline exit code" switch that says the code changes every minute. In fact every device accepts one fixed exit PIN, compiled into the client, whatever the switch says; it also accepts the rotating code on its device page. The switch reaches no device. You chose to keep the fixed PIN and make the page honest, so the switch goes. The options below differ in how much the page says. The rules list loses its "· exit code on" note for the same reason.</p>
+<div class="toc"><a href="#now">Current</a><a href="#a" class="rec">A · Question 3 says how ★</a><a href="#b">B · A footnote instead</a><a href="#c">C · A, with the PIN printed</a><a href="#list">Rules list</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="now">Current <span class="tag live">Deployed</span></h2>
+<p class="desc">A switch that changes nothing on the device, and a description of a code that isn't the one staff use.</p>
+<div class="scr"><div class="col">
+  <div class="cc-card ke-q">
+    <h2><span class="n">3</span>How staff get out</h2>
+    <label class="ke-sw"><input type="checkbox" checked><span>Offline exit code<small>A technician can leave kiosk on the device with a code from the MDM that changes every minute, even with no connection. It locks again when the device restarts.</small></span></label>
+  </div>
+</div></div>
+
+<h2 class="sec" id="a">A · Question 3 stays, and says how <span class="tag rec">Recommended</span></h2>
+<p class="desc">No control, just the three steps a technician actually takes. It is the same on every device, so it reads as a fact about kiosk, not a setting of this rule.</p>
+<div class="scr"><div class="col">
+  <div class="cc-card ke-q">
+    <h2><span class="n">3</span>How staff get out</h2>
+    <p class="ke-hint">The same on every device; nothing to set here.</p>
+    <ol class="kx-steps">
+      <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
+      <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
+      <li><span>Kiosk comes back on <b>the next restart</b>, or when the rule is saved again.</span></li>
+    </ol>
+  </div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>Answers the question it asks, in the order a technician does it.</li><li>Nothing left to toggle that does nothing.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Takes the same space as before for something that isn't a choice.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · Question 3 goes; a footnote under the editor</h2>
+<p class="desc">The editor asks two questions (where, which app) and a name. One line under Save says how staff get out.</p>
+<div class="scr"><div class="col">
+  <div class="cc-card ke-q"><h2>Name</h2><input class="form-input" value="Flights Vegas · Nugget" style="width:100%"></div>
+  <div class="ke-foot"><button class="cc-btn primary">Save rule</button><button class="cc-btn">Cancel</button></div>
+  <p class="kx-note">Staff leave kiosk on the device with five Power presses and the exit PIN (or the code on the device's page). Kiosk comes back on the next restart.</p>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>The editor only asks things you decide.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Easy to miss; "how do staff get out?" is the first thing a restaurant asks.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · A, with the PIN printed</h2>
+<p class="desc">As A, but step 2 shows the PIN itself so whoever sets up the rule can pass it on.</p>
+<div class="scr"><div class="col">
+  <div class="cc-card ke-q">
+    <h2><span class="n">3</span>How staff get out</h2>
+    <p class="ke-hint">The same on every device; nothing to set here.</p>
+    <ol class="kx-steps">
+      <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
+      <li><span>Enter <span class="kx-pin">147147</span>, or the code shown on the device's page. Both work with no connection.</span></li>
+      <li><span>Kiosk comes back on <b>the next restart</b>, or when the rule is saved again.</span></li>
+    </ol>
+  </div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>No hunting for the PIN.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Puts the PIN in front of everyone who can open the Kiosk page, including restaurant owners' support staff. It is already in the public client code, but that is no reason to hand it out.</li></ul></div>
+</div>
+
+<h2 class="sec" id="list">The rules list (goes with any option)</h2>
+<p class="desc">Each rule row on the Kiosk page drops "· exit code on", which described the switch.</p>
+<div class="scr"><div class="cc-card col" style="max-width:640px">
+  <div class="kr-row"><span class="kr-app">N</span><div><div class="kr-nm">Flights Vegas · Nugget</div><div class="kr-mt">Locked to <b>Nugget</b> · Flights Vegas <s>· exit code on</s></div></div></div>
+</div></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A.</b> "How staff get out" is a question people ask, so answer it where they look, as three steps, without a switch. Leave the PIN itself off the page (C) and keep pointing at the device's page for the rotating code, which is the one worth handing out. The stored per-rule setting stays in the database unused, so nothing is lost if the choice changes later.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

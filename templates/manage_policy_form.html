@@ -1,327 +1,238 @@
 {{define "manage_policy_form.html"}}
 {{template "header" .}}
-
-{{$policy := .Policy}}
-
+{{$p := .Policy}}
 <style>
-.mpf-wrap{max-width:1180px;margin:0 auto}
-.mpf-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--muted);text-decoration:none;margin-bottom:10px}
-.mpf-back:hover{color:var(--text)}
-.mpf-h1{font-size:22px;font-weight:750;letter-spacing:-.02em;margin:0 0 18px}
-.mpf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);overflow:visible}
-.mpf-cb{padding:18px 20px}
-.mpf-grid{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}
-@media(max-width:900px){.mpf-grid{grid-template-columns:1fr}}
-.mpf-col{display:flex;flex-direction:column;gap:16px;min-width:0}
-.mp-name{font:inherit;font-size:14px;font-weight:650;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
-.mp-name::placeholder{font-weight:500;color:var(--text-faint)}
-
-.mk-target-seg{display:flex;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px}
-.mk-target-seg button{flex:1;font:inherit;font-size:12.5px;font-weight:650;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--text-2);cursor:pointer}
-.mk-target-seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm)}
-.mk-target-dep{margin-top:10px}
-.mk-target-dep select{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
-
-/* device target — same searchable single-select list shape as the Actions page's
-   device browser (.sd-head/.sd-search/.scope-dev-list/.sri), single-select instead
-   of checkboxes since a policy targets exactly one device here. */
-.sd-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.sd-search{flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;transition:border-color .12s}
-.sd-search:focus-within{border-color:var(--accent-edge,rgba(249,103,78,.34))}
-.sd-search svg{color:var(--text-faint,#a49c90);flex:none}
-.sd-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text)}
-.sd-search input::placeholder{color:var(--text-faint,#a49c90)}
-.sd-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
-.sd-count b{color:var(--text)}
-.scope-dev-list{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:9px}
-.sri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 11px;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;background:none;cursor:pointer;font:inherit;color:var(--text)}
-.sri:last-child{border-bottom:0}
-.sri:hover{background:var(--surface-sunk,rgba(0,0,0,.03))}
-.sri.on{background:var(--accent-soft,rgba(249,103,78,.1))}
-.sri .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted-dot,#b8b0a4)}
-.sri .dot.ok{background:var(--ok,#3f9d5a)}
-.sri .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
-.sri .txt .nm{font-size:13px;font-weight:500}
-.sri.on .txt .nm{font-weight:650}
-.sri .check{margin-left:auto;color:var(--accent);opacity:0;flex:none}
-.sri.on .check{opacity:1}
-.mp-dev-empty{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
-
-/* app picker — leaner list-first layout (was a cramped 3-wide grid in the old
-   modal); grid view still available via the toggle for anyone who prefers it. */
-.kpk{display:flex;flex-direction:column;gap:8px}
-.kpk-top{display:flex;gap:6px;align-items:center}
-.kpk-search{position:relative;flex:1;display:flex;align-items:center}
-.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none}
-.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text)}
-.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
-.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center}
-.kpk-seg button.active{background:var(--accent-soft);color:var(--accent)}
-.kpk-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px;max-height:280px;overflow-y:auto;padding:2px}
-.kpk-list{display:flex;flex-direction:column;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:9px}
-.kpk.gridview .kpk-grid{display:grid}
-.kpk.gridview .kpk-list{display:none}
-.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit}
-.kpk-opt:hover{border-color:var(--rule-2)}
-.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft)}
-.kpk-tile{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:11.5px;flex:none}
-.kpk-tile.kpk-img{object-fit:contain;background:var(--surface3,var(--surface2));padding:2px}
-.kpk-txt{min-width:0;display:flex;flex-direction:column}
-.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
-.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center}
-.kpk-opt.sel .kpk-check{display:grid}
-.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;padding:7px 10px}
-.kpk-list .kpk-opt:last-child{border-bottom:0}
-.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent)}
-.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1}
-
-.mpf-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px;padding:16px 20px}
-.mpf-note{font-size:12.5px;color:var(--muted);flex:1;min-width:160px}
-.mpf-btns{display:flex;gap:8px}
-@media(max-width:640px){
-  .mpf-foot{flex-direction:column;align-items:stretch}
-  .mpf-btns{width:100%}
-  .mpf-btns a,.mpf-btns button{flex:1;justify-content:center;min-height:40px}
-  .mk-target-seg button{min-height:36px}
-}
+/* ── Kiosk rule editor: three questions and a live preview ─────────── */
+.ke-wrap{max-width:1100px;margin:0 auto}
+.ke-back{font-size:13px;color:var(--muted);text-decoration:none}
+.ke-back:hover{color:var(--text)}
+.ke-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:12px;align-items:start}
+@media(max-width:1024px){.ke-grid{grid-template-columns:1fr}}
+.ke-q{padding:16px 18px;margin-bottom:12px}
+.ke-q h2{font-size:14.5px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+.ke-q .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);font-size:12px;font-weight:700}
+.ke-hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.ke-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ke-chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer;min-height:38px}
+.ke-chip small{color:var(--muted);font-weight:500}
+.ke-chip:hover{border-color:var(--rule-2)}
+.ke-chip.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ke-more{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.ke-more select,.ke-more input,.ke-name{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--bg);color:var(--text);min-height:38px;box-sizing:border-box}
+.ke-more select.on,.ke-more input.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ke-name{width:100%;max-width:440px}
+.ke-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.ke-app{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--surface);cursor:pointer;font:inherit;text-align:left;color:var(--text);min-height:48px}
+.ke-app.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ke-app i{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700;font-size:13px;overflow:hidden}
+.ke-app i img{width:100%;height:100%;object-fit:cover}
+.ke-app b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ke-app small{display:block;color:var(--muted);font-size:11.5px}
+.ke-app span{min-width:0}
+.ke-appq{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--bg);color:var(--text);width:100%;max-width:320px;margin-bottom:10px;box-sizing:border-box}
+.ke-empty{font-size:13px;color:var(--muted);padding:6px 0}
+.ke-sw{display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer}
+.ke-sw input{width:18px;height:18px;margin-top:1px}
+.ke-sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.kx-steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.kx-steps li{counter-increment:s;display:flex;gap:9px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-steps li::before{content:counter(s);flex:none;width:18px;height:18px;border-radius:50%;background:var(--surface-3);color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.kx-steps b{color:var(--text)}
+.ke-prev{padding:16px 18px;position:sticky;top:12px;font-size:13px;line-height:1.55}
+.ke-prev h2{font-size:11.5px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.ke-big{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.ke-prev ul{margin:10px 0 0;padding-left:18px;color:var(--text-2)}
+.ke-prev li.w{color:var(--warn)}
+.ke-prev li.b{color:var(--danger)}
+.ke-foot{display:flex;justify-content:flex-end;gap:8px;align-items:center;flex-wrap:wrap}
+.ke-err{color:var(--danger);font-size:13px;margin-right:auto}
 </style>
 
-<div class="mpf-wrap cc-wrap">
-  <a href="/manage" class="mpf-back">← Policies</a>
-  <h1 class="mpf-h1">{{if $policy}}Edit policy{{else}}New kiosk policy{{end}}</h1>
+<div class="ke-wrap cc-wrap">
+  <a href="/manage" class="ke-back">← Kiosk</a>
+  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New kiosk rule{{end}}</h1>
 
-  <form id="mp-form" method="POST" action="/manage/policies">
-    <input type="hidden" name="id" id="mp-id" value="{{if $policy}}{{$policy.ID}}{{end}}">
-    <input type="hidden" name="target_type" id="mp-target-type" value="{{if $policy}}{{$policy.TargetType}}{{else}}group{{end}}">
-    <input type="hidden" name="target_id" id="mp-target-id" value="{{if $policy}}{{if $policy.TargetID}}{{$policy.TargetID}}{{end}}{{end}}">
-    <input type="hidden" name="target_serial" id="mp-target-serial" value="{{if $policy}}{{$policy.TargetSerial}}{{end}}">
-    <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}">
+  <form id="ke-form" method="POST" action="/manage/policies" hx-boost="false">
+    <input type="hidden" name="id" id="ke-id" value="{{if $p}}{{$p.ID}}{{end}}">
+    <input type="hidden" name="target_type" id="ke-tt" value="{{if $p}}{{$p.TargetType}}{{end}}">
+    <input type="hidden" name="target_id" id="ke-tid" value="{{if $p}}{{if $p.TargetID}}{{$p.TargetID}}{{end}}{{end}}">
+    <input type="hidden" name="target_serial" id="ke-ts" value="{{if $p}}{{$p.TargetSerial}}{{end}}">
+    <input type="hidden" name="kiosk_package" id="ke-pkg" value="{{if $p}}{{$p.KioskPackage}}{{end}}">
 
-    <div class="mpf-grid">
-      <div class="mpf-col">
-        <div class="mpf-card">
-          <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h2>Name</h2></div>
-          <div class="mpf-cb">
-            <div class="form-row" style="margin:0">
-              <label class="form-label">Policy name</label>
-              <input type="text" class="mp-name" name="name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown" value="{{if $policy}}{{$policy.Name}}{{end}}" oninput="mpCheckReady()">
-            </div>
+    <div class="ke-grid">
+      <div>
+        <div class="cc-card ke-q">
+          <h2><span class="n">1</span>Where</h2>
+          <p class="ke-hint">A restaurant, a group, or one device. Devices that join later are locked too; devices that leave are released.</p>
+          <div class="ke-chips">
+            {{range .Restaurants}}<button type="button" class="ke-chip" data-tt="restaurant" data-id="{{.ID}}" data-label="{{.Name}}">{{.Name}} <small>{{.DeviceCount}}</small></button>{{end}}
+            {{if .AllowAll}}<button type="button" class="ke-chip" data-tt="all" data-id="" data-label="Every device">Every device <small>{{.FleetTotal}}</small></button>{{end}}
+          </div>
+          <div class="ke-more">
+            {{if .Groups}}<select id="ke-group" aria-label="A group"><option value="">A group…</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}</select>{{end}}
+            <input id="ke-serial" list="ke-serials" placeholder="One device: type a serial" aria-label="One device" autocomplete="off">
+            <datalist id="ke-serials">{{range .Serials}}<option value="{{.}}">{{end}}</datalist>
           </div>
         </div>
 
-        <div class="mpf-card">
-          <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><h2>Targets</h2><span class="m">what this policy applies to</span></div>
-          <div class="mpf-cb">
-            <div class="form-row" style="margin:0">
-              <div class="mk-target-seg" role="radiogroup">
-                <button type="button" data-k="all" onclick="mpTargetKind(this,'all')">All devices</button>
-                <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
-                <button type="button" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
-                <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
-              </div>
-              <div class="mk-target-dep" id="mp-dep-restaurant" style="display:none;">
-                <select onchange="mpDepChange(this,'restaurant')"><option value="">Choose a restaurant…</option>{{range .Restaurants}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "restaurant") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
-              </div>
-              <div class="mk-target-dep" id="mp-dep-group" style="display:none;">
-                <select onchange="mpDepChange(this,'group')"><option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "group") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
-              </div>
-              {{/* Device target — same searchable single-select list shape as the
-                   Actions page's device browser: search bar + scrollable row list,
-                   a live match count, one row highlighted instead of checkboxes. */}}
-              <div class="mk-target-dep" id="mp-dep-device" style="display:none;">
-                <div class="sd-head">
-                  <div class="sd-search"><svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="mp-dev-q" autocomplete="off" placeholder="Search serial, build, restaurant…" oninput="mpFilterDevices()"></div>
-                  <span class="sd-count"><b id="mp-dev-shown">{{len .Devices}}</b> of {{len .Devices}}</span>
-                </div>
-                <div class="scope-dev-list" id="mp-dev-list">
-                  {{range .Devices}}
-                  <button type="button" class="sri{{if and $policy (eq $policy.TargetType "device") (eq $policy.TargetSerial .SerialNumber)}} on{{end}}" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" data-serial="{{.SerialNumber}}" onclick="mpPickDevice(this)">
-                    <span class="dot{{if index $.Online .ID}} ok{{end}}"></span>
-                    <span class="txt"><span class="nm mono">{{.SerialNumber}}</span><span class="muted small">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}{{if .BuildID}}{{.BuildID}}{{else}}no build reported{{end}}</span></span>
-                    <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
-                  </button>
-                  {{else}}
-                  <div class="mp-dev-empty">No devices.</div>
-                  {{end}}
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="cc-card ke-q">
+          <h2><span class="n">2</span>Which app</h2>
+          <p class="ke-hint" id="ke-apphint">Pick where first: the list shows only apps installed on those devices.</p>
+          <input type="search" class="ke-appq" id="ke-appq" placeholder="Search apps…" aria-label="Search apps" hidden>
+          <div class="ke-apps" id="ke-apps" role="listbox" aria-label="Apps"></div>
+        </div>
+
+        <div class="cc-card ke-q">
+          <h2><span class="n">3</span>How staff get out</h2>
+          <p class="ke-hint">The same on every device; nothing to set here.</p>
+          <ol class="kx-steps">
+            <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
+            <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
+            <li><span>The device <b>stays out of kiosk until someone locks it again</b> here. The Kiosk page and the device's page show that it was taken out.</span></li>
+          </ol>
+        </div>
+
+        <div class="cc-card ke-q">
+          <h2>Name</h2>
+          <input class="ke-name" name="name" id="ke-name" maxlength="120" value="{{if $p}}{{$p.Name}}{{end}}" placeholder="Filled in from where and which app">
+        </div>
+
+        <div class="ke-foot">
+          <span class="ke-err" id="ke-err" role="alert"></span>
+          <a href="/manage" class="cc-btn">Cancel</a>
+          <button type="submit" class="cc-btn primary" id="ke-save" disabled>Save</button>
         </div>
       </div>
 
-      <div class="mpf-col">
-        <div class="mpf-card">
-          <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h2>Lock target app</h2></div>
-          <div class="mpf-cb">
-            <div class="form-row" style="margin:0;">
-              {{if .FleetPackages}}
-              <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
-              <div class="kpk" id="kiosk-app-picker">
-                <div class="kpk-top">
-                  <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="kpk-q" autocomplete="off" spellcheck="false" placeholder="Search apps…"></span>
-                  <span class="kpk-seg">
-                    <button type="button" id="kpk-vlist" class="active" title="List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
-                    <button type="button" id="kpk-vgrid" title="Grid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
-                  </span>
-                </div>
-                <div class="kpk-grid" id="kpk-grid"></div>
-                <div class="kpk-list" id="kpk-list"></div>
-              </div>
-              {{else}}
-              <input type="text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}" oninput="document.getElementById('kiosk-pkg-value').value=this.value;mpCheckReady()">
-              {{end}}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mpf-card mpf-foot">
-      <div class="mpf-note" id="mp-note">Name the policy, pick a target, and pick an app to lock to.</div>
-      <div class="mpf-btns">
-        <a href="/manage" class="cc-btn">Cancel</a>
-        <button type="submit" class="cc-btn primary" id="mp-save" disabled>Save policy</button>
+      <div class="cc-card ke-prev" aria-live="polite">
+        <h2>What will happen</h2>
+        <div id="ke-prev"><div class="ke-empty">Pick where and which app.</div></div>
       </div>
     </div>
   </form>
 </div>
 
 <script>
-var mpTargetVal = '';
-function mpTargetKind(btn, kind) {
-  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  ['restaurant', 'group', 'device'].forEach(function (k) {
-    document.getElementById('mp-dep-' + k).style.display = k === kind ? '' : 'none';
-  });
-  document.getElementById('mp-target-type').value = kind;
-  if (kind === 'all') {
-    document.getElementById('mp-target-id').value = '';
-    document.getElementById('mp-target-serial').value = '';
-    mpTargetVal = 'ok';
-  } else {
-    mpTargetVal = '';
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var tt = $('ke-tt'), tid = $('ke-tid'), ts = $('ke-ts'), pkg = $('ke-pkg'), nameEl = $('ke-name');
+  var nameTouched = !!nameEl.value, targetLabel = '', appName = '', apps = [], last = null, seq = 0;
+  function esc(s) { return String(s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function color(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+
+  function clearTargets() {
+    document.querySelectorAll('.ke-chip.on').forEach(function (c) { c.classList.remove('on'); });
+    var g = $('ke-group'); if (g) g.classList.remove('on');
+    $('ke-serial').classList.remove('on');
   }
-  mpCheckReady();
-}
-function mpDepChange(el, kind) {
-  document.getElementById('mp-target-id').value = el.value;
-  mpTargetVal = el.value;
-  mpCheckReady();
-}
-function mpFilterDevices() {
-  var s = document.getElementById('mp-dev-q').value.trim().toLowerCase();
-  var shown = 0;
-  document.querySelectorAll('#mp-dev-list .sri').forEach(function (b) {
-    var match = !s || b.dataset.search.toLowerCase().indexOf(s) >= 0;
-    b.style.display = match ? '' : 'none';
-    if (match) shown++;
-  });
-  var count = document.getElementById('mp-dev-shown');
-  if (count) count.textContent = shown;
-}
-function mpPickDevice(btn) {
-  document.querySelectorAll('#mp-dev-list .sri.on').forEach(function (b) { b.classList.remove('on'); });
-  btn.classList.add('on');
-  var serial = btn.dataset.serial;
-  document.getElementById('mp-target-serial').value = serial;
-  mpTargetVal = serial;
-  mpCheckReady();
-}
-
-function mpCheckReady() {
-  var name = document.getElementById('mp-name').value.trim();
-  var pkg = document.getElementById('kiosk-pkg-value').value;
-  var ready = !!(name && pkg && mpTargetVal);
-  document.getElementById('mp-save').disabled = !ready;
-  var note = document.getElementById('mp-note');
-  if (!name) note.textContent = 'Name the policy, pick a target, and pick an app to lock to.';
-  else if (!mpTargetVal) note.textContent = 'Pick what "' + name + '" applies to.';
-  else if (!pkg) note.textContent = 'Pick an app to lock to.';
-  else note.textContent = '"' + name + '" will lock the target to the chosen app.';
-}
-
-// Initial target-kind state — mirrors an existing policy's target, or defaults to
-// Group for a new one (matches the create form's old default).
-(function () {
-  var kind = document.getElementById('mp-target-type').value || 'group';
-  var btn = document.querySelector('.mk-target-seg button[data-k="' + kind + '"]');
-  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  ['restaurant', 'group', 'device'].forEach(function (k) {
-    document.getElementById('mp-dep-' + k).style.display = k === kind ? '' : 'none';
-  });
-  if (kind === 'all') mpTargetVal = 'ok';
-  else if (kind === 'device') mpTargetVal = document.getElementById('mp-target-serial').value;
-  else mpTargetVal = document.getElementById('mp-target-id').value;
-})();
-
-// Locked-app picker — searchable list (default) / grid toggle.
-(function () {
-  var picker = document.getElementById('kiosk-app-picker');
-  if (!picker) return;
-  var src = document.getElementById('kiosk-apps-src');
-  var hidden = document.getElementById('kiosk-pkg-value');
-  var q = document.getElementById('kpk-q');
-  var gridEl = document.getElementById('kpk-grid');
-  var listEl = document.getElementById('kpk-list');
-  var apps = [];
-  (function () {
-    var seen = {};
-    [].forEach.call(src.querySelectorAll('i'), function (el) {
-      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
-      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
+  function setTarget(type, id, serial, label) {
+    tt.value = type; tid.value = id || ''; ts.value = serial || ''; targetLabel = label || '';
+    autoName(); refresh();
+  }
+  document.querySelectorAll('.ke-chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      clearTargets(); c.classList.add('on');
+      var g = $('ke-group'); if (g) g.value = '';
+      $('ke-serial').value = '';
+      setTarget(c.dataset.tt, c.dataset.id, '', c.dataset.label);
     });
-  })();
-  var kbd = -1;
-
-  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
-  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
-  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
-  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
-
-  function tileHtml(a) {
-    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
-    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
-  }
-  function optHtml(a, i) {
-    var sel = hidden.value === a.v;
-    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
-      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
-      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
-      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
-  }
-  function render() {
-    var items = filtered();
-    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
-    gridEl.innerHTML = html; listEl.innerHTML = html;
-  }
-  function choose(v) { hidden.value = v; render(); mpCheckReady(); }
-
-  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
-  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
-
-  q.addEventListener('input', function () { kbd = -1; render(); });
-  q.addEventListener('keydown', function (e) {
-    var items = filtered();
-    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
   });
-  function scrollKbd() { var box = picker.classList.contains('gridview') ? gridEl : listEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  var g = $('ke-group');
+  if (g) g.addEventListener('change', function () {
+    clearTargets(); $('ke-serial').value = '';
+    if (!g.value) { setTarget('', '', '', ''); return; }
+    g.classList.add('on');
+    setTarget('group', g.value, '', g.options[g.selectedIndex].text.replace(/ \(\d+\)$/, ''));
+  });
+  $('ke-serial').addEventListener('change', function () {
+    var v = this.value.trim();
+    clearTargets(); if (g) g.value = '';
+    if (!v) { setTarget('', '', '', ''); return; }
+    this.classList.add('on');
+    setTarget('device', '', v, v);
+  });
 
-  function setView(v) {
-    picker.classList.toggle('gridview', v === 'grid');
-    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
-    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  function autoName() {
+    if (nameTouched) return;
+    nameEl.value = targetLabel && appName ? targetLabel + ' · ' + appName : '';
   }
-  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
-  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+  nameEl.addEventListener('input', function () { nameTouched = !!nameEl.value; });
 
-  render();
-  mpCheckReady();
+  function renderApps() {
+    var box = $('ke-apps'), q = ($('ke-appq').value || '').toLowerCase();
+    if (!tt.value) { box.innerHTML = ''; return; }
+    var list = apps.filter(function (a) { return !q || (a.name + ' ' + a.pkg).toLowerCase().indexOf(q) >= 0; });
+    if (!apps.length) { box.innerHTML = '<div class="ke-empty">No apps reported on these devices yet.</div>'; return; }
+    box.innerHTML = list.map(function (a) {
+      var ic = a.icon ? '<img src="data:image/png;base64,' + a.icon + '" alt="">' : esc((a.name || '?').replace(/^[^A-Za-z0-9]+/, '').slice(0, 1).toUpperCase());
+      return '<button type="button" class="ke-app' + (a.pkg === pkg.value ? ' on' : '') + '" role="option" aria-selected="' + (a.pkg === pkg.value) + '" data-pkg="' + esc(a.pkg) + '" data-name="' + esc(a.name) + '">' +
+        '<i style="background:' + (a.icon ? 'transparent' : color(a.pkg)) + '">' + ic + '</i><span><b>' + esc(a.name) + '</b><small>on ' + a.count + ' of ' + (last ? last.devices : '?') + '</small></span></button>';
+    }).join('') || '<div class="ke-empty">No app matches.</div>';
+    box.querySelectorAll('.ke-app').forEach(function (b) {
+      b.addEventListener('click', function () { pkg.value = b.dataset.pkg; appName = b.dataset.name; autoName(); renderApps(); refresh(); });
+    });
+  }
+  $('ke-appq').addEventListener('input', renderApps);
+
+  function renderPreview(d) {
+    var el = $('ke-prev');
+    if (!tt.value) { el.innerHTML = '<div class="ke-empty">Pick where and which app.</div>'; return; }
+    var h = '<div class="ke-big">' + d.devices + ' device' + (d.devices === 1 ? '' : 's') + '</div><div style="color:var(--muted)">' + esc(targetLabel) + ' · ' + d.online + ' online</div>';
+    if (pkg.value) {
+      h += '<ul>';
+      if (d.lock) h += '<li>' + d.lock + ' lock to ' + esc(appName || pkg.value) + (d.online ? '' : ' when they next check in') + '</li>';
+      if (d.missing) h += '<li class="w">' + d.missing + ' don\'t have the app: they lock once it\'s installed</li>';
+      if (d.cant) h += '<li class="b">' + d.cant + ' can\'t lock (their agent has no kiosk)</li>';
+      for (var k in (d.higher || {})) h += '<li>' + d.higher[k] + ' follow “' + esc(k) + '”, a rule above this one</li>';
+      if (!d.lock && !d.missing && !d.cant && !Object.keys(d.higher || {}).length) h += '<li>Nothing to lock here yet</li>';
+      h += '</ul>';
+    }
+    el.innerHTML = h;
+    $('ke-save').textContent = pkg.value && d.lock ? 'Save and lock ' + d.lock + ' device' + (d.lock === 1 ? '' : 's') : 'Save';
+  }
+
+  function refresh() {
+    var ready = tt.value && (tt.value === 'all' || tid.value || ts.value);
+    $('ke-save').disabled = !(ready && pkg.value);
+    $('ke-appq').hidden = !ready;
+    $('ke-apphint').textContent = ready ? 'Only apps installed on these devices, with how many have each.' : 'Pick where first: the list shows only apps installed on those devices.';
+    if (!ready) { apps = []; renderApps(); renderPreview({}); return; }
+    var q = new URLSearchParams({ target_type: tt.value, target_id: tid.value, target_serial: ts.value, kiosk_package: pkg.value, id: $('ke-id').value });
+    var my = ++seq;
+    fetch('/manage/policies/preview?' + q.toString(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (my !== seq) return;
+        last = d; apps = d.apps || [];
+        var cur = apps.filter(function (a) { return a.pkg === pkg.value; })[0];
+        if (cur) appName = cur.name;
+        renderApps(); renderPreview(d);
+      }).catch(function () {});
+  }
+
+  $('ke-form').addEventListener('submit', function (e) {
+    if ($('ke-save').disabled) { e.preventDefault(); return; }
+    if (!nameEl.value.trim()) { autoName(); }
+  });
+
+  // Start from the rule being edited, or a target passed in the link (?target=all).
+  (function init() {
+    var want = new URLSearchParams(location.search).get('target');
+    if (!tt.value && want === 'all') tt.value = 'all';
+    if (tt.value === 'restaurant' || tt.value === 'all') {
+      document.querySelectorAll('.ke-chip').forEach(function (c) {
+        if (c.dataset.tt === tt.value && (tt.value === 'all' || c.dataset.id === tid.value)) { c.classList.add('on'); targetLabel = c.dataset.label; }
+      });
+    } else if (tt.value === 'group' && g) {
+      g.value = tid.value; g.classList.add('on');
+      if (g.selectedIndex > 0) targetLabel = g.options[g.selectedIndex].text.replace(/ \(\d+\)$/, '');
+    } else if (tt.value === 'device') {
+      $('ke-serial').value = ts.value; $('ke-serial').classList.add('on'); targetLabel = ts.value;
+    }
+    refresh();
+  })();
 })();
 </script>
+
+{{template "footer" .}}
 {{end}}

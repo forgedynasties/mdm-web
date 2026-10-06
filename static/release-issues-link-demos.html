@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Release issues link · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:18px}
+
+/* The Releases page pieces, copied from templates/releases.html */
+.rl-list-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.rl-row{display:flex;align-items:center;gap:14px;padding:12px 17px;border-top:1px solid var(--border-soft)}
+.rl-row:first-of-type{border-top:none}
+.rl-id{flex:1;min-width:0}
+.rl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rl-ver{font-family:var(--mono);font-size:13.5px;font-weight:700;color:inherit;text-decoration:none}
+.rl-sub{font-size:12px;color:var(--muted);margin-top:3px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rl-roll{flex:none;width:190px;min-width:150px}
+.rl-rollf{font-size:11.5px;color:var(--muted);margin-top:5px;display:block}
+.rl-rollf b{color:var(--text)}
+.rl-act{flex:none;display:flex;align-items:center;gap:8px}
+@media(max-width:720px){
+  .rl-row{flex-wrap:wrap;padding:12px 14px;gap:8px 12px}
+  .rl-id{flex-basis:100%;order:1}
+  .rl-roll{order:3;flex-basis:100%;width:auto}
+  .rl-act{order:2;margin-left:auto}
+}
+/* A · issue tag on the row */
+a.ri-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger)}
+a.ri-tag.warn{background:var(--warn-bg);color:var(--warn)}
+a.ri-tag svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+a.ri-tag:hover{text-decoration:underline}
+/* B · card above the list */
+.ri-card{margin-bottom:12px}
+.ri-line{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.ri-line:first-of-type{border-top:0}
+.ri-line .v{font-family:var(--mono);font-weight:700;min-width:84px}
+.ri-line .p{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.ri-line .n{color:var(--muted);font-size:12px;white-space:nowrap}
+.ri-line a{font-size:12px;font-weight:600;white-space:nowrap}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Linking release issues from the Releases page</h1>
+<p class="lead">Release issues are crashes that hit the same build on 3 or more devices in 14 days. Today they are listed only on the Alerts page. Below are three ways to reach them from Releases. The figures are live data from 30 Sep (fleet of 181 devices). Also fixed in the same change: one crash can have several wordings (permissioncontroller has four "safety source" variants), so issues are now grouped on the text up to the first comma. That turns v2.0.96l's four rows into one crash on 34 devices.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a" class="rec">A · Tag on the release ★</a><a href="#b">B · Card above the list</a><a href="#c">C · A KPI tile</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current <span class="tag live">Deployed</span></h2>
+<p class="desc">No link. The crash counts for a build exist at <code>/releases/{id}/crashes</code>, but nothing on the list points there, and the list says nothing about crashes.</p>
+<div class="scr"><div class="rl-list-wrap"><div class="rl-list" data-rows="plain"></div></div></div>
+
+<h2 class="sec" id="a">A · A tag on the release it belongs to <span class="tag rec">Recommended</span></h2>
+<p class="desc">A red tag beside the status on each release with an issue: the number of issues and the widest reach. It links to that release's crash page. A tooltip names the apps.</p>
+<div class="scr"><div class="rl-list-wrap"><div class="rl-list" data-rows="tag"></div></div></div>
+<div class="notes"><div><b>Good at</b><ul><li>The issue sits on the build that caused it, and whoever is deciding whether to push or pull a release sees it right there.</li><li>No new block on the page; rows with no issue don't change.</li></ul></div>
+<div><b>Bad at</b><ul><li>An old build lower down the list (v2.0.96l here) is only seen by scrolling.</li><li>There's no fleet-wide count on the page.</li></ul></div></div>
+
+<h2 class="sec" id="b">B · A card above the list</h2>
+<p class="desc">A "Release issues" card between the KPIs and the list, one line per issue, each linking to its release's crashes, plus "All on Alerts". It is hidden when there are none.</p>
+<div class="scr">
+  <div class="cc-card ri-card">
+    <div class="cc-ch"><h2>Release issues · last 14 days</h2><span class="m">6</span><a class="r" href="#">All on Alerts</a></div>
+    <div style="padding:0 18px 8px">
+      <div class="ri-line"><span class="v">v2.0.96l</span><span class="p">com.google.android.permissioncontroller crash</span><span class="n">62 crashes · 34 devices</span><a href="#">Crashes →</a></div>
+      <div class="ri-line"><span class="v">v2.0.96l</span><span class="p">com.qti.phone crash</span><span class="n">9 · 4 devices</span><a href="#">Crashes →</a></div>
+      <div class="ri-line"><span class="v">v2.0.6l</span><span class="p">com.google.android.permissioncontroller crash</span><span class="n">5 · 4 devices</span><a href="#">Crashes →</a></div>
+      <div class="ri-line"><span class="v">v2.1.022</span><span class="p">com.android.vending ANR</span><span class="n">4 · 3 devices</span><a href="#">Crashes →</a></div>
+      <div class="ri-line"><span class="v">+2</span><span class="p muted">v2.0.3, v2.0.997: permissioncontroller, 3 devices each</span><span class="n"></span><a href="#">All →</a></div>
+    </div>
+  </div>
+  <div class="rl-list-wrap"><div class="rl-list" data-rows="plain"></div></div>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Everything is visible at once, including old builds.</li></ul></div>
+<div><b>Bad at</b><ul><li>It repeats the Alerts page's section, and it pushes the release list down on every visit.</li><li>Most of today's issues are old builds few people are deciding about.</li></ul></div></div>
+
+<h2 class="sec" id="c">C · A KPI tile</h2>
+<p class="desc">A fourth tile in the KPI strip: "Crash issues 6 on 5 builds", linking to the Release issues section on Alerts.</p>
+<div class="scr">
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Published</span><div class="v ok">30</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Drafts</span><div class="v warn">0</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Reported, not added</span><div class="v">3</div></div>
+    <a class="cc-kpi" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crash issues</span><div class="v danger">6 <small style="font-size:13px;color:var(--muted);font-weight:500">on 5 builds</small></div></a>
+  </div>
+  <p class="desc" style="margin:10px 0 0">(The "Reported, not added" figure is illustrative; the others are live.)</p>
+</div>
+<div class="notes"><div><b>Good at</b><ul><li>Compact, and it fits the strip that is already there.</li></ul></div>
+<div><b>Bad at</b><ul><li>It's a number with no build attached, and it takes you off the page to find out which release.</li></ul></div></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A · the tag on the release.</b> The question on the Releases page is "is this build OK?", and A answers it on the build itself, one click from its crash list, without adding a block people scroll past. The fleet-wide list already lives on Alerts. If you also want the count at the top, C can be added to A later at no cost.</div>
+</div>
+
+<script>
+var rows=[
+ {v:'v2.1.024',st:'published',sq:'ok',cl:'Temperature: ships MDM client 1.5.0 (code 57), which adds fast temperature reporting…',dev:5,pct:3},
+ {v:'v2.1.022',st:'published',sq:'ok',cl:'- Wireless adb can be switched on and off from the MDM (Settings tab, admin only…',dev:9,pct:5,iss:{n:1,d:3,apps:'com.android.vending ANR',w:true}},
+ {v:'v2.1.019',st:'published',sq:'ok',cl:'NFC Issue patched',dev:1,pct:1},
+ {v:'v2.0.96l',st:'published',sq:'ok',cl:'devices will report mic gain on device page',dev:59,pct:33,iss:{n:2,d:34,apps:'com.google.android.permissioncontroller crash (34 devices), com.qti.phone crash (4 devices)'}}
+];
+var ok='<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+var bolt='<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>';
+document.querySelectorAll('.rl-list').forEach(function(l){
+  var tag=l.getAttribute('data-rows')==='tag';
+  l.innerHTML=rows.map(function(r){
+    var t='';
+    if(tag&&r.iss) t='<a class="ri-tag'+(r.iss.w?' warn':'')+'" href="#" title="Crashing on this build: '+r.iss.apps+'">'+bolt+r.iss.n+' crash issue'+(r.iss.n>1?'s':'')+' · '+r.iss.d+' devices</a>';
+    return '<div class="rl-row"><span class="cc-sq ok">'+ok+'</span><div class="rl-id"><div class="rl-top"><span class="cc-tag ok">'+r.st+'</span><a class="rl-ver" href="#">'+r.v+'</a><span class="cc-tag">'+'Tableside AI'+'</span>'+t+'</div><span class="rl-sub">'+(r.cl||'<span class="muted">No changelog</span>')+'</span></div>'+
+    '<div class="rl-roll"><div class="cc-meter"><i class="ok" style="width:'+r.pct+'%"></i></div><span class="rl-rollf"><b>'+r.dev+'</b> of 181</span></div><div class="rl-act"><a class="cc-btn sm" href="#">Manage</a></div></div>';
+  }).join('');
+});
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

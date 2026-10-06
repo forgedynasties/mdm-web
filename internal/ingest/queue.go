@@ -217,3 +217,14 @@ func (q *Queue[T]) Stats() Stats {
 		MaxFlushMs:  float64(q.maxFlushUs.Load()) / 1000,
 	}
 }
+
+// Pipeline is the whole check-in path for the Server page and /debug/vars: the queue,
+// plus the admission slots in front of it and what the API did with work it could not
+// queue. The API fills it; the dashboard only reads it.
+type Pipeline struct {
+	Stats
+	SlotsInUse    int   `json:"slots_in_use"`
+	Slots         int   `json:"slots"`
+	Shed          int64 `json:"shed"`           // HTTP check-ins told to come back later
+	HistoryFailed int64 `json:"history_failed"` // reports whose history could not be written
+}

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device wall — telling classes apart · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:760px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:680px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:680px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#b4282d;background:rgba(229,72,77,.13);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .cur{background:rgba(229,72,77,.22);color:#f08a8d;}
+
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* card housing each option, matching cc-card look */
+.card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:0;overflow:hidden;}
+.cc-ch{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border-soft);font-weight:700;font-size:13.5px;}
+.cc-ch .m{font-weight:500;color:var(--text-faint);font-size:11.5px;}
+
+.ovd-wall{--sq:13px;display:flex;flex-wrap:wrap;gap:14px 18px;padding:16px}
+.ovd-wb{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ovd-wb .nm{font-size:11.5px;font-weight:650;color:var(--text-2)}
+.ovd-wb .sq{display:grid;gap:3px}
+.ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px;cursor:default;}
+.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface));}
+.warn{background:var(--chart-temp);}
+.off{background:var(--danger);}
+.dormant{background:var(--rule-2);}
+.ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.ovd-wfoot span{display:inline-flex;align-items:center}
+.ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+
+/* Option 1: shape per class, color stays status */
+.shape-sq{border-radius:2px;}
+.shape-circle{border-radius:50%;}
+.shape-diamond{border-radius:2px;transform:rotate(45deg);}
+
+/* Option 2: class-colored outline ring, independent of fill (status) color */
+.ring-t7{box-shadow:0 0 0 1.5px var(--accent) inset;}
+.ring-kiosk{box-shadow:0 0 0 1.5px #8a6600 inset;}
+.ring-kds{box-shadow:0 0 0 1.5px #1c7d50 inset;}
+.ring-pos{box-shadow:0 0 0 1.5px #6a4fd1 inset;}
+
+/* Option 3: grouped sub-rows by class within the restaurant block */
+.grp{display:flex;flex-direction:column;gap:7px;}
+.grp .gl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:2px;}
+.grp .row{display:flex;align-items:center;gap:8px;}
+.grp .sq{display:grid;gap:3px;}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme">
+  <button data-t="light">Light</button><button data-t="dark">Dark</button>
+</div>
+<div class="wrap">
+  <h1>Device wall — differentiate device class</h1>
+  <p class="lead">From the Overview page's Fleet wall: every square today only encodes
+  status (online/alert/offline/dormant) via color. For "AIO Test Bistro" the 5 squares
+  are indistinguishable by type — a T7 and a KDS both just render as a colored square.
+  The data is already there (<code>db.WallDevice.Class</code> is queried but never piped
+  into <code>wallSquare</code>) — this is a real, small fix once a direction is picked.</p>
+
+  <div class="eyebrow">Option A — current behaviour <span class="cur">deployed today</span></div>
+  <div class="dname">Color = status only</div>
+  <div class="ddesc">What you're seeing now. Hovering shows a tooltip with the device's
+  name, but nothing distinguishes class at a glance.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">every square is a device</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq" style="grid-template-columns:repeat(5,var(--sq))">
+          <a class="on" title="T7 · ADRB0A… · online"></a>
+          <a class="warn" title="Kiosk · f8b99e… · alert"></a>
+          <a class="warn" title="KDS · DK19248… · alert"></a>
+          <a class="warn" title="POS · DP02253… · alert"></a>
+          <a class="on" title="T7 · abc123… · online"></a>
+        </div>
+      </div>
+    </div>
+    <div class="ovd-wfoot"><span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen 2+ weeks</span></div>
+  </div>
+
+  <div class="eyebrow">Option B — shape per class <span class="rec">Recommended</span></div>
+  <div class="dname">Status stays color, class becomes shape</div>
+  <div class="ddesc">Square = battery-powered class (T7, mpos, tablet), circle = mains-powered
+  (kiosk, KDS, POS, dongle, payment). Two shapes read cleanly even at the 7px "sm" size used
+  past 900 devices, and the status color language is completely untouched — no new legend
+  needed beyond one line. Doesn't distinguish every one of the 8 classes, but answers the
+  actual complaint (can't tell the KDS from the kiosk from the T7) well enough for a glance,
+  and the tooltip still gives the exact class on hover.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">every square is a device</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq" style="grid-template-columns:repeat(5,var(--sq))">
+          <a class="on shape-sq" title="T7 · battery-powered · online"></a>
+          <a class="warn shape-circle" title="Kiosk · mains-powered · alert"></a>
+          <a class="warn shape-circle" title="KDS · mains-powered · alert"></a>
+          <a class="warn shape-circle" title="POS · mains-powered · alert"></a>
+          <a class="on shape-sq" title="T7 · battery-powered · online"></a>
+        </div>
+      </div>
+    </div>
+    <div class="ovd-wfoot"><span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen 2+ weeks</span><span><span class="shape-sq" style="display:inline-block;width:9px;height:9px;background:var(--text-faint);margin-right:5px;"></span>Battery</span><span><span class="shape-circle" style="display:inline-block;width:9px;height:9px;background:var(--text-faint);margin-right:5px;"></span>Mains</span></div>
+  </div>
+
+  <div class="eyebrow">Option C — class ring, status fill</div>
+  <div class="dname">A thin colored outline per class, fill stays status</div>
+  <div class="ddesc">Every one of the 8 classes gets its own ring color, independent of the
+  status fill — most information-dense option. Risk: at 7px ("sm" density, 900+ devices) a
+  1.5px inset ring on an already-tiny square is hard to see, and 8 ring colors plus 4 status
+  fills is two color systems stacked, more to learn than Option B's two shapes.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">every square is a device</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="sq" style="grid-template-columns:repeat(5,var(--sq))">
+          <a class="on ring-t7" title="T7 · online"></a>
+          <a class="warn ring-kiosk" title="Kiosk · alert"></a>
+          <a class="warn ring-kds" title="KDS · alert"></a>
+          <a class="warn ring-pos" title="POS · alert"></a>
+          <a class="on ring-t7" title="T7 · online"></a>
+        </div>
+      </div>
+    </div>
+    <div class="ovd-wfoot"><span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen 2+ weeks</span></div>
+  </div>
+
+  <div class="eyebrow">Option D — grouped by class</div>
+  <div class="dname">Sub-rows per class, instead of one flat grid</div>
+  <div class="ddesc">Clearest separation, but changes the block's shape (height grows with
+  class count instead of wrapping as one grid), and "every square is a device" stops being
+  a single flat scan — more structure than this widget's current "glance and move on" job
+  calls for. Best reserved for a restaurant's own device page, not the fleet-wide wall.</div>
+  <div class="card">
+    <div class="cc-ch">Fleet <span class="m">every square is a device</span></div>
+    <div class="ovd-wall">
+      <div class="ovd-wb grp">
+        <div class="nm">AIO Test Bistro</div>
+        <div class="row"><span class="gl" style="min-width:34px;">T7</span><div class="sq" style="grid-template-columns:repeat(2,var(--sq))"><a class="on"></a><a class="on"></a></div></div>
+        <div class="row"><span class="gl" style="min-width:34px;">Kiosk</span><div class="sq" style="grid-template-columns:repeat(1,var(--sq))"><a class="warn"></a></div></div>
+        <div class="row"><span class="gl" style="min-width:34px;">KDS</span><div class="sq" style="grid-template-columns:repeat(1,var(--sq))"><a class="warn"></a></div></div>
+        <div class="row"><span class="gl" style="min-width:34px;">POS</span><div class="sq" style="grid-template-columns:repeat(1,var(--sq))"><a class="warn"></a></div></div>
+      </div>
+    </div>
+    <div class="ovd-wfoot"><span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen 2+ weeks</span></div>
+  </div>
+
+</div>
+<script>
+(function(){
+  var saved = localStorage.getItem('demo-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  document.querySelectorAll('.themebar button').forEach(function(b){
+    if(b.dataset.t === (saved||'light')) b.classList.add('on');
+    b.addEventListener('click', function(){
+      document.documentElement.setAttribute('data-theme', b.dataset.t);
+      try{ localStorage.setItem('demo-theme', b.dataset.t); }catch(e){}
+      document.querySelectorAll('.themebar button').forEach(function(x){x.classList.toggle('on', x===b);});
+    });
+  });
+})();
+</script>
+</body>
+</html>

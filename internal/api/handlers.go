@@ -26,7 +26,6 @@ import (
 	"mdm/internal/geolocate"
 	"mdm/internal/ingest"
 	"mdm/internal/logstream"
-	"mdm/internal/middleware"
 	"mdm/internal/metrics"
 	"mdm/internal/otagate"
 	"mdm/internal/peers"
@@ -197,8 +196,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errInvalidSerial, http.StatusBadRequest)
 		return
 	}
-	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
-		http.Error(w, "serial does not match device credential", http.StatusForbidden)
+	if !h.requireDeviceIdentity(w, r, serial) {
 		return
 	}
 
@@ -209,6 +207,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.noteRemoteIP(serial, ratelimit.ClientIP(r))
+	h.noteSocketPeer(r.Context(), device.ID, serial, ratelimit.ClientIP(r))
 	client, err := h.hub.Upgrade(w, r, device.ID)
 	if err != nil {
 		log.Printf("[ws] upgrade error for %s: %v", serial, err)
@@ -563,6 +562,21 @@ func (h *Handler) FlushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 	h.flushPendingCommands(ctx, deviceID)
 }
 
+// PushGuest sends a connected firmware device its guest info (venue, table, guest
+// Wi-Fi) as a "guest" frame — wired to the hub's onConnect hook, next to the command
+// flush, so a socket starts with it. Edits on the dashboard push their own.
+func (h *Handler) PushGuest(ctx context.Context, deviceID uuid.UUID) {
+	g, err := h.db.GuestForDevice(ctx, deviceID)
+	if err != nil {
+		log.Printf("[ws] guest info for %s: %v", deviceID, err)
+		return
+	}
+	if g.AgentKind != product.KindFirmware {
+		return
+	}
+	h.hub.Push(deviceID, g.Guest.Frame())
+}
+
 func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
 	cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID)
 	if err != nil {
@@ -758,16 +772,6 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// requireBoundSerial rejects a request whose per-device credential doesn't match the
-// serial it claims to act for. Legacy shared-key requests (no bound serial) pass —
-// their identity stays client-supplied until the fleet is migrated to enrollment keys.
-func requireBoundSerial(w http.ResponseWriter, r *http.Request, serial string) bool {
-	if bound := middleware.BoundSerial(r); bound != "" && bound != serial {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "serial does not match device credential"})
-		return false
-	}
-	return true
-}
 
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
@@ -777,6 +781,8 @@ type checkinRequest struct {
 	// Product is the hardware category the device reports (e.g. "t7", "kiosk27"). Sent
 	// on the full HTTP keyframe; delta/WS frames may omit it and the stored value sticks.
 	Product string `json:"product,omitempty"`
+	// HwSerial is the chip's own serial (hex), read from soc0/serial_number by client 1.8.5+.
+	HwSerial string `json:"hw_serial,omitempty"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -897,6 +903,9 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	if arrival && h.peers != nil {
 		metrics.Default.Emit("peer", "ok", "arrival announced for "+req.SerialNumber)
 		h.peers.AnnounceArrival(ctx, req.SerialNumber, req.BuildID, req.Product)
+	}
+	if hw := db.NormalizeHardwareSerial(req.HwSerial); hw != "" {
+		h.noteHardwareSerial(ctx, deviceID, req.SerialNumber, hw)
 	}
 	metrics.Default.Checkin()
 	metrics.Default.Emit("checkin", "", req.SerialNumber+" "+firstNonEmpty(req.BuildID, "—"))
@@ -1066,6 +1075,16 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		}
 	}
 	addOfflineExit(cfg, deviceCfg)
+	// Guest info (venue, table, guest Wi-Fi) for the firmware client's home screen. It
+	// rides the HTTP check-in only: a socket gets it once on connect and again whenever
+	// it changes (PushGuest), so the telemetry frames over it don't each pay a lookup.
+	if src == sourceHTTP && !isDPCPayload(req.Extra) {
+		if g, err := h.db.GuestForDevice(ctx, deviceID); err != nil {
+			log.Printf("[%s] guest info for %s: %v", tag, req.SerialNumber, err)
+		} else {
+			cfg["guest"] = g.Guest
+		}
+	}
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
 	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
 
@@ -1109,9 +1128,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, req.SerialNumber) {
 		return
 	}
-	if !requireBoundSerial(w, r, req.SerialNumber) {
+	if !h.requireDeviceIdentity(w, r, req.SerialNumber) {
 		return
 	}
+	noteCheckinPeer(req.SerialNumber, ratelimit.ClientIP(r))
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
 		return
@@ -1198,12 +1218,22 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 	}
 	e.OfflineExitAt = at
 	log.Printf("[offline-exit] device %s (%s) exited kiosk offline at %d — disabling kiosk", serial, deviceID, e.OfflineExitAt)
+	// Taken out of kiosk on site: it stays out until someone locks it again or says to
+	// leave it (the Kiosk page, the device page and the alert all offer both). A kiosk
+	// rule does not re-lock it meanwhile; see reconcileKiosk. The caller publishes the
+	// device update after this runs, so that broadcast carries the flipped state.
 	if cfg.KioskEnabled {
-		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {
+		if marked, err := h.db.MarkKioskExited(ctx, deviceID, time.Unix(e.OfflineExitAt, 0)); err == nil {
 			cfg.KioskEnabled = false
 			cfgMap["kiosk_enabled"] = false
-			// The caller publishes the device update AFTER this runs, so that broadcast
-			// already carries the flipped state — no separate re-publish needed here.
+			if marked {
+				summary := "Taken out of kiosk on site: someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."
+				if created, err := h.db.CreateAlertIfAbsent(ctx, nil, "kiosk_exited", deviceID, "warning", summary, map[string]any{"at": e.OfflineExitAt}); err == nil && created {
+					h.alerts.Dispatch(ctx, []db.AlertNotification{{Type: "kiosk_exited", Severity: "warning", Summary: summary,
+						Serial: serial, DeviceID: deviceID, EventAt: time.Unix(e.OfflineExitAt, 0).UTC()}})
+					h.hub.PublishAlertUpdate()
+				}
+			}
 		}
 	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)
@@ -1770,6 +1800,9 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
@@ -2184,6 +2217,9 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 	interim := body.Status == "downloading" || body.Status == "installing" || body.Status == "running"
 	if !interim && body.Status != "received" && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be received, downloading, installing, running, installed, failed, or completed"})
@@ -2277,6 +2313,9 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
+		return
+	}
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
@@ -2300,6 +2339,9 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.deviceRateLimited(w, body.SerialNumber) {
+		return
+	}
+	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
 		return
 	}
 	if body.Status != "downloaded" && body.Status != "installed" && body.Status != "error" {

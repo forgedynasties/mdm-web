@@ -54,7 +54,6 @@
       {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
-  {{if .CanManage}}{{template "users-tabs" .}}{{end}}
 
   {{if and .ViewingOther .User .CanManage}}
   <div class="pf-grid" style="margin-top:0;margin-bottom:16px;">

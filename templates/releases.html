@@ -34,6 +34,11 @@ a.rl-ver:hover{color:var(--accent-text)}
 .rl-list.show-dev .rl-row.devrel{display:flex}
 .rl-row.devrel{display:none}
 .rl-toggles{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+/* Release issues on this build (crashes on 3+ devices in 14 days), linking to its crashes. */
+a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
+a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
+a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+a.rl-crash:hover{text-decoration:underline}
 @media(max-width:640px){
   .rl-row{flex-wrap:wrap;padding:12px 14px;gap:8px 12px}
   .rl-sq{width:34px;height:34px}
@@ -168,6 +173,7 @@ function rlDevToggle(on) {
         {{if .Product}}<span class="cc-tag" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="Release date — {{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
         {{if .IsDev}}<span class="cc-tag warn" title="Only devs and admins can see this release">dev</span>{{end}}
+        {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
       </div>
       <span class="rl-sub">{{if .Changelog}}{{truncate .Changelog 90}}{{else}}<span class="muted">No changelog</span>{{end}}</span>
     </div>

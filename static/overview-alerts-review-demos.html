@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview, alerts and the MDM · review</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:25px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:900px;line-height:1.6}
+.part{font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text);margin:64px 0 2px}
+.sec{font-size:19px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em;scroll-margin-top:16px}
+h3.sub{font-size:15px;font-weight:700;margin:34px 0 6px}
+.sec .tag,.sub .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.tag.rec{background:var(--ok-bg)!important;color:var(--ok)!important}
+.tag.live{background:var(--info-bg)!important;color:var(--info)!important}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:14px 0}
+@media(max-width:900px){.kpis{grid-template-columns:1fr 1fr}}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+.kpi .n{font-size:26px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .n.bad{color:var(--danger)}
+.kpi .l{font-size:12px;color:var(--text-2);margin-top:2px;line-height:1.4}
+.find{counter-reset:f;list-style:none;margin:0;padding:0}
+.find li{counter-increment:f;display:grid;grid-template-columns:28px 1fr;gap:10px;padding:12px 0;border-top:1px solid var(--border-soft);font-size:13.5px;line-height:1.55;color:var(--text-2)}
+.find li:first-child{border-top:0}
+.find li::before{content:counter(f);width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);font-size:12px;font-weight:700;display:grid;place-items:center}
+.find b{color:var(--text)}
+.chart-t{font-size:13px;font-weight:650;margin:0 0 4px}
+.chart-s{font-size:12px;color:var(--muted);margin:0 0 10px}
+svg.ch text{font-family:var(--font);fill:var(--chart-tick);font-size:10.5px}
+.lg{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin-top:8px}
+.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{text-align:left;font-size:11.5px;font-weight:650;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border)}
+table.t td{padding:8px 10px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.45}
+table.t td.num,table.t th.num{text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface-3);color:var(--text-2)}
+.pill.crit{background:var(--danger-bg);color:var(--danger)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.info{background:var(--info-bg);color:var(--info)}
+.bar{height:8px;border-radius:4px;background:var(--surface-3);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+/* funnel */
+.funnel{display:grid;gap:8px}
+.fr{display:grid;grid-template-columns:190px 1fr 170px;gap:12px;align-items:center;font-size:13px}
+.fr .b{height:30px;border-radius:6px;background:color-mix(in srgb,var(--info) 28%,var(--surface));display:flex;align-items:center;padding:0 10px;font-weight:650;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.fr .b.g{background:color-mix(in srgb,var(--ok) 34%,var(--surface))}
+.fr .r{font-size:12px;color:var(--muted);text-align:right}
+/* fixes */
+.fix{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);margin-bottom:12px}
+.fix>div{padding:13px 16px;font-size:13px;line-height:1.55;color:var(--text-2)}
+.fix>div:first-child{border-right:1px solid var(--border-soft)}
+.fix h4{margin:0 0 6px;font-size:14px;color:var(--text)}
+.fix .k{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.fix .eff{margin-top:8px;font-size:12.5px;color:var(--ok);font-weight:650}
+@media(max-width:800px){.fix{grid-template-columns:1fr}.fix>div:first-child{border-right:0;border-bottom:1px solid var(--border-soft)}}
+/* mock cards (problem cards, overview cards) */
+.mock{border:1px solid var(--rule);border-radius:12px;background:var(--bg);padding:18px}
+.pc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:10px}
+.pc.crit{box-shadow:inset 3px 0 0 var(--danger)}.pc.warn{box-shadow:inset 3px 0 0 var(--warn)}
+.pc .h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pc .h b{font-size:13.5px}
+.pc .h .when{margin-left:auto;font-size:11.5px;color:var(--text-faint)}
+.pc .why{font-size:12.5px;color:var(--text-2);margin:6px 0 8px;line-height:1.5}
+.pc .syms{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.pc .syms span{font-size:11px;border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--muted);background:var(--surface2)}
+.pc .acts{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-size:12px;font-weight:650;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:7px;padding:5px 11px}
+.btn.p{background:var(--accent);border-color:transparent;color:#fff}
+.oc{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.oc .oh{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border-soft);font-size:13px;font-weight:650}
+.oc .oh span{font-weight:400;font-size:12px;color:var(--muted)}
+.oc .oh a{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.oc .ob{padding:12px 14px;font-size:12.5px;color:var(--text-2)}
+.srow{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;padding:6px 0;font-size:12.5px}
+.srow .sb{display:flex;gap:2px;height:18px}
+.srow .sb i{flex:1;border-radius:2px;background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
+.srow .sb i.w{background:var(--warn)}.srow .sb i.x{background:var(--danger)}
+.note{font-size:12px;color:var(--text-2);line-height:1.5;background:var(--surface2);border-radius:8px;padding:9px 11px;margin-top:10px}
+.note b{color:var(--text)}
+.src{font-size:11.5px;color:var(--text-faint);margin-top:6px}
+.cap{display:grid;grid-template-columns:1fr;gap:0}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:960px}
+.pick b{color:var(--text)}
+.pick ol{margin:6px 0 0;padding-left:20px}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>Alerts, the Overview, and what the MDM should do next</h1>
+<p class="lead">A review built on the live server's own data: every alert raised from 16 to 29 September (14 days), the devices' daily temperature and battery records, and 30 days of commands and dashboard activity. Part 1 is what the alerts are actually doing. Part 2 is how to fix them, with the effect measured against the same 14 days. Part 3 is what the Overview could add. Part 4 compares the MDM with what fleet-management tools are expected to do.</p>
+<div class="toc"><a href="#p1">1 · The alerts today</a><a href="#p2">2 · Fixing the alerts</a><a href="#p3">3 · More for the Overview</a><a href="#p4">4 · What the MDM should do</a><a href="#pick">Recommendation</a></div>
+
+<!-- ═══════════ PART 1 ═══════════ -->
+<div class="part" id="p1">Part 1</div>
+<h2 class="sec">The alerts today: loud, repetitive, and mostly normal behaviour</h2>
+<p class="desc">32 devices in 2 restaurants (Flights Vegas and Huanchaco Peruvian) raised these alerts. The rest of the 151 enrolled devices are either not in a restaurant, and so never alert, or have not been seen for weeks.</p>
+<div class="kpis">
+  <div class="kpi"><div class="n">649</div><div class="l">alerts in 14 days, 46 a day, from 32 devices</div></div>
+  <div class="kpi"><div class="n bad">72%</div><div class="l">describe normal behaviour, not a fault (470 of 649)</div></div>
+  <div class="kpi"><div class="n bad">80%</div><div class="l">fired while the same device already had 2+ other alerts open</div></div>
+  <div class="kpi"><div class="n bad">61%</div><div class="l">of critical alerts fired at night, when restaurants are closed (169 of 279)</div></div>
+  <div class="kpi"><div class="n">37 vs 7</div><div class="l">bulk "clear all / resolve all" versus alerts handled one by one</div></div>
+</div>
+
+<div class="grid2">
+  <div class="card"><p class="chart-t">Alerts per day, by kind</p><p class="chart-s">Battery and charging alerts are more than half of everything, every day.</p><div id="c-day"></div>
+    <div class="lg"><span><i style="background:var(--c-batt)"></i>Battery / charging</span><span><i style="background:var(--c-temp)"></i>Temperature</span><span><i style="background:var(--c-off)"></i>Offline</span><span><i style="background:var(--c-crash)"></i>Crash</span><span><i style="background:var(--c-oth)"></i>Other</span></div></div>
+  <div class="card"><p class="chart-t">Each alert type, and how much of it is normal behaviour</p><p class="chart-s">Striped = what the type fired for normal behaviour (see below).</p><div id="c-type"></div></div>
+</div>
+<div class="grid2" style="margin-top:14px">
+  <div class="card"><p class="chart-t">The fleet's daily temperature, against the alert thresholds</p><p class="chart-s">Average of each placed device's hottest reading per day, and the hottest device. The "elevated" band is where the fleet normally lives.</p><div id="c-temp"></div>
+    <div class="lg"><span><i style="background:var(--c-temp)"></i>Average daily max</span><span><i style="background:var(--danger)"></i>Hottest device</span><span><i style="background:var(--warn-bg);border:1px solid var(--warn)"></i>temp_elevated band 42–48 °C</span></div></div>
+  <div class="card"><p class="chart-t">How many alert types were open on the device at the same time</p><p class="chart-s">For each alert, the number of different alert types open on that device while it was open. One fault shows up as four or five alerts.</p><div id="c-ovl"></div></div>
+</div>
+
+<h3 class="sub">What the data says</h3>
+<div class="card"><ol class="find">
+  <li><div><b>Four rules fire on normal operation.</b> 116 of 130 <i>slow charge at night</i> alerts ended at 80% battery or more, where every lithium battery slows its charge on purpose. 66 of 69 <i>overheating</i> alerts were between 48 and 52 °C, which is where the T7 sits every day (the average daily peak is 41–48 °C; the healthd reading also jumps 3–4 °C on the charger). All 125 <i>temperature elevated</i> alerts are the 42–48 °C band the fleet normally lives in. All 163 <i>battery high overnight</i> alerts say a charging tablet reached 100% at night. That is 470 alerts (72%) that describe the hardware working as designed.</div></li>
+  <li><div><b>One fault arrives as a pile.</b> 80% of alerts fired while the same device already had two or more other types open. A tablet with a bad charger raises <i>slow charge</i>, <i>charger flapping</i>, <i>battery low</i>, then <i>offline</i>, each as its own critical or warning, instead of one "charging problem on AT070AABU00864".</div></li>
+  <li><div><b>Critical does not mean "act now".</b> 279 alerts were critical, and 169 of them fired between 22:00 and 07:00 Los Angeles time. <i>Slow charge at night</i> (130, critical) is the biggest source. The Teams channel takes every critical alert in real time and announces its resolve as well: up to ~40 messages a day, most of them overnight and most of them normal.</div></li>
+  <li><div><b>Nobody works the list.</b> In the audit log, alerts were cleared in bulk 37 times ("resolve all" 20, "clear all" 17) and handled individually 7 times. Median time to resolve is 6 hours for the battery alerts and 36 hours for offline. The list is being emptied, not read, which is what happens when most of it is noise.</div></li>
+  <li><div><b>Crashes are raised per device, but they are per build.</b> <i>com.google.android.permissioncontroller</i> crashed 75 times on 40 devices in 14 days. That is one firmware bug for the release team, not 40 device problems for the restaurant.</div></li>
+  <li><div><b>Two rules double-count one event.</b> <i>offline</i> (after 30 min) and <i>offline during peak</i> (after 5 min) both fire for the same outage.</div></li>
+</ol>
+<p class="src">Source: the live alerts table (16–29 Sep), device_daily_stats, device_events and audit_log, queried read-only on 30 Sep.</p></div>
+
+<!-- ═══════════ PART 2 ═══════════ -->
+<div class="part" id="p2">Part 2</div>
+<h2 class="sec">Fixing the alerts: fewer, grouped, and routed by whether someone can act</h2>
+<p class="desc">Six changes. The first two were measured on the same 14 days: together they turn 649 alerts into 98 device problems, about 7 a day, and take overnight critical alerts from 169 to 21.</p>
+
+<div class="card"><p class="chart-t">The last 14 days, replayed with the first two changes</p><div class="funnel" id="funnel" style="margin-top:10px"></div></div>
+
+<h3 class="sub">The six changes</h3>
+<div class="fix"><div><div class="k">1 · Retune four rules</div><h4>Stop alerting on normal behaviour</h4>
+  <b>Slow charge at night:</b> only below 80% battery, and warning, not critical. <b>Overheating:</b> 52 °C for the T7 (per hardware model, not one number for all), sustained for 10 minutes. <b>Temperature elevated:</b> remove; it becomes a heat trend on the device page. <b>Battery high overnight:</b> remove as an alert; if battery wear is the concern, it's a charge-limit policy plus a weekly battery-health line in the report.</div>
+  <div><div class="k">Effect on the 14 days</div>649 alerts → <b>179</b>. Nothing that needed a human is lost: the kept alerts are offline, battery below 20% in service, real overheating above 52 °C, crash, charger faults, dead wireless pad.<div class="eff">−72% volume</div></div></div>
+
+<div class="fix"><div><div class="k">2 · One problem per device</div><h4>Group alerts that overlap on the same device</h4>
+  Alerts open on the same device at the same time become one <b>problem</b> with a list of symptoms and a likely cause: slow charge + flapping + low battery = "charging hardware"; offline on every device in a restaurant = "restaurant network". The problem is what gets listed, counted and sent; the symptoms are inside it.</div>
+  <div><div class="k">Effect on the 14 days</div>179 kept alerts → <b>98 problems</b> (about 7 a day, across 28 placed devices).<div class="eff">One card per fault instead of four or five</div></div></div>
+
+<div class="fix"><div><div class="k">3 · Critical means someone can act now</div><h4>Severity follows opening hours</h4>
+  Critical only when service is affected while the restaurant is open: a restaurant or a whole device type down, POS or payment offline, battery about to die in service. The same problem at night is queued for a <b>morning digest</b> to the restaurant's owner and support, not a real-time ping.</div>
+  <div><div class="k">Effect on the 14 days</div>Overnight critical alerts 169 → <b>21</b>. Critical overall 279 → 97; grouping crashes by build (change 4) and making slow charge a warning take off another 35, leaving about 60 in 14 days, almost all of them devices offline or battery low while the restaurant is open.<div class="eff">Pings only when a person can do something</div></div></div>
+
+<div class="fix"><div><div class="k">4 · Crashes grouped by build</div><h4>A crash signature is a release problem</h4>
+  Crashes are grouped by <b>app + error + build</b> and raised once on the release ("v2.1.024: permissioncontroller crashes on 40 devices"), linked from the Releases page. A device only gets its own crash problem when it is in a crash loop or the crash is in our app during service.</div>
+  <div><div class="k">Effect</div>21 critical per-device crash alerts → a handful of release issues, with counts that show whether a new build made things better or worse.<div class="eff">Goes to the firmware team, not the restaurant</div></div></div>
+
+<div class="fix"><div><div class="k">5 · A list people can work</div><h4>Assign, acknowledge with a reason, snooze</h4>
+  Every problem has an <b>owner</b> (a person or "restaurant"), <b>acknowledge</b> with an optional note, <b>snooze</b> until a time, and a <b>resolve reason</b>: fixed, false alarm, known issue, hardware replaced. "False alarm" counts per rule feed straight back into tuning, so the next noisy rule shows up in a number instead of in someone's patience.</div>
+  <div><div class="k">Why</div>Today the only tools are one-by-one resolve and "clear all", and the data shows which one wins.<div class="eff">Replaces bulk-clearing with triage</div></div></div>
+
+<div class="fix"><div><div class="k">6 · Teams gets problems, not alerts</div><h4>One message per problem, updated in place</h4>
+  One message when a problem opens, updates to that message as symptoms are added, and "resolved" only if the problem paged someone. Night-time problems go into the morning digest. Per-restaurant routing so each restaurant's contact hears only about their own devices.</div>
+  <div><div class="k">Effect</div>From up to ~40 messages a day to a few, each one worth reading.<div class="eff">A channel people keep notifications on for</div></div></div>
+
+<h3 class="sub">What a problem looks like</h3>
+<p class="desc">These replace alert rows on the Alerts page and the Overview's "Needs attention" list. The examples are illustrative, built from patterns in the last 14 days; only the crash counts are real figures.</p>
+<div class="mock"><div class="grid2">
+<div>
+  <div class="pc crit"><div class="h"><span class="pill crit">Critical</span><b>Flights Vegas: 5 tablets offline</b><span class="when">12:05 · in service</span></div>
+    <div class="why">Five T7s stopped checking in within two minutes of each other while the other devices there kept reporting. Most likely the restaurant's Wi-Fi or its router, not the tablets.</div>
+    <div class="syms"><span>offline × 5</span><span>same 2-minute window</span><span>kiosk still online</span></div>
+    <div class="acts"><span class="btn p">Open restaurant</span><span class="btn">Assign</span><span class="btn">Acknowledge</span></div></div>
+  <div class="pc warn"><div class="h"><span class="pill warn">Warning</span><b>AT070AABU00864: charging hardware</b><span class="when">since last night</span></div>
+    <div class="why">Charging keeps dropping in and out and the battery barely moved overnight. The wireless pad or the charger is likely faulty. It has been flagged 4 nights in a row.</div>
+    <div class="syms"><span>charger flapping</span><span>slow charge (62→66%)</span><span>battery 19% at 11:30</span></div>
+    <div class="acts"><span class="btn p">Open device</span><span class="btn">Mark for replacement</span><span class="btn">Snooze 1 day</span></div></div>
+</div>
+<div>
+  <div class="pc"><div class="h"><span class="pill info">Release</span><b>v2.1.024: permissioncontroller crash</b><span class="when">40 devices · 14 days</span></div>
+    <div class="why">com.google.android.permissioncontroller crashed 75 times on 40 devices. Same signature on every device.</div>
+    <div class="syms"><span>75 crashes</span><span>40 devices</span><span>14 days</span></div>
+    <div class="acts"><span class="btn p">Open release</span><span class="btn">View stack trace</span></div></div>
+  <div class="pc"><div class="h"><span class="pill">Morning digest</span><b>Overnight, 30 Sep</b><span class="when">sent 07:00</span></div>
+    <div class="why">2 tablets at Huanchaco Peruvian did not charge above 40% overnight · 1 device rebooted 3 times · all restaurants online at open.</div>
+    <div class="acts"><span class="btn">Open digest</span></div></div>
+</div>
+</div></div>
+
+<!-- ═══════════ PART 3 ═══════════ -->
+<div class="part" id="p3">Part 3</div>
+<h2 class="sec">More for the Overview</h2>
+<p class="desc">Six cards the Overview could add, each drawn from data the server already records. The three marked "add first" answer questions the current page can't: "was every restaurant up while it was open?", "what is broken, grouped?" and "what in the inventory needs cleaning up?".</p>
+
+<div class="grid2">
+<div>
+  <h3 class="sub" style="margin-top:0">A · Up during opening hours <span class="tag rec">Add first</span></h3>
+  <div class="oc"><div class="oh">Service uptime<span>last 7 days, opening hours only</span><a>Report</a></div><div class="ob" id="m-uptime"></div></div>
+  <p class="desc" style="margin-top:8px">The number a restaurant owner cares about: were their devices up while they were open? Computed from check-ins against each restaurant's service window, which the server already stores. Amber and red days open the outage.</p>
+</div>
+<div>
+  <h3 class="sub" style="margin-top:0">B · Problems, not alerts <span class="tag rec">Add first</span></h3>
+  <div class="oc"><div class="oh">Problems<span>3 open</span><a>All</a></div><div class="ob">
+    <div class="pc crit" style="margin:0 0 8px;padding:9px 12px"><div class="h"><b style="font-size:12.5px">Flights Vegas: 5 tablets offline</b><span class="when">12:05</span></div></div>
+    <div class="pc warn" style="margin:0 0 8px;padding:9px 12px"><div class="h"><b style="font-size:12.5px">AT070AABU00864: charging hardware</b><span class="when">4 nights</span></div></div>
+    <div class="pc" style="margin:0;padding:9px 12px"><div class="h"><b style="font-size:12.5px">v2.1.024: permissioncontroller crash · 40 devices</b></div></div></div></div>
+  <p class="desc" style="margin-top:8px">Replaces "Needs attention": the grouped problems from Part 2, with the cause in the title. On a normal day this is 0–3 rows, not a scrolling list. (Rows are illustrative.)</p>
+</div>
+<div>
+  <h3 class="sub">C · Inventory to clean up <span class="tag rec">Add first</span></h3>
+  <div class="oc"><div class="oh">Fleet hygiene<a>Fix</a></div><div class="ob">
+    <table class="t"><tbody>
+      <tr><td><b>56</b> devices not seen for 14+ days</td><td class="num"><span class="pill warn">37% of fleet</span></td></tr>
+      <tr><td><b>123</b> devices not in a restaurant</td><td class="num"><span class="pill">lab / bench?</span></td></tr>
+      <tr><td><b>30</b> different builds running</td><td class="num"><span class="pill warn">fragmented</span></td></tr>
+      <tr><td><b>9</b> devices had a dead wireless pad (14 days)</td><td class="num"><span class="pill">replace</span></td></tr>
+    </tbody></table></div></div>
+  <p class="desc" style="margin-top:8px">37% of the enrolled fleet has not checked in for two weeks. Every count, rollout percentage and "offline" number is diluted by devices that are on a shelf. One click hides, retires or assigns them.</p>
+</div>
+<div>
+  <h3 class="sub">D · Builds and rollouts</h3>
+  <div class="oc"><div class="oh">Software on the fleet<a>Releases</a></div><div class="ob" id="m-builds"></div></div>
+  <p class="desc" style="margin-top:8px">Which firmware and client versions the placed devices run, and the last 30 days of updates: 199 installed, 40 failed (17%). A failure rate that high deserves a number on the home page.</p>
+</div>
+<div>
+  <h3 class="sub">E · Battery and heat, per restaurant</h3>
+  <div class="oc"><div class="oh">Battery & heat<span>7 days</span></div><div class="ob" id="m-health"></div></div>
+  <p class="desc" style="margin-top:8px">Trends, not alerts: which restaurants have tablets that no longer charge overnight or run hot at service, from the daily device records. This is where the removed temperature and battery-high alerts go.</p>
+</div>
+<div>
+  <h3 class="sub">F · Top crashes this week</h3>
+  <div class="oc"><div class="oh">Crashes<span>14 days, by app</span><a>Releases</a></div><div class="ob" id="m-crash"></div></div>
+  <p class="desc" style="margin-top:8px">Crash signatures across the fleet, so a bad app or build stands out by its count and spread instead of as 40 separate alerts.</p>
+</div>
+</div>
+
+<!-- ═══════════ PART 4 ═══════════ -->
+<div class="part" id="p4">Part 4</div>
+<h2 class="sec">What the MDM should do: where it stands</h2>
+<div id="p4-body"><p class="desc">What fleet-management tools for dedicated devices (Esper, SOTI MobiControl, Intune, Hexnode, Scalefusion) are generally expected to do, next to what this MDM does today, taken from the code. Most of the basics are here, and some go well beyond the norm (firmware OTA with A/B slots, live remote screen, per-device telemetry at this depth). The gaps are mostly around <b>operating</b> the fleet: triage, safe rollouts, per-restaurant settings, and account security.</p>
+<div class="card" style="padding:6px 8px"><table class="t"><thead><tr><th style="width:170px">Area</th><th>What we have</th><th>Gap</th><th style="width:90px">Priority</th></tr></thead><tbody>
+<tr><td><b>Alerting & triage</b></td><td>19 rule types, opening/peak/overnight windows, Teams and webhook channels, auto-captured logcat and AI triage on crashes.</td><td>No grouping into problems, no owner/assignment, no resolve reason, no escalation. Channels have a "digest" mode, but <b>no code sends a digest</b>. No email channel. (Part 2.)</td><td><span class="pill crit">Now</span></td></tr>
+<tr><td><b>Log collection</b></td><td>Live logcat stream, shell, crash logcat capture.</td><td>No one-click "collect logs" bundle (logcat + dumpsys + bugreport, for one device or many). The shell was used 1,223 times in 30 days, 986 of them to run <code>logcat</code>.</td><td><span class="pill crit">Now</span></td></tr>
+<tr><td><b>Safe rollouts</b></td><td>Releases, deployments, full/incremental delivery, scheduled reboots, retry, cancel, crash groups per release.</td><td>No staged waves (5% → 25% → all), no automatic halt when installs fail or crashes rise. 40 of 239 OTA installs failed in 30 days (17%).</td><td><span class="pill warn">Next</span></td></tr>
+<tr><td><b>Policies per restaurant</b></td><td>Kiosk policies by restaurant, group or device; update policy, network, managed configs and location.</td><td>Everything except kiosk is fleet-wide only. A restaurant can't have its own Wi-Fi, update window or app config.</td><td><span class="pill warn">Next</span></td></tr>
+<tr><td><b>Account security</b></td><td>Roles, scoped access rules with expiry, Microsoft SSO, audit log, denied-action log.</td><td>No two-factor login for password accounts. The admin API is one shared key with no roles; firmware devices share one key.</td><td><span class="pill warn">Next</span></td></tr>
+<tr><td><b>Compliance</b></td><td>13 posture checks (screen lock, encryption, adb, root, Play Protect, apps …), warn or violation.</td><td>The only automatic fix is reboot. Expected: re-apply kiosk, turn adb off, remove a forbidden app, re-lock.</td><td><span class="pill warn">Next</span></td></tr>
+<tr><td><b>Reporting</b></td><td>Weekly restaurant report (HTML/PDF, owner link), CSV exports, AI fleet summary.</td><td>No service-hours uptime per restaurant on the home page, no scheduled email of reports to owners (internal only today), no battery-health trend.</td><td><span class="pill">Later</span></td></tr>
+<tr><td><b>Inventory lifecycle</b></td><td>Retire, hide, nickname, productions, onboarding inbox.</td><td>No stale-device cleanup (56 devices silent 14+ days), no repair / replacement / warranty tracking per device.</td><td><span class="pill">Later</span></td></tr>
+<tr><td><b>Geofencing</b></td><td>Location toggle and fences on the map.</td><td>View only: no alert when a device leaves its restaurant, no lock or lost mode.</td><td><span class="pill">Later</span></td></tr>
+<tr><td><b>Remote support</b></td><td>Live screen with touch, shell, logcat, wireless adb.</td><td>None of it works on MDM-Lite devices (they only poll over HTTP). Wireless adb failed 9 of 18 times in 30 days.</td><td><span class="pill">Later</span></td></tr>
+<tr><td><b>API</b></td><td>Device API and an admin REST API that covers devices, groups, releases, deployments and enrollment.</td><td>The OpenAPI spec covers 18 paths and misses restaurants, releases, deployments, enrollment and more.</td><td><span class="pill">Later</span></td></tr>
+<tr><td><b>Commands</b></td><td>Screenshot, install, uninstall, reboot, shell, diagnostic queries, OTA, recipes and schedules.</td><td>Queued commands never expire, so a reboot sent last week runs when a device finally comes back.</td><td><span class="pill">Later</span></td></tr>
+</tbody></table></div>
+<p class="src">"What we have" is from the code on main (routes, command table, alert rules). The industry column is the general feature set of those products, not a pixel comparison.</p></div>
+
+<!-- ═══════════ PICK ═══════════ -->
+<div class="part" id="pick">Recommendation</div>
+<h2 class="sec">What I would do, in order</h2>
+<div class="pick" id="pick-body"><ol>
+<li><b>Fix the alerts first.</b> Retune the four rules, group alerts into one problem per device, make critical mean "open and affected", send overnight problems as a morning digest, and let Teams post problems rather than alerts. The replay says this turns 46 alerts a day into about 7 problems, and it is mostly configuration plus a grouping step. The digest option already exists in the settings; it only needs a sender.</li>
+<li><b>Put problems and service uptime on the Overview</b> (cards A and B), and add the inventory clean-up card (C). Together they answer "is anything broken, is every restaurant up while it's open, and is the fleet list honest?"</li>
+<li><b>Add "Collect logs"</b> as a device and bulk action. It replaces the most common use of the shell by far, and it's safer than handing people a shell.</li>
+<li><b>Then the operating gaps:</b> staged rollouts that halt on failures, per-restaurant policies, and two-factor login plus role-scoped API keys.</li>
+</ol>
+<p style="margin-bottom:0">Pick which of these to do and I'll start with demos for the screens (the problem card, the Alerts page, the Overview cards) before building anything.</p></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+document.documentElement.style.setProperty('--c-batt', 'var(--chart-battery)');
+document.documentElement.style.setProperty('--c-temp', 'var(--chart-temp)');
+document.documentElement.style.setProperty('--c-off', 'var(--danger)');
+document.documentElement.style.setProperty('--c-crash', 'var(--accent-2)');
+document.documentElement.style.setProperty('--c-oth', 'var(--text-faint)');
+
+/* per day by kind (live, 16–29 Sep) */
+const DAYS = [['16',80,52,6,2,1],['17',43,13,1,0,0],['18',46,37,6,5,5],['19',7,3,23,1,0],['20',11,7,9,9,0],['21',12,3,2,1,1],['22',22,22,4,1,0],['23',22,18,1,1,1],['24',39,14,0,0,1],['25',26,3,7,0,0],['26',9,9,9,0,1],['27',3,2,1,0,0],['28',10,5,1,1,0],['29',24,6,0,0,0]];
+(function(){ const W=520,H=210,pl=30,pb=22,pt=8, max=150, bw=(W-pl-8)/DAYS.length;
+  const cols=['var(--c-batt)','var(--c-temp)','var(--c-off)','var(--c-crash)','var(--c-oth)'];
+  let g=''; for(let v=0;v<=150;v+=50){const y=pt+(H-pt-pb)*(1-v/max); g+=`<line x1="${pl}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--chart-grid)"/><text x="${pl-5}" y="${y+3.5}" text-anchor="end">${v}</text>`;}
+  DAYS.forEach((d,i)=>{ let y=H-pb; const x=pl+4+i*bw;
+    d.slice(1).forEach((v,k)=>{ const h=(H-pt-pb)*v/max; y-=h; g+=`<rect x="${x}" y="${y}" width="${bw-5}" height="${h}" fill="${cols[k]}"/>`; });
+    g+=`<text x="${x+(bw-5)/2}" y="${H-7}" text-anchor="middle">${d[0]}</text>`; });
+  $('c-day').innerHTML=`<svg class="ch" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`; })();
+
+/* per type: total, of which normal behaviour */
+const TYPES = [['battery high overnight','warn',163,163],['slow charge at night','crit',130,116],['temperature elevated','warn',125,125],['overheating','crit',69,66],['offline','warn',36,0],['offline during peak','crit',34,0],['battery low','crit',25,0],['charger flapping','warn',24,0],['device crash','crit',21,0],['wireless pad dead','warn',12,0],['other (4 types)','',10,0]];
+(function(){ const max=170; $('c-type').innerHTML = '<table class="t" style="font-size:12px"><tbody>' + TYPES.map(t=>
+  `<tr><td style="width:160px;white-space:nowrap">${t[0]}${t[1]==='crit'?' <span class="pill crit" style="font-size:9.5px">crit</span>':''}</td><td><div style="position:relative;height:14px;width:${t[2]/max*100}%;background:${t[1]==='crit'?'var(--danger)':t[1]==='warn'?'var(--warn)':'var(--text-faint)'};border-radius:3px;opacity:.85">
+   ${t[3]?`<div style="position:absolute;left:0;top:0;bottom:0;width:${t[3]/t[2]*100}%;background:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 4px,transparent 4px 8px);border-radius:3px"></div>`:''}</div></td><td class="num" style="width:70px">${t[2]}${t[3]?` <span style="color:var(--text-faint)">(${t[3]})</span>`:''}</td></tr>`).join('') + '</tbody></table>'; })();
+
+/* fleet temperature */
+const TEMP = [['16',45.9,50.7],['17',46.2,50.8],['18',48.0,52.3],['19',40.5,55.3],['20',43.9,53.2],['21',41.3,51.1],['22',45.5,53.8],['23',47.2,53.4],['24',46.8,56.3],['25',42.1,49.6],['26',42.1,48.7],['27',43.0,51.8],['28',43.8,51.8],['29',45.1,49.8]];
+(function(){ const W=520,H=210,pl=30,pb=22,pt=8, lo=36, hi=58; const X=i=>pl+8+i*(W-pl-16)/(TEMP.length-1), Y=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo));
+  let g=`<rect x="${pl}" y="${Y(48)}" width="${W-pl}" height="${Y(42)-Y(48)}" fill="var(--warn-bg)"/>`;
+  for(let v=40;v<=56;v+=4) g+=`<line x1="${pl}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--chart-grid)"/><text x="${pl-5}" y="${Y(v)+3.5}" text-anchor="end">${v}°</text>`;
+  g+=`<line x1="${pl}" x2="${W}" y1="${Y(48)}" y2="${Y(48)}" stroke="var(--danger)" stroke-dasharray="4 3"/><text x="${W-4}" y="${Y(48)-4}" text-anchor="end" style="fill:var(--danger)">overheating 48 °C</text>`;
+  g+=`<line x1="${pl}" x2="${W}" y1="${Y(52)}" y2="${Y(52)}" stroke="var(--ok)" stroke-dasharray="2 3"/><text x="${W-4}" y="${Y(52)-4}" text-anchor="end" style="fill:var(--ok)">proposed 52 °C</text>`;
+  const l1=TEMP.map((t,i)=>`${X(i)},${Y(t[1])}`).join(' '), l2=TEMP.map((t,i)=>`${X(i)},${Y(t[2])}`).join(' ');
+  g+=`<polyline points="${l1}" fill="none" stroke="var(--c-temp)" stroke-width="2"/><polyline points="${l2}" fill="none" stroke="var(--danger)" stroke-width="1.5" opacity=".75"/>`;
+  TEMP.forEach((t,i)=>{ if(i%2===0) g+=`<text x="${X(i)}" y="${H-7}" text-anchor="middle">${t[0]}</text>`; });
+  $('c-temp').innerHTML=`<svg class="ch" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`; })();
+
+/* overlap histogram */
+const OVL = [[1,59],[2,73],[3,161],[4,188],[5,88],[6,36],[7,26],[8,18]];
+(function(){ const W=520,H=210,pl=30,pb=34,pt=8,max=200,bw=(W-pl-8)/OVL.length; let g='';
+  for(let v=0;v<=200;v+=50){const y=pt+(H-pt-pb)*(1-v/max); g+=`<line x1="${pl}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--chart-grid)"/><text x="${pl-5}" y="${y+3.5}" text-anchor="end">${v}</text>`;}
+  OVL.forEach((o,i)=>{ const h=(H-pt-pb)*o[1]/max, x=pl+6+i*bw; g+=`<rect x="${x}" y="${H-pb-h}" width="${bw-10}" height="${h}" rx="3" fill="${o[0]>=3?'var(--danger)':'var(--rule-2)'}" opacity="${o[0]>=3?.8:1}"/><text x="${x+(bw-10)/2}" y="${H-pb+14}" text-anchor="middle">${o[0]}</text><text x="${x+(bw-10)/2}" y="${H-pb-h-4}" text-anchor="middle" style="fill:var(--text-2)">${o[1]}</text>`; });
+  g+=`<text x="${pl+(W-pl)/2}" y="${H-3}" text-anchor="middle">alert types open on the device at once</text>`;
+  $('c-ovl').innerHTML=`<svg class="ch" viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`; })();
+
+/* funnel */
+(function(){ const rows=[['Alerts raised',649,'',''],['After retuning 4 rules',179,'−470 normal behaviour',''],['Grouped into device problems',98,'about 7 a day','g']];
+  $('funnel').innerHTML = rows.map(r=>`<div class="fr"><div>${r[0]}</div><div><div class="b ${r[3]}" style="width:${Math.max(8,r[1]/649*100)}%">${r[1]}</div></div><div class="r">${r[2]}</div></div>`).join('')
+   + `<div class="fr" style="margin-top:6px"><div>Critical at night</div><div><div class="b" style="width:${169/649*100}%;background:color-mix(in srgb,var(--danger) 35%,var(--surface))">169</div></div><div class="r">→ 21, then digest</div></div>`; })();
+
+/* overview mock data */
+(function(){ const R=[['Flights Vegas','xwwoooo','97.1%'],['Huanchaco Peruvian','ooooooo','99.8%']];
+  $('m-uptime').innerHTML = R.map(r=>`<div class="srow"><b>${r[0]}</b><div class="sb">${[...r[1]].map(c=>`<i class="${c==='x'?'x':c==='w'?'w':''}"></i>`).join('')}</div><div style="text-align:right;font-variant-numeric:tabular-nums">${r[2]}</div></div>`).join('')
+   + '<div class="lg" style="margin-top:4px"><span>Mon → Sun</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div><div class="src">Illustrative numbers.</div>'; })();
+(function(){ const B=[['v2.1.024','t7',9],['v2.1.023','t7',11],['v2.1.022','t7',5],['older','',3]], tot=28;
+  $('m-builds').innerHTML = '<div class="bar" style="height:12px">'+B.map((b,i)=>`<i style="width:${b[2]/tot*100}%;background:${['var(--c-batt)','var(--accent-2)','var(--chart-ram)','var(--text-faint)'][i]}"></i>`).join('')+'</div>'
+   + '<div class="lg">'+B.map((b,i)=>`<span><i style="background:${['var(--c-batt)','var(--accent-2)','var(--chart-ram)','var(--text-faint)'][i]}"></i>${b[0]} · ${b[2]}</span>`).join('')+'</div>'
+   + '<table class="t" style="margin-top:8px"><tbody><tr><td>Updates, 30 days</td><td class="num">199 installed · <b style="color:var(--danger)">40 failed</b></td></tr><tr><td>MDM client</td><td class="num">1.5.0 on 23 of 28</td></tr></tbody></table>'
+   + '<div class="src">Build split and client count are illustrative; the update counts are real.</div>'; })();
+(function(){ const H=[['Flights Vegas','5 tablets no longer charge past 80% overnight','3 ran above 52 °C at dinner'],['Huanchaco Peruvian','all charging normally','none above 52 °C']];
+  $('m-health').innerHTML = '<table class="t"><thead><tr><th>Restaurant</th><th>Battery</th><th>Heat</th></tr></thead><tbody>'+H.map(h=>`<tr><td><b>${h[0]}</b></td><td>${h[1]}</td><td>${h[2]}</td></tr>`).join('')+'</tbody></table><div class="src">Illustrative wording; computed from device_daily_stats.</div>'; })();
+(function(){ const C=[['com.google.android.permissioncontroller',75,40],['com.qti.phone',11,4],['aio.app.nugget.internal',7,1],['com.aio.launcher.uatv2',5,1]];
+  $('m-crash').innerHTML = '<table class="t"><thead><tr><th>App</th><th class="num">Crashes</th><th class="num">Devices</th></tr></thead><tbody>'+C.map(c=>`<tr><td style="font-family:var(--mono);font-size:11.5px">${c[0]}</td><td class="num">${c[1]}</td><td class="num">${c[2]}</td></tr>`).join('')+'</tbody></table>'; })();
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>

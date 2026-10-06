@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device IDs · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:44px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+h2.part{font-size:20px;margin:56px 0 4px;padding-top:18px;border-top:1px solid var(--border);letter-spacing:-.012em}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px;margin-top:10px}
+.pick b{color:var(--text)}
+.bug{background:var(--surface);border:1px solid var(--warn-edge,var(--border));border-left:3px solid var(--warn);border-radius:10px;padding:14px 18px;font-size:13px;line-height:1.6;color:var(--text-2);max-width:900px;margin:14px 0 0}
+.bug b{color:var(--text)}
+
+/* stand-in map */
+.mapbox{border:1px solid var(--border);border-radius:var(--r-4);overflow:hidden;background:var(--surface)}
+.map{position:relative;height:340px;overflow:hidden;background:
+  radial-gradient(ellipse at 28% 62%,color-mix(in srgb,var(--text-faint) 10%,transparent) 0 70px,transparent 71px),
+  radial-gradient(circle at 74% 38%,color-mix(in srgb,var(--text-faint) 12%,transparent) 0 60px,transparent 61px),
+  repeating-linear-gradient(28deg,transparent 0 58px,color-mix(in srgb,var(--text-faint) 16%,transparent) 58px 60px),
+  repeating-linear-gradient(-62deg,transparent 0 90px,color-mix(in srgb,var(--text-faint) 12%,transparent) 90px 92px),
+  color-mix(in srgb,var(--surface-3) 70%,var(--bg))}
+.pos{position:absolute;transform:translate(-50%,-50%)}
+.cap{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:9px 12px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.cap b{color:var(--text-2)}
+
+/* shared mock bits */
+.cnt{position:absolute;right:10px;top:10px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2);box-shadow:var(--shadow-md)}
+.leg{position:absolute;left:10px;bottom:10px;display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:6px 12px;font-size:11.5px;color:var(--muted);box-shadow:var(--shadow-md)}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--ok)}
+.leg i.off{background:var(--text-faint)} .leg i.bad{background:var(--danger)}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--ok);border:2.5px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.dot.off{background:var(--text-faint)} .dot.bad{background:var(--danger)}
+/* current cluster: flat accent circle */
+.cl{width:42px;height:42px;border-radius:50%;background:var(--accent);border:2.5px solid #fff;color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+/* site blip: status ring + count */
+.sb{--ok-pct:75%;position:relative;width:46px;height:46px;border-radius:50%;background:conic-gradient(var(--ok) 0 var(--ok-pct),var(--text-faint) var(--ok-pct) 100%);display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.3);cursor:pointer}
+.sb:before{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--surface)}
+.sb b{position:relative;font-size:14px;font-weight:750;font-variant-numeric:tabular-nums}
+.sb.bad{background:conic-gradient(var(--danger) 0 var(--ok-pct),var(--text-faint) var(--ok-pct) 100%)}
+.sb.sel{outline:3px solid var(--accent-edge);outline-offset:2px}
+.sb small{position:absolute;left:50%;top:calc(100% + 4px);transform:translateX(-50%);white-space:nowrap;font-size:10.5px;font-weight:700;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:1px 7px;color:var(--text-2)}
+/* pin blip with a corner badge */
+.pb{position:relative;width:30px;height:30px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--ok);border:2.5px solid var(--surface);box-shadow:0 1px 5px rgba(0,0,0,.3)}
+.pb.bad{background:var(--danger)}
+.pbn{position:absolute;right:-9px;top:-10px;min-width:19px;height:19px;border-radius:99px;background:var(--text);color:var(--surface);display:grid;place-items:center;font-size:10.5px;font-weight:750;padding:0 4px;border:2px solid var(--surface)}
+/* spiderfy */
+.leg-line{position:absolute;height:1.5px;background:var(--border-strong,var(--text-faint));transform-origin:0 50%}
+
+/* cards */
+.mc{position:absolute;width:290px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);font-size:12.5px;overflow:hidden}
+.mc .h{display:flex;align-items:center;gap:8px;padding:12px 14px 6px}
+.mc .h b{font-size:14px}
+.mc .h .x{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--muted)}
+.mc .b{padding:2px 14px 12px}
+.mc .sub{color:var(--muted);font-size:11.5px}
+.mc .mono{font-family:var(--mono);font-size:11px}
+.mc .meter{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin:7px 0 4px}
+.mc .meter i{display:block;height:100%;background:var(--ok)}
+.mc .row{display:flex;justify-content:space-between;color:var(--muted);padding:2px 0}
+.mc .row b{color:var(--text);font-variant-numeric:tabular-nums}
+.mc .acts{display:flex;gap:6px;padding:10px 14px 12px;border-top:1px solid var(--border)}
+.mc .acts a{flex:1;text-align:center;font-weight:650;font-size:12px;text-decoration:none;border:1px solid var(--border);border-radius:7px;padding:6px 0;color:var(--text-2)}
+.mc .acts a.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--ok-bg);color:var(--ok)}
+.pill.off{background:var(--surface-3);color:var(--text-2)} .pill.bad{background:var(--danger-bg);color:var(--danger)}
+.dl{display:grid;gap:0;margin:2px -14px 0}
+.dl a{display:flex;align-items:center;gap:9px;padding:7px 14px;text-decoration:none;color:inherit;border-top:1px solid var(--border)}
+.dl a:hover{background:var(--surface-3)}
+.dl .sn{font-family:var(--mono);font-size:11.5px;font-weight:600}
+.dl .m{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+.dl i{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.dl i.off{background:var(--text-faint)} .dl i.bad{background:var(--danger)}
+/* google info window (current) */
+.giw{position:absolute;background:#fff;color:#222;border-radius:8px;box-shadow:0 2px 7px rgba(0,0,0,.3);padding:14px 16px 12px;font:13px Roboto,Arial,sans-serif;min-width:190px;transform:translate(-50%,calc(-100% - 12px))}
+.giw:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;border:8px solid transparent;border-top-color:#fff;border-bottom:0}
+.giw a{color:#e5553b;text-decoration:none}
+/* chrome */
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
+.chip2{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface-2,var(--surface));border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--text-2)}
+.chip2 em{font-style:normal;color:var(--text-faint);font-weight:500}
+.chip2 .x{color:var(--muted)}
+.chips .sp{margin-left:auto;font-size:12px;color:var(--muted)}
+.chips .sp a{color:var(--accent-text);font-weight:650;text-decoration:none}
+.split{display:grid;grid-template-columns:1fr 280px}
+.side{border-left:1px solid var(--border);background:var(--surface);font-size:12.5px;max-height:340px;overflow:auto}
+.side h4{margin:0;padding:10px 12px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+.side .it{display:flex;gap:9px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)}
+.side .it.on{background:var(--accent-soft)}
+.side .it b{display:block;font-size:12.5px}.side .it span{color:var(--muted);font-size:11.5px}
+.side .it .n{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+@media(max-width:720px){.split{grid-template-columns:1fr}.side{border-left:0;border-top:1px solid var(--border)}}
+
+</style>
+<style>
+.dev{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden;max-width:880px}
+.dh{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--border)}
+.dh h4{margin:0;font-size:19px;letter-spacing:-.01em}
+.dh .sn{font-family:var(--mono);font-size:11.5px;color:var(--muted);font-weight:500}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:11.5px;font-weight:600;color:var(--text-2);background:var(--surface-3)}
+.chip .k{opacity:.7;font-weight:500}.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.chip.mono{font-family:var(--mono);font-size:11px}
+.cp{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;padding:0 0 0 2px}
+.tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--border)}
+.tabs span{padding:10px 12px;font-size:12.5px;font-weight:650;color:var(--muted);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--text);border-color:var(--accent)}
+.bd{padding:16px 18px}
+.row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.row:last-child{border-bottom:0}
+.row .ic{width:34px;height:34px;border-radius:9px;background:#58c27d;color:#fff;display:grid;place-items:center;font-weight:700}
+.row .nm{font-weight:650}.row .pk{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.row .id{margin-left:auto;font-family:var(--mono);font-size:12px;background:var(--surface-3);border-radius:6px;padding:3px 8px}
+.card2{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:12px}
+.card2 h5{margin:0;padding:10px 14px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border);background:var(--surface-3)}
+.kv{display:grid;grid-template-columns:150px 1fr auto;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);font-size:12.5px;align-items:center}
+.kv:last-child{border-bottom:0}.kv .k{color:var(--muted)}.kv .v{font-family:var(--mono);font-size:12px}
+.kv .n{color:var(--text-faint);font-size:11.5px}
+.find{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface);max-width:520px;font-size:13px}
+.res{border:1px solid var(--border);border-radius:10px;margin-top:6px;max-width:520px;overflow:hidden;background:var(--surface)}
+.res div{padding:9px 12px;border-bottom:1px solid var(--border);font-size:12.5px;display:flex;gap:10px;align-items:center}
+.res div:last-child{border-bottom:0}.res b{font-family:var(--mono);font-size:12px}.res span{color:var(--muted);margin-left:auto;font-size:11.5px}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Showing the Nugget Android ID on the device page</h1>
+<p class="lead">Confirmed on <b>AT070AABU00231</b>: the MDM now receives the Android ID that the Nugget app uses (<code>36218dc1d56c00b7</code>, package <code>aio.app.nugget</code>). Nothing shows it yet. Three places it could go, plus a search. Mocks use the real tokens, so light and dark are accurate. Pick one (or two).</p>
+<div class="toc"><a href="#cur">Today</a><a href="#a" class="rec">A · On the Nugget app row</a><a href="#b">B · Header chip</a><a href="#c">C · Identity card</a><a href="#s">Search</a></div>
+
+<h3 class="sec" id="cur">Today <span class="tag live">Deployed</span></h3>
+<div class="dev"><div class="dh"><h4>Table 4 <span class="sn">AT070AABU00231</span> <span class="sn">HW 84F90681</span></h4><span class="chip ok">Online</span><span class="chip"><span class="k">Build</span> v2.1.025-aio-glance-21</span></div><div class="tabs"><span class="on">Overview</span><span>Apps</span><span>Commands</span><span>Telemetry</span></div><div class="bd"><span style="color:var(--muted);font-size:12.5px">The Android ID is not shown. Only the chip serial (<b>HW 84F90681</b>) is in the header; the ID is only in the API.</span></div></div>
+
+<h3 class="sec" id="a">A · On the Nugget app's row in the Apps tab <span class="tag rec">Recommended</span></h3>
+<div class="dev"><div class="dh"><h4>Table 4 <span class="sn">AT070AABU00231</span> <span class="sn">HW 84F90681</span></h4><span class="chip ok">Online</span><span class="chip"><span class="k">Build</span> v2.1.025-aio-glance-21</span></div><div class="tabs"><span>Overview</span><span class="on">Apps</span><span>Commands</span><span>Telemetry</span></div><div class="bd">
+ <div class="row"><div class="ic">N</div><div><div class="nm">Nugget</div><div class="pk">aio.app.nugget · v17.0.0</div></div><span class="chip mono" style="margin-left:auto" title="What Nugget uses to identify this tablet"><span class="k">Android ID</span> 36218dc1d56c00b7 <button class="cp" title="Copy">⧉</button></span></div>
+ <div class="row"><div class="ic" style="background:#5b8def">K</div><div><div class="nm">Kitchen Display</div><div class="pk">aio.app.kds · v3.2.0</div></div></div>
+ <div class="row"><div class="ic" style="background:#f0883e">M</div><div><div class="nm">Menu Board</div><div class="pk">aio.app.menuboard · v2.5.12</div></div></div>
+</div></div>
+<p class="desc" style="margin-top:8px"><b>Good:</b> it sits exactly where you look for "which Nugget is this", next to the app, with one chip per Nugget flavour installed (prod, internal, qa). Nothing is added to the busy header. <b>Bad:</b> you have to open the Apps tab, and devices without Nugget show nothing.</p>
+
+<h3 class="sec" id="b">B · A chip in the device header, next to the serial</h3>
+<div class="dev"><div class="dh"><h4>Table 4 <span class="sn">AT070AABU00231</span> <span class="sn">HW 84F90681</span></h4><span class="chip ok">Online</span><span class="chip"><span class="k">Build</span> v2.1.025-aio-glance-21</span><span class="chip mono" title="What the Nugget app uses to identify this tablet"><span class="k">Nugget ID</span> 36218dc1d56c00b7 <button class="cp" title="Copy">⧉</button></span></div><div class="tabs"><span class="on">Overview</span><span>Apps</span><span>Commands</span><span>Telemetry</span></div><div class="bd"><span style="color:var(--muted);font-size:12.5px">…the rest of the Overview…</span></div></div>
+<p class="desc" style="margin-top:8px"><b>Good:</b> visible at a glance on every visit, like the serial. <b>Bad:</b> the header is already crowded (name, serial, HW serial, status, build); with three Nugget flavours installed it would need to collapse to "3 IDs".</p>
+
+<h3 class="sec" id="c">C · An Identity card on the Overview, with all the identifiers together</h3>
+<div class="dev"><div class="dh"><h4>Table 4 <span class="sn">AT070AABU00231</span> <span class="sn">HW 84F90681</span></h4><span class="chip ok">Online</span><span class="chip"><span class="k">Build</span> v2.1.025-aio-glance-21</span></div><div class="tabs"><span class="on">Overview</span><span>Apps</span><span>Commands</span><span>Telemetry</span></div><div class="bd">
+ <div class="card2" style="margin-top:0"><h5>Identity</h5>
+  <div class="kv"><span class="k">AIO serial</span><span class="v">AT070AABU00231</span><span class="n">what the MDM knows it as</span></div>
+  <div class="kv"><span class="k">Chip serial</span><span class="v">84F90681</span><span class="n">fused into the chip, never changes</span></div>
+  <div class="kv"><span class="k">Nugget Android ID</span><span class="v">36218dc1d56c00b7 <button class="cp">⧉</button></span><span class="n">aio.app.nugget</span></div>
+  <div class="kv"><span class="k">MDM client's ID</span><span class="v">bd9c37bd03fd33f5</span><span class="n">not the one Nugget uses</span></div>
+  <div class="kv"><span class="k">Device key</span><span class="v">registered 30 Sep</span><span class="n"></span></div>
+ </div></div></div>
+<p class="desc" style="margin-top:8px"><b>Good:</b> answers "which id is which" in one place, and is where the chip-serial history and device-key status belong too. <b>Bad:</b> a new card on a page that already has many, and it is the biggest change of the three.</p>
+
+<h3 class="sec" id="s">Search: type an Android ID, get the tablet</h3>
+<div class="find">🔍 <span style="font-family:var(--mono)">36218dc1d56c00b7</span></div>
+<div class="res"><div><b>AT070AABU00231</b> Table 4 · Flights Vegas<span>Nugget Android ID</span></div></div>
+<p class="desc" style="margin-top:8px">The command-K search and the fleet search would match an Android ID (or a chip serial) and show which tablet it belongs to, with the reason it matched. This is what answers "Nugget says device 36218dc1d56c00b7, which one is that?". It works with any of A, B or C.</p>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A, plus the search.</b> The ID belongs next to the app that uses it, it needs no extra space in the header, and one chip per flavour handles prod, internal and qa naturally. The search is the part that answers your original question from the other direction. C is worth doing later if you want the chip serial, device key and IDs together in one card.</div>
+</div>
+<script>
+(function(){var cur=document.documentElement.getAttribute('data-theme');
+document.querySelectorAll('.themebar button').forEach(function(b){if(b.dataset.t===cur)b.classList.add('on');
+b.onclick=function(){document.documentElement.setAttribute('data-theme',b.dataset.t);try{localStorage.setItem('ovdemo-theme',b.dataset.t);}catch(e){}
+document.querySelectorAll('.themebar button').forEach(function(x){x.classList.toggle('on',x===b);});};});})();
+</script>
+</body></html>

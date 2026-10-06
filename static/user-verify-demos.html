@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify users · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:48px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:18px}
+.cap{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:18px 0 8px}
+.cap:first-child{margin-top:0}
+
+/* People page rows, copied from templates/users.html */
+.uu-row{display:flex;align-items:center;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.uu-row:first-of-type{border-top:none}
+.uu-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
+.uu-av.role-viewer{background:var(--surface2);color:var(--muted)}
+.uu-av.role-operator{background:var(--info-bg);color:var(--info)}
+.uu-id{flex:1;min-width:160px}
+.uu-name{font-size:13.5px;font-weight:650}
+.uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.uu-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media(max-width:600px){.uu-row{gap:9px}.uu-act{width:100%;justify-content:flex-start}}
+.cc-btn svg{width:14px;height:14px}
+
+/* A: the verify button on the row */
+.vf-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--warn-bg);color:var(--warn);margin-left:4px;font-family:var(--sans,inherit)}
+
+/* C: the waiting strip */
+.vf-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:14px;overflow:hidden}
+.vf-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px;font-size:13.5px}
+.vf-strip-h b{font-weight:700}
+.vf-strip-h .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
+.vf-strip-h .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vf-strip-h small{display:block;font-size:12px;color:var(--text-2);font-weight:500;margin-top:1px}
+.vf-strip .uu-row{background:var(--surface);border-top:1px solid var(--border-soft)}
+
+/* Manage page account card */
+.ua-card .cc-ch{display:flex;align-items:center;gap:9px;padding:13px 17px;border-bottom:1px solid var(--border-soft)}
+.ua-card .cc-ch h2{margin:0;font-size:13.5px;font-weight:700}
+.ua-card .cc-ch .m{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.ua-f{padding:14px 17px}
+.ua-lbl{font-size:11.5px;font-weight:650;color:var(--muted);margin-bottom:5px;display:block}
+.ua-f-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ua-f-row .form-input{flex:1;min-width:120px;max-width:260px}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Verifying people by hand</h1>
+<p class="lead">Someone who signs up with an email and password cannot sign in until they click the link in the verification email. If the email never arrives, or goes to spam, they are stuck and nobody on the dashboard can help: "unverified" is only a word in grey on the People list. Two people were stuck like this on 30 Sep: anwar.ahmed@aioapp.com (signed up 29 Sep, as "Anwae Sheikh") and Haris Azhar (30 Sep), both viewers; they were verified by hand in the database that day. Every earlier @aioapp.com signup clicked its link within minutes, so the email stopped arriving between 23 and 29 Sep. The options below let a super admin verify them. Only the super admin: verifying an account is vouching for who owns that address.</p>
+<div class="toc"><a href="#now">Current</a><a href="#a">A · Verify on the row</a><a href="#b">B · Verify on the Manage page</a><a href="#c" class="rec">C · A "waiting to sign in" strip ★</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="now">Current <span class="tag live">Deployed</span></h2>
+<p class="desc">Users → People. The state is visible only as "(unverified)" in the meta line, and the "Email unverified" filter finds them. Nothing can be done about it from here.</p>
+<div class="scr"><div class="cc-card">
+  <div class="uu-row"><span class="uu-av role-viewer">A</span><div class="uu-id"><div class="uu-name">Anwae Sheikh <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">anwar.ahmed@aioapp.com · Joined Sep 29 <span class="muted">(unverified)</span></div></div><a class="cc-btn sm">Manage</a></div>
+  <div class="uu-row"><span class="uu-av role-viewer">H</span><div class="uu-id"><div class="uu-name">Haris Azhar <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">haris.azhar@aioapp.com · Joined Sep 30 <span class="muted">(unverified)</span></div></div><a class="cc-btn sm">Manage</a></div>
+  <div class="uu-row"><span class="uu-av role-operator">S</span><div class="uu-id"><div class="uu-name">Shahrukh Bashir <span class="cc-pill info">Operator</span></div><div class="uu-meta mono">shahrukh.bashir@aioapp.com · Joined Sep 1 <span class="muted">(verified)</span> · active 2h ago</div></div><a class="cc-btn sm">Manage</a></div>
+</div></div>
+
+<h2 class="sec" id="a">A · A "Verify" button on the row</h2>
+<p class="desc">The grey word becomes an amber tag, and the super admin gets a Verify button beside Manage on those rows.</p>
+<div class="scr"><div class="cc-card">
+  <div class="uu-row"><span class="uu-av role-viewer">A</span><div class="uu-id"><div class="uu-name">Anwae Sheikh <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">anwar.ahmed@aioapp.com · Joined Sep 29 <span class="vf-tag">can't sign in: email not verified</span></div></div><div class="uu-act"><button class="cc-btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Verify</button><a class="cc-btn sm">Manage</a></div></div>
+  <div class="uu-row"><span class="uu-av role-viewer">H</span><div class="uu-id"><div class="uu-name">Haris Azhar <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">haris.azhar@aioapp.com · Joined Sep 30 <span class="vf-tag">can't sign in: email not verified</span></div></div><div class="uu-act"><button class="cc-btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Verify</button><a class="cc-btn sm">Manage</a></div></div>
+  <div class="uu-row"><span class="uu-av role-operator">S</span><div class="uu-id"><div class="uu-name">Shahrukh Bashir <span class="cc-pill info">Operator</span></div><div class="uu-meta mono">shahrukh.bashir@aioapp.com · Joined Sep 1 · active 2h ago</div></div><a class="cc-btn sm">Manage</a></div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>One click, where the person already is in the list.</li><li>Says what "unverified" means: they can't sign in.</li></ul></div>
+  <div><b>Bad at</b><ul><li>The rows sit wherever they fall in a list of 24 accounts; with the list scrolled, a stuck signup is easy to miss.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · On the Manage page only</h2>
+<p class="desc">The Email field on the person's Manage page gets "Mark as verified" beside the amber pill.</p>
+<div class="scr"><div class="cc-card ua-card" style="max-width:620px">
+  <div class="cc-ch"><h2>Account</h2><span class="m mono">anwar.ahmed@aioapp.com</span></div>
+  <div class="ua-f"><label class="ua-lbl">Email</label><div class="ua-f-row"><input type="text" class="form-input" value="anwar.ahmed@aioapp.com" readonly><span class="cc-pill warn">unverified</span><button class="cc-btn sm">Mark as verified</button></div>
+  <p class="muted small" style="margin:8px 0 0">They signed up on 29 Sep and haven't clicked the link we emailed. Until the address is verified they can't sign in.</p></div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>Right next to the thing it changes, with room to explain it.</li></ul></div>
+  <div><b>Bad at</b><ul><li>You have to know to open that person first. Today nothing tells you anyone is waiting.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · A "waiting to sign in" strip on People, plus B <span class="tag rec">Recommended</span></h2>
+<p class="desc">When anyone is stuck, the top of the People page says so, with Verify and Remove for each. The strip disappears when nobody is waiting. The Manage page also gets B's "Mark as verified" for when you are already there. A verify is audited ("verified by hand by …").</p>
+<div class="scr">
+  <div class="vf-strip">
+    <div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><div><b>2 people can't sign in yet</b><small>They signed up but haven't clicked the link we emailed. Verify them if you know the address is theirs.</small></div></div>
+    <div class="uu-row"><span class="uu-av role-viewer">A</span><div class="uu-id"><div class="uu-name">Anwae Sheikh <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">anwar.ahmed@aioapp.com · signed up Sep 29, 1 day ago</div></div><div class="uu-act"><button class="cc-btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Verify</button><button class="cc-btn sm">Remove</button></div></div>
+    <div class="uu-row"><span class="uu-av role-viewer">H</span><div class="uu-id"><div class="uu-name">Haris Azhar <span class="cc-pill">Viewer</span></div><div class="uu-meta mono">haris.azhar@aioapp.com · signed up Sep 30, 10:57</div></div><div class="uu-act"><button class="cc-btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Verify</button><button class="cc-btn sm">Remove</button></div></div>
+  </div>
+  <div class="cc-card">
+    <div class="uu-row"><span class="uu-av role-operator">S</span><div class="uu-id"><div class="uu-name">Shahrukh Bashir <span class="cc-pill info">Operator</span></div><div class="uu-meta mono">shahrukh.bashir@aioapp.com · Joined Sep 1 · active 2h ago</div></div><a class="cc-btn sm">Manage</a></div>
+    <div class="uu-row"><span class="uu-av">T</span><div class="uu-id"><div class="uu-name">Tariq Jamil <span class="cc-pill">Super op</span></div><div class="uu-meta mono">tariq.jamil@aioapp.com · Joined Jul 14</div></div><a class="cc-btn sm">Manage</a></div>
+  </div>
+</div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>A stuck signup is the first thing on the page, not a filter you have to know about.</li><li>Verify and Remove together: a signup nobody recognises can be cleared in the same place.</li><li>Takes no space when nobody is waiting.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Two places to verify (the strip and the Manage page).</li><li>Only the super admin sees the strip and its buttons; other people who manage users see nothing new.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>C.</b> The problem is that people are stuck and nobody notices, so the fix should be noticed: a strip on People that only appears when someone is waiting, with Verify and Remove, and "Mark as verified" on the Manage page for when you are already looking at them. Super admin only, audited. Anwar and Haris would have been the first two in it.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

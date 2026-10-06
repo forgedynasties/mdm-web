@@ -78,6 +78,9 @@ func TestVenueInsightsAgainstPostgres(t *testing.T) {
 		}
 	}
 
+	if tz, err := d.VenueDeviceTimezone(ctx, []uuid.UUID{id}); err != nil || tz != "" {
+		t.Errorf("device timezone = %q, %v; want none reported", tz, err)
+	}
 	ins, err := d.VenueInsightsFor(ctx, []uuid.UUID{id}, from, to, to.Add(12*time.Hour), loc)
 	if err != nil {
 		t.Fatal(err)

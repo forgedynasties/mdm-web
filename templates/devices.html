@@ -7,22 +7,8 @@
      (Classic = the fleet_layout cookie, passed in by each caller). The type-icon sprite
      and the row-click handler serve both, and the side rail's icons too. */}}
 {{define "device-cards"}}
-<svg class="dl-icons" width="0" height="0" aria-hidden="true" focusable="false">
-    <symbol id="dk-t7" viewBox="0 0 24 24"><path d="M5.5 19.5V6.6A2.8 2.8 0 0 1 7.9 3.8Q12 3.2 16.1 3.8A2.8 2.8 0 0 1 18.5 6.6v12.9a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M10.5 3.4v1.6h3V3.4"/><rect x="7.8" y="7.2" width="8.4" height="9.8" rx=".6"/><path d="M10.3 18.9h3.4"/><path d="M3.5 22.2h17"/></symbol>
-    <symbol id="dk-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
-    <symbol id="dk-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
-    <symbol id="dk-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
-    <symbol id="dk-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
-    <symbol id="dk-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
-    <symbol id="dk-kds" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M6 7h4M6 10h4M14 7h4M14 10h4M12 16v4M8 20h8"/></symbol>
-    <symbol id="dk-payment" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><rect x="8.5" y="4.5" width="7" height="5" rx="1"/><path d="M9 13h.01M12 13h.01M15 13h.01M9 16h.01M12 16h.01M15 16h.01M9 19h6"/></symbol>
-    <symbol id="dk-other" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
-    <symbol id="dk-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></symbol>
-    <symbol id="dk-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></symbol>
-    <symbol id="dk-flap" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></symbol>
-    <symbol id="dk-batx" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor" stroke="none"/><path d="M7 4l9 6M16 4l-9 6" stroke="currentColor" stroke-width="1.5"/></symbol>
-    <symbol id="dk-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
-  </svg>
+{{/* The dk-* icon sprite moved to layout.html's <body> (global) so the device wall, the
+     client pill and the Commands picker can use the same icons without their own copy. */}}
 {{if eq .Layout "classic"}}{{template "device-cards-classic" .}}
 {{else}}{{template "device-cards-serial" .}}{{end}}
 <script>
@@ -100,7 +86,7 @@ if (!window.__dlRowNav) {
       {{end}}
     </div>
     <div class="dl-id">
-      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
+      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}</div>
       {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
@@ -148,7 +134,6 @@ if (!window.__dlRowNav) {
         <button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
         <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
       {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
-      {{if .Hidden}}<span class="dl-hidden-tag">inactive</span>{{end}}
       {{$cu := ""}}{{if $.Custody}}{{with index $.Custody .ID}}{{$cu = .Server}}{{end}}{{end}}
       {{if $cu}}<span class="dl-elsewhere" title="This device reports to {{$cu}}. It is not offline — it was pointed at another MDM, so it checks in there.">on {{$cu}}</span>{{end}}
       {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
@@ -198,7 +183,6 @@ if (!window.__dlRowNav) {
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-      {{if canSeeInactive $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
 
@@ -282,9 +266,11 @@ if (!window.__dlRowNav) {
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden .FilterKind .FilterOnboarding .FilterLifecycle}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterLifecycle .FilterHygiene}}
 <div class="fleet-chips">
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{/* A clean-up job from the Overview's checklist: only ever arrives by link. */}}
+  {{if .FilterHygiene}}<span class="fchip"><span class="k">Clean up</span> {{.FilterHygiene}} <button type="button" class="x" onclick="navigateDevices({page: '1', hygiene: ''})" aria-label="Clear clean-up filter">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}Standard MDM{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}Firmware MDM{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -298,7 +284,6 @@ if (!window.__dlRowNav) {
   {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
   {{if .FilterCharging}}<span class="fchip"><span class="k">Charging</span> {{if eq .FilterCharging "yes"}}Charging{{else}}Not charging{{end}} <button type="button" class="x" onclick="clearOne('filter-charging')" aria-label="Clear charging">×</button></span>{{end}}
   {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
-  {{if eq .FilterHidden "only"}}<span class="fchip"><span class="k">Visibility</span> Inactive <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
   <button type="button" class="fchip-clear" onclick="clearFilters()">Clear all</button>
 </div>
 {{end}}
@@ -395,12 +380,6 @@ if (!window.__dlRowNav) {
         {{end}}
         {{if canAdmin .Role}}
         <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
-        <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" onsubmit="return confirmBulkHide(event)">
-          <button type="submit" class="cc-btn sm selbar-danger ss-w">Mark inactive</button>
-        </form>
-        <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
-          <button type="submit" class="cc-btn sm ss-w">Reactivate</button>
-        </form>
         {{end}}
       </div>
       {{end}}
@@ -530,7 +509,6 @@ if (!window.__dlRowNav) {
      live outside this page — without this the modal renders raw. (picker.js rides
      along in the partial itself: it binds #pk-rail, which only exists once the
      modal body has been swapped in.) */}}
-<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
 /* ── Fleet · Devices — command-center header + KPI strip + rail polish ── */
@@ -640,7 +618,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
   </div>
 
-  {{/* ── KPI strip: online / offline / low battery / out of kiosk / inactive ── */}}
+  {{/* ── KPI strip: online / offline / low battery / out of kiosk ── */}}
   
 </div>
 
@@ -864,8 +842,8 @@ a.fleet-rail-item{min-height:40px}
         {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
             <option value="">Any agent</option>
-            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>MDM Firmware (our hardware)</option>
-            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>MDM DPC</option>
+            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware MDM (our hardware)</option>
+            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>Standard MDM</option>
             <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
           </select></label>{{end}}
         <label class="fp-field"><span>Product</span>
@@ -928,13 +906,6 @@ a.fleet-rail-item{min-height:40px}
             {{range .Timezones}}<option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>{{end}}
           </select></label>
       </div>
-      {{if canAdmin $.Role}}
-      <div class="fp-cap">Visibility</div>
-      <div class="fleet-seg" role="radiogroup" aria-label="Visibility">
-        <button type="button" data-vis="" role="radio" aria-checked="{{if not .FilterHidden}}true{{else}}false{{end}}" class="{{if not .FilterHidden}}on{{end}}" onclick="setHidden('')">Active</button>
-        <button type="button" data-vis="only" role="radio" aria-checked="{{if eq .FilterHidden "only"}}true{{else}}false{{end}}" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Inactive</button>
-      </div>
-      {{end}}
       <div class="fp-cap">Lifecycle</div>
       <div class="fp-grid">
         <label class="fp-field"><span>Onboarding</span>
@@ -1003,7 +974,8 @@ function getFilterVals(overrides) {
     kiosk: p.get('kiosk') || '',
     charging: p.get('charging') || '',
     timezone: p.get('timezone') || '',
-    hidden: p.get('hidden') || ''
+    hidden: p.get('hidden') || '',
+    hygiene: p.get('hygiene') || ''
   };
   var fg = document.getElementById('filter-group');
   var fp = document.getElementById('filter-production');
@@ -1085,7 +1057,7 @@ function scopeRoster(anchor, u) {
   clearSelectAllMatching();
   ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -1129,16 +1101,12 @@ function clearSearch() {
   navigateDevices({page: '1', q: ''});
 }
 
-function setHidden(val) {
-  navigateDevices({page: '1', hidden: val});
-}
-
 function clearFilters() {
   // Clears the popover filters + search + visibility, but keeps the rail
   // collection (group/restaurant) in scope.
   ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: ''});
+  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
@@ -1217,7 +1185,6 @@ function setView(view) {
   else if (view === 'offline') ov.status = 'offline';
   else if (view === 'lowbatt') ov.battery = 'low';
   else if (view === 'nokiosk') ov.kiosk = 'disabled';
-  else if (view === 'hidden') ov.hidden = 'only';
   setSel('filter-status', ov.status);
   setSel('filter-battery', ov.battery);
   setSel('filter-kiosk', ov.kiosk);
@@ -1340,10 +1307,9 @@ if (!window.__fleetDocBound) {
 // segment) from the URL after each navigation. Chips + table are server-rendered.
 function syncFilterUI() {
   var p = new URLSearchParams(location.search);
-  var status = p.get('status') || '', battery = p.get('battery') || '', kiosk = p.get('kiosk') || '', hidden = p.get('hidden') || '';
+  var status = p.get('status') || '', battery = p.get('battery') || '', kiosk = p.get('kiosk') || '';
   var view = 'all';
-  if (hidden === 'only') view = 'hidden';
-  else if (battery === 'low') view = 'lowbatt';
+  if (battery === 'low') view = 'lowbatt';
   else if (kiosk === 'disabled') view = 'nokiosk';
   else if (status === 'online') view = 'online';
   else if (status === 'offline') view = 'offline';
@@ -1356,7 +1322,6 @@ function syncFilterUI() {
     var badge = btn.querySelector('.cnt');
     if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
   }
-  document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { var sel = b.dataset.vis === hidden; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   syncSortUI();
   // Applying a filter swaps the whole toolbar (this partial), which would close the
   // Filters popover. Re-open it when it was open, so several filters can be picked
@@ -1549,23 +1514,6 @@ function updateBulkBar() {
   sheetCleanupOnce();
   count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
 
-  // Inject the current selection into the bulk hide/unhide forms.
-  [['bulk-hide-form', null], ['bulk-unhide-form', null]].forEach(function(pair) {
-    var f = document.getElementById(pair[0]);
-    if (!f) return;
-    f.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
-    serials.forEach(function(s) {
-      var inp = document.createElement('input');
-      inp.type = 'hidden'; inp.name = 'serials'; inp.value = s;
-      f.appendChild(inp);
-    });
-  });
-  // "Unhide Selected" appears only when the selection includes hidden devices.
-  var uform = document.getElementById('bulk-unhide-form');
-  if (uform) {
-    var anyHidden = Array.prototype.some.call(document.querySelectorAll('.device-cb:checked'), function(cb) { return cb.dataset.hidden === 'true'; });
-    uform.style.display = (serials.length > 0 && anyHidden) ? 'inline' : 'none';
-  }
 
   if (allBoxes.length > 0 && serials.length === allBoxes.length && !selectAllMatchingSet) {
     allCb.checked = true; allCb.indeterminate = false;
@@ -1648,7 +1596,7 @@ function pushUpdateCheck() {
     models[c.dataset.model] = c.dataset.modelLabel || c.dataset.model;
   });
   var keys = Object.keys(models);
-  if (notFw) return { ok: false, why: 'Push update is only for MDM Firmware devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' MDM DPC / MDM Lite.' };
+  if (notFw) return { ok: false, why: 'Push update is only for Firmware MDM devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' Standard MDM / MDM Lite.' };
   if (keys.length > 1) return { ok: false, why: 'Select devices of one model to push an update (selected: ' + keys.map(function (k) { return models[k]; }).join(', ') + ').' };
   return { ok: true, model: keys[0] || '' };
 }
@@ -2046,20 +1994,6 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
 });
 
 var pendingMassAction = null;
-
-function confirmBulkHide(event) {
-  event.preventDefault();
-  var serials = getSelectedSerials();
-  if (serials.length === 0) return false;
-  confirmMassAction({
-    action: 'retire',
-    count: serials.length,
-    onConfirm: function() {
-      document.getElementById('bulk-hide-form').submit();
-    }
-  });
-  return false;
-}
 
 function confirmMassAction(opts) {
   pendingMassAction = opts;
@@ -2652,17 +2586,6 @@ document.addEventListener('keydown', function(e) {
         tier: 'danger', confirmLabel: 'Reboot'
       }).then(function (ok) {
         if (ok) window.mdmPostForm('/commands', { type: 'reboot', target_type: 'devices', target_serials: serial, apk_url: '' });
-      });
-    };
-    window.mdmInspectorHide = function (serial) {
-      if (!serial || !window.mdmConfirm) return;
-      window.mdmConfirm({
-        title: 'Mark device inactive',
-        body: 'Mark ' + serial + ' inactive?',
-        scope: 'It drops out of every list, search, and count — including health stats — while all its data is kept. It comes back automatically when it reconnects.',
-        tier: 'danger', confirmLabel: 'Mark inactive'
-      }).then(function (ok) {
-        if (ok) window.mdmPostForm('/devices/' + encodeURIComponent(serial) + '/hide', {});
       });
     };
 

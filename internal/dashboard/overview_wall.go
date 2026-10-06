@@ -1,10 +1,14 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"math"
+	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,9 +26,17 @@ type wallSquare struct {
 	Serial string
 	State  string // on | warn | off | dormant
 	Tip    string
+	Class  string // device-class label (product.ClassLabel), named in the tooltip only
+	// Shape is "sq" for a battery-powered class (T7, mpos, payment, tablet) or "circle" for a
+	// mains-powered one (kiosk, KDS, POS, dongle) — see product.ClassIsBatteryPowered. Status
+	// still carries the colour; shape is a second, wordless way to tell a class apart at a
+	// glance (no "Tableside AI"/"POS terminal" row labels — the tooltip still names it exactly
+	// on hover, and the wall's job is a glance, not a read).
+	Shape string
 }
 
-// wallBlock is one restaurant's squares, or one device type's devices with no restaurant.
+// wallBlock is one restaurant's squares, or one device type's devices with no
+// restaurant ("Tableside AI · Not deployed").
 type wallBlock struct {
 	ID      string // restaurant id; "" for the devices with no restaurant
 	Name    string
@@ -45,6 +57,10 @@ type mapSite struct {
 	Online int     `json:"online"`
 	Health string  `json:"health"`
 	Issue  string  `json:"issue,omitempty"`
+	// Silent is the serials not reporting, for the map card (offline and dormant).
+	Silent []string `json:"silent,omitempty"`
+	// Uptime is the last week's uptime cells (ok|warn|bad|none), oldest first.
+	Uptime []string `json:"uptime,omitempty"`
 }
 
 // wallHealth maps a GroupHealth score class onto the wall's three states.
@@ -94,8 +110,11 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	blocks := map[uuid.UUID]*wallBlock{}
 	unplaced := map[string]*wallBlock{} // by device type label
 	for _, d := range devs {
-		sq := wallSquare{Serial: d.Serial, State: "on"}
-		label := "Unassigned type"
+		sq := wallSquare{Serial: d.Serial, State: "on", Shape: "circle"}
+		if product.ClassIsBatteryPowered(d.Class) {
+			sq.Shape = "sq"
+		}
+		label := "Other devices"
 		if d.Class != "" {
 			label = product.ClassLabel(d.Class)
 		}
@@ -114,11 +133,12 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 			status += " · " + a.issue
 		}
 		sq.Tip = d.Serial + " · " + label + " · " + status
+		sq.Class = label
 
 		var b *wallBlock
 		if d.RestaurantID == nil {
 			if b = unplaced[label]; b == nil {
-				b = &wallBlock{Name: "No restaurant · " + label}
+				b = &wallBlock{Name: label + " · Not deployed"}
 				unplaced[label] = b
 			}
 		} else {
@@ -176,25 +196,17 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	return out
 }
 
-// mapDevice is a located device drawn on its own, because it has no located restaurant.
-type mapDevice struct {
-	Serial string  `json:"serial"`
-	Lat    float64 `json:"lat"`
-	Lng    float64 `json:"lng"`
-	Online bool    `json:"online"`
-}
-
-// overviewMap is the Overview map's data: restaurants, plus loose devices.
-type overviewMap struct {
-	Sites   []mapSite   `json:"sites"`
-	Devices []mapDevice `json:"devices"`
-}
-
 // buildMap places each restaurant on the map: its stored coordinates, or else the
-// median of its located devices. Located devices whose restaurant is not on the
-// map (or that have none) are drawn one by one. Returns the JSON and how many
-// dots it holds.
-func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth) (template.JS, int) {
+// median of its located devices. Only restaurants are drawn, so the map frames
+// where the fleet is deployed, not wherever a bench or test device happens to be.
+// Returns the JSON and how many restaurants it holds.
+func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPoint, groups []db.GroupHealth, uptime []uptimeRow) (template.JS, int) {
+	upBy := map[string][]string{}
+	for _, u := range uptime {
+		for _, d := range u.Days {
+			upBy[u.ID] = append(upBy[u.ID], d.Class)
+		}
+	}
 	coords := map[string][2]float64{}
 	for _, r := range restaurants {
 		if r.Latitude != nil && r.Longitude != nil && (*r.Latitude != 0 || *r.Longitude != 0) {
@@ -226,24 +238,20 @@ func buildMap(blocks []wallBlock, restaurants []db.Restaurant, pts []deviceMapPo
 		if !ok {
 			continue
 		}
-		sites = append(sites, mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
-			Online: b.Online, Health: b.Health, Issue: issues[b.ID]})
-	}
-	placed := make(map[string]bool, len(sites))
-	for _, st := range sites {
-		placed[st.ID] = true
-	}
-	devs := []mapDevice{}
-	for _, p := range pts {
-		if !placed[p.RestaurantID] {
-			devs = append(devs, mapDevice{Serial: p.Serial, Lat: p.Lat, Lng: p.Lon, Online: p.Online})
+		site := mapSite{ID: b.ID, Name: b.Name, Lat: c[0], Lng: c[1], Total: b.Total,
+			Online: b.Online, Health: b.Health, Issue: issues[b.ID], Uptime: upBy[b.ID]}
+		for _, sq := range b.Squares {
+			if sq.State == "off" || sq.State == "dormant" {
+				site.Silent = append(site.Silent, sq.Serial)
+			}
 		}
+		sites = append(sites, site)
 	}
-	j, err := json.Marshal(overviewMap{sites, devs})
+	j, err := json.Marshal(sites)
 	if err != nil {
-		return template.JS("{}"), 0
+		return template.JS("[]"), 0
 	}
-	return template.JS(j), len(sites) + len(devs)
+	return template.JS(j), len(sites)
 }
 
 func median(v []float64) float64 {
@@ -287,4 +295,130 @@ func itoa4(n int) string {
 		n /= 10
 	}
 	return string(b)
+}
+
+// overviewCookie remembers a super admin's pick between the new Overview and the
+// classic one.
+const overviewCookie = "mdm_overview"
+
+// overviewChoice is "new" unless the cookie says "classic".
+func overviewChoice(r *http.Request) string {
+	if c, err := r.Cookie(overviewCookie); err == nil && c.Value == "classic" {
+		return "classic"
+	}
+	return "new"
+}
+
+// overviewNewData adds what only the new Overview reads on top of the shared
+// view model: the needs-attention list, devices by type, the wall and the map.
+func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary db.Summary, groups []db.GroupHealth, inboxN int) {
+	ctx := r.Context()
+	acc := h.access(r)
+	var (
+		active   []db.Alert
+		classOn  []db.ClassOnline
+		wallDevs []db.WallDevice
+		rests    []db.Restaurant
+		pts      []deviceMapPoint
+		products []compRole
+		uptime   []db.RestaurantUptime
+		hygiene  db.FleetHygiene
+		hygErr   error
+		wg       sync.WaitGroup
+	)
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
+	}
+	run(func() { active, _ = h.db.ListActiveAlerts(ctx, 300) })
+	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), acc.hidesDPC()) })
+	run(func() { wallDevs, _ = h.db.FleetWall(ctx, acc.hidesDPC()) })
+	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
+	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
+	run(func() { uptime = h.serviceUptime(ctx) })
+	// The clean-up checklist is about the whole fleet list, so it is for viewers who
+	// see the whole fleet.
+	if !acc.hidesDevices() {
+		run(func() { hygiene, hygErr = h.db.GetFleetHygiene(ctx) })
+	} else {
+		hygErr = errNoHygiene
+	}
+	run(func() {
+		f := db.DeviceFilter{}
+		if acc.hidesDPC() {
+			f.AgentKind = "firmware"
+		}
+		pts = h.devicePoints(ctx, f)
+	})
+	wg.Wait()
+
+	if products != nil {
+		data["Products"] = products
+	}
+	active = acc.keepVisibleAlerts(active)
+	att, attN, attCrit := buildAttention(active, inboxN)
+	data["AttentionRows"] = att
+	data["AttentionTotal"] = attN
+	data["AttentionCritical"] = attCrit
+	data["ClassOnline"] = classOnlineRows(classOn)
+	// A scoped viewer sees the restaurants they have a device in.
+	var seeRestaurant func(db.RestaurantUptime) bool
+	if acc.hidesDevices() {
+		seeRestaurant = func(r db.RestaurantUptime) bool {
+			for _, id := range r.Devices {
+				if acc.visible(id) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	upRows := uptimeRows(uptime, seeRestaurant)
+	data["Uptime"] = upRows
+	if hygErr == nil {
+		data["Hygiene"] = hygieneRows(hygiene)
+	}
+	if summary.Total > 0 {
+		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
+	}
+
+	names := make(map[uuid.UUID]string, len(rests))
+	for _, rs := range rests {
+		names[rs.ID] = rs.Name
+	}
+	wall := buildWall(wallDevs, h.hub.ConnectedIDsForDisplay(), active, groups, names, time.Now())
+	data["Wall"] = wall
+	data["WallTotal"] = len(wallDevs)
+	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups, upRows)
+	data["MapsEmbedKey"] = h.mapsEmbedKey
+}
+
+// compRole is one slice of the Overview's fleet-composition bar.
+type compRole struct {
+	Class, Label string
+	Count        int
+}
+
+// overviewProducts is the fleet composition by product role (Menu board, Tableside
+// AI, …), the same axis as the fleet rail, not by hardware model. Most devices
+// first; unassigned last. Shared by the classic and the new Overview's hero.
+func (h *Handler) overviewProducts(ctx context.Context, excludeDPC bool) ([]compRole, bool) {
+	cc, _, _, err := h.db.FleetComposition(ctx, excludeDPC)
+	if err != nil {
+		return nil, false
+	}
+	var roles []compRole
+	unassigned := 0
+	for _, c := range cc {
+		if c.Class == "" {
+			unassigned += c.N
+			continue
+		}
+		roles = append(roles, compRole{c.Class, product.ClassLabel(c.Class), c.N})
+	}
+	sort.SliceStable(roles, func(i, j int) bool { return roles[i].Count > roles[j].Count })
+	if unassigned > 0 {
+		roles = append(roles, compRole{"", "Unassigned", unassigned})
+	}
+	return roles, true
 }

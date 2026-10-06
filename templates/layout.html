@@ -71,6 +71,13 @@
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+  {{/* The device picker's styles (co-* only), loaded here rather than by the pages
+       that use it: a stylesheet inside <main> arrives after a boosted swap has
+       already painted the page, which showed it unstyled for a moment. */}}
+  <link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
+  {{/* The device page's own stylesheet is too broad to apply everywhere, so it is only
+       fetched early: in cache, the swap guard below holds the page for a moment at most. */}}
+  <link rel="preload" href="/static/css/device.css?v={{.AssetVer}}" as="style">
   <script src="/static/vendor/htmx.min.js"></script>
   <script>
     // Turn off htmx's localStorage history-snapshot cache and drop any existing
@@ -266,6 +273,99 @@
       if (path === '/devices') return 'skel-fleet'; // two-column: collections rail + roster
       return 'skel-list'; // history, alerts, users, packages, setup, …
     }
+    // ── Page-shaped skeletons from the page itself ─────────────────────────────
+    // Each time a page settles, remember where its cards, tables and headings sit
+    // (per path, with ids folded: /devices/*, /releases/*). The next navigation to
+    // it shimmers in exactly that shape instead of a generic template, so the
+    // skeleton is right for every page without one being drawn by hand.
+    function mdmShapeKey(path) {
+      path = (path || '').split('?')[0].split('#')[0];
+      return 'mdm-shape:' + path.split('/').map(function (seg, i) {
+        if (i < 2) return seg;
+        return /^\d+$|^[0-9a-f-]{8,}$|^[A-Z0-9][A-Z0-9-]{5,}$/i.test(seg) && /\d/.test(seg) ? '*' : seg;
+      }).join('/');
+    }
+    function mdmCaptureShape() {
+      var main = document.querySelector('main');
+      if (!main || main.querySelector('.skel, .skel-shape') || !main.textContent.trim()) return;
+      var mr = main.getBoundingClientRect();
+      if (mr.width < 240) return;
+      var bodyBg = getComputedStyle(document.body).backgroundColor, boxes = [];
+      function cardLike(cs) {
+        var border = parseFloat(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none' && parseFloat(cs.borderLeftWidth) > 0;
+        var bg = cs.backgroundColor, filled = bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== bodyBg;
+        return border || filled;
+      }
+      (function walk(el, depth) {
+        for (var c = el.firstElementChild; c && boxes.length < 60; c = c.nextElementSibling) {
+          if (/^(SCRIPT|STYLE|TEMPLATE|LINK|DIALOG)$/.test(c.tagName)) continue;
+          var r = c.getBoundingClientRect();
+          if (r.width < 8 || r.height < 6 || r.top - mr.top > 1800) continue;
+          var cs = getComputedStyle(c);
+          // Floating things (popovers, map labels, dialogs) are not part of the page's shape.
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.position === 'fixed' || cs.position === 'absolute' || c.getAttribute('role') === 'dialog') continue;
+          if (/^H[1-3]$/.test(c.tagName)) {
+            var rg = document.createRange(); rg.selectNodeContents(c);
+            var t = rg.getBoundingClientRect();
+            if (t.width > 4) boxes.push([t.left - mr.left, t.top - mr.top, t.width, t.height, 1, 6]);
+            continue;
+          }
+          if (r.width * r.height > 1600 && cardLike(cs)) {
+            boxes.push([r.left - mr.left, r.top - mr.top, r.width, r.height, 0, parseFloat(cs.borderTopLeftRadius) || 8]);
+            continue;
+          }
+          if (depth < 7) walk(c, depth + 1);
+        }
+      })(main, 0);
+      if (boxes.length < 2) return;
+      var h = 0; boxes.forEach(function (b) { h = Math.max(h, b[1] + b[3]); });
+      try {
+        localStorage.setItem(mdmShapeKey(location.pathname), JSON.stringify({ w: Math.round(mr.width), h: Math.round(h),
+          b: boxes.map(function (b) { return b.map(function (v) { return Math.round(v); }); }) }));
+      } catch (e) {}
+    }
+    // The remembered shape as a skeleton, or null when there is none or it was taken
+    // at a width this layout would reflow away from.
+    function mdmShapeSkeleton(path, main) {
+      var s = null;
+      try { s = JSON.parse(localStorage.getItem(mdmShapeKey(path)) || 'null'); } catch (e) {}
+      if (!s || !s.b || !main) return null;
+      var w = main.getBoundingClientRect().width;
+      if (!w || Math.abs(w - s.w) / s.w > 0.12) return null;
+      var k = w / s.w, wrap = document.createElement('div');
+      wrap.className = 'skel-shape';
+      wrap.setAttribute('aria-hidden', 'true');
+      wrap.style.height = Math.min(s.h, Math.round(window.innerHeight * 1.5)) + 'px';
+      s.b.forEach(function (b) {
+        var d = document.createElement('div');
+        d.className = b[4] ? 'skel' : 'skel-block';
+        d.style.cssText = 'position:absolute;margin:0;left:' + Math.round(b[0] * k) + 'px;top:' + b[1] + 'px;width:' +
+          Math.round(b[2] * k) + 'px;height:' + b[3] + 'px;border-radius:' + b[5] + 'px';
+        wrap.appendChild(d);
+      });
+      return wrap;
+    }
+    // Capture once the page has settled, after its lazy parts had a moment to load.
+    var _shapeT = null;
+    function mdmScheduleCapture() { clearTimeout(_shapeT); _shapeT = setTimeout(mdmCaptureShape, 1200); }
+    window.addEventListener('load', mdmScheduleCapture);
+    document.addEventListener('htmx:afterSettle', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && t.tagName === 'MAIN') mdmScheduleCapture();
+    });
+
+    // A page that still brings its own stylesheet into <main> stays hidden until that
+    // stylesheet has loaded (at most 2.5 s), so a boosted swap never shows it unstyled.
+    document.addEventListener('htmx:afterSwap', function () {
+      var main = document.querySelector('main');
+      if (!main) return;
+      var pending = Array.prototype.filter.call(main.querySelectorAll('link[rel="stylesheet"]'), function (l) { return !l.sheet; });
+      if (!pending.length) return;
+      var left = pending.length, done = function () { if (--left <= 0) main.classList.remove('css-wait'); };
+      main.classList.add('css-wait');
+      pending.forEach(function (l) { l.addEventListener('load', done, { once: true }); l.addEventListener('error', done, { once: true }); });
+      setTimeout(function () { main.classList.remove('css-wait'); }, 2500);
+    });
     var _skelTimer = null, _navWatchdog = null, _navDest = '', _navActive = false;
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
     function mdmClearWatchdog() { if (_navWatchdog) { clearTimeout(_navWatchdog); _navWatchdog = null; } }
@@ -281,7 +381,7 @@
     // blow the good content away.
     function mdmMainStuck() {
       var main = document.querySelector('main');
-      return !!(main && (!main.textContent.trim() || main.querySelector('.skel')));
+      return !!(main && (!main.textContent.trim() || main.querySelector('.skel, .skel-shape')));
     }
     function mdmNavFail() {
       mdmCancelSkeleton(); mdmClearWatchdog();
@@ -303,11 +403,14 @@
       // server most pages return in well under this, so a fast nav goes straight
       // content→content (crossfaded) and never flashes a blank/skeleton frame.
       _skelTimer = setTimeout(function () {
-        var tpl = document.getElementById(mdmSkeletonFor(path));
+        // The page's own remembered shape when there is one, else the template.
+        var shape = mdmShapeSkeleton(path, main);
+        var tpl = shape ? null : document.getElementById(mdmSkeletonFor(path));
         main.innerHTML = '';
-        if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
+        if (shape) main.appendChild(shape);
+        else if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
         window.scrollTo(0, 0);
-      }, 280);
+      }, 150);
       // Watchdog: if the nav neither succeeds nor fails within 12s (genuinely hung)
       // AND left <main> stuck on a skeleton/blank, force a full reload so the page
       // can never stay blank — but never reload away good, already-rendered content.
@@ -341,6 +444,27 @@
      is swapped (hx-select/target/swap), preserving the dock and footer scripts.
      Downloads, the export form and cross-origin links opt out with hx-boost="false". */}}
 <body class="has-dock" hx-boost="true" hx-target="main" hx-swap="outerHTML"{{if .Use24Hour}} data-time24="1"{{end}}{{if .CurrentUser}} data-user="{{.CurrentUser}}"{{end}}>
+  {{/* The device-class icon sprite, global so any page can <use href="#dk-*"> — the fleet
+       cards, the fleet rail and product tabs, the device page's client pill, the device wall
+       legend and the Commands picker all share these same glyphs (one icon per class). Used
+       to live only inside devices.html's "device-cards" block, which meant nothing else could
+       reference it. */}}
+  <svg class="dl-icons" width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="dk-t7" viewBox="0 0 24 24"><path d="M5.5 19.5V6.6A2.8 2.8 0 0 1 7.9 3.8Q12 3.2 16.1 3.8A2.8 2.8 0 0 1 18.5 6.6v12.9a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M10.5 3.4v1.6h3V3.4"/><rect x="7.8" y="7.2" width="8.4" height="9.8" rx=".6"/><path d="M10.3 18.9h3.4"/><path d="M3.5 22.2h17"/></symbol>
+    <symbol id="dk-kiosk" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="14" rx="1.5"/><path d="M9 12h6"/><path d="M12 16v4"/><path d="M8 21h8"/></symbol>
+    <symbol id="dk-dongle" viewBox="0 0 24 24"><rect x="2" y="4" width="17" height="12" rx="2"/><path d="M19 8h2.5v4H19"/><path d="M7 20h8"/><path d="M11 16v4"/></symbol>
+    <symbol id="dk-mpos" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M9 4.8h6"/><rect x="8.5" y="8" width="7" height="6" rx="1"/><path d="M9.5 17.5h5"/></symbol>
+    <symbol id="dk-pos" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="10" rx="1.5"/><path d="M8 7h5"/><path d="M12 13v4"/><path d="M6.5 21h11l-1.2-4H7.7z"/></symbol>
+    <symbol id="dk-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+    <symbol id="dk-kds" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M6 7h4M6 10h4M14 7h4M14 10h4M12 16v4M8 20h8"/></symbol>
+    <symbol id="dk-payment" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><rect x="8.5" y="4.5" width="7" height="5" rx="1"/><path d="M9 13h.01M12 13h.01M15 13h.01M9 16h.01M12 16h.01M15 16h.01M9 19h6"/></symbol>
+    <symbol id="dk-other" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
+    <symbol id="dk-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></symbol>
+    <symbol id="dk-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="dk-flap" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="dk-batx" viewBox="0 0 26 14"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor" stroke="none"/><path d="M7 4l9 6M16 4l-9 6" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="dk-socket" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  </svg>
   <a href="#main" class="skip-link">Skip to content</a>
   <div id="htmx-progress"></div>
   {{/* Global chrome: a slim top bar (brand + search + alerts + account) and a
@@ -348,11 +472,7 @@
   <header class="appbar">
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
     <div class="appbar-right">
-      {{if ne .Role "owner"}}<button type="button" class="ovx-search topbar-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices and pages" aria-keyshortcuts="Meta+K Control+K">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <span>Search devices, venues…</span>
-        <kbd>⌘K</kbd>
-      </button>{{end}}
+      {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
@@ -449,21 +569,20 @@
   </header>
 
   {{if ne .Role "owner"}}
-  <nav class="dock" aria-label="Primary navigation">
-    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>
-    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>
-    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
+  <nav class="dock dock-s" aria-label="Primary navigation">
+    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
+    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
+    <a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/></svg></span><span class="dock-lbl">Actions</span></a>
+    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><span class="dock-live dock-count" hidden></span></span><span class="dock-lbl">Alerts</span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "clients"}}{{template "nav-clients" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
-    {{if or (eq .ActivePage "manage") (eq .ActivePage "updates-policy") (eq .ActivePage "network") (eq .ActivePage "managed-configs") (eq .ActivePage "compliance") (eq .ActivePage "geofencing")}}{{template "nav-manage" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
+    {{if eq .ActivePage "manage"}}{{template "nav-manage" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "products"}}{{template "nav-products" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
-    {{/* Every non-owner role has entries in the directory now (Fleet and several
-         Control pages are open to all), so More is no longer admin-only. */}}
-    <button type="button" class="nav-link js-more" id="dock-more" aria-haspopup="dialog" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-keyshortcuts="Meta+K Control+K"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span><span class="dock-lbl">More</span></button>
+    {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
+    {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></button>{{end}}
   </nav>
 
   {{/* Everyone gets the same dock: the four pages the job is done in. Everything
@@ -525,18 +644,14 @@
         <div class="t">Control</div>
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="grid" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Policies">Policies</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/updates-policy"}} on{{end}}" href="/updates-policy" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Update policy">Update policy</a>
-        <a class="js-dest{{if eq .ActivePath "/compliance"}} on{{end}}" href="/compliance" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance">Compliance</a>
-        <a class="js-dest{{if eq .ActivePath "/geofencing"}} on{{end}}" href="/geofencing" data-ic="pin" data-cmdk-sec="Control" data-cmdk-label="Geofencing">Geofencing</a>
-        <a class="js-dest{{if eq .ActivePath "/network"}} on{{end}}" href="/network" data-ic="wifi" data-cmdk-sec="Control" data-cmdk-label="Network">Network</a>
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup/managed-configs"}} on{{end}}" href="/setup/managed-configs" data-ic="sliders" data-cmdk-sec="Control" data-cmdk-label="Managed configs">Managed configs</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Kiosk">Kiosk</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Admin</div>
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="Admin" data-cmdk-label="Users">Users</a>{{end}}
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="Admin" data-cmdk-label="Access rules">Access rules</a>{{end}}
+        {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/users/access/profiles"}} on{{end}}" href="/users/access/profiles" data-ic="lock" data-cmdk-sec="Admin" data-cmdk-label="Access profiles">Access profiles</a>{{end}}
         {{if canManageUsers .Role}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="Admin" data-cmdk-label="Activity log">Activity log</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-ic="monitor" data-cmdk-sec="Admin" data-cmdk-label="Products">Products</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="Admin" data-cmdk-label="Server">Server</a>{{end}}
@@ -700,7 +815,6 @@
     // Pages that belong to a dock entry without sharing its path.
     var GROUPS = {
       '/devices': ['/groups', '/restaurants', '/enrollment'],
-      '/manage': ['/updates-policy', '/network', '/managed-configs', '/compliance', '/geofencing'],
     };
     function owns(href, path) {
       if (href === '/') return path === '/';
@@ -768,17 +882,19 @@
       if (!index) return;
       var byUrl = {};
       index.querySelectorAll('a[href]').forEach(function (a) { byUrl[a.getAttribute('href')] = a; });
-      // Exclude the page already promoted into the dock for the current route,
-      // or it would appear twice.
-      var promoted = dock.querySelector('.js-promoted');
-      var promotedHref = promoted ? promoted.getAttribute('href') : null;
-      var more = document.getElementById('dock-more'), first = true, shown = 0;
+      // Exclude every destination the dock already carries — the fixed items, the one
+      // promoted for this route, and an admin entry the server rendered in — or it
+      // shows twice ("Users" next to "Users").
+      var inDock = {};
+      dock.querySelectorAll('a.nav-link[href]').forEach(function (a) { inDock[a.getAttribute('href')] = true; });
+      // Frequent pages go before the search field (the dock's last item).
+      var more = dock.querySelector('.dock-search'), first = true, shown = 0;
       FREQ_PATHS.forEach(function (url) {
         // The server sends ten candidates; take the first three that survive.
         // A path drops out here when it is a detail page rather than a navigation
         // destination (no page-index entry), or when this role cannot open it.
         if (shown >= 3) return;
-        if (url === promotedHref) return;
+        if (inDock[url]) return;
         var src = byUrl[url];
         if (!src) return;
         shown++;
@@ -832,7 +948,7 @@
           clone.innerHTML = dockIcon(hit) +
             '<span class="dock-lbl">' + (hit.getAttribute('data-cmdk-label') || hit.textContent).trim() + '</span>';
           clone.setAttribute('data-cmdk-label', hit.getAttribute('data-cmdk-label') || '');
-          var more = document.getElementById('dock-more');
+          var more = dock.querySelector('.dock-search');
           dock.insertBefore(clone, more || null);
           if (window.htmx) htmx.process(clone);
         }
@@ -2780,6 +2896,9 @@
       return box;
     }
     function show(a) {
+      // With a dock, the dock itself turns into the alert (the "island"); the toast
+      // is the fallback for pages without one.
+      if (window.mdmIsland && window.mdmIsland(a)) return;
       var el = document.createElement('div');
       el.className = 'mtoast';
       el.innerHTML = '<span class="mt-i"></span><div class="mt-m"><div class="mt-t"></div><div class="mt-s"></div><div class="mt-a"></div></div><button class="mt-x" aria-label="Dismiss">×</button>';
@@ -2803,6 +2922,104 @@
         .then(function (a) { if (a && a.severity === 'critical' && !seen[a.id]) { seen[a.id] = 1; show(a); } })
         .catch(function () {});
     });
+  })();
+  </script>
+  <script>
+  // ── Live dock ────────────────────────────────────────────────────────────
+  // The dock reports on the fleet: an online ring on Fleet and the open-alert count
+  // on Alerts (pulsing only while something is critical). Figures come from
+  // /dock/status (server-cached 15 s), fetched on load, every 30 s while the tab is
+  // visible, and whenever the alerts stream ticks.
+  (function () {
+    var dock = document.querySelector('.dock');
+    if (!dock || !window.fetch) return;
+    var busy = false;
+    function el(label, cls) {
+      var a = dock.querySelector('a.nav-link[data-cmdk-label="' + label + '"]');
+      return a && a.querySelector('.' + cls);
+    }
+    // A ring around the Fleet icon, filled to the online share.
+    function ring(on, total) {
+      var r = 19, c = 2 * Math.PI * r, f = total ? on / total : 0;
+      return '<svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="' + r + '" class="trk"/>'
+        + '<circle cx="21" cy="21" r="' + r + '" class="val" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) + '" transform="rotate(-90 21 21)"/></svg>';
+    }
+    // The hover label carries the figure ("Fleet · 54 of 151 online"); the name
+    // itself is already under the icon.
+    function tip(label, text) {
+      var a = dock.querySelector('a.nav-link[data-cmdk-label="' + label + '"]');
+      if (!a) return;
+      if (text) a.setAttribute('data-tip', label + ' · ' + text); else a.removeAttribute('data-tip');
+    }
+    function paint(s) {
+      var f = el('Fleet', 'dock-ring'), a = el('Alerts', 'dock-count');
+      if (f) {
+        f.hidden = !s.fleet || !s.total;
+        if (!f.hidden) f.innerHTML = ring(s.online, s.total);
+        tip('Fleet', f.hidden ? '' : s.online + ' of ' + s.total + ' online');
+      }
+      if (a) {
+        a.hidden = !s.alerts;
+        a.textContent = s.alerts;
+        a.classList.toggle('crit', s.critical > 0);
+        tip('Alerts', s.alerts ? s.alerts + ' open' + (s.critical ? ', ' + s.critical + ' critical' : '') : '');
+      }
+    }
+    function load() {
+      if (busy || document.hidden) return;
+      busy = true;
+      fetch('/dock/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) { if (s) paint(s); })
+        .catch(function () {})
+        .then(function () { busy = false; });
+    }
+    load();
+    setInterval(load, 30000);
+    document.addEventListener('visibilitychange', load);
+    document.addEventListener('mdm:alerts-update', load);
+  })();
+
+  // ── Island ───────────────────────────────────────────────────────────────
+  // When a new critical alert arrives the dock morphs into it for a few seconds —
+  // headline, one line, View — then shrinks back into the navigation. Hovering
+  // holds it open. Returns false when there is no dock, so the caller can toast.
+  (function () {
+    var dock = document.querySelector('.dock');
+    if (!dock) return;
+    var box = document.createElement('div'), timer = null;
+    box.className = 'dock-island';
+    box.setAttribute('role', 'status');
+    box.innerHTML = '<span class="di-i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>'
+      + '<span class="di-m"><b class="di-t"></b><span class="di-s"></span></span><a class="di-go">View</a>'
+      + '<button type="button" class="di-x" aria-label="Dismiss">×</button>';
+    dock.appendChild(box);
+    function close() { clearTimeout(timer); dock.classList.remove('island-on'); }
+    function arm() { clearTimeout(timer); timer = setTimeout(close, 3000); }
+    box.querySelector('.di-x').addEventListener('click', close);
+    box.querySelector('.di-go').addEventListener('click', close);
+    box.addEventListener('mouseenter', function () { clearTimeout(timer); });
+    box.addEventListener('mouseleave', arm);
+    window.mdmIsland = function (a) {
+      box.querySelector('.di-t').textContent = a.headline || 'New alert';
+      box.querySelector('.di-s').textContent = a.sentence || '';
+      box.querySelector('.di-go').href = a.href || '/alerts';
+      dock.classList.add('island-on');
+      arm();
+      return true;
+    };
+  })();
+
+  // ?test-alert on any page plays a sample critical alert in this browser only: the
+  // dock's alert count turns critical and the island opens. Nothing is written or
+  // sent, and the next /dock/status poll (≤30 s) puts the real count back.
+  (function () {
+    if (!/[?&]test-alert(=|&|$)/.test(location.search) || !window.mdmIsland) return;
+    setTimeout(function () {
+      var c = document.querySelector('.dock a.nav-link[data-cmdk-label="Alerts"] .dock-count');
+      if (c) { c.hidden = false; c.textContent = (parseInt(c.textContent, 10) || 0) + 1; c.classList.add('crit'); }
+      window.mdmIsland({ headline: 'Test alert · Taco Loco is offline', sentence: 'A sample critical alert, shown only in this browser. Nothing was sent.', href: '/alerts' });
+    }, 900);
   })();
   </script>
   <script>
@@ -2947,16 +3164,10 @@
   </div></template>
 
   <template id="skel-overview"><div class="skel-page">
-    <div class="skel skel-line" style="width:240px;height:26px;margin:6px 0 22px;border-radius:8px;"></div>
-    <div class="skel-2col">
-      <div>
-        <div class="skel-chips"><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div></div>
-        <div class="skel-block" style="height:230px;"></div>
-      </div>
-      <div>
-        <div class="skel-block" style="height:210px;margin-bottom:16px;"></div>
-        <div class="skel-block" style="height:150px;"></div>
-      </div>
+    <div class="skel-block" style="height:188px;margin-bottom:14px;border-radius:8px;"></div>
+    <div class="skel-2col" style="gap:14px;">
+      <div><div class="skel-block" style="height:230px;margin-bottom:14px;border-radius:8px;"></div><div class="skel-block" style="height:470px;border-radius:8px;"></div></div>
+      <div><div class="skel-block" style="height:260px;margin-bottom:14px;border-radius:8px;"></div><div class="skel-block" style="height:190px;border-radius:8px;"></div></div>
     </div>
   </div></template>
 
@@ -3033,10 +3244,10 @@
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
       { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
       { sel: '.dock .nav-link[href="/commands"]', title: 'Actions', body: 'Send an action to one device or the whole fleet: install apps, screenshots, shell, reboot, kiosk lock. Save recipes and schedule them.', pos: 'top', optional: true },
-      { sel: '.dock .nav-link[href="/manage"]', title: 'Policies', body: 'Standing configuration such as kiosk lock that applies to every device it targets — set once, enforced continuously.', pos: 'top', optional: true },
+      { sel: '.dock .nav-link[href="/manage"]', title: 'Kiosk', body: 'Kiosk rules: lock a restaurant, group or device to one app — set once, enforced continuously.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/alerts"]', title: 'Alerts', body: 'Devices that stopped checking in, ran hot, drained, or crashed. Acknowledge or resolve here; the bell up top shows the live count.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
-      { sel: '.topbar-search', title: 'Search anything', body: 'Jump to a device by serial, or to any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'bottom' },
+      { sel: '.dock-search', title: 'Search anything', body: 'Jump to a device by serial, a restaurant, or any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'top', optional: true },
       { sel: '#alerts-indicator', title: 'Live alerts', body: 'Open alerts update live. Click for the newest ones without leaving the page.', pos: 'bottom' },
       { sel: '#acct-wrap', title: 'You are set', body: 'Theme, settings, users and this tour live under your account. Install MDM on your phone from the browser menu for a full-screen app.', pos: 'bottom' }
     ];
@@ -3128,20 +3339,6 @@
 </div>
 {{end}}
 
-{{/* Policies hub tabs: one place for everything that is standing configuration
-     rather than a one-off action. Shown on /manage and the pages it groups. */}}
-{{define "policies-tabs"}}
-<div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Policies</h1></div>
-<div class="fleet-tabs">
-  <a href="/manage" class="fleet-tab{{if eq .ActivePage "manage"}} cur{{end}}">Kiosk</a>
-  <a href="/updates-policy" class="fleet-tab{{if eq .ActivePage "updates-policy"}} cur{{end}}">Updates</a>
-  <a href="/network" class="fleet-tab{{if eq .ActivePage "network"}} cur{{end}}">Network</a>
-  <a href="/setup/managed-configs" class="fleet-tab{{if eq .ActivePage "managed-configs"}} cur{{end}}">Managed configs</a>
-  <a href="/compliance" class="fleet-tab{{if eq .ActivePage "compliance"}} cur{{end}}">Compliance</a>
-  <a href="/geofencing" class="fleet-tab{{if eq .ActivePage "geofencing"}} cur{{end}}">Geofencing</a>
-</div>
-{{end}}
-
 {{define "fleet-tabs"}}
 <div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Fleet</h1></div>
 <div class="fleet-tabs">
@@ -3166,6 +3363,6 @@
 {{define "nav-server"}}<a href="/server" class="{{.cls}}{{if eq .active "server"}} active{{end}}" data-cmdk-label="Server"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/></svg></span><span class="nav-t">Server</span></a>{{end}}
 
 {{define "nav-clients"}}<a href="/clients" class="{{.cls}}{{if eq .active "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
-{{define "nav-manage"}}<a href="/manage" class="{{.cls}}{{if or (eq .active "manage") (eq .active "updates-policy") (eq .active "network") (eq .active "managed-configs") (eq .active "compliance") (eq .active "geofencing")}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}
+{{define "nav-manage"}}<a href="/manage" class="{{.cls}}{{if eq .active "manage"}} active{{end}}" data-cmdk-label="Kiosk"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Kiosk</span></a>{{end}}
 {{define "nav-products"}}<a href="/products" class="{{.cls}}{{if eq .active "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}

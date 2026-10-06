@@ -22,7 +22,7 @@
 .alx-al.done{opacity:.72}.alx-al.done .alx-t{font-weight:650}
 .alx-m{flex:1;min-width:0}
 .alx-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.alx-t{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.alx-t{font-size:14.5px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere;min-width:0}
 .alx-occ{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-bg);border-radius:99px;padding:1px 8px}
 .alx-kind{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;border-radius:99px;padding:2px 9px;flex:none}
 .alx-kind.crash{background:var(--danger-bg);color:var(--danger)}
@@ -53,7 +53,29 @@
 .alx-pager .pg.disabled{color:var(--text-faint);pointer-events:none;opacity:.55}
 .alx-pager .pg-info{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 
+/* Problems: one card per device (or per restaurant outage), symptoms as chips and
+   the workflow — assign, acknowledge, snooze, resolve with a reason — in small menus. */
+.alx-syms{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.alx-sym{font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface-2,var(--bg));border:1px solid var(--border);border-radius:99px;padding:2px 9px}
+.alx-sym.critical{color:var(--danger);border-color:var(--danger-bg);background:var(--danger-bg)}
+.alx-sym.warning{color:var(--warn);border-color:var(--warn-bg);background:var(--warn-bg)}
+.alx-note{font-size:12.5px;color:var(--text);margin-top:7px;padding-left:9px;border-left:2px solid var(--rule-2)}
+.alx-menu{position:relative;display:inline-block}
+.alx-menu>summary{list-style:none;cursor:pointer}
+.alx-menu>summary::-webkit-details-marker{display:none}
+.alx-pop{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,.14));padding:6px;display:flex;flex-direction:column;gap:2px}
+.alx-pop form{display:flex;flex-direction:column;gap:2px}
+.alx-opt{font:inherit;font-size:13px;text-align:left;background:none;border:0;border-radius:7px;padding:8px 10px;color:var(--text);cursor:pointer;min-height:36px}
+.alx-opt:hover,.alx-opt:focus-visible{background:var(--accent-soft,var(--bg))}
+.alx-opt small{display:block;color:var(--text-faint);font-size:11.5px}
+.alx-pop input[type=text]{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:7px;padding:8px 10px;background:var(--bg);color:var(--text);min-height:36px;box-sizing:border-box}
+.alx-pop .alx-pop-h{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);padding:4px 10px 2px}
+.alx-snz{margin-top:6px}
+.alx-snz>summary{cursor:pointer;font-size:12.5px;color:var(--muted);list-style:none;padding:8px 0}
+.alx-snz>summary::-webkit-details-marker{display:none}
+
 @media(max-width:640px){
+  .alx-pop{position:fixed;left:16px;right:16px;top:auto;bottom:16px}
   .alx-al{flex-wrap:wrap}
   .alx-foot{width:100%}
   .alx-dev{margin-left:0;width:100%}
@@ -65,16 +87,16 @@
 
 <div id="alerts-live">
 
-  {{$needsColor := "ok"}}{{if gt .NeedsCount 0}}{{$needsColor = "danger"}}{{else if gt .Summary.Open 0}}{{$needsColor = "warn"}}{{end}}
+  {{$needsColor := "ok"}}{{if gt .NeedsCount 0}}{{$needsColor = "danger"}}{{else if gt .ActiveCount 0}}{{$needsColor = "warn"}}{{end}}
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Alerts</div>
-      <h1 class="cc-h1">{{.Summary.Open}} open <span class="hl {{$needsColor}}">· {{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span></h1>
-      <div class="cc-sub">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}}</b> alert{{if ne .NeedsCount 1}}s{{end}} need a decision now. {{end}}{{if gt .WatchCount 0}}<b>{{.WatchCount}}</b> more worth watching.{{else}}Nothing else is flagged.{{end}}</div>
+      <h1 class="cc-h1">{{.ActiveCount}} problem{{if ne .ActiveCount 1}}s{{end}} <span class="hl {{$needsColor}}">· {{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span></h1>
+      <div class="cc-sub">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}}</b> need a decision now. {{end}}{{if gt .WatchCount 0}}<b>{{.WatchCount}}</b> more worth watching.{{else}}Nothing else is flagged.{{end}}{{if .AlertCount}} From {{.AlertCount}} open alert{{if ne .AlertCount 1}}s{{end}}, grouped by device.{{end}}</div>
     </div>
     <div class="cc-actions">
       <a href="/alert-config" class="cc-btn{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Alert rules</a>
-      {{if or .Critical .Watching}}
+      {{if .ActiveCount}}
       {{/* Acknowledge is the action that sticks: it keeps one row per condition and stops
            it re-appearing as new, where Clear all deletes the rows and the evaluator
            re-creates anything still true within the minute. */}}
@@ -133,18 +155,31 @@
 
   {{else}}
 
-  {{if and (not .Critical) (not .Watching)}}
+  {{if and (not .ActiveCount) (not .Issues)}}
   <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>All clear</b>Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div>
   {{end}}
 
-  {{if and .Critical (ne .View "watching")}}
+  {{$root := .}}
+  {{if and .Needs (ne .View "watching")}}
   <div class="cc-sec alx-sec">Needs attention now<span class="n">{{.NeedsCount}}</span></div>
-  {{range .Critical}}{{template "alx-group" .}}{{end}}
+  {{range .Needs}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
   {{end}}
 
-  {{if and .Watching (ne .View "needs")}}
+  {{if and .Issues (eq .View "")}}
+  <div class="cc-sec alx-sec">Release issues · last 14 days<span class="n">{{len .Issues}}</span></div>
+  {{range .Issues}}{{template "alx-issue" .}}{{end}}
+  {{end}}
+
+  {{if and .WatchingP (ne .View "needs")}}
   <div class="cc-sec alx-sec">Worth watching<span class="n">{{.WatchCount}}</span></div>
-  {{range .Watching}}{{template "alx-group" .}}{{end}}
+  {{range .WatchingP}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
+  {{end}}
+
+  {{if and .Snoozed (eq .View "")}}
+  <details class="alx-snz">
+    <summary class="cc-sec alx-sec">Snoozed<span class="n">{{len .Snoozed}}</span></summary>
+    {{range .Snoozed}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
+  </details>
   {{end}}
 
   {{end}}
@@ -176,6 +211,8 @@ function alxFilter(){
 (function(){
   var pending=false;
   function refresh(){
+    // An open menu may hold a half-typed note: wait until it closes.
+    if(document.querySelector('#alerts-live .alx-menu[open]')){ window.__alxStale=true; return; }
     if(pending) return; pending=true;
     fetch(location.href,{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(html){
       pending=false;
@@ -185,6 +222,15 @@ function alxFilter(){
     }).catch(function(){pending=false;});
   }
   document.addEventListener('mdm:alerts-update',refresh);
+  // One problem menu open at a time; a click elsewhere closes it.
+  document.addEventListener('click',function(e){
+    document.querySelectorAll('#alerts-live .alx-menu[open]').forEach(function(m){ if(!m.contains(e.target)) m.open=false; });
+    if(window.__alxStale && !document.querySelector('#alerts-live .alx-menu[open]')){ window.__alxStale=false; refresh(); }
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    document.querySelectorAll('#alerts-live .alx-menu[open]').forEach(function(m){ m.open=false; var s=m.querySelector('summary'); if(s) s.focus(); });
+  });
 })();
 </script>
 
@@ -235,6 +281,115 @@ function alxFilter(){
   </div>
 </div>
 {{end}}
+{{end}}
+
+{{/* One problem: the alerts open on one device (or one restaurant's outage), with the
+     likely cause as the title and the alerts as symptoms. Dot is (dict "P" problemView
+     "Root" page data). */}}
+{{define "alx-problem"}}
+{{$p := .P}}{{$root := .Root}}
+{{$sev := "info"}}{{if eq $p.Severity "critical"}}{{$sev = "crit"}}{{else if eq $p.Severity "warning"}}{{$sev = "warn"}}{{end}}
+{{$sq := "info"}}{{if eq $sev "crit"}}{{$sq = "danger"}}{{else if eq $sev "warn"}}{{$sq = "warn"}}{{end}}
+<div class="alx-al {{$sev}}" data-search="{{$p.Search}}">
+  <span class="cc-sq {{$sq}}">{{if $p.AppIcon}}<img src="{{iconSrc $p.AppIcon}}" alt="">{{else}}{{template "alx-icon" $p.IconKey}}{{end}}</span>
+  <div class="alx-m">
+    <div class="alx-top">
+      <span class="alx-t">{{$p.Title}}</span>
+      {{if $p.AfterHours}}<span class="cc-tag" title="Raised while the restaurant was closed, so it did not page anyone. It goes in the morning digest, and becomes critical if it is still happening when the restaurant opens.">after hours</span>{{end}}
+      {{if $p.NewSymptom}}<span class="cc-tag warn" title="Acknowledged, but a new alert has opened on it since">new since acknowledged</span>{{else if $p.Acked}}<span class="cc-tag">acknowledged</span>{{end}}
+      {{if $p.Snoozed}}<span class="cc-tag" title="{{$p.SnoozedTil.Format "Mon 2 Jan 15:04"}}">snoozed · {{timeUntil $p.SnoozedTil}}</span>{{end}}
+      {{if $p.Assignee}}<span class="cc-tag" title="Owner">{{if eq $p.Assignee "restaurant"}}Restaurant{{else}}{{$p.Assignee}}{{end}}</span>{{end}}
+      <span class="alx-when">{{timeSince $p.Since}}</span>
+    </div>
+    {{if $p.Why}}<div class="alx-s">{{$p.Why}}</div>{{end}}
+    {{if $p.Note}}<div class="alx-note">{{$p.Note}}</div>{{end}}
+    <div class="alx-syms">{{range $p.Symptoms}}<span class="alx-sym {{.Severity}}">{{.Label}}{{if gt .Count 1}} ×{{.Count}}{{end}}</span>{{end}}</div>
+    <details class="alx-fold-g">
+      <summary>{{if eq (len $p.Members) 1}}Show the alert{{else}}Show the {{len $p.Members}} alerts{{end}}</summary>
+      {{range $p.Members}}
+      <div class="alx-gm">
+        <div class="alx-gm-h">
+          <b>{{.Headline}}</b>
+          {{if and .Serial (gt $p.Devices 1)}}<a href="/devices/{{.Serial}}" onclick="event.stopPropagation()">{{.Serial}}</a>{{end}}
+          {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
+          <span class="alx-when">{{timeSince .FiredAt}}</span>
+        </div>
+        <div class="alx-s">{{.Sentence}}</div>
+        {{if .Trace}}{{template "crash-trace" .Trace}}{{end}}
+      </div>
+      {{end}}
+    </details>
+    <div class="alx-foot">
+      {{if $p.Href}}<a class="cc-btn sm primary" href="{{$p.Href}}"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{$p.HrefLabel}}</a>{{end}}
+      {{if $p.KioskExit}}{{if $p.CanAct}}<form method="POST" action="/devices/{{$p.Serial}}/kiosk/relock" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Lock again</button></form><form method="POST" action="/devices/{{$p.Serial}}/kiosk/leave-out" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Leave it out</button></form>{{end}}{{end}}
+      {{if $p.KeyReset}}<a class="cc-btn sm danger" href="/devices/{{$p.Serial}}#reset-key" title="If the device was just factory reset, this is it asking to come back">Reset its key…</a>{{end}}
+      {{if $p.CanAct}}
+      <details class="alx-menu">
+        <summary class="cc-btn sm">Assign</summary>
+        <div class="alx-pop"><form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="assign">
+          <button class="alx-opt" name="value" value="me">Me</button>
+          <button class="alx-opt" name="value" value="restaurant">The restaurant<small>they need to act: power, Wi-Fi, a charger</small></button>
+          {{if $root.Assignees}}<div class="alx-pop-h">People</div>{{range $root.Assignees}}{{if ne .Username $root.Me}}<button class="alx-opt" name="value" value="{{.Username}}">{{.Name}}</button>{{end}}{{end}}{{end}}
+          {{if $p.Assignee}}<button class="alx-opt" name="value" value="">Unassign</button>{{end}}
+        </form></div>
+      </details>
+      {{if not $p.Acked}}
+      <details class="alx-menu">
+        <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge</summary>
+        <div class="alx-pop"><form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="ack">
+          <input type="text" name="note" maxlength="500" placeholder="Note (optional): what's being done" aria-label="Note">
+          <button class="alx-opt" type="submit">Acknowledge</button>
+        </form></div>
+      </details>
+      {{end}}
+      <details class="alx-menu">
+        <summary class="cc-btn sm">Snooze</summary>
+        <div class="alx-pop"><form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="snooze">
+          <button class="alx-opt" name="value" value="1">1 hour</button>
+          <button class="alx-opt" name="value" value="4">4 hours</button>
+          <button class="alx-opt" name="value" value="24">1 day</button>
+          <button class="alx-opt" name="value" value="168">1 week</button>
+          {{if $p.Snoozed}}<button class="alx-opt" name="value" value="0">Wake it now</button>{{end}}
+        </form></div>
+      </details>
+      <details class="alx-menu">
+        <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</summary>
+        <div class="alx-pop"><form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="resolve">
+          <div class="alx-pop-h">Why</div>
+          {{range $root.Reasons}}<button class="alx-opt" name="value" value="{{.Key}}">{{.Label}}{{if eq .Key "false_alarm"}}<small>counted against the rule; quiet for a day</small>{{else if eq .Key "known_issue"}}<small>quiet for a week</small>{{end}}</button>{{end}}
+        </form></div>
+      </details>
+      {{end}}
+      {{if and $p.Serial $p.Restaurant}}<span class="alx-dev">{{$p.Restaurant}}</span>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{/* One release issue: a crash signature on one build across several devices. Dot is a
+     releaseIssueView. */}}
+{{define "alx-issue"}}
+<div class="alx-al" data-search="{{.Summary}} {{.BuildID}} {{.Pkg}}">
+  <span class="cc-sq info">{{template "alx-icon" "crash"}}</span>
+  <div class="alx-m">
+    <div class="alx-top">
+      <span class="alx-kind {{.KindClass}}">{{.KindLabel}}</span>
+      <span class="alx-t">{{if .BuildID}}{{.BuildID}}: {{end}}{{if .Pkg}}{{.Pkg}}{{else}}crash{{end}}</span>
+      <span class="alx-when">{{timeSince .LastAt}}</span>
+    </div>
+    <div class="alx-s">{{.Summary}}</div>
+    <div class="alx-syms"><span class="alx-sym">{{.Events}} crash{{if ne .Events 1}}es{{end}}</span><span class="alx-sym">{{.Devices}} devices</span><span class="alx-sym">first {{timeSince .FirstAt}}</span></div>
+    <div class="alx-foot">
+      {{if .ReleaseID}}<a class="cc-btn sm primary" href="/releases/{{.ReleaseID}}/crashes"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open release</a>{{end}}
+      <a class="cc-btn sm" href="/alerts?view=crashes">All crashes</a>
+      <span class="alx-dev">Same crash on every device: a release problem, not paged per device</span>
+    </div>
+  </div>
+</div>
 {{end}}
 
 {{/* One friendly alert card. Dot is a humanAlert. */}}

@@ -59,6 +59,8 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
+    {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
+    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}}<span class="k">&times;{{len .NuggetIDs}}</span>{{end}}</button>{{else}}<button type="button" class="ddc-chip ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
 {{end}}
 
@@ -217,7 +219,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{/* Title leads with what the device is (nickname, else the reported model, else
              its product), serial beside it — the same identity order as the fleet rows. */}}
         {{$hwModel := .Device.ProductLabel}}{{$rm := extraField .Device.LatestExtra "model"}}{{if and (ne $rm "") (ne $rm "—")}}{{$hwModel = $rm}}{{$rmf := extraField .Device.LatestExtra "manufacturer"}}{{if and (ne $rmf "") (ne $rmf "—")}}{{$hwModel = printf "%s %s" $rmf $rm}}{{end}}{{end}}{{with productName .Device.Product}}{{$hwModel = .}}{{end}}
-        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span></h1>
+        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{if .HardwareSerial}} <span class="muted" style="font-weight:500;font-size:.5em;font-family:var(--mono);" title="The chip's own serial. Set by the hardware, it never changes, even if the AIO serial does.">HW {{.HardwareSerial}}</span>{{end}}</h1>
         {{if not .IsOwner}}<details class="dd-nick{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><summary title="Friendly name shown to restaurant owners, e.g. Table 4"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{{if .Nickname}}Rename{{else}}Name{{end}}</summary><form action="/devices/{{.Device.SerialNumber}}/nickname" method="POST" class="dd-nick-pop" hx-boost="true"><input type="text" name="nickname" class="form-input" placeholder="e.g. Table 4" value="{{.Nickname}}" maxlength="40" style="width:170px;" autofocus><button type="submit" class="cc-btn sm primary">Save</button>{{if .Nickname}}<button type="submit" name="nickname" value="" class="cc-btn sm" title="Remove the name">Clear</button>{{end}}</form></details>
         <style>
         .dd-nick{position:relative;display:inline-block;vertical-align:middle;margin-left:6px}
@@ -243,6 +245,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .ShowBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
     </div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
+    <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
       {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
@@ -256,8 +259,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
            server-side the device is simply out of kiosk, and reporting a past PIN exit
            read as a fault on an ordinary unlocked device. */}}
       {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
-      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $ksusp}}Kiosk was exited on the device with the unlock PIN — the saved config still says on, so it re-locks on reboot{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $ksusp}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+      {{/* Taken out of kiosk on site: reported (ksusp) or recorded and not yet answered. */}}
+      {{$kout := or $ksusp .KioskExit}}
+      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Taken out of kiosk on site with the exit PIN or code. It stays unlocked until someone locks it again{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $kout}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
@@ -265,11 +270,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button type="button" class="ddc-btn cc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="ddc-menu" id="ddc-actions-menu" hidden>
           <div class="ddc-mcap">Diagnostics</div>
-          {{if supports .Device "logcat"}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"{{if degraded .Device "logcat"}} title="App-scoped logs only on MDM DPC"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs{{if degraded .Device "logcat"}} <span class="cc-tag">limited</span>{{end}}</a>{{else}}<span class="ddc-mi is-disabled" role="note" title="This agent does not report logs."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/></svg>Realtime logs</span>{{end}}
+          {{if supports .Device "logcat"}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"{{if degraded .Device "logcat"}} title="App-scoped logs only on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs{{if degraded .Device "logcat"}} <span class="cc-tag">limited</span>{{end}}</a>{{else}}<span class="ddc-mi is-disabled" role="note" title="This agent does not report logs."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/></svg>Realtime logs</span>{{end}}
           {{if not (supports .Device "screenshot")}}<span class="ddc-mi is-disabled" role="note" title="Not available on this agent — use Remote Control for a live screen."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</span>{{else}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="screenshot"><button type="submit" class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button></form>{{end}}
+          {{if and .CanCollectLogs (supports .Device "collect_logs")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="collect_logs"><button type="submit" class="ddc-mi" title="logcat, dumpsys, getprop and the OTA log, as a file to download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Collect logs</button></form>{{end}}
           <div class="ddc-msep"></div>
           <div class="ddc-mcap">Device</div>
-          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on MDM DPC"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
+          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
           {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
           {{if supports .Device "app_reload"}}
           {{/* MDM Lite: control the app that hosts it (the menu board). */}}
@@ -314,6 +320,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   /* MDM DPC badge + disabled action items (capability-aware device page). */
   .ddc-dpc-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent-edge);cursor:default;}
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
+  .cpill-ic{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:1px;}
   </style>
   <div class="ddc-vitals ddc-vitals--ribbon">
     {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
@@ -325,6 +332,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
               title="{{.Title}}" onclick="toggleClientPill(event)">
         {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
+        {{if .ClassIcon}}<svg class="cpill-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-{{.ClassIcon}}"/></svg>{{end}}
         <span>{{.Kind}}</span>
         {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>
         {{else if .Misreported}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver muted">pre-1.0.2</span>{{end}}
@@ -367,6 +375,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk mode">
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
         <div class="kiosk-modal-body">
+        {{if .KioskRule}}
+        {{/* A kiosk rule on the Policies page covers this device. */}}
+        <div class="kiosk-rule-note" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:var(--surface-3);font-size:13px">
+          {{if .KioskOverride}}
+          <span>Set by hand here. The kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
+          {{if canAdminOrOperator .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/kiosk/follow-rule" style="margin:0 0 0 auto"><button type="submit" class="cc-btn sm">Follow the rule again</button></form>{{end}}
+          {{else}}
+          <span>Managed by the kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
+          {{end}}
+        </div>
+        {{end}}
         {{if canAdminOrOperator .Role}}
         <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}" data-locked-mode="{{if .KioskConfig.KioskMode}}{{.KioskConfig.KioskMode}}{{else}}app{{end}}">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
@@ -495,7 +514,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}exited on device{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
 </div>
@@ -526,6 +545,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 })();
 </script>
 
+{{with .KioskExit}}
+<div class="kx-ban" id="kiosk-exit-notice" role="status">
+  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
+  <div class="t"><b>Taken out of kiosk on site</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/manage" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  {{if canAdminOrOperator $.Role}}<div class="a">
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+  </div>{{end}}
+</div>
+{{end}}
+
 <div class="ddc-body">
 <aside class="ddc-side">
   <div class="ddc-card">
@@ -540,6 +570,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{$rid := printf "%s" .Device.RestaurantID}}{{range .Restaurants}}<label class="pl-pop-opt"><input type="radio" name="restaurant_id" value="{{.ID}}"{{if eq (printf "%s" .ID) $rid}} checked{{end}}> {{.Name}}</label>{{end}}
           </div>
           <button type="submit" class="btn-primary pl-pop-save">Save</button>
+        </form>
+      </div>
+    </span>{{end}}</span></div>
+    {{/* The table guests are told they are at, on the tablet's home and lock screens. */}}
+    <div class="ddc-kv"><span class="k">Table</span><span class="v">{{if .TableLabel}}{{.TableLabel}}{{else}}<span class="muted">Not set</span>{{end}}{{if not (canOperate .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the operator role" data-role-need="operator"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{else}}<span class="pl-pop-wrap">
+      <button type="button" class="kv-edit" title="Set the table guests see" onclick="plTogglePop('pl-table-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+      <div class="pl-pop" id="pl-table-pop" hidden>
+        <div class="pl-pop-h">Table guests see</div>
+        <form action="/devices/{{.Device.SerialNumber}}/table" method="POST">
+          <input type="text" name="table_label" class="form-input" placeholder="e.g. Table 12" value="{{.TableLabel}}" maxlength="40" aria-label="Table label" style="width:100%;">
+          <button type="submit" class="btn-primary pl-pop-save">Save</button>
+          {{if .TableLabel}}<button type="submit" name="clear" value="1" class="cc-btn sm" style="width:100%;justify-content:center;margin-top:6px;">Clear</button>{{end}}
         </form>
       </div>
     </span>{{end}}</span></div>
@@ -903,6 +945,18 @@ function mdmBootCharts() {
   // DeviceDischargeSeries: it is the series behind the Battery cycles card, so the two
   // finally answer the same question.
   const CYCLE_SERIES_RAW = {{.CycleSeries}};
+  // Readings the device kept while offline and sent later (client 1.7.0): shaded grey on
+  // every chart, their line dashed. Grows as chart-data windows arrive (mergeLate).
+  let lateSpans = {{.LateSpans}} || [];
+  function mergeLate(arr) {
+    (arr || []).forEach(function (s) {
+      if (!lateSpans.some(function (t) { return t.from === s.from && t.to === s.to; })) lateSpans.push(s);
+    });
+  }
+  function inLate(x) {
+    for (var i = 0; i < lateSpans.length; i++) if (x >= lateSpans[i].from && x <= lateSpans[i].to) return true;
+    return false;
+  }
   let allBattery = [{{if .ShowBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
   {{/* Temp/RAM stay out of the initial page HTML unless the visit is a deep link
        to that metric (?focus=temp/ram, which needs the data immediately to find
@@ -983,7 +1037,7 @@ function mdmBootCharts() {
     if (!silent) showChartLoading();
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (d) {
           // Reassigns (not mutates) allTemp/allRam — window.mdmChart holds the old
           // (empty) reference for the live-SSE pusher, so repoint it here too or
@@ -1053,7 +1107,7 @@ function mdmBootCharts() {
     var spin = setTimeout(showChartLoading, 150);
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + to, { credentials: 'same-origin', signal: ctl.signal })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (ctl !== viewCtl) return;   // a newer window already replaced this one
         if (d) {
           viewData = d; viewKey = key;
@@ -1075,7 +1129,7 @@ function mdmBootCharts() {
     var until = Math.floor(loadedMinX) - 1;
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + Math.floor(fromMs) + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (d) {
           // Reassigns, not mutates — repoint window.mdmChart's copies too, or the
           // live-SSE pusher keeps appending to the array from before this widened
@@ -1122,7 +1176,7 @@ function mdmBootCharts() {
     if (from >= until) { markLoaded('temp'); markLoaded('ram'); widenWindow(); return; }
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (!d) return;
         if (!tempLoaded && d.temp) {
           allTemp = d.temp; markLoaded('temp');
@@ -1178,7 +1232,7 @@ function mdmBootCharts() {
     chartCatchingUp = true;
     fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + (Math.floor(newest) + 1) + '&until=' + Math.floor(Date.now()), { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
+      .then(function (d) { if (d && d.late) mergeLate(d.late);
         if (!d) return;
         var added = 0;
         function fresher(pts) { return (pts || []).filter(function (p) { return p.x > newest; }); }
@@ -2271,6 +2325,63 @@ function mdmBootCharts() {
       ctx.restore();
     },
   };
+  // Offline spans (1 Oct; static/offline-queue-plan.html, option C). Grey where the device
+  // was out of contact but kept readings and sent them later; hatched where there are no
+  // readings at all (a gap in the line: an older client, or its queue was full). Late
+  // stretches of every line are dashed, set here so no dataset definition has to know.
+  const LATE_SEGMENT = { borderDash: function (c) { return (inLate(c.p0.parsed.x) && inLate(c.p1.parsed.x)) ? [5, 4] : undefined; } };
+  let offlineHatch = null;
+  const offlinePlugin = {
+    id: 'offline',
+    beforeUpdate(chart) {
+      (chart.data.datasets || []).forEach(function (ds) { if (!ds.segment) ds.segment = LATE_SEGMENT; });
+    },
+    beforeDatasetsDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales.x;
+      if (!ca || !xs) return;
+      const ctx = chart.ctx;
+      const clip = function (a, b) { return [Math.max(ca.left, xs.getPixelForValue(a)), Math.min(ca.right, xs.getPixelForValue(b))]; };
+      const muted = (getComputedStyle(document.documentElement).getPropertyValue('--muted') || '').trim() || '#888';
+      const label = function (text, x1, x2) {
+        ctx.font = '600 10.5px system-ui, sans-serif';
+        if (x2 - x1 < ctx.measureText(text).width + 12) return; // only where it fits
+        ctx.fillStyle = muted;
+        ctx.fillText(text, x1 + 6, ca.top + 13);
+      };
+      ctx.save();
+      // Grey: late spans.
+      lateSpans.forEach(function (s) {
+        const p = clip(s.from, s.to);
+        if (p[1] - p[0] < 1) return;
+        ctx.fillStyle = 'rgba(128,128,128,0.13)';
+        ctx.fillRect(p[0], ca.top, p[1] - p[0], ca.bottom - ca.top);
+        label('Sent later', p[0], p[1]);
+      });
+      // Hatch: breaks in the first line that no late span covers.
+      const ds = chart.data.datasets && chart.data.datasets[0];
+      const data = (ds && ds.data) || [];
+      if (!offlineHatch) {
+        const pc = document.createElement('canvas'); pc.width = 8; pc.height = 8;
+        const g = pc.getContext('2d');
+        g.strokeStyle = 'rgba(128,128,128,0.35)'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(0, 8); g.lineTo(8, 0); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); g.stroke();
+        offlineHatch = ctx.createPattern(pc, 'repeat');
+      }
+      for (let i = 0; i < data.length; i++) {
+        if (!data[i] || data[i].y !== null) continue;
+        const prev = i > 0 ? data[i - 1] : null, next = i + 1 < data.length ? data[i + 1] : null;
+        const a = prev && prev.y !== null ? prev.x : data[i].x;
+        const b = next && next.y !== null ? next.x : (xs.max || data[i].x);
+        if (inLate(a) && inLate(b)) continue;
+        const p = clip(a, b);
+        if (p[1] - p[0] < 1) continue;
+        ctx.fillStyle = offlineHatch;
+        ctx.fillRect(p[0], ca.top, p[1] - p[0], ca.bottom - ca.top);
+        label('No data', p[0], p[1]);
+      }
+      ctx.restore();
+    },
+  };
   // Draws the blue drag-select rectangle while a zoom drag is in progress.
   const selectionPlugin = {
     id: 'selection',
@@ -2333,7 +2444,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -2389,7 +2500,7 @@ function mdmBootCharts() {
         y: { ticks: { color: TICK, callback: v => v + "°C", padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
@@ -2437,7 +2548,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
@@ -2508,7 +2619,7 @@ function mdmBootCharts() {
         },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   unifiedChart._isUnified = true;
   unifiedChart._commandMarkers = commandMarkers;
@@ -3238,7 +3349,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
       <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
         {{if and $cv (ne $cv "—")}}{{if misreportedVersion $cv $cp}}<span class="muted">pre-1.0.2</span> <span class="muted small">· reported the platform release ({{$cv}}), not its own — fixed in client 1.0.2</span>{{else}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}{{end}}
-          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}DPC agent{{else}}firmware client{{end}}</span>
+          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}Standard MDM{{else}}Firmware MDM{{end}}</span>
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
       <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
@@ -3260,7 +3371,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="ddc-card" id="security-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Security</h2>{{if $s.AdbOn}}<span class="cc-tag warn">adb open</span>{{end}}</div>
       <div class="ddc-kv"><span class="k">USB debugging</span><span class="v">{{$s.USBDebugging}}</span></div>
-      <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v">
+      <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v wrap">
         {{if $s.AdbOn}}<span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}{{else if $s.AdbKnown}}Off{{else}}—{{end}}
         {{if and (canAdmin .Role) $s.CanAdbTCP}} <a href="#settings" class="link-detail small" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change in Settings</a>{{end}}
       </span></div>
@@ -3302,8 +3413,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="en-grp">Identity</div>
     {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
     {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
-    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Credential</span><span class="v">{{if .IsDPC}}Per-device key{{else}}Fleet device key{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
+    <div class="ddc-kv" id="credential-row"><span class="k">Credential</span><span class="v wrap">{{if .IsDPC}}Per-device key{{else}}{{with .KeyCred}}{{if .Own}}<span class="en-key"><span class="dot"></span>Own key</span>{{if .Since}} <span class="muted small">· since {{shortDate .Since}}</span>{{end}}{{else if .CanReg}}<span class="en-key warn"><span class="dot"></span>Shared key</span> <span class="muted small">· {{if .ResetAt}}reset {{timeSince .ResetAt}}; {{end}}registers its own at the next check-in</span>{{else}}<span class="en-key mut"><span class="dot"></span>Shared key</span> <span class="muted small">· needs client 1.6.0</span>{{if and $.AgentUpdate.Available (canOperate $.Role)}} <form method="POST" action="/devices/{{$.Device.SerialNumber}}/commands" style="display:inline;margin:0" hx-confirm="Update the agent on {{$.Device.SerialNumber}} to {{$.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="cc-btn sm">Update agent</button></form>{{end}}{{end}}{{else}}Fleet device key{{end}}{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
 
     <div class="en-grp">Settings</div>
@@ -3330,6 +3441,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="en-danger-t">Careful</div>
       <div class="en-danger-btns">
         {{if and (canAdmin .Role) (not .IsDPC)}}<button type="button" class="cc-btn sm" onclick="document.getElementById('move-server-dlg').showModal()">Move to another server…</button>{{end}}
+        {{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-btn sm danger" onclick="document.getElementById('key-reset-dlg').showModal()">Reset device key…</button>{{end}}{{end}}
         {{if .Device.Retired}}
         <form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm">Back to the fleet</button></form>
         {{else}}
@@ -3337,7 +3449,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
         {{end}}
         {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm en-wipe">Factory wipe</button></form>{{end}}
       </div>
-      <div class="en-danger-note">Retiring keeps the history. A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
+      <div class="en-danger-note">Retiring keeps the history.{{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}} Resetting the key lets the device register a new one; until it does, the shared key works for it again.{{end}}{{end}} A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
     </div>
 
     {{if and (canAdmin .Role) (not .IsDPC)}}
@@ -3345,6 +3457,28 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
          persist.sys.mdm.url at startup, so this writes the property and reboots into
          it. After that the device reports THERE, not here — hence admin-only and a
          confirm that says so. */}}
+    {{if .KeyCred}}{{if .KeyCred.Own}}
+    <dialog id="key-reset-dlg" class="en-dlg">
+      <form method="POST" action="/devices/{{.Device.SerialNumber}}/key-reset" hx-boost="false">
+        <h4>Reset the key of {{.Device.SerialNumber}}?</h4>
+        <p class="small">Only when the device has lost its key and is now refused. What happens:</p>
+        <ul class="small en-dlg-list">
+          <li>The server forgets its key. The device registers a new one at its next check-in, within 5 minutes.</li>
+          <li>Until then, anything holding the shared key can act as this device. The shared key is public.</li>
+          <li>If it doesn't register within an hour, you'll get an alert.</li>
+        </ul>
+        <div class="en-dlg-why">
+          <label><input type="radio" name="why" value="wiped" checked> It was factory reset or had its data cleared</label>
+          <label><input type="radio" name="why" value="reflashed"> Its firmware was reflashed</label>
+          <label><input type="radio" name="why" value="other"> Something else <input type="text" name="note" class="form-input" maxlength="200" placeholder="What happened" style="width:auto;flex:1;min-width:0"></label>
+        </div>
+        <div class="en-dlg-btns">
+          <button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="cc-btn danger sm">Reset key</button>
+        </div>
+      </form>
+    </dialog>
+    {{end}}{{end}}
     <dialog id="move-server-dlg" class="en-dlg">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/move-server" hx-boost="false"
             onsubmit="return confirm('Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.')">
@@ -3472,6 +3606,12 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 
 {{/* App-info popup — click any app tile (user or system). Shows details; uninstall is
      enabled for user apps and disabled for system apps. Reuses data already on the tile. */}}
+<div class="modal-backdrop" id="aid-modal" onclick="if(event.target===this)aidClose()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Nugget Android IDs">
+    <div class="appinfo-head"><div class="appinfo-id"><div class="appinfo-name">Nugget Android IDs</div><div class="appinfo-pkg">What each Nugget app uses to identify this tablet</div></div><button type="button" class="modal-close" onclick="aidClose()" aria-label="Close">&times;</button></div>
+    <div class="appinfo-body" id="aid-list"></div>
+  </div>
+</div>
 <div class="modal-backdrop" id="appinfo-modal" onclick="appInfoBackdrop(event)">
   <div class="modal-box" role="dialog" aria-modal="true" aria-label="App info">
     <div class="appinfo-head">
@@ -3483,6 +3623,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="appinfo-row"><span class="k">Type</span><span class="v" id="ai-type"></span></div>
       <div class="appinfo-row"><span class="k">Version</span><span class="v" id="ai-ver"></span></div>
       <div class="appinfo-row"><span class="k">Package</span><span class="v mono" id="ai-pkg2"></span></div>
+      <div class="appinfo-row" id="ai-aid-row" hidden><span class="k">Android ID</span><span class="v mono"><span id="ai-aid"></span> <button type="button" class="ai-copy" onclick="aidCopy(this,document.getElementById('ai-aid').textContent)" title="Copy">Copy</button></span></div>
     </div>
     {{if canOperate .Role}}
     <div class="appinfo-foot">
@@ -3597,6 +3738,8 @@ window.appInfoOpen = function (el) {
   byId('ai-pkg').textContent = pkg;
   byId('ai-pkg2').textContent = pkg;
   byId('ai-ver').textContent = ver ? ('v' + ver) : '—';
+  var aid = el.getAttribute('data-aid') || '';
+  byId('ai-aid').textContent = aid; byId('ai-aid-row').hidden = !aid;
   byId('ai-type').innerHTML = sys ? '<span class="ai-badge ai-sys">System app</span>' : '<span class="ai-badge ai-user">User app</span>';
   var host = byId('ai-icon'); host.innerHTML = '';
   var ic = el.querySelector('.app-icon, .app-mono');
@@ -3610,6 +3753,29 @@ window.appInfoOpen = function (el) {
   }
   m.classList.add('modal-open');
 };
+// Copy an ID and say so for a second on the control that was clicked.
+window.aidCopy = function (btn, text) {
+  var done = function () { var k = btn.querySelector('.mono') || btn, old = k.textContent; k.textContent = 'Copied'; setTimeout(function () { k.textContent = old; }, 1000); };
+  try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) {}
+};
+// Header chip with several different Nugget IDs: list them in a dialog. The chip row is
+// re-fetched on every device update, so the dialog lives outside it and is built on click.
+window.aidList = function (btn) {
+  var m = document.getElementById('aid-modal'), host = document.getElementById('aid-list'); if (!m || !host) return;
+  var ids = []; try { ids = JSON.parse(btn.getAttribute('data-ids') || '[]'); } catch (e) {}
+  host.innerHTML = '';
+  ids.forEach(function (x) {
+    var row = document.createElement('div'); row.className = 'appinfo-row';
+    var k = document.createElement('span'); k.className = 'k'; k.textContent = x.package;
+    var v = document.createElement('span'); v.className = 'v mono'; v.textContent = x.android_id + ' ';
+    var c = document.createElement('button'); c.type = 'button'; c.className = 'ai-copy'; c.textContent = 'Copy';
+    c.onclick = function () { window.aidCopy(c, x.android_id); };
+    v.appendChild(c); row.appendChild(k); row.appendChild(v); host.appendChild(row);
+  });
+  m.classList.add('modal-open');
+};
+window.aidClose = function () { var m = document.getElementById('aid-modal'); if (m) m.classList.remove('modal-open'); };
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.aidClose(); });
 window.appInfoClose = function () { var m = document.getElementById('appinfo-modal'); if (m) m.classList.remove('modal-open'); };
 window.appInfoBackdrop = function (e) { if (e.target.id === 'appinfo-modal') window.appInfoClose(); };
 // Direct-to-S3 APK upload: presigned PUT (browser → S3), then register (server parses
@@ -3975,6 +4141,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     }
   }
   window.setDeviceTab = setDeviceTab;
+  // "Reset its key…" on an impersonation alert lands here: open Settings and the dialog.
+  if (location.hash === '#reset-key') {
+    var kd = document.getElementById('key-reset-dlg'), kt = document.getElementById('dd-tab-settings');
+    if (kd && kt) { setDeviceTab('settings', kt); kd.showModal(); }
+  }
 
   // Client pill popover: open on click, close on the next click outside or Escape.
   // The hero clips its overflow, so the wrapper carries .open for the :has() rule
@@ -4824,7 +4995,7 @@ async function saveNewApp() {
   <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
     <span class="da-ico">{{if $a.AppIcon}}<img src="{{iconSrc $a.AppIcon}}" alt="">{{else}}{{template "alx-icon" $a.IconKey}}{{end}}</span>
     <div class="da-body">
-      <div class="da-top"><span class="da-t">{{$a.Headline}}</span>{{if gt $a.Occurrences 1}}<span class="cc-tag warn" title="Times this condition has come back">×{{$a.Occurrences}}</span>{{end}}<span class="da-when">{{timeSince $a.FiredAt}}</span></div>
+      <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
       <div class="da-s">{{$a.Sentence}}</div>
       {{if $a.Trace}}{{template "crash-trace" $a.Trace}}{{end}}
     </div>
@@ -4834,14 +5005,14 @@ async function saveNewApp() {
   </div>
   {{end}}
   {{if .DeviceCrashes}}
-  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes on {{if .Device.BuildID}}{{.Device.BuildID}}{{else}}this build{{end}}</span><span class="sc" title="Distinct crashes; repeats are merged into one row">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
+  <div class="da-sec"><span class="ic danger" style="width:20px;height:20px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-bg);color:var(--danger);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span><span class="st">Crashes on {{if .Device.BuildID}}{{.Device.BuildID}}{{else}}this build{{end}}</span><span class="sc">{{len .DeviceCrashes}}{{if ge (len .DeviceCrashes) 12}}+{{end}}</span><span class="line"></span></div>
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
     <span class="da-ico">{{if $c.AppIcon}}<img src="{{iconSrc $c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
     <div class="da-body">
-      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span>{{if gt $c.EventCount 1}}<span class="cc-tag bad" title="The same {{$c.KindLabel}} {{$c.EventCount}} times in the last 7 days">×{{$c.EventCount}}</span>{{end}}<span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
-      {{if or $c.Restaurant $c.BuildID (gt $c.EventCount 1)}}<div class="da-meta">{{if gt $c.EventCount 1}}<span>first seen {{timeSince $c.FirstAt}}</span><span class="dot"></span><span>last seen {{timeSince $c.OccurredAt}}</span>{{if or $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{end}}{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
+      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
+      {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
       {{if $c.Trace}}{{template "crash-trace" $c.Trace}}{{end}}
     </div>
   </div>
@@ -4889,6 +5060,7 @@ async function saveNewApp() {
 {{end}}
 
 {{define "device-apps-list"}}
+<style>.app-tsub.aid{font-family:var(--mono);font-size:9.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
 {{/* While installs are in flight, self-poll the drawer every 2s so download/install
      progress updates live (the /events SSE only fires device-updated on telemetry, not on
      command progress). The poller is re-rendered each refresh and vanishes — stopping the
@@ -4918,12 +5090,12 @@ async function saveNewApp() {
   {{range $p := .InstalledPackages}}{{if not $p.EffectiveSystem}}
   {{$isUn := index $.Uninstalling $p.PackageName}}
   <div class="app-row app-tile{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"{{with index $.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
+    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{else}}{{with index $.NuggetIDByPackage $p.PackageName}}<div class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</div>{{end}}{{end}}
     {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall")}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app

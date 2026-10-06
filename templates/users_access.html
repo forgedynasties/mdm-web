@@ -1,46 +1,45 @@
 {{define "users_access.html"}}
 {{template "header" .}}
 <style>
-.ua-row{display:flex;align-items:flex-start;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background var(--dur)}
-.ua-row:first-of-type{border-top:none}
-a.ua-row:hover{background:var(--surface2)}
-.ua-row .ubub{width:36px;height:36px;font-size:14px;flex:none}
-.ua-id{flex:0 0 220px;min-width:180px}
-.ua-name{font-size:13.5px;font-weight:650;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.ua-meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.ua-words{flex:1;min-width:240px;margin:0;padding:0;list-style:none;font-size:12.5px;line-height:1.45;color:var(--text-2)}
-.ua-words li{padding:1px 0}
-.ua-words li:first-child{color:var(--text);font-weight:600}
-.ua-hot{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
-.ua-hot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-.ua-n{font-size:11.5px;color:var(--muted);white-space:nowrap}
-.ua-edit{flex:none;align-self:center}
+.ual-row{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background var(--dur)}
+.ual-row:first-child{border-top:none}
+a.ual-row:hover{background:var(--surface2)}
+.ual-who{display:flex;align-items:center;gap:11px;min-width:0}
+.ual-who .ubub{width:34px;height:34px;font-size:14px;flex:none}
+.ual-name{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ual-role{margin-top:3px}
+.ual-k{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:2px}
+.ual-v{font-size:13px;color:var(--text);line-height:1.4}
+.ual-v small{color:var(--muted);font-size:12px}
+.ual-v.adv{color:var(--warn)}
+.ual-hot{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:99px;background:var(--warn-bg);color:var(--warn);margin-left:4px;vertical-align:1px}
+.ual-head{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;padding:10px 17px;border-bottom:1px solid var(--border-soft)}
+.ual-head span{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+@media(max-width:720px){
+  .ual-head{display:none}
+  .ual-row{grid-template-columns:1fr 1fr;gap:10px}
+  .ual-who{grid-column:1/-1}
+  .ual-row>.cc-btn{grid-column:1/-1;justify-self:start}
+}
+@media(min-width:721px){.ual-k{display:none}}
 </style>
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Users · Access control</div>
-      <h1 class="cc-h1">{{.Custom}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} with custom rules</h1>
-      <div class="cc-sub">Roles set the ceiling: <b>Super admin</b> → <b>Dev</b> (OTA + shell + operator) → <b>Access admin</b> (users + operator) → <b>Operator</b> → <b>Viewer</b>. Rules say <i>where</i>: the whole fleet, a venue, a group, or single devices. Remote control is only ever on when a rule names it.</div>
+      <h1 class="cc-h1">Access control</h1>
+      <div class="cc-sub">What each person sees and what they can do there. {{.Limited}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} see only part of the fleet.</div>
     </div>
-    <div class="cc-actions"><a class="cc-btn js-dest" href="/users">People</a></div>
+    <div class="cc-actions"><a class="cc-btn js-dest" href="/users/access/profiles">Profiles <span class="muted">· {{.Profiles}}</span></a></div>
   </div>
   {{template "users-tabs" .}}
-  <div class="cc-kpis">
-    <div class="cc-kpi"><span class="k">Accounts</span><div class="v">{{len .Rows}}</div><div class="d">click one to edit its rules</div></div>
-    <div class="cc-kpi"><span class="k">With custom rules</span><div class="v">{{.Custom}}</div><div class="d">narrowed or widened</div></div>
-    <div class="cc-kpi{{if .Sensitive}} warn{{end}}"><span class="k">Live sessions granted</span><div class="v{{if .Sensitive}} warn{{end}}">{{.Sensitive}}</div><div class="d">remote control, shell or OTA</div></div>
-  </div>
   <div class="cc-card">
+    <div class="ual-head"><span>Person</span><span>Sees</span><span>Can do</span><span></span></div>
     {{range .Rows}}
-    {{if .CanEdit}}<a class="ua-row js-dest" href="/users/{{.User.ID}}/manage">{{else}}<div class="ua-row">{{end}}
-      {{template "ubub" .Bubble}}
-      <div class="ua-id">
-        <div class="ua-name">{{.User.DisplayName}}{{if .Sensitive}}<span class="ua-hot" title="Has a rule granting remote control, shell or OTA">sessions</span>{{end}}</div>
-        <div class="ua-meta"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span>{{if .Grants}}<span class="ua-n">{{.Grants}} rule{{if ne .Grants 1}}s{{end}}</span>{{end}}</div>
-      </div>
-      <ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul>
-      {{if .CanEdit}}<span class="cc-btn sm ua-edit">Edit rules</span>{{end}}
+    {{if .CanEdit}}<a class="ual-row js-dest" href="/users/{{.User.ID}}/manage">{{else}}<div class="ual-row">{{end}}
+      <div class="ual-who">{{template "ubub" .Bubble}}<div style="min-width:0"><div class="ual-name">{{.User.DisplayName}}</div><div class="ual-role"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span></div></div></div>
+      <div><div class="ual-k">Sees</div><div class="ual-v">{{.Sees}}{{if ne .Sees "Every device"}} <small>· {{.Devices}} device{{if ne .Devices 1}}s{{end}}</small>{{end}}</div></div>
+      <div><div class="ual-k">Can do</div><div class="ual-v{{if .Advanced}} adv{{end}}"{{if .Advanced}} title="{{.Advanced}}"{{end}}>{{.Does}}{{if .Sensitive}}<span class="ual-hot" title="A rule grants remote control, shell or OTA">sessions</span>{{end}}{{if .Expires}} <small>· {{.Expires}}</small>{{end}}</div></div>
+      {{if .CanEdit}}<span class="cc-btn sm">Edit</span>{{else}}<span></span>{{end}}
     {{if .CanEdit}}</a>{{else}}</div>{{end}}
     {{end}}
   </div>

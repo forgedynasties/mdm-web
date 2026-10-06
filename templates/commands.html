@@ -1,6 +1,5 @@
 {{define "commands.html"}}
 {{template "header" .}}
-<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
 /* ── Actions · target-first console ────────────────────────── */
@@ -363,8 +362,8 @@ select.co-in{flex:0 1 auto;min-width:180px}
       {{$hasPin := false}}
       {{range .Recipes}}{{if ne .Name "Re-run last"}}{{$hasPin = true}}
       <div class="p-r" data-prefill="{{.Prefill}}">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span>
-        <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>
+        <span class="bd"><span class="n">{{.Name}} <span class="p-pin-ic"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span></span><span class="m">{{.Summary}}</span></span>
         {{if $canOp}}<button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>{{end}}
         {{if .Deletable}}<button type="button" class="p-rowdel" title="Delete pin" aria-label="Delete pin {{.Name}}" onclick="deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
       </div>
@@ -382,7 +381,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
           <span class="ic" data-act-icon="{{.Type}}"></span>
           <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; {{timeSince .When}}{{if .By}} &middot; {{.By}}{{end}}</span></span>
           {{if $canOp}}
-          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
           <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
           {{end}}
         </div>
@@ -399,7 +398,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
           <span class="ic" data-act-icon="{{.Type}}"></span>
           <span class="bd"><span class="n">{{.Label}}{{if .Detail}} &middot; {{.Detail}}{{end}}</span><span class="m">to {{.Target}} &middot; sent {{.Count}}&times; &middot; last {{timeSince .When}}</span></span>
           {{if $canOp}}
-          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5M5 9l7-7 7 7-2 2v4l-5 2-5-2v-4z"/></svg></button>
+          <button type="button" class="p-pinbtn" title="Pin this send" aria-label="Pin this send" onclick="coPinRow(this)"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
           <button type="button" class="p-resend" onclick="coLoadRow(this)" title="Load into the console"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Resend</button>
           {{end}}
         </div>
@@ -430,6 +429,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
         <option value="query">Query</option>
+        <option value="collect_logs">Collect logs</option>
         <option value="wipe">Wipe</option>
       </select>
       <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
@@ -635,6 +635,7 @@ window.CMD_PREFILL = {{.Prefill}};
     app_update: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/><path d="M11 18.5h2"/>',
     shell: '<path d="m4 7 5 5-5 5"/><path d="M12 17h8"/>',
     query: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    collect_logs: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
     wipe: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
     all: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>',
     place: '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>',
@@ -647,7 +648,7 @@ window.CMD_PREFILL = {{.Prefill}};
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
     ['Device', ['reboot']],
-    ['Diagnostics', ['screenshot', 'query']]
+    ['Diagnostics', ['screenshot', 'query', 'collect_logs']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
   var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true,
@@ -1055,9 +1056,9 @@ window.CMD_PREFILL = {{.Prefill}};
   // ── Agent badges ──
   // FW / DPC / LT on every card, lit for the agents that can run the action. What a
   // kind can do is read off the live selection when devices of that kind are in it —
-  // the DPC agent's powers depend on which adb grants are in place, so a fixed table
+  // the standard client's powers depend on which adb grants are in place, so a fixed table
   // would be wrong — and falls back to KIND_FALLBACK when none is selected.
-  var KINDS = [['fw', 'FW', 'firmware client'], ['dpc', 'DPC', 'DPC agent'], ['lite', 'LT', 'MDM Lite']];
+  var KINDS = [['fw', 'FW', 'Firmware MDM'], ['dpc', 'STD', 'Standard MDM'], ['lite', 'LT', 'MDM Lite']];
   var KIND_FALLBACK = {
     install_apk: { fw: 1, dpc: 1, lite: 0 }, uninstall: { fw: 1, dpc: 1, lite: 0 },
     reboot: { fw: 1, dpc: 1, lite: 0 }, screenshot: { fw: 1, dpc: 1, lite: 1 },
@@ -1181,6 +1182,7 @@ window.CMD_PREFILL = {{.Prefill}};
       case 'screenshot': return 'capture ' + n + ' screen' + (n === 1 ? '' : 's');
       case 'shell': return 'run on ' + n + ' device' + (n === 1 ? '' : 's');
       case 'query': return 'query ' + n + ' device' + (n === 1 ? '' : 's');
+      case 'collect_logs': return 'collect logs from ' + n + ' device' + (n === 1 ? '' : 's');
       case 'update_splash': return 'reflash ' + n + ' splash image' + (n === 1 ? '' : 's');
       case 'wipe': return 'ERASE ' + n + ' device' + (n === 1 ? '' : 's') + ' completely';
     }

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/notify"
@@ -32,6 +34,12 @@ func NewDispatcher(d *db.DB, cfg *config.Config) *Dispatcher {
 // severity ≥ the channel's minimum, realtime mode, and the channel's active
 // window currently open (fleet-default window). Falls back to the legacy single
 // AlertWebhookURL when no channels are configured, so upgrades keep working.
+//
+// Channels get problems, not alerts: the alerts of one device become one message
+// naming the likely cause, devices at one restaurant that went offline together
+// become one restaurant message, and a device whose problem a channel was already
+// told about is not told again for each new symptom. A crash whose signature is on
+// several devices is a release issue, listed on the Alerts page, not paged per device.
 func (dp *Dispatcher) Dispatch(ctx context.Context, created []db.AlertNotification) {
 	if len(created) == 0 {
 		return
@@ -52,25 +60,61 @@ func (dp *Dispatcher) Dispatch(ctx context.Context, created []db.AlertNotificati
 		}
 		return
 	}
+	devs := make([]uuid.UUID, 0, len(created))
+	ids := make([]uuid.UUID, 0, len(created))
+	for _, n := range created {
+		devs = append(devs, n.DeviceID)
+		ids = append(ids, n.AlertID)
+	}
+	paged, err := dp.db.PagedDevices(ctx, devs, ids)
+	if err != nil {
+		log.Printf("[alert] paged devices: %v", err)
+	}
+	info, err := dp.db.DeviceNotifyInfos(ctx, devs)
+	if err != nil {
+		log.Printf("[alert] device info: %v", err)
+	}
+	var fresh []db.AlertNotification
+	for _, n := range created {
+		if paged[n.DeviceID] {
+			continue
+		}
+		if n.Type == "device_crash" {
+			if sum, _ := n.Detail["summary"].(string); dp.db.IsReleaseCrash(ctx, sum) {
+				continue
+			}
+		}
+		fresh = append(fresh, n)
+	}
+	var sent []uuid.UUID
 	for _, c := range channels {
 		if c.URL == "" || c.Mode != "realtime" {
-			continue // digest channels are handled by the daily digest
+			continue // digest channels get the morning digest
 		}
 		if !dp.db.FleetWindowActive(ctx, c.ActiveWindow) {
 			continue
 		}
 		min := db.SeverityRank(c.MinSeverity)
-		for _, n := range created {
+		var keep []db.AlertNotification
+		for _, n := range fresh {
 			if db.SeverityRank(n.Severity) < min {
 				continue
 			}
 			if !c.AllowsType(n.Type) {
 				continue // this channel opted out of this alert type
 			}
-			if err := SendToChannel(ctx, c, n); err != nil {
-				log.Printf("[alert] channel %q (%s) failed: %v", c.Name, c.Kind, err)
-			}
+			keep = append(keep, n)
 		}
+		for _, m := range buildProblemMessages(keep, info) {
+			if err := send(ctx, c, m.Severity, m.Title, m.Text, m.When); err != nil {
+				log.Printf("[alert] channel %q (%s) failed: %v", c.Name, c.Kind, err)
+				continue
+			}
+			sent = append(sent, m.IDs...)
+		}
+	}
+	if err := dp.db.MarkAlertsNotified(ctx, sent); err != nil {
+		log.Printf("[alert] mark notified: %v", err)
 	}
 }
 

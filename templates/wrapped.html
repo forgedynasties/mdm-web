@@ -110,14 +110,6 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
     <div class="wr-hint">Scroll ↓</div>
   </section>
 
-  <!-- 2 · Check-ins -->
-  <section class="wr-panel bg-ink" data-panel>
-    <p class="wr-eye wr-in">You stayed in touch</p>
-    <p class="wr-num wr-in d1" data-count="{{.W.TotalCheckins}}">0</p>
-    <p class="wr-lead wr-in d2" style="margin-top:18px;">check-ins.</p>
-    <p class="wr-sub wr-in d3">Every unit, phoning home around the clock — {{.W.DaysCovered}} days of never going quiet.</p>
-  </section>
-
   <!-- 3 · Uptime -->
   <section class="wr-panel bg-peri" data-panel>
     <p class="wr-eye wr-in">Always on</p>
@@ -149,8 +141,7 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
   <section class="wr-panel bg-peri" data-panel>
     <p class="wr-eye wr-in">Busiest house</p>
     <p class="wr-tag wr-in d1" style="font-size:clamp(1.8rem,6vw,3.4rem);">{{.W.BusiestVenue.Serial}}</p>
-    <p class="wr-num wr-in d2" data-count="{{printf "%.0f" .W.BusiestVenue.Value}}" style="font-size:clamp(3rem,12vw,8rem);">0</p>
-    <p class="wr-sub wr-in d3">check-ins from its {{.W.BusiestVenue.Extra}} device{{if ne .W.BusiestVenue.Extra "1"}}s{{end}} — the hardest-running room in the fleet.</p>
+    <p class="wr-sub wr-in d3">The hardest-running room in the fleet, with its {{.W.BusiestVenue.Extra}} device{{if ne .W.BusiestVenue.Extra "1"}}s{{end}}.</p>
   </section>
   {{end}}
 

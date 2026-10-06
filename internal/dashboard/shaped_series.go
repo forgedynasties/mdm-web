@@ -26,6 +26,7 @@ type shapedPoint struct {
 	Charging   bool
 	HasCharge  bool
 	Flapping   bool // charging "2": a flapping charger (db/charger_flap.go)
+	Late       bool // kept on the device while offline and sent later
 }
 
 // mergeShapedSeries walks the samples and the state timeline together, carrying each
@@ -49,7 +50,7 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 			next++
 		}
 
-		p := shapedPoint{At: s.At}
+		p := shapedPoint{At: s.At, Late: s.Late}
 		if s.BatteryPct != nil {
 			p.BatteryPct, p.HasBattery = int(*s.BatteryPct), true
 		}
@@ -207,7 +208,18 @@ func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor)
 	if len(battery) > maxPoints {
 		battery = decimateExtremes(battery, maxPoints, func(p bpt) float64 { return float64(p.Y) })
 	}
-	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor})
+	// Late spans come from the undecimated points, so thinning can't hide one.
+	var lateAt []time.Time
+	for _, p := range pts {
+		if p.Late {
+			lateAt = append(lateAt, p.At)
+		}
+	}
+	late := db.LateRuns(lateAt, time.Duration(chartGapMs(device.PollIntervalMs))*time.Millisecond)
+	if late == nil {
+		late = []db.TimeSpan{}
+	}
+	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor, "late": late})
 }
 
 // shapedCheckins delegates to the db-level builder, keeping one implementation of the

@@ -46,7 +46,7 @@
   </div>
 </div>
 
-<div class="pr-cap"><h2>Stock hardware</h2><span>MDM DPC and MDM Lite devices · set each model's product once and all its devices follow</span></div>
+<div class="pr-cap"><h2>Stock hardware</h2><span>Standard MDM and MDM Lite devices · set each model's product once and all its devices follow</span></div>
 <div class="pr-list">
   <div class="pr-hd"><span>Model</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span>Display name</span></div>
   {{range .Stock}}
@@ -73,11 +73,11 @@
     </div>
   </div>
   {{else}}
-  <div class="pr-row"><div class="pr-fixed">No MDM DPC or MDM Lite devices yet.</div></div>
+  <div class="pr-row"><div class="pr-fixed">No Standard MDM or MDM Lite devices yet.</div></div>
   {{end}}
 </div>
 
-<div class="pr-cap"><h2>Our hardware</h2><span>MDM Firmware catalog · names are fixed</span></div>
+<div class="pr-cap"><h2>Our hardware</h2><span>Firmware MDM catalog · names are fixed</span></div>
 <div class="pr-list">
   <div class="pr-hd"><span>Product</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span></span></div>
   {{range .Ours}}
@@ -142,4 +142,4 @@
 {{template "footer" .}}
 {{end}}
 
-{{define "pr-agents"}}<span class="pr-agents">{{if .Firmware}}<span class="pr-ag">MDM Firmware <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="pr-ag">MDM DPC <b>{{.DPC}}</b></span>{{end}}{{if .Lite}}<span class="pr-ag">MDM Lite <b>{{.Lite}}</b></span>{{end}}</span>{{end}}
+{{define "pr-agents"}}<span class="pr-agents">{{if .Firmware}}<span class="pr-ag">Firmware MDM <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="pr-ag">Standard MDM <b>{{.DPC}}</b></span>{{end}}{{if .Lite}}<span class="pr-ag">MDM Lite <b>{{.Lite}}</b></span>{{end}}</span>{{end}}

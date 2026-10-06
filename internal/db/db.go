@@ -519,6 +519,7 @@ type CommandDelivery struct {
 	Progress     *int      `json:"progress,omitempty"` // 0-100 while an install is downloading; nil otherwise
 	UpdatedAt    time.Time `json:"updated_at"`
 	Output       string    `json:"output"`
+	OutputBytes  int       `json:"output_bytes"` // size of the stored output (a log bundle's is not loaded)
 	LastSeenAt   time.Time `json:"last_seen_at"`
 	Online       bool      `json:"online"` // set by the handler from the ws.Hub, not the DB
 }
@@ -545,6 +546,7 @@ type DeviceFilter struct {
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
 	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
+	Hygiene             string    // a clean-up job from the Overview (see hygieneWhere), or ""
 	ActiveThresholdSecs int       // legacy: seconds before a device is considered offline (unused for online/offline now)
 	// Connected is the set of device IDs with a live WebSocket, used to compute
 	// online/offline from real presence rather than check-in recency. Supplied by the
@@ -951,7 +953,8 @@ func (d *DB) GetUserAccess(ctx context.Context, username string) (AccessPolicy, 
 	err := d.pool.QueryRow(ctx, `SELECT id, access FROM users WHERE username = $1`, username).Scan(&id, &raw)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return pol, nil
+			// No account behind this name (deleted, renamed): nothing is granted.
+			return AccessPolicy{Base: "deny"}, nil
 		}
 		return pol, err
 	}
@@ -1016,13 +1019,18 @@ func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error
 	return out, rows.Err()
 }
 
+// teamAccountSQL admits an audit actor only when it is a real team account: a user row
+// with an @aioapp.com email. "API key", scheduled recipes, "System" and accounts that no
+// longer exist are not people on the leaderboard (same rule as the Activity page).
+const teamAccountSQL = `u.email ILIKE '%@aioapp.com'`
+
 // TopActors ranks people by recorded actions (page views excluded), with
 // display names resolved live from users; former usernames show as-is.
 func (d *DB) TopActors(ctx context.Context, limit int, exclude string) ([]NamedCount, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.actor, COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), a.actor), COUNT(*) AS n
-		FROM audit_log a LEFT JOIN users u ON u.username = a.actor
-		WHERE a.actor <> '' AND a.actor <> 'unknown' AND a.actor <> $2 AND a.action <> '`+PageViewAction+`'
+		FROM audit_log a JOIN users u ON u.username = a.actor AND `+teamAccountSQL+`
+		WHERE a.actor <> $2 AND a.action <> '`+PageViewAction+`'
 		GROUP BY a.actor, u.first_name, u.last_name ORDER BY n DESC LIMIT $1`, limit, exclude)
 	if err != nil {
 		return nil, err
@@ -1121,7 +1129,7 @@ func (d *DB) IncidentCounts(ctx context.Context, ids []uuid.UUID, days int) (per
 		       COUNT(*) FILTER (WHERE occurred_at >= NOW() - ($2 * INTERVAL '1 day')),
 		       COUNT(*) FILTER (WHERE occurred_at <  NOW() - ($2 * INTERVAL '1 day'))
 		FROM device_events
-		WHERE device_id = ANY($1) AND kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE device_id = ANY($1) AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND occurred_at >= NOW() - (2 * $2 * INTERVAL '1 day')
 		GROUP BY device_id`, ids, days)
 	if err != nil {
@@ -1230,8 +1238,9 @@ func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*
 	rows.Close()
 	if st.Actions > 0 {
 		err = d.pool.QueryRow(ctx, `
-			WITH r AS (SELECT actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
-			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' AND actor <> $2 AND action <> '`+PageViewAction+`' GROUP BY actor)
+			WITH r AS (SELECT a.actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
+			           FROM audit_log a JOIN users u ON u.username = a.actor AND `+teamAccountSQL+`
+			           WHERE a.actor <> $2 AND a.action <> '`+PageViewAction+`' GROUP BY a.actor)
 			SELECT rk, n FROM r WHERE actor = $1`, username, excludeFromRank).Scan(&st.Rank, &st.Actors)
 		if err != nil && err != pgx.ErrNoRows {
 			return nil, err
@@ -2027,6 +2036,7 @@ type DeviceSample struct {
 	RAMTotalMB    *int32
 	StorageFreeGB *float64
 	CPUTempC      *float64 // SoC reading from battery-less TV boxes; see the schema note
+	Late          bool     // kept on the device while offline and sent later
 }
 
 // StateAt is a state key's value from a point in time until the next event for that key.
@@ -2051,7 +2061,7 @@ func (d *DB) ShapedCoverage(ctx context.Context, deviceID uuid.UUID) (from time.
 // every chart wants, and the order the (device_id, at) primary key already stores.
 func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]DeviceSample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c
+		SELECT at, battery_pct, temp_c, wifi_rssi, ram_used_mb, ram_total_mb, storage_free_gb, cpu_temp_c, late
 		FROM device_samples
 		WHERE device_id = $1 AND at >= $2 AND at <= $3
 		ORDER BY at`, deviceID, from, until)
@@ -2062,7 +2072,7 @@ func (d *DB) GetDeviceSamples(ctx context.Context, deviceID uuid.UUID, from, unt
 	var out []DeviceSample
 	for rows.Next() {
 		var s DeviceSample
-		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC); err != nil {
+		if err := rows.Scan(&s.At, &s.BatteryPct, &s.TempC, &s.WifiRSSI, &s.RAMUsedMB, &s.RAMTotalMB, &s.StorageFreeGB, &s.CPUTempC, &s.Late); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -2278,6 +2288,9 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		wheres = append(wheres, fmt.Sprintf("d.restaurant_id = $%d", argN))
 		args = append(args, f.RestaurantID)
 		argN++
+	}
+	if w := hygieneWhere(f.Hygiene); w != "" {
+		wheres = append(wheres, w)
 	}
 	if f.ProductionID != uuid.Nil {
 		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
@@ -2538,6 +2551,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, fmt.Sprintf("d.restaurant_id = $%d", argN))
 		args = append(args, f.RestaurantID)
 		argN++
+	}
+	if w := hygieneWhere(f.Hygiene); w != "" {
+		wheres = append(wheres, w)
 	}
 
 	if f.ProductionID != uuid.Nil {
@@ -2922,28 +2938,6 @@ func (d *DB) DeploymentCounts(ctx context.Context) (deployed, lab int, err error
 		WHERE NOT d.hidden
 	`).Scan(&deployed, &lab)
 	return deployed, lab, err
-}
-
-// HideDevice marks a device as hidden. It stays in the DB but is excluded from
-// listings and summaries. The flag is cleared automatically on the next check-in.
-func (d *DB) HideDevice(ctx context.Context, serial string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = $1`, serial)
-	return err
-}
-
-func (d *DB) BulkHideDevices(ctx context.Context, serials []string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = ANY($1)`, serials)
-	return err
-}
-
-func (d *DB) UnhideDevice(ctx context.Context, serial string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = false WHERE serial_number = $1`, serial)
-	return err
-}
-
-func (d *DB) BulkUnhideDevices(ctx context.Context, serials []string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = false WHERE serial_number = ANY($1)`, serials)
-	return err
 }
 
 func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
@@ -4861,7 +4855,8 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 // diagnostic; the device runs it as an ordinary shell command, so it needs no new
 // type. Every place that serializes a command to a device must route through this.
 func DeviceCommandType(t string) string {
-	if t == "query" {
+	// A query and a log bundle are shell commands whose text the server wrote.
+	if t == "query" || t == "collect_logs" {
 		return "shell"
 	}
 	return t
@@ -6099,7 +6094,8 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         ELSE 'pending'
 		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
-		       COALESCE(cr.output, '') AS output,
+		       -- A log bundle is up to a megabyte; lists carry its size, not its text.
+		       CASE WHEN c.type = 'collect_logs' THEN '' ELSE COALESCE(cr.output, '') END AS output,
 		       cs.progress
 		FROM commands c
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
@@ -6235,7 +6231,8 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		       END AS status,
 		       cs.progress,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
-		       COALESCE(cr.output, '') AS output,
+		       CASE WHEN c.type = 'collect_logs' THEN '' ELSE COALESCE(cr.output, '') END AS output,
+		       COALESCE(octet_length(cr.output), 0) AS output_bytes,
 		       d.last_seen_at
 		FROM target_devices td
 		JOIN devices d ON d.id = td.device_id
@@ -6252,7 +6249,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 	var out []CommandDelivery
 	for rows.Next() {
 		var cd CommandDelivery
-		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.Progress, &cd.UpdatedAt, &cd.Output, &cd.LastSeenAt); err != nil {
+		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.Progress, &cd.UpdatedAt, &cd.Output, &cd.OutputBytes, &cd.LastSeenAt); err != nil {
 			return nil, err
 		}
 		out = append(out, cd)
@@ -7462,6 +7459,7 @@ func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled boo
 			SET kiosk_enabled  = EXCLUDED.kiosk_enabled,
 			    kiosk_package  = EXCLUDED.kiosk_package,
 			    kiosk_features = EXCLUDED.kiosk_features,
+			    kiosk_exited_at = CASE WHEN EXCLUDED.kiosk_enabled THEN NULL ELSE device_config.kiosk_exited_at END,
 			    updated_at     = NOW()
 	`, deviceID, enabled, pkg, features)
 	return err
@@ -7550,14 +7548,18 @@ type KioskPolicy struct {
 	TargetType   string     `json:"target_type"`
 	TargetID     *uuid.UUID `json:"target_id,omitempty"`
 	TargetSerial string     `json:"target_serial,omitempty"`
+	Priority     int        `json:"priority"`     // lower wins where two rules cover one device
+	OfflineExit  bool       `json:"offline_exit"` // switch on the offline exit code on its devices
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// ListKioskPolicies returns the kiosk rules in order: the first one covering a device
+// is the one it follows.
 func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
-		FROM kiosk_policies ORDER BY name ASC
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
+		FROM kiosk_policies ORDER BY priority ASC, created_at ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -7566,7 +7568,7 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	var out []KioskPolicy
 	for rows.Next() {
 		var p KioskPolicy
-		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -7577,27 +7579,68 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 func (d *DB) GetKioskPolicy(ctx context.Context, id uuid.UUID) (KioskPolicy, error) {
 	var p KioskPolicy
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
 		FROM kiosk_policies WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt)
+	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
-func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) (uuid.UUID, error) {
+// CreateKioskPolicy adds a rule at the top of the order — a new rule is usually the
+// more specific one and should win over the broad ones already there — except an
+// all-devices rule, which goes to the bottom so it catches only what nothing else does.
+func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial)
-		VALUES ($1, $2, $3, $4, $5) RETURNING id
-	`, name, pkg, targetType, targetID, targetSerial).Scan(&id)
+		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, offline_exit, priority)
+		VALUES ($1, $2, $3, $4, $5, $6,
+		        CASE WHEN $3 = 'all' THEN COALESCE((SELECT MAX(priority) FROM kiosk_policies), -1) + 1
+		             ELSE COALESCE((SELECT MIN(priority) FROM kiosk_policies), 1) - 1 END) RETURNING id
+	`, name, pkg, targetType, targetID, targetSerial, offlineExit).Scan(&id)
 	return id, err
 }
 
-func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) error {
+func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) error {
 	_, err := d.pool.Exec(ctx, `
-		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6, updated_at = NOW()
+		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6,
+		       offline_exit = $7, updated_at = NOW()
 		WHERE id = $1
-	`, id, name, pkg, targetType, targetID, targetSerial)
+	`, id, name, pkg, targetType, targetID, targetSerial, offlineExit)
 	return err
+}
+
+// MoveKioskPolicy swaps a rule with its neighbour above (up) or below.
+func (d *DB) MoveKioskPolicy(ctx context.Context, id uuid.UUID, up bool) error {
+	rules, err := d.ListKioskPolicies(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range rules {
+		if rules[i].ID != id {
+			continue
+		}
+		j := i + 1
+		if up {
+			j = i - 1
+		}
+		if j < 0 || j >= len(rules) {
+			return nil
+		}
+		// Renumber the whole list in its new order, so equal priorities left by older
+		// rows can't make the swap a no-op.
+		rules[i], rules[j] = rules[j], rules[i]
+		tx, err := d.pool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		for k, r := range rules {
+			if _, err := tx.Exec(ctx, `UPDATE kiosk_policies SET priority = $2 WHERE id = $1`, r.ID, k); err != nil {
+				return err
+			}
+		}
+		return tx.Commit(ctx)
+	}
+	return nil
 }
 
 func (d *DB) DeleteKioskPolicy(ctx context.Context, id uuid.UUID) error {
@@ -7916,19 +7959,6 @@ func (d *DB) ListAuditActors(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
-// HideStaleDevices hides visible devices not seen within the last `days` days.
-func (d *DB) HideStaleDevices(ctx context.Context, days int) (int64, error) {
-	if days <= 0 {
-		return 0, nil
-	}
-	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
-		`UPDATE devices SET hidden = true WHERE NOT hidden AND last_seen_at < NOW() - INTERVAL '%d days'`, days))
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
 // PruneResolvedAlerts deletes resolved alerts older than `days` days so the table
 // doesn't grow without bound (open/acknowledged alerts are always kept).
 func (d *DB) PruneResolvedAlerts(ctx context.Context, days int) (int64, error) {
@@ -7942,21 +7972,6 @@ func (d *DB) PruneResolvedAlerts(ctx context.Context, days int) (int64, error) {
 	}
 	return tag.RowsAffected(), nil
 }
-
-// ResolveAlertsForHiddenDevices resolves any open/acknowledged alert belonging to a
-// device that is now inactive (hidden), so an auto-inactivated unit's alerts clear
-// out instead of lingering. Runs after the stale-device sweep.
-func (d *DB) ResolveAlertsForHiddenDevices(ctx context.Context) (int64, error) {
-	tag, err := d.pool.Exec(ctx, `
-		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
-		WHERE status <> 'resolved'
-		  AND device_id IN (SELECT id FROM devices WHERE hidden)`)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
 
 // PruneShaped applies the check-in retention setting to the history that replaced the
 // checkins table: samples older than `days` go, and so do state events — except each
@@ -9115,6 +9130,11 @@ type Alert struct {
 	LastSeenAt     time.Time       `json:"last_seen_at"`
 	ResolvedAt     *time.Time      `json:"resolved_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
+	// Problem workflow (set only by the active-alert lists).
+	Assignee    string `json:"assignee,omitempty"`
+	Note        string `json:"note,omitempty"`
+	DeviceClass  string `json:"device_class,omitempty"`
+	RestaurantID string `json:"restaurant_id,omitempty"`
 }
 
 // AlertSummary holds dashboard headline counts. Severity counts cover only
@@ -9139,7 +9159,7 @@ var defaultAlertRules = []struct {
 	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
 	// overheating is WLC-aware: temp_c off the pad, temp_c_wlc while wireless-charging.
-	{"overheating", "Device overheating", `{"temp_c":45,"temp_c_wlc":65}`, "always", true},
+	{"overheating", "Device overheating", `{"temp_c":52,"temp_c_wlc":65}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"storage_filling", "Storage filling fast", `{"drop_gb":0.2}`, "always", true},
@@ -9148,10 +9168,12 @@ var defaultAlertRules = []struct {
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"storage_low", "Storage critically low", `{"free_gb":1}`, "always", true},
 	{"storage_warning", "Storage low", `{"free_gb":14}`, "always", true},
-	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
+	// Off by default: the T7 lives in this band every day (30 Sep alert review).
+	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", false},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
-	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
+	// Off by default: a tablet on its charger reaching 100% overnight is normal.
+	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", false},
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
 	{"charger_flapping", "Charger flapping / faulty", `{"window_min":5,"flaps_per_min":10}`, "always", true},
 	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
@@ -9159,7 +9181,7 @@ var defaultAlertRules = []struct {
 	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
 	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
 	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
-	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2}`, "overnight", true},
+	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2,"below_pct":80}`, "overnight", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -9236,11 +9258,25 @@ func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, pa
 // for (type, device). Returns true only when a row was actually created, so callers
 // broadcast/notify exactly once per occurrence.
 func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (bool, error) {
+	u, err := d.upsertAlert(ctx, ruleID, typ, deviceID, severity, summary, detail)
+	return u.Inserted, err
+}
+
+// alertUpsert is what one pass of the evaluator did to a (type, device) alert.
+type alertUpsert struct {
+	ID        uuid.UUID
+	Inserted  bool // a new episode: notify
+	Escalated bool // already open, and just became critical: notify as well
+}
+
+// upsertAlert is CreateAlertIfAbsent that also reports the row id and whether an open
+// alert was escalated to critical by this pass.
+func (d *DB) upsertAlert(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (alertUpsert, error) {
 	detailJSON := []byte("{}")
 	if detail != nil {
 		b, err := json.Marshal(detail)
 		if err != nil {
-			return false, err
+			return alertUpsert{}, err
 		}
 		detailJSON = b
 	}
@@ -9259,8 +9295,13 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 	// A muted (type, device) is skipped entirely: flap detection and "Clear all" both
 	// snooze rather than delete, and a snoozed condition must stay quiet.
 	var inserted bool
+	var id uuid.UUID
+	var prevSev string
 	err := d.pool.QueryRow(ctx, `
-		WITH recent AS (
+		WITH prev AS (
+			SELECT severity FROM alerts
+			WHERE type = $2 AND device_id = $3 AND status <> 'resolved'
+		), recent AS (
 			SELECT id, status, occurrences, muted_until
 			FROM alerts
 			WHERE type = $2 AND device_id = $3
@@ -9297,17 +9338,21 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 			              summary      = EXCLUDED.summary,
 			              detail       = EXCLUDED.detail,
 			              updated_at    = NOW()
-			RETURNING (xmax = 0) AS ins
+			RETURNING id, (xmax = 0) AS ins
 		)
-		SELECT COALESCE((SELECT ins FROM fresh), false)
-	`, ruleID, typ, deviceID, severity, summary, detailJSON, alertCooldownMin).Scan(&inserted)
+		SELECT COALESCE((SELECT ins FROM fresh), false),
+		       COALESCE((SELECT id FROM fresh), (SELECT id FROM reopened), '00000000-0000-0000-0000-000000000000'::uuid),
+		       COALESCE((SELECT severity FROM prev), '')
+	`, ruleID, typ, deviceID, severity, summary, detailJSON, alertCooldownMin).Scan(&inserted, &id, &prevSev)
 	if err != nil {
-		return false, err
+		return alertUpsert{}, err
 	}
+	u := alertUpsert{ID: id, Inserted: inserted,
+		Escalated: !inserted && prevSev != "" && prevSev != "critical" && severity == "critical"}
 	if err := d.muteFlappingAlert(ctx, typ, deviceID); err != nil {
-		return inserted, err
+		return u, err
 	}
-	return inserted, nil
+	return u, nil
 }
 
 // alertCooldownMin is how long after resolving the same condition counts as the same
@@ -9414,7 +9459,8 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       a.assignee, a.note, COALESCE(d.device_class, ''), COALESCE(d.restaurant_id::text, '')
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -9431,7 +9477,8 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt,
+			&a.Assignee, &a.Note, &a.DeviceClass, &a.RestaurantID); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -9509,6 +9556,24 @@ func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
 		LEFT JOIN devices d ON d.id = a.device_id
 		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)`).Scan(&n)
 	return n, err
+}
+
+// DockCounts feeds the live dock: open critical alerts that are not snoozed, and
+// commands sent in the last 15 minutes that some device has not finished. The
+// window keeps a command wedged at 'delivered' for days from spinning forever.
+func (d *DB) DockCounts(ctx context.Context) (critical, running int, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT
+			(SELECT COUNT(*) FROM alerts a
+			 LEFT JOIN devices dv ON dv.id = a.device_id
+			 WHERE a.status = 'open' AND a.severity = 'critical'
+			   AND (a.muted_until IS NULL OR a.muted_until < NOW())
+			   AND (a.device_id IS NULL OR NOT dv.hidden)),
+			(SELECT COUNT(*) FROM commands c
+			 WHERE c.created_at > NOW() - INTERVAL '15 minutes'
+			   AND EXISTS (SELECT 1 FROM command_status cs
+			               WHERE cs.command_id = c.id AND cs.status IN ('pending', 'delivered')))`).Scan(&critical, &running)
+	return critical, running, err
 }
 
 // RestaurantAlerts is a per-restaurant open-alert rollup for the Daily Report's
@@ -9946,6 +10011,11 @@ type AlertNotification struct {
 	// IANA zone for rendering EventAt locally ("" → UTC).
 	EventAt  time.Time
 	Timezone string
+	// AlertID is the row this notification is about; Escalated marks an open alert
+	// that just became critical (after hours → opening), which pages like a new one.
+	AlertID   uuid.UUID
+	Escalated bool
+	Detail    map[string]any
 }
 
 // notifyTimeFrom pulls an event time and timezone out of an alert's detail map for
@@ -10529,6 +10599,11 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 	if err != nil {
 		return nil, 0, err
 	}
+	windows, err := d.effectiveWindows(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	now := time.Now().UTC()
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
@@ -10553,13 +10628,15 @@ func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created
 				continue
 			}
 			ids = append(ids, h.DeviceID)
-			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			sev := hitSeverity(now, r.Type, severity, h, windowFor(windows, h.DeviceID))
+			u, e := d.upsertAlert(ctx, &ruleID, r.Type, h.DeviceID, sev, h.Summary, h.Detail)
 			if e != nil {
 				return created, resolved, e
 			}
-			if ok {
+			if u.Inserted || u.Escalated {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: sev, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz,
+					AlertID: u.ID, Escalated: u.Escalated, Detail: h.Detail})
 			}
 		}
 		// The device stopped violating — start the clear window rather than resolving at
@@ -10595,7 +10672,9 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64, c
 			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
 			  -- Not offline: reporting to another MDM. See internal/db/custody.go.
 			  AND custody_server = ''
-			  AND id <> ALL($2::uuid[])`, mins, connected)
+			  AND id <> ALL($2::uuid[])
+			  AND NOT EXISTS (SELECT 1 FROM alerts p WHERE p.device_id = devices.id
+			    AND p.type = 'offline_peak' AND p.status <> 'resolved')`, mins, connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -10849,13 +10928,15 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (c
 				continue
 			}
 			ids = append(ids, h.DeviceID)
-			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			sev := hitSeverity(now, r.Type, severity, h, windowFor(windows, h.DeviceID))
+			u, e := d.upsertAlert(ctx, &ruleID, r.Type, h.DeviceID, sev, h.Summary, h.Detail)
 			if e != nil {
 				return created, resolved, e
 			}
-			if ok {
+			if u.Inserted || u.Escalated {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: sev, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz,
+					AlertID: u.ID, Escalated: u.Escalated, Detail: h.Detail})
 			}
 		}
 		// Mid-night devices of venues not due this tick keep whatever tonight's check
@@ -10918,13 +10999,23 @@ const offlineHitsQuery = `
 	      AND a.fired_at >= d.last_seen_at
 	  )`
 
+// offlineNotPeakClause extends offlineHitsQuery for plain "offline": a device already
+// covered by an open "offline during peak" alert is left out.
+const offlineNotPeakClause = `
+	  AND NOT EXISTS (
+	    SELECT 1 FROM alerts p
+	    WHERE p.device_id = d.id AND p.type = 'offline_peak' AND p.status <> 'resolved'
+	  )`
+
 // detectRecentRule returns devices currently violating a recent-tier rule. Window gating
 // is applied by the caller (EvaluateRecentAlerts).
 func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline", connected)
+		// One outage is one alert: while "offline during peak" is open for a device,
+		// plain offline stays quiet instead of doubling up on it.
+		rows, err := d.pool.Query(ctx, offlineHitsQuery+offlineNotPeakClause, mins, "offline", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -10976,7 +11067,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// runs hotter by design, so it only alerts at the higher limit; off the pad the
 		// lower limit applies. Point-in-time on the latest reading, so the alert lands
 		// within ~1 min of the spike and auto-resolves once it cools.
-		limit := param(p, "temp_c", 45)        // off-pad limit
+		limit := param(p, "temp_c", 52)        // off-pad limit (the T7 runs 41-48 °C every day)
 		limitWLC := param(p, "temp_c_wlc", 65) // on-pad (wireless charging) limit
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
@@ -11376,7 +11467,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			       (array_agg(e.kind ORDER BY e.occurred_at DESC))[1],
 			       (array_agg(e.summary ORDER BY e.occurred_at DESC))[1]
 			FROM devices d JOIN device_events e ON e.device_id = d.id
-			WHERE NOT d.hidden AND e.kind <> 'reboot'
+			WHERE NOT d.hidden AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
+			  AND NOT e.late -- a crash that happened while the device was offline is history, not a page
 			  AND e.occurred_at > NOW() - ($1 * INTERVAL '1 minute')
 			GROUP BY d.id, d.serial_number`, mins)
 		if err != nil {
@@ -11400,10 +11492,13 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 
 	case "slow_charge_night":
 		// Over the last window_hours the device was continuously charging yet its
-		// battery barely rose (≤ max_gain_pct) and isn't essentially full — a stalled
+		// battery barely rose (≤ max_gain_pct) and ended below below_pct — a stalled
 		// / trickle charge that won't be ready by morning. Overnight-windowed.
 		maxGain := param(p, "max_gain_pct", 15)
 		windowH := param(p, "window_hours", 2)
+		// Charging slows down on purpose as a battery fills, so a small gain near the
+		// top is normal: 116 of 130 alerts in the 30 Sep review ended at 80% or more.
+		belowPct := param(p, "below_pct", 80)
 		rows, err := d.pool.Query(ctx, `
 			-- Window start inline and state lookups per device, for the same reasons
 			-- as wlc_continuous above: this ran 3.8s a minute on live as a CTE.
@@ -11439,9 +11534,9 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				  AND e.to_val IS DISTINCT FROM 'true')
 			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
 			  AND (s.last_batt - s.first_batt) <= $2
-			  AND s.last_batt < 95`, windowH, maxGain)
+			  AND s.last_batt < $3`, windowH, maxGain, belowPct)
 		if err != nil {
-			return nil, "critical", err
+			return nil, "warning", err
 		}
 		defer rows.Close()
 		var hits []alertHit
@@ -11450,13 +11545,14 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			var serial string
 			var first, last int
 			if err := rows.Scan(&id, &serial, &first, &last); err != nil {
-				return nil, "critical", err
+				return nil, "warning", err
 			}
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Charging for %.0fh but battery only went %d%%→%d%%", windowH, first, last),
 				map[string]any{"gain_pct": last - first, "first_pct": first, "last_pct": last}})
 		}
-		return hits, "critical", rows.Err()
+		// A warning, not critical: it fires at night, when nobody can act on it.
+		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
 }
@@ -12289,6 +12385,10 @@ CREATE TABLE IF NOT EXISTS device_events (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_device_events_dedupe ON device_events(device_id, kind, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_device_events_device_time ON device_events(device_id, occurred_at DESC);
+-- Sent later by a device that was offline when it happened (client 1.7.1): history only,
+-- never an alert. Only these kinds are not crashes: 'reboot', 'kiosk_exit_offline',
+-- 'offline_dropped' (every crash query excludes exactly those).
+ALTER TABLE device_events ADD COLUMN IF NOT EXISTS late BOOLEAN NOT NULL DEFAULT false;
 -- Last per-boot id seen, to detect reboots (a change = the device rebooted).
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_boot_id TEXT NOT NULL DEFAULT '';
 
@@ -12945,6 +13045,26 @@ CREATE TABLE IF NOT EXISTS enrollment_profiles (
 -- presenting it are identity-bound: the server derives the acting device from the key and
 -- rejects mismatched client-supplied serials. NULL = legacy shared-key device.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_key_hash TEXT;
+-- When an admin last reset the device's own key (device-key plan): set until it
+-- registers a new one, so a device that never does can be flagged.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_reset_at TIMESTAMPTZ;
+-- Where the device last used its own key, and when it was last let back in after losing
+-- it (30 Sep: an OTA left three devices unable to read their key and locked out).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_last_ip TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS key_auto_reset_at TIMESTAMPTZ;
+-- The chip's own serial (Qualcomm soc0/serial_number, as hex), which a reflash cannot change.
+-- hardware_serials is the map from it to every AIO serial it has been seen under, so a device
+-- whose AIO serial was corrupted can still be recognised.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hardware_serial TEXT;
+CREATE INDEX IF NOT EXISTS idx_devices_hardware_serial ON devices(hardware_serial) WHERE hardware_serial IS NOT NULL;
+CREATE TABLE IF NOT EXISTS hardware_serials (
+    hardware_serial TEXT        NOT NULL,
+    serial_number   TEXT        NOT NULL,
+    first_seen_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (hardware_serial, serial_number)
+);
+CREATE INDEX IF NOT EXISTS idx_hardware_serials_serial ON hardware_serials(serial_number);
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via UUID;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_key_hash ON devices(device_key_hash) WHERE device_key_hash IS NOT NULL;
 
@@ -13169,6 +13289,9 @@ ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS storage_free_gb DOUBLE PRECI
 -- SoC temperature from battery-less TV boxes (extra.cpu_temp_c). Its own column, not
 -- temp_c: temp_c feeds the overheating rule at 45 °C, and an SoC idles above that.
 ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS cpu_temp_c      DOUBLE PRECISION;
+-- Readings the device kept while it couldn't reach the MDM and sent when it could
+-- (client 1.7.0, 1 Oct). History only: nothing alerts on them; the charts shade them.
+ALTER TABLE device_samples ADD COLUMN IF NOT EXISTS late            BOOLEAN NOT NULL DEFAULT false;
 -- Nothing ever read the scaled columns; they existed for part of one afternoon.
 ALTER TABLE device_samples DROP COLUMN IF EXISTS temp_dc;
 ALTER TABLE device_samples DROP COLUMN IF EXISTS ram_pct;
@@ -13246,6 +13369,70 @@ CREATE TABLE IF NOT EXISTS device_temp_fast (
     uptime_s  BIGINT,
     PRIMARY KEY (device_id, at)
 );
+
+-- Problems (30 Sep alert review). A problem is the set of alerts open on one device,
+-- worked as one: an owner, an acknowledgement with a note, a snooze (muted_until) and a
+-- reason when it is resolved by hand. notified_at marks the alerts a channel was told
+-- about, so a device already paged is not paged again for each new symptom, and
+-- resolve_notified closes that loop with one "resolved" message.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS assignee         TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS note             TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_reason   TEXT NOT NULL DEFAULT '';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS notified_at      TIMESTAMPTZ;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_notified BOOLEAN NOT NULL DEFAULT false;
+-- One row per morning digest sent, keyed by the fleet's local date, so a restart does
+-- not send the same morning twice.
+-- Kiosk rules (30 Sep): policies are ordered (lowest priority number wins where two
+-- cover one device), can switch on the offline exit code, and are enforced
+-- continuously. device_config.kiosk_rule records which rule set a device's kiosk, and
+-- kiosk_override marks a device someone changed by hand while a rule covers it.
+ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS priority     INT     NOT NULL DEFAULT 0;
+ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS offline_exit BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_rule     UUID;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_override BOOLEAN NOT NULL DEFAULT false;
+-- Taken out of kiosk on site (exit PIN or code on the device), 30 Sep: the device stays
+-- out of kiosk until someone locks it again or says to leave it; what it was locked to
+-- and by which rule is kept for "Lock again".
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_at      TIMESTAMPTZ;
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_package TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_exited_rule    UUID;
+
+-- Access profiles (30 Sep): named, reusable "what they can do" sets — the second
+-- question of the access editor. A grant made from a profile carries its id, so editing
+-- the profile updates everyone on it.
+CREATE TABLE IF NOT EXISTS access_profiles (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    actions     TEXT[] NOT NULL DEFAULT '{}',
+    builtin     BOOLEAN NOT NULL DEFAULT false,
+    position    INT NOT NULL DEFAULT 0,
+    created_by  TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO access_profiles (name, description, actions, builtin, position) VALUES
+  ('Look only', 'See devices and alerts. No commands.', '{view}', true, 0),
+  ('Look and fix', 'Screenshot, restart, reload the app, kiosk, run diagnostics, collect logs, notes and the queue.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue}', true, 1),
+  ('Manage apps too', 'Everything in "Look and fix", plus install and remove apps.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue,install_apk,uninstall}', true, 2)
+ON CONFLICT (name) DO NOTHING;
+ALTER TABLE access_grants ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES access_profiles(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS alert_digests (
+    day     DATE        PRIMARY KEY,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    lines   INT         NOT NULL DEFAULT 0
+);
+
+-- Guest info (1 Oct): what a guest at the table sees on a T7 — the venue's guest
+-- Wi-Fi (security as the Wi-Fi QR format spells it: WPA, WEP or nopass) and the
+-- guest ordering app when it is not the default, plus the table the tablet sits on.
+-- Sent to the firmware client as config.guest (see db.GuestInfo).
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_ssid     TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_password TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_security TEXT NOT NULL DEFAULT 'WPA';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_app_package   TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices     ADD COLUMN IF NOT EXISTS table_label         TEXT NOT NULL DEFAULT '';
 
 `
 
@@ -15819,7 +16006,7 @@ func (d *DB) LatestCrashTrace(ctx context.Context, deviceID uuid.UUID) (string, 
 	var detail string
 	err := d.pool.QueryRow(ctx, `
 		SELECT detail FROM device_events
-		WHERE device_id = $1 AND kind <> 'reboot'
+		WHERE device_id = $1 AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY occurred_at DESC LIMIT 1`, deviceID).Scan(&detail)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -15846,7 +16033,7 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 		SELECT e.id, dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.build_id = $1 AND e.kind <> 'reboot'
+		WHERE e.build_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, buildID, limit)
 	if err != nil {
@@ -15900,7 +16087,7 @@ func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, sinceDays, limit)
@@ -15927,7 +16114,7 @@ func (d *DB) CountDeviceCrashes(ctx context.Context, deviceID uuid.UUID) (int, e
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND e.build_id = dv.build_id`, deviceID).Scan(&n)
 	return n, err
 }
@@ -15951,7 +16138,7 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		  AND e.build_id = dv.build_id
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, deviceID, limit)
@@ -15967,82 +16154,6 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 			return nil, err
 		}
 		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
-// CrashSignature is one exact (kind, summary) signature of a device's crash events:
-// how often it fired in the window, when first and last, and the newest event's id
-// so its trace can be fetched on its own.
-type CrashSignature struct {
-	Kind       string
-	Summary    string
-	Count      int
-	FirstAt    time.Time
-	LastAt     time.Time
-	LatestID   uuid.UUID
-	BuildID    string
-	Serial     string
-	Restaurant string
-}
-
-// ListDeviceCrashSignatures aggregates one device's crash/ANR/tombstone events of the
-// last sinceDays by exact (kind, summary), newest signature first. No traces: a noisy
-// device carries thousands of identical events, and the Alerts tab only needs the trace
-// of the newest one per row (GetCrashDetails). limit <= 0 means 200.
-func (d *DB) ListDeviceCrashSignatures(ctx context.Context, deviceID uuid.UUID, sinceDays, limit int) ([]CrashSignature, error) {
-	if limit <= 0 {
-		limit = 200
-	}
-	if sinceDays <= 0 {
-		sinceDays = 7
-	}
-	rows, err := d.pool.Query(ctx, `
-		SELECT e.kind, e.summary, COUNT(*), MIN(e.occurred_at), MAX(e.occurred_at),
-		       (ARRAY_AGG(e.id ORDER BY e.occurred_at DESC))[1],
-		       (ARRAY_AGG(e.build_id ORDER BY e.occurred_at DESC))[1]
-		FROM device_events e
-		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
-		  AND e.occurred_at > now() - make_interval(days => $2)
-		  -- The build the device runs now only; see ListDeviceCrashes.
-		  AND e.build_id = dv.build_id
-		GROUP BY e.kind, e.summary
-		ORDER BY MAX(e.occurred_at) DESC
-		LIMIT $3`, deviceID, sinceDays, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []CrashSignature
-	for rows.Next() {
-		var s CrashSignature
-		if err := rows.Scan(&s.Kind, &s.Summary, &s.Count, &s.FirstAt, &s.LastAt, &s.LatestID, &s.BuildID); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-
-// GetCrashDetails returns the trace (detail) of each given crash event, by id.
-func (d *DB) GetCrashDetails(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
-	out := make(map[uuid.UUID]string, len(ids))
-	if len(ids) == 0 {
-		return out, nil
-	}
-	rows, err := d.pool.Query(ctx, `SELECT id, detail FROM device_events WHERE id = ANY($1)`, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id uuid.UUID
-		var detail string
-		if err := rows.Scan(&id, &detail); err != nil {
-			return nil, err
-		}
-		out[id] = detail
 	}
 	return out, rows.Err()
 }
@@ -16068,7 +16179,7 @@ func (d *DB) CountRecentCrashEvents(ctx context.Context, deviceID *uuid.UUID, si
 		SELECT COUNT(*)
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)`+scope, args...).Scan(&n)
 	return n, err
 }
@@ -16110,7 +16221,7 @@ func (d *DB) ListRecentCrashGroupsPage(ctx context.Context, deviceID *uuid.UUID,
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)`+scope+`
 		GROUP BY e.kind, e.summary
 		ORDER BY MAX(e.occurred_at) DESC
@@ -16148,7 +16259,7 @@ func (d *DB) ListRecentCrashEventsPage(ctx context.Context, sinceDays, limit, of
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, sinceDays, limit, offset)
@@ -16184,7 +16295,7 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, deviceID, limit, offset)
 	if err != nil {
@@ -16259,7 +16370,8 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
 		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
-		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		       a.occurrences, a.muted_until, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       a.assignee, a.note, COALESCE(d.device_class, ''), COALESCE(d.restaurant_id::text, '')
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -16276,7 +16388,8 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
 			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
-			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.Occurrences, &a.MutedUntil, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt,
+			&a.Assignee, &a.Note, &a.DeviceClass, &a.RestaurantID); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -16424,7 +16537,7 @@ func (d *DB) CrashGroupsOnBuild(ctx context.Context, buildID string, limit, offs
 			       (array_agg(e.detail ORDER BY (e.detail <> '') DESC, e.occurred_at DESC))[1] AS sample_detail
 			FROM device_events e
 			JOIN devices dv ON dv.id = e.device_id
-			WHERE e.build_id = $1 AND e.kind <> 'reboot'
+			WHERE e.build_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
 			GROUP BY e.kind, `+sig+`
 		)
 		SELECT kind, sig, cnt, devs, last_at, sample_serial, sample_detail,
@@ -16520,7 +16633,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 		FROM device_events e
 		JOIN devices d ON d.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden
 		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
 		GROUP BY d.id, d.serial_number, d.restaurant_id, r.name
 		ORDER BY COUNT(*) DESC, MAX(e.occurred_at) DESC`)
@@ -16555,7 +16668,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 	_ = d.pool.QueryRow(ctx, `
 		SELECT COALESCE(NULLIF(e.build_id, ''), 'unknown'), COUNT(*)
 		FROM device_events e JOIN devices d ON d.id = e.device_id
-		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden
 		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
 		GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 1`).Scan(&st.WorstBuild, &st.WorstBuildN)
 
@@ -16567,7 +16680,7 @@ func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats
 		LEFT JOIN (
 			SELECT date_trunc('day', e.occurred_at)::date AS day, COUNT(*) c
 			FROM device_events e JOIN devices d ON d.id = e.device_id
-			WHERE e.kind <> 'reboot' AND NOT d.hidden AND e.occurred_at >= CURRENT_DATE - 6
+			WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped') AND NOT d.hidden AND e.occurred_at >= CURRENT_DATE - 6
 			GROUP BY 1
 		) x ON x.day = g::date
 		ORDER BY g`)

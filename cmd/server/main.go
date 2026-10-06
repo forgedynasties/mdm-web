@@ -70,6 +70,11 @@ func main() {
 	dbPass := getEnv("DB_PASSWORD", "mdm")
 	dbName := getEnv("DB_NAME", "mdm")
 	deviceAPIKey := mustEnv("DEVICE_API_KEY")
+	// DEVICE_ENROLL_KEY (optional): a second shared key that is never in any source tree.
+	// Firmware images built from 30 Sep carry it instead of the public default, so the
+	// public DEVICE_API_KEY can be retired (device-key plan, phases 3 and 4) without
+	// cutting those images off. Both are accepted until then.
+	deviceEnrollKey := strings.TrimSpace(getEnv("DEVICE_ENROLL_KEY", ""))
 	adminAPIKey := mustEnv("ADMIN_API_KEY")
 	// SESSION_SECRET signs the dashboard session cookie. It must be its OWN secret:
 	// the previous fallback to DEVICE_API_KEY meant the cookie-signing key was the
@@ -78,6 +83,9 @@ func main() {
 	sessionSecret := mustEnv("SESSION_SECRET")
 	if len(sessionSecret) < 32 {
 		log.Fatalf("SESSION_SECRET must be at least 32 bytes for secure session cookie signing")
+	}
+	if deviceEnrollKey != "" && (len(deviceEnrollKey) < 32 || deviceEnrollKey == deviceAPIKey || deviceEnrollKey == adminAPIKey || deviceEnrollKey == sessionSecret) {
+		log.Fatalf("DEVICE_ENROLL_KEY must be at least 32 bytes and distinct from the other keys")
 	}
 	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
@@ -314,6 +322,8 @@ func main() {
 	hub.SetOnConnect(func(deviceID uuid.UUID) {
 		defer recoverLog("ws onConnect flush for " + deviceID.String())
 		apiHandler.FlushPendingCommands(context.Background(), deviceID)
+		// The venue, table and guest Wi-Fi the tablet shows its guests.
+		apiHandler.PushGuest(context.Background(), deviceID)
 		// A legacy install that started while this device was offline has no progress
 		// source until its socket is back — pick the update_engine log up now.
 		apiHandler.ResumeLegacyWatch(context.Background(), deviceID)
@@ -385,7 +395,7 @@ func main() {
 		_, serial, err := database.DeviceSerialByKeyHash(ctx, hash)
 		return serial, err == nil
 	}
-	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth(deviceAPIKey, deviceKeyLookup, h) }
+	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth([]string{deviceAPIKey, deviceEnrollKey}, deviceKeyLookup, h) }
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
 	// maxDeviceBody caps device POST bodies (post-inflation). Check-ins carry the
 	// installed-app list and a logcat result can be sizable, so it's generous, but
@@ -406,6 +416,10 @@ func main() {
 
 	// Device-authenticated endpoints (body-size limited)
 	mux.Handle("POST /api/v1/checkin", devicePost(apiHandler.Checkin))
+	mux.Handle("POST /api/v1/checkins/backfill", deviceAuth(middleware.MaxBytes(1<<20, http.HandlerFunc(apiHandler.Backfill))))
+	mux.Handle("POST /api/v1/device-key", devicePost(apiHandler.RegisterDeviceKey))
+	mux.Handle("POST /api/v1/devices/{serial}/key-reset", adminAuth(http.HandlerFunc(apiHandler.ResetDeviceKey)))
+	mux.Handle("POST /api/v1/devices/{serial}/simulate-offline", adminAuth(http.HandlerFunc(apiHandler.SimulateOffline)))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
 	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
 	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))
@@ -413,9 +427,14 @@ func main() {
 
 	// Admin-authenticated API endpoints
 	mux.Handle("GET /api/v1/restaurants", adminAuth(http.HandlerFunc(apiHandler.ListRestaurants)))
+	mux.Handle("POST /api/v1/restaurants", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.CreateRestaurant))))
+	mux.Handle("POST /api/v1/restaurants/{id}/devices", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AssignRestaurantDevices))))
+	mux.Handle("POST /api/v1/restaurants/{id}/guest-wifi", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetRestaurantGuestWifi))))
+	mux.Handle("POST /api/v1/devices/{serial}/table", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetDeviceTable))))
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("GET /api/v1/devices/{serial}/temp-fast", adminAuth(http.HandlerFunc(apiHandler.GetTempFast)))
+	mux.Handle("GET /api/v1/hardware-serials", adminAuth(http.HandlerFunc(apiHandler.ListHardwareSerials)))
 	mux.Handle("POST /api/v1/devices/{serial}/temp-fast", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetTempFast))))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
 	mux.Handle("GET /api/v1/remote/{serial}", http.HandlerFunc(apiHandler.ConnectRemote))
@@ -457,6 +476,8 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	dash.SetIngestStats(apiHandler.IngestStats)
+	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)
 
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting

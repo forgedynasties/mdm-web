@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device key plan · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+h2{font-size:18px;margin:40px 0 8px;letter-spacing:-.01em}
+h3{font-size:14.5px;margin:18px 0 6px}
+p,li{font-size:13.5px;line-height:1.65;color:var(--text-2)}
+.lead{color:var(--muted);font-size:14px;max-width:860px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:12px 0}
+.box.hi{border-color:var(--danger-edge,var(--danger));background:var(--danger-bg)}
+.box.hi b{color:var(--danger)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:10px 0}
+th,td{text-align:left;padding:9px 12px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.5}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+code{font-size:12px}
+.ph{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:5px;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);margin-right:6px;vertical-align:1px}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+@media(max-width:720px){table{display:block;overflow-x:auto}}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Removing the hardcoded device key from the firmware client</h1>
+<p class="lead">A plan, 30 Sep 2026. Phases 1 and 2 are done; the figures in the first table are from the morning of 30 Sep.</p>
+
+<div class="box hi"><b>Why this matters now.</b> The firmware client (<code>aio-mdm-client</code>, a public repository) has a built-in default device key in <code>MdmApiService.java</code>, and <b>the live server's <code>DEVICE_API_KEY</code> is that same value</b> (checked today by comparing hashes, without printing it). The server's own comment in <code>internal/middleware/auth.go</code> says what the key allows: it proves only "some device in the fleet", so anyone with it can check in as any serial, and can open the WebSocket as any serial and receive the commands pushed to that device. It is in public git history, so it has to be treated as public from now on; deleting it from the source does not un-publish it.</div>
+
+<h2>Where things stand</h2>
+<table>
+<thead><tr><th>Devices (firmware client, in the fleet)</th><th>Count</th><th>Active 14 days</th><th>How their client can change</th></tr></thead>
+<tbody>
+<tr><td>No client version reported (older than self-update)</td><td>156</td><td>71</td><td>Only by a firmware OTA carrying a newer client</td></tr>
+<tr><td>Client 1.2.0 – 1.5.0 (one reports its version as "15")</td><td>21</td><td>21</td><td>Client self-update (ClientUpdater), no OTA needed</td></tr>
+<tr><td>Devices with their own per-device key</td><td>0</td><td>–</td><td>(4 DPC devices have one; no firmware device does)</td></tr>
+</tbody></table>
+<p>What already exists and can be reused:</p>
+<ul>
+<li><b>Per-device keys on the server.</b> <code>DeviceAuth</code> accepts either the shared key or a per-device <code>dvk_…</code> key (stored as a SHA-256 hash, <code>devices.device_key_hash</code>). With a per-device key, the request is bound to that serial and <code>requireBoundSerial</code> refuses acting as another. DPC devices get one at enrollment.</li>
+<li><b>A key override on the device.</b> Since 6 Aug the client reads <code>persist.sys.mdm.api_key</code> before its built-in default, and re-reads it on refresh.</li>
+<li><b>Client self-update</b> since 1.0.0, and firmware OTA for everything older.</li>
+</ul>
+<p>Why the shared key can't simply be rotated today: every one of the 177 firmware devices sends the built-in value. Changing <code>DEVICE_API_KEY</code> would cut all of them off at once, and the 156 older ones could only be brought back on site or by an OTA they can no longer download.</p>
+
+<h2>The plan: give every device its own key, then retire the shared one</h2>
+<p>Old clients keep working at every step until the last one is gone. The shared key stops being an identity and becomes, at most, a way for a brand-new device to introduce itself.</p>
+
+<h3><span class="ph">Phase 1</span>Server only: contain the shared key <span style="color:var(--ok)">· done 30 Sep</span></h3>
+<p>Live: a device with its own key no longer accepts the shared key on any device endpoint or the WebSocket, and a refused attempt or the same serial connected from two addresses at once raises a critical "possible impersonation" alert. New serials already land in the enrollment inbox with a "new device" alert. The Clients page shows how many devices are still on the shared key.</p>
+<ul>
+<li><b>Lock a serial once it has its own key.</b> A request using the shared key for a serial that has a per-device key is refused, including the WebSocket. No existing device changes behaviour; it closes impersonation for every device the moment it migrates.</li>
+<li><b>Flag impersonation.</b> The same serial connected twice at once, from two addresses, or with two boot ids raises a critical alert (these are rare in normal operation).</li>
+<li><b>New serials via the shared key go to the enrollment inbox</b> as "unverified" instead of joining the fleet silently, so a made-up serial can't appear as a real device.</li>
+<li><b>A count on the Clients page:</b> devices still on the shared key, by client version, so progress is visible.</li>
+</ul>
+
+<h3><span class="ph">Phase 2</span>Client 1.6.0: devices get their own key <span style="color:var(--ok)">· done 30 Sep</span></h3>
+<p>Live: <code>POST /api/v1/device-key</code> accepts one key per firmware serial, only from the address the device just checked in or connected from, and only with the boot id and build it last reported (a mismatch is 409, repeated ones alert); a repeat of the same key is accepted, so a lost reply is harmless. Client 1.6.0 generates the key on the device, keeps it wrapped by Android Keystore in device-protected storage, registers it after an HTTP check-in and reconnects with it; a 401 to its own key sends it back to the shared key to register again. Reset for a device that lost its key is the admin API <code>POST /api/v1/devices/{serial}/key-reset</code>; a button on the device page needs a demo first. First device: AT070AABU00231, registered and kept its key across a reboot.</p>
+<ul>
+<li>On start, if the client has no stored key, it generates one on the device (32 random bytes, kept in Android Keystore-protected storage, never in a system property) and registers it: <code>POST /api/v1/device-key</code> with its serial, boot id and build, authenticated with the shared key.</li>
+<li>The server accepts the registration <b>once per serial</b> (first come; the moment it is taken, Phase 1 locks the serial) and only when the claim is consistent with what it already knows: the serial exists, it is connected or checked in within minutes from the same address, and its build and boot id match its last report. Anything else is refused and alerted.</li>
+<li>From then on the client sends <code>X-API-Key: dvk_…</code>. If the server says the key is unknown (for example after a database restore), the client falls back to the shared key and re-registers, which Phase 1 turns into an admin-visible event rather than a silent swap.</li>
+<li><b>Recovery:</b> a device that loses its key (factory reset, data wipe) can't re-register a locked serial. The device page gets <i>Reset device key</i> (admin): it opens a 30-minute window in which that serial may register again.</li>
+<li>Rollout: first the 21 devices that self-update, by the usual path (stage, pilot device 022, then live). They show up on the Clients page as having their own key.</li>
+</ul>
+
+<h3><span class="ph">Phase 3</span>Firmware: the older 156 devices (with the next OTAs)</h3>
+<ul>
+<li>The next QCOM (<code>v2.1.x</code>) and GMS (<code>v2.0.x</code>) images ship client 1.6.0, so the devices that can't self-update get it with their next firmware update, and from then on update themselves.</li>
+<li>New images stop carrying the public default. The build injects the shared (enrollment) key from the build machine, like the publish key is kept today (<code>~/.config/aio-mdm/</code>, never committed), as a read-only property the client reads first. The source keeps the old default only as a last fallback so an old checkout still talks to an old server.</li>
+<li>Devices that sit on old firmware and never take an OTA stay on the shared key; Phase 4 decides what happens to them.</li>
+</ul>
+
+<h3><span class="ph">Phase 4</span>Retire the shared key (when the count reaches zero, or a set date)</h3>
+<ul>
+<li>When no active device is left on the shared key, set the server to accept it <b>only</b> for registering brand-new devices, and only into the enrollment inbox for approval.</li>
+<li>Then rotate <code>DEVICE_API_KEY</code> to a new secret that only new images carry. Devices already on their own key don't notice.</li>
+<li>Anything still on the old key after the cut-off shows on the Clients page and in the enrollment inbox; bringing it back means an OTA or a technician visit.</li>
+</ul>
+
+<h2>Backward compatibility, step by step</h2>
+<table>
+<thead><tr><th>Device</th><th>Phase 1</th><th>Phase 2</th><th>Phase 3</th><th>Phase 4</th></tr></thead>
+<tbody>
+<tr><td>Old firmware, no client version (156)</td><td>Works as today</td><td>Works as today</td><td>Gets 1.6.0 with its next OTA, then its own key</td><td>If never updated: cut off at the date set</td></tr>
+<tr><td>Client 1.2–1.5 (21)</td><td>Works as today</td><td>Self-updates to 1.6.0, gets its own key</td><td>–</td><td>Unaffected</td></tr>
+<tr><td>DPC devices (4)</td><td>Already keyed, now locked</td><td>–</td><td>–</td><td>Unaffected</td></tr>
+<tr><td>New device from a new image</td><td>Joins via inbox</td><td>Registers its own key on first start</td><td>Carries the new enrollment key</td><td>Unaffected</td></tr>
+</tbody></table>
+
+<h2>Risks and how the plan handles them</h2>
+<ul>
+<li><b>Someone registers a key for a serial before the real device does.</b> The registration checks (connected now, same address, matching build and boot id) and the alert on any refused or conflicting claim make this visible; <i>Reset device key</i> repairs it. Starting with the 21 self-updating devices keeps the window small and watched.</li>
+<li><b>A device loses its stored key.</b> Covered by the reset window; the client never gives up, it keeps checking in with the shared key until an admin opens the window.</li>
+<li><b>An OTA takes weeks to reach old devices.</b> Phases 1–2 already close impersonation for every migrated device, so the risk shrinks as each one moves, not all at once at the end.</li>
+<li><b>Stronger option, later:</b> Android key attestation (a hardware-held key, signed by the device's secure element) would make registration unforgeable. It depends on the attestation roots in our AOSP builds, so it is worth a check on one QCOM and one GMS device before relying on it.</li>
+</ul>
+
+<h2>Suggested order of work</h2>
+<ol>
+<li>Phase 1 server changes, deployed to stage then live.</li>
+<li>Client 1.6.0 key registration, and the server endpoint and reset button, tested on stage with pilot 022.</li>
+<li>Roll 1.6.0 to the 21 self-updating devices; watch the count and the alerts for a week.</li>
+<li>Build the next QCOM and GMS images with 1.6.0 and the injected enrollment key; release as usual.</li>
+<li>Set the Phase 4 date once the count is low.</li>
+</ol>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

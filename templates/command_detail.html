@@ -31,6 +31,27 @@
 
   {{if not .Deliveries}}
   <div class="ad-empty">No devices targeted.</div>
+  {{else if eq $cmd.Type "collect_logs"}}
+  {{/* Log bundles: a row per device with its size and a download; the text itself is
+       only loaded by the download (GetCommandDeliveries carries the size, not the text). */}}
+  <div class="ad-logs">
+    {{if gt .Stats.Done 0}}<div class="ad-logs-h"><a class="cc-btn sm primary" href="/commands/{{$cmd.ID}}/logs.zip" hx-boost="false" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download all (.zip)</a><span>{{.Stats.Done}} of {{.Stats.Total}} collected · logcat, dumpsys, getprop, OTA log, and the crashes the MDM holds</span></div>{{end}}
+    {{range .Deliveries}}
+    <div class="ad-log">
+      <a href="/devices/{{.SerialNumber}}" class="ad-sn2">{{.SerialNumber}}</a>
+      <span class="status-badge {{statusClass .Status}}">{{cmdStatusLabel .Status .Online}}</span>
+      {{if .OutputBytes}}
+        <span class="sz">{{sizeLabel .OutputBytes}}</span>
+        <a class="cc-btn sm" href="/commands/{{$cmd.ID}}/logs/{{.SerialNumber}}" target="_blank" hx-boost="false">View</a>
+        <a class="cc-btn sm" href="/commands/{{$cmd.ID}}/logs/{{.SerialNumber}}?download=1" hx-boost="false" download>Download</a>
+      {{else if eq .Status "expired"}}<span class="ad-wait warn">No logs within 5 minutes</span>
+      {{else if or (eq .Status "failed")}}<span class="ad-wait warn">Failed on the device</span>
+      {{else if .Online}}<span class="ad-wait"><span class="shell-spinner"></span> Collecting…</span>
+      {{else}}<span class="ad-wait">Runs when it reconnects</span>{{end}}
+    </div>
+    {{end}}
+  </div>
+
   {{else if eq $cmd.Type "shell"}}
   <div class="ad-shell">
     {{range .Deliveries}}
@@ -195,6 +216,11 @@
   .ad-out{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--console-text);white-space:pre-wrap;max-height:300px;overflow:auto;}
   .ad-wait{display:flex;align-items:center;gap:7px;padding:12px 14px;font-size:12.5px;color:var(--accent-2);}
   .ad-wait.warn{color:var(--warn);}
+  .ad-logs{padding:14px 18px;display:flex;flex-direction:column;gap:2px}
+  .ad-logs-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 12px;font-size:12.5px;color:var(--muted)}
+  .ad-log{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+  .ad-log .ad-sn2{margin-right:auto;color:var(--text)}
+  .ad-log .sz{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
   .ad-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;padding:16px 18px;}
   .ad-shot{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-2);}
   .ad-frame{display:block;aspect-ratio:16/10;background:var(--surface-3);}

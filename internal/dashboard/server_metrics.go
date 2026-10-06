@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/ingest"
 	"mdm/internal/metrics"
 )
 
@@ -57,7 +58,21 @@ type serverPayload struct {
 	Snapshot metrics.Snapshot `json:"snapshot"`
 	Queues   serverQueues     `json:"queues"`
 	DB       db.PGStats       `json:"db"`
+	Ingest   *ingest.Pipeline `json:"ingest,omitempty"` // nil when the API is not wired (tests)
 	Now      time.Time        `json:"now"`
+}
+
+// SetIngestStats wires the check-in pipeline card to the API handler that owns the
+// queue. main does it; without it the card simply does not draw.
+func (h *Handler) SetIngestStats(f func() ingest.Pipeline) { h.ingestStats = f }
+
+func (h *Handler) serverFrame(r *http.Request) serverPayload {
+	p := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), DB: h.pgStats(r), Now: time.Now()}
+	if h.ingestStats != nil {
+		st := h.ingestStats()
+		p.Ingest = &st
+	}
+	return p
 }
 
 // Postgres vitals read catalog views and, for the table sizes, the filesystem. Cheap
@@ -90,7 +105,7 @@ func (h *Handler) pgStats(r *http.Request) db.PGStats {
 // ServerPage renders the shell. The numbers arrive over the stream immediately after,
 // so the first paint is never a page of zeroes waiting for a poll.
 func (h *Handler) ServerPage(w http.ResponseWriter, r *http.Request) {
-	payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), DB: h.pgStats(r), Now: time.Now()}
+	payload := h.serverFrame(r)
 	b, _ := json.Marshal(payload)
 	h.render(w, r, "server_metrics.html", map[string]any{
 		"Title":      "Server",
@@ -124,7 +139,7 @@ func (h *Handler) ServerEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-t.C:
-			payload := serverPayload{Snapshot: metrics.Default.Snapshot(12, 40), Queues: h.serverQueues(r), DB: h.pgStats(r), Now: time.Now()}
+			payload := h.serverFrame(r)
 			b, err := json.Marshal(payload)
 			if err != nil {
 				continue

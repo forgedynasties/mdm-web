@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Search dock icons · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.glossary{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:12px 0 0}
+.glossary div{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text-2)}
+.glossary svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;color:var(--text)}
+
+/* mock screen */
+.scr{position:relative;height:330px;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg)}
+.scr .pg{position:absolute;inset:0;padding:18px 22px;opacity:.55;pointer-events:none}
+.scr .pg .row{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.scr .pg .c{height:120px;border-radius:8px;background:var(--surface);border:1px solid var(--border)}
+.scr .pg .c.s{height:56px;margin-bottom:12px}
+.ui{position:absolute;inset:0}
+
+/* the search dock shell, shared by every option */
+.sd{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;border-radius:20px;
+  background:color-mix(in srgb,var(--surface) 72%,transparent);backdrop-filter:blur(8px) saturate(180%);-webkit-backdrop-filter:blur(8px) saturate(180%);
+  border:1.5px solid color-mix(in srgb,var(--surface) 40%,transparent);box-shadow:0 14px 36px rgba(0,0,0,.2),0 0 0 1.5px var(--accent-edge);width:max-content}
+.sd .it{position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:var(--muted);cursor:pointer;flex:none}
+.sd .it:hover{background:var(--surface2);color:var(--text)}
+.sd .it svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.sd .it .tt{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .1s}
+.sd .it:hover .tt{opacity:1}
+.sd .sep{width:1px;height:26px;background:var(--border);margin:0 3px;flex:none}
+.sd .in{display:flex;align-items:center;gap:9px;width:330px;height:44px;border-radius:12px;background:var(--surface2);padding:0 12px;color:var(--text-faint);font-size:13px;margin-left:4px;cursor:text;box-sizing:border-box}
+.sd .in svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;flex:none}
+.sd .in .ph{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sd .in kbd{margin-left:auto;font:600 10.5px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface)}
+.sd .in .typed{color:var(--text)}
+.sd .in .caret{display:inline-block;width:1.5px;height:16px;background:var(--accent);vertical-align:-3px;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+/* live figures, as badges on icons */
+.bdg{position:absolute;top:3px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;font-size:10px;font-weight:750;display:grid;place-items:center;color:var(--warn);background:var(--warn-bg);box-shadow:0 0 0 2px var(--surface);box-sizing:border-box;font-variant-numeric:tabular-nums}
+.bdg.crit{background:var(--danger);color:#fff}
+.bdg.crit::after{content:"";position:absolute;inset:-2px;border-radius:inherit;border:2px solid var(--danger);animation:bp 1.8s ease-out infinite}
+@keyframes bp{to{transform:scale(1.7);opacity:0}}
+.ringwrap{position:absolute;inset:3px;pointer-events:none}
+.sd .it .ringwrap svg{width:100%;height:100%;stroke-width:2.4}
+.spinwrap{position:absolute;inset:4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--info);animation:sp 1s linear infinite;pointer-events:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sug{position:absolute;left:50%;bottom:82px;transform:translateX(-50%);width:560px;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);padding:6px;display:none}
+.scr.open .sug{display:block}
+.sug .k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:6px 10px 2px}
+.sug .r{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:12.5px;color:var(--text-2)}
+.sug .r.hl{background:var(--surface2);color:var(--text)}
+.sug .r svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.sug .r span{margin-left:auto;font-size:11px;color:var(--text-faint)}
+
+/* ── A · refined outline ── */
+.v-a .it.on{background:var(--accent-soft);color:var(--accent-text)}
+.v-a .it.on::after{content:"";position:absolute;bottom:3px;width:14px;height:2.5px;border-radius:2px;background:var(--accent)}
+
+/* ── B · duotone ── */
+.v-b .it svg .d{fill:currentColor;fill-opacity:.16;stroke:none}
+.v-b .it.on{background:var(--accent-soft);color:var(--accent-text)}
+.v-b .it.on svg .d{fill-opacity:.32}
+
+/* ── C · solid when active ── */
+.v-c .it svg .f{display:none}
+.v-c .it.on{color:var(--accent-text)}
+.v-c .it.on svg .o{display:none}
+.v-c .it.on svg .f{display:inline}
+.v-c .it.on svg .f .fill{fill:currentColor;stroke:none}
+.v-c .it.on svg .f .cut{stroke:var(--surface);fill:none}
+.v-c .it.on::after{content:"";position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+
+/* ── D · app tiles ── */
+.v-d .it{width:46px;height:46px}
+.v-d .it .tile{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 6px rgba(0,0,0,.18);transition:transform .12s}
+.v-d .it .tile svg{width:19px;height:19px;stroke-width:2}
+.v-d .it:hover{background:transparent}
+.v-d .it:hover .tile{transform:translateY(-2px)}
+.v-d .it.on::after{content:"";position:absolute;bottom:-1px;width:5px;height:5px;border-radius:50%;background:var(--text)}
+.v-d .t-ov{background:linear-gradient(145deg,#ff8a65,#f9674e)}
+.v-d .t-fl{background:linear-gradient(145deg,#9da3ff,#6a70ee)}
+.v-d .t-ac{background:linear-gradient(145deg,#ffc15a,#f59e0b)}
+.v-d .t-al{background:linear-gradient(145deg,#ff7a7a,#e5484d)}
+.v-d .t-fq{background:linear-gradient(145deg,#8b93a3,#5d6573)}
+.v-d .t-mo{background:var(--surface-3);color:var(--text-2)}
+.v-d .bdg{top:0;right:0}
+
+/* ── E · icon over a tiny label ── */
+.v-e .it{width:auto;min-width:54px;height:48px;padding:0 6px;grid-template-rows:auto auto;gap:2px;align-content:center}
+.v-e .it .lb{font-size:10.5px;font-weight:650;line-height:1}
+.v-e .it svg{width:19px;height:19px}
+.v-e .it.on{background:var(--accent-soft);color:var(--accent-text)}
+.v-e .it .tt{display:none}
+.v-e .in{height:48px}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+
+<div class="wrap">
+<h1>Search-bar dock: better icons</h1>
+<p class="lead">This is option D from the last round: a few destinations as icons and a wide search field that takes a serial, a restaurant, a page or an action. Every option below uses the same layout and differs only in the icons. The icons themselves are new: each one draws the page's job rather than a generic shape. The live figures come along as badges: the online ring wraps Fleet, the alert count sits on Alerts, and a spinner circles Actions while commands run. Hover the icons for names, and click a search field to see suggestions.</p>
+
+<div class="glossary" id="gl"></div>
+
+<div class="toc" style="margin-top:14px"><a href="#a">A · Refined outline</a><a href="#b">B · Duotone</a><a href="#c" class="rec">C · Solid when active ★</a><a href="#d">D · App tiles</a><a href="#e">E · Icon + label</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="a">A · Refined outline</h2>
+<p class="desc">One even stroke weight (1.75) and a 24px grid for every icon, the Lucide / Linear style. The current page gets a tint and a short underline.</p>
+<div class="scr v-a" id="s-a"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Quiet and consistent. It matches the rest of the dashboard's icons.</li></ul></div>
+<div><b>Bad at</b><ul><li>Thin lines at 21px are the hardest of the five to tell apart at a glance.</li></ul></div>
+</div>
+
+<h2 class="sec" id="b">B · Duotone</h2>
+<p class="desc">The same outlines with a soft fill in each shape's body. The fill deepens on the current page. It gives the icons weight without making them loud.</p>
+<div class="scr v-b" id="s-b"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>More presence than A while keeping its calm. It reads well in both themes.</li></ul></div>
+<div><b>Bad at</b><ul><li>The fill is subtle, so the current page still depends on the tint behind it.</li></ul></div>
+</div>
+
+<h2 class="sec" id="c">C · Outline, solid when active <span class="tag rec">Recommended</span></h2>
+<p class="desc">The iOS tab-bar convention: every icon is an outline until it's the page you're on, then it turns solid in the brand colour with a dot underneath. "Where am I" is answered by the icon itself, not a box around it.</p>
+<div class="scr v-c" id="s-c"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The clearest current-page signal of the five, without adding anything around the icon.</li><li>A pattern everyone already knows from their phone.</li></ul></div>
+<div><b>Bad at</b><ul><li>Every icon needs a second, solid drawing, so there are two sets to maintain.</li></ul></div>
+</div>
+
+<h2 class="sec" id="d">D · App tiles</h2>
+<p class="desc">Each destination is a coloured rounded tile with a white glyph, like a phone home screen or the macOS dock: coral Overview, periwinkle Fleet, amber Actions, red Alerts. Tiles lift on hover.</p>
+<div class="scr v-d" id="s-d"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The most visual and the most "ours", using the brand coral and periwinkle.</li><li>Easy to find by colour, even out of the corner of your eye.</li></ul></div>
+<div><b>Bad at</b><ul><li>Loud for a tool open all day, and a red tile for Alerts looks like an alert even when there isn't one.</li></ul></div>
+</div>
+
+<h2 class="sec" id="e">E · Icon over a tiny label</h2>
+<p class="desc">Refined icons with their names underneath in small text, so nothing depends on hovering. A little wider than the others.</p>
+<div class="scr v-e" id="s-e"></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>No guessing: new staff read the names, and everyone else reads the shapes.</li></ul></div>
+<div><b>Bad at</b><ul><li>It takes about 80px more width, and with the frequent pages added it starts to crowd the search field.</li></ul></div>
+</div>
+
+<h2 class="sec" id="pick">Recommendation: C</h2>
+<div class="pick"><b>C: outline icons that turn solid on the current page.</b> It keeps the search-bar dock calm like A, but the current page is obvious without a box around it, and it's a pattern everyone knows from their phone. It also leaves the badges (online ring, alert count, spinner) as the only colour on the dock, so they stand out. D is the one to pick if you want the dock to feel like a product rather than a tool. E is the safe choice if new staff get lost. Pick a letter and I'll build it.</div>
+</div>
+
+<script>
+/* The icons: each draws the page's job. o = outline, f = the solid version for C
+   (.fill = filled body, .cut = details knocked out in the background colour), d =
+   the duotone body for B. */
+const IC = {
+  overview: { name:'Overview', hint:'a gauge: the fleet at a glance',
+    o:'<path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/>',
+    d:'<path class="d" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/>',
+    f:'<path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6" stroke-width="2"/>' },
+  fleet: { name:'Fleet', hint:'a tablet and a handheld: your devices',
+    o:'<rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/>',
+    d:'<rect class="d" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="d" x="16.5" y="8.5" width="5" height="11" rx="1.4"/>',
+    f:'<rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3" stroke-width="1.8"/>' },
+  actions: { name:'Actions', hint:'a paper plane: send to devices',
+    o:'<path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/>',
+    d:'<path class="d" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/>',
+    f:'<path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8" stroke-width="1.8"/>' },
+  alerts: { name:'Alerts', hint:'a bell',
+    o:'<path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/>',
+    d:'<path class="d" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/>',
+    f:'<path class="fill" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0" stroke="currentColor"/>' },
+  updates: { name:'Updates', hint:'a download into a device',
+    o:'<path d="M12 3.5v10"/><path d="m8 9.5 4 4 4-4"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
+    d:'<path class="d" d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15z"/>',
+    f:'<path class="fill" d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15z"/><path d="M12 3.5v10M8 9.5l4 4 4-4" stroke="currentColor"/>' },
+  releases: { name:'Releases', hint:'a package',
+    o:'<path d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
+    d:'<path class="d" d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5z"/>',
+    f:'<path class="fill" d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5z"/><path class="cut" d="M3.5 7.5 12 12l8.5-4.5M12 12v9" stroke-width="1.6"/>' },
+  server: { name:'Server', hint:'two server units',
+    o:'<rect x="3.5" y="4" width="17" height="7" rx="1.8"/><rect x="3.5" y="13" width="17" height="7" rx="1.8"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/>',
+    d:'<rect class="d" x="3.5" y="4" width="17" height="7" rx="1.8"/><rect class="d" x="3.5" y="13" width="17" height="7" rx="1.8"/>',
+    f:'<rect class="fill" x="3.5" y="4" width="17" height="7" rx="1.8"/><rect class="fill" x="3.5" y="13" width="17" height="7" rx="1.8"/>' },
+  more: { name:'More', hint:'every other page',
+    o:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+    d:'<rect class="d" x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="d" x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+    f:'<rect class="fill" x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect class="fill" x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>' },
+};
+const SEARCH = '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>';
+const svg = (k, v) => { const i = IC[k];
+  if (v === 'b') return `<svg viewBox="0 0 24 24">${i.d}${i.o}</svg>`;
+  if (v === 'c') return `<svg viewBox="0 0 24 24"><g class="o">${i.o}</g><g class="f">${i.f}</g></svg>`;
+  return `<svg viewBox="0 0 24 24">${i.o}</svg>`; };
+const ring = (on, n) => { const r = 17, c = 2 * Math.PI * r;
+  return `<span class="ringwrap"><svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="${r}" fill="none" stroke="var(--danger-bg)"/><circle cx="19" cy="19" r="${r}" fill="none" stroke="var(--ok)" stroke-dasharray="${c*on/n} ${c}" transform="rotate(-90 19 19)" stroke-linecap="round"/></svg></span>`; };
+const TILE = {overview:'t-ov', fleet:'t-fl', actions:'t-ac', alerts:'t-al', updates:'t-fq', releases:'t-fq', server:'t-fq', more:'t-mo'};
+const page = '<div class="pg"><div class="row"><div><div class="c s"></div><div class="c"></div></div><div><div class="c s"></div><div class="c s"></div><div class="c s"></div></div></div></div>';
+const sug = `<div class="sug"><div class="k">Devices</div><div class="r hl"><svg viewBox="0 0 24 24">${IC.fleet.o}</svg>T7-0412 · Pho 88<span>online</span></div><div class="r"><svg viewBox="0 0 24 24">${IC.fleet.o}</svg>T7-0413 · Pho 88<span>offline 2 h</span></div>
+  <div class="k">Actions</div><div class="r"><svg viewBox="0 0 24 24">${IC.actions.o}</svg>Reboot T7-0412<span>Enter</span></div><div class="k">Pages</div><div class="r"><svg viewBox="0 0 24 24">${IC.releases.o}</svg>Releases</div></div>`;
+
+function dock(v){
+  const item = (k, on, extra) => {
+    const inner = v === 'd' ? `<span class="tile ${TILE[k]}">${svg(k, v)}</span>` : svg(k, v);
+    return `<span class="it${on ? ' on' : ''}">${inner}${v === 'e' ? `<span class="lb">${IC[k].name}</span>` : ''}${extra || ''}<span class="tt">${IC[k].name}</span></span>`; };
+  return `<nav class="sd">${item('overview', 1)}${item('fleet', 0, v === 'd' || v === 'e' ? '' : ring(54, 151))}${item('actions', 0, v === 'd' ? '' : '<span class="spinwrap"></span>')}${item('alerts', 0, '<span class="bdg crit">2</span>')}
+    <span class="sep"></span>${item('updates')}${item('releases')}${item('server')}${item('more')}
+    <div class="in"><svg viewBox="0 0 24 24">${SEARCH}</svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></div></nav>`;
+}
+['a','b','c','d','e'].forEach(v => {
+  const el = document.getElementById('s-' + v);
+  el.innerHTML = page + `<div class="ui">${sug}${dock(v)}</div>`;
+  el.querySelector('.in').addEventListener('click', () => { el.classList.toggle('open');
+    el.querySelector('.ph').innerHTML = el.classList.contains('open') ? '<span class="typed">T7-041</span><span class="caret"></span>' : 'Search devices, restaurants, actions…'; });
+});
+document.getElementById('gl').innerHTML = Object.keys(IC).map(k => `<div><svg viewBox="0 0 24 24">${IC[k].o}</svg><span><b style="color:var(--text)">${IC[k].name}</b><br>${IC[k].hint}</span></div>`).join('');
+
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('ovdemo-theme', t); } catch (e) {} mark(t); }
+function mark(t){ document.getElementById('th-l').classList.toggle('on', t === 'light'); document.getElementById('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>

@@ -238,10 +238,8 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	for _, g := range pol.Grants {
 		out = append(out, grantSentence(g))
 	}
-	if pol.HideOutOfScope {
-		out = append(out, "Devices they cannot see are hidden from every list.")
-	} else if u.Role != "viewer" && (pol.Base == "deny" || len(pol.Grants) > 0) {
-		out = append(out, "Devices they cannot see still appear, with actions disabled.")
+	if pol.Base == "deny" || len(pol.Grants) > 0 {
+		out = append(out, "Devices they cannot see are hidden from every list; devices they can see but not act on are read-only.")
 	}
 	return out
 }
@@ -254,6 +252,10 @@ func roleArticle(role string) string {
 		return "an access admin"
 	case "super_op":
 		return "a super op"
+	case "viewer":
+		return "a viewer"
+	case "owner":
+		return "an owner"
 	default:
 		return "an operator"
 	}
@@ -308,7 +310,31 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 		groups[gi].Actions = append(groups[gi].Actions, a)
 	}
 	actor := h.accessFor(ctx, h.role(r), h.currentUsername(r))
+	profiles, _ := h.db.ListAccessProfiles(ctx)
+	scopes, _ := h.db.DeviceScopes(ctx)
+	simple := deriveSimple(u.Role, pol, profiles, scopes)
+	has := map[string]bool{}
+	for _, a := range simple.Actions {
+		has[a] = true
+	}
+	var custom []accessAction
+	for _, a := range grantableActions(u.Role) {
+		if a.Key != "view" {
+			custom = append(custom, a)
+		}
+	}
+	simpleExp := ""
+	if simple.Expires != nil {
+		simpleExp = simple.Expires.Local().Format("2006-01-02T15:04")
+	}
 	h.render(w, r, "user_access.html", map[string]any{
+		"Simple":        simple,
+		"SimpleHas":     has,
+		"SimpleExp":     simpleExp,
+		"Choices":       h.simpleChoices(u.Role, profiles),
+		"CustomActions": custom,
+		"FleetSize":     len(scopes),
+		"RoleArticle":   roleArticle(u.Role),
 		"Title":        "Manage · " + u.DisplayName(),
 		"Assignable":   assignableRoles(h.role(r)),
 		"CanEditAvatar": h.mayEditAvatar(r, u),
@@ -466,7 +492,17 @@ func (h *Handler) UserAccessSetBase(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("base") == "deny" {
 		pol.Base = "deny"
 	}
-	pol.HideOutOfScope = r.FormValue("hide_out_of_scope") == "1"
+	// "Everything, then exclude" hands out the whole role ceiling on every device —
+	// the same delegation rule as adding a grant: only someone who holds all of it.
+	if pol.Base == "allow" {
+		if err := h.canWiden(r, u); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+	}
+	// Hiding is no longer a choice: a device without "See device" is hidden (see
+	// access.hidesDevices). The stored flag is cleared so it cannot mislead.
+	pol.HideOutOfScope = false
 	if err := h.db.SetUserAccess(r.Context(), u.ID, pol); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
 		return
@@ -496,27 +532,62 @@ func parseGrantForm(r *http.Request) (effect string, actions []string, note stri
 	if len(note) > 200 {
 		note = note[:200]
 	}
-	switch e := strings.TrimSpace(r.FormValue("expires")); e {
-	case "", "never":
-	case "1d", "7d", "30d", "90d":
-		n := map[string]int{"1d": 1, "7d": 7, "30d": 30, "90d": 90}[e]
-		t := time.Now().Add(time.Duration(n) * 24 * time.Hour)
-		expires = &t
-	default:
-		t, perr := time.ParseInLocation("2006-01-02T15:04", e, time.Local)
-		if perr != nil {
-			return "", nil, "", nil, fmt.Errorf("expiry must be a date and time")
-		}
-		if t.Before(time.Now()) {
-			return "", nil, "", nil, fmt.Errorf("expiry is in the past")
-		}
-		expires = &t
+	if expires, err = parseExpires(r); err != nil {
+		return "", nil, "", nil, err
 	}
 	return
 }
 
+// parseExpires reads the "expires" field: never, 1d/7d/30d/90d, or a local date-time.
+func parseExpires(r *http.Request) (*time.Time, error) {
+	switch e := strings.TrimSpace(r.FormValue("expires")); e {
+	case "", "never":
+		return nil, nil
+	case "1d", "7d", "30d", "90d":
+		n := map[string]int{"1d": 1, "7d": 7, "30d": 30, "90d": 90}[e]
+		t := time.Now().Add(time.Duration(n) * 24 * time.Hour)
+		return &t, nil
+	default:
+		t, err := time.ParseInLocation("2006-01-02T15:04", e, time.Local)
+		if err != nil {
+			return nil, fmt.Errorf("expiry must be a date and time")
+		}
+		if t.Before(time.Now()) {
+			return nil, fmt.Errorf("expiry is in the past")
+		}
+		return &t, nil
+	}
+}
+
 // checkGrantAllowed enforces the ceiling and the delegation rule for an allow
 // grant. Returns a user-facing reason when refused.
+// canWiden reports whether the actor may widen target's access without limits — set
+// their base to "allow everything", or lift a deny rule. The super admin may; anyone
+// else only when their own access is unlimited (base allow, no deny rules) and their
+// role's ceiling covers the target's. Otherwise a restricted access admin could give
+// an account more than they hold themselves (30 Sep access audit).
+func (h *Handler) canWiden(r *http.Request, target *db.User) error {
+	if h.role(r) == "admin" {
+		return nil
+	}
+	actor := h.accessFor(r.Context(), h.role(r), h.currentUsername(r))
+	if actor.pol.Base == "deny" {
+		return fmt.Errorf("your own access starts from \"nothing\", so you can't give someone everything")
+	}
+	for _, g := range actor.pol.Grants {
+		if g.Effect == "deny" {
+			return fmt.Errorf("your own access has exclusions, so you can't lift someone else's")
+		}
+	}
+	mine := roleCeiling(h.role(r))
+	for k := range roleCeiling(target.Role) {
+		if mine != nil && !mine[k] {
+			return fmt.Errorf("%s accounts can %s, which your role can't grant", roleLabel(target.Role), lowerFirst(accessActionByKey[k].Label))
+		}
+	}
+	return nil
+}
+
 func (h *Handler) checkGrantAllowed(r *http.Request, target *db.User, g db.AccessGrant) error {
 	ceiling := roleCeiling(target.Role)
 	var concrete []string
@@ -729,6 +800,13 @@ func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	// Removing a deny rule widens their access, so it needs what granting does.
+	if g.Effect == "deny" {
+		if err := h.canWiden(r, u); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+	}
 	if err := h.db.DeleteAccessGrant(r.Context(), g.ID); err != nil {
 		http.Error(w, "Could not remove", http.StatusInternalServerError)
 		return
@@ -740,7 +818,9 @@ func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) 
 
 // ── Overview: /users/access ─────────────────────────────────────────────────
 
-// UsersAccessPage lists every account with its rules in plain words.
+// UsersAccessPage lists every account on one line: what they see (and how many
+// devices that is) and what they can do there, so a wrong setup shows without
+// opening anyone.
 func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	users, err := h.db.ListUsers(ctx)
@@ -749,24 +829,86 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	counts, _ := h.db.CountAccessGrants(ctx, sensitiveActionKeys)
+	profiles, _ := h.db.ListAccessProfiles(ctx)
+	scopes, _ := h.db.DeviceScopes(ctx)
+	profileName := map[string]string{}
+	for _, p := range profiles {
+		profileName["profile:"+p.ID.String()] = p.Name
+	}
 	type row struct {
 		User      db.User
 		Bubble    any
-		Summary   []string
-		Grants    int
+		Sees      string
+		Devices   int
+		Does      string
+		Advanced  string // why the two questions can't show it
+		Expires   string
 		Sensitive bool
-		Custom    bool
+		Limited   bool
 		CanEdit   bool
 	}
 	var rows []row
-	custom, sensitive := 0, 0
+	limited, sensitive := 0, 0
 	for _, u := range users {
+		u := u
 		pol, _ := h.db.GetUserAccess(ctx, u.Username)
-		c := counts[u.ID]
-		rw := row{User: u, Bubble: userBubbleFn(u.Username), Summary: h.policySummary(ctx, &u, pol), Grants: c.Grants, Sensitive: c.Sensitive,
-			Custom: u.Role != "admin" && !pol.IsEmpty(), CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")}
-		if rw.Custom {
-			custom++
+		rw := row{User: u, Bubble: userBubbleFn(u.Username), Sensitive: counts[u.ID].Sensitive,
+			CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")}
+		a := &access{h: h, ctx: ctx, role: u.Role, pol: pol, scopes: scopes}
+		a.once.Do(func() {})
+		for id := range scopes {
+			if a.canDevice("view", id) {
+				rw.Devices++
+			}
+		}
+		if u.Role == "admin" {
+			rw.Sees, rw.Does = "Every device", "Everything"
+		} else if sa := deriveSimple(u.Role, pol, profiles, scopes); !sa.OK {
+			rw.Advanced = sa.Why
+			rw.Sees = fmt.Sprintf("%d of %d devices", rw.Devices, len(scopes))
+			rw.Does = "Custom rules"
+		} else {
+			switch {
+			case sa.Every:
+				rw.Sees = "Every device"
+			case len(sa.Places) == 0:
+				rw.Sees = "Nothing"
+			default:
+				var names []string
+				for i, p := range sa.Places {
+					if i == 2 {
+						names = append(names, fmt.Sprintf("%d more", len(sa.Places)-2))
+						break
+					}
+					names = append(names, p.Name)
+				}
+				rw.Sees = joinAnd(names)
+			}
+			switch {
+			case sa.Do == "role":
+				rw.Does = "Everything " + roleArticle(u.Role) + " can"
+			case profileName[sa.Do] != "":
+				rw.Does = profileName[sa.Do]
+			default:
+				var labels []string
+				for _, k := range sa.Actions {
+					if k != "view" {
+						labels = append(labels, lowerFirst(accessActionByKey[k].Label))
+					}
+				}
+				if len(labels) == 0 {
+					rw.Does = "Look only"
+				} else {
+					rw.Does = strings.ToUpper(labels[0][:1]) + joinAnd(labels)[1:]
+				}
+			}
+			if sa.Expires != nil {
+				rw.Expires = "ends " + humanUntil(*sa.Expires)
+			}
+		}
+		rw.Limited = u.Role != "admin" && rw.Devices < len(scopes)
+		if rw.Limited {
+			limited++
 		}
 		if rw.Sensitive {
 			sensitive++
@@ -778,8 +920,10 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":     "Access control",
 		"Rows":      rows,
-		"Custom":    custom,
+		"Limited":   limited,
 		"Sensitive": sensitive,
+		"Profiles":  len(profiles),
+		"FleetSize": len(scopes),
 		"UsersTab":  "access",
 	})
 }

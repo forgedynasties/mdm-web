@@ -54,6 +54,19 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
 .sv-dbs .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
 .sv-dbs .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
 .sv-dbs.warn .v{color:var(--warn)}
+/* Check-in pipeline: slots → queue → written (option C of static/server-queue-demos.html). */
+.sv-pipe{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch}
+.sv-pipe .st{background:var(--surface2);border-radius:10px;padding:9px 11px;min-width:0}
+.sv-pipe .st .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.sv-pipe .st .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+.sv-pipe .st .v small{font-size:11.5px;color:var(--muted);font-weight:500}
+.sv-pipe .st .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+.sv-pipe .st.warn .v{color:var(--warn)}
+.sv-pipe .ar{align-self:center;color:var(--text-faint);font-size:15px}
+.sv-pipe-foot{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.sv-pipe-foot b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.sv-pipe-foot .warn b{color:var(--warn)}
+@media(max-width:720px){.sv-pipe{grid-template-columns:1fr}.sv-pipe .ar{display:none}}
 .sv-pause{font-size:11px;font-weight:600;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;cursor:pointer;margin-left:auto}
 .sv-pause:hover{color:var(--text)}
 
@@ -137,6 +150,15 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
   <div>
     <div class="sv-sec"><span>Work in flight</span></div>
     <div class="sv-card" id="sv-queues"></div>
+
+    {{/* The check-in path since the ingest queue (internal/ingest): how many check-ins
+         are in their synchronous half, how much history is waiting to be written, and
+         what happened to work that could not wait. All zeros on a normal day; it earns
+         its place in the minute after a deploy, when the whole fleet reconnects. */}}
+    <div id="sv-pipe-wrap" hidden>
+      <div class="sv-sec"><span>Check-in pipeline</span></div>
+      <div class="sv-card" id="sv-pipe"></div>
+    </div>
 
     <div class="sv-sec"><span>Database</span><span class="live" style="font-weight:500" id="sv-db-age"></span></div>
     <div class="sv-card" id="sv-db"></div>
@@ -412,6 +434,32 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
       bar('Remote screen sessions', q.shell_sessions, 4) +
       bar('Peer outbox', q.peer_outbox, 20, q.peer_outbox ? 'warn' : 'ok') +
       bar('Open alerts', q.alerts_open, Math.max(q.devices_total, 1), 'warn');
+
+    var ig = p.ingest, pw = document.getElementById('sv-pipe-wrap');
+    pw.hidden = !ig;
+    if (ig) {
+      var shedAt = Math.floor(ig.capacity * 0.8);
+      document.getElementById('sv-pipe').innerHTML =
+        '<div class="sv-pipe">' +
+          '<div class="st' + (ig.slots_in_use >= ig.slots ? ' warn' : '') + '"><div class="k">Running now</div>' +
+            '<div class="v">' + ig.slots_in_use + '<small>/' + ig.slots + '</small></div>' +
+            '<div class="s">check-ins in their synchronous half</div></div>' +
+          '<div class="ar">→</div>' +
+          '<div class="st' + (ig.depth >= shedAt ? ' warn' : '') + '"><div class="k">History queued</div>' +
+            '<div class="v">' + ig.depth + '<small>/' + ig.capacity + '</small></div>' +
+            '<div class="s">429 past ' + shedAt + '</div></div>' +
+          '<div class="ar">→</div>' +
+          '<div class="st"><div class="k">Written</div>' +
+            '<div class="v">' + Number(ig.written).toLocaleString() + '</div>' +
+            '<div class="s">' + ig.batches + ' batches · last ' + fmt(ig.last_flush_ms) + ' ms · worst ' + fmt(ig.max_flush_ms) + ' ms</div></div>' +
+        '</div>' +
+        '<div class="sv-pipe-foot">' +
+          '<span class="' + (ig.shed ? 'warn' : '') + '">Turned away <b>' + ig.shed + '</b></span>' +
+          '<span class="' + (ig.rejected ? 'warn' : '') + '">Written inline <b>' + ig.rejected + '</b></span>' +
+          '<span class="' + (ig.history_failed ? 'warn' : '') + '">Lost <b>' + ig.history_failed + '</b></span>' +
+          '<span>since the server started</span>' +
+        '</div>';
+    }
 
     var d = p.db || {};
     var hit = d.cache_hit_pct || 0;

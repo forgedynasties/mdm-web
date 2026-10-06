@@ -14,7 +14,6 @@
 .sm-lbl{font-size:10.5px;color:var(--text-faint)}
 .sm-val{font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 </style>
-<link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
 
 <style>
 .fl-page{max-width:1280px;margin:0 auto}
@@ -96,6 +95,45 @@
   <p class="muted small" style="margin:0;padding:0 20px 14px;">
     Window-gated alerts (e.g. offline during service, low battery during service, overnight charging)
     fire only for deployed units during these hours.
+  </p>
+</div>
+
+<!-- Guest Wi-Fi: shown to guests on this venue's tablets (home-screen card + QR code) -->
+{{$gw := .GuestWifi}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic mut"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg></span>
+    <h2>Guest Wi-Fi</h2>
+    <span class="muted small">{{if $gw.SSID}}{{$gw.SSID}} · {{if eq $gw.Security "nopass"}}open network{{else}}{{$gw.Security}}{{end}}{{else}}not set{{end}}</span>
+  </div>
+  <form action="/restaurants/{{.Restaurant.ID}}/guest-wifi" method="POST"
+        style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:16px 20px;">
+    <div class="form-row"><label class="form-label" for="gw-ssid">Network name</label>
+      <input type="text" id="gw-ssid" name="guest_wifi_ssid" class="form-input" maxlength="32" autocomplete="off" spellcheck="false"
+             placeholder="e.g. Diner-Guest" value="{{$gw.SSID}}" style="max-width:220px;"></div>
+    <div class="form-row"><label class="form-label" for="gw-sec">Security</label>
+      <select id="gw-sec" name="guest_wifi_security" class="form-input" style="max-width:150px;">
+        <option value="WPA"{{if and (ne $gw.Security "WEP") (ne $gw.Security "nopass")}} selected{{end}}>WPA / WPA2</option>
+        <option value="WEP"{{if eq $gw.Security "WEP"}} selected{{end}}>WEP</option>
+        <option value="nopass"{{if eq $gw.Security "nopass"}} selected{{end}}>None (open)</option>
+      </select></div>
+    <div class="form-row"><label class="form-label" for="gw-pass">Password <span class="muted small">(blank = open)</span></label>
+      <input type="text" id="gw-pass" name="guest_wifi_password" class="form-input" maxlength="64" autocomplete="off" spellcheck="false"
+             value="{{$gw.Password}}" style="max-width:220px;"></div>
+    <div class="form-row"><label class="form-label" for="gw-app">Guest app <span class="muted small">(optional)</span></label>
+      <input type="text" id="gw-app" name="guest_app_package" class="form-input" maxlength="200" autocomplete="off" spellcheck="false"
+             placeholder="aio.app.nugget" value="{{$gw.AppPackage}}" style="max-width:200px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="cc-btn primary">Save Wi-Fi</button>
+      {{if $gw.SSID}}
+      <button type="submit" name="action" value="clear" class="cc-btn" title="Stop showing a Wi-Fi network on this venue's tablets">Clear</button>
+      {{end}}
+    </div>
+  </form>
+  <p class="muted small" style="margin:0;padding:0 20px 14px;">
+    Every tablet here shows the network to its guests, with a QR code they scan to join from their phone.
+    Tablets that are online get a change at once; the rest when they next check in. The guest app is what
+    the welcome card opens; blank uses the standard AIO ordering app.
   </p>
 </div>
 {{end}}

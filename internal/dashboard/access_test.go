@@ -110,15 +110,18 @@ func TestVisibleIDsAndHiding(t *testing.T) {
 	if ids := a.visibleIDs(); len(ids) != 2 {
 		t.Fatalf("owner sees %d, want 2", len(ids))
 	}
-	// operator base deny without hide flag: shown read-only, no filter
+	// operator with base deny sees nothing without a view rule — "See device" is the
+	// visibility grant, with no separate hide switch (30 Sep access audit)
 	a = newAccess("operator", db.AccessPolicy{Base: "deny"})
-	if a.hidesDevices() || a.visibleIDs() != nil {
-		t.Fatal("operator without hide flag must not filter")
+	if !a.hidesDevices() || len(a.visibleIDs()) != 0 || a.visibleIDs() == nil {
+		t.Fatal("base deny with no view rule must hide every device")
 	}
-	// with hide flag
-	a = newAccess("operator", db.AccessPolicy{Base: "deny", HideOutOfScope: true, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
-	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d4 {
-		t.Fatalf("got %v", ids)
+	// a dev allowed to see one device sees only that device, flag or not
+	for _, hide := range []bool{false, true} {
+		a = newAccess("dev", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
+		if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d4 {
+			t.Fatalf("hide=%v: got %v", hide, ids)
+		}
 	}
 	// viewer with a deny: filtered
 	a = newAccess("viewer", db.AccessPolicy{Grants: []db.AccessGrant{deny("group", &groupG, "view")}})
@@ -184,9 +187,9 @@ func TestRoleCeilings(t *testing.T) {
 // device: it is no longer removed from a non-admin's list, and a policy that hides
 // nothing still hides nothing.
 func TestVisibleIDsDPCNotHidden(t *testing.T) {
-	// One DPC device among the four; the operator's policy denies by default but has
-	// no hide flag, so nothing may be removed.
-	a := newAccess("operator", db.AccessPolicy{Base: "deny"})
+	// One DPC device among the four; the operator may see everything (base allow), so
+	// nothing may be removed — being DPC is no reason to hide a device.
+	a := newAccess("operator", db.AccessPolicy{Base: "allow"})
 	sc := fixtureScopes()
 	sc[d2] = db.DeviceScope{RestaurantID: sc[d2].RestaurantID, Groups: sc[d2].Groups, DPC: true}
 	a.scopes = sc
@@ -197,9 +200,14 @@ func TestVisibleIDsDPCNotHidden(t *testing.T) {
 	if a.canDevice("view", d2) != a.canDevice("view", d1) {
 		t.Error("the DPC device must be judged like any other, not hidden for being DPC")
 	}
-	// The policy still must not hide anything by itself.
 	if a.hidesDevices() {
-		t.Error("an operator without the hide flag must not hide on policy grounds")
+		t.Error("a policy with no view restriction must not hide")
+	}
+	// With a view restriction, the DPC device is judged by the policy like the rest.
+	a = newAccess("operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d2, "view")}})
+	a.scopes = sc
+	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d2 {
+		t.Fatalf("got %v, want only the DPC device the rule names", ids)
 	}
 }
 
@@ -220,6 +228,45 @@ func TestVisibleIDsOwnerNeverCollapsesToNil(t *testing.T) {
 	}
 	if len(ids) != 4 {
 		t.Fatalf("owner sees %d devices, want 4", len(ids))
+	}
+}
+
+// A viewer set to "allow nothing" sees nothing: the viewer's see-everything default
+// used to be checked before the base, so the base never applied (30 Sep audit).
+func TestViewerBaseDenySeesNothing(t *testing.T) {
+	a := newAccess("viewer", db.AccessPolicy{Base: "deny"})
+	if a.canDevice("view", d1) {
+		t.Fatal("viewer with base deny can still see a device")
+	}
+	if ids := a.visibleIDs(); ids == nil || len(ids) != 0 {
+		t.Fatalf("viewer with base deny sees %v", ids)
+	}
+	a = newAccess("viewer", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d3, "view")}})
+	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d3 {
+		t.Fatalf("got %v, want only d3", ids)
+	}
+	// The default still holds without a base: viewers see the fleet.
+	if !newAccess("viewer", db.AccessPolicy{}).canDevice("view", d1) {
+		t.Fatal("a plain viewer must see the fleet")
+	}
+}
+
+func TestRoleWidens(t *testing.T) {
+	for _, c := range []struct {
+		from, to string
+		want     bool
+	}{
+		{"viewer", "operator", true},
+		{"operator", "viewer", false},
+		{"operator", "dev", true},
+		{"dev", "operator", false},
+		{"operator", "admin", true},
+		{"admin", "operator", false},
+		{"operator", "operator", false},
+	} {
+		if got := widens(c.from, c.to); got != c.want {
+			t.Errorf("widens(%s→%s) = %v, want %v", c.from, c.to, got, c.want)
+		}
 	}
 }
 

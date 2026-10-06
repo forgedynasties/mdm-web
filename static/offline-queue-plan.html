@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offline check-ins · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1020px;margin:0 auto}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+h2{font-size:18px;margin:40px 0 8px;letter-spacing:-.01em}
+h3{font-size:14.5px;margin:20px 0 6px}
+p,li{font-size:13.5px;line-height:1.65;color:var(--text-2)}
+.lead{color:var(--muted);font-size:14px;max-width:880px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:10px 0}
+th,td{text-align:left;padding:9px 12px;border-top:1px solid var(--border-soft);vertical-align:top;line-height:1.5}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:0}
+code{font-size:12px}
+.ph{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:5px;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);margin-right:6px;vertical-align:1px}
+.tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.tag.rec{background:var(--ok-bg);color:var(--ok)}.tag.live{background:var(--info-bg);color:var(--info)}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.chart{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.chart .t{font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;gap:8px;align-items:center}
+.chart .t small{font-weight:500;color:var(--muted)}
+.chart svg{width:100%;height:170px;display:block}
+.chart .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+.chart .legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.tip{display:inline-block;background:var(--text);color:var(--bg);font-size:11.5px;padding:5px 8px;border-radius:5px;margin-top:6px}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:10px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:14px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2)}
+.pick b{color:var(--text)}
+@media(max-width:720px){.notes{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
+/* chart colours */
+.ax{stroke:var(--border-soft);stroke-width:1}
+.ln{fill:none;stroke:var(--accent);stroke-width:2}
+.ln.late{stroke-dasharray:5 4}
+.band{fill:var(--text-faint);opacity:.13}
+.band.none{fill:url(#hatch)}
+.lbl{font-size:10.5px;fill:var(--muted);font-family:var(--sans,inherit)}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>Offline check-ins: keep the readings, show the gap</h1>
+<p class="lead">A plan, 1 Oct 2026, to build after the current work. <b>Today</b> a device that can't reach the MDM (Wi-Fi down, the restaurant's internet out, the server being deployed) records nothing: its battery, temperature and memory for that time are lost, and the device's charts just break the line. <b>The goal</b>: the device keeps its readings in a queue of its own while it can't reach us and sends them when it can, the charts fill in, and the time it was out of contact is shaded so nobody mistakes late data for live data.</p>
+
+<h2>How it will look on the device page</h2>
+<p>The same battery chart in each option: out of contact from 14:00 to 16:40. The shading options differ in how they tell "we have the readings, they came late" from "we have nothing for this time" (an older client, or a queue that overflowed).</p>
+
+<svg width="0" height="0" style="position:absolute"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--text-faint)" opacity=".08"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--text-faint)" stroke-width="2" opacity=".35"/></pattern></defs></svg>
+
+<h3>Today <span class="tag live">Deployed</span></h3>
+<div class="chart"><div class="t">Battery <small>12:00 – 18:00</small></div>
+<svg viewBox="0 0 600 170" preserveAspectRatio="none"><line class="ax" x1="0" y1="150" x2="600" y2="150"/><line class="ax" x1="0" y1="20" x2="600" y2="20"/>
+<polyline class="ln" points="0,40 40,42 80,46 120,50 160,55 200,60"/>
+<polyline class="ln" points="467,120 500,112 540,100 580,92 600,88"/>
+<text class="lbl" x="4" y="165">12:00</text><text class="lbl" x="196" y="165">14:00</text><text class="lbl" x="460" y="165">16:40</text><text class="lbl" x="570" y="165">18:00</text></svg>
+<div class="legend"><span>The line just stops and restarts; nothing says why, or what happened in between.</span></div></div>
+
+<h3>A · Shade the span; late readings drawn like any other</h3>
+<div class="chart"><div class="t">Battery <small>12:00 – 18:00</small></div>
+<svg viewBox="0 0 600 170" preserveAspectRatio="none"><rect class="band" x="200" y="20" width="267" height="130"/><line class="ax" x1="0" y1="150" x2="600" y2="150"/>
+<polyline class="ln" points="0,40 40,42 80,46 120,50 160,55 200,60 240,68 280,78 320,90 360,104 400,118 440,128 467,120 500,112 540,100 580,92 600,88"/>
+<text class="lbl" x="206" y="34">Offline · sent later</text><text class="lbl" x="4" y="165">12:00</text><text class="lbl" x="196" y="165">14:00</text><text class="lbl" x="460" y="165">16:40</text><text class="lbl" x="570" y="165">18:00</text></svg>
+<div class="legend"><span><i style="background:var(--text-faint);opacity:.25"></i>Out of contact; the device sent these readings when it reconnected</span></div>
+<span class="tip">Offline 14:00 – 16:40 · 32 readings sent at 16:41</span></div>
+<div class="notes"><div><b>Good at</b><ul><li>Simplest; the line reads as one continuous history.</li></ul></div><div><b>Bad at</b><ul><li>A span with no readings at all looks the same as one with readings, until you hover.</li></ul></div></div>
+
+<h3>B · Shade the span and dash the late line</h3>
+<div class="chart"><div class="t">Battery <small>12:00 – 18:00</small></div>
+<svg viewBox="0 0 600 170" preserveAspectRatio="none"><rect class="band" x="200" y="20" width="267" height="130"/><line class="ax" x1="0" y1="150" x2="600" y2="150"/>
+<polyline class="ln" points="0,40 40,42 80,46 120,50 160,55 200,60"/>
+<polyline class="ln late" points="200,60 240,68 280,78 320,90 360,104 400,118 440,128 467,120"/>
+<polyline class="ln" points="467,120 500,112 540,100 580,92 600,88"/>
+<text class="lbl" x="206" y="34">Offline · sent later</text><text class="lbl" x="4" y="165">12:00</text><text class="lbl" x="196" y="165">14:00</text><text class="lbl" x="460" y="165">16:40</text><text class="lbl" x="570" y="165">18:00</text></svg>
+<div class="legend"><span><i style="background:var(--text-faint);opacity:.25"></i>Out of contact</span><span><i style="border-top:2px dashed var(--accent);height:0;margin-top:4px"></i>Readings sent later</span></div></div>
+<div class="notes"><div><b>Good at</b><ul><li>You can tell late readings from live ones at a glance, even when printed.</li></ul></div><div><b>Bad at</b><ul><li>Still no difference between "late" and "nothing".</li></ul></div></div>
+
+<h3>C · B, plus a hatch where there is nothing <span class="tag rec">Recommended</span></h3>
+<div class="chart"><div class="t">Battery <small>12:00 – 18:00</small></div>
+<svg viewBox="0 0 600 170" preserveAspectRatio="none"><rect class="band" x="200" y="20" width="160" height="130"/><rect class="band none" x="360" y="20" width="107" height="130"/><line class="ax" x1="0" y1="150" x2="600" y2="150"/>
+<polyline class="ln" points="0,40 40,42 80,46 120,50 160,55 200,60"/>
+<polyline class="ln late" points="200,60 240,68 280,78 320,90 360,104"/>
+<polyline class="ln" points="467,120 500,112 540,100 580,92 600,88"/>
+<text class="lbl" x="206" y="34">Offline · sent later</text><text class="lbl" x="366" y="34">No data</text><text class="lbl" x="4" y="165">12:00</text><text class="lbl" x="196" y="165">14:00</text><text class="lbl" x="460" y="165">16:40</text><text class="lbl" x="570" y="165">18:00</text></svg>
+<div class="legend"><span><i style="background:var(--text-faint);opacity:.25"></i>Out of contact, readings sent later</span><span><i style="background:repeating-linear-gradient(45deg,var(--text-faint) 0 2px,transparent 2px 5px);opacity:.6"></i>Out of contact, no readings (the queue was full, or an older client)</span><span><i style="border-top:2px dashed var(--accent);height:0;margin-top:4px"></i>Late readings</span></div>
+<span class="tip">No data 15:20 – 16:40 · the device's queue was full (it keeps 7 days)</span></div>
+<div class="notes"><div><b>Good at</b><ul><li>Three states you can tell apart without hovering: live, late, missing.</li><li>Every device gets the shading on day one, before any client update: today's gaps become hatched "no data" spans.</li></ul></div><div><b>Bad at</b><ul><li>One more pattern to learn on the chart.</li></ul></div></div>
+
+<h2>How it works</h2>
+<h3><span class="ph">Client</span>firmware client 1.7.0</h3>
+<ul>
+<li><b>When it queues:</b> whenever a check-in fails or the socket is down. While out of contact it takes a reading every 5 minutes (not every 30 s), so a day offline is 288 small entries.</li>
+<li><b>What it keeps:</b> the check-in fields the charts use (battery, charging, temperature, RAM, storage, Wi-Fi), plus the device's clock time, the time since boot and the boot id, so the server can place readings correctly even if the device's clock is wrong after a reboot. Crash and reboot events that happened offline go in the same queue.</li>
+<li><b>Where:</b> a file in the client's private storage, so it survives a reboot or a client update. Capped at 7 days or 2 MB; when full, the oldest readings go first and the device reports how many it dropped (that is the hatched "no data").</li>
+<li><b>Sending:</b> as soon as it can reach the MDM again, oldest first, 200 readings per request to a new <code>POST /api/v1/checkins/backfill</code> with its own key. The server answers with what it stored; the device deletes only that, so a dropped connection mid-upload loses nothing and sends nothing twice.</li>
+</ul>
+<h3><span class="ph">Server</span>MDM</h3>
+<ul>
+<li>Stores late readings in the same history (<code>device_samples</code>), marked as late, and ignores any it already has for that moment.</li>
+<li>Records each out-of-contact span it can see (<code>device_offline_spans</code>: from, to, how many readings arrived late, how many the device dropped). Spans are known on the server even without the new client, so today's gaps get shaded from day one.</li>
+<li>Late readings <b>never raise alerts</b> (the device was out of contact; it's history now). Late crash events go into the device's history marked "reported late", without paging.</li>
+<li>Checks the times it's given: nothing in the future, nothing before the device's last live reading, and readings placed by time-since-boot when the device's clock looks wrong.</li>
+<li>Uptime and "offline" figures keep counting the span as offline: the device couldn't be reached, even though its readings arrived later.</li>
+</ul>
+<h3><span class="ph">Dashboard</span>device page charts</h3>
+<ul>
+<li>All device charts (battery, temperature, RAM and the combined chart) shade the spans, in the option you pick above. Hover says when it was offline and how many readings came late.</li>
+<li>The CSV export gets a <code>late</code> column.</li>
+</ul>
+
+<h2>Order of work</h2>
+<table><thead><tr><th>Step</th><th>What</th><th>Visible when</th></tr></thead><tbody>
+<tr><td>1</td><td>Server: offline spans from the existing check-in history, and the shading on the charts (all spans "no data" at first)</td><td>At once, every device</td></tr>
+<tr><td>2</td><td>Server: the backfill endpoint and late samples; spans with readings switch to "sent later"</td><td>With step 3</td></tr>
+<tr><td>3</td><td>Client 1.7.0: the queue and the upload. Tested by pulling the network on a desk unit for an hour; then stage, then the fleet</td><td>Devices on 1.7.0</td></tr>
+<tr><td>4</td><td>MDM Lite (menu board): the same queue in the AAR, later</td><td>Lite 0.2</td></tr>
+</tbody></table>
+
+<h2>Decisions for you</h2>
+<ul>
+<li><b>Shading:</b> A, B or C above. I'd pick <b>C</b>.</li>
+<li><b>How long a device keeps readings:</b> 7 days (proposed). Longer costs storage on the device, not the server.</li>
+<li><b>Late crashes:</b> history only, no alert (proposed). Say if a crash that happened offline should still page.</li>
+</ul>
+<div class="pick"><b>Recommendation: C, 7 days, late crashes as history.</b> Step 1 alone already answers "why is there a hole in this chart" for every device today; steps 2 and 3 then fill the holes for devices on 1.7.0.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

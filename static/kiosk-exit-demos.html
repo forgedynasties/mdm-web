@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosk exits · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.part{font-size:20px;font-weight:750;margin:56px 0 4px;letter-spacing:-.015em;padding-top:18px;border-top:1px solid var(--border)}
+.sec{font-size:17px;font-weight:700;margin:36px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.scr{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--bg);padding:18px}
+.col{max-width:620px}
+
+/* rule editor (templates/manage_policy_form.html) */
+.ke-q{padding:16px 18px;margin-bottom:12px}
+.ke-q h2{font-size:14.5px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+.ke-q .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent-soft,var(--surface-3));color:var(--accent-text);font-size:12px;font-weight:700}
+.ke-hint{font-size:12.5px;color:var(--muted);margin:0 0 12px}
+.ke-sw{display:flex;align-items:flex-start;gap:10px;font-size:13px}
+.ke-sw input{width:18px;height:18px;margin-top:1px}
+.ke-sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.kx-steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.kx-steps li{counter-increment:s;display:flex;gap:9px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-steps li::before{content:counter(s);flex:none;width:18px;height:18px;border-radius:50%;background:var(--surface-3);color:var(--muted);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.kx-steps b{color:var(--text)}
+
+/* Kiosk page (templates/manage.html) */
+.kr-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 17px;border-top:1px solid var(--border-soft)}
+.kr-row:first-child{border-top:0}
+.kr-app{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;background:var(--accent)}
+.kr-nm{font-size:14.5px;font-weight:700}
+.kr-mt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.kr-mt b{color:var(--text-2);font-weight:650}
+.kr-st{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kr-st span,.kr-st a{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid var(--border);color:var(--text-2);text-decoration:none}
+.kr-st .ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}
+.kr-st .warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+.kr-acts{display:flex;gap:6px}
+.kr-sub{margin:10px 0 0 58px;border-left:2px solid var(--warn-bg);padding-left:12px;display:flex;flex-direction:column;gap:6px}
+.kr-sub div{display:flex;align-items:center;gap:10px;font-size:12.5px;flex-wrap:wrap}
+.kr-sub .mono{font-weight:650}
+.h1{font-size:26px;font-weight:300;margin:0 0 4px}
+.sub{font-size:13px;color:var(--muted);margin:0 0 14px}
+/* the strip */
+.kx-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:14px;overflow:hidden}
+.kx-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px;font-size:13.5px}
+.kx-strip-h b{font-weight:700}
+.kx-strip-h small{display:block;font-size:12px;color:var(--text-2);margin-top:1px}
+.kx-strip-h .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
+.kx-strip-h .i svg,.kx-ban .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kx-dev{display:flex;align-items:center;gap:12px;padding:11px 17px;background:var(--surface);border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.kx-dev .id{flex:1;min-width:200px}
+.kx-dev .id b{font-family:var(--mono);font-size:13px}
+.kx-dev .id small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.kx-dev .a{display:flex;gap:6px;flex-wrap:wrap}
+
+/* device page header + banner */
+.dh{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.dh-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dh-name{font-size:24px;font-weight:300}
+.dh-name span{font-size:15px;color:var(--muted);font-family:var(--mono);margin-left:6px}
+.dh-ctls{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.ctl{display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:12.5px;font-weight:650;color:var(--text);line-height:1.4}
+.ctl svg{width:15px;height:15px;color:var(--text-faint)}
+.ctl .st{font-size:11px;font-weight:700;color:var(--text-faint)}
+.ctl.warn{border-color:var(--warn-edge,var(--warn));background:var(--warn-bg)}
+.ctl.warn .st,.ctl.warn svg{color:var(--warn)}
+.kx-ban{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:12px 14px;border-radius:11px;background:var(--warn-bg);border:1px solid var(--warn-edge,transparent);flex-wrap:wrap}
+.kx-ban .i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
+.kx-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-ban .t b{color:var(--text)}
+.kx-ban .a{display:flex;gap:6px;flex-wrap:wrap;align-self:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg,0 20px 50px rgba(0,0,0,.2));padding:16px 18px;max-width:440px}
+.modal h3{margin:0 0 10px;font-size:15px}
+.modal .note{padding:10px 12px;border-radius:9px;background:var(--warn-bg);font-size:13px;line-height:1.5;color:var(--text-2);margin-bottom:12px}
+.modal .note b{color:var(--text)}
+.modal .row{font-size:13px;color:var(--muted)}
+.al{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:10px;padding:12px 14px;max-width:640px;margin-top:14px}
+.al b{font-size:13.5px}
+.al .m{font-size:12.5px;color:var(--muted);margin:4px 0 10px;line-height:1.5}
+.al .a{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>When staff take a device out of kiosk</h1>
+<p class="lead">A technician can leave kiosk on the device (five Power presses, then the exit PIN or the device's rotating code). What you decided: the device then <b>stays out of kiosk until someone locks it again</b>, whether or not a kiosk rule covers it, and the Kiosk page and the device page say so. Today an exit leaves almost no trace: the server turns kiosk off, and from then on the device page just says "Kiosk off", as if it had never been locked; under a kiosk rule it is even locked again within a minute. Three pieces below: the wording in the rule editor, the Kiosk page, and the device page. On live today no device is in kiosk and no rule exists, so the examples are made up: a Nugget rule at Flights Vegas.</p>
+<div class="toc"><a href="#editor">1 · Rule editor wording</a><a href="#kiosk" >2 · Kiosk page</a><a href="#device">3 · Device page</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="part" id="editor">1 · The rule editor's "How staff get out"</h2>
+<p class="desc">You already chose to drop the switch that did nothing. This is option A from the last demo with step 3 corrected to what will now be true.</p>
+<h3 class="sec">Current <span class="tag live">Deployed</span></h3>
+<div class="scr"><div class="col"><div class="cc-card ke-q"><h2><span class="n">3</span>How staff get out</h2><label class="ke-sw"><input type="checkbox" checked><span>Offline exit code<small>A technician can leave kiosk on the device with a code from the MDM that changes every minute, even with no connection. It locks again when the device restarts.</small></span></label></div></div></div>
+<h3 class="sec">New <span class="tag rec">Recommended</span></h3>
+<div class="scr"><div class="col"><div class="cc-card ke-q"><h2><span class="n">3</span>How staff get out</h2><p class="ke-hint">The same on every device; nothing to set here.</p>
+<ol class="kx-steps">
+  <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
+  <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
+  <li><span>The device <b>stays out of kiosk until someone locks it again</b> here. The Kiosk page and the device's page show that it was taken out.</span></li>
+</ol></div></div></div>
+
+<h2 class="part" id="kiosk">2 · The Kiosk page</h2>
+<h3 class="sec">Current <span class="tag live">Deployed</span></h3>
+<p class="desc">A rule's row can show "N exited on site", but only while the exit is still being reported; once the server has taken it in, the device counts as "waiting" and the rule locks it again.</p>
+<div class="scr"><div class="cc-card"><div class="kr-row"><span class="kr-app">N</span><div><div class="kr-nm">Flights Vegas · Nugget</div><div class="kr-mt">Locked to <b>Nugget</b> · Flights Vegas</div><div class="kr-st"><span class="ok">18 locked</span><span>2 waiting</span></div></div><div class="kr-acts"><a class="cc-btn sm">Devices</a><a class="cc-btn sm">Edit</a></div></div></div></div>
+
+<h3 class="sec" id="k-a">A · A strip at the top of the Kiosk page <span class="tag rec">Recommended</span></h3>
+<p class="desc">Whenever a device has been taken out of kiosk on site, the page opens with it: which device, where, when, what it was locked to, and two answers. "Lock again" puts it back to its rule (or its own setting). "Leave it out" keeps it unlocked and clears the notice; under a rule it becomes an exception, like a device changed by hand. The rule's row also counts it.</p>
+<div class="scr">
+  <p class="h1">Kiosk</p><p class="sub"><b>18</b> devices locked by 1 rule · 2 taken out on site · 4 not covered</p>
+  <div class="kx-strip">
+    <div class="kx-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div><b>2 devices were taken out of kiosk on site</b><small>Someone used the exit PIN or code on the device. They stay unlocked until you lock them again.</small></div></div>
+    <div class="kx-dev"><div class="id"><b>AT070AABU00875</b><small>Flights Vegas · was locked to Nugget by the rule "Flights Vegas · Nugget" · taken out today 14:02</small></div><div class="a"><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button></div></div>
+    <div class="kx-dev"><div class="id"><b>AT070AABU00833</b><small>Flights Vegas · was locked to Nugget by the rule "Flights Vegas · Nugget" · taken out yesterday 21:40</small></div><div class="a"><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button></div></div>
+  </div>
+  <div class="cc-card"><div class="kr-row"><span class="kr-app">N</span><div><div class="kr-nm">Flights Vegas · Nugget</div><div class="kr-mt">Locked to <b>Nugget</b> · Flights Vegas</div><div class="kr-st"><span class="ok">18 locked</span><a class="warn" href="#k-a">2 taken out on site</a></div></div><div class="kr-acts"><a class="cc-btn sm">Devices</a><a class="cc-btn sm">Edit</a></div></div></div>
+</div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>An unlocked kiosk is what someone needs to act on, so it is the first thing on the page.</li><li>Includes devices locked by hand, not just by rules.</li><li>Gone when nothing is waiting.</li></ul></div>
+  <div><b>Bad at</b><ul><li>If exits are routine at a site (staff restock every evening), the strip is rarely empty. "Leave it out" is how you tell it that's fine.</li></ul></div>
+</div>
+
+<h3 class="sec" id="k-b">B · Only on the rule's row</h3>
+<p class="desc">No strip. The rule row's "2 taken out on site" opens the list under the row.</p>
+<div class="scr"><div class="cc-card"><div class="kr-row"><span class="kr-app">N</span><div><div class="kr-nm">Flights Vegas · Nugget</div><div class="kr-mt">Locked to <b>Nugget</b> · Flights Vegas</div><div class="kr-st"><span class="ok">18 locked</span><a class="warn" href="#k-b">2 taken out on site ▾</a></div></div><div class="kr-acts"><a class="cc-btn sm">Devices</a><a class="cc-btn sm">Edit</a></div></div>
+  <div class="kr-sub" style="padding:0 17px 14px"><div><span class="mono">AT070AABU00875</span><span class="muted">today 14:02</span><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button></div><div><span class="mono">AT070AABU00833</span><span class="muted">yesterday 21:40</span><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button></div></div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>Quiet; lives with the rule it belongs to.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Easy to miss among many rules; a device locked by hand (no rule) has nowhere to show.</li></ul></div>
+</div>
+
+<h2 class="part" id="device">3 · The device page</h2>
+<h3 class="sec">Current <span class="tag live">Deployed</span></h3>
+<p class="desc">After the exit is reported, the header's Kiosk button just says "off".</p>
+<div class="scr"><div class="dh"><div class="dh-top"><div class="dh-name">TSAI<span>AT070AABU00875</span></div><div class="dh-ctls"><span class="cc-btn primary">Remote Control</span><span class="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Kiosk<span class="st">off</span></span></div></div></div></div>
+
+<h3 class="sec" id="d-a">A · A notice under the header, and the Kiosk button says so <span class="tag rec">Recommended</span></h3>
+<p class="desc">The same two answers as on the Kiosk page, right where anyone opening the device looks first. The Kiosk button turns amber and reads "taken out".</p>
+<div class="scr"><div class="dh"><div class="dh-top"><div class="dh-name">TSAI<span>AT070AABU00875</span></div><div class="dh-ctls"><span class="cc-btn primary">Remote Control</span><span class="ctl warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Kiosk<span class="st">taken out</span></span></div></div>
+  <div class="kx-ban"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div class="t"><b>Taken out of kiosk on site</b>, today at 14:02. Someone used the exit PIN or code on the device. It was locked to Nugget by the rule <a href="#" class="link-detail">Flights Vegas · Nugget</a>, and stays unlocked until you lock it again.</div><div class="a"><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button></div></div>
+</div></div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>Impossible to miss, and says what happened, when, and what "locked" meant for this device.</li></ul></div>
+  <div><b>Bad at</b><ul><li>Takes a row of the header until someone answers it.</li></ul></div>
+</div>
+
+<h3 class="sec" id="d-b">B · Only in the Kiosk button and its dialog</h3>
+<p class="desc">The button turns amber ("taken out"); the explanation and the two answers are inside the kiosk dialog it opens.</p>
+<div class="scr" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+  <div class="dh" style="flex:1;min-width:300px"><div class="dh-top"><div class="dh-name">TSAI<span>AT070AABU00875</span></div><div class="dh-ctls"><span class="ctl warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Kiosk<span class="st">taken out</span></span></div></div></div>
+  <div class="modal"><h3>Kiosk mode</h3><div class="note"><b>Taken out on site</b> today at 14:02 with the exit PIN or code. It stays unlocked until you lock it again.</div><div class="row">Locked app: Nugget</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="cc-btn sm">Leave it out</button><button class="cc-btn sm primary">Lock again</button></div></div>
+</div>
+<div class="notes">
+  <div><b>Good at</b><ul><li>No extra space on the page.</li></ul></div>
+  <div><b>Bad at</b><ul><li>An amber word is all there is until someone clicks it.</li></ul></div>
+</div>
+
+<h3 class="sec" id="d-c">Optional, with either · Also an alert</h3>
+<p class="desc">An exit also opens a warning on Alerts (and so reaches Teams like any other problem), closed by Lock again or Leave it out. Useful if nobody watches the Kiosk page; noisy if exits are routine.</p>
+<div class="scr"><div class="al"><b>AT070AABU00875: Taken out of kiosk on site</b><div class="m">Someone used the exit PIN or code on the device at 14:02. It stays unlocked until you lock it again.</div><div class="a"><button class="cc-btn sm primary">Lock again</button><button class="cc-btn sm">Leave it out</button><button class="cc-btn sm">Open device</button></div></div></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>Editor: the new wording. Kiosk page: A, the strip. Device page: A, the notice, plus the amber Kiosk button.</b> An unlocked kiosk is something to act on, so it should be in front of whoever opens either page, with the two answers right there. "Lock again" puts the device back to what locked it (its rule, or its own setting); "Leave it out" says that is fine and, under a rule, makes it an exception you can see on the rule's device page. Skip the alert for now: add it if exits turn out to go unnoticed.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

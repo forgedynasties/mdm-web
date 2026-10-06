@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DPC agent on-device status screen — layout options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1160px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:860px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.cur{display:inline-block;font-size:10.5px;font-weight:800;color:#b4282d;background:rgba(229,72,77,.13);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .cur{background:rgba(229,72,77,.22);color:#f08a8d;}
+
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;}
+.tag{display:inline-block;font-size:10.5px;font-weight:750;color:var(--text-faint);background:var(--surface-3);
+  border-radius:6px;padding:2px 8px;margin-bottom:8px;}
+
+/* device frame */
+.devframe{background:#0e0f13;border-radius:16px;padding:9px;box-shadow:0 14px 40px rgba(0,0,0,.35);}
+.devframe.tv{width:620px;border-radius:9px;}
+.devframe.touch{width:340px;border-radius:20px;}
+.devscreen{background:var(--surface);border-radius:11px;padding:16px;font-size:12px;overflow:hidden;}
+.devframe.tv .devscreen{min-height:300px;}
+.devframe.touch .devscreen{min-height:480px;}
+
+/* hero */
+.hero{border-radius:10px;border:1px solid var(--border);background:var(--surface-3);padding:14px 16px;margin-bottom:12px;}
+.hero .kick{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);}
+.hero .name{font-weight:750;font-size:14.5px;margin:4px 0 2px;}
+.hero .sub{color:var(--text-faint);font-size:11px;margin-bottom:12px;}
+.hero .st{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;}
+.hero .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none;}
+.hero .detail{color:var(--text-faint);font-size:11px;margin:3px 0 0 18px;}
+.hero .btns{display:flex;gap:8px;margin-top:14px;}
+.hero .btn{font-size:11.5px;font-weight:700;padding:7px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface);}
+.hero .btn.p{background:var(--accent);color:#fff;border-color:transparent;}
+
+/* row list */
+.card{border-radius:10px;border:1px solid var(--border);background:var(--surface);padding:12px 14px;margin-bottom:10px;}
+.card h3{font-size:12px;margin:0 0 6px;font-weight:750;}
+.kv{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-soft);font-size:11.5px;}
+.kv:last-child{border-bottom:0;}
+.kv .k{color:var(--text-faint);}
+.kv .v{font-weight:650;}
+.kv .v.ok{color:var(--ok);}
+.kv .v.warn{color:#b4890a;}
+.cols2{display:flex;gap:12px;}
+.cols2 > div{flex:1;min-width:0;}
+
+/* chips */
+.chipw{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:99px;}
+.chip.ok{background:rgba(43,182,115,.15);color:#1c7d50;}
+html[data-theme="dark"] .chip.ok{background:rgba(43,182,115,.22);color:#5fd49a;}
+.chip.warn{background:rgba(229,170,10,.15);color:#8a6600;}
+html[data-theme="dark"] .chip.warn{background:rgba(229,170,10,.22);color:#f0c050;}
+
+/* tabs variant */
+.tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--surface-3);border-radius:9px;padding:3px;}
+.tabs .t{flex:1;text-align:center;font-size:10.5px;font-weight:750;padding:7px 4px;border-radius:7px;color:var(--text-faint);}
+.tabs .t.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+/* compact list variant */
+.seclabel{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 4px;}
+.seclabel:first-child{margin-top:0;}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme">
+  <button data-t="light">Light</button><button data-t="dark">Dark</button>
+</div>
+<div class="wrap">
+  <h1>DPC agent status screen (ui/MainActivity) — layout options</h1>
+  <p class="lead">The on-device screen shown on an enrolled DPC device itself (not the dashboard).
+  Read-only — no server URL/key to type, enrollment arrives by QR or the adb extras used today.
+  Already does a lot right: battery row is only added <code>if (battery() != null)</code>
+  (correctly hidden on mains-only hardware at the UI layer, matching the mains-power fix we
+  just scoped), and columns already go two-wide above 720dp and stack below it. Mocked here
+  against the 3 devices onboarded today: rbox (TV, D-pad only, wide), D3 Pro / KDS (touch,
+  narrower panel).</p>
+
+  <div class="eyebrow">Option 1 — current two-column cards</div>
+  <div class="dname">As shipped (0.2.3+) <span class="cur">deployed today</span> <span class="rec">Recommended — keep</span></div>
+  <div class="ddesc">Hero card (device + status + check-in/settings) up top, then Management +
+  Device in column 1, Policies + Capabilities + Privacy in column 2. Columns side-by-side ≥720dp
+  (rbox), stacked below it (Sunmi touch panels, and the one Samsung mpos phone in the fleet).
+  Good: every field has a label, nothing is guessed, capability chips make degraded caps (no
+  root → shell/screen_capture/input/logcat) visually distinct without a paragraph of caveats.
+  Already handles the no-battery case correctly by omitting the row rather than showing 0%.</div>
+  <div class="row">
+    <div>
+      <div class="tag">rbox · HK1 RBOX D8 · 1280dp wide (TV)</div>
+      <div class="devframe tv"><div class="devscreen">
+        <div class="hero">
+          <div class="kick">Device</div>
+          <div class="name">Google HK1 RBOX D8</div>
+          <div class="sub">ADRB0AAK600026</div>
+          <div class="st"><span class="dot"></span>Managed &amp; reporting</div>
+          <div class="detail">Checking in every 30s over WebSocket</div>
+          <div class="btns"><span class="btn p">Check in now</span><span class="btn">Settings</span></div>
+        </div>
+        <div class="cols2">
+          <div>
+            <div class="card"><h3>Management</h3>
+              <div class="kv"><span class="k">Device owner</span><span class="v ok">Active</span></div>
+              <div class="kv"><span class="k">Server</span><span class="v">mdm.dev.aioapp.com</span></div>
+              <div class="kv"><span class="k">Connection</span><span class="v ok">Live</span></div>
+            </div>
+            <div class="card"><h3>Device</h3>
+              <div class="kv"><span class="k">Serial</span><span class="v">ADRB0AAK600026</span></div>
+              <div class="kv"><span class="k">Agent</span><span class="v">0.2.5 (13)</span></div>
+              <div class="kv"><span class="k">Network</span><span class="v">Wi-Fi · AIO-Office</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="card"><h3>Policies</h3>
+              <div class="kv"><span class="k">Kiosk</span><span class="v">Off</span></div>
+              <div class="kv"><span class="k">System updates</span><span class="v">Automatic</span></div>
+            </div>
+            <div class="card"><h3>Capabilities</h3>
+              <div class="chipw">
+                <span class="chip ok">Install APK</span><span class="chip ok">Reboot</span><span class="chip ok">Config</span>
+                <span class="chip warn">Shell (app UID)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div>
+      <div class="tag">D3 Pro / KDS · Sunmi touch · &lt;720dp (stacked)</div>
+      <div class="devframe touch"><div class="devscreen">
+        <div class="hero">
+          <div class="kick">Device</div>
+          <div class="name">Sunmi D3 Pro</div>
+          <div class="sub">DP02253X11001</div>
+          <div class="st"><span class="dot"></span>Managed &amp; reporting</div>
+          <div class="detail">Checking in every 30s over WebSocket</div>
+          <div class="btns"><span class="btn p">Check in now</span><span class="btn">Settings</span></div>
+        </div>
+        <div class="card"><h3>Management</h3>
+          <div class="kv"><span class="k">Device owner</span><span class="v ok">Active</span></div>
+          <div class="kv"><span class="k">Server</span><span class="v">mdm.dev.aioapp.com</span></div>
+        </div>
+        <div class="card"><h3>Device</h3>
+          <div class="kv"><span class="k">Serial</span><span class="v">DP02253X11001</span></div>
+          <div class="kv"><span class="k">Agent</span><span class="v">0.2.5 (13)</span></div>
+        </div>
+        <div class="card"><h3>Capabilities</h3>
+          <div class="chipw">
+            <span class="chip ok">Install APK</span><span class="chip warn">Shell</span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="eyebrow">Option 2 — tabbed sections</div>
+  <div class="dname">Status / Device / Policies tabs</div>
+  <div class="ddesc">One section visible at a time, same content, no responsive column logic
+  needed at all. Shrinks scroll length on small touch panels. Costs an extra tap (or D-pad move)
+  to reach anything past the first tab — worse for the rbox, which is glanced at via remote and
+  wants everything visible without navigating. Only worth it if a much smaller screen joins the
+  fleet (a handheld mpos, which the catalog already has as a class).</div>
+  <div class="row">
+    <div>
+      <div class="tag">D3 Pro / KDS · touch</div>
+      <div class="devframe touch"><div class="devscreen">
+        <div class="tabs"><span class="t on">Status</span><span class="t">Device</span><span class="t">Policies</span></div>
+        <div class="hero" style="margin-bottom:10px;">
+          <div class="st"><span class="dot"></span>Managed &amp; reporting</div>
+          <div class="detail">Checking in every 30s · Live WS</div>
+        </div>
+        <div class="card"><h3>Management</h3>
+          <div class="kv"><span class="k">Device owner</span><span class="v ok">Active</span></div>
+          <div class="kv"><span class="k">Server</span><span class="v">mdm.dev.aioapp.com</span></div>
+          <div class="kv"><span class="k">Enrollment</span><span class="v">Enrolled</span></div>
+        </div>
+        <div class="btns" style="margin-top:4px;"><span class="btn p">Check in now</span><span class="btn">Settings</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="eyebrow">Option 3 — compact single list</div>
+  <div class="dname">No cards, section labels only</div>
+  <div class="ddesc">Flattest, cheapest to render, smallest code surface. Loses the capability
+  chips' at-a-glance color coding (degraded caps become just another row of text) and the visual
+  separation between "this is critical" (hero) and "this is detail" — a glance from across a
+  kitchen at the KDS would have to read text instead of spotting a red/green dot. Not recommended
+  for any of today's 3 devices, but noted since it's the cheapest option if a very constrained
+  display (e-ink, segment LCD style KDS) ever needs this screen.</div>
+  <div class="row">
+    <div>
+      <div class="tag">D3 Pro / KDS · touch</div>
+      <div class="devframe touch"><div class="devscreen">
+        <div class="name" style="font-size:14px;font-weight:750;">Sunmi D3 Pro</div>
+        <div class="sub" style="color:var(--text-faint);font-size:11px;margin-bottom:4px;">DP02253X11001 · Managed &amp; reporting</div>
+        <div class="seclabel">Management</div>
+        <div class="kv"><span class="k">Device owner</span><span class="v ok">Active</span></div>
+        <div class="kv"><span class="k">Server</span><span class="v">mdm.dev.aioapp.com</span></div>
+        <div class="seclabel">Device</div>
+        <div class="kv"><span class="k">Serial</span><span class="v">DP02253X11001</span></div>
+        <div class="kv"><span class="k">Agent</span><span class="v">0.2.5 (13)</span></div>
+        <div class="seclabel">Capabilities</div>
+        <div class="kv"><span class="k">Shell</span><span class="v warn">Degraded</span></div>
+        <div class="kv"><span class="k">Install APK</span><span class="v ok">Full</span></div>
+        <div class="btns" style="margin-top:10px;"><span class="btn p">Check in now</span><span class="btn">Settings</span></div>
+      </div></div>
+    </div>
+  </div>
+
+</div>
+<script>
+(function(){
+  var saved = localStorage.getItem('demo-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  document.querySelectorAll('.themebar button').forEach(function(b){
+    if(b.dataset.t === (saved||'light')) b.classList.add('on');
+    b.addEventListener('click', function(){
+      document.documentElement.setAttribute('data-theme', b.dataset.t);
+      try{ localStorage.setItem('demo-theme', b.dataset.t); }catch(e){}
+      document.querySelectorAll('.themebar button').forEach(function(x){x.classList.toggle('on', x===b);});
+    });
+  });
+})();
+</script>
+</body>
+</html>

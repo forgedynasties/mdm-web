@@ -122,17 +122,9 @@ func (h *Handler) CloseIngest(ctx context.Context) error {
 	return h.history.Close(ctx)
 }
 
-// IngestStats is the queue and admission picture for /debug/vars.
-type IngestStats struct {
-	ingest.Stats
-	SlotsInUse    int   `json:"slots_in_use"`
-	Slots         int   `json:"slots"`
-	Shed          int64 `json:"shed"`
-	HistoryFailed int64 `json:"history_failed"`
-}
-
-func (h *Handler) IngestStats() IngestStats {
-	return IngestStats{
+// IngestStats is the queue and admission picture for /debug/vars and the Server page.
+func (h *Handler) IngestStats() ingest.Pipeline {
+	return ingest.Pipeline{
 		Stats:         h.history.Stats(),
 		SlotsInUse:    len(h.ingestSlots),
 		Slots:         cap(h.ingestSlots),

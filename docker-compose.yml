@@ -91,14 +91,16 @@ services:
       # Pass-through target for the legacy routes: the old ota-server, republished on
       # host port 8001 (host.docker.internal resolves to the docker host below).
       LEGACY_OTA_UPSTREAM: ${LEGACY_OTA_UPSTREAM:-http://host.docker.internal:8001}
-      # AWS creds for S3 APK uploads — read from the mounted ~/.aws (no keys in env).
-      AWS_SHARED_CREDENTIALS_FILE: /app/.aws/credentials
-      AWS_CONFIG_FILE: /app/.aws/config
+      # AWS access (SES email, S3 APK uploads) comes from the EC2 instance role
+      # (ec2-ssm), which the AWS SDK finds through the instance metadata service.
+      # No keys in env and no credentials file: the ~/.aws mount this used to have was
+      # empty on the box, because deploys run over SSM with no HOME and it resolved to
+      # /.aws. It only works because the instance allows a metadata hop limit of 2
+      # (a container is one hop further than the host); keep it at 2 or more.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - splashdata:/app/data
-      - ${HOME}/.aws:/app/.aws:ro
     # Give the server time to finish in-flight requests and drain WebSockets on
     # `docker compose down`/redeploy. The server closes its streams and device sockets
     # on SIGTERM and then drains ordinary requests, which takes milliseconds; 15s is the

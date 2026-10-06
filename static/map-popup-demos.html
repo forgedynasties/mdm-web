@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Map popup · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1180px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:44px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:90;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+
+/* a stand-in map */
+.mapbox{border:1px solid var(--border);border-radius:var(--r-4);overflow:hidden;background:var(--surface)}
+.map{position:relative;height:330px;background:
+  radial-gradient(circle at 70% 40%,color-mix(in srgb,var(--text-faint) 12%,transparent) 0 60px,transparent 61px),
+  repeating-linear-gradient(28deg,transparent 0 58px,color-mix(in srgb,var(--text-faint) 16%,transparent) 58px 60px),
+  repeating-linear-gradient(-62deg,transparent 0 90px,color-mix(in srgb,var(--text-faint) 12%,transparent) 90px 92px),
+  color-mix(in srgb,var(--surface-3) 70%,var(--bg))}
+.dot{position:absolute;width:40px;height:40px;border-radius:50%;background:var(--warn);border:2px solid var(--surface);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+[data-theme=dark] .dot{color:#0d0d12}
+.dot.ok{background:var(--ok)}
+.lbl{position:absolute;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap}
+/* current: Google's info window */
+.giw{position:absolute;background:#fff;color:#222;border-radius:8px;box-shadow:0 2px 7px rgba(0,0,0,.3);padding:14px 16px 12px;font:13px Roboto,Arial,sans-serif;min-width:200px;transform:translate(-50%,-100%)}
+.giw:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;border:8px solid transparent;border-top-color:#fff;border-bottom:0}
+.giw .x{position:absolute;right:10px;top:6px;font-size:20px;color:#666}
+.giw a{color:#e5553b;text-decoration:none}
+/* A: themed card */
+.pc{position:absolute;width:268px;transform:translate(-50%,calc(-100% - 30px));background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);font-size:12.5px;overflow:hidden}
+.pc .h{display:flex;align-items:center;gap:8px;padding:12px 14px 4px}
+.pc .h b{font-size:14px}
+.pc .h .x{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--muted)}
+.pc .h .x:hover{background:var(--surface-3)}
+.pc .b{padding:4px 14px 12px}
+.pc .meter{height:6px;border-radius:99px;background:var(--danger-bg);overflow:hidden;margin:8px 0 5px}
+.pc .meter i{display:block;height:100%;background:var(--ok)}
+.pc .row{display:flex;justify-content:space-between;color:var(--muted)}
+.pc .row b{color:var(--text);font-variant-numeric:tabular-nums}
+.pc .off{margin-top:9px;font-size:12px;color:var(--text-2)}
+.pc .off span{font-family:var(--mono);font-size:11px;background:var(--surface-3);border-radius:5px;padding:1px 5px;margin:0 3px 3px 0;display:inline-block}
+.pc .up{display:flex;gap:3px;margin-top:9px;align-items:center}
+.pc .up i{width:12px;height:14px;border-radius:3px;background:var(--ok)}
+.pc .up i.warn{background:var(--warn)}.pc .up i.bad{background:var(--danger)}
+.pc .up small{margin-left:8px;color:var(--muted)}
+.pc .f{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border-soft);background:var(--surface-2,var(--bg))}
+/* B: tooltip only */
+.tt{position:absolute;transform:translate(-50%,calc(-100% - 28px));background:var(--text);color:var(--bg);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.tt small{font-weight:500;opacity:.8}
+.cursor{position:absolute;font-size:16px;transform:translate(6px,4px)}
+/* C: strip under the map */
+.strip{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:18px;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}
+.strip .n b{font-size:14px;display:block}
+.strip .n span{font-size:12px;color:var(--muted)}
+.strip .off{font-size:12px;color:var(--text-2)}
+.strip .off span{font-family:var(--mono);font-size:11px;background:var(--surface-3);border-radius:5px;padding:1px 5px;margin-right:3px}
+@media(max-width:720px){.strip{grid-template-columns:1fr}}
+</style>
+</head><body>
+<div class="themebar"><button data-t="light">Light</button><button data-t="dark">Dark</button></div>
+<div class="wrap">
+<h1>What happens when you click a restaurant on the map</h1>
+<p class="lead">Today it opens Google's own info window: white in dark mode too, the site's font lost, and "16 of 20 online" said twice ("4 of 20 offline" underneath). The options below use Flights Vegas as it is right now: 20 devices, 16 reporting, the 4 silent ones listed. The uptime cells are illustrative.</p>
+<div class="toc"><a href="#cur">Current</a><a href="#a" class="rec">A · Our card ★</a><a href="#b">B · No popup</a><a href="#c">C · Strip under the map</a><a href="#pick">Recommendation</a></div>
+
+<h2 class="sec" id="cur">Current <span class="tag live">Deployed</span></h2>
+<div class="mapbox"><div class="map">
+  <div class="dot" style="left:50%;top:78%">20</div><div class="lbl" style="left:50%;top:calc(78% + 24px)">Flights Vegas</div>
+  <div class="giw" style="left:50%;top:calc(78% - 30px)"><span class="x">×</span><div>Flights Vegas</div><div>16 of 20 online</div><div style="color:#777">4 of 20 offline</div><a href="#">Open restaurant →</a></div>
+</div></div>
+
+<h2 class="sec" id="a">A · Our own card <span class="tag rec">Recommended</span></h2>
+<p class="desc">The same click opens a card drawn by the page instead of Google: it follows light and dark, uses the site's type, and says each thing once. A bar for online, the silent devices by serial (each a link), the week's uptime from the card beside the map, and two actions. Escape or a click on the map closes it.</p>
+<div class="mapbox"><div class="map">
+  <div class="dot" style="left:50%;top:84%">20</div><div class="lbl" style="left:50%;top:calc(84% + 24px)">Flights Vegas</div>
+  <div class="pc" style="left:50%;top:84%">
+    <div class="h"><span class="ovd-dot warn" style="width:8px;height:8px;border-radius:50%;background:var(--warn);display:inline-block"></span><b>Flights Vegas</b><span class="x">×</span></div>
+    <div class="b">
+      <div class="meter"><i style="width:80%"></i></div>
+      <div class="row"><span><b>16</b> of 20 online</span><span>4 silent</span></div>
+      <div class="off">Silent: <span>00489</span><span>00583</span><span>00034</span><span>00607</span></div>
+      <div class="up"><i></i><i></i><i class="warn"></i><i></i><i class="bad"></i><i class="warn"></i><i></i><small>uptime, 7 days</small></div>
+    </div>
+    <div class="f"><span class="cc-btn sm primary">Open restaurant</span><span class="cc-btn sm">Its devices</span></div>
+  </div>
+</div></div>
+<div class="notes"><div><b>Good at</b><ul><li>Looks like the rest of the MDM, in both themes.</li><li>Answers "what's wrong there" without leaving the Overview: which devices are silent.</li></ul></div>
+<div><b>Bad at</b><ul><li>A bit more to build than a tooltip: drawn as a map overlay, closed by hand.</li></ul></div></div>
+
+<h2 class="sec" id="b">B · No popup: hover to see, click to open</h2>
+<p class="desc">Hovering a dot shows a one-line tooltip; clicking goes straight to the restaurant page.</p>
+<div class="mapbox"><div class="map">
+  <div class="dot" style="left:50%;top:70%">20</div><div class="lbl" style="left:50%;top:calc(70% + 24px)">Flights Vegas</div>
+  <div class="tt" style="left:50%;top:70%">Flights Vegas · 16 of 20 online <small>· click to open</small></div>
+</div></div>
+<div class="notes"><div><b>Good at</b><ul><li>Nothing to close; one click to where the work is.</li></ul></div>
+<div><b>Bad at</b><ul><li>No hover on a phone: the tap just navigates.</li><li>Nothing about which devices, until you open the page.</li></ul></div></div>
+
+<h2 class="sec" id="c">C · A strip under the map</h2>
+<p class="desc">Clicking a dot fills a strip along the bottom of the map card; nothing floats over the map.</p>
+<div class="mapbox"><div class="map" style="height:260px">
+  <div class="dot" style="left:50%;top:55%;outline:3px solid var(--accent);outline-offset:2px">20</div><div class="lbl" style="left:50%;top:calc(55% + 24px)">Flights Vegas</div>
+</div>
+<div class="strip">
+  <div class="n"><b>Flights Vegas</b><span>16 of 20 online · uptime this week 96.8% (illustrative)</span></div>
+  <div class="off">Silent: <span>00489</span><span>00583</span><span>00034</span><span>00607</span></div>
+  <div style="display:flex;gap:8px"><span class="cc-btn sm primary">Open restaurant</span><span class="cc-btn sm">×</span></div>
+</div></div>
+<div class="notes"><div><b>Good at</b><ul><li>Never covers the map or other dots; works the same on a phone.</li></ul></div>
+<div><b>Bad at</b><ul><li>Your eye has to jump from the dot to the bottom of the card.</li><li>The map card grows while it is open.</li></ul></div></div>
+
+<h2 class="sec" id="pick">Recommendation</h2>
+<div class="pick"><b>A · our own card.</b> It fixes what's wrong with the current one (Google's look, white in dark mode, the same number twice) and makes the click worth it: the four silent Flights Vegas tablets by serial, one tap from their pages. B is simpler but tells you less, and it doesn't work on a phone.</div>
+</div>
+<script>
+(function(){var bs=document.querySelectorAll('.themebar button');function s(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('ovdemo-theme',t);}catch(e){}bs.forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});}
+bs.forEach(function(b){b.onclick=function(){s(b.dataset.t);};});s(document.documentElement.getAttribute('data-theme'));})();
+</script>
+</body></html>

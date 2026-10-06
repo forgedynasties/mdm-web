@@ -499,6 +499,17 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .en-dlg{border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text);
   padding:16px 18px;width:min(420px,92vw);box-shadow:var(--shadow-pop,0 16px 46px rgba(20,22,40,.18));}
 .en-dlg::backdrop{background:rgba(16,18,32,.45);}
+/* The global reset zeroes every margin, which drops a modal <dialog>'s auto centring. */
+.en-dlg[open]{margin:auto;}
+/* Credential row: which key the device uses (own / shared, waiting / shared, too old). */
+.en-key{display:inline-flex;align-items:center;gap:6px}
+.en-key .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.en-key.warn .dot{background:var(--warn)}
+.en-key.mut .dot{background:var(--text-faint)}
+.en-dlg-list{margin:0 0 12px;padding-left:18px;line-height:1.55;color:var(--text-2)}
+.en-dlg-why{display:flex;flex-direction:column;gap:7px;margin:0 0 4px;font-size:13px}
+.en-dlg-why label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.en-dlg-why input[type=radio]{accent-color:var(--accent)}
 .en-dlg h4{margin:0 0 6px;font-size:14px;font-weight:750;letter-spacing:-.01em;}
 .en-dlg p{margin:0 0 12px;line-height:1.5;}
 .en-dlg .form-input{width:100%;}
@@ -510,3 +521,14 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .ddc-vitals .cpill .cpill-ver{font-size:11.5px;}
 .ddc-vitals .cpill-sep{height:13px;}
 .ddc-vitals:has(.cpill-wrap.open){overflow:visible}
+
+/* Taken out of kiosk on site: the notice under the header and the amber Kiosk button. */
+.ddc-ctl.warn{border-color:var(--warn-edge,var(--warn));background:var(--warn-bg);}
+.ddc-ctl.warn svg,.ddc-ctl.warn .ddc-kstate{color:var(--warn);}
+.kx-ban{display:flex;gap:12px;align-items:flex-start;margin:0 0 14px;padding:12px 14px;border-radius:11px;background:var(--warn-bg);border:1px solid var(--warn-edge,transparent);flex-wrap:wrap}
+.kx-ban .i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
+.kx-ban .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kx-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.5;color:var(--text-2)}
+.kx-ban .t b{color:var(--text)}
+.kx-ban .a{display:flex;gap:6px;flex-wrap:wrap;align-self:center}
+.kx-ban form{margin:0}

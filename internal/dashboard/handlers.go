@@ -42,6 +42,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/otaconfig"
 	"mdm/internal/db"
+	"mdm/internal/ingest"
 	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
@@ -110,12 +111,25 @@ func redirectLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fetchedByJS(r) {
+		// Scripts act on the status and header. The body is for when a person ends up
+		// looking at this response anyway (a frame, an in-app browser, a link whose
+		// request looks scripted): it sends the whole window to the login page instead
+		// of showing the word "Unauthorized".
 		w.Header().Set("X-Auth-Required", "1")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(loginRedirectPage))
 		return
 	}
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
+
+// loginRedirectPage is the body of a signed-out response to a script-looking
+// request: harmless to the scripts, and a redirect to /login for anyone who sees it.
+const loginRedirectPage = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/login"><title>Sign in</title>` +
+	`<script>try{(window.top||window).location.replace('/login')}catch(e){location.replace('/login')}</script></head>` +
+	`<body style="font-family:system-ui,sans-serif;padding:24px">Your session has ended. <a href="/login" target="_top">Sign in</a></body></html>`
 
 // hxTriggerEvents sets HX-Trigger so htmx dispatches the named events on the
 // client; page regions listen via hx-trigger="<name> from:body" and refetch.
@@ -222,6 +236,8 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 }
 
 type Handler struct {
+	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
+	onKeyReset  func(serial string)    // tells the device API a key was reset (SetKeyResetHook)
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -827,8 +843,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOTA":     roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,
-		// canSeeInactive: the Inactive device view, roles above operator.
-		"canSeeInactive": roleAboveOperator,
 		// canManageUsers: the Users pages (roster, activity, access control).
 		"canManageUsers": roleManagesUsers,
 		"canCreateUsers": roleCreatesUsers,
@@ -1084,6 +1098,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return template.HTML(out)
 		},
+		// sizeLabel renders a byte count as "412 KB" / "1.1 MB" (log bundles).
+		"sizeLabel": func(n int) string {
+			if n >= 1<<20 {
+				return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+			}
+			return fmt.Sprintf("%d KB", (n+1023)/1024)
+		},
 		"cmdDetail": func(cmd db.Command) string {
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
@@ -1145,6 +1166,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 						return p.Cmd
 					}
 				}
+			case "collect_logs":
+				return "logcat, dumpsys, getprop, OTA log"
 			case "logcat":
 				var p struct {
 					Level string `json:"level"`
@@ -1699,6 +1722,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// The plain-language report views (report_views.go): a reason read mid-sentence, and
 	// the top spot, which may not exist.
 	funcMap["lowerFirst"] = lowerFirst
+	funcMap["guestTime"] = guestTime
 	funcMap["index0"] = func(s []storySpot) *storySpot {
 		if len(s) == 0 {
 			return nil
@@ -2113,7 +2137,9 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	data["AssetVer"] = h.assetVer
 	if role != "" {
-		if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
+		if h.access(r).hidesDevices() {
+			data["AlertsOpenCount"], _ = h.visibleAlertCounts(r)
+		} else if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
 			data["AlertsOpenCount"] = n
 		}
 	}
@@ -2156,18 +2182,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	case strings.HasPrefix(path, "/releases"):
 		// One dock entry ("Updates") covers releases and rollouts alike.
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/updates-policy"):
-		data["ActivePage"] = "updates-policy"
 	case strings.HasPrefix(path, "/updates"):
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/network"):
-		data["ActivePage"] = "network"
-	case strings.HasPrefix(path, "/compliance"):
-		data["ActivePage"] = "compliance"
-	case strings.HasPrefix(path, "/geofencing"):
-		data["ActivePage"] = "geofencing"
-	case strings.HasPrefix(path, "/setup/managed-configs"):
-		data["ActivePage"] = "managed-configs" // lives under the Policies hub
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -3047,7 +3063,10 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	// with their full stack traces made this fragment tens of seconds and ~90KB, which
 	// reads as "the alerts never load". Everything beyond this goes to the Alerts page.
 	const panelRows = 12
-	crashes := h.deviceCrashGroups(ctx, device, panelRows)
+	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, panelRows)))
+	for i := range crashes {
+		crashes[i].Trace = trimTrace(crashes[i].Trace)
+	}
 	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)
 	role := h.role(r)
 	canAct := roleCanOperate(role)
@@ -3064,44 +3083,6 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 		"DeviceCrashes": crashes,
 		"DeviceAlerts":  alerts,
 	})
-}
-
-// deviceCrashGroups is the Alerts tab's crash list: the last seven days of this
-// device's crashes with repeats merged into one row (crashGroupKey), newest first.
-// A device stuck in a crash loop logs the same ANR thousands of times, and listing
-// each one pushed every other problem off the tab.
-func (h *Handler) deviceCrashGroups(ctx context.Context, device *db.Device, limit int) []crashCardView {
-	sigs, err := h.db.ListDeviceCrashSignatures(ctx, device.ID, 7, 0)
-	if err != nil {
-		return nil
-	}
-	groups := mergeCrashSignatures(sigs)
-	if len(groups) > limit {
-		groups = groups[:limit]
-	}
-	ids := make([]uuid.UUID, 0, len(groups))
-	for _, g := range groups {
-		ids = append(ids, g.LatestID)
-	}
-	details, _ := h.db.GetCrashDetails(ctx, ids)
-	cards := make([]crashCardView, 0, len(groups))
-	for _, g := range groups {
-		label, class := crashKindBadge(g.Kind)
-		cards = append(cards, crashCardView{
-			Serial:      device.SerialNumber,
-			Restaurant:  device.RestaurantName,
-			KindLabel:   label,
-			KindClass:   class,
-			BuildID:     g.BuildID,
-			OccurredAt:  g.LastAt,
-			FirstAt:     g.FirstAt,
-			Summary:     g.Summary,
-			Trace:       trimTrace(details[g.LatestID]),
-			PackageName: extractPackageName(g.Summary),
-			EventCount:  g.Count,
-		})
-	}
-	return cards
 }
 
 // ProfilePage shows the signed-in user their own account details and footprint:
@@ -3785,9 +3766,6 @@ func (h *Handler) SneakPeek(w http.ResponseWriter, r *http.Request) {
 	summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts := sneakPeekFleet()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, nil, 0)
-	sneakPeekOverviewExtras(data, summary, groups)
-	data["Wall"] = sneakPeekWall(groups)
-	data["WallTotal"] = summary.Total
 
 	// Per-user widget layout (default arrangement for the unknown preview user).
 	for k, v := range h.overviewLayoutData(r) {
@@ -3853,10 +3831,10 @@ func (h *Handler) SneakPeekAlerts(w http.ResponseWriter, r *http.Request) {
 		"Title":         "Alerts",
 		"Summary":       summary,
 		"View":          "",
-		"Critical":      groupAlerts(crit),
-		"Watching":      groupAlerts(watch),
-		"NeedsCount":    len(crit),
-		"WatchCount":    len(watch),
+		"Needs":         problemsFromHumans(crit),
+		"WatchingP":     problemsFromHumans(watch),
+		"NeedsCount":    len(problemsFromHumans(crit)),
+		"WatchCount":    len(problemsFromHumans(watch)),
 		"ActiveCount":   len(crit) + len(watch),
 		"Crashes":       crashes,
 		"CrashCount":    len(crashes),
@@ -4620,13 +4598,6 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
-	// The "Inactive" view (hidden=only) is for the roles above operator (access
-	// admin, super op, dev, admin), read-only; marking a device inactive stays
-	// admin-only. Any other value collapses to active-only (there is no mixed view).
-	hiddenParam := ""
-	if r.URL.Query().Get("hidden") == "only" && roleAboveOperator(h.role(r)) {
-		hiddenParam = "only"
-	}
 	return db.DeviceFilter{
 		Search:              r.URL.Query().Get("q"),
 		GroupID:             groupID,
@@ -4646,7 +4617,7 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		Class:               r.URL.Query().Get("class"),
 		Onboarding:          r.URL.Query().Get("onboarding"),
 		Lifecycle:           r.URL.Query().Get("lifecycle"),
-		Hidden:              hiddenParam,
+		Hygiene:             r.URL.Query().Get("hygiene"),
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
 		// counts (GetSummaryFiltered) resolve it against this connected set.
@@ -4834,6 +4805,51 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	// Someone who sees part of the fleet gets rails, filters and counts over their part:
+	// only the restaurants and groups they have a device in, the builds and time zones
+	// their devices run, and their own total (30 Sep access audit).
+	if acc := h.access(r); acc.hidesDevices() {
+		seenR, seenG := acc.visibleCollections()
+		railRests, railGroups = scopeHealth(railRests, seenR), scopeHealth(railGroups, seenG)
+		keptR := restaurants[:0:0]
+		for _, x := range restaurants {
+			if seenR[x.ID] > 0 {
+				keptR = append(keptR, x)
+			}
+		}
+		restaurants = keptR
+		keptG := groups[:0:0]
+		for _, x := range groups {
+			if seenG[x.ID] > 0 {
+				x.DeviceCount = seenG[x.ID]
+				keptG = append(keptG, x)
+			}
+		}
+		groups = keptG
+		productions = nil
+		vis, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{OnlyIDs: acc.visibleIDs()}, 0, 10000, "", "")
+		fleetTotal = len(vis)
+		prodCounts = map[string]int{}
+		bset, tset := map[string]bool{}, map[string]bool{}
+		builds, timezones = nil, nil
+		for _, d := range vis {
+			prodCounts[d.Product]++
+			if d.BuildID != "" && !bset[d.BuildID] {
+				bset[d.BuildID] = true
+				builds = append(builds, d.BuildID)
+			}
+			var ex struct {
+				TZ string `json:"timezone"`
+			}
+			_ = json.Unmarshal(d.LatestExtra, &ex)
+			if tz := ex.TZ; tz != "" && !tset[tz] {
+				tset[tz] = true
+				timezones = append(timezones, tz)
+			}
+		}
+	}
+
 
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
@@ -5036,6 +5052,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterClass":          r.URL.Query().Get("class"),
 		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
 		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
+		"FilterHygiene":        db.HygieneJobLabel(r.URL.Query().Get("hygiene")),
 		"Classes":              product.Classes(),
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
@@ -5125,6 +5142,15 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/devices", http.StatusFound)
 		return
 	}
+	// The new Overview (device wall + map) is the default for everyone who lands
+	// here; ?overview=new|classic flips it and is remembered in a cookie.
+	if v := r.URL.Query().Get("overview"); v == "new" || v == "classic" {
+		http.SetCookie(w, &http.Cookie{Name: overviewCookie, Value: v, Path: "/", MaxAge: 365 * 24 * 3600,
+			HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteLaxMode})
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	newOverview := overviewChoice(r) == "new"
 	ctx := r.Context()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	var summary db.Summary
@@ -5167,18 +5193,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { versions, _ = h.db.GetFleetVersions(ctx) })
 	run(func() { deployments, _ = h.db.ListDeployments(ctx) })
 	run(func() { prodCounts, _ = h.db.CountDevicesByProduct(ctx) })
-	var (
-		active  []db.Alert
-		classOn []db.ClassOnline
-	)
-	run(func() { active, _ = h.db.ListActiveAlerts(ctx, 300) })
-	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), h.access(r).hidesDPC()) })
-	var (
-		wallDevs []db.WallDevice
-		rests    []db.Restaurant
-	)
-	run(func() { wallDevs, _ = h.db.FleetWall(ctx, h.access(r).hidesDPC()) })
-	run(func() { rests, _ = h.db.ListRestaurants(ctx) })
 	wg.Wait()
 
 	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 5)
@@ -5187,15 +5201,11 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		inboxN = fc.Inbox
 	}
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
-
-	// Needs attention: active alerts folded by (type, restaurant), worst first.
-	att, attN, attCrit := buildAttention(h.access(r).keepVisibleAlerts(active), inboxN)
-	data["AttentionRows"] = att
-	data["AttentionTotal"] = attN
-	data["AttentionCritical"] = attCrit
-	data["ClassOnline"] = classOnlineRows(classOn)
-	if summary.Total > 0 {
-		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
+	data["OverviewSwitch"] = true
+	if newOverview {
+		h.overviewNewData(r, data, summary, groups, inboxN)
+		h.render(w, r, "overview_new.html", data)
+		return
 	}
 
 	// Power & usage widget: the same figures the restaurant page shows per site, summed
@@ -5218,49 +5228,13 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
 	}
 
-	// Device wall: every device as one square, grouped by restaurant, worst first.
-	names := make(map[uuid.UUID]string, len(rests))
-	for _, rs := range rests {
-		names[rs.ID] = rs.Name
-	}
-	wall := buildWall(wallDevs, h.hub.ConnectedIDsForDisplay(), h.access(r).keepVisibleAlerts(active), groups, names, time.Now())
-	data["Wall"] = wall
-	data["WallTotal"] = len(wallDevs)
-
-	// Map: each restaurant at its stored coordinates, else at the median of its
-	// devices' resolved locations; located devices outside those drawn one by one.
-	locFilter := db.DeviceFilter{}
-	if h.access(r).hidesDPC() {
-		locFilter.AgentKind = "firmware"
-	}
-	pts := h.devicePoints(ctx, locFilter)
-	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups)
+	// Fleet map: every device with a resolved location from the geolocation pipeline.
+	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
+	data["DeviceLocations"] = locs
+	data["DeviceMapCount"] = locCount
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 
-	// Fleet composition by product role (Menu board, Tableside AI, …), the same axis as
-	// the fleet rail, not by hardware model. Most devices first; unassigned last.
-	if cc, _, _, err := h.db.FleetComposition(ctx, h.access(r).hidesDPC()); err == nil {
-		type compRole struct {
-			Class, Label string
-			Count        int
-		}
-		var roles []compRole
-		unassigned := 0
-		for _, c := range cc {
-			if c.Class == "" {
-				unassigned += c.N
-				continue
-			}
-			roles = append(roles, compRole{c.Class, product.ClassLabel(c.Class), c.N})
-		}
-		for i := 1; i < len(roles); i++ {
-			for j := i; j > 0 && roles[j].Count > roles[j-1].Count; j-- {
-				roles[j], roles[j-1] = roles[j-1], roles[j]
-			}
-		}
-		if unassigned > 0 {
-			roles = append(roles, compRole{"", "Unassigned", unassigned})
-		}
+	if roles, ok := h.overviewProducts(ctx, h.access(r).hidesDPC()); ok {
 		data["Products"] = roles
 	}
 
@@ -5487,10 +5461,6 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		BatteryAvg   int
 		HasBattery   bool
 		Why          []string // penalties behind the score, for the "?" popover
-		Online       int
-		TempMax      int
-		HasTemp      bool
-		MainIssue    string // the first of Why, without its points
 	}
 	var sites []siteTile
 	sitesOK, sitesWarn, sitesBad, deployedN := 0, 0, 0, 0
@@ -5506,11 +5476,6 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 			Crashes: crashStats.ByRestaurant[g.GroupID],
 			Hot:     g.TempMax != nil && *g.TempMax >= 45,
 			Why:     whyScore(g),
-			Online:  g.DeviceCount - g.OfflineCount,
-		}
-		t.MainIssue = mainIssue(t.Why)
-		if g.TempMax != nil {
-			t.TempMax, t.HasTemp = int(math.Round(*g.TempMax)), true
 		}
 		if g.BatteryAvg != nil {
 			t.BatteryAvg, t.HasBattery = int(math.Round(*g.BatteryAvg)), true
@@ -5900,6 +5865,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 		// Display only drawer apps; the pending-install reconciliation below still
 		// checks against the FULL list so a non-launchable install isn't re-shown.
 		"InstalledPackages": launchableOnly(installedPkgs),
+		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
 		"Uninstalling":      pendingUninstallPkgs(commands),
 	})
@@ -6393,6 +6359,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
+	// The kiosk rule covering this device, and whether it was overridden by hand.
+	kioskRule := h.kioskRuleFor(r.Context(), *device)
+	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
+	if kioskRule == nil {
+		kioskOverride = false
+	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -6400,6 +6372,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
 		"AgentUpdate":         h.agentUpdateFor(r, device),
+		"KeyCred":             h.keyCredentialFor(r.Context(), device),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.
@@ -6439,6 +6412,13 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"IsOwner":             h.role(r) == "owner",
 		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
 		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
+		"HardwareSerial":      h.db.HardwareSerialOf(ctx, device.SerialNumber),
+		"NuggetIDs":           nuggetAndroidIDs(device.LatestExtra),
+		"NuggetIDsSame":       nuggetIDsAllSame(nuggetAndroidIDs(device.LatestExtra)),
+		"NuggetIDsJSON":       nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
+		"NuggetIDByPackage":   nuggetIDByPackage(device.LatestExtra),
+		// The table guests are told they are at (home and lock screen on a T7).
+		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
 		"Activity":            activity,
 		"Commands":            commands,
@@ -6455,6 +6435,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"KioskExit":           h.kioskExitFor(r, device),
+		"LateSpans":           h.lateSpansFor(r, device),
+		"KioskRule":           kioskRule,
+		"KioskOverride":       kioskOverride,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"Security":            h.securityFor(r.Context(), device),
@@ -6463,6 +6447,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
 		"CanRemote":           h.access(r).canDevice("remote", device.ID),
 		"CanShell":            h.access(r).canDevice("shell", device.ID),
+		"CanCollectLogs":      h.authorizeCommand(h.role(r), "collect_logs") == cmdAuthzOK && h.access(r).canDevice(policyActionForCommand("collect_logs"), device.ID),
 		"Restaurants":         restaurants,
 		"DeviceGroups":        deviceGroups,
 		"AddableGroups":       addableGroups,
@@ -7690,8 +7675,9 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// serial simply yields an empty, clearly-labelled list rather than the whole fleet.
 	deviceSerial := strings.TrimSpace(r.URL.Query().Get("device"))
 	var deviceID *uuid.UUID
+	acc := h.access(r)
 	if deviceSerial != "" {
-		if dev, err := h.db.GetDevice(r.Context(), deviceSerial); err == nil {
+		if dev, err := h.db.GetDevice(r.Context(), deviceSerial); err == nil && acc.visible(dev.ID) {
 			id := dev.ID
 			deviceID = &id
 		} else {
@@ -7712,7 +7698,8 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var crit, watch []humanAlert
-	for _, a := range active {
+	hs := make([]humanAlert, len(active))
+	for i, a := range active {
 		ha := humanizeAlert(a)
 		ha.CanAct = canAct
 		// Crash/ANR alerts carry the real diagnostic: attach the latest stored stack
@@ -7723,6 +7710,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 				ha.Trace = trace
 			}
 		}
+		hs[i] = ha
 		if a.Severity == "critical" {
 			crit = append(crit, ha)
 		} else {
@@ -7737,8 +7725,15 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 1 {
 		page = p
 	}
-	crashEvents, crashTotal, _ := h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
-	crashEventTotal, _ := h.db.CountRecentCrashEvents(r.Context(), deviceID, 7)
+	// The crash feed is fleet-wide unless scoped to a device; someone who can't see the
+	// whole fleet gets it only for one of their devices.
+	fleetCrashes := deviceID != nil || !acc.hidesDevices()
+	var crashEvents []db.CrashEvent
+	var crashTotal, crashEventTotal int
+	if fleetCrashes {
+		crashEvents, crashTotal, _ = h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
+		crashEventTotal, _ = h.db.CountRecentCrashEvents(r.Context(), deviceID, 7)
+	}
 	// Clamp a past-the-end page back to the last real page so a stale ?page= link
 	// lands on content, not an empty list.
 	crashPages := (crashTotal + crashPageSize - 1) / crashPageSize
@@ -7747,7 +7742,42 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		crashEvents, crashTotal, _ = h.db.ListRecentCrashGroupsPage(r.Context(), deviceID, 7, crashPageSize, (page-1)*crashPageSize)
 	}
 	crashes := toCrashCards(crashEvents)
-	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch}, crashes)
+	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch, hs}, crashes)
+	// Problems: the alerts open on one device worked as one, worst first.
+	names := h.actorDisplayNames(r.Context())
+	var needs, watching, snoozed []problemView
+	isAdmin := h.role(r) == "admin"
+	for _, p := range buildProblems(active, hs, names) {
+		p.KeyReset = p.KeyReset && isAdmin // resetting a key is admin-only
+		switch {
+		case p.Snoozed:
+			snoozed = append(snoozed, p)
+		case p.Severity == "critical":
+			needs = append(needs, p)
+		default:
+			watching = append(watching, p)
+		}
+	}
+	// Crash signatures on several devices are release issues, not device problems.
+	var issues []releaseIssueView
+	if deviceID == nil && !acc.hidesDevices() {
+		ci, _ := h.db.ListCrashIssues(r.Context(), 14, 20)
+		for _, c := range ci {
+			label, class := crashKindBadge(c.Kind)
+			issues = append(issues, releaseIssueView{c, extractPackageName(c.Summary), label, class})
+		}
+	}
+	var assignees []assigneeOption
+	if canAct {
+		if users, err := h.db.ListUsers(r.Context()); err == nil {
+			for _, u := range users {
+				if u.Role == "viewer" {
+					continue
+				}
+				assignees = append(assignees, assigneeOption{u.Username, names[u.Username]})
+			}
+		}
+	}
 	// Fold each bucket by (type, site) AFTER icons are resolved, so a group's lead
 	// card keeps the icon its members resolved.
 	critGroups, watchGroups := groupAlerts(crit), groupAlerts(watch)
@@ -7764,9 +7794,12 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Watching":      watchGroups,
 		// Counts stay per-device: an operator wants "14 devices need attention", not
 		// "1 group". Only the rendering folds.
-		"NeedsCount":    len(crit),
-		"WatchCount":    len(watch),
-		"ActiveCount":   len(crit) + len(watch),
+		// Counts are problems now: "3 need action" is three faults to look at, however
+		// many alerts each one raised.
+		"NeedsCount":    len(needs),
+		"WatchCount":    len(watching),
+		"ActiveCount":   len(needs) + len(watching) + len(snoozed),
+		"AlertCount":    len(active),
 		"Crashes":       crashes,
 		// The KPI counts crashes; the list below counts distinct crashes. Both are shown
 		// because "3 signatures" and "212 crashes" answer different questions.
@@ -7776,8 +7809,27 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"CrashPage":     page,
 		"CrashPages":    crashPages,
 		"CrashPageBase": crashPageBase,
+		"Needs":         needs,
+		"WatchingP":     watching,
+		"Snoozed":       snoozed,
+		"Issues":        issues,
+		"Assignees":     assignees,
+		"Reasons":       problemReasons(),
+		"CanAct":        canAct,
+		"Me":            h.currentUsername(r),
 	})
 }
+
+// releaseIssueView is one crash signature on one build across several devices.
+type releaseIssueView struct {
+	db.CrashIssue
+	Pkg       string
+	KindLabel string
+	KindClass string
+}
+
+// assigneeOption is one person a problem can be assigned to.
+type assigneeOption struct{ Username, Name string }
 
 // alertGroup is one rule firing across one site, folded into a single row. The
 // crash feed has merged by signature for a while (ListRecentCrashGroupsPage); the
@@ -7845,7 +7897,6 @@ type crashCardView struct {
 	KindClass  string
 	BuildID    string
 	OccurredAt time.Time
-	FirstAt    time.Time // first event of a merged row (device Alerts tab); zero otherwise
 	Summary    string
 	Trace      string
 	PackageName string // app package parsed from Summary, if any
@@ -7976,9 +8027,10 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 		h.hxDone(w, r, "/alerts")
 		return
 	}
+	visible, all := h.visibleAlertIDs(r)
 	var ids []uuid.UUID
 	for _, s := range r.Form["ids"] {
-		if id, err := uuid.Parse(s); err == nil {
+		if id, err := uuid.Parse(s); err == nil && (all || visible[id]) {
 			ids = append(ids, id)
 		}
 	}
@@ -7991,6 +8043,24 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 		h.hub.PublishAlertUpdate()
 	}
 	h.hxDone(w, r, "/alerts")
+}
+
+// visibleAlertIDs is the set of active alerts the user may see and act on; all is
+// true when nothing is hidden from them (the set is then not computed).
+func (h *Handler) visibleAlertIDs(r *http.Request) (map[uuid.UUID]bool, bool) {
+	acc := h.access(r)
+	if !acc.hidesDevices() {
+		return nil, true
+	}
+	active, err := h.db.ListActiveAlerts(r.Context(), 5000)
+	out := map[uuid.UUID]bool{}
+	if err != nil {
+		return out, false
+	}
+	for _, a := range acc.keepVisibleAlerts(active) {
+		out[a.ID] = true
+	}
+	return out, false
 }
 
 // AlertAck marks an alert acknowledged. AlertResolve resolves it.
@@ -8007,10 +8077,56 @@ func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
 	h.setAlertStatus(w, r, "resolved")
 }
 
+// AlertProblemAction works one problem: every open alert in it is assigned,
+// acknowledged (with an optional note), snoozed or resolved with a reason at once.
+// The ids come from the page; only alerts this user can see are touched.
+func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
+	op, value := r.FormValue("op"), strings.TrimSpace(r.FormValue("value"))
+	if op == "ack" {
+		value = strings.TrimSpace(r.FormValue("note"))
+		if len(value) > 500 {
+			value = value[:500]
+		}
+	}
+	active, err := h.db.ListActiveAlerts(r.Context(), 1000)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	visible := map[uuid.UUID]bool{}
+	for _, a := range h.access(r).keepVisibleAlerts(active) {
+		visible[a.ID] = true
+	}
+	var ids []uuid.UUID
+	for _, part := range strings.Split(r.FormValue("ids"), ",") {
+		if id, err := uuid.Parse(strings.TrimSpace(part)); err == nil && visible[id] {
+			ids = append(ids, id)
+		}
+	}
+	if op == "assign" && value == "me" {
+		value = h.currentUsername(r)
+	}
+	n, err := h.db.ProblemAction(r.Context(), ids, op, value)
+	if err != nil {
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "alert.problem_"+op, r.FormValue("ids"), fmt.Sprintf("%s (%d alerts)", value, n))
+	h.hub.PublishAlertUpdate()
+	h.hxDone(w, r, "/alerts")
+}
+
 func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid alert ID", http.StatusBadRequest)
+		return
+	}
+	if visible, all := h.visibleAlertIDs(r); !all && !visible[id] {
+		http.Error(w, "Alert not found", http.StatusNotFound)
 		return
 	}
 	if err := h.db.SetAlertStatus(r.Context(), id, status); err != nil {
@@ -8051,6 +8167,23 @@ func (h *Handler) AlertClearAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
+	// "All" is all the user can see: a restricted user's click must not settle alerts
+	// about devices hidden from them.
+	if visible, all := h.visibleAlertIDs(r); !all {
+		ids := make([]uuid.UUID, 0, len(visible))
+		for id := range visible {
+			ids = append(ids, id)
+		}
+		n, err := h.db.BulkSetAlertStatusByIDs(r.Context(), ids, status)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "alert."+status+"_all", "", strconv.FormatInt(n, 10))
+		h.hub.PublishAlertUpdate()
+		h.hxDone(w, r, "/alerts")
+		return
+	}
 	n, err := h.db.BulkSetAlertStatus(r.Context(), status)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -8672,14 +8805,15 @@ func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Export Data",
 		"Serials":    serialList,
 		"FleetTotal": fleetTotal,
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"From":       backPath(r),
 	})
 }
 
 // pickerScopesJSON is the restaurants + groups list the shared device picker
 // offers as one-click shortcuts (templates/_picker.html).
-func (h *Handler) pickerScopesJSON(ctx context.Context) template.JS {
+func (h *Handler) pickerScopesJSON(r *http.Request) template.JS {
+	ctx := r.Context()
 	type scope struct {
 		Kind  string `json:"kind"`
 		ID    string `json:"id"`
@@ -8688,12 +8822,12 @@ func (h *Handler) pickerScopesJSON(ctx context.Context) template.JS {
 	}
 	out := []scope{}
 	if rests, err := h.db.ListRestaurants(ctx); err == nil {
-		for _, r := range rests {
-			out = append(out, scope{Kind: "restaurant", ID: r.ID.String(), Name: r.Name, Count: r.DeviceCount})
+		for _, x := range h.visibleRestaurantList(r, rests) {
+			out = append(out, scope{Kind: "restaurant", ID: x.ID.String(), Name: x.Name, Count: x.DeviceCount})
 		}
 	}
 	if groups, err := h.db.ListGroups(ctx); err == nil {
-		for _, g := range groups {
+		for _, g := range h.visibleGroupList(r, groups) {
 			out = append(out, scope{Kind: "group", ID: g.ID.String(), Name: g.Name, Count: g.DeviceCount})
 		}
 	}
@@ -8986,7 +9120,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	// The device picker posts one newline-separated field; the Fleet selection and
 	// the device page post one value per serial. parseSerialsField takes both.
-	serials := parseSerialsField(r.Form["serials"])
+	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	if len(serials) == 0 {
 		http.Error(w, "No devices selected", http.StatusBadRequest)
 		return
@@ -9270,6 +9404,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	devices = h.access(r).keepVisible(devices) // only devices the user can see
 	groups, _ := h.db.ListGroups(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
@@ -9280,7 +9415,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "group_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":       "New Group",
 		"Devices":     devices,
 		"Online":      online,
@@ -9318,6 +9453,7 @@ func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	devices = h.access(r).keepVisible(devices) // only devices the user can see
 	h.renderCachedHTML(w, r, "device-picker-rows", map[string]any{
 		"Devices":  devices,
 		"Query":    q,
@@ -9385,7 +9521,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
-	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+	data["ScopesJSON"] = h.pickerScopesJSON(r)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return
@@ -9472,7 +9608,7 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	serials := parseSerialsField(r.Form["serials"])
+	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	if len(serials) > 0 {
 		if err := h.db.AddDevicesToGroup(r.Context(), serials, group.ID); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -9644,7 +9780,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":     "New restaurant",
 		"Timezones": restaurantTimezones,
 	})
@@ -9674,7 +9810,7 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "restaurant.create", rest.ID.String(), name)
 	// Deploy any devices staged in the creation picker (moves them to this venue).
-	if serials := parseSerialsField(r.Form["serials"]); len(serials) > 0 {
+	if serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"])); len(serials) > 0 {
 		if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, rest.ID); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
@@ -9683,6 +9819,7 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 			for _, did := range ids {
 				h.hub.PublishDeviceUpdate(did)
 			}
+			h.pushGuestToDevices(r.Context(), ids)
 		}
 	}
 	http.Redirect(w, r, "/restaurants/"+rest.ID.String(), http.StatusFound)
@@ -9698,6 +9835,7 @@ func (h *Handler) RestaurantNewDevices(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	devices = h.access(r).keepVisible(devices) // only devices the user can see
 	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
 		"Devices":  devices,
 		"Query":    q,
@@ -9753,6 +9891,8 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
+	gw, _ := h.db.GetRestaurantGuestWifi(r.Context(), id) // zero value: shown as not set
+	data["GuestWifi"] = gw
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The
 	// same number of days feeds the tiles and the per-day strip below them, so the
@@ -9773,7 +9913,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 			data["MetricsDailyMax"] = max
 		}
 	}
-	data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+	data["ScopesJSON"] = h.pickerScopesJSON(r)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on restaurant-updated
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-kpis", h.withRole(r, data))
 		return
@@ -10123,7 +10263,7 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 	// footer/back-link) since layout.html's boosted shell already supplies it.
 	embed := r.Header.Get("HX-Request") == "true"
 	h.render(w, r, "restaurant_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r.Context()),
+		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":      "Edit " + rest.Name,
 		"Restaurant": rest,
 		"Timezones":  restaurantTimezones,
@@ -10160,6 +10300,7 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.update", id.String(), name)
+	h.pushGuestToRestaurant(r.Context(), id) // the name is on every table's welcome
 	localRedirect(w, r, "/restaurants/"+id.String())
 }
 
@@ -10186,6 +10327,7 @@ func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.rename", id.String(), name)
+	h.pushGuestToRestaurant(r.Context(), id)
 	localRedirect(w, r, "/devices?restaurant="+id.String())
 }
 
@@ -10198,11 +10340,14 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
+	// Its tablets go back to the lab, so they stop showing its name and Wi-Fi.
+	members, _ := h.db.GetDeviceIDsByRestaurantIDs(r.Context(), []uuid.UUID{id})
 	if err := h.db.DeleteRestaurant(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.audit(r, "restaurant.delete", id.String(), "")
+	h.pushGuestToDevices(r.Context(), members)
 	localRedirect(w, r, "/restaurants")
 }
 
@@ -10217,7 +10362,7 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 		return
 	}
 	r.ParseForm()
-	serials := parseSerialsField(r.Form["serials"])
+	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	if len(serials) == 0 {
 		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 		return
@@ -10232,6 +10377,7 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 		for _, did := range ids {
 			h.hub.PublishDeviceUpdate(did)
 		}
+		h.pushGuestToDevices(r.Context(), ids)
 	}
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
@@ -10252,6 +10398,7 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	devices = h.access(r).keepVisible(devices) // only devices the user can see
 	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
 		"Devices":  devices,
 		"Query":    q,
@@ -10270,6 +10417,10 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	serial := r.PathValue("serial")
+	if len(h.keepVisibleSerials(r, []string{serial})) == 0 {
+		http.NotFound(w, r)
+		return
+	}
 	if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, nil); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10277,6 +10428,7 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 	h.audit(r, "restaurant.unassign", id.String(), serial)
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
+		h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 	}
 	h.hxDone(w, r, "/restaurants/"+id.String(), "restaurant-updated")
 }
@@ -10314,6 +10466,9 @@ func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
 
 // RestaurantSetServiceWindow upserts (or resets) this restaurant's service window.
 func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") { // "Manage groups & venues", like its siblings
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -10388,6 +10543,7 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.auditDev(r, "device.restaurant", device.ID, serial, ridStr)
 		h.hub.PublishDeviceUpdate(device.ID)
+		h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 	} else {
 		h.audit(r, "device.restaurant", serial, ridStr)
 	}
@@ -10410,6 +10566,8 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 		serials = append(serials, s)
 	}
 	serials = append(serials, parseSerialsField(r.Form["serials"])...)
+	// Only devices the user can see: moving a device changes whose rules cover it.
+	serials = h.keepVisibleSerials(r, serials)
 	if len(serials) == 0 {
 		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
 		return
@@ -10447,6 +10605,7 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	devices = h.access(r).keepVisible(devices) // only devices the user can see
 	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
 		"Query":    query,
 		"Devices":  devices,
@@ -10655,6 +10814,10 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serial := r.PathValue("serial")
+	if len(h.keepVisibleSerials(r, []string{serial})) == 0 {
+		http.NotFound(w, r)
+		return
+	}
 	if err := h.db.RemoveDeviceFromGroup(r.Context(), serial, id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10678,7 +10841,7 @@ func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	r.ParseForm()
-	serials := parseSerialsField(r.Form["serials"])
+	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	if len(serials) == 0 {
 		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
 		return
@@ -10783,41 +10946,6 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 }
 
-func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if err := h.db.HideDevice(r.Context(), serial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.hide", device.ID, serial, "")
-	h.hub.PublishDeviceUpdate(device.ID)
-	// 204 + device-updated instead of a full /devices reload: the fleet SSE row patch
-	// (patchRow) drops the now-hidden card in place, so nothing flashes.
-	h.hxDone(w, r, "/devices", "device-updated")
-}
-
-func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if err := h.db.UnhideDevice(r.Context(), serial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.unhide", device.ID, serial, "")
-	h.hub.PublishDeviceUpdate(device.ID)
-	// 204 + device-updated: the row patch handles the change in place (no full reload).
-	h.hxDone(w, r, "/devices?hidden=only", "device-updated")
-}
-
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -10831,46 +10959,6 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
-}
-
-func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := r.Form["serials"]
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices", http.StatusSeeOther)
-		return
-	}
-	if err := h.db.BulkHideDevices(r.Context(), serials); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.bulk_hide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
-	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
-		for _, id := range ids {
-			h.hub.PublishDeviceUpdate(id)
-		}
-	}
-	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Hid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
-}
-
-func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := r.Form["serials"]
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
-		return
-	}
-	if err := h.db.BulkUnhideDevices(r.Context(), serials); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.bulk_unhide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
-	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
-		for _, id := range ids {
-			h.hub.PublishDeviceUpdate(id)
-		}
-	}
-	h.hxDoneToastEvents(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
 }
 
 // BulkNickname renames the selected devices from one pattern. {n} is the 1-based
@@ -11003,7 +11091,7 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	serials := parseSerialsField(r.Form["serials"])
+	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	rid, err := uuid.Parse(strings.TrimSpace(r.FormValue("restaurant_id")))
 	if err != nil {
 		http.Error(w, "Invalid restaurant", http.StatusBadRequest)
@@ -11018,6 +11106,7 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 		for _, id := range ids {
 			h.hub.PublishDeviceUpdate(id)
 		}
+		h.pushGuestToDevices(r.Context(), ids)
 	}
 	// Navigate to the restaurant so the operator lands on the result (the default
 	// /devices view doesn't reflect a restaurant change in place). Boosted, so this
@@ -11065,9 +11154,6 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 // each with the count of those devices that have it, so the bulk-kiosk picker can
 // show apps common to every selected device and grey out partially-present ones.
 func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "kiosk") {
-		return
-	}
 	r.ParseForm()
 	serials := r.Form["serials"]
 	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
@@ -11075,6 +11161,9 @@ func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Kiosk is a per-device action: judge each device, not the fleet (a fleet-level
+	// check ignores restaurant and device rules entirely).
+	deviceIDs, _ = h.access(r).filterDevices("kiosk", deviceIDs)
 	apps, err := h.db.KioskAppsForDevices(r.Context(), deviceIDs)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -11088,9 +11177,6 @@ func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "kiosk") {
-		return
-	}
 	r.ParseForm()
 	serials := r.Form["serials"]
 	if len(serials) == 0 {
@@ -11113,16 +11199,21 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	deviceIDs, _, ok := h.enforceCommandTargets(w, r, "kiosk", "devices", deviceIDs)
+	if !ok {
+		return
+	}
 	if err := h.db.SetKioskConfigForDevices(r.Context(), deviceIDs, enabled, pkg, 0); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markKioskManual(r.Context(), deviceIDs)
 	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
 	verb := "Disabled kiosk on"
 	if enabled {
 		verb = "Enabled kiosk on"
 	}
-	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(serials), plural(len(serials))), "success", "refresh-devices")
+	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(deviceIDs), plural(len(deviceIDs))), "success", "refresh-devices")
 }
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
@@ -11159,6 +11250,52 @@ type versionRow struct {
 	Merged            bool         // branch: has been merged onto main (terminal)
 	MergedIntoVersion string       // branch: the mainline release it merged into
 	MergedFromVersion string       // mainline node: the branch it absorbed on merge
+	Crash             *releaseCrashTag // crash issues on this build (release issues), nil when none
+}
+
+// releaseCrashTag is the tag on a release row naming its crash issues: crashes that
+// hit this build on several devices in the last two weeks (see ListCrashIssues).
+type releaseCrashTag struct {
+	Issues  int
+	Devices int    // the widest issue's reach
+	Apps    string // "pkg crash (34 devices), …" for the tooltip
+	Warn    bool   // only ANRs: slow, not crashing
+}
+
+// releaseCrashTags groups the fleet's release issues by release id.
+func (h *Handler) releaseCrashTags(ctx context.Context) map[int]*releaseCrashTag {
+	issues, err := h.db.ListCrashIssues(ctx, 14, 500)
+	if err != nil {
+		return nil
+	}
+	out := map[int]*releaseCrashTag{}
+	for _, c := range issues {
+		if c.ReleaseID == 0 {
+			continue
+		}
+		t := out[c.ReleaseID]
+		if t == nil {
+			t = &releaseCrashTag{Warn: true}
+			out[c.ReleaseID] = t
+		}
+		t.Issues++
+		if c.Devices > t.Devices {
+			t.Devices = c.Devices
+		}
+		label, _ := crashKindBadge(c.Kind)
+		if label != "ANR" {
+			t.Warn = false
+		}
+		app := extractPackageName(c.Summary)
+		if app == "" {
+			app = c.Summary
+		}
+		if t.Apps != "" {
+			t.Apps += ", "
+		}
+		t.Apps += fmt.Sprintf("%s %s (%d devices)", app, strings.ToLower(label), c.Devices)
+	}
+	return out
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -11365,6 +11502,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	fleet, _ := h.db.GetFleetVersions(r.Context())
 	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
 	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
+	crashTags := h.releaseCrashTags(r.Context())
 	// The list-row problem badge should reflect what the workspace board shows —
 	// native PLUS carried-forward problems — so a build whose only open blockers are
 	// inherited doesn't read "0 open" in the list.
@@ -11485,6 +11623,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 			row.Problems = badgeFor(rel.ID)
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
+			row.Crash = crashTags[rel.ID]
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
 			if !row.Hidden {
@@ -11517,6 +11656,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
 			TestingDone: rel.TestingDoneAt != nil,
 			QfilURL:     h.latestQfilURL(r, rel.ID),
+			Crash:       crashTags[rel.ID],
 		}
 		branchRow(&row, rel)
 		addRow(row)
@@ -12369,6 +12509,12 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	// full paginated /releases/{id}/crashes page.
 	crashGroups, crashTotal, _ := h.db.CrashGroupsOnBuild(ctx, rel.Version, 5, 0)
 	devs, _ := h.db.ListDevices(ctx, db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
+	// Crash samples name fleet-wide serials and carry traces; the device list is the
+	// build's whole roster. Someone with a visibility limit gets their devices only.
+	if acc := h.access(r); acc.hidesDevices() {
+		crashGroups, crashTotal = nil, 0
+		devs = acc.keepVisible(devs)
+	}
 
 	// hasFull gates the "Add full package" form; canPush gates the deploy CTA. An
 	// incremental-only release is still pushable — the per-device resolver matches each
@@ -13280,7 +13426,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				var why string
 				switch {
 				case notFirmware > 0:
-					why = fmt.Sprintf("Push update is only for MDM Firmware devices — %d of the selected are MDM DPC / MDM Lite.", notFirmware)
+					why = fmt.Sprintf("Push update is only for Firmware MDM devices — %d of the selected are Standard MDM / MDM Lite.", notFirmware)
 				case len(models) > 1:
 					var names []string
 					for k := range models {
@@ -13413,7 +13559,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					return !blockedFor(pushDevices[i]) && blockedFor(pushDevices[j])
 				})
 				data["PushDevices"] = pushDevices
-				data["ScopesJSON"] = h.pickerScopesJSON(r.Context())
+				data["ScopesJSON"] = h.pickerScopesJSON(r)
 				// ?serials= (the fleet selection panel's "Push update") starts the
 				// picker with those devices already chosen.
 				data["PreSerials"] = parseSerialsField([]string{r.URL.Query().Get("serials")})
@@ -13654,6 +13800,16 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	targets, _ := h.db.GetUpdateTargets(r.Context(), did)
+	// Only the targets this user can see.
+	if acc := h.access(r); acc.hidesDevices() {
+		kept := targets[:0:0]
+		for _, t := range targets {
+			if acc.visible(t.DeviceID) {
+				kept = append(kept, t)
+			}
+		}
+		targets = kept
+	}
 	upd.Targets = targets
 
 	otaProgress := make(map[string]any)
@@ -13727,6 +13883,23 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		legacyRows = legacyDep.Devices
+		if acc := h.access(r); acc.hidesDevices() {
+			serials := make([]string, len(legacyRows))
+			for j, dv := range legacyRows {
+				serials[j] = dv.Serial
+			}
+			ok := map[string]bool{}
+			for _, sn := range h.keepVisibleSerials(r, serials) {
+				ok[sn] = true
+			}
+			kept := legacyRows[:0:0]
+			for _, dv := range legacyRows {
+				if ok[dv.Serial] {
+					kept = append(kept, dv)
+				}
+			}
+			legacyRows = kept
+		}
 	}
 	totalTargets := len(targets) + len(legacyRows)
 	if totalTargets > 0 {
@@ -13823,6 +13996,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Only the full page needs the device/group lists for the "add targets" picker.
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	devices = h.access(r).keepVisible(devices)
 	groups, _ := h.db.ListGroups(r.Context())
 
 	// Mirror the resolver's eligibility (see ReleaseDetail): an incremental-only
@@ -13899,6 +14073,10 @@ func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
+	// Reboot timing applies to every device in the rollout.
+	if !h.holdsWholeRollout(w, r, did, "ota") {
+		return
+	}
 
 	rebootBehavior := strings.TrimSpace(r.FormValue("reboot_behavior"))
 	switch rebootBehavior {
@@ -13925,6 +14103,13 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 	did, err := strconv.Atoi(r.PathValue("did"))
 	if err != nil {
 		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	if upd, err := h.db.GetUpdate(r.Context(), did); err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	if !h.holdsWholeRollout(w, r, did, "ota") {
 		return
 	}
 	if err := h.db.DeleteUpdate(r.Context(), did); err != nil {
@@ -14159,6 +14344,9 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// "All" is all this user may reboot.
+	acc := h.access(r)
+	ids, _ = acc.filterDevices("reboot", ids)
 	for _, deviceID := range ids {
 		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID}, h.currentUsername(r))
 		if err != nil {
@@ -14183,6 +14371,9 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[deployment-reboot-all] list legacy awaiting: %v", lerr)
 	}
 	for _, la := range legacyAwaiting {
+		if !acc.canDevice("reboot", la.DeviceID) {
+			continue
+		}
 		// Same guard the per-device legacy reboot uses: never reboot a device that is
 		// still taking an OTA.
 		if blocked, why, err := h.db.RebootBlockedFor(r.Context(), la.DeviceID); err == nil && blocked {
@@ -14203,6 +14394,26 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "deployment.reboot_all", strconv.Itoa(did),
 		fmt.Sprintf("%d fleet, %d legacy", len(ids), legacyN))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+}
+
+// holdsWholeRollout refuses a whole-rollout change (reboot timing, deleting it) unless
+// the user holds action on every device the rollout targets.
+func (h *Handler) holdsWholeRollout(w http.ResponseWriter, r *http.Request, did int, action string) bool {
+	acc := h.access(r)
+	if acc.unrestricted() {
+		return true
+	}
+	ids, err := h.db.UpdateDeviceIDs(r.Context(), did)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return false
+	}
+	if _, dropped := acc.filterDevices(action, ids); dropped > 0 {
+		h.denied(r, action, nil, decision{Reason: "rollout reaches devices outside the policy"})
+		http.Error(w, fmt.Sprintf("This rollout includes %d device(s) outside your access policy.", dropped), http.StatusForbidden)
+		return false
+	}
+	return true
 }
 
 // DeploymentRemoveDevice drops a still-pending device from a deployment so it will
@@ -14547,7 +14758,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	prefill := template.JS("null")
 	if cid := r.URL.Query().Get("clone"); cid != "" {
 		if id, perr := uuid.Parse(cid); perr == nil {
-			if c, gerr := h.db.GetCommand(r.Context(), id); gerr == nil {
+			// Only a command the user can open, and shell text only for shell roles.
+			if c, gerr := h.db.GetCommand(r.Context(), id); gerr == nil && h.commandVisible(r, *c) && !(c.Type == "shell" && hideShellForRole(h.role(r))) {
 				pf := map[string]any{"type": c.Type, "target": c.TargetType}
 				if c.ApkURL != "" {
 					pf["apk_url"] = c.ApkURL
@@ -14561,7 +14773,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 				}
 				if c.TargetType == "devices" {
 					if ser, e := h.db.GetCommandTargetSerials(r.Context(), id); e == nil {
-						pf["serials"] = ser
+						pf["serials"] = h.keepVisibleSerials(r, ser)
 					}
 				} else if c.TargetType == "groups" {
 					if gids, e := h.db.GetCommandTargetIDs(r.Context(), id); e == nil {
@@ -14736,6 +14948,11 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	// Collections for the palette's target dropdown (restaurants + releases with counts).
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
+	if acc := h.access(r); acc.hidesDevices() {
+		seenR, _ := acc.visibleCollections()
+		scopeRestaurants = scopeHealth(scopeRestaurants, seenR)
+		groups = h.visibleGroupList(r, groups)
+	}
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 	scopeReleases = visibleRail(h.role(r), scopeReleases)
 
@@ -14790,6 +15007,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "uninstall", Name: "Uninstall", Desc: "remove packages from the target", Payload: "pkgs"},
 			{Type: "screenshot", Name: "Screenshot", Desc: "capture the live screen", Payload: "none"},
 			{Type: "query", Name: "Device query", Desc: "vetted read-only diagnostic", Payload: "query"},
+			{Type: "collect_logs", Name: "Collect logs", Desc: "logcat, dumpsys, getprop, OTA log — a file per device", Payload: "none", Cap: "system app"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
@@ -15499,6 +15717,8 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	// Resolve the target device set the same way CommandCreate does (all/devices/
 	// groups/scope) so the impact count is exactly what a send would hit.
 	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
+	// The preview counts only what this user may see; the send path narrows the same way.
+	ids, _ = h.access(r).filterDevices("view", ids)
 	devices, _ := h.db.GetDevicesByIDs(r.Context(), ids)
 	connected := h.hub.ConnectedIDs()
 
@@ -15571,7 +15791,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupRows = append(unsupRows, skipRow{Serial: d.SerialNumber, Kind: k})
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "shell", "set_kiosk", "update_splash", "wipe"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "collect_logs", "shell", "set_kiosk", "update_splash", "wipe"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"
@@ -15692,6 +15912,8 @@ func (h *Handler) CommandTargetPackages(w http.ResponseWriter, r *http.Request) 
 		targetType = "all"
 	}
 	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
+	// The preview counts only what this user may see; the send path narrows the same way.
+	ids, _ = h.access(r).filterDevices("view", ids)
 	pkgs, _ := h.db.PackagesForDevices(r.Context(), ids)
 	h.tmpl.ExecuteTemplate(w, "uninstall-pkg-list", map[string]any{
 		"FleetPackages": pkgs,
@@ -15841,6 +16063,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	deliveries = h.keepVisibleDeliveries(r, deliveries)
 	h.markDeliveryPresence(deliveries)
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
@@ -16166,6 +16389,15 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 	// Grab the targeted devices BEFORE the delete cascades command_targets/status
 	// away, so we can tell any device mid-download to stop.
 	deviceIDs, _ := h.db.GetCommandDeviceIDs(r.Context(), id)
+	// Deleting cancels it on every device it reached, so a restricted user may only
+	// delete a command whose every device is theirs to manage the queue of.
+	if acc := h.access(r); !acc.unrestricted() {
+		if _, dropped := acc.filterDevices("queue", deviceIDs); dropped > 0 {
+			h.denied(r, "queue", nil, decision{Reason: "command reaches devices outside the policy"})
+			http.Error(w, "This action reached devices outside your access policy, so you can't delete it.", http.StatusForbidden)
+			return
+		}
+	}
 	if err := h.db.DeleteCommand(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -16259,7 +16491,9 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.pushCommand(r.Context(), newCmd, cmd.TargetType, targetIDs)
+	// targetType, not cmd.TargetType: a group or "all" narrowed by the policy is a
+	// device list now, and pushing it as the original type reaches the whole group.
+	h.pushCommand(r.Context(), newCmd, targetType, targetIDs)
 	http.Redirect(w, r, "/commands/"+newCmd.ID.String(), http.StatusFound)
 }
 
@@ -16280,6 +16514,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	deliveries = h.keepVisibleDeliveries(r, deliveries)
 	h.markDeliveryPresence(deliveries)
 	// Operators must not see raw shell command detail (text/output) — hide its
 	// existence, mirroring the shell filtering applied to every history listing.
@@ -16393,6 +16628,7 @@ func (h *Handler) CommandScreenshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	deliveries = h.keepVisibleDeliveries(r, deliveries)
 	var b64 string
 	for _, d := range deliveries {
 		if d.SerialNumber == serial {
@@ -16493,7 +16729,12 @@ func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || r
 func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "super_op" }
 
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
-func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" || role == "super_op" }
+// roleManagesUsers: who reaches Users, Activity and access control. Devs were added on
+// 30 Sep; like the others they manage only accounts below their own level (dev: access
+// admins, super ops, operators, viewers, owners), and delegation limits what they grant.
+func roleManagesUsers(role string) bool {
+	return role == "admin" || role == "dev" || role == "user_manager" || role == "super_op"
+}
 
 // roleCreatesUsers: may create, delete or merge accounts. The super op manages
 // access rules, roles and passwords of existing accounts but does not add or
@@ -16775,6 +17016,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Update app"
 	case "logcat":
 		return "Log capture"
+	case "collect_logs":
+		return "Collect logs"
 	case "ota":
 		return "OTA Update"
 	case "mic_gain_read":
@@ -17104,6 +17347,8 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// The access policy decides which of them this user may kiosk-lock.
+	ids, _ = h.access(r).filterDevices("kiosk", ids)
 	// Kiosk only reaches agents that can lock the device (not MDM-lite).
 	if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
 		kept := ids[:0:0]
@@ -17126,6 +17371,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markKioskManual(r.Context(), ids)
 	h.pushKioskConfigToDevices(r.Context(), ids)
 	verb := "Enabled"
 	if !enabled {
@@ -17191,317 +17437,6 @@ func manageTargetLabel(p db.KioskPolicy, restaurants []db.Restaurant, groups []d
 	}
 }
 
-// Manage renders the standing device-configuration page: named kiosk policies (more
-// policy types — e.g. charging-pad — land here later), not a device list or a
-// one-shot bulk-apply form. A policy is a durable object (create/edit/duplicate/
-// delete); applying one writes device_config directly, same mechanism the page
-// always used, just now remembered as a named thing instead of a fire-and-forget
-// action. See resolvePolicyTargetIDs for what "device count" means here.
-func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	policies, err := h.db.ListKioskPolicies(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	restaurants, _ := h.db.ListRestaurants(ctx)
-	groups, _ := h.db.ListGroups(ctx)
-	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
-	pkgNames := make(map[string]string, len(fleetPackages))
-	for _, p := range fleetPackages {
-		if p.AppName != "" {
-			pkgNames[p.PackageName] = p.AppName
-		}
-	}
-
-	type policyView struct {
-		db.KioskPolicy
-		AppName      string
-		TargetLabel  string
-		DeviceCount  int
-		CoveragePct  int
-		Unsupported  int // targets whose agent cannot lock the screen
-	}
-	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
-	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
-
-	type resolved struct {
-		p   db.KioskPolicy
-		ids []uuid.UUID
-	}
-	resolvedPolicies := make([]resolved, 0, len(policies))
-	covered := 0
-	groupTargets := map[uuid.UUID]bool{}
-	// Mixed fleet: a kiosk policy only lands on devices whose agent can lock the
-	// screen. Count, per policy and overall, the targets that cannot honour it, and
-	// split coverage by kind so it is obvious when a policy misses one side.
-	coveredByKind := map[string]int{}
-	unsupportedByPolicy := map[uuid.UUID]int{}
-	seenCovered := map[uuid.UUID]bool{}
-	for _, p := range policies {
-		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
-		resolvedPolicies = append(resolvedPolicies, resolved{p, ids})
-		covered += len(ids)
-		if p.TargetType == "group" && p.TargetID != nil {
-			groupTargets[*p.TargetID] = true
-		}
-		if devs, err := h.db.GetDevicesByIDs(ctx, ids); err == nil {
-			for _, d := range devs {
-				if !d.Supports("kiosk_set") {
-					unsupportedByPolicy[p.ID]++
-				}
-				if !seenCovered[d.ID] {
-					seenCovered[d.ID] = true
-					coveredByKind[d.AgentKind]++
-				}
-			}
-		}
-	}
-	_, fleetFirmware, fleetDPC, _ := h.db.FleetComposition(ctx, h.access(r).hidesDPC())
-	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
-	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
-	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
-	// still sitting in a targeted group), so a raw fleet count can undercount.
-	if covered > totalDevices {
-		totalDevices = covered
-	}
-
-	views := make([]policyView, 0, len(resolvedPolicies))
-	for _, rp := range resolvedPolicies {
-		appName := rp.p.KioskPackage
-		if n, ok := pkgNames[rp.p.KioskPackage]; ok {
-			appName = n
-		}
-		pct := 0
-		if totalDevices > 0 {
-			pct = len(rp.ids) * 100 / totalDevices
-			if pct == 0 && len(rp.ids) > 0 {
-				pct = 1
-			}
-		}
-		views = append(views, policyView{
-			KioskPolicy: rp.p, AppName: appName,
-			TargetLabel: manageTargetLabel(rp.p, restaurants, groups),
-			DeviceCount: len(rp.ids),
-			CoveragePct: pct,
-			Unsupported: unsupportedByPolicy[rp.p.ID],
-		})
-	}
-
-	// "Default" — devices with no lock applied. Read live off device_config rather
-	// than derived set-subtraction from policy targets: a device can be unlocked
-	// directly (device page) without ever being "released" by a policy, and the
-	// stored device_config row is the actual truth of what's on the device.
-
-	role := h.role(r)
-	h.render(w, r, "manage.html", map[string]any{
-		"Title":          "Manage",
-		"Policies":       views,
-		"PolicyCount":    len(views),
-		"CoveredCount":   covered,
-		"UnlockedCount":  unlockedCount,
-		"TotalDevices":   totalDevices,
-		"GroupsTargeted": len(groupTargets),
-		"Restaurants":    restaurants,
-		"Groups":         groups,
-		"CanEdit":        roleCanOperate(role),
-		"CoveredFirmware": coveredByKind["firmware"],
-		"CoveredDPC":      coveredByKind["dpc"],
-		// Targets that resolve to inactive (hidden) devices: counted in "covered"
-		// but not in either kind, since the split reads active devices only.
-		"CoveredInactive": covered - coveredByKind["firmware"] - coveredByKind["dpc"],
-		"FleetFirmware":   fleetFirmware,
-		"FleetDPC":        fleetDPC,
-		"ActivePage":      "manage",
-	})
-}
-
-// managePolicyFormData builds the data every new/edit policy form page needs:
-// target pickers (restaurant/group dropdowns + a searchable device list) and the
-// app picker. Shared so the two page handlers below stay in sync.
-func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
-	ctx := r.Context()
-	restaurants, _ := h.db.ListRestaurants(ctx)
-	groups, _ := h.db.ListGroups(ctx)
-	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
-	devices, _ := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 10000, "", "")
-	connected := h.hub.ConnectedIDsForDisplay()
-	online := make(map[uuid.UUID]bool, len(connected))
-	for id := range connected {
-		online[id] = true
-	}
-	role := h.role(r)
-	return map[string]any{
-		"Restaurants":   restaurants,
-		"Groups":        groups,
-		"Devices":       devices,
-		"Online":        online,
-		"FleetPackages": fleetPackages,
-		"CanEdit":       roleCanOperate(role),
-	}
-}
-
-// ManagePolicyNew renders the "new kiosk policy" page — a standalone page rather
-// than a modal, so the target/app pickers have room to be more than cramped popup
-// widgets.
-func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	data := h.managePolicyFormData(r)
-	data["Title"] = "New kiosk policy"
-	h.render(w, r, "manage_policy_form.html", data)
-}
-
-// ManagePolicyEditPage renders the same form pre-filled for an existing policy.
-func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	policy, err := h.db.GetKioskPolicy(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	data := h.managePolicyFormData(r)
-	data["Title"] = "Edit kiosk policy"
-	data["Policy"] = policy
-	h.render(w, r, "manage_policy_form.html", data)
-}
-
-// ManagePolicySave creates a new kiosk policy or updates an existing one (an "id"
-// form field selects update), then immediately applies it to its target's current
-// devices — same write path applyKioskForTargets always used.
-func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	r.ParseForm()
-	name := strings.TrimSpace(r.FormValue("name"))
-	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
-	targetType := r.FormValue("target_type")
-	if name == "" || pkg == "" {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("A policy needs a name and a locked app.")+"&flash_type=info")
-		return
-	}
-	var targetID *uuid.UUID
-	if idStr := r.FormValue("target_id"); idStr != "" {
-		if id, err := uuid.Parse(idStr); err == nil {
-			targetID = &id
-		}
-	}
-	targetSerial := strings.TrimSpace(r.FormValue("target_serial"))
-	if targetType != "all" && targetType != "restaurant" && targetType != "group" && targetType != "device" {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("Pick what this policy applies to.")+"&flash_type=info")
-		return
-	}
-
-	ctx := r.Context()
-	var policyID uuid.UUID
-	if idStr := r.FormValue("id"); idStr != "" {
-		if id, err := uuid.Parse(idStr); err == nil {
-			policyID = id
-			if err := h.db.UpdateKioskPolicy(ctx, id, name, pkg, targetType, targetID, targetSerial); err != nil {
-				http.Error(w, "Internal error", http.StatusInternalServerError)
-				return
-			}
-		}
-	}
-	if policyID == uuid.Nil {
-		id, err := h.db.CreateKioskPolicy(ctx, name, pkg, targetType, targetID, targetSerial)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		policyID = id
-	}
-
-	ids, err := h.resolvePolicyTargetIDs(ctx, targetType, targetID, targetSerial)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
-		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetKioskConfigForDevices(ctx, ids, true, pkg, 0); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.pushKioskConfigToDevices(ctx, ids)
-	h.audit(r, "device.kiosk_policy_save", name, fmt.Sprintf("policy=%s, devices=%d, package=%s", policyID, len(ids), pkg))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Saved %q — locked %d device(s).", name, len(ids)))+"&flash_type=success")
-}
-
-// ManagePolicyDuplicate clones a policy (name suffixed) without re-applying it —
-// the clone starts as its own independent policy the user can retarget before saving.
-func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
-		return
-	}
-	ctx := r.Context()
-	p, err := h.db.GetKioskPolicy(ctx, id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	if _, err := h.db.CreateKioskPolicy(ctx, p.Name+" (copy)", p.KioskPackage, p.TargetType, p.TargetID, p.TargetSerial); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.kiosk_policy_duplicate", p.Name, "")
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Duplicated %q.", p.Name))+"&flash_type=success")
-}
-
-// ManagePolicyDelete removes a policy and unlocks whatever devices it currently
-// covers — deleting the thing that locked them releases them, matching what a user
-// expects "delete the policy" to mean rather than leaving devices silently locked
-// with nothing left to manage them.
-func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); !roleCanOperate(role) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
-		return
-	}
-	ctx := r.Context()
-	p, err := h.db.GetKioskPolicy(ctx, id)
-	if err != nil {
-		http.Error(w, "Policy not found", http.StatusNotFound)
-		return
-	}
-	ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
-	if len(ids) > 0 {
-		if err := h.db.SetKioskConfigForDevices(ctx, ids, false, "", 0); err == nil {
-			h.pushKioskConfigToDevices(ctx, ids)
-		}
-	}
-	if err := h.db.DeleteKioskPolicy(ctx, id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.kiosk_policy_delete", p.Name, fmt.Sprintf("devices_unlocked=%d", len(ids)))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q — unlocked %d device(s).", p.Name, len(ids)))+"&flash_type=success")
-}
-
 // BootLogo renders the Boot logo config page: a dedicated splash-upload + target
 // picker whose submit runs through the normal update_splash command path (POST
 // /commands), plus the status of the most recently applied splash. update_splash
@@ -17527,6 +17462,7 @@ func (h *Handler) BootLogo(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(c.Payload, &p)
 		splashURL = p.URL
 		if ds, err := h.db.GetCommandDeliveries(r.Context(), c.ID, h.cfg.CommandExpiry()); err == nil {
+			ds = h.keepVisibleDeliveries(r, ds)
 			h.markDeliveryPresence(ds)
 			deliveries = ds
 			stats = computeDeliveryStats(ds)
@@ -18113,7 +18049,7 @@ func (h *Handler) ProcessDueScheduledRecipes(ctx context.Context) {
 		return
 	}
 	for _, s := range due {
-		if err := h.fireSchedule(ctx, s); err != nil {
+		if err := h.fireSchedule(ctx, s, nil); err != nil {
 			log.Printf("[recipe-scheduler] fire schedule=%s recipe=%q: %v", s.ID, s.RecipeName, err)
 		}
 		// Advance: compute the next cron time, or disable a run-once (or unparseable) one.
@@ -18134,7 +18070,17 @@ func (h *Handler) ProcessDueScheduledRecipes(ctx context.Context) {
 }
 
 // fireSchedule resolves the recipe's target now and dispatches it as a command.
-func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe) error {
+// fireSchedule runs a schedule's recipe as the person who scheduled it: acc is that
+// person's access (nil = look it up from created_by, for the cron), and the targets
+// are narrowed to what their policy allows — a schedule must not outlive, or exceed,
+// its creator's rights.
+func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe, acc *access) error {
+	if acc == nil {
+		var err error
+		if acc, err = h.scheduleOwnerAccess(ctx, s.CreatedBy); err != nil {
+			return err
+		}
+	}
 	rec, err := h.db.GetRecipe(ctx, s.RecipeID)
 	if err != nil {
 		return err
@@ -18145,6 +18091,13 @@ func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe) error 
 	ids, err := h.db.ResolveTargetIDs(ctx, rec.TargetType, rec.TargetSerials, rec.TargetGroups, rec.Scope)
 	if err != nil {
 		return err
+	}
+	if h.authorizeCommand(acc.role, rec.Type) != cmdAuthzOK {
+		return fmt.Errorf("%s may no longer send %s", s.CreatedBy, rec.Type)
+	}
+	ids, dropped := acc.filterDevices(policyActionForCommand(rec.Type), ids)
+	if dropped > 0 {
+		log.Printf("[recipe-scheduler] schedule=%s: %d device(s) outside %s's access policy skipped", s.ID, dropped, s.CreatedBy)
 	}
 	if len(ids) == 0 {
 		log.Printf("[recipe-scheduler] schedule=%s recipe=%q matched 0 devices — skipped", s.ID, rec.Name)
@@ -18160,6 +18113,19 @@ func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe) error 
 	h.pushCommand(ctx, cmd, "devices", ids)
 	log.Printf("[recipe-scheduler] fired schedule=%s recipe=%q type=%s devices=%d", s.ID, rec.Name, rec.Type, len(ids))
 	return nil
+}
+
+// scheduleOwnerAccess is the access of the account that created a schedule. Older
+// rows stored the creator's role rather than a username; only "admin" is honoured
+// from those, since a role alone says nothing about which devices are theirs.
+func (h *Handler) scheduleOwnerAccess(ctx context.Context, createdBy string) (*access, error) {
+	if u, err := h.db.GetUserByUsername(ctx, createdBy); err == nil && u != nil {
+		return h.accessFor(ctx, u.Role, u.Username), nil
+	}
+	if createdBy == "admin" {
+		return h.accessFor(ctx, "admin", "admin"), nil
+	}
+	return nil, fmt.Errorf("schedule creator %q is not an account; recreate the schedule", createdBy)
 }
 
 // ScheduleList renders the scheduled-recipes page.
@@ -18210,7 +18176,14 @@ func (h *Handler) ScheduleCreate(w http.ResponseWriter, r *http.Request) {
 		h.hxRedirect(w, r, "/schedules?flash="+url.QueryEscape("Invalid schedule: "+err.Error())+"&flash_type=error")
 		return
 	}
-	if _, err := h.db.CreateScheduledRecipe(r.Context(), recipeID, cronExpr, r.FormValue("run_once") == "on", next.UTC(), h.role(r)); err != nil {
+	// The creator is stored by username: the cron runs it with their access policy.
+	// A super admin (who may be the env-configured login, with no account row) is
+	// stored as "admin": unrestricted either way.
+	owner := h.currentUsername(r)
+	if h.role(r) == "admin" || owner == "" {
+		owner = "admin"
+	}
+	if _, err := h.db.CreateScheduledRecipe(r.Context(), recipeID, cronExpr, r.FormValue("run_once") == "on", next.UTC(), owner); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -18265,7 +18238,7 @@ func (h *Handler) ScheduleRunNow(w http.ResponseWriter, r *http.Request) {
 	list, _ := h.db.ListScheduledRecipes(r.Context())
 	for _, s := range list {
 		if s.ID == id {
-			if err := h.fireSchedule(r.Context(), s); err != nil {
+			if err := h.fireSchedule(r.Context(), s, h.access(r)); err != nil {
 				h.hxRedirect(w, r, "/schedules?flash="+url.QueryEscape("Run failed: "+err.Error())+"&flash_type=error")
 				return
 			}
@@ -18285,6 +18258,9 @@ func isDestructiveCmd(t string) bool {
 
 func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 	switch cmdType {
+	case "collect_logs":
+		return collectLogsPayload() // fixed; nothing from the form
+
 	case "shell":
 		cmd := strings.TrimSpace(r.FormValue("shell_cmd"))
 		b, _ := json.Marshal(map[string]string{"cmd": cmd})
@@ -19074,6 +19050,19 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// on the alert). We deliberately do NOT auto-capture logcat here: a delayed *:E grab
 	// fires a minute+ after the crash and returns ambient system noise, not the crash.
 	h.dispatchAlertNotifications(ctx, created)
+	// A paged problem that has fully cleared gets one "resolved" message, and the
+	// overnight digest goes out at opening; both are cheap until there is work.
+	h.alerts.DispatchResolved(ctx)
+	h.alerts.MaybeSendMorningDigest(ctx, connected)
+	// Kiosk rules are enforced, not applied once: devices that joined or left a
+	// rule's target, or installed its app, are brought in line every minute.
+	h.reconcileKiosk(ctx)
+	h.checkKeyResets(ctx)
+	// A device locked again by any path (its dialog, bulk kiosk, a rule save) answers
+	// its "taken out of kiosk" alert.
+	if n, err := h.db.ResolveAnsweredKioskExitAlerts(ctx); err == nil && n > 0 {
+		h.hub.PublishAlertUpdate()
+	}
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -19083,13 +19072,9 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 	h.alerts.Dispatch(ctx, created)
 }
 
-// RunHousekeeping applies the configured auto-hide and retention policies.
+// RunHousekeeping applies the configured retention policies. (Devices are no longer
+// auto-hidden: a device that stops reporting stays in the fleet until it is retired.)
 // Safe to call repeatedly; each step is a no-op when its setting is 0.
-// inactiveAfterDays is how long a device may go silent before it is auto-marked
-// inactive (hidden) and dropped from every list, count, and health stat. It comes
-// back automatically the moment it checks in again.
-const inactiveAfterDays = 100
-
 func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
 	// are always aggregated before the retention prune below can delete them.
@@ -19114,23 +19099,6 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			h.hub.PublishAlertUpdate()
 		}
 		h.dispatchAlertNotifications(ctx, created)
-	}
-	// Auto-inactivate devices that have been silent for over inactiveAfterDays: they
-	// stop appearing in every list, count, and health stat so long-dead units don't
-	// skew the fleet. They return automatically on their next check-in (UpsertCheckin
-	// clears hidden). Runs before the summary refresh so the cached counts drop them.
-	if n, err := h.db.HideStaleDevices(ctx, inactiveAfterDays); err != nil {
-		log.Printf("[housekeeping] auto-inactivate stale devices: %v", err)
-	} else if n > 0 {
-		log.Printf("[housekeeping] marked %d device(s) inactive (silent > %dd)", n, inactiveAfterDays)
-		h.hub.PublishAlertUpdate() // nudge the dashboard's live counts to refresh
-	}
-	// Clear out any alerts still open on now-inactive devices.
-	if n, err := h.db.ResolveAlertsForHiddenDevices(ctx); err != nil {
-		log.Printf("[housekeeping] resolve inactive-device alerts: %v", err)
-	} else if n > 0 {
-		log.Printf("[housekeeping] resolved %d alert(s) on inactive devices", n)
-		h.hub.PublishAlertUpdate()
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
@@ -19893,7 +19861,7 @@ var alertRuleDefs = []struct {
 }{
 	// ── Thermal ──
 	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the limit; a device on the wireless charger uses the higher on-pad limit. Auto-resolves once it cools.", "Thermal", []alertParamField{
-		{"temp_c", "Limit (off pad)", "°C", 1, 45},
+		{"temp_c", "Limit (off pad)", "°C", 1, 52},
 		{"temp_c_wlc", "Limit (on charger)", "°C", 1, 65},
 	}, false, true},
 	{"temp_elevated", "Temperature elevated", "Fires when device temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
@@ -19940,9 +19908,10 @@ var alertRuleDefs = []struct {
 		{"flaps_per_min", "Toggles / min", "", 1, 10},
 		{"window_min", "Measured over", "min", 1, 5},
 	}, false, true},
-	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window (stalled/trickle charge).", "Power", []alertParamField{
+	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window and ends below the cutoff (charging slows on purpose as a battery fills).", "Power", []alertParamField{
 		{"max_gain_pct", "Max gain", "%", 1, 15},
 		{"window_hours", "Over", "h", 1, 2},
+		{"below_pct", "Only below", "%", 5, 80},
 	}, true, true},
 	// ── System health ──
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Daily Report uses for memory.", "System", []alertParamField{
@@ -19980,6 +19949,11 @@ func alertTypeCatalog() []alertTypeGroup {
 		add(d.Category, d.Type, d.Label)
 	}
 	add("Lifecycle", "new_device", "New device onboarded")
+	add("Security", "identity_conflict", "Possible impersonation")
+	add("Security", "key_not_registered", "Key not registered after a reset")
+	add("Security", "hardware_serial_changed", "Hardware serial mismatch")
+	add("Security", "key_recovered", "Let back in after losing its key")
+	add("Kiosk", "kiosk_exited", "Taken out of kiosk on site")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -20101,6 +20075,7 @@ type alertRuleView struct {
 	Windowed, Recent     bool
 	ActiveWindow         string
 	DeployedOnly         bool
+	FalseAlarms          int // resolved as "false alarm" in the last 30 days
 }
 
 // alertRuleGroup buckets rules by category for the Settings UI, with an enabled count.
@@ -20121,6 +20096,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 	for _, r := range rules {
 		byType[r.Type] = r
 	}
+	falseAlarms, _ := h.db.FalseAlarmCounts(ctx, 30)
 	var groups []alertRuleGroup
 	idx := map[string]int{} // category -> groups index, preserving first-seen order
 	for _, def := range alertRuleDefs {
@@ -20146,7 +20122,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 			ID: r.ID.String(), Type: def.Type, Name: def.Label, Desc: def.Desc,
 			Enabled: r.Enabled, Fields: fields,
 			Windowed: def.Windowed, Recent: def.Recent, ActiveWindow: aw,
-			DeployedOnly: r.DeployedOnly,
+			DeployedOnly: r.DeployedOnly, FalseAlarms: falseAlarms[def.Type],
 		}
 		gi, ok := idx[def.Category]
 		if !ok {
@@ -20379,6 +20355,12 @@ func (h *Handler) AlertLogcatAnalyze(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid alert id")
 		return
 	}
+	if acc := h.access(r); acc.hidesDevices() {
+		if dev, err := h.db.AlertDeviceID(r.Context(), id); err != nil || (dev != nil && !acc.visible(*dev)) {
+			writeJSONError(w, http.StatusNotFound, "No captured logs to analyze yet.")
+			return
+		}
+	}
 	lc, ok, err := h.db.GetAlertLogcat(r.Context(), id)
 	if err != nil || !ok || strings.TrimSpace(lc.Content) == "" {
 		writeJSONError(w, http.StatusNotFound, "No captured logs to analyze yet.")
@@ -20591,7 +20573,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
 				return
 			}
-			if cmdType == "screenshot" || cmdType == "shell" {
+			if cmdType == "screenshot" || cmdType == "shell" || cmdType == "collect_logs" {
 				// These types land the user on the command's own page once created — a
 				// duplicate should do the same instead of dead-ending on a flash, since
 				// there's already somewhere useful (and live) to send them: the pending
@@ -20621,7 +20603,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
 		return
 	}
-	if cmdType == "screenshot" || cmdType == "shell" {
+	if cmdType == "screenshot" || cmdType == "shell" || cmdType == "collect_logs" {
 		// Only jump to the command page when a result is imminent (device online). If the
 		// device is offline the command is merely QUEUED — stay on the device page so the
 		// user watches it in the Queue tab instead of landing on an empty "waiting…" command
@@ -20737,7 +20719,7 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if device.IsDPC() {
-		h.hxDoneToast(w, r, "/devices/"+serial, "MDM DPC reads its server from its own config, not this property", "error")
+		h.hxDoneToast(w, r, "/devices/"+serial, "Standard MDM reads its server from its own config, not this property", "error")
 		return
 	}
 	r.ParseForm()
@@ -20909,9 +20891,16 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Set by hand. If a kiosk rule covers this device, this is now an exception to it
+	// that the enforcer leaves alone (the device page offers "follow the rule again").
+	rule := h.kioskRuleFor(r.Context(), *device)
+	_ = h.db.MarkKioskManual(r.Context(), device.ID, rule != nil)
 	detail := boolWord(enabled)
 	if enabled && mode != "" {
 		detail += " (" + mode + ")"
+	}
+	if rule != nil {
+		detail += ", overrides rule " + rule.Name
 	}
 	h.auditDev(r, "device.kiosk", device.ID, serial, detail)
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
@@ -21240,7 +21229,18 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	summaries, _ := h.db.ActorSummaries(r.Context())
 	orphans, _ := h.db.ListOrphanActors(r.Context())
 	grantCounts, _ := h.db.CountAccessGrants(r.Context(), sensitiveActionKeys)
+	// People who signed up but can't sign in yet (email not verified). Only the super
+	// admin can vouch for them, so only the super admin sees them singled out.
+	var waiting []db.User
+	if h.role(r) == "admin" {
+		for _, u := range users {
+			if u.Email != nil && u.EmailVerifiedAt == nil {
+				waiting = append(waiting, u)
+			}
+		}
+	}
 	h.render(w, r, "users.html", map[string]any{
+		"Waiting":   waiting,
 		"Users":     users,
 		"Orphans":   orphans,
 		"Summaries": summaries,
@@ -21457,6 +21457,14 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "An account with that email already exists, or internal error", http.StatusBadRequest)
 		return
 	}
+	// A new account's default is "everything the role can do". Someone whose own access
+	// is limited can't hand that out, so theirs start from "nothing" and get allow rules,
+	// which are delegation-checked (30 Sep access audit).
+	if role != "owner" && role != "admin" && h.canWiden(r, created) != nil {
+		if err := h.db.SetUserAccess(r.Context(), created.ID, db.AccessPolicy{Base: "deny"}); err != nil {
+			log.Printf("[users] starting policy for %s: %v", created.Username, err)
+		}
+	}
 	// A restaurant owner sees exactly their venue(s): base deny, allow "view"
 	// per selected restaurant, out-of-scope devices hidden.
 	if role == "owner" {
@@ -21556,6 +21564,16 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "You can only assign roles below your own level.", http.StatusForbidden)
 		return
 	}
+	// A role with more powers widens whatever their policy allows; with a base of
+	// "everything" that is the whole fleet, which only someone who holds it may give.
+	if widens(target.Role, role) {
+		if err := h.canWiden(r, &db.User{Role: role}); err != nil {
+			if pol, perr := h.db.GetUserAccess(r.Context(), target.Username); perr != nil || pol.Base != "deny" {
+				http.Error(w, "Can't raise this role: "+err.Error()+". Set their access to start from nothing first.", http.StatusForbidden)
+				return
+			}
+		}
+	}
 	if err := h.db.UpdateUserRole(r.Context(), id, role); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -21575,6 +21593,23 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 	}
 	invalidatePolicy(target.Username)
 	h.usersRedirect(w, r)
+}
+
+// widens reports whether moving from one role to another adds any power.
+func widens(from, to string) bool {
+	a, b := roleCeiling(from), roleCeiling(to)
+	if b == nil {
+		return a != nil
+	}
+	if a == nil {
+		return false
+	}
+	for k := range b {
+		if !a[k] {
+			return true
+		}
+	}
+	return false
 }
 
 // UserSetPassword resets a team user's password (admin-only). The built-in admin
@@ -21650,7 +21685,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, "/demo/index", http.StatusFound)
 	}))
 	// Working target-picker prototype (real fleet data + live counts), plus the static demos.
-	mux.HandleFunc("GET /demo/target-live", h.requireAuth(h.TargetLivePage))
+	mux.HandleFunc("GET /demo/target-live", h.requireAuth(h.fleetWide(h.TargetLivePage)))
 	mux.HandleFunc("GET /demo/target-count", h.requireAuth(h.TargetCountJSON))
 	// Internal presenter material (system audit + demo runbook): admin/dev only, and
 	// registered as explicit routes so they take precedence over /demo/{n} — a viewer
@@ -21683,14 +21718,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.deviceRoute("view", h.DeviceSetPollInterval)))
 	post("POST /devices/{serial}/move-server", h.requireStrictAdmin(h.deviceRoute("shell", h.DeviceMoveServer)))
+	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
+	post("POST /devices/{serial}/table", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetTableLabel)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
+	post("POST /devices/{serial}/kiosk/relock", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskRelock)))
+	post("POST /devices/{serial}/kiosk/leave-out", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
+	post("POST /devices/{serial}/kiosk/follow-rule", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskFollowRule)))
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceWlcUpdate)))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.deviceRoute("kiosk", h.DeviceRotateOfflineCode)))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.deviceRoute("kiosk", h.DeviceOfflineCode)))
-	post("POST /devices/{serial}/hide", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceHide)))
-	post("POST /devices/{serial}/unhide", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnhide)))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.deviceRoute("view", h.DeviceClearOTA)))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
@@ -21698,8 +21736,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/remote/token", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemoteToken)))
 	post("POST /devices/views", h.requireAuth(h.FleetViewSave))
 	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
-	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
-	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
 	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))
@@ -21708,8 +21744,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
-	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.ReportInventoryCSV))
-	mux.HandleFunc("GET /export/report/compliance.csv", h.requireAuth(h.ReportComplianceCSV))
+	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.fleetWide(h.ReportInventoryCSV)))
 	mux.HandleFunc("GET /export/report/activity.csv", h.requireAuth(h.ReportActivityCSV))
 	// Admin-only for now (see the Overview card's same gate) — loosen to
 	// requireAuth if this opens up to other roles later.
@@ -21726,13 +21761,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrOperator(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	post("POST /groups", h.requireAdminOrOperator(h.GroupCreate))
-	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
-	mux.HandleFunc("GET /groups/{id}/devices-modal", h.requireAdminOrOperator(h.GroupDevicesModal))
-	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
-	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
-	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
+	mux.HandleFunc("GET /groups/{id}", h.collectionRoute("group", h.requireAuth(h.GroupDetail)))
+	mux.HandleFunc("GET /groups/{id}/devices-modal", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupDevicesModal)))
+	mux.HandleFunc("GET /groups/{id}/device-search", h.collectionRoute("group", h.requireAuth(h.GroupDeviceSearch)))
+	mux.HandleFunc("GET /groups/{id}/members", h.collectionRoute("group", h.requireAuth(h.GroupMembers)))
+	mux.HandleFunc("GET /groups/{id}/daily-stats", h.collectionRoute("group", h.requireAuth(h.GroupDailyStatsJSON)))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
-	mux.HandleFunc("GET /map", h.requireAuth(h.MapPage))
+	mux.HandleFunc("GET /map", h.requireAuth(h.fleetWide(h.MapPage)))
 	mux.HandleFunc("GET /devices/map.json", h.requireAuth(h.DeviceMapData))
 	post("POST /overview/layout", h.requireAuth(h.OverviewLayoutSave))
 	post("POST /overview/layout/reset", h.requireAuth(h.OverviewLayoutReset))
@@ -21741,53 +21776,56 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /sw.js", h.ServiceWorker)
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
-	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
+	mux.HandleFunc("GET /dock/status", h.requireAuth(h.DockStatus))
+	post("POST /ai-summary/refresh", h.requireAuth(h.fleetWide(h.AISummaryRefresh)))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdmin(h.AlertConfigView))
 	// Requires auth: the page exposes real device serials and restaurant/venue names,
 	// so it must not be anonymous even though it's a standalone "wrapped" page.
-	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
+	mux.HandleFunc("GET /wrapped", h.requireAuth(h.fleetWide(h.WrappedPage)))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(drainable(h.AlertEvents)))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
 	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
+	post("POST /alerts/problem", h.requireOperatorOrAdmin(h.AlertProblemAction))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
-	post("POST /groups/{id}", h.requireAdminOrOperator(h.GroupUpdate))
-	post("POST /groups/{id}/delete", h.requireAdminOrOperator(h.GroupDelete))
-	post("POST /groups/{id}/devices", h.requireAdminOrOperator(h.GroupAddDevice))
+	post("POST /groups/{id}", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupUpdate)))
+	post("POST /groups/{id}/delete", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupDelete)))
+	post("POST /groups/{id}/devices", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupAddDevice)))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
 	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
-	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
-	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrOperator(h.RestaurantEdit))
-	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrOperator(h.RestaurantDevicesModal))
-	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
-	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
-	mux.HandleFunc("GET /restaurants/{id}/report", h.requireAuth(h.RestaurantReport))
+	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))
+	mux.HandleFunc("GET /restaurants/{id}/edit", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantEdit)))
+	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicesModal)))
+	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDailyStatsJSON)))
+	mux.HandleFunc("GET /restaurants/{id}/members", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantMembers)))
+	mux.HandleFunc("GET /restaurants/{id}/report", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReport)))
 	// Deliberately unauthenticated: the token in the path is the credential, so a venue
 	// owner can open their report from an email without a dashboard account. See the
 	// note at the top of report_pdf.go.
 	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	mux.HandleFunc("GET /reports/{id}/{week}/{token}", h.ReportPDFToken)
-	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.requireAuth(h.RestaurantReportPDF))
-	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.RestaurantReportEmail))
-	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
-	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
-	post("POST /restaurants/{id}/delete", h.requireAdminOrOperator(h.RestaurantDelete))
-	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrOperator(h.RestaurantDevicePicker))
-	post("POST /restaurants/{id}/devices", h.requireAdminOrOperator(h.RestaurantAssignDevices))
-	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.RestaurantRemoveDevice))
-	post("POST /restaurants/{id}/service-window", h.requireAdminOrOperator(h.RestaurantSetServiceWindow))
+	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReportPDF)))
+	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
+	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
+	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
+	post("POST /restaurants/{id}/guest-wifi", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetGuestWifi)))
+	post("POST /restaurants/{id}/delete", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDelete)))
+	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicePicker)))
+	post("POST /restaurants/{id}/devices", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAssignDevices)))
+	post("POST /restaurants/{id}/devices/{serial}/remove", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRemoveDevice)))
+	post("POST /restaurants/{id}/service-window", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetServiceWindow)))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.deviceRoute("view", h.DeviceSetRestaurant)))
-	post("POST /groups/{id}/devices/remove", h.requireAdminOrOperator(h.GroupBulkRemoveDevice))
-	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.GroupRemoveDevice))
-	post("POST /groups/{id}/commands", h.requireAdminOrOperator(h.GroupCommandCreate))
+	post("POST /groups/{id}/devices/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupBulkRemoveDevice)))
+	post("POST /groups/{id}/devices/{serial}/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupRemoveDevice)))
+	post("POST /groups/{id}/commands", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupCommandCreate)))
 
 	// Productions is owned by the test team: admin/dev/operator can list, view,
 	// create and export (requireAdminOrOperator). Deletion stays admin/dev-only.
@@ -21795,8 +21833,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/new", h.requireAdminOrOperator(h.ProductionNew))
 	post("POST /productions", h.requireAdminOrOperator(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrOperator(h.ProductionPreviewSerial))
-	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrOperator(h.ProductionDetail))
-	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.ProductionExportCSV))
+	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrOperator(h.fleetWide(h.ProductionDetail)))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.fleetWide(h.ProductionExportCSV)))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
@@ -21814,30 +21852,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
-	mux.HandleFunc("GET /updates-policy", h.requireAuth(h.UpdatesPolicyPage))
-	post("POST /updates-policy", h.requireStrictAdmin(h.UpdatesPolicySave))
-	mux.HandleFunc("GET /compliance", h.requireAuth(h.CompliancePage))
-	post("POST /compliance/rules", h.requireAdminOrOperator(h.ComplianceRuleCreate))
-	post("POST /compliance/rules/{id}/toggle", h.requireAdminOrOperator(h.ComplianceRuleToggle))
-	post("POST /compliance/rules/{id}/delete", h.requireAdminOrOperator(h.ComplianceRuleDelete))
-	// Remediation queues real device commands, so it stays admin-only (the
-	// template hides the button for everyone else).
-	post("POST /compliance/remediate/{serial}", h.requireStrictAdmin(h.ComplianceRemediate))
-	mux.HandleFunc("GET /geofencing", h.requireAuth(h.GeofencingPage))
-	post("POST /geofencing/location-toggle", h.requireAdminOrOperator(h.GeofencingLocationToggle))
-	post("POST /geofencing/fences", h.requireAdminOrOperator(h.GeofenceCreate))
-	post("POST /geofencing/fences/{id}/delete", h.requireAdminOrOperator(h.GeofenceDelete))
-	mux.HandleFunc("GET /network", h.requireAuth(h.NetworkPage))
-	post("POST /network/wifi", h.requireStrictAdmin(h.NetworkWifiAdd))
-	post("POST /network/wifi/delete", h.requireStrictAdmin(h.NetworkWifiDelete))
-	post("POST /network/ca", h.requireStrictAdmin(h.NetworkCAAdd))
-	post("POST /network/ca/delete", h.requireStrictAdmin(h.NetworkCADelete))
-	post("POST /network/vpn", h.requireStrictAdmin(h.NetworkVPNSave))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /manage/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
-	mux.HandleFunc("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
-	mux.HandleFunc("POST /manage/policies/{id}/duplicate", h.requireAuth(h.ManagePolicyDuplicate))
-	mux.HandleFunc("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
+	post("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
+	post("POST /manage/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
+	post("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
@@ -21860,6 +21880,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/{id}/logcat/analyze", h.requireAuth(h.AlertLogcatAnalyze))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
+	mux.HandleFunc("GET /commands/{id}/logs.zip", h.requireAuth(h.CommandLogsZip))
+	mux.HandleFunc("GET /commands/{id}/logs/{serial}", h.requireAuth(h.CommandLogs))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(drainable(h.CommandEvents)))
 	post("POST /commands/{id}/delete", h.requireOperatorOrAdmin(h.CommandDelete))
@@ -21892,7 +21914,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
-	mux.HandleFunc("GET /clients", h.requireAuth(h.ClientsPage))
+	mux.HandleFunc("GET /clients", h.requireAuth(h.fleetWide(h.ClientsPage)))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
 	// say how hard the box is working, which is not a customer-facing fact.
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))
@@ -21935,9 +21957,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	// Managed app configurations edit the fleet device_policy, so mutations are
 	// strict-admin like the other policy pages; the page itself is admin/dev.
-	mux.HandleFunc("GET /setup/managed-configs", h.requireAdmin(h.ManagedConfigsPage))
-	post("POST /setup/managed-configs", h.requireStrictAdmin(h.ManagedConfigSave))
-	post("POST /setup/managed-configs/delete", h.requireStrictAdmin(h.ManagedConfigDelete))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
@@ -21959,7 +21978,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
 	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireReleaseAdmin(h.PackageInspect))
-	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.ReleaseCrashes))
+	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.fleetWide(h.ReleaseCrashes)))
 	post("POST /releases/{id}/crashes/group/delete", h.requireReleaseAdmin(h.ReleaseCrashGroupDelete))
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireReleaseAdmin(h.PackageDelete))
@@ -21978,8 +21997,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
 	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(h.UpdatesRollouts))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
-	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.LegacyOTAPage))
-	mux.HandleFunc("GET /updates/legacy/deployments/{id}", h.requireAdminOrOperator(h.LegacyDeploymentPage))
+	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.fleetWide(h.LegacyOTAPage)))
+	mux.HandleFunc("GET /updates/legacy/deployments/{id}", h.requireAdminOrOperator(h.fleetWide(h.LegacyDeploymentPage)))
 	post("POST /updates/legacy/push", h.requireOTA(h.LegacyOTAPush))
 	post("POST /updates/legacy/deployments/{id}/cancel", h.requireOTA(h.LegacyOTACancel))
 	post("POST /updates/legacy/deployments/{id}/devices/{serial}/retry", h.requireOTA(h.LegacyOTARetry))
@@ -22014,7 +22033,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOTA(h.DeploymentRemoveDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireOTA(h.DeploymentDelete))
 
-	mux.HandleFunc("GET /activity", h.requireUserManager(h.ActivityPage))
+	mux.HandleFunc("GET /activity", h.requireUserManager(h.fleetWide(h.ActivityPage)))
 	mux.HandleFunc("GET /users", h.requireUserManager(h.UserList))
 	post("POST /users", h.requireAccountAdmin(h.UserCreate))
 	post("POST /users/{id}/role", h.requireUserManager(h.UserSetRole))
@@ -22024,11 +22043,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/avatar/delete", h.requireAuth(h.UserClearAvatar))
 	post("POST /users/{id}/password", h.requireUserManager(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireAccountAdmin(h.UserDelete))
+	post("POST /users/{id}/verify-email", h.requireStrictAdmin(h.UserVerifyEmail))
 	post("POST /users/merge", h.requireAccountAdmin(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
-	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.AccessScopeSearch))
+	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.fleetWide(h.AccessScopeSearch)))
 	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/manage", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/access/check", h.requireUserManager(h.UserAccessCheck))
@@ -22036,6 +22056,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/access/grants", h.requireUserManager(h.UserAccessAddGrant))
 	post("POST /users/{id}/access/grants/{gid}/edit", h.requireUserManager(h.UserAccessEditGrant))
 	post("POST /users/{id}/access/grants/{gid}/delete", h.requireUserManager(h.UserAccessDeleteGrant))
+	post("POST /users/{id}/access/simple", h.requireUserManager(h.UserAccessSimpleSave))
+	post("POST /users/{id}/access/simple/preview", h.requireUserManager(h.UserAccessSimplePreview))
+	mux.HandleFunc("GET /users/access/profiles", h.requireUserManager(h.AccessProfilesPage))
+	post("POST /users/access/profiles", h.requireUserManager(h.AccessProfileSave))
+	post("POST /users/access/profiles/{pid}", h.requireUserManager(h.AccessProfileSave))
+	post("POST /users/access/profiles/{pid}/delete", h.requireUserManager(h.AccessProfileDelete))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
@@ -22052,7 +22078,7 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 	}
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
+	if err != nil || !h.access(r).visible(device.ID) {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
 	}
