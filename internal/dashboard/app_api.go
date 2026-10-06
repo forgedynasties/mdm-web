@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"mdm/internal/db"
@@ -253,9 +254,53 @@ func appTokenResp(serverURL string, p db.EnrollmentProfile) map[string]any {
 	}
 }
 
+// appUser loads the account behind a session. The static env admin has no users row.
+func (h *Handler) appUser(r *http.Request, s *db.Session) *db.User {
+	if s.UserID == nil {
+		return nil
+	}
+	u, err := h.db.GetUser(r.Context(), *s.UserID)
+	if err != nil {
+		return nil
+	}
+	return u
+}
+
+// AppMe: GET /api/v1/app/me → {"username","role","name","has_avatar","avatar_ver"}.
+func (h *Handler) AppMe(w http.ResponseWriter, r *http.Request, s *db.Session) {
+	out := map[string]any{"username": s.Username, "role": s.Role, "name": s.Username, "has_avatar": false}
+	if u := h.appUser(r, s); u != nil {
+		if n := strings.TrimSpace(u.FirstName + " " + u.LastName); n != "" {
+			out["name"] = n
+		}
+		out["has_avatar"] = u.HasAvatar()
+		out["avatar_ver"] = u.AvatarVer
+	}
+	appJSON(w, http.StatusOK, out)
+}
+
+// AppAvatar: GET /api/v1/app/avatar → the signed-in user's profile picture (PNG), 404 if none.
+func (h *Handler) AppAvatar(w http.ResponseWriter, r *http.Request, s *db.Session) {
+	if s.UserID == nil {
+		http.NotFound(w, r)
+		return
+	}
+	png, ver, err := h.db.GetUserAvatar(r.Context(), uuid.UUID(*s.UserID))
+	if err != nil || len(png) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	w.Header().Set("ETag", fmt.Sprintf(`"av-%d"`, ver))
+	_, _ = w.Write(png)
+}
+
 func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/app/login", h.AppLogin)
 	mux.HandleFunc("POST /api/v1/app/logout", h.requireApp(h.AppLogout))
+	mux.HandleFunc("GET /api/v1/app/me", h.requireApp(h.AppMe))
+	mux.HandleFunc("GET /api/v1/app/avatar", h.requireApp(h.AppAvatar))
 	mux.HandleFunc("GET /api/v1/app/enroll-status", h.requireApp(h.AppEnrollStatus))
 	mux.HandleFunc("POST /api/v1/app/enroll-token", h.requireApp(h.AppEnrollToken))
 }
