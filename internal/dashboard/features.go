@@ -1054,9 +1054,9 @@ func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA strin
 var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc"}
 
 var clientSlotLabels = map[string]string{
-	"dpc":           "Standard client",
-	"firmware-qcom": "Firmware client · QCOM (T7, kiosks)",
-	"firmware-gms":  "Firmware client · GMS (frozen)",
+	"dpc":           "Standard MDM",
+	"firmware-qcom": "Firmware MDM · QCOM (T7, kiosks)",
+	"firmware-gms":  "Firmware MDM · GMS (frozen)",
 }
 
 // ClientPillView is the device hero's client pill: which client manages this device,
@@ -1064,7 +1064,7 @@ var clientSlotLabels = map[string]string{
 // pill opens — every client with its hosted version plus this client's changelog.
 // One pill in one place for firmware, DPC and Lite alike.
 type ClientPillView struct {
-	Kind    string // "MDM Firmware" | "MDM Standard"
+	Kind    string // "Firmware MDM" | "Standard MDM" | "MDM Lite"
 	Title   string // the tooltip the old tag carried
 	Version string // what the device reports ("" = it has never said)
 	// Set when the device reported the framework's version rather than its own; the
@@ -1090,7 +1090,7 @@ type ClientPillRow struct {
 // clientPillFor builds the pill for one device. Everything it needs is already on
 // the page's data path: the device's reported version, and the hosted build per slot.
 func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
-	v := ClientPillView{Kind: "MDM Firmware", Title: "Our hardware running the system-app client"}
+	v := ClientPillView{Kind: "Firmware MDM", Title: "Our hardware running the system-app client"}
 	if d == nil {
 		return v
 	}
@@ -1099,7 +1099,7 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.Kind = "MDM Lite"
 		v.Title = "Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection."
 	case d.IsDPC():
-		v.Kind = "MDM Standard"
+		v.Kind = "Standard MDM"
 		v.Title = "Managed by the AIO MDM standard client (Device Owner) on a stock device."
 	}
 	v.Version, _ = clientVersionOf(d)
@@ -1149,7 +1149,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		"firmware-qcom": "QCOM · v2.1.x",
 		"firmware-gms":  "GMS · v2.0.x",
 	}
-	const firmwareLabel = "Firmware client"
+	const firmwareLabel = "Firmware MDM"
 	const firmwareNote = "The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant."
 	notes := map[string]string{
 		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
@@ -1824,9 +1824,9 @@ func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "settings.agent_apk", u, "")
-	msg := "MDM DPC APK saved — QR cold-provisioning is on"
+	msg := "Standard MDM APK saved — QR cold-provisioning is on"
 	if u == "" || sum == "" {
-		msg = "MDM DPC APK cleared — QR cold-provisioning is off"
+		msg = "Standard MDM APK cleared — QR cold-provisioning is off"
 	}
 	h.hxDoneToast(w, r, "/settings", msg, "success")
 }

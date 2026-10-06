@@ -284,7 +284,7 @@ if (!window.__dlRowNav) {
 <div class="fleet-chips">
   {{/* A clean-up job from the Overview's checklist: only ever arrives by link. */}}
   {{if .FilterHygiene}}<span class="fchip"><span class="k">Clean up</span> {{.FilterHygiene}} <button type="button" class="x" onclick="navigateDevices({page: '1', hygiene: ''})" aria-label="Clear clean-up filter">×</button></span>{{end}}
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}MDM DPC{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}MDM Firmware{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
+  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}Standard MDM{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}Firmware MDM{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
@@ -856,8 +856,8 @@ a.fleet-rail-item{min-height:40px}
         {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
           <select id="filter-kind" onchange="applyFilters()">
             <option value="">Any agent</option>
-            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>MDM Firmware (our hardware)</option>
-            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>MDM DPC</option>
+            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware MDM (our hardware)</option>
+            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>Standard MDM</option>
             <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
           </select></label>{{end}}
         <label class="fp-field"><span>Product</span>
@@ -1610,7 +1610,7 @@ function pushUpdateCheck() {
     models[c.dataset.model] = c.dataset.modelLabel || c.dataset.model;
   });
   var keys = Object.keys(models);
-  if (notFw) return { ok: false, why: 'Push update is only for MDM Firmware devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' MDM DPC / MDM Lite.' };
+  if (notFw) return { ok: false, why: 'Push update is only for Firmware MDM devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' Standard MDM / MDM Lite.' };
   if (keys.length > 1) return { ok: false, why: 'Select devices of one model to push an update (selected: ' + keys.map(function (k) { return models[k]; }).join(', ') + ').' };
   return { ok: true, model: keys[0] || '' };
 }

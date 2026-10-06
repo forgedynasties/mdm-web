@@ -13426,7 +13426,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				var why string
 				switch {
 				case notFirmware > 0:
-					why = fmt.Sprintf("Push update is only for MDM Firmware devices — %d of the selected are MDM DPC / MDM Lite.", notFirmware)
+					why = fmt.Sprintf("Push update is only for Firmware MDM devices — %d of the selected are Standard MDM / MDM Lite.", notFirmware)
 				case len(models) > 1:
 					var names []string
 					for k := range models {
@@ -20719,7 +20719,7 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if device.IsDPC() {
-		h.hxDoneToast(w, r, "/devices/"+serial, "MDM DPC reads its server from its own config, not this property", "error")
+		h.hxDoneToast(w, r, "/devices/"+serial, "Standard MDM reads its server from its own config, not this property", "error")
 		return
 	}
 	r.ParseForm()

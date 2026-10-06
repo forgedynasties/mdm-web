@@ -1058,7 +1058,7 @@ window.CMD_PREFILL = {{.Prefill}};
   // kind can do is read off the live selection when devices of that kind are in it —
   // the standard client's powers depend on which adb grants are in place, so a fixed table
   // would be wrong — and falls back to KIND_FALLBACK when none is selected.
-  var KINDS = [['fw', 'FW', 'firmware client'], ['dpc', 'STD', 'Standard client'], ['lite', 'LT', 'MDM Lite']];
+  var KINDS = [['fw', 'FW', 'Firmware MDM'], ['dpc', 'STD', 'Standard MDM'], ['lite', 'LT', 'MDM Lite']];
   var KIND_FALLBACK = {
     install_apk: { fw: 1, dpc: 1, lite: 0 }, uninstall: { fw: 1, dpc: 1, lite: 0 },
     reboot: { fw: 1, dpc: 1, lite: 0 }, screenshot: { fw: 1, dpc: 1, lite: 1 },
