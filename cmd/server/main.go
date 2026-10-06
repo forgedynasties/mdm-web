@@ -416,9 +416,25 @@ func main() {
 
 	// Testing team's own read-only key — GET /api/v1/testdata/devices only, so a leaked
 	// key can't reach anything the admin key can (reboot, wipe, kiosk unlock, ...).
+	// CORS is wide open (*) rather than an allowlist: the dashboard calling this is a
+	// static page that can be hosted/moved anywhere, and the route is already gated by
+	// its own key, so an origin check adds no real protection here.
 	if qaAPIKey != "" {
 		qaAuth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
-		mux.Handle("GET /api/v1/testdata/devices", qaAuth(http.HandlerFunc(apiHandler.ListTestDataDevices)))
+		qaCORS := func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "X-API-Key")
+				w.Header().Set("Access-Control-Allow-Methods", "GET")
+				if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				h.ServeHTTP(w, r)
+			})
+		}
+		mux.Handle("GET /api/v1/testdata/devices", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataDevices))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices", qaCORS(http.NotFoundHandler()))
 	}
 
 	// WebSocket — device connects here for server-push command delivery
