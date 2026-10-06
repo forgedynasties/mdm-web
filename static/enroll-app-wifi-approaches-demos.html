@@ -140,6 +140,15 @@ const ICO={
 const CHECK='<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const runs={};
 const sleep2=sleep;
+function scene(el,n,alive){
+  el.innerHTML='<div class="phone"><div class="scr"></div></div>';const s=el.querySelector('.scr');
+  if(n==='wifi')s.innerHTML='<h6>Wi-Fi</h6><div class="li hl">Office-Wifi <span>✓</span></div><div class="li">Guest <span></span></div>';
+  if(n==='wd'){s.innerHTML='<h6>Developer options</h6><div class="li">USB debugging<span>on</span></div><div class="li hl">Wireless debugging<span id="tg">off</span></div>';sleep(900).then(()=>alive()&&(s.querySelector('#tg').textContent='on'));}
+  if(n==='pair')s.innerHTML='<h6>Wireless debugging</h6><div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px"><b style="font-size:10.5px">Pair with device</b><div class="big">482 913</div><div style="font-size:9.5px;color:var(--muted);text-align:center;white-space:nowrap">192.168.1.20:37215</div></div>';
+  if(n==='connect')s.innerHTML='<h6>Wireless debugging</h6><div class="li hl" style="flex-direction:column;align-items:flex-start"><span style="color:var(--muted);font-size:9.5px">IP address &amp; Port</span><b class="mono" style="font-size:9.5px;white-space:nowrap">192.168.1.20:41231</b></div>';
+  if(n==='allow')s.innerHTML='<div style="height:30px"></div><div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;animation:pop .4s both"><b style="font-size:11px">Allow USB debugging?</b><div style="text-align:right;margin-top:8px;font-weight:700;color:var(--accent-text)">Allow</div></div>';
+}
+const setSt=(cs,i,st)=>{cs[i].classList.remove('on','ok','bad');if(st)cs[i].classList.add(st);cs[i].querySelector('.n').innerHTML=st==='ok'?CHECK:i+1;};
 const state={A:'paired'};
 const STEPS3=[
  ['Same Wi-Fi','Phone and this computer on the <b>same network</b> (no guest Wi-Fi, no VPN).','wifi'],
