@@ -302,5 +302,6 @@ func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/app/me", h.requireApp(h.AppMe))
 	mux.HandleFunc("GET /api/v1/app/avatar", h.requireApp(h.AppAvatar))
 	mux.HandleFunc("GET /api/v1/app/enroll-status", h.requireApp(h.AppEnrollStatus))
+	mux.HandleFunc("POST /api/v1/app/classify", h.requireApp(h.AppClassify))
 	mux.HandleFunc("POST /api/v1/app/enroll-token", h.requireApp(h.AppEnrollToken))
 }
