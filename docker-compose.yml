@@ -64,7 +64,11 @@ services:
       - "${LEGACY_OTA_PORT:-8010}:${LEGACY_OTA_PORT:-8010}"
     env_file: .env
     environment:
-      DB_HOST: postgres
+      # Was hardcoded to "postgres" (the local container), which silently overrode whatever
+      # DB_HOST .env set — pointing a box at an external database (the shared RDS cluster)
+      # needed this file edited too, not just .env, or the next deploy would revert it back
+      # to the local container. Defaults to "postgres" so stage/local dev are unaffected.
+      DB_HOST: ${DB_HOST:-postgres}
       # UTC everywhere so logged/stored timestamps are unambiguous across hosts.
       TZ: UTC
       # Persist the settings/config file on the data volume so all settings
