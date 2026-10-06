@@ -1839,6 +1839,63 @@ func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, devices)
 }
 
+// qaTestDataRow is the field set the testing team used to pull from the Fleet page's
+// CSV export (serial/battery/charging/wlc/ram/storage), plus device_class/restaurant/
+// groups for them to filter on in their own dashboard — see ReportInventoryCSV for the
+// equivalent CSV shape this mirrors.
+type qaTestDataRow struct {
+	SerialNumber   string   `json:"serial_number"`
+	DeviceClass    string   `json:"device_class"`
+	RestaurantName string   `json:"restaurant_name"`
+	Groups         []string `json:"groups"`
+	LastSeenAt     string   `json:"last_seen_at"`
+	BatteryPct     int      `json:"battery_pct"`
+	BatteryTempC   *float64 `json:"battery_temp_c,omitempty"`
+	Charging       bool     `json:"charging"`
+	WlcState       string   `json:"wlc_state"`
+	ChargingPad    bool     `json:"charging_pad"`
+	RamUsedPct     int64    `json:"ram_used_pct"`
+	StorageFreePct int64    `json:"storage_free_pct"`
+}
+
+// ListTestDataDevices is the QA-key-gated, read-only fleet snapshot behind the testing
+// team's own dashboard — replaces them pulling the Fleet page's CSV export by hand.
+// Full fleet, one row per device, same fields as that export plus device_class/
+// restaurant/groups so they can filter client-side instead of the server doing it.
+func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	groups, err := h.db.GroupNamesByDevice(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	out := make([]qaTestDataRow, 0, len(devices))
+	for _, d := range devices {
+		row := qaTestDataRow{
+			SerialNumber:   d.SerialNumber,
+			DeviceClass:    d.DeviceClass,
+			RestaurantName: d.RestaurantName,
+			Groups:         groups[d.ID],
+			LastSeenAt:     d.LastSeenAt.UTC().Format(time.RFC3339),
+			BatteryPct:     d.BatteryPct,
+			Charging:       extraBoolField(d.LatestExtra, "charging"),
+			WlcState:       extraString(d.LatestExtra, "wlc_state"),
+			ChargingPad:    extraBoolField(d.LatestExtra, "charging_pad"),
+			RamUsedPct:     extraInt64(d.LatestExtra, "ram_used_pct"),
+			StorageFreePct: extraInt64(d.LatestExtra, "storage_free_pct"),
+		}
+		if temp, ok := extractBatteryTempC(d.LatestExtra); ok {
+			row.BatteryTempC = &temp
+		}
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // ListRestaurants returns the venues, for tooling that has to iterate them — the
 // weekly report renderer runs off-box and needs to know what to render. Deliberately
 // thin: id and name are what a caller needs to build a report URL, and this is an

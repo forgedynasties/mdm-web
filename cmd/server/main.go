@@ -90,6 +90,13 @@ func main() {
 	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
 	}
+	// QA_API_KEY (optional): a separate, read-only key for the testing team's own
+	// dashboard — GET /api/v1/testdata/devices only, never the admin-key surface.
+	// Unset disables the route entirely rather than falling back to the admin key.
+	qaAPIKey := strings.TrimSpace(getEnv("QA_API_KEY", ""))
+	if qaAPIKey != "" && (len(qaAPIKey) < 32 || qaAPIKey == deviceAPIKey || qaAPIKey == adminAPIKey || qaAPIKey == sessionSecret || qaAPIKey == deviceEnrollKey) {
+		log.Fatalf("QA_API_KEY must be at least 32 bytes and distinct from the other keys")
+	}
 	configPath := getEnv("CONFIG_PATH", "config/display.json")
 
 	// SSRF allowlist: comma-separated IPs/CIDRs the OTA-inspect / webhook clients may
@@ -406,6 +413,13 @@ func main() {
 	// Metrics for monitoring (admin-gated): db pool, ws connected, goroutines, request
 	// counters. Scrape as JSON; not exposed to devices or the public.
 	mux.Handle("GET /debug/vars", adminAuth(expvar.Handler()))
+
+	// Testing team's own read-only key — GET /api/v1/testdata/devices only, so a leaked
+	// key can't reach anything the admin key can (reboot, wipe, kiosk unlock, ...).
+	if qaAPIKey != "" {
+		qaAuth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
+		mux.Handle("GET /api/v1/testdata/devices", qaAuth(http.HandlerFunc(apiHandler.ListTestDataDevices)))
+	}
 
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
