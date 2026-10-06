@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — calmer device rail — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1100px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:860px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.5;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:860px;line-height:1.5;}.pc b{color:var(--text);}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.mono{font-family:var(--font-mono,monospace);font-size:11px;}
+.cmp{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start;}
+.now{opacity:.9}
+.lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px}
+
+/* mini window */
+.win{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 14px 36px rgba(20,22,40,.14);}
+.tb{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.tb i{width:10px;height:10px;border-radius:50%;display:block}.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.body{display:grid;grid-template-columns:230px 1fr;min-height:430px;}
+.rail{padding:12px;display:flex;flex-direction:column;gap:7px;border-right:1px solid var(--border-soft);overflow:auto;max-height:520px;}
+.main{padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12.5px;}
+.ri{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;}
+.ri .ph{width:26px;height:26px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+.ri .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri .tk{width:18px;height:18px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ri .ph .ic{width:15px;height:15px}
+.sh{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:8px 2px 2px;display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.3}}
+@keyframes slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.in{animation:slidein .3s cubic-bezier(.2,.8,.2,1) both}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* CURRENT (too loud) */
+.cur{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;border:1px solid var(--accent-edge);background:var(--accent-soft);}
+.cur .m{flex:1;min-width:0}.cur b{display:block;font-size:12px}.cur span{font-size:10.5px;color:var(--muted)}
+.cur .cc-btn{flex:none}
+
+/* A: collapsible group */
+.grp{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.grp>button{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer;font-size:12px;font-weight:700}
+.grp>button:hover{background:var(--surface2)}
+.grp .badge{background:var(--accent);color:#fff;border-radius:99px;font-size:10.5px;font-weight:800;padding:1px 7px;animation:pop .35s both}
+.grp .chev{margin-left:auto;transition:transform .25s;color:var(--muted)}
+.grp.open .chev{transform:rotate(90deg)}
+.grp .list{display:none;border-top:1px solid var(--border-soft)}
+.grp.open .list{display:block}
+.fr{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:11.5px;border-bottom:1px solid var(--border-soft);animation:slidein .25s both}
+.fr:last-child{border-bottom:0}
+.fr .a{flex:1;min-width:0}.fr .a b{display:block;font-weight:600}.fr .a span{color:var(--muted)}
+.fr .go{opacity:0;border:1px solid var(--border);background:var(--surface);color:var(--accent-text);font:inherit;font-size:10.5px;font-weight:700;border-radius:7px;padding:2px 9px;cursor:pointer;transition:opacity .15s}
+.fr:hover .go,.fr .go:focus{opacity:1}
+.fr:hover{background:var(--surface2)}
+
+/* B: summary row + panel */
+.sum{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;border:1px dashed var(--accent-edge);background:var(--accent-soft);cursor:pointer;font:inherit;font-size:12px;font-weight:700;color:var(--accent-text);text-align:left;width:100%}
+.sum:hover{border-style:solid}
+.sum .badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:99px;font-size:10.5px;font-weight:800;padding:1px 7px}
+.panel{width:100%;max-width:520px;text-align:left;animation:slidein .3s both}
+.panel h3{margin:0 0 2px;font-size:15px;color:var(--text)}.panel p{margin:0 0 10px;font-size:12px}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);margin-bottom:7px;color:var(--text);transition:border-color .2s}
+.prow:hover{border-color:var(--accent-edge)}
+.prow .ph{width:30px;height:30px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+.prow .m{flex:1}.prow .m b{display:block;font-size:12.5px}.prow .m span{font-size:11px;color:var(--muted)}
+.prow.done{border-color:var(--ok-edge)}
+
+/* C: compact + scroll + search */
+.cmpt{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:6px}
+.cmpt input{width:100%;box-sizing:border-box;font:inherit;font-size:11.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:4px}
+.cmpt .scroll{max-height:118px;overflow:auto}
+.more{font-size:11px;font-weight:700;color:var(--accent-text);cursor:pointer;padding:5px 8px;border-radius:8px;display:inline-block}
+.more:hover{background:var(--accent-soft)}
+@media(max-width:900px){.cmp{grid-template-columns:1fr}.body{grid-template-columns:200px 1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — a calmer left rail</h1>
+<p class="lead">Right now every phone found on the network gets its own big orange card with a loud <b>Connect</b> button. With five phones around, they crowd out your real devices and all look identical (the network only tells us an address — no model — until a phone is paired). Three ways to calm it down:</p>
+
+<div class="cmp">
+ <div><div class="lbl">Today (too loud)</div><div class="win now"><div class="tb"><i></i><i></i><i></i></div><div class="rail" id="cur" style="max-height:none"></div></div></div>
+ <div class="lead" style="margin:22px 0 0">Problems: <b>1)</b> five identical full-width cards, <b>2)</b> a primary-colour button on each, <b>3)</b> they push “Add over Wi-Fi” and Saved phones off screen, <b>4)</b> shown permanently even if you never use Wi-Fi.</div>
+</div>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">Collapsed “Nearby phones (5)” group <span class="rec">recommended</span></div>
+<div class="ddesc">One quiet row with a count badge. Closed by default, so the rail stays about your devices. Click to expand into <b>slim one-line rows</b>; the Connect button only appears on hover/focus. The badge pops when a new phone appears, so you still notice.</div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="A"></div><div class="main">Pick a device on the left.<br>Click <b>Nearby phones</b> to expand it.</div></div></div>
+<p class="pc"><b>Good:</b> smallest change, rail stays calm, nothing is hidden for good. <b>Bad:</b> one extra click to see addresses.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">One summary row; the list lives in the main panel</div>
+<div class="ddesc">The rail only shows <b>“5 phones nearby ›”</b>. Clicking opens a roomy list in the big panel with larger rows, a spinner per Connect, and results inline (connected ✓, or “needs pairing”). Rail stays tiny however many phones are around.</div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="Brail"></div><div class="main" id="Bmain"><div>Pick a device on the left.<br>Click <b>Nearby phones</b> to open the list here.</div></div></div></div>
+<p class="pc"><b>Good:</b> scales to dozens of phones, room for status and later for model names. <b>Bad:</b> takes over the main panel while open.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">Compact scrolling box with search and “show more”</div>
+<div class="ddesc">Always visible but boxed: shows the first 3 with the rest behind <b>“Show 2 more”</b>, a small filter field appears once there are more than 3, and the list never grows past a fixed height.</div>
+<div class="win"><div class="tb"><i></i><i></i><i></i></div><div class="body"><div class="rail" id="C"></div><div class="main">Pick a device on the left.</div></div></div>
+<p class="pc"><b>Good:</b> always in view, searchable. <b>Bad:</b> still takes rail space all the time.</p>
+
+<span class="eyebrow">Extra cleanups (any option)</span>
+<p class="lead">• <b>Quiet button:</b> outline “Connect” instead of solid orange (orange stays for the one thing you should do next).<br>
+• <b>Hide unrelated phones:</b> nearby phones the user has never touched could be tucked behind “Saved first, others on request”.<br>
+• <b>Names:</b> a nearby phone gets a real name as soon as it is paired once (we remember it), so “Phone on your network” turns into “Pixel 6”.<br>
+• <b>“Add over Wi-Fi”</b> becomes a small ghost button, not a big dashed orange block.<br>
+• A setting to <b>turn discovery off</b> for people who only use USB.</p>
+<p class="lead"><b>Pick A, B or C</b> (they can combine, e.g. A for the rail and B's panel when you press “Add over Wi-Fi”).</p>
+</div>
+
+<script>
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const PH=ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+const TAB=ic('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M10.5 17h3"/>');
+const WIFI=ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>');
+const CHEV=ic('<path d="M9 6l6 6-6 6"/>');
+const MINE=[['Google Pixel 6',PH,false],['AIO T7',TAB,true],['SUNMI D2s_KDS_STGL',TAB,true]];
+const NEAR=['10.32.1.211:42059','10.32.1.13:39565','10.32.2.167:46337','10.32.0.221:37393','10.32.2.93:41205'];
+const mine=()=>MINE.map(m=>`<div class="ri"><div class="ph">${m[1]}</div><span class="nm">${m[0]}</span>${m[2]?'<span class="tk">✓</span>':''}</div>`).join('');
+const addBtn=`<button class="cc-btn sm" style="justify-content:flex-start;gap:8px;margin-top:4px">${WIFI.replace('class="ic"','class="ic" style="width:14px;height:14px"')} Add over Wi-Fi</button>`;
+
+// today
+document.getElementById('cur').innerHTML=mine()+'<div class="sh"><span class="dot"></span>Found on your network</div>'+NEAR.map(a=>`<div class="cur"><div class="m"><b>Phone on your network</b><span class="mono">${a}</span></div><button class="cc-btn primary sm">Connect</button></div>`).join('')+`<button class="cc-btn" style="border-style:dashed">${WIFI.replace('class="ic"','class="ic" style="width:14px;height:14px"')} Add over Wi-Fi</button>`;
+
+// A
+const A=document.getElementById('A');let aOpen=false;
+function drawA(){
+  A.innerHTML=mine()+`<div class="grp ${aOpen?'open':''}"><button id="ag"><span style="color:var(--accent)">${WIFI.replace('class="ic"','class="ic" style="width:15px;height:15px"')}</span>Nearby phones <span class="badge">${NEAR.length}</span><span class="chev">${CHEV.replace('class="ic"','class="ic" style="width:14px;height:14px"')}</span></button><div class="list">${NEAR.map((a,i)=>`<div class="fr" style="animation-delay:${i*40}ms"><div class="a"><b>Phone</b><span class="mono">${a}</span></div><button class="go">Connect</button></div>`).join('')}</div></div>`+addBtn;
+  A.querySelector('#ag').onclick=()=>{aOpen=!aOpen;drawA();};
+  A.querySelectorAll('.go').forEach(b=>b.onclick=()=>{b.textContent='…';setTimeout(()=>b.textContent='Connected ✓',900);});
+}
+drawA();
+
+// B
+const Br=document.getElementById('Brail'),Bm=document.getElementById('Bmain');let bOpen=false;const bState={};
+function drawB(){
+  Br.innerHTML=mine()+`<button class="sum" id="bs">${WIFI.replace('class="ic"','class="ic" style="width:15px;height:15px"')}${NEAR.length} phones nearby <span class="badge">${NEAR.length}</span></button>`+addBtn;
+  Br.querySelector('#bs').style.background=bOpen?'var(--accent)':'';Br.querySelector('#bs').style.color=bOpen?'#fff':'';
+  Br.querySelector('#bs').onclick=()=>{bOpen=!bOpen;drawB();};
+  if(!bOpen){Bm.innerHTML='<div>Pick a device on the left.<br>Click <b>Nearby phones</b> to open the list here.</div>';return;}
+  Bm.innerHTML=`<div class="panel"><h3>Phones on your network</h3><p>These have Wireless debugging switched on. Connect to the one you want.</p>${NEAR.map((a,i)=>`<div class="prow ${bState[a]==='ok'?'done':''}" style="animation:slidein .3s ${i*50}ms both"><div class="ph">${PH}</div><div class="m"><b>Phone</b><span class="mono">${a}</span></div><button class="cc-btn ${bState[a]==='ok'?'':'primary'} sm" data-a="${a}">${bState[a]==='ok'?'Connected ✓':'Connect'}</button></div>`).join('')}</div>`;
+  Bm.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{if(bState[b.dataset.a]==='ok')return;b.innerHTML='<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rot .8s linear infinite"></span>';setTimeout(()=>{bState[b.dataset.a]='ok';drawB();},1000);});
+}
+const st=document.createElement('style');st.textContent='@keyframes rot{to{transform:rotate(360deg)}}';document.head.appendChild(st);
+drawB();
+
+// C
+const C=document.getElementById('C');let cAll=false,cq='';
+function drawC(){
+  const f=NEAR.filter(a=>a.includes(cq)),shown=cAll||cq?f:f.slice(0,3);
+  C.innerHTML=mine()+`<div class="sh"><span class="dot"></span>Nearby</div><div class="cmpt">${NEAR.length>3?`<input id="cq" placeholder="Filter by address" value="${cq}">`:''}<div class="scroll">${shown.map(a=>`<div class="fr"><div class="a"><b>Phone</b><span class="mono">${a}</span></div><button class="go" style="opacity:1">Connect</button></div>`).join('')||'<div class="fr"><div class="a"><span>No match</span></div></div>'}</div>${!cAll&&!cq&&f.length>3?`<span class="more" id="cm">Show ${f.length-3} more</span>`:''}</div>`+addBtn;
+  const q=C.querySelector('#cq');if(q){q.oninput=e=>{cq=e.target.value;drawC();const n=C.querySelector('#cq');n.focus();n.setSelectionRange(cq.length,cq.length);};}
+  const m=C.querySelector('#cm');if(m)m.onclick=()=>{cAll=true;drawC();};
+}
+drawC();
+</script></body></html>
