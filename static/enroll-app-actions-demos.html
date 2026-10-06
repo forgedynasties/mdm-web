@@ -125,30 +125,30 @@ const pills='<div class="pills"><span class="pill on">dongle</span><span class="
 const enroll='<button class="cc-btn primary" style="padding:8px 22px">Enroll this device</button>';
 const conn=s=>s==='both'?'USB + Wi-Fi':s==='usb'?'USB':'Wi-Fi';
 const connIcons=s=>(s!=='wifi'?I.usb:'')+(s!=='usb'?I.wifi:'');
-function top(s){return `<div class="big">${I.phone}</div><h3>Google Pixel 6</h3><div class="meta">18121FDF60022T</div><div class="chips"><span class="chip">Android 17</span><span class="chip ${s==='both'?'ok':''}">${connIcons(s)} ${conn(s)}</span></div>${pills}${enroll}`;}
+function panelTop(s){return `<div class="big">${I.phone}</div><h3>Google Pixel 6</h3><div class="meta">18121FDF60022T</div><div class="chips"><span class="chip">Android 17</span><span class="chip ${s==='both'?'ok':''}">${connIcons(s)} ${conn(s)}</span></div>${pills}${enroll}`;}
 
 function now(s){
   const t=s==='both'?`<span class="chip ok">OK to unplug</span><button class="ibtn x" data-tip="Forget the Wi-Fi link">${I.x}</button>`:s==='usb'?`<button class="ibtn" data-tip="Switch to Wi-Fi (no pairing needed)">${I.wifi}</button>`:`<button class="ibtn x" data-tip="Forget (stays enrolled in the MDM)">${I.x}</button>`;
-  return `<div class="pnl">${top(s)}<div class="tnow">${t}</div></div>`;
+  return `<div class="pnl">${panelTop(s)}<div class="tnow">${t}</div></div>`;
 }
 function A(s){
   const parts=s==='both'?`<span class="note">${I.chk} OK to unplug the cable</span><button class="qb danger">${I.wifi} Forget Wi-Fi link</button>`
     :s==='usb'?`<button class="qb">${I.wifi} Switch to Wi-Fi</button>`
     :`<button class="qb danger">${I.trash} Forget device</button>`;
-  return `<div class="pnl">${top(s)}<div class="tools"><div class="sep"></div><div class="foot">${parts}</div></div></div>`;
+  return `<div class="pnl">${panelTop(s)}<div class="tools"><div class="sep"></div><div class="foot">${parts}</div></div></div>`;
 }
 let bOpen=false;
 function B(s){
   const items=s==='both'?`<button class="danger">${I.wifi}<div>Forget Wi-Fi link<small>Keeps the USB connection</small></div></button>`
    :s==='usb'?`<button>${I.wifi}<div>Switch to Wi-Fi<small>No pairing needed</small></div></button>`
    :`<button class="danger">${I.trash}<div>Forget device<small>It stays enrolled in the MDM</small></div></button>`;
-  return `<div class="pnl"><div style="position:absolute;right:10px;top:10px" class="more"><button id="bm" class="${bOpen?'on':''}" aria-label="More actions">${I.dots}</button>${bOpen?`<div class="menu" style="bottom:auto;top:38px;transform-origin:top right">${items}</div>`:''}</div>${top(s).replace('<div class="chips">','<div class="chips">'+(s==='both'?'<span class="chip ok">OK to unplug</span>':''))}</div>`;
+  return `<div class="pnl"><div style="position:absolute;right:10px;top:10px" class="more"><button id="bm" class="${bOpen?'on':''}" aria-label="More actions">${I.dots}</button>${bOpen?`<div class="menu" style="bottom:auto;top:38px;transform-origin:top right">${items}</div>`:''}</div>${panelTop(s).replace('<div class="chips">','<div class="chips">'+(s==='both'?'<span class="chip ok">OK to unplug</span>':''))}</div>`;
 }
 function C(s){
   const lines=(s!=='wifi'?`<div class="ln">${I.usb}<b>USB cable</b><span>in</span><span class="st">${I.chk.replace('class="ic"','class="ic" style="width:13px;height:13px;display:inline-block;vertical-align:-2px"')}</span></div>`:'')+
    (s!=='usb'?`<div class="ln">${I.wifi}<b>Wi-Fi</b><span class="mono">10.32.2.210:5555</span><button class="qb danger">Forget</button></div>`:'')+
    (s==='usb'?`<div class="ln">${I.wifi}<b>Wi-Fi</b><span>not connected</span><button class="qb">Switch</button></div>`:'');
-  return `<div class="pnl">${top(s)}<div class="tools"><div class="cc">${lines}</div>${s==='both'?`<div class="note" style="justify-content:center;margin-top:7px">${I.chk} OK to unplug the cable</div>`:''}</div></div>`;
+  return `<div class="pnl">${panelTop(s)}<div class="tools"><div class="cc">${lines}</div>${s==='both'?`<div class="note" style="justify-content:center;margin-top:7px">${I.chk} OK to unplug the cable</div>`:''}</div></div>`;
 }
 function draw(){const s=sc();
   document.getElementById('now').innerHTML=now(s);
