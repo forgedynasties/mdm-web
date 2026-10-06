@@ -435,6 +435,8 @@ func main() {
 		}
 		mux.Handle("GET /api/v1/testdata/devices", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataDevices))))
 		mux.Handle("OPTIONS /api/v1/testdata/devices", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/devices/{serial}/history", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataDeviceHistory))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/history", qaCORS(http.NotFoundHandler()))
 	}
 
 	// WebSocket — device connects here for server-push command delivery

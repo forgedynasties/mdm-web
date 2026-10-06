@@ -1839,10 +1839,12 @@ func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, devices)
 }
 
-// qaTestDataRow is the field set the testing team used to pull from the Fleet page's
-// CSV export (serial/battery/charging/wlc/ram/storage), plus device_class/restaurant/
-// groups for them to filter on in their own dashboard — see ReportInventoryCSV for the
-// equivalent CSV shape this mirrors.
+// qaTestDataRow mirrors the Fleet page's CSV export (serial/battery/charging/wlc/ram/
+// storage) plus device_class/restaurant/groups and battery-cycle accounting. Extra
+// carries the device's full latest check-in payload as-is: new telemetry fields show
+// up here automatically as the client starts reporting them, with no MDM-side change
+// needed — the point of this API is that the testing team's dashboard no longer waits
+// on us to add a column every time they want a new field.
 type qaTestDataRow struct {
 	SerialNumber   string   `json:"serial_number"`
 	DeviceClass    string   `json:"device_class"`
@@ -1856,6 +1858,13 @@ type qaTestDataRow struct {
 	ChargingPad    bool     `json:"charging_pad"`
 	RamUsedPct     int64    `json:"ram_used_pct"`
 	StorageFreePct int64    `json:"storage_free_pct"`
+	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
+	// discharged (never resets); divide by 100 for equivalent full cycles. Left raw
+	// rather than pre-converted so a future change to the conversion doesn't silently
+	// change numbers already in a QA spreadsheet.
+	DischargeTotalPct   int64           `json:"discharge_total_pct"`
+	DischargeBackfilled bool            `json:"discharge_backfilled"`
+	Extra               json.RawMessage `json:"extra,omitempty"`
 }
 
 // ListTestDataDevices is the QA-key-gated, read-only fleet snapshot behind the testing
@@ -1876,17 +1885,20 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 	out := make([]qaTestDataRow, 0, len(devices))
 	for _, d := range devices {
 		row := qaTestDataRow{
-			SerialNumber:   d.SerialNumber,
-			DeviceClass:    d.DeviceClass,
-			RestaurantName: d.RestaurantName,
-			Groups:         groups[d.ID],
-			LastSeenAt:     d.LastSeenAt.UTC().Format(time.RFC3339),
-			BatteryPct:     d.BatteryPct,
-			Charging:       extraBoolField(d.LatestExtra, "charging"),
-			WlcState:       extraString(d.LatestExtra, "wlc_state"),
-			ChargingPad:    extraBoolField(d.LatestExtra, "charging_pad"),
-			RamUsedPct:     extraInt64(d.LatestExtra, "ram_used_pct"),
-			StorageFreePct: extraInt64(d.LatestExtra, "storage_free_pct"),
+			SerialNumber:        d.SerialNumber,
+			DeviceClass:         d.DeviceClass,
+			RestaurantName:      d.RestaurantName,
+			Groups:              groups[d.ID],
+			LastSeenAt:          d.LastSeenAt.UTC().Format(time.RFC3339),
+			BatteryPct:          d.BatteryPct,
+			Charging:            extraBoolField(d.LatestExtra, "charging"),
+			WlcState:            extraString(d.LatestExtra, "wlc_state"),
+			ChargingPad:         extraBoolField(d.LatestExtra, "charging_pad"),
+			RamUsedPct:          extraInt64(d.LatestExtra, "ram_used_pct"),
+			StorageFreePct:      extraInt64(d.LatestExtra, "storage_free_pct"),
+			DischargeTotalPct:   d.DischargeTotalPct,
+			DischargeBackfilled: d.DischargeBackfilled,
+			Extra:               d.LatestExtra,
 		}
 		if temp, ok := extractBatteryTempC(d.LatestExtra); ok {
 			row.BatteryTempC = &temp
@@ -1894,6 +1906,53 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// ListTestDataDeviceHistory is the time-series sibling of ListTestDataDevices, for
+// battery-cycle runs and anything else that needs more than the latest snapshot — a
+// full per-sample feed over a date range, rather than a once-a-cycle fleet pull.
+// Reuses StreamExportShaped (the same query behind the Fleet page's CSV export) and
+// returns its rows as-is, Extra included, for the same decoupling reason as above.
+// Query params: start, end (RFC3339, default the last 7 days), interval_sec (default
+// 300), cycles (include charge-cycle boundary rows, default false).
+func (h *Handler) ListTestDataDeviceHistory(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+
+	end := time.Now().UTC()
+	start := end.Add(-7 * 24 * time.Hour)
+	if v := r.URL.Query().Get("start"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			start = t
+		}
+	}
+	if v := r.URL.Query().Get("end"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			end = t
+		}
+	}
+	intervalSec := 300
+	if v := r.URL.Query().Get("interval_sec"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			intervalSec = n
+		}
+	}
+	cycles := r.URL.Query().Get("cycles") == "true"
+
+	rows := make([]db.ExportRow, 0, 256)
+	err = h.db.StreamExportShaped(r.Context(), []uuid.UUID{device.ID}, start, end, intervalSec, cycles, func(row db.ExportRow) error {
+		rows = append(rows, row)
+		return nil
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
 }
 
 // ListRestaurants returns the venues, for tooling that has to iterate them — the
