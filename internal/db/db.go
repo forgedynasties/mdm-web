@@ -2807,6 +2807,38 @@ func (d *DB) CountDevicesByProduct(ctx context.Context) (map[string]int, error) 
 
 // ListAllSerials returns every device serial (visible and hidden), so callers can
 // detect and linkify serials named in free text (e.g. the AI report prose).
+// FamilySample is what the enroll app learns hardware families from: one live device's serial, the
+// class it was given, and the manufacturer/model it reports.
+type FamilySample struct {
+	Serial       string
+	DeviceClass  string
+	Manufacturer string
+	Model        string
+}
+
+// FamilySamples returns every device that has not been retired, wiped or hidden. Fabricated
+// serials (the DPC agent's android-<id> fallback, corrupt msm- reads) are left for the caller to drop.
+func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT serial_number, COALESCE(device_class, ''),
+		       COALESCE(latest_extra->>'manufacturer', ''), COALESCE(latest_extra->>'model', '')
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND serial_number <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FamilySample
+	for rows.Next() {
+		var f FamilySample
+		if err := rows.Scan(&f.Serial, &f.DeviceClass, &f.Manufacturer, &f.Model); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListAllSerials(ctx context.Context) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `SELECT serial_number FROM devices ORDER BY serial_number`)
 	if err != nil {

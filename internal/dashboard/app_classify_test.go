@@ -51,20 +51,74 @@ func TestClassifySerial(t *testing.T) {
 		{"short junk", "abc", nil, "other"},
 	}
 	for _, c := range tests {
-		got := classifySerial(c.serial, c.dev, ps)
+		got := classifySerial(c.serial, c.dev, ps, nil)
 		if got.Class != c.want {
 			t.Errorf("%s: class %q, want %q", c.name, got.Class, c.want)
 		}
 	}
-	if got := classifySerial("AT070AABU00875", nil, ps); got.Production != "T7 batch BU" || got.Model != "07" {
+	if got := classifySerial("AT070AABU00875", nil, ps, nil); got.Production != "T7 batch BU" || got.Model != "07" {
 		t.Errorf("production details missing: %+v", got)
 	}
 	// A fleet device that also sits in a batch reports the batch too.
-	if got := classifySerial("AT070AABU00231", &db.Device{EnrollmentStatus: "auto"}, ps); got.Class != "fleet" || got.Production != "T7 batch BU" {
+	if got := classifySerial("AT070AABU00231", &db.Device{EnrollmentStatus: "auto"}, ps, nil); got.Class != "fleet" || got.Production != "T7 batch BU" {
 		t.Errorf("fleet+batch: %+v", got)
 	}
 	// No productions defined at all: nothing can look like ours.
-	if got := classifySerial("AT070AABU00875", nil, nil); got.Class != "other" {
+	if got := classifySerial("AT070AABU00875", nil, nil, nil); got.Class != "other" {
 		t.Errorf("no productions: %+v", got)
+	}
+}
+
+func sample(serial, class, mfr, model string) db.FamilySample {
+	return db.FamilySample{Serial: serial, DeviceClass: class, Manufacturer: mfr, Model: model}
+}
+
+func TestBuildFamiliesLearnsSchemeAndClass(t *testing.T) {
+	fs := buildFamilies([]db.FamilySample{
+		sample("DK19248T41010", "kds", "SUNMI", "D2s_KDS_STGL"),
+		sample("DK19248T41022", "kds", "SUNMI", "D2s_KDS_STGL"),
+		sample("DK19248T41033", "kds", "SUNMI", "D2s_KDS_STGL"),
+		sample("D3P20230411", "pos", "SUNMI", "D3 Pro"),                // single device: trusted for half
+		sample("android-8f3a", "", "Acme", "Thing"),                     // fabricated: ignored
+		sample("msm-123456", "", "Acme", "Thing"),                       // corrupt: ignored
+		sample("AB", "", "Tiny", "Short"),                               // prefix too short to say anything
+		sample("ZZ12345678", "", "NoModel", ""),                         // no model: cannot group
+	})
+	if len(fs) != 2 {
+		t.Fatalf("want 2 families, got %d: %+v", len(fs), fs)
+	}
+	kds := matchFamily("DK19248T41099", fs)
+	if kds == nil || kds.Label != "SUNMI D2s_KDS_STGL" || kds.DeviceClass != "kds" || kds.Count != 3 {
+		t.Fatalf("D2s family not learned: %+v", kds)
+	}
+	if kds.Prefix != "DK19248T410" {
+		t.Errorf("prefix %q, want the serials' common prefix", kds.Prefix)
+	}
+	if matchFamily("DK19248T4109", fs) != nil {
+		t.Errorf("a serial of another length must not match the family")
+	}
+	if matchFamily("XX19248T41099", fs) != nil {
+		t.Errorf("a different prefix must not match")
+	}
+	pos := matchFamily("D3P20239999", fs)
+	if pos == nil || pos.DeviceClass != "pos" {
+		t.Errorf("single-device family should still recognise its model: %+v", pos)
+	}
+}
+
+func TestClassifyPrefersFleetThenProductionThenFamily(t *testing.T) {
+	fs := []serialFamily{{Label: "SUNMI D2s", Prefix: "DK1924", Length: 13, DeviceClass: "kds", Count: 3}}
+	ps := []db.Production{prodT7()}
+	if got := classifySerial("DK19248T41099", nil, ps, fs); got.Class != "family" || got.DevClass != "kds" || got.Family != "SUNMI D2s" {
+		t.Errorf("family: %+v", got)
+	}
+	if got := classifySerial("DK19248T41099", &db.Device{EnrollmentStatus: "auto", DeviceClass: "kds"}, ps, fs); got.Class != "fleet" {
+		t.Errorf("already in the MDM must beat a family guess: %+v", got)
+	}
+	if got := classifySerial("AT070AABU00875", nil, ps, fs); got.Class != "production" {
+		t.Errorf("a production batch must beat a family guess: %+v", got)
+	}
+	if got := classifySerial("18121FDF60022T", nil, ps, fs); got.Class != "other" {
+		t.Errorf("unrelated phone: %+v", got)
 	}
 }
