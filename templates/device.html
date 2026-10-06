@@ -320,6 +320,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   /* MDM DPC badge + disabled action items (capability-aware device page). */
   .ddc-dpc-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent-edge);cursor:default;}
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
+  .cpill-ic{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:1px;}
   </style>
   <div class="ddc-vitals ddc-vitals--ribbon">
     {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
@@ -331,6 +332,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
               title="{{.Title}}" onclick="toggleClientPill(event)">
         {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
+        {{if .ClassIcon}}<svg class="cpill-ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-{{.ClassIcon}}"/></svg>{{end}}
         <span>{{.Kind}}</span>
         {{if .Version}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver">{{.Version}}</span>
         {{else if .Misreported}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver muted">pre-1.0.2</span>{{end}}

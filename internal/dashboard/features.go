@@ -1064,9 +1064,10 @@ var clientSlotLabels = map[string]string{
 // pill opens — every client with its hosted version plus this client's changelog.
 // One pill in one place for firmware, DPC and Lite alike.
 type ClientPillView struct {
-	Kind    string // "Firmware MDM" | "Standard MDM" | "MDM Lite"
-	Title   string // the tooltip the old tag carried
-	Version string // what the device reports ("" = it has never said)
+	Kind      string // "Firmware MDM" | "Standard MDM" | "MDM Lite"
+	ClassIcon string // dk-* sprite id for the device's hardware class ("" when there's no device)
+	Title     string // the tooltip the old tag carried
+	Version   string // what the device reports ("" = it has never said)
 	// Set when the device reported the framework's version rather than its own; the
 	// pill shows the reason instead of the number.
 	Misreported bool
@@ -1093,6 +1094,17 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 	v := ClientPillView{Kind: "Firmware MDM", Title: "Our hardware running the system-app client"}
 	if d == nil {
 		return v
+	}
+	// Same class→glyph mapping as the fleet cards' deviceIcon (handlers.go): the pill names
+	// the client kind (agent) but the icon is the hardware class, since one agent kind covers
+	// several classes (Standard MDM runs on a kiosk, a KDS or a POS alike).
+	switch c := d.Class(); c {
+	case "t7", "kiosk", "tablet", "mpos", "pos", "dongle", "kds", "payment":
+		v.ClassIcon = c
+	case "panel":
+		v.ClassIcon = "kiosk"
+	default:
+		v.ClassIcon = "other"
 	}
 	switch {
 	case d.IsMDMLite():
