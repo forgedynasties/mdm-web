@@ -131,6 +131,65 @@ h1{font-size:22px;margin:0 0 4px;}
 .mac .tile small{display:block;color:var(--m-sub);font-size:11px;margin:2px 0 6px}
 .mac .tile .badge{position:absolute;top:8px;right:8px}
 .mac .bottombar{height:44px;border-top:.5px solid var(--m-sep);display:flex;align-items:center;gap:8px;padding:0 14px;flex:none;color:var(--m-sub);font-size:12px}
+
+/* ───────── Animations window ───────── */
+.mac .mlist{position:relative;display:flex;flex-direction:column;gap:2px}
+.mac .msel{position:absolute;left:0;right:0;top:0;height:28px;border-radius:7px;background:var(--m-sel);transition:transform .32s cubic-bezier(.2,.9,.25,1),opacity .2s;pointer-events:none;opacity:0}
+.mac .mlist .item{position:relative;height:28px;z-index:1;transition:color .2s}
+.mac .mlist .item.sel{background:transparent}
+.mac .item.enter{animation:rowIn .42s cubic-bezier(.2,.9,.25,1) both}
+@keyframes rowIn{0%{height:0;opacity:0;transform:translateX(-8px)}60%{height:28px;opacity:.6}100%{height:28px;opacity:1;transform:none}}
+.mac .meta .c{display:flex;transition:opacity .3s,transform .3s cubic-bezier(.2,.9,.25,1),width .3s;width:12px;overflow:hidden}
+.mac .meta .c.gone{opacity:0;transform:scale(.3);width:0}
+.mac .meta .c.new{animation:popM .45s cubic-bezier(.3,1.6,.5,1) both}
+.mac .stat{width:14px;display:flex;justify-content:center}
+.mac .stat .ok{animation:popM .5s cubic-bezier(.3,1.6,.5,1) both}
+.mac .stat .dot.pulse{animation:pulseM .7s ease-in-out 2}
+@keyframes popM{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes pulseM{50%{transform:scale(1.7);box-shadow:0 0 0 4px color-mix(in srgb,var(--m-bad) 25%,transparent)}}
+.mac .xfade{animation:xfadeM .3s cubic-bezier(.2,.9,.25,1) both}
+@keyframes xfadeM{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.mac .seg.thumb{position:relative}
+.mac .seg.thumb .th{position:absolute;top:2px;bottom:2px;border-radius:5px;background:var(--m-row);box-shadow:0 1px 2px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.06);transition:left .28s cubic-bezier(.2,.9,.25,1),width .28s cubic-bezier(.2,.9,.25,1)}
+.mac.dark .seg.thumb .th{background:#636366}
+.mac .seg.thumb button{position:relative;z-index:1;background:transparent!important;box-shadow:none!important}
+.mac .mspin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:rotM .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}
+.mac .mspin.d{border-color:color-mix(in srgb,var(--m-sub) 35%,transparent);border-top-color:var(--m-sub);margin:0}
+@keyframes rotM{to{transform:rotate(360deg)}}
+.mac .btn{transition:transform .12s,filter .15s,background .2s}
+.mac .btn:active,.mac .btn.press{transform:scale(.96)}
+.mac .pbar{height:2px;background:transparent;position:relative;overflow:hidden;flex:none}
+.mac .pbar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--m-accent);transition:width .5s cubic-bezier(.2,.9,.25,1)}
+.mac .step .chk{width:16px;height:16px;border-radius:50%;background:var(--m-ok);color:#fff;display:flex;align-items:center;justify-content:center;animation:popM .35s cubic-bezier(.3,1.6,.5,1) both}
+.mac .step .chk .ic{width:10px;height:10px;stroke-width:3}
+.mac .step .chk path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawM .35s .1s ease-out forwards}
+@keyframes drawM{to{stroke-dashoffset:0}}
+.mac .step{animation:xfadeM .28s both}
+.mac .step .k.dim{color:var(--m-sub)}
+.mac .bigok{width:56px;height:56px;border-radius:14px;background:var(--m-ok);color:#fff;display:flex;align-items:center;justify-content:center;animation:springM .6s cubic-bezier(.3,1.6,.5,1) both}
+.mac .bigok .ic{width:30px;height:30px;stroke-width:2.6}
+.mac .bigok path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawM .4s .25s ease-out forwards}
+@keyframes springM{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+.mac .banner{position:absolute;top:10px;right:12px;width:270px;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--m-bg) 82%,transparent);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);box-shadow:0 10px 30px rgba(0,0,0,.25),0 0 0 .5px var(--m-sep);transform:translateX(320px);transition:transform .45s cubic-bezier(.2,1.2,.3,1);z-index:9;font-size:12px}
+.mac .banner.show{transform:none}
+.mac .banner .app{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.mac .banner .app .ic{width:16px;height:16px}
+.mac .banner b{display:block;font-size:12.5px}.mac .banner span{color:var(--m-sub)}
+.mac .sheetwrap.out{animation:fadeOutM .25s both}.mac .sheet.out{animation:liftM .25s ease-in both}
+@keyframes fadeOutM{to{opacity:0}}@keyframes liftM{to{transform:translateY(-100%)}}
+.mac .sheet.shake{animation:shakeM .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shakeM{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
+.mac .code span{transition:box-shadow .15s,border-color .15s}
+.mac .code span.typed{animation:popM .18s both}
+.mac .pill.flip{animation:xfadeM .3s both}
+.mac .pill.shake{animation:shakeM .45s}
+.mac .switch{transition:background .2s}.mac .switch::after{transition:left .22s cubic-bezier(.2,.9,.25,1),right .22s cubic-bezier(.2,.9,.25,1)}
+.mac .switch.anim::after{right:auto;left:15px}.mac .switch.anim.off::after{left:2px}
+.chips2{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.chips2 button{border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;cursor:pointer}
+.chips2 button.play{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chips2 button.now{outline:2px solid var(--accent);outline-offset:1px}
+.nowplaying{font-size:12.5px;color:var(--accent-text);font-weight:700;min-height:18px;margin:0 0 8px}
 @media(max-width:1000px){.rules{grid-template-columns:1fr}.mac .win{grid-template-columns:190px 1fr}}
 @media (prefers-reduced-motion:reduce){.mac *{animation:none!important}}
 </style>
@@ -171,6 +230,26 @@ h1{font-size:22px;margin:0 0 4px;}
 <div class="modebar">Appearance <button data-mode="C" data-v="light" class="on">Light</button><button data-mode="C" data-v="dark">Dark</button></div>
 <div class="mac" id="C"></div>
 <p class="pc"><b>Good:</b> lowest risk, quick. <b>Bad:</b> the centred big-icon panel still reads a little “web”.</p>
+
+
+<!-- ───────── Animations ───────── -->
+<span class="eyebrow">All animations</span>
+<div class="dname">Every motion in the app, Mac style</div>
+<div class="ddesc">Short, springy, and only where something actually changed — the way macOS moves. Press <b>▶ Play all</b>, or play one at a time. Durations are 0.2–0.45 s with an ease-out spring; everything turns off with the system's “Reduce motion”.</div>
+<div class="chips2" id="Mchips">
+ <button class="play" data-a="all">▶ Play all</button>
+ <button data-a="plug">Phone plugged in</button><button data-a="select">Select a device</button><button data-a="class">Pick a class</button>
+ <button data-a="enrol">Enrol + progress</button><button data-a="notify">Done notification</button><button data-a="pair">Pairing sheet</button>
+ <button data-a="wrong">Wrong code</button><button data-a="unplug">Unplug cable</button><button data-a="blocked">Blocked phone</button><button data-a="toggle">Switch</button>
+</div>
+<div class="nowplaying" id="Mnow"></div>
+<div class="modebar">Appearance <button data-mode="M" data-v="light" class="on">Light</button><button data-mode="M" data-v="dark">Dark</button></div>
+<div class="mac" id="M"><div class="win"><div class="side"><div class="top"><div class="lights"><i></i><i></i><i></i></div></div><div class="sec">Devices</div><div class="mlist" id="Mlist"><div class="msel" id="Msel"></div></div></div>
+ <div class="main rel"><div class="tb"><div><div class="title" id="Mtitle">AIO Enroll</div><div class="sub" id="Msub">Waiting for devices</div></div><span class="sp"></span><div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>Search</div><div class="avatar">AH</div></div>
+ <div class="pbar"><i id="Mbar"></i></div><div class="content" id="Mcontent"></div><div id="Msheet"></div>
+ <div class="banner" id="Mbanner"><div class="app"><svg class="ic" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg></div><div><b>Google Pixel 6 enrolled</b><span>Enrolled as kds by Ali Hassan</span></div></div>
+ </div></div></div>
+<p class="pc"><b>What moves, and why:</b> rows slide in when a device appears · the selection glides between rows · the detail pane cross-fades · the segmented thumb slides · Enrol turns into a progress bar with steps ticking off · success springs in and the sidebar row gets its green badge · a Notification Center banner when done · the pairing sheet drops from the toolbar and shakes on a wrong code (like a wrong Mac password) · unplugging fades the cable icon out · a blocked phone pulses red once · switches slide.</p>
 
 <span class="eyebrow">What changes in the app, whichever you pick</span>
 <p class="lead">• <b>Window:</b> overlay title bar with the traffic lights in our toolbar, macOS vibrancy on the sidebar, Mica on Windows, normal title bar on Linux.<br>
@@ -277,4 +356,100 @@ document.querySelectorAll('.modebar button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll(`.modebar button[data-mode="${k}"]`).forEach(x=>x.classList.toggle('on',x===b));
 });
 A();B();C();
+
+/* ───────── Animations player ───────── */
+const M={el:document.getElementById('M')};
+const $m=(id)=>document.getElementById(id);
+const msleep=ms=>new Promise(r=>setTimeout(r,ms));
+let mtok={};
+const BASE=[{n:'AIO T7',g:I.tablet,c:'#f9674e',conn:['wifi'],st:'ok'},{n:'SUNMI D2s KDS',g:I.kds,c:'#34c759',conn:['wifi'],st:'ok'}];
+let mrows=[];
+function mrow(d,enter){
+  const el=document.createElement('div');el.className='item'+(enter?' enter':'');
+  el.innerHTML=`<span class="glyph" style="background:${d.c}">${d.g}</span><span class="nm">${d.n}</span><span class="meta">${d.conn.map(k=>`<span class="c" data-k="${k}">${I[k]}</span>`).join('')}</span><span class="stat">${d.st==='ok'?`<span class="ok">${I.chk}</span>`:d.st==='blocked'?'<span class="dot"></span>':''}</span>`;
+  return el;
+}
+function mreset(){
+  const list=$m('Mlist');list.querySelectorAll('.item').forEach(e=>e.remove());
+  mrows=BASE.map(d=>({...d}));mrows.forEach(d=>list.appendChild(mrow(d,false)));
+  $m('Msel').style.opacity=0;$m('Mtitle').textContent='AIO Enroll';$m('Msub').textContent='2 devices';
+  $m('Mcontent').innerHTML='<div class="xfade" style="text-align:center;color:var(--m-sub);margin-top:120px">Plug in a phone, or pair one over Wi-Fi.</div>';
+  $m('Msheet').innerHTML='';$m('Mbanner').classList.remove('show');$m('Mbar').style.width='0';
+}
+function mselect(i){
+  const sel=$m('Msel'),items=[...$m('Mlist').querySelectorAll('.item')];
+  sel.style.opacity=1;sel.style.transform=`translateY(${i*30}px)`;
+  items.forEach((e,k)=>e.classList.toggle('sel',k===i));
+}
+function mdetail(d,extra=''){
+  const both=d.conn.length>1;
+  $m('Mtitle').textContent=d.n;$m('Msub').textContent=d.st==='ok'?'Enrolled':d.st==='blocked'?'Can’t be enrolled':'Ready to enrol';
+  $m('Mcontent').innerHTML=`<div class="xfade"><div class="hdr"><div class="big" id="Mbig">${d.g}</div><div><h2>${d.n}</h2><p>${d.st==='blocked'?'Has an account':'Ready to enrol'} · <span id="Mconn">${d.conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')}</span></p></div></div>
+   <div class="ghead">CONNECTION</div><div class="group"><div class="row"><span class="k">Connected</span><span class="pill okp" id="Mcp">${d.conn.map(c=>I[c]).join('')} ${d.conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')}</span></div>
+   <div class="row"><span class="k">Use Wi-Fi when the cable is unplugged</span><span class="switch anim off" id="Msw"></span></div></div>
+   <div class="ghead">ENROLLMENT</div><div class="group" id="Mgroup">
+    ${d.st==='blocked'?`<div class="row"><span class="k">Status</span><span class="pill badp" id="Mbad">Has an account · Can’t be enrolled</span></div>`:
+    `<div class="row"><span class="k">Used as</span><div class="seg thumb" id="Mseg"><span class="th"></span>${['dongle','pos','kds','kiosk'].map(c=>`<button data-c="${c}">${c}</button>`).join('')}</div></div>`}</div>
+   ${d.st==='blocked'?'':`<div class="actions"><button class="btn primary" id="Mgo">Enrol</button></div>`}${extra}</div>`;
+  const seg=$m('Mseg');if(seg)mthumb('pos',true);
+}
+function mthumb(c,instant){
+  const seg=$m('Mseg');if(!seg)return;const b=seg.querySelector(`[data-c="${c}"]`),th=seg.querySelector('.th');
+  if(instant){th.style.transition='none';}
+  th.style.left=b.offsetLeft+'px';th.style.width=b.offsetWidth+'px';
+  if(instant){void th.offsetWidth;th.style.transition='';}
+}
+const PIXEL={n:'Google Pixel 6',g:I.phone,c:'#8e8e93',conn:['usb'],st:'ready'};
+async function press(el){if(!el)return;el.classList.add('press');await msleep(130);el.classList.remove('press');}
+const A_={
+ async plug(t){$m('Mnow').textContent='A phone is plugged in: its row slides into the sidebar';const d={...PIXEL};mrows.push(d);$m('Mlist').appendChild(mrow(d,true));$m('Msub').textContent='3 devices';await msleep(700);},
+ async select(t){$m('Mnow').textContent='Selecting: the highlight glides, the detail cross-fades';if(mrows.length<3)await A_.plug(t);
+   mselect(0);mdetail(mrows[0]);await msleep(650);if(mtok!==t)return;mselect(1);mdetail(mrows[1]);await msleep(650);if(mtok!==t)return;mselect(2);mdetail(mrows[2]);await msleep(600);},
+ async class(t){$m('Mnow').textContent='Picking a class: the segmented thumb slides';if(!$m('Mseg'))await A_.select(t);
+   for(const c of ['kds','kiosk','dongle','kds']){if(mtok!==t)return;mthumb(c);await msleep(420);}},
+ async enrol(t){$m('Mnow').textContent='Enrol: the button turns into progress, steps tick off, success springs in';if(!$m('Mgo'))await A_.class(t);if(mtok!==t)return;
+   const go=$m('Mgo');await press(go);go.innerHTML='<span class="mspin"></span>Enrolling…';go.disabled=true;
+   const g=$m('Mgroup');const steps=['Checking the device','Installing the agent','Setting Device Owner','Starting the agent','Waiting for the MDM'];
+   for(let i=0;i<steps.length;i++){if(mtok!==t)return;
+     const r=document.createElement('div');r.className='row step';r.innerHTML=`<span class="k">${steps[i]}</span><span class="mspin d"></span>`;g.appendChild(r);
+     $m('Mbar').style.width=((i+1)/steps.length*100)+'%';await msleep(480);r.lastChild.outerHTML=`<span class="chk">${I.chk}</span>`;}
+   await msleep(250);if(mtok!==t)return;
+   $m('Mbig').outerHTML=`<div class="bigok" id="Mbig">${I.chk}</div>`;go.textContent='Enrolled';go.style.background='var(--m-ok)';
+   $m('Msub').textContent='Enrolled · kds';const hp=$m('Mcontent').querySelector('.hdr p');if(hp)hp.innerHTML='Enrolled as kds · <span id="Mconn">'+mrows[2].conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')+'</span>';const row=$m('Mlist').querySelectorAll('.item')[2];if(row)row.querySelector('.stat').innerHTML=`<span class="ok">${I.chk}</span>`;
+   mrows[2].st='ok';await msleep(500);$m('Mbar').style.transition='opacity .4s';$m('Mbar').style.opacity=0;await msleep(450);$m('Mbar').style.width='0';$m('Mbar').style.opacity=1;$m('Mbar').style.transition='';},
+ async notify(t){$m('Mnow').textContent='Done while you were elsewhere: a Notification Center banner';const b=$m('Mbanner');b.classList.add('show');await msleep(2200);b.classList.remove('show');await msleep(500);},
+ async pair(t,wrong){$m('Mnow').textContent=wrong?'Wrong code: the sheet shakes, like a wrong Mac password':'Pairing: the sheet drops from the toolbar, digits fill in';
+   const sh=$m('Msheet');sh.innerHTML=`<div class="sheetwrap" id="Mback"><div class="sheet" id="Mshe"><h3>Pair with AIO T7</h3><p>Enter the 6-digit code shown on the phone.</p><div class="code" id="Mcode">${'<span></span>'.repeat(6)}</div><div class="actions"><button class="btn">Cancel</button><button class="btn primary" id="Mpb" style="opacity:.5">Pair</button></div></div></div>`;
+   await msleep(450);const boxes=[...$m('Mcode').children];
+   const type=async(code)=>{boxes.forEach(b=>{b.textContent='';b.classList.remove('f','typed');});
+     for(let i=0;i<6;i++){if(mtok!==t)return;boxes.forEach((b,k)=>b.classList.toggle('f',k===i));boxes[i].textContent=code[i];boxes[i].classList.add('typed');await msleep(140);}
+     boxes.forEach(b=>b.classList.remove('f'));$m('Mpb').style.opacity=1;};
+   if(wrong){await type('111111');if(mtok!==t)return;await press($m('Mpb'));await msleep(250);$m('Mshe').classList.add('shake');await msleep(520);$m('Mshe').classList.remove('shake');$m('Mpb').style.opacity=.5;await msleep(200);}
+   await type('482913');if(mtok!==t)return;await press($m('Mpb'));$m('Mpb').innerHTML='<span class="mspin"></span>Pairing…';await msleep(900);if(mtok!==t)return;
+   $m('Mshe').classList.add('out');$m('Mback').classList.add('out');await msleep(260);sh.innerHTML='';
+   if(!mrows.some(r=>r.n==='AIO T7 (2)')){const d={n:'AIO T7 (2)',g:I.tablet,c:'#f9674e',conn:['wifi'],st:'ready'};mrows.push(d);$m('Mlist').appendChild(mrow(d,true));await msleep(450);mselect(mrows.length-1);mdetail(d);}
+   await msleep(600);},
+ async wrong(t){await A_.pair(t,true);},
+ async unplug(t){$m('Mnow').textContent='Unplugging the cable: the USB icon fades out, the Wi-Fi link carries on';
+   let i=mrows.findIndex(r=>r.n==='Google Pixel 6');if(i<0){await A_.plug(t);i=mrows.length-1;}
+   const d=mrows[i];if(!d.conn.includes('wifi')){d.conn=['usb','wifi'];const meta=$m('Mlist').querySelectorAll('.item')[i].querySelector('.meta');const w=document.createElement('span');w.className='c new';w.innerHTML=I.wifi;meta.appendChild(w);}
+   mselect(i);mdetail(d);await msleep(900);if(mtok!==t)return;
+   const u=$m('Mlist').querySelectorAll('.item')[i].querySelector('.c[data-k="usb"]');if(u)u.classList.add('gone');
+   const p=$m('Mcp');if(p){p.classList.remove('flip');void p.offsetWidth;p.innerHTML=`${I.wifi} Wi-Fi`;p.classList.add('flip');}
+   const c=$m('Mconn');if(c)c.textContent='Wi-Fi';d.conn=['wifi'];await msleep(900);},
+ async blocked(t){$m('Mnow').textContent='A phone that can’t be enrolled: the red dot pulses once, the status shakes';
+   const d={n:'HK1 RBOX D8',g:I.tv,c:'#5e5ce6',conn:['usb'],st:'blocked'};mrows.push(d);const el=mrow(d,true);$m('Mlist').appendChild(el);await msleep(450);
+   mselect(mrows.length-1);mdetail(d);el.querySelector('.dot').classList.add('pulse');await msleep(350);const b=$m('Mbad');if(b)b.classList.add('shake');await msleep(1200);},
+ async toggle(t){$m('Mnow').textContent='Switches slide';if(!$m('Msw')){mselect(0);mdetail(mrows[0]);await msleep(400);}
+   for(let k=0;k<3;k++){if(mtok!==t)return;$m('Msw').classList.toggle('off');await msleep(550);}},
+};
+async function mplay(which){
+  const t=mtok={};document.querySelectorAll('#Mchips button').forEach(b=>b.classList.toggle('now',b.dataset.a===which));
+  mreset();await msleep(350);
+  const seq=which==='all'?['plug','select','class','enrol','notify','pair','wrong','unplug','blocked','toggle']:[which];
+  for(const a of seq){if(mtok!==t)return;document.querySelectorAll('#Mchips button').forEach(b=>b.classList.toggle('now',b.dataset.a===a||(which==='all'&&b.dataset.a==='all')));await A_[a](t);await msleep(350);}
+  if(mtok===t)$m('Mnow').textContent='Done. Press any button to replay.';
+}
+document.querySelectorAll('#Mchips button').forEach(b=>b.onclick=()=>mplay(b.dataset.a));
+mreset();
 </script></body></html>
