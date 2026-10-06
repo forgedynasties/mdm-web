@@ -2839,6 +2839,23 @@ func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
 	return out, rows.Err()
 }
 
+// DeviceEnrolledBy is the username that enrolled the device through the enroll app ('' if unknown).
+func (d *DB) DeviceEnrolledBy(ctx context.Context, serial string) (string, error) {
+	var by string
+	err := d.pool.QueryRow(ctx, `SELECT enrolled_by FROM devices WHERE serial_number = $1`, serial).Scan(&by)
+	return by, err
+}
+
+// SetEnrolledBy records the username that enrolled the given devices (admin backfill for devices
+// enrolled before this was tracked). Returns how many devices changed.
+func (d *DB) SetEnrolledBy(ctx context.Context, serials []string, username string) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `UPDATE devices SET enrolled_by = $2 WHERE serial_number = ANY($1::text[])`, serials, username)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 func (d *DB) ListAllSerials(ctx context.Context) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `SELECT serial_number FROM devices ORDER BY serial_number`)
 	if err != nil {
@@ -13245,6 +13262,11 @@ ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS max_enrolls INT;
 ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS last_enrolled_at TIMESTAMPTZ;
 
+-- Who did it: the desktop enroll app mints a token per signed-in user, and the device records that
+-- user's username when it enrolls through it (most recent enrollment wins; '' = not known).
+ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_by TEXT NOT NULL DEFAULT '';
+
 -- Super op: an access admin who may also push firmware updates (deploy releases,
 -- add targets, retry / cancel) but not manage release packages. Effective role
 -- constraint; keep it last.
@@ -16830,6 +16852,7 @@ type EnrollmentProfile struct {
 	ExpiresAt      *time.Time // token stops enrolling after this
 	MaxEnrolls     *int       // token stops enrolling after this many devices
 	LastEnrolledAt *time.Time
+	CreatedBy      string // username of the account that minted it (enroll app); '' for dashboard/API profiles
 }
 
 func (p EnrollmentProfile) Revoked() bool { return p.RevokedAt != nil }
@@ -16866,14 +16889,15 @@ type EnrollmentProfileInput struct {
 	RestaurantID *uuid.UUID
 	ExpiresAt    *time.Time
 	MaxEnrolls   *int
+	CreatedBy    string
 }
 
 func (d *DB) CreateEnrollmentProfile(ctx context.Context, in EnrollmentProfileInput) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO enrollment_profiles (name, token, group_id, notes, device_class, restaurant_id, expires_at, max_enrolls)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-		in.Name, in.Token, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls).Scan(&id)
+		INSERT INTO enrollment_profiles (name, token, group_id, notes, device_class, restaurant_id, expires_at, max_enrolls, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+		in.Name, in.Token, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls, in.CreatedBy).Scan(&id)
 	return id, err
 }
 
@@ -16891,12 +16915,12 @@ func (d *DB) UpdateEnrollmentProfile(ctx context.Context, id uuid.UUID, in Enrol
 
 const enrollmentProfileCols = `p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
 		       p.created_at, p.revoked_at, p.enroll_count,
-		       p.device_class, p.restaurant_id, COALESCE(r.name, ''), p.expires_at, p.max_enrolls, p.last_enrolled_at`
+		       p.device_class, p.restaurant_id, COALESCE(r.name, ''), p.expires_at, p.max_enrolls, p.last_enrolled_at, p.created_by`
 
 func scanEnrollmentProfile(row interface{ Scan(...any) error }, p *EnrollmentProfile) error {
 	return row.Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName, &p.Notes,
 		&p.CreatedAt, &p.RevokedAt, &p.EnrollCount,
-		&p.DeviceClass, &p.RestaurantID, &p.RestaurantName, &p.ExpiresAt, &p.MaxEnrolls, &p.LastEnrolledAt)
+		&p.DeviceClass, &p.RestaurantID, &p.RestaurantName, &p.ExpiresAt, &p.MaxEnrolls, &p.LastEnrolledAt, &p.CreatedBy)
 }
 
 func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, error) {
@@ -17001,9 +17025,9 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 	var onboardedAt *time.Time
 	err = tx.QueryRow(ctx, `
 		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via,
-		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at)
+		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by)
 		VALUES ($1, $2, $3, $4, 'dpc', 'enrolled', NOW(), $5, $6,
-		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END)
+		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7)
 		ON CONFLICT (serial_number) DO UPDATE
 		SET device_key_hash   = EXCLUDED.device_key_hash,
 		    key_rotated_at    = CASE WHEN devices.device_key_hash IS NOT NULL THEN NOW() ELSE devices.key_rotated_at END,
@@ -17015,9 +17039,10 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
 		    device_class      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
-		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at)
+		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at),
+		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END
 		RETURNING id, (xmax <> 0), onboarded_at`,
-		serial, product, keyHash, profile.ID, class, profile.RestaurantID).
+		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy).
 		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
 	if err != nil {
 		return res, err

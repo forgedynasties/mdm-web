@@ -13,8 +13,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"mdm/internal/db"
-	"mdm/internal/ratelimit"
 	prod "mdm/internal/product"
+	"mdm/internal/ratelimit"
 )
 
 // JSON endpoints for the desktop enroll app (tools/enroll-app). The app signs in with a
@@ -27,7 +27,7 @@ import (
 // reachable by a cross-site request and sit outside the same-origin guard.
 
 const (
-	appEnrollProfilePrefix = "AIO Enroll app · "
+	appEnrollProfilePrefix = "AIO Enroll app · " // + class + " · " + username: one token per person, so a device can say who enrolled it
 	appEnrollTokenDays     = 30
 	appEnrollStatusMax     = 100
 )
@@ -175,12 +175,15 @@ func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.
 			out[serial] = map[string]any{"enrolled": false}
 			continue
 		}
+		by, _ := h.db.DeviceEnrolledBy(r.Context(), serial)
 		entry := map[string]any{
-			"enrolled":     d.EnrollmentStatus == db.EnrollEnrolled,
-			"status":       d.EnrollmentStatus,
-			"class":        d.DeviceClass,
-			"agent_kind":   d.AgentKind,
-			"last_seen_at": d.LastSeenAt,
+			"enrolled_by":      by,
+			"enrolled_by_name": h.displayName(r, by),
+			"enrolled":         d.EnrollmentStatus == db.EnrollEnrolled,
+			"status":           d.EnrollmentStatus,
+			"class":            d.DeviceClass,
+			"agent_kind":       d.AgentKind,
+			"last_seen_at":     d.LastSeenAt,
 		}
 		var extra struct {
 			AgentVersion string `json:"agent_version"`
@@ -209,7 +212,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		appErr(w, http.StatusBadRequest, "unknown device_class")
 		return
 	}
-	name := appEnrollProfilePrefix + class
+	name := appEnrollProfilePrefix + class + " · " + s.Username
 
 	profiles, err := h.db.ListEnrollmentProfiles(r.Context())
 	if err != nil {
@@ -218,7 +221,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	}
 	for _, p := range profiles {
 		// Skip a token about to lapse so a long enroll never fails half way.
-		if p.Name == name && p.Active() && (p.ExpiresAt == nil || time.Until(*p.ExpiresAt) > 24*time.Hour) {
+		if p.Name == name && p.CreatedBy == s.Username && p.Active() && (p.ExpiresAt == nil || time.Until(*p.ExpiresAt) > 24*time.Hour) {
 			appJSON(w, http.StatusOK, appTokenResp(h.baseURL(r), p))
 			return
 		}
@@ -232,7 +235,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	exp := time.Now().Add(appEnrollTokenDays * 24 * time.Hour)
 	id, err := h.db.CreateEnrollmentProfile(r.Context(), db.EnrollmentProfileInput{
 		Name: name, Token: "enr_" + hex.EncodeToString(raw), DeviceClass: class, ExpiresAt: &exp,
-		Notes: "Minted by the AIO Enroll desktop app, first used by " + s.Username,
+		Notes: "Minted by the AIO Enroll desktop app for " + s.Username, CreatedBy: s.Username,
 	})
 	if err != nil {
 		appErr(w, http.StatusInternalServerError, "internal error")
@@ -294,6 +297,19 @@ func (h *Handler) AppAvatar(w http.ResponseWriter, r *http.Request, s *db.Sessio
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 	w.Header().Set("ETag", fmt.Sprintf(`"av-%d"`, ver))
 	_, _ = w.Write(png)
+}
+
+// displayName is "First Last" for a username, or the username itself when there is no such account.
+func (h *Handler) displayName(r *http.Request, username string) string {
+	if username == "" {
+		return ""
+	}
+	if u, err := h.db.GetUserByUsername(r.Context(), username); err == nil && u != nil {
+		if n := strings.TrimSpace(u.FirstName + " " + u.LastName); n != "" {
+			return n
+		}
+	}
+	return username
 }
 
 func (h *Handler) registerAppRoutes(mux *http.ServeMux) {

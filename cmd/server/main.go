@@ -498,6 +498,7 @@ func main() {
 	// bakes in at compile time (see internal/api/enrollment_profiles.go).
 	mux.Handle("GET /api/v1/enrollment-profiles", adminAuth(http.HandlerFunc(apiHandler.ListEnrollmentProfiles)))
 	mux.Handle("POST /api/v1/enrollment-profiles", adminAuth(middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.CreateEnrollmentProfile))))
+	mux.Handle("POST /api/v1/devices/enrolled-by", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetEnrolledBy))))
 
 	// Deployments: cancelling one was dashboard-only, which left a stalled rollout
 	// unclearable without a browser (see internal/api/releases.go).

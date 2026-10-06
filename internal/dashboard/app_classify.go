@@ -158,13 +158,13 @@ func matchFamily(serial string, fs []serialFamily) *serialFamily {
 }
 
 type serialClass struct {
-	Class      string `json:"class"`                // fleet | production | family | lookalike | other
-	Name       string `json:"name,omitempty"`       // fleet only: what the device is ("AIO T7"), from what it reports
-	Family     string `json:"family,omitempty"`     // family only: "SUNMI D2s_KDS_STGL"
+	Class      string `json:"class"`                  // fleet | production | family | lookalike | other
+	Name       string `json:"name,omitempty"`         // fleet only: what the device is ("AIO T7"), from what it reports
+	Family     string `json:"family,omitempty"`       // family only: "SUNMI D2s_KDS_STGL"
 	Count      int    `json:"family_count,omitempty"` // family only: how many enrolled devices share it
-	Production string `json:"production,omitempty"` // batch name, for production / fleet devices that match one
-	Model      string `json:"model,omitempty"`      // model code of the batch
-	Status     string `json:"status,omitempty"`     // fleet only: enrollment status
+	Production string `json:"production,omitempty"`   // batch name, for production / fleet devices that match one
+	Model      string `json:"model,omitempty"`        // model code of the batch
+	Status     string `json:"status,omitempty"`       // fleet only: enrollment status
 	DevClass   string `json:"device_class,omitempty"`
 }
 

@@ -78,11 +78,11 @@ func TestBuildFamiliesLearnsSchemeAndClass(t *testing.T) {
 		sample("DK19248T41010", "kds", "SUNMI", "D2s_KDS_STGL"),
 		sample("DK19248T41022", "kds", "SUNMI", "D2s_KDS_STGL"),
 		sample("DK19248T41033", "kds", "SUNMI", "D2s_KDS_STGL"),
-		sample("D3P20230411", "pos", "SUNMI", "D3 Pro"),                // single device: trusted for half
-		sample("android-8f3a", "", "Acme", "Thing"),                     // fabricated: ignored
-		sample("msm-123456", "", "Acme", "Thing"),                       // corrupt: ignored
-		sample("AB", "", "Tiny", "Short"),                               // prefix too short to say anything
-		sample("ZZ12345678", "", "NoModel", ""),                         // no model: cannot group
+		sample("D3P20230411", "pos", "SUNMI", "D3 Pro"), // single device: trusted for half
+		sample("android-8f3a", "", "Acme", "Thing"),     // fabricated: ignored
+		sample("msm-123456", "", "Acme", "Thing"),       // corrupt: ignored
+		sample("AB", "", "Tiny", "Short"),               // prefix too short to say anything
+		sample("ZZ12345678", "", "NoModel", ""),         // no model: cannot group
 	})
 	if len(fs) != 2 {
 		t.Fatalf("want 2 families, got %d: %+v", len(fs), fs)
