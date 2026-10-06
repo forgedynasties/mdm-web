@@ -21655,6 +21655,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 		mux.HandleFunc(pattern, h.enforceSameOrigin(handler))
 	}
 
+	h.registerAppRoutes(mux)
 	mux.HandleFunc("GET /login", h.LoginPage)
 	post("POST /login", h.LoginSubmit)
 	post("POST /logout", h.Logout)
