@@ -122,3 +122,23 @@ func TestClassifyPrefersFleetThenProductionThenFamily(t *testing.T) {
 		t.Errorf("unrelated phone: %+v", got)
 	}
 }
+
+func TestDeviceTitle(t *testing.T) {
+	mk := func(extra string) *db.Device { return &db.Device{LatestExtra: []byte(extra)} }
+	cases := []struct{ extra, want string }{
+		{`{"manufacturer":"AIO","model":"T7"}`, "AIO T7"},
+		{`{"manufacturer":"SUNMI","model":"SUNMI D2s"}`, "SUNMI D2s"}, // not "SUNMI SUNMI D2s"
+		{`{"model":"Pixel 6"}`, "Pixel 6"},
+		{`{"manufacturer":"AIO"}`, ""},
+		{``, ""},
+	}
+	for _, c := range cases {
+		if got := deviceTitle(mk(c.extra)); got != c.want {
+			t.Errorf("%s: got %q, want %q", c.extra, got, c.want)
+		}
+	}
+	got := classifySerial("AT070AA2600030", &db.Device{EnrollmentStatus: "auto", DeviceClass: "t7", LatestExtra: []byte(`{"manufacturer":"AIO","model":"T7"}`)}, nil, nil)
+	if got.Class != "fleet" || got.Name != "AIO T7" || got.DevClass != "t7" {
+		t.Errorf("fleet answer should carry model and class: %+v", got)
+	}
+}

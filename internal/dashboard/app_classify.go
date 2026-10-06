@@ -159,12 +159,27 @@ func matchFamily(serial string, fs []serialFamily) *serialFamily {
 
 type serialClass struct {
 	Class      string `json:"class"`                // fleet | production | family | lookalike | other
+	Name       string `json:"name,omitempty"`       // fleet only: what the device is ("AIO T7"), from what it reports
 	Family     string `json:"family,omitempty"`     // family only: "SUNMI D2s_KDS_STGL"
 	Count      int    `json:"family_count,omitempty"` // family only: how many enrolled devices share it
 	Production string `json:"production,omitempty"` // batch name, for production / fleet devices that match one
 	Model      string `json:"model,omitempty"`      // model code of the batch
 	Status     string `json:"status,omitempty"`     // fleet only: enrollment status
 	DevClass   string `json:"device_class,omitempty"`
+}
+
+// deviceTitle is the human name of a device from what it reports: "AIO T7", "SUNMI D2s_KDS_STGL".
+// The manufacturer is dropped when the model already starts with it.
+func deviceTitle(d *db.Device) string {
+	mfr := strings.TrimSpace(extraString(d.LatestExtra, "manufacturer"))
+	model := strings.TrimSpace(extraString(d.LatestExtra, "model"))
+	switch {
+	case model == "":
+		return ""
+	case mfr == "" || strings.HasPrefix(strings.ToLower(model), strings.ToLower(mfr)):
+		return model
+	}
+	return mfr + " " + model
 }
 
 // classifySerial is pure so it can be tested without a database. `known` is the MDM device for
@@ -179,7 +194,7 @@ func classifySerial(serial string, known *db.Device, ps []db.Production, fs []se
 	}
 	switch {
 	case known != nil:
-		c := serialClass{Class: "fleet", Status: known.EnrollmentStatus, DevClass: known.DeviceClass}
+		c := serialClass{Class: "fleet", Status: known.EnrollmentStatus, DevClass: known.DeviceClass, Name: deviceTitle(known)}
 		if batch != nil {
 			c.Production, c.Model = batch.Name, batch.ModelCode
 		}
