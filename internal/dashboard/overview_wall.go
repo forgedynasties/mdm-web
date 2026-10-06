@@ -27,6 +27,11 @@ type wallSquare struct {
 	State  string // on | warn | off | dormant
 	Tip    string
 	Class  string // device-class label (product.ClassLabel), for grouping within a block
+	// Shape is "sq" for a battery-powered class (T7, mpos, payment, tablet) or "circle" for a
+	// mains-powered one (kiosk, KDS, POS, dongle) — see product.ClassIsBatteryPowered. Status
+	// still carries the colour; this is a second, independent way to tell a class apart at a
+	// glance, since the within-block grouping label is tiny at the "sm" (900+ devices) density.
+	Shape string
 }
 
 // wallClassGroup is one device class's squares within a restaurant block — a T7 can't be
@@ -113,7 +118,10 @@ func buildWall(devs []db.WallDevice, connected map[uuid.UUID]struct{}, alerts []
 	blocks := map[uuid.UUID]*wallBlock{}
 	unplaced := map[string]*wallBlock{} // by device type label
 	for _, d := range devs {
-		sq := wallSquare{Serial: d.Serial, State: "on"}
+		sq := wallSquare{Serial: d.Serial, State: "on", Shape: "circle"}
+		if product.ClassIsBatteryPowered(d.Class) {
+			sq.Shape = "sq"
+		}
 		label := "Other devices"
 		if d.Class != "" {
 			label = product.ClassLabel(d.Class)

@@ -61,6 +61,10 @@
 .ovd-wb .ovd-grp .gl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);min-width:40px;flex:none}
 .ovd-wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
 .ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
+/* Shape is a second, independent read on device class (battery vs. mains), next to colour
+   for status — the group label above a row already says the exact class on hover/scan, this
+   is for telling classes apart across the whole wall at a glance. */
+.ovd-wb .sq a.shape-circle{border-radius:50%}
 .ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
 .ovd-wb .sq a.on,.ovd-wfoot i.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
 /* Alerting squares are orange, clearly apart from offline red (the warn token reads brown). */
@@ -68,6 +72,8 @@
 .ovd-wb .sq a.off,.ovd-wfoot i.off{background:var(--danger)}
 .ovd-wb .sq a.dormant,.ovd-wfoot i.dormant{background:var(--rule-2)}
 .ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+.ovd-wfoot i.shape{background:var(--text-faint)}
+.ovd-wfoot i.shape.shape-circle{border-radius:50%}
 .ovd-wfoot span{display:inline-flex;align-items:center}
 .ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
 .ovd-wfoot .ovd-dot{margin-right:5px}
@@ -269,13 +275,14 @@
           <div class="ovd-wb {{.Health}}">
             <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
             <div class="ovd-grp">{{range .Groups}}
-            <div class="row"><span class="gl">{{.Label}}</span><div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div></div>
+            <div class="row"><span class="gl">{{.Label}}</span><div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}} shape-{{.Shape}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div></div>
             {{end}}</div>
           </div>
           {{end}}
         </div>
         <div class="ovd-wfoot">
           <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
+          <span><i class="shape shape-sq"></i>Battery-powered</span><span><i class="shape shape-circle"></i>Mains-powered</span>
         </div>
         {{else}}
         <div class="ovd-empty"><b>No devices enrolled yet.</b></div>

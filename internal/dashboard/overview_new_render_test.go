@@ -72,18 +72,18 @@ func TestOverviewNewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`href="/devices/T7-0002" class="off"`,        // offline square
-		`href="/devices/K22-0003" class="warn"`,      // alerting square
-		`Menu board · Not deployed`,                  // loose device, grouped by type
-		`id="ovd-map-data"`,                          // map data shipped
-		`"name":"Pho 88"`,                            // restaurant on the map
-		`"silent":["T7-0002"]`,                       // the map card lists who is silent
+		`href="/devices/T7-0002" class="off shape-sq"`,       // offline square, T7 is battery-powered
+		`href="/devices/K22-0003" class="warn shape-circle"`, // alerting square, kiosk is mains-powered
+		`Menu board · Not deployed`,                          // loose device, grouped by type
+		`id="ovd-map-data"`,                                  // map data shipped
+		`"name":"Pho 88"`,                                    // restaurant on the map
+		`"silent":["T7-0002"]`,                               // the map card lists who is silent
 		`"uptime":["ok","warn"]`,
 		`id="ovd-intro"`,                             // the first-visit intro
 		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
 		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
-		`<span class="p warn">97.0%</span>`,          // service uptime, one restaurant
+		`<span class="p warn">97.0%</span>`, // service uptime, one restaurant
 		`97.0% up · 1 device missed time`,
 		`<b>86</b> devices silent 14&#43; days<small>48% of the fleet, none in a restaurant.`, // clean-up checklist
 		`href="/devices?hygiene=placed-silent"`,

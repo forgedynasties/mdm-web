@@ -161,6 +161,19 @@ func TestCapsForDevice(t *testing.T) {
 	}
 }
 
+func TestClassIsBatteryPowered(t *testing.T) {
+	for _, c := range []string{ClassDongle, ClassKiosk, ClassKDS, ClassPOS} {
+		if ClassIsBatteryPowered(c) {
+			t.Errorf("%s: want mains-powered", c)
+		}
+	}
+	for _, c := range []string{ClassT7, ClassMPOS, ClassPayment, ClassTablet, ClassOther, ""} {
+		if !ClassIsBatteryPowered(c) {
+			t.Errorf("%s: want battery-powered", c)
+		}
+	}
+}
+
 func TestBatteryPredicateSQL(t *testing.T) {
 	got := BatteryPredicateSQL("d")
 	for _, want := range []string{"d.device_class NOT IN (", "'dongle'", "'kds'", "'kiosk'", "'pos'", "'kiosk18'", "'kiosk22'", "'kiosk27'", "'" + DefaultKey + "')"} {

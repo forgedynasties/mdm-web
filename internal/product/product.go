@@ -148,6 +148,13 @@ func CapsForDevice(key, class string) Caps {
 	return CapsFor(key)
 }
 
+// ClassIsBatteryPowered is [mainsOnlyClasses] negated, for call sites (the Overview device
+// wall) that only have a device's class to go on, not its product key. It answers the same
+// question CapsForDevice(key, class).HasBattery would for an unknown/generic key.
+func ClassIsBatteryPowered(class string) bool {
+	return !mainsOnlyClasses[class]
+}
+
 // BatteryPredicateSQL is a WHERE fragment, for the devices table aliased as `alias`,
 // true only for devices that have a battery — the SQL twin of CapsForDevice().HasBattery.
 // Battery-less devices still store a latest_battery_pct (often 0), and without this
