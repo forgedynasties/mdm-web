@@ -80,7 +80,7 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
 
 <div class="adb-split">
 <div>
-  <form id="adb-batch" method="POST" action="/adb/commands">
+  <form id="adb-batch" method="POST" action="/adb/commands" autocomplete="off">
   <div class="adb-batch" id="adb-bar" hidden><span><b id="adb-count">0</b> ticked</span>
     <span class="adb-seg">
       <label><input type="radio" name="hours" value="2">2 h</label>
@@ -126,7 +126,7 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
       </span>
       <button class="cc-btn sm{{if ne .Group "open"}} primary{{end}}" name="action" value="on" type="submit">{{if eq .Group "open"}}Extend{{else}}Turn on{{end}}</button>
     </form>
-    {{else if ne .Group "open"}}<p class="small muted" style="margin:6px 0 0">The standard client has no root to open adbd; it can only tunnel where the image already listens on 5555.</p>{{end}}
+    {{else}}<p class="small muted" style="margin:6px 0 0">{{if eq .Group "open"}}This image keeps adbd on the network by itself; the standard client has no root to switch it off.{{else}}The standard client has no root to open adbd; it can only tunnel where the image already listens on 5555.{{end}}</p>{{end}}
     {{end}}
   </div>
 
@@ -182,8 +182,9 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
 
 <script>
 function adbBoxes(){return document.querySelectorAll('#adb-batch td input[name=serial]:not(:disabled)')}
-function adbCount(){var n=document.querySelectorAll('#adb-batch td input[name=serial]:checked').length;document.getElementById('adb-count').textContent=n;document.getElementById('adb-bar').hidden=n===0;}
+function adbCount(){var n=document.querySelectorAll('#adb-batch td input[name=serial]:checked:not(:disabled)').length;document.getElementById('adb-count').textContent=n;document.getElementById('adb-bar').hidden=n===0;}
 function adbClear(){adbBoxes().forEach(function(c){c.checked=false});document.getElementById('adb-all').checked=false;adbCount();}
+document.querySelectorAll('#adb-batch td input[name=serial]:disabled').forEach(function(c){c.checked=false});
 adbBoxes().forEach(function(c){c.addEventListener('change',adbCount)});
 document.getElementById('adb-all').addEventListener('change',function(){var on=this.checked;adbBoxes().forEach(function(c){c.checked=on});adbCount();});
 adbCount();
@@ -205,7 +206,7 @@ adbCount();
 {{if .Sessions}}
 // A live tunnel's state changes under the page (attempt, refused, connected): refresh
 // while nothing is ticked, so the steps track `adb connect` without a hand reload.
-setInterval(function(){if(!document.querySelector('#adb-batch td input[name=serial]:checked')&&document.visibilityState==='visible')location.reload()},15000);
+setInterval(function(){if(!document.querySelector('#adb-batch td input[name=serial]:checked:not(:disabled)')&&document.visibilityState==='visible')location.reload()},15000);
 {{end}}
 </script>
 {{template "footer" .}}
@@ -222,7 +223,7 @@ setInterval(function(){if(!document.querySelector('#adb-batch td input[name=seri
   {{if eq .Group "cant"}}
   <td colspan="3" class="small muted">{{.Why}}</td>
   {{else}}
-  <td>{{if eq .Group "open"}}<span class="cc-tag warn">On</span> <span class="small muted">{{if .OffIn}}off in {{.OffIn}}{{else if .StaysOn}}stays on{{end}}</span>{{else}}Off{{end}}</td>
+  <td>{{if eq .Group "open"}}<span class="cc-tag warn">On</span> <span class="small muted">{{if .OffIn}}off in {{.OffIn}}{{else if .StaysOn}}stays on{{end}}{{if not .CanSwitch}} · <span title="{{if eq .Device.AgentKind "dpc"}}The image keeps adbd on the network; the standard client has no root to switch it.{{else}}{{.Why}}{{end}}">can't switch</span>{{end}}</span>{{else}}Off{{end}}</td>
   <td>{{with .Tunnel}}<span class="cc-tag ok">tunnel :{{.Port}}</span>{{end}}{{if and (eq .Group "open") .IP}}<span class="sub adb-mono">{{.IP}}:{{.Port}}</span>{{else if not .Tunnel}}<span class="muted">—</span>{{end}}</td>
   <td class="small">{{if .LastBy}}{{.LastBy}} · {{timeSince .LastAt}}{{else}}<span class="muted">—</span>{{end}}</td>
   {{end}}
