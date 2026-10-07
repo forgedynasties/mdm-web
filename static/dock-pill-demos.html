@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bottom dock, after the pill header · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:880px;line-height:1.6}
+.lead b{color:var(--text-2)}
+.opt{margin:28px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:880px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1024px){.grid2{grid-template-columns:1fr}}
+
+/* mock browser, scrollable, with the new top pill already in place */
+.fr{position:relative;height:400px;overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg);box-shadow:var(--shadow-sm)}
+.fr:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 260px at 6% -8%,rgba(249,103,78,.13),transparent 60%),radial-gradient(380px 240px at 96% 8%,rgba(26,99,192,.09),transparent 60%)}
+.fr .pg{padding:18px 24px 110px;max-width:900px;margin:0 auto;position:relative}
+.fr .ph1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.fr .psub{color:var(--text-faint);font-size:12.5px;margin:0 0 16px}
+.fr .card{background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:14px 16px;margin:0 0 12px;font-size:13px}
+html[data-theme=dark] .fr .card{background:rgba(30,28,26,.6);border-color:rgba(255,255,255,.09)}
+.fr .card b{display:block;margin-bottom:4px}
+.fr .card .ln{height:8px;border-radius:4px;background:var(--surface-3);margin:7px 0;width:70%}
+.fr .card .ln.s{width:45%}
+.hint{position:absolute;right:12px;top:10px;font-size:11px;color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 9px;pointer-events:none;z-index:9}
+.bar{position:sticky;top:8px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 14px 8px 20px;width:min(100% - 48px,860px);margin:8px auto 0;border-radius:100px;
+  background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 0 0 1px rgba(0,0,0,.1),0 10px 30px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.7)}
+html[data-theme=dark] .bar{background:rgba(20,18,17,.5);box-shadow:0 0 0 1px rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.35)}
+.bar .brand{font-weight:600;font-size:18px;letter-spacing:-.01em}.bar .brand i{font-style:normal;color:var(--accent)}
+.bar .right{display:flex;gap:8px}
+.bar .ic{width:30px;height:30px;border-radius:99px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;color:var(--text-2)}
+.bar .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8}
+.bar .acct{height:30px;padding:0 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.bar .acct .av{width:18px;height:18px;border-radius:50%;background:var(--accent)}
+.bar .tabs{display:flex;gap:2px}
+.bar .tabs a{padding:6px 12px;border-radius:99px;font-size:12.5px;font-weight:650;color:var(--muted)}
+.bar .tabs a.on{background:var(--accent-soft);color:var(--accent-text)}
+
+/* ── dock mocks ── */
+.dk{position:sticky;bottom:14px;z-index:6;display:flex;gap:4px;padding:7px;width:max-content;max-width:calc(100% - 24px);margin:-90px auto 0;
+  background:rgba(255,255,255,.45);-webkit-backdrop-filter:blur(4px) saturate(180%);backdrop-filter:blur(4px) saturate(180%);
+  border:1.5px solid rgba(255,255,255,.29);border-radius:20px;box-shadow:0 14px 36px rgba(0,0,0,.21),inset 0 1px 0 rgba(255,255,255,.5),0 0 0 1.5px var(--accent-edge)}
+html[data-theme=dark] .dk{background:rgba(20,18,17,.45);border-color:rgba(255,255,255,.12)}
+.dk a{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:50px;min-width:52px;padding:0 8px;border-radius:12px;font-size:10.5px;font-weight:650;color:var(--muted);text-decoration:none;white-space:nowrap}
+.dk a svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.dk a.on{background:var(--accent-soft);color:var(--accent-text)}
+.dk .n{position:absolute;top:4px;right:6px;min-width:16px;height:16px;border-radius:99px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+.dk .srch{display:flex;align-items:center;gap:9px;width:300px;height:50px;margin-left:6px;padding:0 12px;border-radius:12px;background:var(--surface2);color:var(--text-faint);font-size:13px}
+.dk .srch svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9}
+.dk .srch .ph{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk kbd{font:600 10.5px var(--mono);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px;background:var(--surface)}
+/* new glass recipe = the top pill's */
+.dk.pill{border-radius:100px;border:0;background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.1),0 10px 30px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.7)}
+html[data-theme=dark] .dk.pill{background:rgba(20,18,17,.5);box-shadow:0 0 0 1px rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.35)}
+.dk.pill a{border-radius:99px}
+.dk.pill .srch{border-radius:99px}
+/* B: compact — search is a round button */
+.dk .sbtn{display:grid;place-items:center;width:50px;height:50px;margin-left:4px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.dk .sbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9}
+/* B: horizontal rows */
+.dk.row a{flex-direction:row;height:40px;gap:8px;padding:0 14px;font-size:12.5px}
+.dk.row a svg{width:17px;height:17px}
+.dk.row .sbtn{width:40px;height:40px}
+.dk.row .n{position:static;margin-left:2px}
+/* C: two pills */
+.two{position:sticky;bottom:14px;z-index:6;display:flex;justify-content:center;gap:10px;margin:-90px auto 0;width:max-content;max-width:calc(100% - 24px)}
+.two .dk{position:static;margin:0}
+/* E: shrink to icons on scroll */
+.fr.e .dk a span{transition:max-height .25s ease,opacity .25s ease,margin .25s ease;max-height:14px;overflow:hidden}
+.fr.e .dk a{transition:height .25s ease}
+.fr.e.sc .dk a{height:40px;gap:0}
+.fr.e.sc .dk a span{max-height:0;opacity:0}
+.fr.e.sc .dk .sbtn{height:40px;width:40px}
+/* D: nav in the header */
+.fr.d .bar{width:min(100% - 48px,1040px)}
+.fr.d .pg{padding-bottom:40px}
+.fab{position:sticky;bottom:14px;z-index:6;margin:-64px 0 0 auto;width:50px;height:50px;border-radius:99px;display:grid;place-items:center;background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 0 0 1px rgba(0,0,0,.1),0 10px 30px rgba(0,0,0,.12);color:var(--text-2)}
+.fab svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9}
+html[data-theme=dark] .fab{background:rgba(20,18,17,.5);box-shadow:0 0 0 1px rgba(255,255,255,.14),0 10px 30px rgba(0,0,0,.35)}
+</style></head><body>
+<div class="themebar"><button class="on" onclick="setT('light',this)">Light</button><button onclick="setT('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Bottom dock, now that the header is a pill</h1>
+<p class="lead">Live since today: the appbar pulls in to a pill on scroll and the page has the warm paper with two glows. The dock at the bottom still has its own older glass (45% white, 4px blur + saturate, 20px corners, a coral 1.5px ring) and a 300px search field, so top and bottom no longer match. Every option below but the first uses <b>the top pill's recipe</b> (55% white, 12px blur, 1px hairline ring, 100px radius) so the two read as a pair. <b>Scroll inside each frame</b>; the header pill is already in place in all of them.</p>
+
+<div class="grid2">
+
+<div class="opt">
+<p class="oname">0 · Today <span class="now">Deployed</span></p>
+<p class="onote">Icon-over-label tabs, "More", a 300px search field with ⌘K. Still the old glass and the coral ring. Shown for reference.</p>
+<div class="fr">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <nav class="dk"><a><svg viewBox="0 0 24 24"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/></svg><span>Overview</span></a><a class="on"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/></svg><span>Fleet</span></a><a><svg viewBox="0 0 24 24"><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span>Actions</span></a><a><svg viewBox="0 0 24 24"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/></svg><span>Alerts</span><i class="n">3</i></a><a><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>More</span></a><span class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></span></nav>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">A · Same dock, the pill recipe <span class="rec">Smallest change</span></p>
+<p class="onote">Nothing moves: same tabs, same search field, same width. Only the glass changes to match the header — hairline ring instead of the coral one, 12px blur, fully round ends, round tab highlights. <b>Good:</b> the pair matches, zero re-learning, a CSS-only change. <b>Bad:</b> still 620px wide with the search field; the widest thing on a phone.</p>
+<div class="fr">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <nav class="dk pill"><a><svg viewBox="0 0 24 24"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/></svg><span>Overview</span></a><a class="on"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/></svg><span>Fleet</span></a><a><svg viewBox="0 0 24 24"><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span>Actions</span></a><a><svg viewBox="0 0 24 24"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/></svg><span>Alerts</span><i class="n">3</i></a><a><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>More</span></a><span class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></span></nav>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">B · Compact pill, search as a round button <span class="rec">I'd pick this</span></p>
+<p class="onote">Tabs go side-by-side (icon + label in one row, 40px tall), the search field becomes a round button with the ⌘K hint on hover, the dock drops to ~430px. <b>Good:</b> same proportions as the header pill, so the two look like one system; a third narrower, fits a phone without the search collapsing. <b>Bad:</b> the placeholder text "Search devices, restaurants, actions…" goes; the magnifier has to carry it.</p>
+<div class="fr">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <nav class="dk pill row"><a><svg viewBox="0 0 24 24"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/></svg><span>Overview</span></a><a class="on"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/></svg><span>Fleet</span></a><a><svg viewBox="0 0 24 24"><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span>Actions</span></a><a><svg viewBox="0 0 24 24"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/></svg><span>Alerts</span><i class="n">3</i></a><a><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>More</span></a><span class="sbtn" title="Search · ⌘K"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span></nav>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">C · Two pills: nav + a search bubble</p>
+<p class="onote">The dock is tabs only; search is its own round bubble beside it. <b>Good:</b> each pill does one thing, and the search bubble can sit bottom-right on a phone while the tabs stay centred. <b>Bad:</b> two floating things at the bottom plus one at the top is a lot of chrome; the gap between them is dead space.</p>
+<div class="fr">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <div class="two"><nav class="dk pill row"><a><svg viewBox="0 0 24 24"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/></svg><span>Overview</span></a><a class="on"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/></svg><span>Fleet</span></a><a><svg viewBox="0 0 24 24"><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span>Actions</span></a><a><svg viewBox="0 0 24 24"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/></svg><span>Alerts</span><i class="n">3</i></a><a><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>More</span></a></nav><nav class="dk pill row" style="padding:7px"><span class="sbtn" style="margin:0" title="Search · ⌘K"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span></nav></div>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">D · Tabs move into the header pill</p>
+<p class="onote">Overview · Fleet · Actions · Alerts sit in the middle of the top pill; the bottom keeps only a round search bubble (⌘K). On phones the tabs drop back down as option B. <b>Good:</b> one bar instead of two, the most room for tables, the DeepSeek layout exactly. <b>Bad:</b> the biggest change: the dock has been the thing people reach for since the start, the "island" alert that takes over the dock would need a new home, and the pill is crowded at 1024px.</p>
+<div class="fr d">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><nav class="tabs"><a>Overview</a><a class="on">Fleet</a><a>Actions</a><a>Alerts</a><a>More</a></nav><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="fab" title="Search · ⌘K"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">E · B, and the labels fold away on scroll</p>
+<p class="onote">Option B at rest; once the page is scrolling the labels collapse and the pill shrinks to a row of icons (40px tall); labels return at the top of the page or after a scroll up. <b>Good:</b> the dock gets out of the way of long tables, the same "pulls in on scroll" idea as the header. <b>Bad:</b> icons alone are ambiguous for Actions vs Alerts; one more thing animating while you scroll.</p>
+<div class="fr e">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <nav class="dk pill row"><a><svg viewBox="0 0 24 24"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/></svg><span>Overview</span></a><a class="on"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/></svg><span>Fleet</span></a><a><svg viewBox="0 0 24 24"><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span>Actions</span></a><a><svg viewBox="0 0 24 24"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/></svg><span>Alerts</span><i class="n">3</i></a><a><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>More</span></a><span class="sbtn" title="Search · ⌘K"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span></nav>
+  <span class="hint">scroll ↓</span>
+</div>
+</div>
+</div>
+
+<p class="lead" style="margin-top:34px"><b>What I'd build:</b> B. It is the header pill's recipe and proportions turned upside down, it is a third narrower, and the search still opens the same ⌘K palette (the magnifier keeps the keyboard hint in its tooltip and the palette keeps the placeholder). The "island" alert keeps working: it still swaps the dock's content in place. If you want the dock as it is, A is a 20-line CSS change.</p>
+</div>
+<script>
+function setT(t,b){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b))}
+document.querySelectorAll('.fr.e').forEach(function(f){var last=0;f.addEventListener('scroll',function(){var y=f.scrollTop;f.classList.toggle('sc',y>20&&y>=last);last=y},{passive:true})});
+</script>
+</body></html>

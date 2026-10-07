@@ -17098,13 +17098,27 @@ func isSystemReboot(c db.Command) bool { return isUpdateReboot(c) }
 // mirroring collapseBatches. Returns the reduced list, merged summaries and the
 // cluster members keyed by representative id.
 func clusterSystemReboots(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary) ([]db.Command, map[uuid.UUID]db.CommandDeliverySummary, map[uuid.UUID][]db.Command) {
-	const gap = 20 * time.Minute
+	// runKey names the run a command belongs to, or "" when it stands alone: update
+	// reboots (20 min apart at most), and a person's identical wireless-adb switches
+	// fanned out one per device (2 min) — the adb page's batch before it carried a
+	// batch id, and the same shape from a script.
+	runKey := func(c db.Command) (string, time.Duration) {
+		switch {
+		case isSystemReboot(c):
+			return "reboot|ota", 20 * time.Minute
+		case c.Type == "adb_tcp" && c.TargetType == "devices" && batchOf(c) == "":
+			return "adb_tcp|" + c.CreatedBy + "|" + string(c.Payload), 2 * time.Minute
+		}
+		return "", 0
+	}
 	clusters := map[uuid.UUID][]db.Command{}
 	var out []db.Command
 	var rep uuid.UUID
 	var last time.Time
+	var lastKey string
 	for _, c := range cmds {
-		if !isSystemReboot(c) {
+		key, gap := runKey(c)
+		if key == "" {
 			out = append(out, c)
 			continue
 		}
@@ -17112,14 +17126,14 @@ func clusterSystemReboots(cmds []db.Command, summaries map[uuid.UUID]db.CommandD
 		if d < 0 {
 			d = -d
 		}
-		if !last.IsZero() && d <= gap {
+		if !last.IsZero() && key == lastKey && d <= gap {
 			clusters[rep] = append(clusters[rep], c)
 		} else {
 			rep = c.ID
 			clusters[rep] = []db.Command{c}
 			out = append(out, c)
 		}
-		last = c.CreatedAt
+		last, lastKey = c.CreatedAt, key
 	}
 	merged := make(map[uuid.UUID]db.CommandDeliverySummary, len(summaries))
 	for k, v := range summaries {
