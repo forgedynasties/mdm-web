@@ -259,7 +259,7 @@
     {{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>{{end}}
   </div>
   <div>
-    <h1>{{cmdLabel $cmd.Type}}{{if .App}} <span class="sub">{{.App.Name}}</span>{{if .App.VersionName}} <span class="ver">v{{.App.VersionName}}</span>{{end}}{{else}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}{{end}}</h1>
+    <h1>{{cmdTitle $cmd}}{{if .App}} <span class="sub">{{.App.Name}}</span>{{if .App.VersionName}} <span class="ver">v{{.App.VersionName}}</span>{{end}}{{else}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}{{end}}</h1>
     <span class="ad-meta">sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} · <b class="ad-by">{{$u := userURL $cmd.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user">{{$cmd.CreatedBy}}</a>{{else}}{{$cmd.CreatedBy}}{{end}}{{template "ubub" (userBubble $cmd.CreatedBy)}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group{{else}}{{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}}{{end}}</span>
   </div>
   {{/* Live: the deliveries card refetches /status; that fragment carries this same
