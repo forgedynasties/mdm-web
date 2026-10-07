@@ -93,11 +93,29 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
     <span style="flex:1"></span>
     <button class="cc-btn sm" type="button" onclick="adbClear()">Clear</button>
   </div>
-  <div class="cc-card"><table class="adb">
+  <div class="cc-card lt" id="adb-list" data-lt-n="25">
+  <div class="lt-bar">
+    <input class="lt-q" type="search" placeholder="Search serial, venue, client…" aria-label="Search devices" autocomplete="off">
+    <div class="lt-chips">
+      <button type="button" class="lt-chip" data-f="state" data-v="open">Open</button>
+      <button type="button" class="lt-chip" data-f="state" data-v="off">Off</button>
+      {{if .Cant}}<button type="button" class="lt-chip" data-f="state" data-v="cant">Can't</button>{{end}}
+      <span class="lt-sep"></span>
+      <button type="button" class="lt-chip" data-f="online" data-v="1">Online</button>
+      <button type="button" class="lt-chip" data-f="online" data-v="0">Offline</button>
+      <span class="lt-sep"></span>
+      <button type="button" class="lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
+      <button type="button" class="lt-chip" data-f="kind" data-v="dpc">Standard client</button>
+      <button type="button" class="lt-chip" data-f="tunnel" data-v="1">Has tunnel</button>
+    </div>
+    <span class="lt-count"></span>
+  </div>
+  <div class="lt-none lt-out">No device matches.</div>
+  <table class="adb">
     <tr><th style="width:30px"><input type="checkbox" id="adb-all" title="Tick every device that can be switched"></th><th>Device</th><th>Venue</th><th>adb</th><th>Reach</th><th>Last change</th></tr>
-    {{template "adb_rows" dict "Title" "Open now" "Rows" .Open "Sel" .Selected "Empty" "Nothing has adb open right now."}}
-    {{template "adb_rows" dict "Title" "Off" "Rows" .Off "Sel" .Selected "Empty" "No device is switched off that was on before."}}
-    {{if .Cant}}{{template "adb_rows" dict "Title" "Can't" "Rows" .Cant "Sel" .Selected "Empty" ""}}{{end}}
+    {{template "adb_rows" dict "Title" "Open now" "Key" "open" "Rows" .Open "Sel" .Selected "Empty" "Nothing has adb open right now."}}
+    {{template "adb_rows" dict "Title" "Off" "Key" "off" "Rows" .Off "Sel" .Selected "Empty" "No device is switched off that was on before."}}
+    {{if .Cant}}{{template "adb_rows" dict "Title" "Can't" "Key" "cant" "Rows" .Cant "Sel" .Selected "Empty" ""}}{{end}}
   </table></div>
   </form>
   <p class="muted small" style="margin:10px 2px 0">Batch sends one adb_tcp per ticked device — never a venue or the whole fleet. Click a serial for its panel.</p>
@@ -181,13 +199,15 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
 </div>
 
 <script>
-function adbBoxes(){return document.querySelectorAll('#adb-batch td input[name=serial]:not(:disabled)')}
+function adbBoxes(){return Array.prototype.filter.call(document.querySelectorAll('#adb-batch td input[name=serial]:not(:disabled)'),function(c){return !c.closest('tr').classList.contains('lt-out')})}
 function adbCount(){var n=document.querySelectorAll('#adb-batch td input[name=serial]:checked:not(:disabled)').length;document.getElementById('adb-count').textContent=n;document.getElementById('adb-bar').hidden=n===0;}
 function adbClear(){adbBoxes().forEach(function(c){c.checked=false});document.getElementById('adb-all').checked=false;adbCount();}
 document.querySelectorAll('#adb-batch td input[name=serial]:disabled').forEach(function(c){c.checked=false});
 adbBoxes().forEach(function(c){c.addEventListener('change',adbCount)});
 document.getElementById('adb-all').addEventListener('change',function(){var on=this.checked;adbBoxes().forEach(function(c){c.checked=on});adbCount();});
 adbCount();
+// A row the search or a chip hides is not part of the batch: untick it.
+document.getElementById('adb-list').addEventListener('lt:change',function(){document.querySelectorAll('#adb-batch tr.lt-out input[name=serial]:checked').forEach(function(c){c.checked=false});document.getElementById('adb-all').checked=false;adbCount();});
 // Remember every address this browser has allowed, so the next tunnel is prefilled with
 // all of them: an office with two WAN links sends adb out through an address the server
 // only learns when it refuses it, and that should happen once, not every session.
@@ -213,9 +233,9 @@ setInterval(function(){if(!document.querySelector('#adb-batch td input[name=seri
 {{end}}
 
 {{define "adb_rows"}}
-<tr class="grp"><td colspan="6">{{.Title}} · {{len .Rows}}</td></tr>
+<tr class="grp lt-grp" data-grp="{{.Key}}"><td colspan="6">{{.Title}} · <span class="lt-n">{{len .Rows}}</span></td></tr>
 {{range .Rows}}
-<tr{{if and $.Sel (eq $.Sel.Device.SerialNumber .Device.SerialNumber)}} class="sel"{{end}}>
+<tr class="lt-row{{if and $.Sel (eq $.Sel.Device.SerialNumber .Device.SerialNumber)}} sel{{end}}" data-grp="{{$.Key}}" data-f-state="{{.Group}}" data-f-online="{{if .Online}}1{{else}}0{{end}}" data-f-kind="{{.Device.AgentKind}}" data-f-tunnel="{{if .Tunnel}}1{{else}}0{{end}}" data-lt-text="{{.Device.SerialNumber}} {{.Device.RestaurantName}} {{.Device.KindLabel}}{{with extraStr .Device.LatestExtra "agent_version"}} {{.}}{{end}}{{if .Tunnel}} tunnel{{end}}">
   <td><input type="checkbox" name="serial" value="{{.Device.SerialNumber}}"{{if not .CanSwitch}} disabled title="{{.Why}}"{{end}}></td>
   <td><span class="adb-dot{{if not .Online}} off{{end}}"></span><a class="ser" href="/adb?sel={{.Device.SerialNumber}}">{{.Device.SerialNumber}}</a>
     <span class="sub">{{.Device.KindLabel}}{{with extraStr .Device.LatestExtra "agent_version"}} {{.}}{{end}} · {{if .Online}}online{{else}}offline{{end}}</span></td>
@@ -228,7 +248,7 @@ setInterval(function(){if(!document.querySelector('#adb-batch td input[name=seri
   <td class="small">{{if .LastBy}}{{.LastBy}} · {{timeSince .LastAt}}{{else}}<span class="muted">—</span>{{end}}</td>
   {{end}}
 </tr>
-{{else}}
-{{if .Empty}}<tr><td></td><td colspan="5" class="empty">{{.Empty}}</td></tr>{{end}}
 {{end}}
+{{if .Rows}}<tr class="lt-more lt-out" data-grp="{{.Key}}" data-what="{{.Key}}"><td colspan="6"><button type="button" class="app-more lt-more-t"></button></td></tr>
+{{else if .Empty}}<tr class="lt-empty"><td></td><td colspan="5" class="empty">{{.Empty}}</td></tr>{{end}}
 {{end}}
