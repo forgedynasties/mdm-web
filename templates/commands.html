@@ -176,8 +176,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
 /* ── pinned & recent strip (shared row look with the old palette) ── */
 .co-pins{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
 .p-panes{display:flex;flex-direction:column;gap:18px;margin-top:26px}
-.p-stack{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
-@media(max-width:900px){.p-stack{grid-template-columns:1fr}}
+.p-stack{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start} /* Recent alone since Most frequent went (2026-10-07): full width */
 .p-r{display:flex;align-items:center;gap:11px;padding:10px 15px;border-top:1px solid var(--border-soft)}
 .p-r:first-child{border-top:none}
 .p-r .ic{width:28px;height:28px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
