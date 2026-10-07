@@ -1574,12 +1574,20 @@
       .catch(function () { if (gen !== _repGen) return; mdmStopThink(); if (pre) pre.textContent = 'Network error.'; if (full) full.innerHTML = ''; })
       .finally(function () { if (gen === _repGen) { btn.disabled = false; btn.textContent = lbl; } });
   };
-  // ── Appbar pill: 20px into a scroll the bar pulls in to a floating pill (style.css
-  // .appbar.is-scrolled). Passive listener, one class toggle per frame at most.
+  // ── Appbar pill: --ph runs 0→1 over the first 160px of scroll, eased, and style.css
+  // morphs the bar from a flush strip to a floating pill along it (no threshold, no
+  // flip). Passive listener, at most one write per frame, none when it hasn't moved.
   (function () {
     var bar = document.querySelector('.appbar'); if (!bar) return;
-    var queued = false;
-    function apply() { queued = false; var on = (window.scrollY || document.documentElement.scrollTop || 0) > 20; if (on !== bar.classList.contains('is-scrolled')) bar.classList.toggle('is-scrolled', on); }
+    var queued = false, last = -1;
+    function apply() {
+      queued = false;
+      var y = window.scrollY || document.documentElement.scrollTop || 0;
+      var t = Math.min(1, Math.max(0, y / 160)); t = 1 - Math.pow(1 - t, 2); // ease-out: most of the change early, settles gently
+      t = Math.round(t * 200) / 200;
+      if (t === last) return; last = t;
+      bar.style.setProperty('--ph', t);
+    }
     window.addEventListener('scroll', function () { if (!queued) { queued = true; requestAnimationFrame(apply); } }, { passive: true });
     document.addEventListener('htmx:afterSwap', apply);
     apply();

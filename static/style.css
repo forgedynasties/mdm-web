@@ -7453,22 +7453,26 @@ div.lt-more{padding:0 15px}
 
 /* ── Appbar: pill on scroll, page: warm paper + two soft glows (2026-10-07, picked from
    static/appbar-pill-demos.html — header A, background 2). The bar stays sticky and keeps
-   its height: only width, radius, fill and the 1px ring (a box-shadow, so no reflow)
-   change once the page is 20px down. layout.html toggles .is-scrolled from a passive,
-   rAF-throttled scroll listener. The glows are one fixed pseudo-element behind the page,
-   so they cost nothing per frame; cards go slightly translucent so the glow shows at
-   their edges — no backdrop-filter on them, the glow is smooth and there is nothing to
-   blur (see the 2026-09-09 notes above on blur layers). ── */
-.appbar { width: 100%; margin: 0;
-  transition: top .3s ease, width .3s ease, border-radius .3s ease, background-color .3s ease, box-shadow .3s ease, border-color .3s ease, padding .3s ease; }
-.appbar.is-scrolled { top: 8px; width: min(100% - 48px, 1140px); margin: 0 auto; border-radius: 100px;
-  padding-left: 22px; padding-right: 14px; border-bottom-color: transparent;
-  background: rgba(255, 255, 255, .55);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 10px 30px rgba(0, 0, 0, .10), inset 0 1px 0 rgba(255, 255, 255, .7); }
-html[data-theme="dark"] .appbar.is-scrolled { background: rgba(20, 18, 17, .5);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, .14), 0 10px 30px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .08); }
-.appbar.is-scrolled .appbar-icon, .appbar.is-scrolled .appbar-acct { border-radius: 99px; }
-.appbar .appbar-icon, .appbar .appbar-acct { transition: border-radius .3s ease; }
+   its height. The pill is not a toggle: --ph runs 0→1 over the first 160px of scroll
+   (layout.html sets it from a passive, rAF-throttled listener), and width, inset, radius,
+   fill and the hairline ring all follow it, so the bar morphs with the page instead of
+   flipping at a threshold. A short transition only smooths the frame steps. The glows are
+   one fixed pseudo-element behind the page, so they cost nothing per frame; cards go
+   slightly translucent so the glow shows at their edges — no backdrop-filter on them, the
+   glow is smooth and there is nothing to blur (see the 2026-09-09 notes above). ── */
+.appbar { --ph: 0;
+  top: calc(8px * var(--ph));
+  width: calc(100% - 48px * var(--ph)); max-width: calc(1140px + 4000px * (1 - var(--ph))); margin: 0 auto;
+  border-radius: calc(100px * var(--ph));
+  padding-left: calc(24px - 2px * var(--ph)); padding-right: calc(24px - 10px * var(--ph));
+  border-bottom-color: rgba(0, 0, 0, calc(.06 * (1 - var(--ph))));
+  background: rgba(255, 255, 255, calc(.6 - .05 * var(--ph)));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, calc(.1 * var(--ph))), 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, calc(.08 + .02 * var(--ph))), inset 0 1px 0 rgba(255, 255, 255, .6);
+  transition: top .12s linear, width .12s linear, max-width .12s linear, border-radius .12s linear, background-color .12s linear, box-shadow .12s linear, padding .12s linear; }
+html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, calc(.4 + .1 * var(--ph)));
+  border-bottom-color: rgba(255, 255, 255, calc(.12 * (1 - var(--ph))));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, calc(.14 * var(--ph))), 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
+.appbar .appbar-icon, .appbar .appbar-acct { border-radius: calc(10px + 89px * var(--ph)); transition: border-radius .12s linear; }
 @media (prefers-reduced-motion: reduce) { .appbar, .appbar .appbar-icon, .appbar .appbar-acct { transition: none; } }
 
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
