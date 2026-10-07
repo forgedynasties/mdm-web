@@ -627,7 +627,7 @@
       <div class="nav-dir-sec">
         <div class="t">Deploy</div>
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/updates"}} on{{end}}" href="/updates" data-ic="download" data-cmdk-sec="Deploy" data-cmdk-label="Updates">Updates</a>{{end}}
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Deploy" data-cmdk-label="Releases">Releases</a>{{end}}
+        {{if canOTA .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Deploy" data-cmdk-label="Releases">Releases</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="phone" data-cmdk-sec="Deploy" data-cmdk-label="Clients">Clients</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-ic="layers" data-cmdk-sec="Deploy" data-cmdk-label="Packages">Packages</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-ic="image" data-cmdk-sec="Deploy" data-cmdk-label="Boot logo">Boot logo</a>{{end}}

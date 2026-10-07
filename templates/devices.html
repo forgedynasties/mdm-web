@@ -661,6 +661,8 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
 
+    {{/* Releases: the roles that push firmware (super admin, super op) only. */}}
+    {{if canOTA .Role}}
     <div class="fleet-rail-cap"><a href="/releases">Releases</a></div>
     {{/* Only releases with at least one device on them — 0-device releases are noise here;
          manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
@@ -675,6 +677,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
     {{if not .RailReleases}}
     <div class="fleet-rail-empty">None published</div>
+    {{end}}
     {{end}}
   </aside>
   <script>
