@@ -148,8 +148,8 @@ func (h *Handler) AppLogout(w http.ResponseWriter, r *http.Request, s *db.Sessio
 }
 
 // AppEnrollStatus: GET /api/v1/app/enroll-status?serials=a,b,c →
-// {"devices": {"<serial>": {"enrolled":bool,"status","class","agent_kind","agent_version","last_seen_at"}}}.
-// A serial the server has never seen is reported enrolled=false.
+// {"devices": {"<serial>": {"enrolled":bool,"status","class","agent_kind","agent_version","last_seen_at",
+// "online","battery_pct","has_battery","restaurant"}}}. A serial the server has never seen is reported enrolled=false.
 func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.Session) {
 	var serials []string
 	seen := map[string]bool{}
@@ -184,6 +184,11 @@ func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.
 			"class":            d.DeviceClass,
 			"agent_kind":       d.AgentKind,
 			"last_seen_at":     d.LastSeenAt,
+			// What the app shows once a device is live: is it checking in, and where is it.
+			"online":      !d.LastSeenAt.IsZero() && time.Since(d.LastSeenAt) <= time.Duration(h.cfg.CheckinInterval()*3)*time.Second,
+			"battery_pct": d.BatteryPct,
+			"has_battery": d.HasBattery(),
+			"restaurant":  d.RestaurantName,
 		}
 		var extra struct {
 			AgentVersion string `json:"agent_version"`
@@ -196,12 +201,15 @@ func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.
 	appJSON(w, http.StatusOK, map[string]any{"devices": out})
 }
 
-// AppEnrollToken: POST /api/v1/app/enroll-token {"device_class"} → {"token","server_url","device_class","expires_at"}.
-// Hands back the live token of this app's profile for the class, minting one (30 days)
-// when none is active. One shared profile per class keeps the Enrollment page tidy.
+// AppEnrollToken: POST /api/v1/app/enroll-token {"device_class","restaurant_id"?} →
+// {"token","server_url","device_class","restaurant","expires_at"}.
+// Hands back the live token of this person's profile for the class (and restaurant), minting
+// one (30 days) when none is active. A profile with a restaurant places each device it enrolls
+// straight into that restaurant, so it skips the onboarding inbox.
 func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.Session) {
 	var body struct {
-		DeviceClass string `json:"device_class"`
+		DeviceClass  string `json:"device_class"`
+		RestaurantID string `json:"restaurant_id"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
 		appErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -213,6 +221,25 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		return
 	}
 	name := appEnrollProfilePrefix + class + " · " + s.Username
+	var site *db.Restaurant
+	if rid := strings.TrimSpace(body.RestaurantID); rid != "" {
+		id, err := uuid.Parse(rid)
+		if err != nil {
+			appErr(w, http.StatusBadRequest, "invalid restaurant_id")
+			return
+		}
+		if site, err = h.db.GetRestaurant(r.Context(), id); err != nil || site == nil {
+			appErr(w, http.StatusBadRequest, "unknown restaurant")
+			return
+		}
+		name = appEnrollProfilePrefix + class + " · " + site.Name + " · " + s.Username
+	}
+	sameSite := func(p db.EnrollmentProfile) bool {
+		if site == nil {
+			return p.RestaurantID == nil
+		}
+		return p.RestaurantID != nil && *p.RestaurantID == site.ID
+	}
 
 	profiles, err := h.db.ListEnrollmentProfiles(r.Context())
 	if err != nil {
@@ -221,7 +248,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	}
 	for _, p := range profiles {
 		// Skip a token about to lapse so a long enroll never fails half way.
-		if p.Name == name && p.CreatedBy == s.Username && p.Active() && (p.ExpiresAt == nil || time.Until(*p.ExpiresAt) > 24*time.Hour) {
+		if p.Name == name && p.CreatedBy == s.Username && sameSite(p) && p.Active() && (p.ExpiresAt == nil || time.Until(*p.ExpiresAt) > 24*time.Hour) {
 			appJSON(w, http.StatusOK, appTokenResp(h.baseURL(r), p))
 			return
 		}
@@ -233,10 +260,14 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		return
 	}
 	exp := time.Now().Add(appEnrollTokenDays * 24 * time.Hour)
-	id, err := h.db.CreateEnrollmentProfile(r.Context(), db.EnrollmentProfileInput{
+	in := db.EnrollmentProfileInput{
 		Name: name, Token: "enr_" + hex.EncodeToString(raw), DeviceClass: class, ExpiresAt: &exp,
 		Notes: "Minted by the AIO Enroll desktop app for " + s.Username, CreatedBy: s.Username,
-	})
+	}
+	if site != nil {
+		in.RestaurantID = &site.ID
+	}
+	id, err := h.db.CreateEnrollmentProfile(r.Context(), in)
 	if err != nil {
 		appErr(w, http.StatusInternalServerError, "internal error")
 		return
@@ -253,8 +284,23 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 func appTokenResp(serverURL string, p db.EnrollmentProfile) map[string]any {
 	return map[string]any{
 		"token": p.Token, "server_url": serverURL,
-		"device_class": p.DeviceClass, "expires_at": p.ExpiresAt,
+		"device_class": p.DeviceClass, "restaurant": p.RestaurantName, "expires_at": p.ExpiresAt,
 	}
+}
+
+// AppRestaurants: GET /api/v1/app/restaurants → {"restaurants":[{"id","name","address","device_count"}]},
+// for the "Goes to" picker. Every role that may enroll may also place a device.
+func (h *Handler) AppRestaurants(w http.ResponseWriter, r *http.Request, _ *db.Session) {
+	list, err := h.db.ListRestaurants(r.Context())
+	if err != nil {
+		appErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	out := make([]map[string]any, 0, len(list))
+	for _, x := range list {
+		out = append(out, map[string]any{"id": x.ID, "name": x.Name, "address": x.Address, "device_count": x.DeviceCount})
+	}
+	appJSON(w, http.StatusOK, map[string]any{"restaurants": out})
 }
 
 // appUser loads the account behind a session. The static env admin has no users row.
@@ -279,6 +325,9 @@ func (h *Handler) AppMe(w http.ResponseWriter, r *http.Request, s *db.Session) {
 		out["has_avatar"] = u.HasAvatar()
 		out["avatar_ver"] = u.AvatarVer
 	}
+	// The fleet adb key's version (0 when none): the app re-fetches when it changes.
+	v, _ := h.db.FleetAdbKeyVersion(r.Context())
+	out["adb_key_version"] = v
 	appJSON(w, http.StatusOK, out)
 }
 
@@ -312,6 +361,17 @@ func (h *Handler) displayName(r *http.Request, username string) string {
 	return username
 }
 
+// AppAgent: GET /api/v1/app/agent → {"version","version_code","url","sha256"} of the DPC agent this
+// server hosts, so the app can offer "Update" on a device whose agent is behind. 404 when none is hosted.
+func (h *Handler) AppAgent(w http.ResponseWriter, r *http.Request, _ *db.Session) {
+	url, _, version, code, sha, ok := h.agentUpdateTarget(r, "dpc")
+	if !ok {
+		appErr(w, http.StatusNotFound, "no agent build hosted")
+		return
+	}
+	appJSON(w, http.StatusOK, map[string]any{"version": version, "version_code": code, "url": url, "sha256": sha})
+}
+
 func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/app/login", h.AppLogin)
 	mux.HandleFunc("POST /api/v1/app/logout", h.requireApp(h.AppLogout))
@@ -320,4 +380,7 @@ func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/app/enroll-status", h.requireApp(h.AppEnrollStatus))
 	mux.HandleFunc("POST /api/v1/app/classify", h.requireApp(h.AppClassify))
 	mux.HandleFunc("POST /api/v1/app/enroll-token", h.requireApp(h.AppEnrollToken))
+	mux.HandleFunc("GET /api/v1/app/restaurants", h.requireApp(h.AppRestaurants))
+	mux.HandleFunc("GET /api/v1/app/agent", h.requireApp(h.AppAgent))
+	mux.HandleFunc("GET /api/v1/app/adb-key", h.requireApp(h.AppAdbKey))
 }
