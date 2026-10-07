@@ -80,7 +80,6 @@ func TestOverviewNewRenders(t *testing.T) {
 		`"silent":["T7-0002"]`,                               // the map card lists who is silent
 		`"uptime":["ok","warn"]`,
 		`id="ovd-intro"`,                             // the first-visit intro
-		`href="/?overview=classic" hx-boost="false"`, // the switch, a full load past the boosted "/" cache
 		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
 		`<span class="p warn">97.0%</span>`, // service uptime, one restaurant

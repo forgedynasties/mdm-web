@@ -222,6 +222,11 @@ function alxFilter(){
     }).catch(function(){pending=false;});
   }
   document.addEventListener('mdm:alerts-update',refresh);
+  // Picking an option submits the form (boosted) but left the <details> open, and an
+  // open menu holds off the refresh — so the row only changed after a click elsewhere.
+  // Close the menu on submit and refresh once the request has landed.
+  document.addEventListener('submit',function(e){ var m=e.target.closest&&e.target.closest('#alerts-live .alx-menu'); if(m) m.open=false; },true);
+  document.body.addEventListener('htmx:afterRequest',function(e){ var el=e.detail&&e.detail.elt; if(el&&el.closest&&el.closest('#alerts-live .alx-pop')){ window.__alxStale=false; refresh(); } });
   // One problem menu open at a time; a click elsewhere closes it.
   document.addEventListener('click',function(e){
     document.querySelectorAll('#alerts-live .alx-menu[open]').forEach(function(m){ if(!m.contains(e.target)) m.open=false; });

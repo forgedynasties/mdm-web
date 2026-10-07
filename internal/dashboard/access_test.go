@@ -71,12 +71,12 @@ func TestDecide(t *testing.T) {
 		{"remote explicit allow elsewhere", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("device", &d1, "remote")}}, "remote", &d2, false},
 		{"shell never for operator even if granted", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
 		{"ota never for access admin", "user_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "ota")}}, "ota", &d1, false},
-		{"dev holds shell by default", "dev", db.AccessPolicy{}, "shell", &d1, true},
-		{"dev holds ota by default", "dev", db.AccessPolicy{}, "ota", &d1, true},
-		{"dev holds remote by default", "dev", db.AccessPolicy{}, "remote", &d1, true},
-		{"dev ota scoped to venue", "dev", db.AccessPolicy{Grants: []db.AccessGrant{deny("all", nil, "ota"), allow("restaurant", &v, "ota")}}, "ota", &d1, false},
-		{"dev ota scoped: base deny + venue allow in", "dev", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d2, true},
-		{"dev ota scoped: base deny + venue allow out", "dev", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
+		{"shell never for super op even if granted", "super_op", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
+		{"super op holds ota by default", "super_op", db.AccessPolicy{}, "ota", &d1, true},
+		{"super op holds remote by default", "super_op", db.AccessPolicy{}, "remote", &d1, true},
+		{"super op ota scoped to venue", "super_op", db.AccessPolicy{Grants: []db.AccessGrant{deny("all", nil, "ota"), allow("restaurant", &v, "ota")}}, "ota", &d1, false},
+		{"super op ota scoped: base deny + venue allow in", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d2, true},
+		{"super op ota scoped: base deny + venue allow out", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
 		{"viewer sees by default", "viewer", db.AccessPolicy{}, "view", &d1, true},
 		{"viewer hidden by deny", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{deny("restaurant", &v, "view")}}, "view", &d1, false},
 		{"viewer never reboots", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "reboot", &d1, false},
@@ -116,9 +116,9 @@ func TestVisibleIDsAndHiding(t *testing.T) {
 	if !a.hidesDevices() || len(a.visibleIDs()) != 0 || a.visibleIDs() == nil {
 		t.Fatal("base deny with no view rule must hide every device")
 	}
-	// a dev allowed to see one device sees only that device, flag or not
+	// a super op allowed to see one device sees only that device, flag or not
 	for _, hide := range []bool{false, true} {
-		a = newAccess("dev", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
+		a = newAccess("super_op", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
 		if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d4 {
 			t.Fatalf("hide=%v: got %v", hide, ids)
 		}
@@ -169,11 +169,11 @@ func TestExpiredGrantsAreNotLoaded(t *testing.T) {
 func TestRoleCeilings(t *testing.T) {
 	for _, k := range []string{"shell", "ota"} {
 		if roleCeiling("operator")[k] || roleCeiling("user_manager")[k] || roleCeiling("viewer")[k] {
-			t.Fatalf("%s leaked below dev", k)
+			t.Fatalf("%s leaked below the super op", k)
 		}
-		if !roleCeiling("dev")[k] {
-			t.Fatalf("dev lacks %s", k)
-		}
+	}
+	if roleCeiling("super_op")["shell"] || !roleCeiling("super_op")["ota"] {
+		t.Fatal("super op ceiling must hold ota and not shell")
 	}
 	if roleCeiling("admin") != nil {
 		t.Fatal("admin must be unrestricted")
@@ -258,8 +258,8 @@ func TestRoleWidens(t *testing.T) {
 	}{
 		{"viewer", "operator", true},
 		{"operator", "viewer", false},
-		{"operator", "dev", true},
-		{"dev", "operator", false},
+		{"operator", "super_op", true},
+		{"super_op", "operator", false},
 		{"operator", "admin", true},
 		{"admin", "operator", false},
 		{"operator", "operator", false},
@@ -282,7 +282,7 @@ func TestGrantRedundant(t *testing.T) {
 		{"super_op", "deny", remoteAll, false},  // base nothing: the rule is the only allow
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"reboot", "*"}}, true},
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell"}}, false}, // outside the ceiling
-		{"dev", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell", "ota"}}, true},
+		{"super_op", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, true},
 		{"super_op", "allow", db.AccessGrant{Effect: "deny", Actions: []string{"remote"}}, false},
 		{"owner", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"view"}}, false},
 	}

@@ -253,8 +253,7 @@
       <li><b>A map</b> of your restaurants, with each one's device count.</li>
       <li><b>Needs attention</b> sits beside them, so the red squares have a reason next to them.</li>
     </ul>
-    <p>Prefer the old page? There's a link at the end of the Overview to switch to <b>Classic</b> any time, and your choice is remembered.</p>
-    <div class="ovd-intro-b"><a class="ovd-intro-alt" href="/?overview=classic" hx-boost="false">Switch to Classic</a><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
+    <div class="ovd-intro-b"><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
   {{end}}{{end}}
   {{/* No visible title: the page is the dock's Overview. The heading stays for screen readers. */}}
@@ -388,8 +387,6 @@
   </div>
 
 
-  {{/* New / Classic: one quiet line at the end of the page. */}}
-  {{if .OverviewSwitch}}{{template "ov-switch" "new"}}{{end}}
 </div>
 
 <script>
@@ -403,7 +400,6 @@
   document.addEventListener('htmx:beforeSwap', function gone() { box.remove(); document.removeEventListener('htmx:beforeSwap', gone); });
   box.hidden = false;
   document.getElementById('ovd-intro-ok').addEventListener('click', done);
-  box.querySelector('.ovd-intro-alt').addEventListener('click', done);
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape' && !box.hidden) { done(); document.removeEventListener('keydown', esc); } });
 })();
 

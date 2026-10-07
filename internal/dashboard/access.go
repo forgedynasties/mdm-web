@@ -24,7 +24,7 @@ type accessAction struct {
 	Key, Label, Group, Help string
 	Fleet                   bool // fleet-level: evaluated against "all" grants only
 	Sensitive               bool // needs an explicit allow; "*" never covers it
-	DevOnly                 bool // in the dev ceiling only, never grantable to operators
+	DevOnly                 bool // super admin only (the super op gets "ota"), never grantable to operators
 }
 
 var accessActions = []accessAction{
@@ -40,8 +40,8 @@ var accessActions = []accessAction{
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
 	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Dev, super op and access admin have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
-	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Dev accounts only."},
-	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Dev accounts only."},
+	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Super admins only."},
+	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Super admins and super ops only."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
 	{Key: "groups", Label: "Manage groups & venues", Group: "Fleet", Fleet: true},
 	{Key: "deploy", Label: "Cancel deployments", Group: "Fleet", Fleet: true},
@@ -83,24 +83,24 @@ func roleCeiling(role string) map[string]bool {
 	}
 	m := map[string]bool{}
 	for _, a := range accessActions {
-		// DevOnly actions belong to the dev ceiling; the super op gets exactly one of
-		// them, the firmware push.
-		if a.DevOnly && role != "dev" && !(role == "super_op" && a.Key == "ota") {
+		// DevOnly actions sit above every ceiling but the super admin's; the super op
+		// gets exactly one of them, the firmware push.
+		if a.DevOnly && !(role == "super_op" && a.Key == "ota") {
 			continue
 		}
 		m[a.Key] = true
 	}
-	if role == "operator" || role == "user_manager" || role == "super_op" || role == "dev" {
+	if role == "operator" || role == "user_manager" || role == "super_op" {
 		return m
 	}
 	return map[string]bool{} // unknown role: nothing
 }
 
-// sensitiveByDefault: the sensitive actions a role holds without a rule — dev all of
-// them, the super op firmware pushes, and remote control for the super op and the
-// access admin. Everyone else needs an allow rule that names the action.
+// sensitiveByDefault: the sensitive actions a role holds without a rule — the super
+// op firmware pushes, and remote control for the super op and the access admin.
+// Everyone else needs an allow rule that names the action.
 func sensitiveByDefault(role, action string) bool {
-	return role == "dev" || (role == "super_op" && action == "ota") ||
+	return (role == "super_op" && action == "ota") ||
 		(action == "remote" && (role == "super_op" || role == "user_manager"))
 }
 

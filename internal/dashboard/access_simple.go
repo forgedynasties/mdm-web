@@ -29,8 +29,6 @@ import (
 // place-limited "everything a <role> can" rule has to name explicitly.
 func roleExtras(role string) []string {
 	switch role {
-	case "dev":
-		return []string{"remote", "shell", "ota"}
 	case "super_op":
 		return []string{"remote", "ota"}
 	case "user_manager":
@@ -216,8 +214,6 @@ func (h *Handler) simpleChoices(role string, profiles []db.AccessProfile) []simp
 
 func roleEverything(role string) string {
 	switch role {
-	case "dev":
-		return "Every action, including remote control, shell and firmware updates."
 	case "super_op":
 		return "Every action, including remote control and firmware updates."
 	case "user_manager":

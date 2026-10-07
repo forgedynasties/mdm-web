@@ -36,7 +36,7 @@ a.ual-row:hover{background:var(--surface2)}
     <div class="ual-head"><span>Person</span><span>Sees</span><span>Can do</span><span></span></div>
     {{range .Rows}}
     {{if .CanEdit}}<a class="ual-row js-dest" href="/users/{{.User.ID}}/manage">{{else}}<div class="ual-row">{{end}}
-      <div class="ual-who">{{template "ubub" .Bubble}}<div style="min-width:0"><div class="ual-name">{{.User.DisplayName}}</div><div class="ual-role"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span></div></div></div>
+      <div class="ual-who">{{template "ubub" .Bubble}}<div style="min-width:0"><div class="ual-name">{{.User.DisplayName}}</div><div class="ual-role"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if eq .User.Role "user_manager"}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span></div></div></div>
       <div><div class="ual-k">Sees</div><div class="ual-v">{{.Sees}}{{if ne .Sees "Every device"}} <small>· {{.Devices}} device{{if ne .Devices 1}}s{{end}}</small>{{end}}</div></div>
       <div><div class="ual-k">Can do</div><div class="ual-v{{if .Advanced}} adv{{end}}"{{if .Advanced}} title="{{.Advanced}}"{{end}}>{{.Does}}{{if .Sensitive}}<span class="ual-hot" title="A rule grants remote control, shell or OTA">sessions</span>{{end}}{{if .Expires}} <small>· {{.Expires}}</small>{{end}}</div></div>
       {{if .CanEdit}}<span class="cc-btn sm">Edit</span>{{else}}<span></span>{{end}}

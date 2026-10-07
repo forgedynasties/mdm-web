@@ -833,13 +833,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return off
 		},
 		// canAdmin reports whether a role has operational admin power in the UI:
-		// both "admin" and "dev" do. Used to gate operational buttons/links;
-		// settings and user-management UI stay on a literal `eq .Role "admin"`.
+		// the super admin only (the dev role was retired 2026-10-07). Used to gate
+		// operational buttons/links.
 		"canAdmin": func(role string) bool { return role == "admin" },
 		// whyScore: the penalties behind a venue/group score, for the "?" popover.
 		"whyScore": whyScore,
 		// canRelease: release / OTA / deployment controls — admin or dev.
-		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
+		"canRelease": func(role string) bool { return role == "admin" },
 		// canSeeDev: who sees releases still marked dev — everyone but viewers/owners.
 		"canSeeDev": roleSeesDev,
 		"canOTA":    roleCanOTA,
@@ -3242,13 +3242,8 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireAdmin guards operational admin routes (releases, OTA, productions,
-// restaurants, devices, commands, …). Both "admin" and "dev" pass: a dev has
-// full operational power and differs from admin only in being barred from
-// settings and user management — those use requireStrictAdmin instead.
 // requireReleaseAdmin guards the release / OTA / deployment / QA-catalog routes:
-// admin or dev. Dev is exactly "operator + releases + OTA"; everything else
-// admin-only stays on requireAdmin.
+// super admin only since the dev role was retired (2026-10-07).
 func (h *Handler) requireReleaseAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -3256,7 +3251,7 @@ func (h *Handler) requireReleaseAdmin(next http.HandlerFunc) http.HandlerFunc {
 			redirectLogin(w, r)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" {
+		if s.Role != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -3327,7 +3322,7 @@ func roleAboveOperator(role string) bool {
 // roleCanAppLibrary: the app library (browse, upload, register) is open to the
 // roles that push software: admin, dev and super op. Removing an APK is admin-only.
 func roleCanAppLibrary(role string) bool {
-	return role == "admin" || role == "dev" || role == "super_op"
+	return role == "admin" || role == "super_op"
 }
 
 // requireAppLibrary guards the app library page and its upload endpoints.
@@ -3430,8 +3425,8 @@ func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireDev gates the release sign-off to the "dev" role only — the sign-off
-// asserts the developers tested the build at their end, so only a dev may set it.
+// requireDev gates the release sign-off ("tested at our end") to the super admin —
+// the dev role it was named for was folded into super op on 2026-10-07.
 func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -3439,7 +3434,7 @@ func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
 			redirectLogin(w, r)
 			return
 		}
-		if s.Role != "dev" {
+		if s.Role != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -3597,8 +3592,7 @@ func (h *Handler) mayEditAvatar(r *http.Request, target *db.User) bool {
 	if strings.EqualFold(h.currentUsername(r), target.Username) {
 		return true
 	}
-	role := h.role(r)
-	return role == "admin" || role == "dev"
+	return h.role(r) == "admin"
 }
 
 // UserSetAvatar accepts an image upload (multipart field "avatar"), squares and
@@ -7766,9 +7760,10 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 			watching = append(watching, p)
 		}
 	}
-	// Crash signatures on several devices are release issues, not device problems.
+	// Crash signatures on several devices are release issues, not device problems —
+	// and a release concern, so the section is super-admin only.
 	var issues []releaseIssueView
-	if deviceID == nil && !acc.hidesDevices() {
+	if deviceID == nil && !acc.hidesDevices() && isAdmin {
 		ci, _ := h.db.ListCrashIssues(r.Context(), 14, 20)
 		for _, c := range ci {
 			label, class := crashKindBadge(c.Kind)
@@ -12543,7 +12538,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 		tab = "overview"
 	}
 	// Non-admins have no Packages tab; fall back so a stale deep-link isn't a blank page.
-	if tab == "packages" && !(role == "admin" || role == "dev") {
+	if tab == "packages" && role != "admin" {
 		tab = "overview"
 	}
 	// Branch context: a branch build shows a banner linking to its parent. Branch builds
@@ -12567,7 +12562,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	data["Title"] = title
 	data["Packages"] = packages
 	data["QFILPackages"] = qfilPackages
-	data["CanManageQFIL"] = role == "admin" || role == "dev"
+	data["CanManageQFIL"] = role == "admin"
 	data["Deployments"] = deployments
 	data["HasFull"] = hasFull
 	data["CanPush"] = canPush
@@ -12938,7 +12933,7 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
 	// Carry-forward is a dev/admin concern — operators/operators don't see it.
 	var carried []db.ReleaseProblem
-	if role == "admin" || role == "dev" {
+	if role == "admin" {
 		carried, _ = h.db.CarriedForwardProblems(ctx, rel.ID)
 	}
 	return map[string]any{
@@ -12952,7 +12947,7 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"ProblemSummary": ps,
 		"CanRecord":      roleIsOperatorLike(role),
 		"CanReport":      roleCanOperate(role),
-		"CanAct":         role == "admin" || role == "dev", // act on existing problems (fixed/verified/wontfix) — operators file only
+		"CanAct":         role == "admin", // act on existing problems (fixed/verified/wontfix) — operators file only
 	}
 }
 
@@ -14913,7 +14908,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			Label:     cmdTypeLabel(rec.Type),
 			Summary:   cmdTypeLabel(rec.Type) + " → " + targetSummary(rec.TargetType, rec.TargetSerials, rec.TargetGroups),
 			Prefill:   buildPrefillJSON(rec.Type, rec.ApkURL, rec.Payload, rec.TargetType, rec.TargetSerials, rec.TargetGroups),
-			Deletable: h.role(r) == "admin" || h.role(r) == "dev",
+			Deletable: h.role(r) == "admin",
 		})
 	}
 
@@ -16375,7 +16370,7 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 	// (Resend, Dismiss) — not settled history under Completed. Reuses the exact
 	// classification the page itself displays, so "can I delete this row" always
 	// matches what bucket it's actually shown in.
-	if role := h.role(r); role != "admin" && role != "dev" {
+	if role := h.role(r); role != "admin" {
 		cmd, err := h.db.GetCommand(r.Context(), id)
 		if err != nil {
 			http.Error(w, "Command not found", http.StatusNotFound)
@@ -16700,12 +16695,12 @@ var commandRoles = func() map[string][]string {
 //   operator      device actions, per access policy
 //   viewer        read-only, per visibility policy
 
-var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "super_op": 2, "dev": 3, "admin": 4}
+var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "super_op": 2, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin", "dev": "Dev", "user_manager": "Access admin", "super_op": "Super op", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
+var roleLabels = map[string]string{"admin": "Super Admin", "user_manager": "Access admin", "super_op": "Super op", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
 
 // roleOrder is every assignable role, highest first.
-var roleOrder = []string{"admin", "dev", "user_manager", "super_op", "operator", "viewer", "owner"}
+var roleOrder = []string{"admin", "user_manager", "super_op", "operator", "viewer", "owner"}
 
 func roleLevel(role string) int { return roleLevels[role] }
 
@@ -16718,13 +16713,13 @@ func roleLabel(role string) string {
 
 // roleCanOperate: roles with operator powers (device actions, QA, groups…).
 func roleCanOperate(role string) bool {
-	return role == "admin" || role == "dev" || role == "user_manager" || role == "super_op" || role == "operator"
+	return role == "admin" || role == "user_manager" || role == "super_op" || role == "operator"
 }
 
 // roleCanOTA: may push firmware updates (create deployments, add targets, retry,
 // cancel). Release packages themselves (create / upload / publish / delete) stay
 // with canRelease (admin + dev).
-func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || role == "super_op" }
+func roleCanOTA(role string) bool { return role == "admin" || role == "super_op" }
 
 // roleIsOperatorLike: the "test team" roles — operator, or user manager acting
 // as one. Used where operators specifically (not admins) get a behaviour.
@@ -16737,7 +16732,7 @@ func roleIsOperatorLike(role string) bool {
 // 30 Sep; like the others they manage only accounts below their own level (dev: access
 // admins, super ops, operators, viewers, owners), and delegation limits what they grant.
 func roleManagesUsers(role string) bool {
-	return role == "admin" || role == "dev" || role == "user_manager" || role == "super_op"
+	return role == "admin" || role == "user_manager" || role == "super_op"
 }
 
 // roleCreatesUsers: may create, delete or merge accounts. The super op manages
@@ -17056,7 +17051,7 @@ func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
 // history. Operators cannot run shell (commandRoles limits it to admin/dev) and must
 // not browse the shell history either — its command text and captured output can
 // expose sensitive operational detail. admin/dev/viewer see history unchanged.
-func hideShellForRole(role string) bool { return role != "admin" && role != "dev" }
+func hideShellForRole(role string) bool { return role != "admin" }
 
 // filterShellDeviceCommands drops raw shell entries from a per-device command
 // history when the viewer must not see them (hideShellForRole).
