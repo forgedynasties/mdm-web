@@ -1,14 +1,10 @@
 package dashboard
 
 import (
-	"crypto/sha256"
 	"bytes"
-	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	"image/png"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
@@ -16,6 +12,10 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	"image/png"
 	"io"
 	"log"
 	"math"
@@ -36,19 +36,20 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/apkstore"
 	"mdm/internal/config"
-	"mdm/internal/otaconfig"
 	"mdm/internal/db"
-	"mdm/internal/ingest"
-	"mdm/internal/otagate"
 	"mdm/internal/geolocate"
+	"mdm/internal/ingest"
 	"mdm/internal/logstream"
 	"mdm/internal/mailer"
 	"mdm/internal/notify"
 	"mdm/internal/ota"
+	"mdm/internal/otaconfig"
+	"mdm/internal/otagate"
 	"mdm/internal/product"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
@@ -242,6 +243,7 @@ type Handler struct {
 	hub         *ws.Hub
 	shell       *shell.Manager
 	remote      *remote.Manager
+	tunnels     *adbtunnel.Manager
 	logs        *logstream.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template
@@ -249,8 +251,8 @@ type Handler struct {
 	adminAPIKey string
 	// reportSecret signs the unguessable weekly-report PDF links.
 	reportSecret string
-	alerts      *alerts.Dispatcher
-	otaGate     *otagate.Gate // which builds can take an MDM OTA (the rest go legacy)
+	alerts       *alerts.Dispatcher
+	otaGate      *otagate.Gate // which builds can take an MDM OTA (the rest go legacy)
 
 	// mapsEmbedKey is the browser-facing Google Maps Embed API key used by the
 	// device-page location map iframe. "" disables the map (page still shows the
@@ -501,50 +503,50 @@ func deviceRowClasses(dev db.Device) string {
 
 // DeviceRowJSON holds the pre-computed, JSON-serialisable data for one fleet table row.
 type DeviceRowJSON struct {
-	Serial       string  `json:"serial"`
-	BuildID      string  `json:"build_id"`
-	Online       bool    `json:"online"`
-	BatteryPct   int     `json:"battery_pct"`
-	BatteryClass string  `json:"battery_class"`
-	BatteryWidth string  `json:"battery_width"`
-	RamPct       int     `json:"ram_pct"` // 0 = no data
-	HasRam       bool    `json:"has_ram"`
-	TempStr      string  `json:"temp_str"` // "" = no data
-	TempClass    string  `json:"temp_class"`
-	LastSeenISO  string  `json:"last_seen_iso"` // RFC3339, empty if zero
-	TimeSince    string  `json:"time_since"`
-	PollInterval int     `json:"poll_interval_ms"`
-	KioskEnabled bool    `json:"kiosk_enabled"`
+	Serial       string `json:"serial"`
+	BuildID      string `json:"build_id"`
+	Online       bool   `json:"online"`
+	BatteryPct   int    `json:"battery_pct"`
+	BatteryClass string `json:"battery_class"`
+	BatteryWidth string `json:"battery_width"`
+	RamPct       int    `json:"ram_pct"` // 0 = no data
+	HasRam       bool   `json:"has_ram"`
+	TempStr      string `json:"temp_str"` // "" = no data
+	TempClass    string `json:"temp_class"`
+	LastSeenISO  string `json:"last_seen_iso"` // RFC3339, empty if zero
+	TimeSince    string `json:"time_since"`
+	PollInterval int    `json:"poll_interval_ms"`
+	KioskEnabled bool   `json:"kiosk_enabled"`
 	// KioskSuspended: the device reported that it is OUT of lock-task after a local
 	// unlock (the static exit PIN), while the stored config still says kiosk is on.
 	// Without it the dashboard showed "Kiosk on" over a device sitting on the launcher.
-	KioskSuspended bool  `json:"kiosk_suspended"`
-	KioskPackage string  `json:"kiosk_package"`
-	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
-	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
+	KioskSuspended bool   `json:"kiosk_suspended"`
+	KioskPackage   string `json:"kiosk_package"`
+	Hidden         bool   `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
+	HasBattery     bool   `json:"has_battery"` // false = wall-powered (kiosk, dongle); live patch shows mains, not 0%
 	// BatteryMissing: product has a battery but the device reports the pack absent
 	// (NTC fault / unplugged). The live patch shows a "None" chip, never a percentage.
-	BatteryMissing bool  `json:"battery_missing"`
-	Charging     bool    `json:"charging"`
-	Flapping     bool    `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
-	FlapRate     int     `json:"flap_rate"` // observed toggles/min, for the tooltip
-	RowClasses   string  `json:"row_classes"`
-	Latitude     float64 `json:"latitude,omitempty"`
-	Longitude    float64 `json:"longitude,omitempty"`
+	BatteryMissing bool    `json:"battery_missing"`
+	Charging       bool    `json:"charging"`
+	Flapping       bool    `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
+	FlapRate       int     `json:"flap_rate"` // observed toggles/min, for the tooltip
+	RowClasses     string  `json:"row_classes"`
+	Latitude       float64 `json:"latitude,omitempty"`
+	Longitude      float64 `json:"longitude,omitempty"`
 }
 
 func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
 	r := DeviceRowJSON{
-		Serial:       dev.SerialNumber,
-		BuildID:      dev.BuildID,
-		Online:       online,
-		BatteryPct:   dev.BatteryPct,
-		BatteryWidth: fmt.Sprintf("%d%%", dev.BatteryPct),
-		PollInterval: dev.PollIntervalMs,
+		Serial:         dev.SerialNumber,
+		BuildID:        dev.BuildID,
+		Online:         online,
+		BatteryPct:     dev.BatteryPct,
+		BatteryWidth:   fmt.Sprintf("%d%%", dev.BatteryPct),
+		PollInterval:   dev.PollIntervalMs,
 		KioskEnabled:   dev.KioskEnabled,
 		KioskSuspended: extraBoolField(dev.LatestExtra, "kiosk_suspended"),
 		KioskPackage:   dev.KioskPackage,
-		Hidden:       dev.Hidden,
+		Hidden:         dev.Hidden,
 		HasBattery:     dev.HasBattery(),
 		BatteryMissing: dev.HasBattery() && extractBatteryMissing(dev.LatestExtra),
 		RowClasses:     deviceRowClasses(dev),
@@ -695,9 +697,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// commands / audit rows) to their profile page, or "" when unknown. Backed by
 	// a 30 s cache of the users table so templates can link every name cheaply.
 	var (
-		uuMu   sync.Mutex
-		uuAt   time.Time
-		uuMap  map[string]string
+		uuMu  sync.Mutex
+		uuAt  time.Time
+		uuMap map[string]string
 	)
 	// userBubble resolves a username or display name (as snapshotted on commands)
 	// to what the avatar bubble needs: initial, display name, and the picture URL
@@ -840,7 +842,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
 		// canSeeDev: who sees releases still marked dev — everyone but viewers/owners.
 		"canSeeDev": roleSeesDev,
-		"canOTA":     roleCanOTA,
+		"canOTA":    roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,
 		// canManageUsers: the Users pages (roster, activity, access control).
@@ -1343,7 +1345,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return fmt.Sprintf("%.1f°C", temp)
 		},
-		"tempClass": deviceTempClass,
+		"tempClass":  deviceTempClass,
 		"tempSource": deviceTempSrc,
 		"ramPct": func(ram map[string]int) int {
 			total, ok := ram["total"]
@@ -1481,10 +1483,10 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		// Capability gating (see internal/product/caps.go): offer a control only when the
 		// device can honour it. `supports` is the yes/no; `degraded` adds "with limits".
-		"supports":   func(d db.Device, cmdType string) bool { return d.Supports(cmdType) },
-		"degraded":   func(d db.Device, cmdType string) bool { return d.Degraded(cmdType) },
+		"supports": func(d db.Device, cmdType string) bool { return d.Supports(cmdType) },
+		"degraded": func(d db.Device, cmdType string) bool { return d.Degraded(cmdType) },
 		// joinLines renders a serial list for the shared picker's hidden field.
-		"joinLines": func(v []string) string { return strings.Join(v, "\n") },
+		"joinLines":  func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
 		// serialHead / serialTail split a serial for the fleet layout that leads with it:
 		// the batch prefix stays quiet and the last few characters — the part support
@@ -1494,8 +1496,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// the pre-1.0.2 client bug. Templates ask before printing the number.
 		"misreportedVersion": frameworkVersionReported,
 		"serialHead":         func(s string) string { return s[:len(s)-serialTailLen(s)] },
-		"serialTail": func(s string) string { return s[len(s)-serialTailLen(s):] },
-		"classes":    product.Classes,
+		"serialTail":         func(s string) string { return s[len(s)-serialTailLen(s):] },
+		"classes":            product.Classes,
 		// extraBool reads a boolean from latest_extra (false when absent or not a bool).
 		"extraBool": func(raw []byte, key string) bool {
 			var m map[string]json.RawMessage
@@ -1765,23 +1767,23 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	}
 
 	return &Handler{
-		db:            d,
-		hub:           hub,
-		apk:           apkStore,
-		shell:         shellMgr,
-		remote:        remoteMgr,
-		logs:          logMgr,
-		store:         store,
-		tmpl:          tmpl,
-		cfg:           cfg,
-		adminAPIKey:   adminAPIKey,
-		reportSecret:  sessionSecret,
-		mapsEmbedKey:  mapsEmbedKey,
-		geo:           geo,
-		geocoder:      geocoder,
-		startedAt:     time.Now(),
-		alerts:        alerts.NewDispatcher(d, cfg),
-		otaGate:       otagate.New(d, cfg),
+		db:             d,
+		hub:            hub,
+		apk:            apkStore,
+		shell:          shellMgr,
+		remote:         remoteMgr,
+		logs:           logMgr,
+		store:          store,
+		tmpl:           tmpl,
+		cfg:            cfg,
+		adminAPIKey:    adminAPIKey,
+		reportSecret:   sessionSecret,
+		mapsEmbedKey:   mapsEmbedKey,
+		geo:            geo,
+		geocoder:       geocoder,
+		startedAt:      time.Now(),
+		alerts:         alerts.NewDispatcher(d, cfg),
+		otaGate:        otagate.New(d, cfg),
 		publicOrigins:  parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:     ratelimit.New(15 * time.Minute),
 		signupAttempts: ratelimit.New(time.Hour),
@@ -2440,8 +2442,8 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		LastSeen              time.Time
 		Temp                  string
 		Crashes               int
-		State                 string // ok | warn | bad
-		Word                  string // roster state word
+		State                 string        // ok | warn | bad
+		Word                  string        // roster state word
 		Do                    template.HTML // what to do (may contain <b>)
 	}
 	type todo struct {
@@ -3157,24 +3159,24 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		pol, _ = h.db.GetUserAccess(ctx, user.Username)
 	}
 	h.render(w, r, "profile.html", map[string]any{
-		"Policy":        pol,
-		"PolicyEmpty":   pol.IsEmpty(),
-		"PolicySummary": h.policySummary(ctx, user, pol),
-		"Title":        title,
-		"User":         user,
-		"Bubble":       userBubbleFn(username),
-		"CanEditAvatar": user != nil && h.mayEditAvatar(r, user),
-		"Display":      display,
-		"Username":     username,
-		"Stats":        stats,
-		"Recent":       recent,
-		"ViewingOther": viewingOther,
-		"CanManage":    canManage,
+		"Policy":         pol,
+		"PolicyEmpty":    pol.IsEmpty(),
+		"PolicySummary":  h.policySummary(ctx, user, pol),
+		"Title":          title,
+		"User":           user,
+		"Bubble":         userBubbleFn(username),
+		"CanEditAvatar":  user != nil && h.mayEditAvatar(r, user),
+		"Display":        display,
+		"Username":       username,
+		"Stats":          stats,
+		"Recent":         recent,
+		"ViewingOther":   viewingOther,
+		"CanManage":      canManage,
 		"CanSeeActivity": !viewingOther || h.role(r) == "admin", // only a super admin reads someone else's activity
-		"OwnerSelf":    !viewingOther && h.role(r) == "owner",
-		"OwnerVenues":  ownerVenues,
-		"UsersTab":     map[bool]string{true: "access", false: ""}[canManage],
-		"Assignable":   assignableRoles(h.role(r)),
+		"OwnerSelf":      !viewingOther && h.role(r) == "owner",
+		"OwnerVenues":    ownerVenues,
+		"UsersTab":       map[bool]string{true: "access", false: ""}[canManage],
+		"Assignable":     assignableRoles(h.role(r)),
 	})
 }
 
@@ -3195,7 +3197,7 @@ func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Target user not found", http.StatusNotFound)
 		return
 	}
-	if u, err := h.db.GetUserByUsername(r.Context(), from); (err == nil && u != nil) {
+	if u, err := h.db.GetUserByUsername(r.Context(), from); err == nil && u != nil {
 		http.Error(w, "That username still has an account; delete it first if you really mean to merge it", http.StatusConflict)
 		return
 	}
@@ -3903,7 +3905,7 @@ func sneakPeekDevices() ([]db.Device, map[uuid.UUID]bool) {
 		}
 		bat := 60 + (i*11)%40 // 60..99
 		temp := 30 + (i*3)%14 // 30..43
-		isOn := i%9 != 4       // most online
+		isOn := i%9 != 4      // most online
 		if i == 0 {
 			temp = 61 // the hot one
 		}
@@ -4156,7 +4158,9 @@ func (h *Handler) trainingVideos(ctx context.Context) []trainingChapter {
 		return nil
 	}
 	defer body.Close()
-	var m struct{ Chapters []trainingChapter `json:"chapters"` }
+	var m struct {
+		Chapters []trainingChapter `json:"chapters"`
+	}
 	if err := json.NewDecoder(body).Decode(&m); err != nil {
 		log.Printf("[landing] training manifest: %v", err)
 		trainingCache = nil
@@ -4599,19 +4603,19 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	return db.DeviceFilter{
-		Search:              r.URL.Query().Get("q"),
-		GroupID:             groupID,
-		RestaurantID:        restaurantID,
-		ProductionID:        productionID,
-		Online:              r.URL.Query().Get("status"),
-		BuildID:             r.URL.Query().Get("build"),
-		Battery:             r.URL.Query().Get("battery"),
-		Kiosk:               r.URL.Query().Get("kiosk"),
-		Charging:            r.URL.Query().Get("charging"),
-		RAM:                 r.URL.Query().Get("ram"),
-		Temp:                r.URL.Query().Get("temp"),
-		Timezone:            r.URL.Query().Get("timezone"),
-		Product:             r.URL.Query().Get("product"),
+		Search:       r.URL.Query().Get("q"),
+		GroupID:      groupID,
+		RestaurantID: restaurantID,
+		ProductionID: productionID,
+		Online:       r.URL.Query().Get("status"),
+		BuildID:      r.URL.Query().Get("build"),
+		Battery:      r.URL.Query().Get("battery"),
+		Kiosk:        r.URL.Query().Get("kiosk"),
+		Charging:     r.URL.Query().Get("charging"),
+		RAM:          r.URL.Query().Get("ram"),
+		Temp:         r.URL.Query().Get("temp"),
+		Timezone:     r.URL.Query().Get("timezone"),
+		Product:      r.URL.Query().Get("product"),
 		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
 		AgentKind:           r.URL.Query().Get("kind"),
 		Class:               r.URL.Query().Get("class"),
@@ -4849,7 +4853,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
 
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
@@ -5448,19 +5451,19 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 
 	// ── Sites heatmap: every venue as a score-coloured tile, worst first ──
 	type siteTile struct {
-		ID           uuid.UUID
-		Name         string
-		Score        int
-		Class        string
-		Devices      int
-		Offline      int
-		Critical     int
-		Warning      int
-		Crashes      int
-		Hot          bool
-		BatteryAvg   int
-		HasBattery   bool
-		Why          []string // penalties behind the score, for the "?" popover
+		ID         uuid.UUID
+		Name       string
+		Score      int
+		Class      string
+		Devices    int
+		Offline    int
+		Critical   int
+		Warning    int
+		Crashes    int
+		Hot        bool
+		BatteryAvg int
+		HasBattery bool
+		Why        []string // penalties behind the score, for the "?" popover
 	}
 	var sites []siteTile
 	sitesOK, sitesWarn, sitesBad, deployedN := 0, 0, 0, 0
@@ -5635,7 +5638,7 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		return n * 100 / summary.Total
 	}
 	data := map[string]any{
-		"Title": "Overview",
+		"Title":  "Overview",
 		"NowUTC": time.Now().UTC().Format(time.RFC3339),
 		// New command-center surfaces.
 		"Sites":           sites,
@@ -6031,7 +6034,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	// The ~15 reads below are all independent of each other (each keyed only off
 	// device.ID/role, none consumes another's result), so they were previously run
 	// one at a time — total latency was the SUM of every query's round trip. Firing
@@ -6040,27 +6042,27 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// group; the rest already tolerated errors silently (`_, err :=` discarded) and
 	// keep doing so.
 	var (
-		chartCheckins   []db.Checkin
-		chartCharge     []chargeRun
-		commands        []db.DeviceCommand
-		queue           []db.DeviceCommand
-		apps            []db.App
-		installedPkgs   []db.DevicePackage
-		apkPkg          map[string]string
-		kioskCfg        *db.DeviceConfig
-		restaurants     []db.Restaurant
-		deviceGroups    []db.Group
-		addableGroups   []db.Group
-		release         *db.Release
-		notes           string
-		flapRate        int
-		crashCount      int
-		otaUpdate       *db.Update
-		otaLabel        string
-		otaClass        string
-		otaPercent      int
-		buildChanges    []db.BuildChange
-		activity        []deviceActivityItem
+		chartCheckins []db.Checkin
+		chartCharge   []chargeRun
+		commands      []db.DeviceCommand
+		queue         []db.DeviceCommand
+		apps          []db.App
+		installedPkgs []db.DevicePackage
+		apkPkg        map[string]string
+		kioskCfg      *db.DeviceConfig
+		restaurants   []db.Restaurant
+		deviceGroups  []db.Group
+		addableGroups []db.Group
+		release       *db.Release
+		notes         string
+		flapRate      int
+		crashCount    int
+		otaUpdate     *db.Update
+		otaLabel      string
+		otaClass      string
+		otaPercent    int
+		buildChanges  []db.BuildChange
+		activity      []deviceActivityItem
 	)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -6366,57 +6368,57 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		kioskOverride = false
 	}
 	h.render(w, r, "device.html", map[string]any{
-		"Title":               device.SerialNumber,
-		"Device":              device,
-		"IsDPC":               device.IsDPC(),
+		"Title":  device.SerialNumber,
+		"Device": device,
+		"IsDPC":  device.IsDPC(),
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
-		"AgentUpdate":         h.agentUpdateFor(r, device),
-		"KeyCred":             h.keyCredentialFor(r.Context(), device),
+		"AgentUpdate": h.agentUpdateFor(r, device),
+		"KeyCred":     h.keyCredentialFor(r.Context(), device),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.
 		"CycleSeries": dischargeSeriesJSON(h.db.DeviceDischargeSeries(r.Context(), device.ID)),
-		"Custody":             deviceCustodyOrEmpty(h.db.DeviceCustody(r.Context(), device.ID)),
+		"Custody":     deviceCustodyOrEmpty(h.db.DeviceCustody(r.Context(), device.ID)),
 		// Which update path this device is on: a build whose client can't apply an
 		// MDM OTA still updates, over the legacy otautil listener.
-		"OTAGate":             h.otaGate.Device(r.Context(), *device),
+		"OTAGate": h.otaGate.Device(r.Context(), *device),
 		// Servers to offer when moving a device: this one first, then any peer named
 		// in MDM_PEER_URLS (comma separated) — a stage box, usually.
-		"MDMServers":          h.mdmServerChoices(),
-		"ThisServer":          h.thisServerURL(),
-		"Caps":                device.CapSet(),
-		"Classes":             product.Classes(),
-		"DeviceCrashCount":    crashCount,
-		"OfflinePeriod":       totp.DefaultPeriod,
-		"OfflineDigits":       totp.DefaultDigits,
-		"OfflineCode":         offlineCode,
-		"OfflineCodeSecs":     offlineSecs,
-		"ChargerFlapRate":     flapRate,
-		"ChargerFlapping":     flapRate > 10,
-		"Notes":               notes,
-		"Release":             release,
-		"OtaUpdate":           otaUpdate,
-		"OtaLabel":            otaLabel,
-		"OtaClass":            otaClass,
-		"OtaPercent":          otaPercent,
-		"Online":              h.hub.IsConnectedForDisplay(device.ID),
-		"ChartCheckins":       chartCheckins,
+		"MDMServers":       h.mdmServerChoices(),
+		"ThisServer":       h.thisServerURL(),
+		"Caps":             device.CapSet(),
+		"Classes":          product.Classes(),
+		"DeviceCrashCount": crashCount,
+		"OfflinePeriod":    totp.DefaultPeriod,
+		"OfflineDigits":    totp.DefaultDigits,
+		"OfflineCode":      offlineCode,
+		"OfflineCodeSecs":  offlineSecs,
+		"ChargerFlapRate":  flapRate,
+		"ChargerFlapping":  flapRate > 10,
+		"Notes":            notes,
+		"Release":          release,
+		"OtaUpdate":        otaUpdate,
+		"OtaLabel":         otaLabel,
+		"OtaClass":         otaClass,
+		"OtaPercent":       otaPercent,
+		"Online":           h.hub.IsConnectedForDisplay(device.ID),
+		"ChartCheckins":    chartCheckins,
 		// Whether to render any battery UI at all. The product catalog is the first
 		// word, but a device can claim a battery its hardware never reports (a kiosk on
 		// a legacy or unknown product key), and then every battery surface draws an
 		// empty chart and a 0%. So a claimed battery must also show up in telemetry.
-		"ShowBattery":         device.HasBattery() && deviceReportsBattery(device, chartCheckins),
-		"ChartCharge":         chartCharge,
-		"ChartFocus":          focusParam,
-		"IsOwner":             h.role(r) == "owner",
-		"WhoHasAccess":        h.whoHasAccess(r, device.ID),
-		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
-		"HardwareSerial":      h.db.HardwareSerialOf(ctx, device.SerialNumber),
-		"NuggetIDs":           nuggetAndroidIDs(device.LatestExtra),
-		"NuggetIDsSame":       nuggetIDsAllSame(nuggetAndroidIDs(device.LatestExtra)),
-		"NuggetIDsJSON":       nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
-		"NuggetIDByPackage":   nuggetIDByPackage(device.LatestExtra),
+		"ShowBattery":       device.HasBattery() && deviceReportsBattery(device, chartCheckins),
+		"ChartCharge":       chartCharge,
+		"ChartFocus":        focusParam,
+		"IsOwner":           h.role(r) == "owner",
+		"WhoHasAccess":      h.whoHasAccess(r, device.ID),
+		"Nickname":          func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
+		"HardwareSerial":    h.db.HardwareSerialOf(ctx, device.SerialNumber),
+		"NuggetIDs":         nuggetAndroidIDs(device.LatestExtra),
+		"NuggetIDsSame":     nuggetIDsAllSame(nuggetAndroidIDs(device.LatestExtra)),
+		"NuggetIDsJSON":     nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
+		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		// The table guests are told they are at (home and lock screen on a T7).
 		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
@@ -6574,7 +6576,6 @@ const (
 	chartCacheMaxSize = 400
 )
 
-
 func chartCacheKey(deviceID uuid.UUID, fromMs, untilMs int64) string {
 	const round = 30_000
 	return fmt.Sprintf("%s|%d|%d", deviceID, fromMs/round, untilMs/round)
@@ -6618,7 +6619,6 @@ func (h *Handler) batteryAnchorShaped(ctx context.Context, deviceID uuid.UUID, f
 	}
 	return &batteryAnchor{X: at.UnixMilli(), Y: pct}
 }
-
 
 func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -6859,9 +6859,9 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 	commands = filterShellDeviceCommands(h.role(r), commands)
 
 	h.render(w, r, "device_history.html", map[string]any{
-		"Title":        device.SerialNumber + " — History",
-		"Device":       device,
-		"Commands":     commands,
+		"Title":    device.SerialNumber + " — History",
+		"Device":   device,
+		"Commands": commands,
 	})
 }
 
@@ -7082,10 +7082,10 @@ type deviceEventPayload struct {
 	Charging   *bool    `json:"charging"` // nil = no data
 	// ChargerFlapping is the firmware client's own flap flag (1.4.5+), so the live strip
 	// turns yellow without waiting for a reload.
-	ChargerFlapping bool `json:"charger_flapping,omitempty"`
-	ScreenOn   *bool    `json:"screen_on"` // nil = firmware does not report it
-	Latitude   *float64 `json:"latitude,omitempty"`
-	Longitude  *float64 `json:"longitude,omitempty"`
+	ChargerFlapping bool     `json:"charger_flapping,omitempty"`
+	ScreenOn        *bool    `json:"screen_on"` // nil = firmware does not report it
+	Latitude        *float64 `json:"latitude,omitempty"`
+	Longitude       *float64 `json:"longitude,omitempty"`
 	// KioskEnabled is the device's current kiosk state (from device_config, not the
 	// checkin) so the device page reflects an on-device offline exit live. Pointer so
 	// it is only sent when the SSE writer looked it up.
@@ -7787,20 +7787,20 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		crashPageBase += "&device=" + url.QueryEscape(deviceSerial)
 	}
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":         "Alerts",
-		"Summary":       summary,
-		"View":          view,
-		"Critical":      critGroups,
-		"Watching":      watchGroups,
+		"Title":    "Alerts",
+		"Summary":  summary,
+		"View":     view,
+		"Critical": critGroups,
+		"Watching": watchGroups,
 		// Counts stay per-device: an operator wants "14 devices need attention", not
 		// "1 group". Only the rendering folds.
 		// Counts are problems now: "3 need action" is three faults to look at, however
 		// many alerts each one raised.
-		"NeedsCount":    len(needs),
-		"WatchCount":    len(watching),
-		"ActiveCount":   len(needs) + len(watching) + len(snoozed),
-		"AlertCount":    len(active),
-		"Crashes":       crashes,
+		"NeedsCount":  len(needs),
+		"WatchCount":  len(watching),
+		"ActiveCount": len(needs) + len(watching) + len(snoozed),
+		"AlertCount":  len(active),
+		"Crashes":     crashes,
 		// The KPI counts crashes; the list below counts distinct crashes. Both are shown
 		// because "3 signatures" and "212 crashes" answer different questions.
 		"CrashCount":    crashEventTotal,
@@ -7891,16 +7891,16 @@ func groupAlerts(alerts []humanAlert) []alertGroup {
 // page and the device Alerts tab: a kind badge, device, build and relative time,
 // with the full trace tucked into an expander.
 type crashCardView struct {
-	Serial     string
-	Restaurant string
-	KindLabel  string
-	KindClass  string
-	BuildID    string
-	OccurredAt time.Time
-	Summary    string
-	Trace      string
+	Serial      string
+	Restaurant  string
+	KindLabel   string
+	KindClass   string
+	BuildID     string
+	OccurredAt  time.Time
+	Summary     string
+	Trace       string
 	PackageName string // app package parsed from Summary, if any
-	AppIcon    string // base64 PNG from the App library, resolved below
+	AppIcon     string // base64 PNG from the App library, resolved below
 	// Merged-signature counts: how many devices hit this crash and how many times in
 	// total. Zero when the row is a single raw event.
 	DeviceCount int
@@ -7917,14 +7917,14 @@ func toCrashCards(events []db.CrashEvent) []crashCardView {
 	for _, e := range events {
 		label, class := crashKindBadge(e.Kind)
 		cards = append(cards, crashCardView{
-			Serial:     e.Serial,
-			Restaurant: e.Restaurant,
-			KindLabel:  label,
-			KindClass:  class,
-			BuildID:    e.BuildID,
-			OccurredAt: e.OccurredAt,
-			Summary:    e.Summary,
-			Trace:      e.Detail,
+			Serial:      e.Serial,
+			Restaurant:  e.Restaurant,
+			KindLabel:   label,
+			KindClass:   class,
+			BuildID:     e.BuildID,
+			OccurredAt:  e.OccurredAt,
+			Summary:     e.Summary,
+			Trace:       e.Detail,
 			PackageName: extractPackageName(e.Summary),
 			DeviceCount: e.DeviceCount,
 			EventCount:  e.EventCount,
@@ -8835,7 +8835,6 @@ func (h *Handler) pickerScopesJSON(r *http.Request) template.JS {
 	return template.JS(b)
 }
 
-
 // backPath resolves where a "← Back" link should return to: an explicit ?from=
 // param if the caller set one, else the referring page (path+query only — the
 // scheme/host are discarded, so a spoofed Referer can't produce an open redirect
@@ -9299,7 +9298,7 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 	}
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
-		"Device":              device,
+		"Device": device,
 		// Same rule as the full page. Missing here, every live refresh fell through to the
 		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment
 		// after the page opened.
@@ -9415,7 +9414,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "group_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r),
+		"ScopesJSON":  h.pickerScopesJSON(r),
 		"Title":       "New Group",
 		"Devices":     devices,
 		"Online":      online,
@@ -9781,8 +9780,8 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
 		"ScopesJSON": h.pickerScopesJSON(r),
-		"Title":     "New restaurant",
-		"Timezones": restaurantTimezones,
+		"Title":      "New restaurant",
+		"Timezones":  restaurantTimezones,
 	})
 }
 
@@ -11238,18 +11237,18 @@ type versionRow struct {
 	Problems          db.ProblemSummary // open/blocker problem counts for the tracked release
 	SignedOffBy       string            // dev who signed off ("" = not signed off)
 	SignedOffAt       *time.Time
-	TestingDone       bool         // testing finished — the release is inactive (retired from active slot)
-	IsBranch          bool         // off-mainline branch build (shown nested under its parent in the list)
-	IsDev             bool         // dev-only release — listed for devs/admins, invisible to everyone else
-	ParentID          *int         // for a branch/derivative, the release id it forks from / matches
-	ParentVersion     string       // for a branch, the release it forked from; for a derivative, the release it matches
-	AdoptableParentID *int         // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
-	Children          []versionRow // branch builds + adoptable derivative builds forked off this release, shown indented beneath it
-	SuggestedBranch   string       // next branch version to suggest for this release (version + -tN)
-	QfilURL           string       // newest active QFIL flashing bundle URL ("" = none set)
-	Merged            bool         // branch: has been merged onto main (terminal)
-	MergedIntoVersion string       // branch: the mainline release it merged into
-	MergedFromVersion string       // mainline node: the branch it absorbed on merge
+	TestingDone       bool             // testing finished — the release is inactive (retired from active slot)
+	IsBranch          bool             // off-mainline branch build (shown nested under its parent in the list)
+	IsDev             bool             // dev-only release — listed for devs/admins, invisible to everyone else
+	ParentID          *int             // for a branch/derivative, the release id it forks from / matches
+	ParentVersion     string           // for a branch, the release it forked from; for a derivative, the release it matches
+	AdoptableParentID *int             // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
+	Children          []versionRow     // branch builds + adoptable derivative builds forked off this release, shown indented beneath it
+	SuggestedBranch   string           // next branch version to suggest for this release (version + -tN)
+	QfilURL           string           // newest active QFIL flashing bundle URL ("" = none set)
+	Merged            bool             // branch: has been merged onto main (terminal)
+	MergedIntoVersion string           // branch: the mainline release it merged into
+	MergedFromVersion string           // mainline node: the branch it absorbed on merge
 	Crash             *releaseCrashTag // crash issues on this build (release issues), nil when none
 }
 
@@ -11799,28 +11798,28 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Title":               "Releases",
-		"Versions":            active,
-		"HiddenReleases":      hidden,
-		"UntrackedBuilds":     untrackedBuilds,
-		"TrackedCount":        trackedCount,
-		"NotTrackedCount":     notTrackedCount,
-		"PublishedCount":      publishedCount,
-		"DraftCount":          draftCount,
-		"UnderTestCount":      underTestCount,
-		"DevCount":            devCount,
-		"LatestPublishedPct":  latestPublishedPct,
-		"FleetTotal":      fleetTotal,
-		"ActiveRelease":   activeRel,
-		"ActiveQA":        activeQA,
-		"ActiveProblems":  activeProblems,
-		"ActiveCarried":   activeCarried,
-		"ProblemBoard":    problemBoard,
-		"GlobalProblems":  globalProblems,
-		"ReleaseTrain":    releaseTrain,
-		"Graph":           buildReleaseGraph(releases),
-		"Products":        h.releaseProductFilters(r.Context()),
-		"FilterProduct":   r.URL.Query().Get("product"),
+		"Title":              "Releases",
+		"Versions":           active,
+		"HiddenReleases":     hidden,
+		"UntrackedBuilds":    untrackedBuilds,
+		"TrackedCount":       trackedCount,
+		"NotTrackedCount":    notTrackedCount,
+		"PublishedCount":     publishedCount,
+		"DraftCount":         draftCount,
+		"UnderTestCount":     underTestCount,
+		"DevCount":           devCount,
+		"LatestPublishedPct": latestPublishedPct,
+		"FleetTotal":         fleetTotal,
+		"ActiveRelease":      activeRel,
+		"ActiveQA":           activeQA,
+		"ActiveProblems":     activeProblems,
+		"ActiveCarried":      activeCarried,
+		"ProblemBoard":       problemBoard,
+		"GlobalProblems":     globalProblems,
+		"ReleaseTrain":       releaseTrain,
+		"Graph":              buildReleaseGraph(releases),
+		"Products":           h.releaseProductFilters(r.Context()),
+		"FilterProduct":      r.URL.Query().Get("product"),
 	}
 	// Live "OTA in progress" summary card — devices mid-OTA with their last-reported
 	// percent. The card polls itself (htmx) via ?partial=ota-progress.
@@ -12462,7 +12461,6 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	h.renderReleaseWorkspace(w, r, r.URL.Query().Get("tab"))
 }
 
-
 func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request, tab string) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -12749,8 +12747,6 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
-
-
 // ReleaseCreateBranch forks an off-mainline branch build from a release (admin/dev) — a
 // temporary test build that stays off the main path (see CreateBranchRelease). Redirects
 // to the new branch's workspace.
@@ -12921,7 +12917,6 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
-
 // releaseQAData gathers the QA + Problems state that the release page and its htmx
 // OOB fragments render from. Keys match what the rd-* partials expect.
 func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any {
@@ -12996,7 +12991,6 @@ func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.edit_meta", strconv.Itoa(id), name)
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
-
 
 // PackageDelete removes a single package from a release.
 func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
@@ -15322,10 +15316,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"FleetPackages":    fleetPackages,
 		"Recipes":          recipes,
 		"Summaries":        summaries,
-		"Batches":  batches,
-		"Clusters": clusters,
-		"AppIcons": apkURLToIcon(apps),
-		"PkgIcons": pkgToIcon(apps),
+		"Batches":          batches,
+		"Clusters":         clusters,
+		"AppIcons":         apkURLToIcon(apps),
+		"PkgIcons":         pkgToIcon(apps),
 		"TargetSerials":    targetSerials,
 		"ShellRecent":      shellRecent,
 		"ShellPopular":     shellPopular,
@@ -15453,11 +15447,11 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"Rows":          pageRows,
 		"BucketByID":    bucketByID,
 		"Summaries":     summaries,
-		"Batches":  batches,
-		"Clusters": clusters,
-		"AppIcons": apkURLToIcon(apps),
-		"PkgIcons": pkgToIcon(apps),
-		"AppNames": apkURLToName(apps),
+		"Batches":       batches,
+		"Clusters":      clusters,
+		"AppIcons":      apkURLToIcon(apps),
+		"PkgIcons":      pkgToIcon(apps),
+		"AppNames":      apkURLToName(apps),
 		"TargetSerials": targetSerials,
 		"AttnCount":     len(attn),
 		"ProgCount":     len(prog),
@@ -15638,12 +15632,12 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
-		"Devices":     devices,
-		"Online":      online,
-		"DPC":         dpc,
-		"Blocked":     blocked,
-		"Artifact":    artifact,
-		"LegacyRows":  legacyRows,
+		"Devices":    devices,
+		"Online":     online,
+		"DPC":        dpc,
+		"Blocked":    blocked,
+		"Artifact":   artifact,
+		"LegacyRows": legacyRows,
 	})
 }
 
@@ -15880,24 +15874,24 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.tmpl.ExecuteTemplate(w, "cmd-impact", map[string]any{
-		"Type":       cmdType,
-		"Total":      total,
-		"Effective":  effective,
-		"Online":     onlineEff,
-		"Offline":    offlineEff,
-		"DPC":        dpcCount,
-		"Skipped":    skipped,
-		"Unsupported": unsupported,
-		"UnsupJSON":   string(unsupJSON),
+		"Type":         cmdType,
+		"Total":        total,
+		"Effective":    effective,
+		"Online":       onlineEff,
+		"Offline":      offlineEff,
+		"DPC":          dpcCount,
+		"Skipped":      skipped,
+		"Unsupported":  unsupported,
+		"UnsupJSON":    string(unsupJSON),
 		"UnsupSerials": strings.Join(unsupSerials, ","),
 		"KindJSON":     string(kindJSON),
 		"KindSupJSON":  string(kindSupJSON),
 		"SkipJSON":     string(skipJSON),
-		"LowBattery": lowBatOnline,
-		"Screenshot": cmdType == "screenshot",
-		"Warn":       warn,
-		"Roll":       roll,
-		"More":       total - len(roll),
+		"LowBattery":   lowBatOnline,
+		"Screenshot":   cmdType == "screenshot",
+		"Warn":         warn,
+		"Roll":         roll,
+		"More":         total - len(roll),
 	})
 }
 
@@ -16726,7 +16720,9 @@ func roleCanOTA(role string) bool { return role == "admin" || role == "dev" || r
 
 // roleIsOperatorLike: the "test team" roles — operator, or user manager acting
 // as one. Used where operators specifically (not admins) get a behaviour.
-func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" || role == "super_op" }
+func roleIsOperatorLike(role string) bool {
+	return role == "operator" || role == "user_manager" || role == "super_op"
+}
 
 // roleManagesUsers: may open the Users pages and edit accounts below their level.
 // roleManagesUsers: who reaches Users, Activity and access control. Devs were added on
@@ -18565,79 +18561,79 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	repoApps, _ := h.db.ListApps(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	h.render(w, r, "settings.html", map[string]any{
-		"Title":                "Settings",
-		"AgentAPKURL":          h.cfg.AgentAPKURL(),
-		"AgentAPKChecksum":     h.cfg.AgentAPKChecksum(),
-		"AgentAPKHosted":       h.cfg.AgentAPKHosted(),
+		"Title":            "Settings",
+		"AgentAPKURL":      h.cfg.AgentAPKURL(),
+		"AgentAPKChecksum": h.cfg.AgentAPKChecksum(),
+		"AgentAPKHosted":   h.cfg.AgentAPKHosted(),
 		"AgentAPKHostedInfo": func() map[string]any {
 			sha, name, size, at := h.cfg.AgentAPKHostedInfo()
 			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
 		}(),
-		"AgentAPKFromEnv":      h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
-		"Apps":                 repoApps,
-		"Families":             setFams,
-		"Suggestions":          setSugg,
-		"AppFamilyMode":        setMode,
-		"Productions":          productions,
-		"DeviceQueries":        deviceQueries,
-		"BaseCases":            baseCases,
-		"ExtraColumns":         h.cfg.Columns(),
-		"LegacyCheckin":        h.cfg.LegacyCheckin(),
-		"LegacyBuilds":         h.cfg.LegacyBuilds(),
-		"WlcProducts":          h.cfg.WlcProducts(),
-		"CheckinInterval":      h.cfg.CheckinInterval(),
-		"ShellEnabled":         h.cfg.ShellEnabled(),
-		"RemoteEnabled":        h.cfg.RemoteEnabled(),
-		"CommandExpiry":        h.cfg.CommandExpiry(),
-		"MaxTargets":           h.cfg.MaxTargets(),
-		"RequireReason":        h.cfg.RequireReason(),
-		"SessionTimeout":       h.cfg.SessionTimeout(),
-		"BrandName":            h.cfg.BrandName(),
-		"PageSize":             h.cfg.PageSize(),
-		"DefaultSort":          h.cfg.DefaultSort(),
-		"Density":              h.cfg.Density(),
-		"Use24Hour":            h.cfg.Use24Hour(),
-		"AlertWebhookSet":      h.cfg.AlertWebhookURL() != "",
-		"AlertRules":           h.buildAlertRuleViews(r.Context()),
-		"FleetWindow":          fleetWindow,
-		"GroupWindows":         groupWindows,
-		"AlertChannels":        channels,
-		"ChannelTest":          r.URL.Query().Get("channel_test"),
-		"AIKeySet":             h.cfg.AIEnabled(),
-		"AIProvider":           h.cfg.AIProvider(),
-		"AnthropicModel":       h.cfg.AnthropicModel(),
-		"AIBaseURL":            h.cfg.AIBaseURL(),
-		"AIDigestEnabled":      h.cfg.AIDigestEnabled(),
-		"AIUsage":              aiTotals,
-		"AIUsageTotal":         aiTotals.InputTokens + aiTotals.OutputTokens,
-		"AIUsageDailyJSON":     template.JS(aiDailyJSON),
-		"AutoHideDays":         h.cfg.AutoHideDays(),
-		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
-		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
-		"CheckinSampleSec":     h.cfg.CheckinSampleSec(),
+		"AgentAPKFromEnv":       h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
+		"Apps":                  repoApps,
+		"Families":              setFams,
+		"Suggestions":           setSugg,
+		"AppFamilyMode":         setMode,
+		"Productions":           productions,
+		"DeviceQueries":         deviceQueries,
+		"BaseCases":             baseCases,
+		"ExtraColumns":          h.cfg.Columns(),
+		"LegacyCheckin":         h.cfg.LegacyCheckin(),
+		"LegacyBuilds":          h.cfg.LegacyBuilds(),
+		"WlcProducts":           h.cfg.WlcProducts(),
+		"CheckinInterval":       h.cfg.CheckinInterval(),
+		"ShellEnabled":          h.cfg.ShellEnabled(),
+		"RemoteEnabled":         h.cfg.RemoteEnabled(),
+		"CommandExpiry":         h.cfg.CommandExpiry(),
+		"MaxTargets":            h.cfg.MaxTargets(),
+		"RequireReason":         h.cfg.RequireReason(),
+		"SessionTimeout":        h.cfg.SessionTimeout(),
+		"BrandName":             h.cfg.BrandName(),
+		"PageSize":              h.cfg.PageSize(),
+		"DefaultSort":           h.cfg.DefaultSort(),
+		"Density":               h.cfg.Density(),
+		"Use24Hour":             h.cfg.Use24Hour(),
+		"AlertWebhookSet":       h.cfg.AlertWebhookURL() != "",
+		"AlertRules":            h.buildAlertRuleViews(r.Context()),
+		"FleetWindow":           fleetWindow,
+		"GroupWindows":          groupWindows,
+		"AlertChannels":         channels,
+		"ChannelTest":           r.URL.Query().Get("channel_test"),
+		"AIKeySet":              h.cfg.AIEnabled(),
+		"AIProvider":            h.cfg.AIProvider(),
+		"AnthropicModel":        h.cfg.AnthropicModel(),
+		"AIBaseURL":             h.cfg.AIBaseURL(),
+		"AIDigestEnabled":       h.cfg.AIDigestEnabled(),
+		"AIUsage":               aiTotals,
+		"AIUsageTotal":          aiTotals.InputTokens + aiTotals.OutputTokens,
+		"AIUsageDailyJSON":      template.JS(aiDailyJSON),
+		"AutoHideDays":          h.cfg.AutoHideDays(),
+		"CheckinRetentionDays":  h.cfg.CheckinRetentionDays(),
+		"LogcatRetentionDays":   h.cfg.LogcatRetentionDays(),
+		"CheckinSampleSec":      h.cfg.CheckinSampleSec(),
 		"CheckinDownsampleDays": h.cfg.CheckinDownsampleDays(),
 		"CheckinDownsampleSec":  h.cfg.CheckinDownsampleSec(),
-		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
-		"LegacyStripPct":       h.legacyStripPct(r.Context()),
-		"MaintenanceMode":      h.cfg.MaintenanceMode(),
-		"IgnoreDPCCheckins":    h.cfg.IgnoreDPCCheckins(),
-		"DBStats":              dbStats,
-		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
-		"OTACutoffRows":        h.otaCutoffRows(r.Context()),
-		"OTABuildRows":         h.otaBuildRows(r.Context()),
-		"MDMServers":           h.cfg.MDMServers(),
-		"LegacyOTAMode":        h.cfg.LegacyOTAMode(),
-		"LegacyOTAPort":        os.Getenv("LEGACY_OTA_PORT"),
-		"LegacyOTAUpstream":    os.Getenv("LEGACY_OTA_UPSTREAM"),
-		"OTAConfigManaged":     h.cfg.OTAConfigManaged(),
-		"OTAConfigOpts":        h.cfg.OTAConfigOptions(),
-		"OTAConfigLast":        otaConfigLastView(h.cfg),
-		"OTAConfigNext":        otaConfigNextView(h.cfg),
-		"OTAConfigS3":          h.apk != nil,
-		"KioskFleetApps":       kioskFleetApps,
-		"GoogleUsage":          googleUsage,
-		"GoogleUsageJSON":      template.JS(googleUsageJSON),
-		"LearnedAPs":           learnedAPs,
+		"LegacyStripCursor":     h.cfg.LegacyStripCursor(),
+		"LegacyStripPct":        h.legacyStripPct(r.Context()),
+		"MaintenanceMode":       h.cfg.MaintenanceMode(),
+		"IgnoreDPCCheckins":     h.cfg.IgnoreDPCCheckins(),
+		"DBStats":               dbStats,
+		"KioskAllowlist":        strings.Join(h.cfg.KioskAllowlist(), "\n"),
+		"OTACutoffRows":         h.otaCutoffRows(r.Context()),
+		"OTABuildRows":          h.otaBuildRows(r.Context()),
+		"MDMServers":            h.cfg.MDMServers(),
+		"LegacyOTAMode":         h.cfg.LegacyOTAMode(),
+		"LegacyOTAPort":         os.Getenv("LEGACY_OTA_PORT"),
+		"LegacyOTAUpstream":     os.Getenv("LEGACY_OTA_UPSTREAM"),
+		"OTAConfigManaged":      h.cfg.OTAConfigManaged(),
+		"OTAConfigOpts":         h.cfg.OTAConfigOptions(),
+		"OTAConfigLast":         otaConfigLastView(h.cfg),
+		"OTAConfigNext":         otaConfigNextView(h.cfg),
+		"OTAConfigS3":           h.apk != nil,
+		"KioskFleetApps":        kioskFleetApps,
+		"GoogleUsage":           googleUsage,
+		"GoogleUsageJSON":       template.JS(googleUsageJSON),
+		"LearnedAPs":            learnedAPs,
 	})
 }
 
@@ -20396,7 +20392,7 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 		sec = n
 	}
 	h.cfg.SetSessionTimeout(sec)
-	h.store.MaxAge(sec)             // apply to cookie + codec at runtime
+	h.store.MaxAge(sec)                   // apply to cookie + codec at runtime
 	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to default — re-render the stored value
 }
 
@@ -21240,18 +21236,18 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "users.html", map[string]any{
-		"Waiting":   waiting,
-		"Users":     users,
-		"Orphans":   orphans,
-		"Summaries": summaries,
-		"Grants":    grantCounts,
-		"Roles":     roleOrder,
-		"UsersTab":  "people",
-		"Assignable": assignableRoles(h.role(r)),
+		"Waiting":     waiting,
+		"Users":       users,
+		"Orphans":     orphans,
+		"Summaries":   summaries,
+		"Grants":      grantCounts,
+		"Roles":       roleOrder,
+		"UsersTab":    "people",
+		"Assignable":  assignableRoles(h.role(r)),
 		"Restaurants": func() []db.Restaurant { rs, _ := h.db.ListRestaurants(r.Context()); return rs }(),
-		"Admins":    admins,
-		"Operators": operators,
-		"Viewers":   viewers,
+		"Admins":      admins,
+		"Operators":   operators,
+		"Viewers":     viewers,
 	})
 }
 
@@ -21717,6 +21713,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.deviceRoute("view", h.DeviceInstallProgress)))
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceInstallCancel)))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
+	// Wireless adb page: batch on/off and tunnels (admin only, like adb_tcp itself).
+	mux.HandleFunc("GET /adb", h.requireAdmin(h.AdbPage))
+	post("POST /adb/commands", h.requireAdmin(h.AdbBatch))
+	post("POST /adb/tunnel", h.requireAdmin(h.AdbTunnelOpen))
+	post("POST /adb/tunnel/{id}/end", h.requireAdmin(h.AdbTunnelEnd))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.deviceRoute("view", h.DeviceSetPollInterval)))
 	post("POST /devices/{serial}/move-server", h.requireStrictAdmin(h.deviceRoute("shell", h.DeviceMoveServer)))
 	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wireless adb page · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6}
+.lead b{color:var(--text-2)}
+h2.sec{font-size:17px;margin:44px 0 6px;letter-spacing:-.01em}
+.opt{margin:26px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.frame{border:1px dashed var(--border);border-radius:14px;padding:16px;background:var(--surface2)}
+.pad{padding:14px 16px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sp{flex:1}
+.k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.v{font-size:13px;color:var(--text-2)}
+.muted{color:var(--text-faint)}.small{font-size:12px}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+code.mono{background:var(--surface-3);padding:2px 7px;border-radius:6px}
+.ph1{font-size:20px;font-weight:750;margin:0;letter-spacing:-.01em}
+.psub{color:var(--text-faint);font-size:12.5px;margin:2px 0 14px}
+/* page-level tiles */
+.tiles{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.tile{display:flex;flex-direction:column;gap:2px;min-width:110px;padding:9px 13px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
+.tile .tl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.tile .tv{font-size:17px;font-weight:750;letter-spacing:-.01em}
+.tile.warn .tv{color:var(--warn)}
+/* table */
+table.adb{width:100%;border-collapse:collapse;font-size:13px}
+table.adb th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+table.adb td{padding:9px 10px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:middle}
+table.adb tr:last-child td{border-bottom:0}
+table.adb tr.sel td{background:var(--accent-soft)}
+table.adb .dev{font-weight:650}
+table.adb .sub{display:block;font-size:11.5px;color:var(--text-faint)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
+.dot.off{background:var(--text-faint)}
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+/* batch bar */
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border-radius:12px;background:var(--surface-3);border:1px solid var(--border);margin:10px 0}
+.bar .n{font-weight:700;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg span{padding:5px 10px;font-size:12px;font-weight:650;color:var(--text-faint);cursor:pointer}
+.seg span.on{background:var(--accent);color:#fff}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.fl{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);cursor:pointer}
+.fl.on{background:var(--text);color:var(--bg);border-color:transparent}
+/* drawer under a row */
+.drawer{background:var(--surface2);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:120px 1fr;gap:8px 14px;font-size:13px;align-items:center}
+.drawer .l{color:var(--text-faint);font-size:12px}
+/* split */
+.split{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.grp{margin:0 0 12px}
+.grp .gt{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin:0 0 6px;font-size:13px}
+.li.sel{border-color:var(--accent-edge);background:var(--accent-soft)}
+.li .nm{font-weight:650}
+.li .sub{font-size:11.5px;color:var(--text-faint)}
+.panel .pt{font-weight:750;font-size:14px;margin:0 0 10px}
+.sessbox{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface2);font-size:12.5px}
+/* board */
+.venue{margin:0 0 16px}
+.venue .vh{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.venue .vh h3{margin:0;font-size:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.dc{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:11px 13px;display:flex;flex-direction:column;gap:6px}
+.dc .top{display:flex;align-items:center;gap:8px}
+.dc .nm{font-weight:650;font-size:13px;flex:1}
+.dc .sub{font-size:11.5px;color:var(--text-faint)}
+.sw{position:relative;width:36px;height:20px;border-radius:99px;background:var(--surface-3);border:1px solid var(--border);cursor:pointer;flex:none;padding:0}
+.sw::after{content:"";position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .18s}
+.sw.on{background:var(--accent);border-color:transparent}.sw.on::after{transform:translateX(16px)}
+.sw.dis{opacity:.45;cursor:not-allowed}
+/* nav dir mock */
+.navmock{display:inline-grid;gap:3px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:13px;min-width:170px}
+.navmock .t{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px}
+.navmock a{color:var(--text-2);text-decoration:none;padding:3px 6px;border-radius:6px}
+.navmock a.hi{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+/* terminal */
+.term{background:#15171f;color:#d7dae3;border-radius:10px;padding:12px 14px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;line-height:1.6;white-space:pre}
+.term .c{color:#8b93a7}.term .g{color:#5fd49a}
+@media (max-width:1024px){.split{grid-template-columns:1fr}}
+</style>
+<script>function setTheme(t){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));}</script>
+</head><body>
+<div class="themebar"><button data-t="light" onclick="setTheme('light')">Light</button><button data-t="dark" onclick="setTheme('dark')">Dark</button></div>
+<div class="wrap">
+<h1>Wireless adb — its own page, and connecting from anywhere</h1>
+<p class="lead">Two things to decide. <b>1 · A page</b> listing every device wireless adb was ever pushed to (the
+<span class="mono">adb_tcp</span> history), where it can be turned on and off <b>in batch</b>. <b>2 · Reach</b>: today the
+address shown is the device's LAN IP, useless from outside the restaurant. The proposal is a tunnel through the MDM server
+(agent relays <span class="mono">127.0.0.1:5555</span> over a WebSocket; you run a small local bridge and
+<span class="mono">adb connect 127.0.0.1:PORT</span>). Admin only, same as the command today.</p>
+
+<h2 class="sec">Today <span class="now">Deployed</span></h2>
+<p class="onote">One switch per device, on the device page (Security card + Settings → Wireless adb). No list of which devices have adb open,
+no batch, and <span class="mono">ValidateAdbTcp</span> refuses anything but one named device. The address is LAN-only.</p>
+<div class="frame"><div class="cc-card"><div class="pad">
+  <div class="row" style="margin-bottom:10px"><h3 style="margin:0;font-size:14.5px">Wireless adb</h3><span class="cc-tag warn">open</span></div>
+  <div class="row v"><span class="k" style="width:70px">State</span><span class="cc-tag warn">On</span> <span class="mono">10.32.0.251:5555</span> <span class="muted small">· off in 23 h</span><span class="sp"></span><button class="cc-btn sm">Turn off</button></div>
+  <div class="row v" style="margin-top:8px"><span class="k" style="width:70px">Connect</span><code class="mono">adb connect 10.32.0.251:5555</code><button class="cc-btn sm">Copy</button></div>
+</div></div></div>
+
+<h2 class="sec">1 · The page (<span class="mono">/adb</span>, "More → Control → Wireless adb", admin only)</h2>
+<p class="onote">Who is on it: every device with at least one <span class="mono">adb_tcp</span> command in its history, plus a filter to
+show every device that <i>could</i> take one (firmware client 1.4.9+ on v2.1.022+, or a standard-client device whose adbd already listens
+on 5555). Batch = the server fans one <span class="mono">adb_tcp</span> per named device, so the "never a group, never all" rule still holds —
+you tick serials, not a venue.</p>
+
+<div class="opt">
+  <div class="oname">A · Ledger — one table, tick rows, act on them <span class="rec">Recommended</span></div>
+  <p class="onote"><b>Good:</b> same shape as Devices and Updates, so nothing to learn; batch is tick → bar; the row says state, reach, who
+  turned it on and when, and why the last try failed. The connect line opens under the row, so one page does on/off and connect.
+  <b>Bad:</b> flat — with 40 open devices across 10 venues you lean on the venue filter.</p>
+  <div class="frame">
+    <div class="row" style="margin-bottom:2px"><h3 class="ph1">Wireless adb</h3><span class="sp"></span><button class="cc-btn sm">Add device…</button></div>
+    <p class="psub">Devices wireless adb has been pushed to. Opens adbd on the network; only machines whose adb key the device trusts can connect.</p>
+    <div class="tiles">
+      <div class="tile warn"><span class="tl">Open now</span><span class="tv">4</span></div>
+      <div class="tile"><span class="tl">Off</span><span class="tv">7</span></div>
+      <div class="tile"><span class="tl">Can't</span><span class="tv">2</span></div>
+      <div class="tile"><span class="tl">Tunnels live</span><span class="tv">1</span></div>
+    </div>
+    <div class="filters"><span class="fl on">Pushed before · 13</span><span class="fl">Open now · 4</span><span class="fl">All capable · 61</span><span class="sp"></span><span class="fl">Venue ▾</span><span class="fl">Class ▾</span></div>
+    <div class="bar"><span class="n">3 selected</span><span class="seg"><span>2 h</span><span class="on">24 h</span><span>7 d</span><span>Stay on</span></span><button class="cc-btn sm primary">Turn on</button><button class="cc-btn sm">Turn off</button><span class="sp"></span><button class="cc-btn sm">Clear</button></div>
+    <div class="cc-card"><table class="adb">
+      <tr><th style="width:30px"></th><th>Device</th><th>Venue</th><th>Wireless adb</th><th>Reach</th><th>Last change</th><th></th></tr>
+      <tr class="sel"><td><input type="checkbox" checked></td><td><span class="dot"></span><span class="dev mono">AT070AABU00280</span><span class="sub">T7 · v2.1.025 · client 1.6.2</span></td><td>Test Lab</td><td><span class="cc-tag warn">On</span> <span class="small muted">5555 · off in 23 h</span></td><td><span class="mono small">10.32.0.251</span> <span class="cc-tag ok">tunnel 58 min</span></td><td class="small">ali · 2 h ago</td><td><button class="cc-btn sm">Connect ▾</button></td></tr>
+      <tr><td colspan="7" style="padding:4px 10px 10px 42px"><div class="drawer">
+        <span class="l">From anywhere</span><span><code class="mono">mdm-adb connect AT070AABU00280</code> <button class="cc-btn sm">Copy</button> <span class="small muted">then</span> <code class="mono">adb connect 127.0.0.1:5037</code></span>
+        <span class="l">Same network</span><span><code class="mono">adb connect 10.32.0.251:5555</code> <button class="cc-btn sm">Copy</button></span>
+        <span class="l">Session</span><span><span class="cc-tag ok">live</span> <span class="small">opened by ali 2 min ago · closes after 60 min idle</span> <button class="cc-btn sm danger">End</button></span>
+      </div></td></tr>
+      <tr class="sel"><td><input type="checkbox" checked></td><td><span class="dot"></span><span class="dev mono">AT070AABU00281</span><span class="sub">T7 · v2.1.025 · client 1.6.2</span></td><td>Test Lab</td><td><span class="cc-tag warn">On</span> <span class="small muted">5555 · stays on</span></td><td><span class="mono small">10.32.0.252</span></td><td class="small">ali · yesterday</td><td><button class="cc-btn sm">Connect ▾</button></td></tr>
+      <tr class="sel"><td><input type="checkbox" checked></td><td><span class="dot"></span><span class="dev mono">K22-0917-0042</span><span class="sub">Kiosk 22 · v2.1.025 · client 1.6.2</span></td><td>Downtown Diner</td><td>Off</td><td><span class="mono small">10.44.1.19</span></td><td class="small">hw · 3 Oct · turned off</td><td><button class="cc-btn sm">Connect ▾</button></td></tr>
+      <tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="dev mono">HK1-D8-7f21</span><span class="sub">Dongle · Standard client 0.2.8</span></td><td>Test Lab</td><td><span class="cc-tag warn">On</span> <span class="small muted">5555 · always (build.prop)</span></td><td><span class="mono small">10.32.2.204</span></td><td class="small">— · image default</td><td><button class="cc-btn sm">Connect ▾</button></td></tr>
+      <tr><td><input type="checkbox"></td><td><span class="dot off"></span><span class="dev mono">AT070AABU00028</span><span class="sub">T7 · v2.1.019 · client 1.4.2</span></td><td>Harbor Grill</td><td><span class="cc-tag bad">failed</span> <span class="small muted">firmware lacks aio-adb-tcp.rc</span></td><td class="small muted">—</td><td class="small">ali · 28 Sep</td><td><button class="cc-btn sm" disabled>Connect</button></td></tr>
+      <tr><td><input type="checkbox" disabled></td><td><span class="dot"></span><span class="dev mono">SUNMI-D3P-1182</span><span class="sub">POS · Standard client 0.2.8</span></td><td>Test Lab</td><td><span class="cc-tag">can't</span> <span class="small muted">no root, adbd not on 5555</span></td><td class="small muted">—</td><td class="small">—</td><td></td></tr>
+    </table></div>
+  </div>
+</div>
+
+<div class="opt">
+  <div class="oname">B · Split — grouped list on the left, the selection and its connect box on the right <span class="now">Chosen · built as /adb</span></div>
+  <p class="onote">Left groups by state (Open now / Off / Can't), right is a sticky panel for whatever is ticked: batch on/off,
+  and for one device the live connect box. <b>Good:</b> "what is open right now" is the first thing on screen; the connect
+  box has room for session state, the bridge command and a hint for first-time key trust. <b>Bad:</b> less per-row
+  detail (no venue column, no who/when without hover), and a second layout for the dashboard to carry — nothing else looks like this.</p>
+  <div class="frame"><div class="split">
+    <div>
+      <div class="grp"><div class="gt">Open now <span class="cc-tag warn">4</span></div>
+        <div class="li sel"><input type="checkbox" checked><span><span class="nm mono">AT070AABU00280</span> <span class="sub">Test Lab · off in 23 h</span></span><span class="sp"></span><span class="cc-tag ok">tunnel</span></div>
+        <div class="li"><input type="checkbox"><span><span class="nm mono">AT070AABU00281</span> <span class="sub">Test Lab · stays on</span></span></div>
+        <div class="li"><input type="checkbox"><span><span class="nm mono">HK1-D8-7f21</span> <span class="sub">Test Lab · always on (image)</span></span></div>
+        <div class="li"><input type="checkbox"><span><span class="nm mono">K18-0822-0107</span> <span class="sub">Harbor Grill · off in 4 h</span></span></div>
+      </div>
+      <div class="grp"><div class="gt">Off <span class="cc-tag">7</span></div>
+        <div class="li"><input type="checkbox"><span><span class="nm mono">K22-0917-0042</span> <span class="sub">Downtown Diner · turned off 3 Oct by hw</span></span></div>
+        <div class="li"><input type="checkbox"><span><span class="nm mono">AT070AABU00144</span> <span class="sub">Downtown Diner · expired 1 Oct</span></span></div>
+        <div class="li"><span class="sub">+5 more</span></div>
+      </div>
+      <div class="grp"><div class="gt">Can't <span class="cc-tag">2</span></div>
+        <div class="li"><input type="checkbox" disabled><span><span class="nm mono">AT070AABU00028</span> <span class="sub">firmware v2.1.019 lacks aio-adb-tcp.rc</span></span></div>
+        <div class="li"><input type="checkbox" disabled><span><span class="nm mono">SUNMI-D3P-1182</span> <span class="sub">Standard client, adbd not on 5555</span></span></div>
+      </div>
+    </div>
+    <div class="cc-card panel"><div class="pad">
+      <p class="pt">AT070AABU00280</p>
+      <div class="row" style="margin-bottom:12px"><span class="seg"><span>2 h</span><span class="on">24 h</span><span>7 d</span><span>Stay on</span></span><button class="cc-btn sm primary">Turn on</button><button class="cc-btn sm">Turn off</button></div>
+      <div class="k" style="margin-bottom:6px">Connect from anywhere</div>
+      <div class="sessbox">
+        <div class="row" style="margin-bottom:6px"><span class="cc-tag ok">tunnel live</span><span class="muted">58 min left</span><span class="sp"></span><button class="cc-btn sm danger">End</button></div>
+        <div class="term">$ mdm-adb connect AT070AABU00280
+<span class="c">listening on 127.0.0.1:5037 → AT070AABU00280</span>
+$ adb connect 127.0.0.1:5037
+<span class="g">connected to 127.0.0.1:5037</span></div>
+        <p class="small muted" style="margin:8px 0 0">First time: accept the key prompt on the device, or bake your <span class="mono">adbkey.pub</span> into the image.</p>
+      </div>
+      <div class="k" style="margin:12px 0 6px">Same network</div>
+      <div class="row"><code class="mono">adb connect 10.32.0.251:5555</code><button class="cc-btn sm">Copy</button></div>
+    </div></div>
+  </div></div>
+</div>
+
+<div class="opt">
+  <div class="oname">C · Board — cards per venue, one switch each, a venue-wide switch</div>
+  <p class="onote">For a tech standing in one restaurant. <b>Good:</b> the on/off is literally a switch, and "open everything at
+  Downtown Diner for 2 h" is one click. <b>Bad:</b> a venue-wide switch is exactly the "one mistyped id opens a fleet"
+  risk <span class="mono">ValidateAdbTcp</span> was written to stop; no history column; cards don't scale past a few venues.</p>
+  <div class="frame">
+    <div class="venue"><div class="vh"><h3>Test Lab</h3><span class="cc-tag warn">3 open</span><span class="sp"></span><span class="seg"><span>2 h</span><span class="on">24 h</span></span><button class="cc-btn sm">All on</button><button class="cc-btn sm">All off</button></div>
+      <div class="cards">
+        <div class="dc"><div class="top"><span class="nm mono">AT070AABU00280</span><button class="sw on"></button></div><span class="sub">T7 · off in 23 h · <span class="cc-tag ok">tunnel</span></span><span class="row"><button class="cc-btn sm">Connect</button></span></div>
+        <div class="dc"><div class="top"><span class="nm mono">AT070AABU00281</span><button class="sw on"></button></div><span class="sub">T7 · stays on</span><span class="row"><button class="cc-btn sm">Connect</button></span></div>
+        <div class="dc"><div class="top"><span class="nm mono">HK1-D8-7f21</span><button class="sw on dis"></button></div><span class="sub">Dongle · always on (image)</span><span class="row"><button class="cc-btn sm">Connect</button></span></div>
+        <div class="dc"><div class="top"><span class="nm mono">SUNMI-D3P-1182</span><button class="sw dis"></button></div><span class="sub">POS · can't: adbd not on 5555</span></div>
+      </div></div>
+    <div class="venue"><div class="vh"><h3>Downtown Diner</h3><span class="cc-tag">0 open</span><span class="sp"></span><span class="seg"><span>2 h</span><span class="on">24 h</span></span><button class="cc-btn sm">All on</button><button class="cc-btn sm">All off</button></div>
+      <div class="cards">
+        <div class="dc"><div class="top"><span class="nm mono">K22-0917-0042</span><button class="sw"></button></div><span class="sub">Kiosk 22 · off since 3 Oct</span></div>
+        <div class="dc"><div class="top"><span class="nm mono">AT070AABU00144</span><button class="sw"></button></div><span class="sub">T7 · expired 1 Oct</span></div>
+      </div></div>
+  </div>
+</div>
+
+<h2 class="sec">2 · Where the connect-from-anywhere control lives</h2>
+<p class="onote">Independent of the page layout. The tunnel is a session: admin opens it, it dies after 60 min idle or on End, and the
+activity log records it. The bridge is a tiny CLI (<span class="mono">mdm-adb</span>, Go, in <span class="mono">cmd/</span>) signed in with
+your dashboard account — later also a button in AIO Enroll. No public ports on the server; a direct
+<span class="mono">adb connect mdm.dev.aioapp.com:4xxxx</span> was rejected because an HK1-class box with <span class="mono">ro.adb.secure=0</span>
+would be a root shell to anyone who guessed the port.</p>
+
+<div class="opt">
+  <div class="oname">I · Row drawer (as in A) <span class="rec">Recommended</span></div>
+  <p class="onote">"Connect ▾" on the row expands the drawer: tunnel command, LAN command, session state, End. Nothing leaves the list.</p>
+</div>
+<div class="opt">
+  <div class="oname">II · Sessions card at the top of the page <span class="now">Chosen</span></div>
+  <p class="onote">A "Live tunnels" card above the table listing every open session (device, who, time left, End). Rows only get "Connect".
+  <b>Good:</b> one glance shows who is inside what. <b>Bad:</b> two places to look for one device; fine to add later on top of I.</p>
+  <div class="frame"><div class="cc-card"><div class="pad">
+    <div class="row" style="margin-bottom:8px"><h3 style="margin:0;font-size:14.5px">Live tunnels</h3><span class="cc-tag ok">1</span></div>
+    <div class="row v"><span class="mono">AT070AABU00280</span><span class="muted">ali · 127.0.0.1:5037 on ali-mbp · 58 min left</span><span class="sp"></span><button class="cc-btn sm danger">End</button></div>
+  </div></div></div>
+</div>
+
+<h2 class="sec">Nav</h2>
+<div class="row" style="align-items:flex-start;gap:24px">
+  <div class="navmock"><span class="t">Control</span><a>Schedules</a><a>App library</a><a>Kiosk</a><a class="hi">Wireless adb</a></div>
+  <p class="onote" style="margin:0;max-width:560px">Under Control, admin only (same gate as the command). The device page keeps its switch and
+  gains a "See all" link to <span class="mono">/adb</span>. Lands in the ⌘K index via <span class="mono">data-cmdk-label</span>.</p>
+</div>
+
+<p class="lead" style="margin-top:40px"><b>My pick:</b> <b>A + I</b>. The table is what the rest of the dashboard already is, batch is the
+same tick-and-bar as Updates, and the drawer keeps on/off, LAN connect and the tunnel on one row. B's connect box is nicer but costs a
+second layout; C's venue switch undoes the one-device-at-a-time guard on purpose. Build order: tunnel (server + firmware client +
+<span class="mono">mdm-adb</span>) → page → device-page link.</p>
+</div>
+<script>setTheme(document.documentElement.getAttribute('data-theme')||'light')</script>
+</body></html>

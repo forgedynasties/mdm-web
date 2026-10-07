@@ -645,6 +645,7 @@
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="grid" data-cmdk-sec="Control" data-cmdk-label="App library">App library</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/manage"}} on{{end}}" href="/manage" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Kiosk">Kiosk</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">

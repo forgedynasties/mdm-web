@@ -159,5 +159,8 @@ func (h *Handler) liveSessionCount() int {
 	if h.remote != nil {
 		n += h.remote.SessionCount()
 	}
+	if h.tunnels != nil {
+		n += h.tunnels.Count()
+	}
 	return n
 }

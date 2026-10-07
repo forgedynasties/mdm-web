@@ -27,6 +27,7 @@ import (
 	"mdm/internal/metrics"
 	"mdm/internal/middleware"
 	"mdm/internal/ota"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
 	"mdm/internal/shell"
@@ -241,6 +242,17 @@ func main() {
 		hub.PublishCommandUpdate(commandID)
 	}
 	remoteMgr := remote.New(hub)
+	// adb tunnels: a port range the server binds per session (ADB_TUNNEL_PORTS, e.g.
+	// "42000-42019", also published in docker-compose.yml and opened in the security
+	// group) and the host name admins `adb connect` to (ADB_TUNNEL_HOST, default: the
+	// dashboard's own). Unset = the Wireless adb page offers no tunnels.
+	tunnelMgr, err := adbtunnel.New(hub, os.Getenv("ADB_TUNNEL_HOST"), os.Getenv("ADB_TUNNEL_PORTS"))
+	if err != nil {
+		log.Fatalf("adb tunnels: %v", err)
+	}
+	if tunnelMgr.Enabled() {
+		log.Printf("adb tunnels enabled on ports %s", tunnelMgr.PortRange())
+	}
 	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(func(deviceID uuid.UUID, data []byte) {
 		defer recoverLog("ws binary from " + deviceID.String())
@@ -322,6 +334,7 @@ func main() {
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)
+	apiHandler.SetAdbTunnels(tunnelMgr)
 	expvar.Publish("ingest", expvar.Func(func() any { return apiHandler.IngestStats() }))
 	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
 	// /connect flush can fire before the socket opens, and a never-delivered command has
@@ -443,6 +456,8 @@ func main() {
 
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
+	// The device's leg of an adb tunnel stream (see internal/adbtunnel).
+	mux.Handle("GET /api/v1/adb-tunnel/{session}/{stream}", deviceAuth(http.HandlerFunc(apiHandler.ConnectAdbTunnel)))
 
 	// Enrollment — unauthenticated by design: the profile token IS the credential
 	// (rate-limited per IP inside the handler). Exchanges a token for a device key.
@@ -511,6 +526,7 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)
 	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)
 

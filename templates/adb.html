@@ -1,0 +1,196 @@
+{{define "adb.html"}}
+{{template "header" .}}
+{{/* Wireless adb: every device adb was pushed to, grouped by state, with batch on/off
+     on the left and the ticked selection (or one device's tunnel) on the right. The
+     "Live tunnels" card on top lists every open tunnel. Chosen from
+     static/adb-page-demos.html (B · Split + II · Sessions card). */}}
+<style>
+.adb-hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.adb-hd h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.adb-sub{font-size:12.5px;color:var(--muted);margin:0 0 14px;max-width:80ch;line-height:1.5}
+.adb-split{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+.adb-grp{margin:0 0 14px}
+.adb-gt{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.adb-li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);margin:0 0 6px;font-size:13px}
+.adb-li.sel{border-color:var(--accent-edge);background:var(--accent-soft)}
+.adb-li .nm{font-weight:650;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;text-decoration:none;color:var(--text)}
+.adb-li .nm:hover{text-decoration:underline}
+.adb-li .sub{font-size:11.5px;color:var(--text-faint)}
+.adb-li .sp{flex:1}
+.adb-li input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);flex:none}
+.adb-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+.adb-dot.off{background:var(--text-faint)}
+.adb-panel{position:sticky;top:78px}
+.adb-panel .pt{font-weight:750;font-size:14.5px;margin:0 0 2px;font-family:var(--font-mono,ui-monospace,monospace)}
+.adb-panel .psub{font-size:12px;color:var(--text-faint);margin:0 0 12px}
+.adb-k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:12px 0 6px}
+.adb-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.adb-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+.adb-seg label{padding:5px 10px;font-size:12px;font-weight:650;color:var(--text-faint);cursor:pointer}
+.adb-seg input{display:none}
+.adb-seg input:checked+span{color:#fff}
+.adb-seg label:has(input:checked){background:var(--accent);color:#fff}
+.adb-box{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface2);font-size:12.5px}
+.adb-term{background:#15171f;color:#d7dae3;border-radius:10px;padding:10px 12px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-all;margin:8px 0}
+.adb-term .c{color:#8b93a7}
+.adb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+.adb-in{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:100%}
+.adb-sess{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border-soft,var(--border));font-size:13px}
+.adb-sess:first-of-type{border-top:0}
+.adb-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.adb-fl{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);text-decoration:none}
+.adb-fl.on{background:var(--text);color:var(--bg);border-color:transparent}
+.adb-empty{font-size:12.5px;color:var(--text-faint);padding:6px 2px}
+@media (max-width:1024px){.adb-split{grid-template-columns:1fr}.adb-panel{position:static}}
+</style>
+
+<div class="adb-hd"><h1>Wireless adb</h1>
+  <span class="cc-tag warn">{{len .Open}} open</span><span class="cc-tag">{{len .Off}} off</span>{{if .Cant}}<span class="cc-tag">{{len .Cant}} can't</span>{{end}}
+</div>
+<p class="adb-sub">Devices wireless adb has been pushed to. It opens adbd on the network; only machines whose adb key the device trusts can connect.
+Tick devices to switch them in batch, or pick one to connect to it from anywhere through this server.</p>
+
+{{/* ── Live tunnels ── */}}
+<div class="cc-card" style="margin-bottom:16px"><div style="padding:12px 16px">
+  <div class="adb-row" style="margin-bottom:4px"><h2 style="margin:0;font-size:14.5px">Live tunnels</h2>
+    {{if .Sessions}}<span class="cc-tag ok">{{len .Sessions}}</span>{{else}}<span class="cc-tag">none</span>{{end}}
+    <span style="flex:1"></span>
+    {{if not .TunnelsOn}}<span class="cc-tag bad">off on this server</span>{{end}}
+  </div>
+  {{if not .TunnelsOn}}<p class="adb-empty">Set <span class="adb-mono">ADB_TUNNEL_PORTS</span> (e.g. 42000-42019), publish the range in docker-compose.yml and open it in the security group.</p>{{end}}
+  {{range .Sessions}}
+  <div class="adb-sess">
+    <a class="adb-mono" href="/adb?sel={{.Serial}}" style="font-weight:650">{{.Serial}}</a>
+    <span class="adb-mono">{{$.TunnelHost}}:{{.Port}}</span>
+    <span class="muted small">{{.User}} · from {{.AllowFrom}} ·
+      {{if .Connected}}<span class="cc-tag ok">adb connected</span>{{else}}idle {{.IdleText}}{{end}}
+      · closes in {{.ClosesInText}}{{if .Refused}} · <span class="cc-tag bad">{{.Refused}} refused</span>{{end}}</span>
+    <span style="flex:1"></span>
+    <form method="POST" action="/adb/tunnel/{{.ID}}/end"><button class="cc-btn sm danger" type="submit">End</button></form>
+  </div>
+  {{end}}
+</div></div>
+
+<div class="adb-split">
+<div>
+  <div class="adb-filters">
+    <a class="adb-fl{{if not .ShowAll}} on{{end}}" href="/adb{{if .Selected}}?sel={{.Selected.Device.SerialNumber}}{{end}}">Pushed before</a>
+    <a class="adb-fl{{if .ShowAll}} on{{end}}" href="/adb?show=all{{if .Selected}}&sel={{.Selected.Device.SerialNumber}}{{end}}">All capable · {{.Capable}}</a>
+  </div>
+  <form id="adb-batch" method="POST" action="/adb/commands">
+  {{template "adb_group" dict "Title" "Open now" "Tag" "warn" "Rows" .Open "Sel" .Selected "Empty" "Nothing has adb open right now."}}
+  {{template "adb_group" dict "Title" "Off" "Tag" "" "Rows" .Off "Sel" .Selected "Empty" "No device is switched off that was on before."}}
+  {{if .Cant}}{{template "adb_group" dict "Title" "Can't" "Tag" "" "Rows" .Cant "Sel" .Selected "Empty" ""}}{{end}}
+  </form>
+</div>
+
+<div class="cc-card adb-panel"><div style="padding:14px 16px">
+  {{with .Selected}}
+  <p class="pt">{{.Device.SerialNumber}}</p>
+  <p class="psub">{{if .Device.RestaurantName}}{{.Device.RestaurantName}} · {{end}}{{.Device.KindLabel}}{{with extraStr .Device.LatestExtra "agent_version"}} {{.}}{{end}} ·
+    {{if .Online}}online{{else}}offline{{end}} ·
+    {{if eq .Group "open"}}adb <b>on</b> port {{.Port}}{{if .OffIn}}, off in {{.OffIn}}{{else if .StaysOn}}, stays on{{end}}{{else if eq .Group "off"}}adb off{{else}}{{.Why}}{{end}}</p>
+  {{if .CanSwitch}}
+  <form method="POST" action="/adb/commands" class="adb-row" style="margin-bottom:4px">
+    <input type="hidden" name="serial" value="{{.Device.SerialNumber}}">
+    <span class="adb-seg">
+      <label><input type="radio" name="hours" value="2"><span>2 h</span></label>
+      <label><input type="radio" name="hours" value="24" checked><span>24 h</span></label>
+      <label><input type="radio" name="hours" value="168"><span>7 d</span></label>
+      <label><input type="radio" name="hours" value="0"><span>Stay on</span></label>
+    </span>
+    <button class="cc-btn sm primary" name="action" value="on" type="submit">Turn on</button>
+    <button class="cc-btn sm" name="action" value="off" type="submit">Turn off</button>
+  </form>
+  {{end}}
+
+  <div class="adb-k">Connect from anywhere</div>
+  {{if .Tunnel}}
+  <div class="adb-box">
+    <div class="adb-row" style="margin-bottom:4px">
+      {{if .Tunnel.Connected}}<span class="cc-tag ok">adb connected</span>{{else}}<span class="cc-tag ok">tunnel live</span><span class="muted">idle {{.Tunnel.IdleText}}</span>{{end}}
+      <span class="muted">closes in {{.Tunnel.ClosesInText}}</span><span style="flex:1"></span>
+      <form method="POST" action="/adb/tunnel/{{.Tunnel.ID}}/end"><button class="cc-btn sm danger" type="submit">End</button></form>
+    </div>
+    <div class="adb-term">$ adb connect {{$.TunnelHost}}:{{.Tunnel.Port}}<span class="c">
+accepts only {{.Tunnel.AllowFrom}} · {{.Tunnel.Conns}} connections{{if .Tunnel.Refused}}, {{.Tunnel.Refused}} refused{{end}}</span></div>
+    <div class="adb-row"><button type="button" class="cc-btn sm" data-cmd="adb connect {{$.TunnelHost}}:{{.Tunnel.Port}}" onclick="copyText(this.dataset.cmd, this)">Copy</button>
+      {{if .Tunnel.LastError}}<span class="cc-tag bad">device: {{.Tunnel.LastError}}</span>{{end}}</div>
+    <p class="muted small" style="margin:8px 0 0">First time: accept the key prompt on the device's screen. The port closes after 60 min idle, or on End.</p>
+  </div>
+  {{else}}
+  <div class="adb-box">
+    {{if not $.TunnelsOn}}<span class="muted">Tunnels are off on this server.</span>
+    {{else if not .Online}}<span class="muted">The device is offline.</span>
+    {{else if ne .Group "open"}}<span class="muted">Turn wireless adb on first.</span>
+    {{else if not .CanTunnel}}<span class="muted">Needs {{if eq .Device.AgentKind "firmware"}}firmware client 1.8.9+{{else}}standard client 0.2.9+{{end}} — this device runs {{with extraStr .Device.LatestExtra "agent_version"}}{{.}}{{else}}an older build{{end}}. Update the agent first.</span>
+    {{else}}
+    <form method="POST" action="/adb/tunnel">
+      <input type="hidden" name="serial" value="{{.Device.SerialNumber}}">
+      <label class="muted small" for="allow_from">Accept connections only from</label>
+      <input class="adb-in" id="allow_from" name="allow_from" value="{{$.MyIP}}" placeholder="IP or CIDR" style="margin:4px 0 8px">
+      <div class="adb-row"><button class="cc-btn sm primary" type="submit">Open tunnel</button>
+        <span class="muted small">Binds a random port on {{$.TunnelHost}} for this IP only; adbd's own key check still applies.</span></div>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{if and (eq .Group "open") .IP}}
+  <div class="adb-k">Same network</div>
+  <div class="adb-row"><code class="adb-mono">adb connect {{.IP}}:{{.Port}}</code><button type="button" class="cc-btn sm" data-cmd="adb connect {{.IP}}:{{.Port}}" onclick="copyText(this.dataset.cmd, this)">Copy</button></div>
+  {{end}}
+  {{if .LastBy}}<div class="adb-k">Last change</div><div class="muted small">{{.LastWord}} by {{.LastBy}} · {{timeSince .LastAt}}</div>{{end}}
+
+  {{else}}
+  <p class="pt" style="font-family:inherit">Selection</p>
+  <p class="psub"><span id="adb-count">0</span> ticked</p>
+  <div class="adb-row">
+    <span class="adb-seg">
+      <label><input type="radio" name="hours" value="2" form="adb-batch"><span>2 h</span></label>
+      <label><input type="radio" name="hours" value="24" form="adb-batch" checked><span>24 h</span></label>
+      <label><input type="radio" name="hours" value="168" form="adb-batch"><span>7 d</span></label>
+      <label><input type="radio" name="hours" value="0" form="adb-batch"><span>Stay on</span></label>
+    </span>
+  </div>
+  <div class="adb-row" style="margin-top:8px">
+    <button class="cc-btn sm primary" form="adb-batch" name="action" value="on" type="submit">Turn on</button>
+    <button class="cc-btn sm" form="adb-batch" name="action" value="off" type="submit">Turn off</button>
+    <button class="cc-btn sm" type="button" onclick="document.querySelectorAll('#adb-batch input[name=serial]').forEach(c=>c.checked=false);adbCount()">Clear</button>
+  </div>
+  <p class="muted small" style="margin:12px 0 0">One adb_tcp per ticked device — never a venue or the whole fleet. Click a serial to connect to that device.</p>
+  {{end}}
+</div></div>
+</div>
+
+<script>
+function adbCount(){var n=document.querySelectorAll('#adb-batch input[name=serial]:checked').length;var e=document.getElementById('adb-count');if(e)e.textContent=n;}
+document.querySelectorAll('#adb-batch input[name=serial]').forEach(function(c){c.addEventListener('change',adbCount)});
+adbCount();
+{{if .Sessions}}
+// A live tunnel's state (connected / idle / closed) changes under the page: refresh it
+// while nothing is ticked, so the panel tracks `adb connect` without a hand reload.
+setInterval(function(){if(!document.querySelector('#adb-batch input[name=serial]:checked')&&document.visibilityState==='visible')location.reload()},20000);
+{{end}}
+</script>
+{{template "footer" .}}
+{{end}}
+
+{{define "adb_group"}}
+<div class="adb-grp">
+  <div class="adb-gt">{{.Title}} <span class="cc-tag{{if .Tag}} {{.Tag}}{{end}}">{{len .Rows}}</span></div>
+  {{range .Rows}}
+  <div class="adb-li{{if and $.Sel (eq $.Sel.Device.SerialNumber .Device.SerialNumber)}} sel{{end}}">
+    <input type="checkbox" name="serial" value="{{.Device.SerialNumber}}"{{if not .CanSwitch}} disabled title="{{.Why}}"{{end}}>
+    <span class="adb-dot{{if not .Online}} off{{end}}"></span>
+    <span><a class="nm" href="/adb?sel={{.Device.SerialNumber}}{{if $.Sel}}{{end}}">{{.Device.SerialNumber}}</a>
+      <span class="sub"> · {{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}no venue{{end}}
+      {{if eq .Group "open"}}· {{if .OffIn}}off in {{.OffIn}}{{else if .StaysOn}}stays on{{else}}on{{end}}{{else if eq .Group "off"}}{{if .LastBy}}· {{.LastWord}} {{timeSince .LastAt}} by {{.LastBy}}{{end}}{{else}}· {{.Why}}{{end}}</span></span>
+    <span class="sp"></span>
+    {{if .Tunnel}}<span class="cc-tag ok">tunnel</span>{{end}}
+    {{if ne .Device.AgentKind "firmware"}}<span class="cc-tag">standard</span>{{end}}
+  </div>
+  {{else}}
+  {{if .Empty}}<p class="adb-empty">{{.Empty}}</p>{{end}}
+  {{end}}
+</div>
+{{end}}

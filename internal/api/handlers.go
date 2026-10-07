@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
@@ -69,6 +70,7 @@ type Handler struct {
 	geolocate   *geolocate.Resolver
 	geocoder    *geolocate.Geocoder
 	remote      *remote.Manager
+	tunnels     *adbtunnel.Manager
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
