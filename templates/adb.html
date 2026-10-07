@@ -62,7 +62,7 @@ Tick devices to switch them in batch, or pick one to connect to it from anywhere
   <div class="adb-sess">
     <a class="adb-mono" href="/adb?sel={{.Serial}}" style="font-weight:650">{{.Serial}}</a>
     <span class="adb-mono">{{$.TunnelHost}}:{{.Port}}</span>
-    <span class="muted small">{{.User}} · from {{.AllowFrom}} ·
+    <span class="muted small">{{.User}} · from {{.AllowFrom}}{{with .LastRefused}} · <span class="cc-tag bad">refused {{.}}</span>{{end}} ·
       {{if .Connected}}<span class="cc-tag ok">adb connected</span>{{else}}idle {{.IdleText}}{{end}}
       · closes in {{.ClosesInText}}{{if .Refused}} · <span class="cc-tag bad">{{.Refused}} refused</span>{{end}}</span>
     <span style="flex:1"></span>
@@ -116,6 +116,14 @@ Tick devices to switch them in batch, or pick one to connect to it from anywhere
 accepts only {{.Tunnel.AllowFrom}} · {{.Tunnel.Conns}} connections{{if .Tunnel.Refused}}, {{.Tunnel.Refused}} refused{{end}}</span></div>
     <div class="adb-row"><button type="button" class="cc-btn sm" data-cmd="adb connect {{$.TunnelHost}}:{{.Tunnel.Port}}" onclick="copyText(this.dataset.cmd, this)">Copy</button>
       {{if .Tunnel.LastError}}<span class="cc-tag bad">device: {{.Tunnel.LastError}}</span>{{end}}</div>
+    {{with .Tunnel.LastRefused}}
+    <form method="POST" action="/adb/tunnel/{{$.Selected.Tunnel.ID}}/allow" class="adb-row" style="margin-top:8px">
+      <span class="cc-tag bad">refused {{.}}</span>
+      <input type="hidden" name="allow_from" value="{{.}}">
+      <button class="cc-btn sm" type="submit">Allow it</button>
+      <span class="muted small">your adb left through a different address than your browser — common with two WAN links</span>
+    </form>
+    {{end}}
     <p class="muted small" style="margin:8px 0 0">First time: accept the key prompt on the device's screen. The port closes after 60 min idle, or on End.</p>
   </div>
   {{else}}
@@ -128,7 +136,7 @@ accepts only {{.Tunnel.AllowFrom}} · {{.Tunnel.Conns}} connections{{if .Tunnel.
     <form method="POST" action="/adb/tunnel">
       <input type="hidden" name="serial" value="{{.Device.SerialNumber}}">
       <label class="muted small" for="allow_from">Accept connections only from</label>
-      <input class="adb-in" id="allow_from" name="allow_from" value="{{$.MyIP}}" placeholder="IP or CIDR" style="margin:4px 0 8px">
+      <input class="adb-in" id="allow_from" name="allow_from" value="{{$.MyIP}}" placeholder="IPs or CIDRs, comma-separated" style="margin:4px 0 8px">
       <div class="adb-row"><button class="cc-btn sm primary" type="submit">Open tunnel</button>
         <span class="muted small">Binds a random port on {{$.TunnelHost}} for this IP only; adbd's own key check still applies.</span></div>
     </form>

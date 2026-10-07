@@ -279,6 +279,26 @@ func (h *Handler) AdbTunnelOpen(w http.ResponseWriter, r *http.Request) {
 	h.hxRedirect(w, r, "/adb?sel="+url.QueryEscape(serial))
 }
 
+// AdbTunnelAllow adds an IP or CIDR to a live session — the "Allow it" next to a refused
+// connection, for offices whose adb host leaves through a different WAN address than
+// the browser did.
+func (h *Handler) AdbTunnelAllow(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	id := r.PathValue("id")
+	s, ok := h.tunnels.Get(id)
+	if !ok {
+		h.hxRedirect(w, r, "/adb?flash="+url.QueryEscape("That tunnel is no longer open.")+"&flash_type=error")
+		return
+	}
+	ip := strings.TrimSpace(r.FormValue("allow_from"))
+	if err := h.tunnels.AddAllow(id, ip); err != nil {
+		h.hxRedirect(w, r, "/adb?sel="+url.QueryEscape(s.Serial)+"&flash="+url.QueryEscape(err.Error())+"&flash_type=error")
+		return
+	}
+	h.auditDev(r, "device.adb_tunnel", s.DeviceID, s.Serial, fmt.Sprintf("port %d now also allows %s", s.Port, ip))
+	h.hxRedirect(w, r, "/adb?sel="+url.QueryEscape(s.Serial))
+}
+
 // AdbTunnelEnd closes a tunnel session.
 func (h *Handler) AdbTunnelEnd(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
