@@ -18,8 +18,8 @@ import (
 
 // The Wireless adb page (/adb): every device wireless adb was pushed to, grouped by
 // state, with batch on/off and a tunnel so `adb connect` works from anywhere. Design:
-// static/adb-page-demos.html (B · Split + II · Sessions card). Admin only, like the
-// adb_tcp command itself.
+// static/adb-page-demos-2.html, option A (table + guided panel), which replaced the first
+// pass in static/adb-page-demos.html. Admin only, like the adb_tcp command itself.
 
 // SetAdbTunnels wires the tunnel manager.
 func (h *Handler) SetAdbTunnels(m *adbtunnel.Manager) { h.tunnels = m }
