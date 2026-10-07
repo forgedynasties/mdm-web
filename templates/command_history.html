@@ -189,6 +189,10 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
         <option value="shell"{{if eq .FilterType "shell"}} selected{{end}}>Shell</option>
         <option value="screenshot"{{if eq .FilterType "screenshot"}} selected{{end}}>Screenshot</option>
         <option value="reboot"{{if eq .FilterType "reboot"}} selected{{end}}>Reboot</option>
+        <option value="app_update"{{if eq .FilterType "app_update"}} selected{{end}}>Client update</option>
+        <option value="adb_tcp"{{if eq .FilterType "adb_tcp"}} selected{{end}}>Wireless adb</option>
+        <option value="query"{{if eq .FilterType "query"}} selected{{end}}>Query</option>
+        <option value="collect_logs"{{if eq .FilterType "collect_logs"}} selected{{end}}>Collect logs</option>
         <option value="update_splash"{{if eq .FilterType "update_splash"}} selected{{end}}>Boot logo</option>
       </select>
     </div>

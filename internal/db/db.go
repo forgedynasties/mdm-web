@@ -5020,7 +5020,9 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	// update_splash (boot logo) is managed on its own config page (/boot-logo) and
 	// deliberately excluded from the Actions and history lists — it's a fleet config
 	// action, not a tracked one-off command.
-	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash'`
+	// A shell with no author is the legacy OTA progress probe (legacy_watch.go): not
+	// an action, kept out of every history.
+	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash' AND NOT (type = 'shell' AND created_by = '')`
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 		// The day window alone doesn't bound the row count — a busy fleet issuing
@@ -6169,8 +6171,9 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 			))
 		)
 		-- Boot logo is a config action managed on /boot-logo, not part of the
-		-- device's command history.
+		-- device's command history; an authorless shell is the OTA progress probe.
 		AND c.type != 'update_splash'
+		AND NOT (c.type = 'shell' AND c.created_by = '')
 		ORDER BY c.created_at DESC
 	`, installExpiry, expirySec, expirySec), deviceID)
 	if err != nil {

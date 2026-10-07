@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions history audit: what gets listed and how it is named · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:38px 0 8px;letter-spacing:-.01em}
+h3{font-size:14px;margin:22px 0 6px}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6}
+.lead b,p b{color:var(--text-2)}
+p{font-size:13.5px;line-height:1.6;max-width:860px;margin:0 0 10px;color:var(--text-2)}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:8px 12px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top;line-height:1.45}
+tr:last-child td{border-bottom:0}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+code{font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;background:var(--surface2);padding:1px 5px;border-radius:5px}
+.bad{color:var(--danger,#b42318);font-weight:650}.ok{color:var(--ok);font-weight:650}.warn{color:var(--warn-text,#9a5b00);font-weight:650}
+.f{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:18px 0}
+.f .t{font-weight:750;font-size:14px;margin:0 0 4px}
+.f .w{font-size:12.5px;color:var(--text-faint);margin:0 0 6px}
+.f .w b{color:var(--text-2)}
+.f ul{margin:4px 0 0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--text-2)}
+.sev{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.sev.h{color:#fff;background:var(--danger,#b42318)}.sev.m{color:#fff;background:var(--accent)}.sev.l{color:var(--text-2);background:var(--surface-3)}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+</style></head><body>
+<div class="themebar"><button class="on" onclick="setT('light',this)">Light</button><button onclick="setT('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Actions history audit</h1>
+<p class="lead">What ends up in the Actions history and on each device's action timeline, and what it is called there. Counts are from the live database, 7 Sep → 7 Oct 2026. Every finding names the code that produces it; the fix list at the end is one change set.</p>
+
+<h2>1 · What is in the history, by the numbers</h2>
+<table>
+<tr><th>Row type</th><th>Sent by</th><th class="n">30 days</th><th>Shown on Actions as</th><th>Shown on device page as</th><th>Verdict</th></tr>
+<tr><td><code>shell</code></td><td>nobody (system)</td><td class="n">911</td><td>"Shell", no author, no hint</td><td>"Shell"</td><td class="bad">Not an action. The legacy OTA progress probe (<code>legacy_watch.go › sendLegacyProbe</code>) runs <code>cat update_engine log</code> as a shell command on every tick. Three times more rows than every human shell combined; its failures (15 in 14 days) land in Needs attention.</td></tr>
+<tr><td><code>shell</code></td><td>people</td><td class="n">309</td><td>"Shell"</td><td>"Shell"</td><td class="ok">Correct.</td></tr>
+<tr><td><code>ota</code></td><td>system 210 · people 34</td><td class="n">244</td><td>Kept out of the buckets, never listed</td><td>"OTA Update", no version</td><td class="warn">Right that Actions skips it (Updates owns deployments). On the device page it says "OTA Update" with nothing about which release.</td></tr>
+<tr><td><code>reboot</code> with <code>{"reason":"ota"}</code></td><td>system 70 · people 27</td><td class="n">97</td><td>system ones cluster as "Update reboot"; the 27 with a person say "Reboot"</td><td>"Reboot", always</td><td class="bad">The update reboot is recognised by <i>who sent it</i> (<code>isSystemReboot: CreatedBy == ""</code>), not by its payload. A person pressing "Reboot to apply" sends the same reason and is listed as a plain reboot; the device page never distinguishes either.</td></tr>
+<tr><td><code>reboot</code> plain</td><td>people</td><td class="n">160</td><td>"Reboot"</td><td>"Reboot"</td><td class="ok">Correct.</td></tr>
+<tr><td><code>install_apk</code></td><td>people</td><td class="n">74</td><td>"Install app" + app name and icon</td><td>"Install app"</td><td class="ok">Correct.</td></tr>
+<tr><td><code>app_update</code> (client self-update)</td><td>people</td><td class="n">32</td><td>"Update app", APK filename as hint, "delivered" instead of "installed"</td><td><b>"Install app"</b></td><td class="bad">A client update carries the agent APK's URL, and the device page labels anything with an APK URL "Install app" (<code>device.html:92, 133, 3262</code>). On Actions it is "Update app", which reads as an app, not the MDM client; the payload has the client and version and neither is shown. The device-page "Install" filter pill matches <code>install_apk</code> only, so client updates are under "All" alone.</td></tr>
+<tr><td><code>adb_tcp</code></td><td>people</td><td class="n">50</td><td><b>"adb_tcp"</b> (raw type)</td><td><b>"adb_tcp"</b></td><td class="bad"><code>cmdTypeLabel</code> has no case for it, nor for <code>set_kiosk</code>, <code>kiosk_set</code>, <code>remote</code>, <code>wipe</code>'s hint, so the raw key shows. No hint says on/off or for how long.</td></tr>
+<tr><td><code>screenshot</code> / <code>query</code> / <code>uninstall</code> / <code>collect_logs</code></td><td>people</td><td class="n">29 / 22 / 13 / 5</td><td>named</td><td>named</td><td class="ok">Correct. Queries show their catalogue label.</td></tr>
+<tr><td><code>update_splash</code></td><td>people</td><td class="n">—</td><td>excluded on purpose</td><td>excluded</td><td class="ok">Boot logo is config, lives on its own page.</td></tr>
+</table>
+<p>Also: commands sent through the admin API carry the author <b>"API key"</b> (the publish scripts and the adb-key install script). Fine as a name, but the shell that installs adb keys over the API (11 of 11 failed on 5 Oct) is what fills Needs attention with "Shell · API key".</p>
+
+<h2>2 · The "6 need attention" you could not find</h2>
+<p>The Actions page headline (<code>commands.html:270</code>) reads <b>"1 action in progress · 6 need attention"</b>, but the history block under it (<code>cmd-timeline-inner</code>, line 2000 on) renders only two groups: <b>In progress</b> and <b>Completed</b>. The <code>.Attention</code> bucket is computed (<code>classifyCommands</code>, 72-hour window, failures not dismissed) and passed to the template, and never drawn. The number is also not a link. The list exists only on the standalone history page: <b>/commands/history?status=attention</b>, under the "Needs attention" tab. Nothing on the Actions page points there.</p>
+<p>What it holds right now (failed on at least one device, last 72 h, not dismissed):</p>
+<table>
+<tr><th>When</th><th>Row</th><th>By</th><th class="n">Devices</th><th class="n">Failed</th><th>What it really is</th></tr>
+<tr><td>5 Oct 11:57</td><td>Update app</td><td>Ali Hassan</td><td class="n">18</td><td class="n">1</td><td>Firmware client update, one device did not take it</td></tr>
+<tr><td>5 Oct 09:30</td><td>Update app</td><td>Ali Hassan</td><td class="n">18</td><td class="n">1</td><td>Firmware client update</td></tr>
+<tr><td>5 Oct 09:06</td><td>Install app</td><td>API key</td><td class="n">1</td><td class="n">1</td><td>Publish script install</td></tr>
+<tr><td>5 Oct 09:05</td><td>Update app</td><td>API key</td><td class="n">1</td><td class="n">1</td><td>Publish script client update</td></tr>
+<tr><td>5 Oct 07:30</td><td>Update app</td><td>Ali Hassan</td><td class="n">18</td><td class="n">1</td><td>Firmware client update</td></tr>
+<tr><td>5 Oct 07:12</td><td>Update app</td><td>Ali Hassan</td><td class="n">18</td><td class="n">1</td><td>Firmware client update</td></tr>
+<tr><td>5 Oct 05:29</td><td>adb_tcp</td><td>Ali Hassan</td><td class="n">1</td><td class="n">1</td><td>Wireless adb switch refused by the device</td></tr>
+<tr><td>5 Oct 04:44</td><td>Shell</td><td>API key</td><td class="n">11</td><td class="n">11</td><td>adb-keys install script, every device failed</td></tr>
+</table>
+<p>Six when you looked, eight now: the 72-hour window is relative, so rows age out and the count moves on its own without anyone dismissing anything.</p>
+
+<h2>3 · Findings</h2>
+
+<div class="f"><p class="t">F1 · Client updates read as "Install app" on the device page <span class="sev h">High</span></p>
+<p class="w"><b>Where:</b> <code>device.html</code> action timeline (92), device queue (133), Activity card (3262): <code>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</code>. <b>Why:</b> the override was written when only installs carried an APK; a client self-update now does too.</p>
+<ul><li>32 client updates in 30 days are listed as installs on device pages. The device filter "Install" does not find them either.</li><li>The command detail page resolves the APK URL against the app library, so a client update can head itself with whatever library entry shares the URL.</li></ul></div>
+
+<div class="f"><p class="t">F2 · "Update app" is the wrong name for a client update, and says nothing about the client <span class="sev h">High</span></p>
+<p class="w"><b>Where:</b> <code>cmdTypeLabel("app_update")</code>, <code>cmdHint</code> (no case → APK filename), the row verb (<code>install_apk</code> → "installed", everything else → "delivered").</p>
+<ul><li>Payload carries <code>package</code>, <code>version</code>, <code>sha256</code>. The row should read <b>Client update · Firmware client 1.8.9</b> (or Standard client 0.2.9), with "updated" as the verb.</li><li>Shares one history with app installs, but the Clients page already owns client rollouts: a row here should link back to it.</li></ul></div>
+
+<div class="f"><p class="t">F3 · Update reboots are recognised by author, not by what they are <span class="sev h">High</span></p>
+<p class="w"><b>Where:</b> <code>isSystemReboot</code> (<code>c.Type == "reboot" && c.CreatedBy == ""</code>), the "Update reboot" title in <code>commands.html:2048</code>, and no equivalent on the device page.</p>
+<ul><li>27 of 97 update reboots were sent by a person ("Reboot to apply") and are listed as plain reboots; on the device page all 97 are plain reboots.</li><li>The reliable marker is the payload <code>{"reason":"ota"}</code>, which every one of them carries. Any reboot with that reason should be "Update reboot", clustered or not, and ideally link to the deployment.</li></ul></div>
+
+<div class="f"><p class="t">F4 · The legacy OTA progress probe is 911 shell rows nobody sent <span class="sev h">High</span></p>
+<p class="w"><b>Where:</b> <code>internal/api/legacy_watch.go › sendLegacyProbe</code> creates a <code>shell</code> command with an empty author every tick while a legacy OTA is being watched.</p>
+<ul><li>Admins see them as "Shell" by nobody with no hint; failed ones are counted in Needs attention; they are three quarters of all shell rows and skew the per-person history on profiles.</li><li>They are an implementation detail of OTA progress, not an action. They should be excluded from every history list and from the attention count (a <code>created_by = ''</code> + reason marker, or a dedicated internal type), or sent outside the commands table.</li></ul></div>
+
+<div class="f"><p class="t">F5 · Needs attention is counted but not shown on Actions <span class="sev h">High</span></p>
+<p class="w"><b>Where:</b> <code>commands.html:270</code> headline vs <code>cmd-timeline-inner</code> (2000–2012), which has no <code>.Attention</code> group. The data is already in the template.</p>
+<ul><li>Render the group above In progress, with its "Clear" action, and make the headline number a link to <code>/commands/history?status=attention</code>.</li></ul></div>
+
+<div class="f"><p class="t">F6 · Raw type keys leak: adb_tcp and friends <span class="sev m">Medium</span></p>
+<p class="w"><b>Where:</b> <code>cmdTypeLabel</code> default branch; <code>cmdHint</code> has no case for <code>adb_tcp</code>, <code>ota</code>, <code>reboot</code>, <code>app_update</code>, <code>set_kiosk</code>, <code>wipe</code>.</p>
+<ul><li>50 "adb_tcp" rows this month. Should be <b>Wireless adb · on for 4 h</b> / <b>Wireless adb · off</b>. OTA rows should name the release; kiosk rows the rule.</li></ul></div>
+
+<div class="f"><p class="t">F7 · Device page filters cover five of thirteen types <span class="sev l">Low</span></p>
+<p class="w"><b>Where:</b> <code>device.html:81–86</code>: All, Install, Uninstall, Shell, Screenshot, Reboot.</p>
+<ul><li>Client updates, OTA, wireless adb, queries and log collection are reachable only under All. Add pills for Client update, OTA, Wireless adb, Query/Logs, or build the pills from the types present.</li></ul></div>
+
+<div class="f"><p class="t">F8 · Per-device OTA rows say "OTA Update" and nothing else <span class="sev l">Low</span></p>
+<p class="w"><b>Where:</b> <code>cmdTypeLabel("ota")</code>, no hint; the payload names the release.</p>
+<ul><li>Device page should read <b>OTA · v2.1.025</b> and link to the deployment. Actions correctly leaves these to Updates.</li></ul></div>
+
+<h2>4 · One change set</h2>
+<table>
+<tr><th>#</th><th>Change</th><th>Files</th></tr>
+<tr><td>1</td><td>One label function for all surfaces: <code>cmdTitle(cmd)</code> returning title + hint from type <i>and</i> payload. Client update → "Client update · Firmware client 1.8.9". Reboot with reason ota → "Update reboot". adb_tcp → "Wireless adb · on 4 h / off". ota → "OTA · version". install_apk → "Install app · name". Replace the three ApkURL overrides and the Actions title chain with it.</td><td><code>handlers.go</code> (funcmap), <code>commands.html</code>, <code>device.html</code>, <code>command_detail.html</code></td></tr>
+<tr><td>2</td><td>Cluster update reboots by payload reason, not author; keep the "Sent automatically" note for authorless ones.</td><td><code>isSystemReboot</code></td></tr>
+<tr><td>3</td><td>Hide the legacy OTA probe from every history (list queries and device timeline) and from attention; mark it in its payload so the filter is exact.</td><td><code>legacy_watch.go</code>, <code>db.go ListCommandsSince / GetDeviceCommands / history page query</code></td></tr>
+<tr><td>4</td><td>Draw the Needs-attention group on the Actions page; link the headline count.</td><td><code>commands.html</code></td></tr>
+<tr><td>5</td><td>Verb per type: installed / updated / rebooted / switched / delivered.</td><td><code>commands.html</code> row</td></tr>
+<tr><td>6</td><td>Device page filter pills from the types present, with the new names.</td><td><code>device.html</code></td></tr>
+<tr><td>7</td><td>Command detail: for client updates show client + version from the payload, not the library lookup.</td><td><code>command_detail.html</code>, its handler</td></tr>
+</table>
+<p>Nothing here changes what devices receive; it is naming, filtering and one missing block. Say go and I build it as one commit.</p>
+</div>
+<script>function setT(t,b){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b))}</script>
+</body></html>

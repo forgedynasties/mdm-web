@@ -78,18 +78,14 @@
   <div style="padding:10px 18px 12px;">
     {{if .Commands}}
     <div class="ch-filters" id="ch-filters">
+      {{/* One pill per type actually in this device's history, named like the rows (filled by JS from data-ct / data-ctl). */}}
       <button type="button" class="ch-pill on" data-ct="" onclick="cmdHistFilter('',this)">All</button>
-      <button type="button" class="ch-pill" data-ct="install_apk" onclick="cmdHistFilter('install_apk',this)">Install</button>
-      <button type="button" class="ch-pill" data-ct="uninstall" onclick="cmdHistFilter('uninstall',this)">Uninstall</button>
-      <button type="button" class="ch-pill" data-ct="shell" onclick="cmdHistFilter('shell',this)">Shell</button>
-      <button type="button" class="ch-pill" data-ct="screenshot" onclick="cmdHistFilter('screenshot',this)">Screenshot</button>
-      <button type="button" class="ch-pill" data-ct="reboot" onclick="cmdHistFilter('reboot',this)">Reboot</button>
     </div>
     <div class="ddc-activity{{if gt (len .Commands) 10}} ch-collapsed{{end}}" id="ch-list">
       {{range $i, $c := .Commands}}
-      <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-cmd-id="{{$c.ID}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
+      <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-cmd-id="{{$c.ID}}" data-ct="{{$c.Type}}" data-ctl="{{cmdTitle $c}}" href="/commands/{{$c.ID}}">
         <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}{{if $c.CreatedBy}} <span class="muted">· {{$c.CreatedBy}} {{template "ubub" (userBubble $c.CreatedBy)}}</span>{{end}}</span>
+        <span class="ddc-tl-main"><b>{{cmdTitle $c}}</b>{{with cmdHint $c}}{{if ne $c.Type "shell"}} <span class="muted">{{.}}</span>{{end}}{{end}} · {{cmdStatusLabel $c.Status $.Online}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}{{if $c.CreatedBy}} <span class="muted">· {{$c.CreatedBy}} {{template "ubub" (userBubble $c.CreatedBy)}}</span>{{end}}</span>
         <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
       </a>
       {{end}}
@@ -130,7 +126,7 @@
       <span class="dq-pos">{{add $i 1}}</span>
       <span class="dq-ic">{{if $c.ApkURL}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>{{else if eq $c.Type "uninstall"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>{{else if eq $c.Type "reboot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>{{else if eq $c.Type "screenshot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>{{else if eq $c.Type "shell"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg>{{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>{{end}}</span>
       <span class="dq-body">
-        <a class="dq-nm" href="/commands/{{$c.ID}}">{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</a>
+        <a class="dq-nm" href="/commands/{{$c.ID}}">{{cmdTitle $c}}{{with cmdHint $c}}{{if ne $c.Type "shell"}} <span class="muted">{{.}}</span>{{end}}{{end}}</a>
         <span class="dq-meta">
           {{if eq $c.Status "downloading"}}<span class="dq-pill dl">Downloading{{if $c.Progress}} {{$c.Progress}}%{{end}}</span>
           {{else if eq $c.Status "installing"}}<span class="dq-pill inst">Installing</span>
@@ -147,7 +143,7 @@
       {{if and (canOperate $.Role) (not (or (eq $c.Status "installed") (eq $c.Status "completed") (eq $c.Status "failed") (eq $c.Status "cancelled")))}}
       <button type="button" class="dq-x" title="Remove from queue" aria-label="Remove from queue"
         hx-post="/devices/{{$.Device.SerialNumber}}/queue/{{$c.ID}}/remove" hx-swap="none"
-        hx-confirm="Remove this queued {{cmdLabel $c.Type}} command?">
+        hx-confirm="Remove this queued {{cmdTitle $c}} command?">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
       {{end}}
@@ -1262,7 +1258,7 @@ function mdmBootCharts() {
   document.addEventListener('visibilitychange', function () { if (!document.hidden) chartCatchUp(); });
   (window.mdmInterval || setInterval)(chartCatchUp, 120000);
 
-  const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
+  const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdTitle .)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
   const buildMarkers = [{{range .BuildChanges}}{x: {{.At.UnixMilli}}, from: {{printf "%q" .From}}, to: {{printf "%q" .To}}},{{end}}];
   const buildStorageKey = 'mdm-chart-builds:v1:{{.Device.SerialNumber}}';
@@ -3259,7 +3255,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     {{range $i, $c := .Commands}}{{if lt $i 6}}
     <a class="ddc-tl ddc-tl-link" href="/commands/{{$c.ID}}">
       <span class="dot {{if eq $c.Status "success"}}ok{{else if eq $c.Status "failed"}}err{{else if eq $c.Status "expired"}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-      <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}</span>
+      <span class="ddc-tl-main"><b>{{cmdTitle $c}}</b> · {{cmdStatusLabel $c.Status $.Online}}</span>
       <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}">{{timeSince $c.CreatedAt}}</span>
     </a>
     {{end}}{{end}}
@@ -4482,6 +4478,19 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var b = document.getElementById('ch-more'); if (b) b.style.display = 'none';
   };
   // Command-history type filters (client-side, in the History tab).
+  // Filter pills from the types present, in first-seen order, named like the rows.
+  (function () {
+    var bar = document.getElementById('ch-filters'); if (!bar) return;
+    var seen = {};
+    document.querySelectorAll('#ch-list .ddc-tl[data-ct]').forEach(function (r) {
+      var ct = r.getAttribute('data-ct'); if (!ct || seen[ct]) return; seen[ct] = true;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ch-pill'; b.setAttribute('data-ct', ct);
+      b.textContent = (r.getAttribute('data-ctl') || ct).replace(/^Update reboot$/, 'Reboot');
+      if (ct === 'reboot') b.textContent = 'Reboot';
+      b.addEventListener('click', function () { cmdHistFilter(ct, b); });
+      bar.appendChild(b);
+    });
+  })();
   window.cmdHistFilter = function (ct, btn) {
     document.querySelectorAll('#ch-filters .ch-pill').forEach(function (p) { p.classList.toggle('on', p === btn); });
     if (ct) chShowAll(); // filtering by a type looks across all commands, not just the first 10

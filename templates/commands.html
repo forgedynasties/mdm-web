@@ -267,7 +267,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Actions</div>
-    <h1 class="cc-h1">{{if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> action{{if ne .ProgCount 1}}s{{end}} in progress{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{end}}</h1>
+    <h1 class="cc-h1">{{if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> action{{if ne .ProgCount 1}}s{{end}} in progress{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <a href="#hist-attn" style="color:inherit;text-decoration:none" title="Jump to the Needs attention list"><span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention</a>{{end}}</h1>
     <div class="cc-sub">Build the selection on the left, pick an action on the right — the grid adapts to what the selected devices can actually run.</div>
   </div>
   <div class="cc-actions">
@@ -1995,6 +1995,15 @@ window.CMD_PREFILL = {{.Prefill}};
      Data via dict: .Cmd .S (summary) .Ser (serials) .Role .Bucket. */}}
 {{define "cmd-timeline-inner"}}
     {{if or (or .Attention .InProgress) (or .Completed (gt .DoneCount 0))}}
+      {{/* Needs attention — failures in the last three days, not dismissed. Was
+           counted in the headline but never drawn here (2026-10-07). */}}
+      {{if .Attention}}
+      <div class="hgrp-h attn" data-grp id="hist-attn"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
+        {{if canOperate .Role}}<form method="POST" action="/commands/clear-attention" style="margin:0 0 0 auto" hx-confirm="Clear the Needs attention list? The actions and their history stay; they just stop being flagged."><button type="submit" class="cc-btn sm">Clear</button></form>{{end}}</div>
+        {{$day := ""}}
+        {{range .Attention}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Cluster" (index $.Clusters .ID) "Bucket" "attn")}}{{end}}
+        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention" hx-target="main" hx-swap="outerHTML">Show all {{.AttnCount}} needing attention →</a>{{end}}
+      {{end}}
       {{/* In progress — always shown (top), with an empty state. */}}
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
       {{if .InProgress}}
@@ -2030,7 +2039,7 @@ window.CMD_PREFILL = {{.Prefill}};
 {{$total := add (add $s.Completed $s.Failed) (add $s.Pending $s.Delivered)}}
 {{$rest := add $s.Pending $s.Delivered}}
 {{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
-<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}"{{if authorIsAdmin $c.CreatedBy}} data-admin="1"{{end}} data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
+<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}"{{if authorIsAdmin $c.CreatedBy}} data-admin="1"{{end}} data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdTitle $c}} {{cmdHint $c}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   {{if .Batch}}
   <a class="ht-dotwrap {{$state}} cluster n{{len .Batch}}" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML" title="{{len .Batch}} apps in one send">
     {{range $i, $m := .Batch}}{{if lt $i 3}}{{$ic := index $.AppIcons $m.ApkURL}}<span class="ci">{{if $ic}}<img src="{{iconSrc $ic}}" alt="">{{else}}{{$nm := index $.AppNames $m.ApkURL}}{{if $nm}}{{slice $nm 0 1}}{{else}}·{{end}}{{end}}</span>{{end}}{{end}}
@@ -2045,7 +2054,7 @@ window.CMD_PREFILL = {{.Prefill}};
   <span class="ht-dotwrap {{$state}}"><span class="dot {{$state}}"></span></span>
   {{end}}
   <div class="ht-body">
-    <a class="ht-title" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML">{{if .Batch}}Install {{len .Batch}} apps{{else if .Cluster}}Update reboot{{else if and (eq $c.Type "reboot") (not $c.CreatedBy)}}Update reboot{{else}}{{cmdLabel $c.Type}}{{end}}</a>
+    <a class="ht-title" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML">{{if .Batch}}Install {{len .Batch}} apps{{else}}{{cmdTitle $c}}{{end}}</a>
     <span class="ht-meta">
       {{/* For an install, show the app NAME (resolved from the library) rather than the
            raw APK URL/filename; fall back to the generic hint. Shell never shows its raw
@@ -2056,7 +2065,7 @@ window.CMD_PREFILL = {{.Prefill}};
       {{if $hint}}{{$hint}}<span class="sep"></span>{{end}}
       {{if .Cluster}}{{len .Cluster}} devices{{else if eq $c.TargetType "devices"}}{{if eq (len $ser) 1}}<span class="mono">{{index $ser 0}}</span>{{else}}{{len $ser}} devices{{end}}{{else if eq $c.TargetType "groups"}}Group target{{else}}All devices{{end}}
       <span class="sep"></span>
-      {{$verb := "delivered"}}{{if eq $c.Type "install_apk"}}{{$verb = "installed"}}{{else if eq $c.Type "uninstall"}}{{$verb = "uninstalled"}}{{end}}
+      {{$verb := cmdVerb $c}}
       {{if eq $state "fail"}}<span class="ht-fail">{{$s.Completed}} {{$verb}} · {{$s.Failed}} failed</span>
       {{else if eq $state "run"}}{{if eq $total 0}}awaiting check-in{{else if or (gt $s.Downloading 0) (gt $s.Installing 0)}}<span class="pd"></span>{{if gt $s.Downloading 0}}{{$s.Downloading}} downloading{{end}}{{if and (gt $s.Downloading 0) (gt $s.Installing 0)}} · {{end}}{{if gt $s.Installing 0}}{{$s.Installing}} installing{{end}}{{else}}<span class="pd"></span>{{$s.Completed}} / {{$total}}{{end}}
       {{else}}{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}{{end}}

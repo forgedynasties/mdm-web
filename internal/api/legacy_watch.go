@@ -203,7 +203,9 @@ func (h *Handler) pollLegacyInstall(ctx context.Context, deviceID uuid.UUID, ser
 // builds, so a device that finished while nothing was watching would otherwise
 // stay on its last known percentage until it rebooted.
 func (h *Handler) sendLegacyProbe(ctx context.Context, deviceID uuid.UUID, serial string) {
-	payload, _ := json.Marshal(map[string]string{"cmd": legacyPollCmd})
+	// No author and a probe marker: every history list leaves these out (they are
+	// progress plumbing, not an action anyone took).
+	payload, _ := json.Marshal(map[string]string{"cmd": legacyPollCmd, "probe": "legacy_ota"})
 	cmd, err := h.db.CreateCommandBy(ctx, "shell", "", payload, "devices", []uuid.UUID{deviceID}, "")
 	if err != nil {
 		log.Printf("[legacy-ota] progress probe for %s: %v", serial, err)

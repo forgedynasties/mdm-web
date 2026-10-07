@@ -1128,69 +1128,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return "—"
 		},
-		// cmdHint is a short, human payload summary for the command history (what was run).
-		"cmdHint": func(cmd db.Command) string {
-			base := func(s string) string {
-				if i := strings.LastIndex(s, "/"); i >= 0 && i < len(s)-1 {
-					s = s[i+1:]
-				}
-				return s
-			}
-			switch cmd.Type {
-			case "install_apk":
-				if cmd.ApkURL != "" {
-					return base(cmd.ApkURL)
-				}
-			case "uninstall":
-				var p struct {
-					Package string `json:"package"`
-				}
-				if json.Unmarshal(cmd.Payload, &p) == nil && p.Package != "" {
-					return p.Package
-				}
-			case "shell":
-				var p struct {
-					Cmd string `json:"cmd"`
-				}
-				if json.Unmarshal(cmd.Payload, &p) == nil && p.Cmd != "" {
-					return p.Cmd
-				}
-			case "query":
-				var p struct {
-					Query string `json:"query"`
-					Cmd   string `json:"cmd"`
-				}
-				if json.Unmarshal(cmd.Payload, &p) == nil {
-					if p.Query != "" {
-						return p.Query
-					}
-					if p.Cmd != "" {
-						return p.Cmd
-					}
-				}
-			case "collect_logs":
-				return "logcat, dumpsys, getprop, OTA log"
-			case "logcat":
-				var p struct {
-					Level string `json:"level"`
-					Lines int    `json:"lines"`
-					Tag   string `json:"tag"`
-				}
-				if json.Unmarshal(cmd.Payload, &p) == nil {
-					h := p.Level
-					if p.Lines > 0 {
-						h += fmt.Sprintf(" · %d lines", p.Lines)
-					}
-					if p.Tag != "" {
-						h += " · " + p.Tag
-					}
-					return h
-				}
-			case "update_splash":
-				return "boot logo"
-			}
-			return ""
-		},
+		// cmdTitle / cmdHint / cmdVerb: one naming per command from type and payload
+		// (cmdtitle.go). They take a db.Command or a db.DeviceCommand.
+		"cmdTitle": func(c any) string { t, _ := cmdTitleOf(shapeOf(c)); return t },
+		"cmdHint":  func(c any) string { _, h := cmdTitleOf(shapeOf(c)); return h },
+		"cmdVerb":  func(c any) string { return cmdVerbOf(shapeOf(c)) },
 		"logcatStatusClass": func(s string) string {
 			switch s {
 			case "fulfilled":
@@ -17012,13 +16954,19 @@ func cmdTypeLabel(cmdType string) string {
 	case "app_update_check":
 		return "Check for update"
 	case "app_update":
-		return "Update app"
+		return "Client update"
 	case "logcat":
 		return "Log capture"
 	case "collect_logs":
 		return "Collect logs"
 	case "ota":
-		return "OTA Update"
+		return "OTA update"
+	case "adb_tcp":
+		return "Wireless adb"
+	case "set_kiosk", "kiosk_set":
+		return "Kiosk"
+	case "remote":
+		return "Remote control"
 	case "mic_gain_read":
 		return "Mic gain read"
 	case "mic_gain_set":
@@ -17152,8 +17100,9 @@ func (h *Handler) isAdminAuthor(name string) bool {
 	return strings.EqualFold(name, legacyAdminActor)
 }
 
-// isSystemReboot: a reboot nobody typed — the OTA flow's post-install reboot.
-func isSystemReboot(c db.Command) bool { return c.Type == "reboot" && c.CreatedBy == "" }
+// isSystemReboot: a reboot the update flow asked for — recognised by its payload
+// reason, not by who sent it, so "Reboot to apply" pressed by a person clusters too.
+func isSystemReboot(c db.Command) bool { return isUpdateReboot(c) }
 
 // clusterSystemReboots folds runs of OTA-sent reboots (each targets one device,
 // created within minutes of each other) into one representative row per run,
