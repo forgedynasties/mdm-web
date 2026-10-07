@@ -225,6 +225,11 @@ func (h *Handler) AdbBatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	payload, _ := json.Marshal(map[string]int{"port": port, "hours": hours})
+	// One batch id across the fan-out: the server still sends one adb_tcp per device,
+	// but the history shows the run as one row, like a multi-app install.
+	if len(serials) > 1 {
+		payload = withBatch(payload, uuid.NewString())
+	}
 	var sent, skipped []string
 	for _, serial := range serials {
 		d, err := h.db.GetDevice(r.Context(), serial)

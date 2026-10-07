@@ -4979,6 +4979,7 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		return nil, err
 	}
 
+	inserted := 0
 	for _, tid := range targetIDs {
 		// A device reporting to another MDM cannot collect a command from this one, so
 		// queueing it produces a row that sits at "sent to device" until the stalled
@@ -4995,6 +4996,12 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		`, cmd.ID, tid); err != nil {
 			return nil, err
 		}
+		inserted++
+	}
+	// Every named device was skipped: nothing would ever collect this, so no row at all
+	// (the rollback in defer drops the command), rather than one that reads "0 devices".
+	if targetType == "devices" && len(targetIDs) > 0 && inserted == 0 {
+		return nil, errors.New("every target reports to another MDM server, nothing to send")
 	}
 
 	if err := tx.Commit(ctx); err != nil {

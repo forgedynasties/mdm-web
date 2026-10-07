@@ -1131,6 +1131,20 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// cmdTitle / cmdHint / cmdVerb: one naming per command from type and payload
 		// (cmdtitle.go). They take a db.Command or a db.DeviceCommand.
 		"cmdTitle": func(c any) string { t, _ := cmdTitleOf(shapeOf(c)); return t },
+		// batchSerials: the union of target serials over a batch's members.
+		"batchSerials": func(members []db.Command, serials map[uuid.UUID][]string) []string {
+			var out []string
+			seen := map[string]bool{}
+			for _, m := range members {
+				for _, s := range serials[m.ID] {
+					if !seen[s] {
+						seen[s] = true
+						out = append(out, s)
+					}
+				}
+			}
+			return out
+		},
 		"cmdHint":  func(c any) string { _, h := cmdTitleOf(shapeOf(c)); return h },
 		"cmdVerb":  func(c any) string { return cmdVerbOf(shapeOf(c)) },
 		"logcatStatusClass": func(s string) string {
@@ -14881,6 +14895,11 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			if c.TargetType == "devices" {
 				serialIDs = append(serialIDs, c.ID)
 			}
+			for _, m := range batches[c.ID] { // a folded batch names every member's devices
+				if m.ID != c.ID && m.TargetType == "devices" {
+					serialIDs = append(serialIDs, m.ID)
+				}
+			}
 		}
 	}
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
@@ -14934,7 +14953,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		Prefill template.JS
 		Count   int // "Most frequent" pane: how many times this exact send was made
 	}
-	var recents, frequent []recentView
+	var recents []recentView
 	if !isHistPartial {
 		// logcat and ota are deliberately absent: neither is a builder action here —
 		// logcat fans out via logcat_requests (device pages), OTA via the releases
@@ -15205,40 +15224,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 				addRecent(cmds[i])
 			}
 		}
-		// Most frequent: the same send (type + payload + target) made repeatedly across
-		// the loaded history, newest occurrence shown, ranked by count. Only sends made
-		// more than once qualify — a one-off is already covered by "Recent".
-		freqIdx := map[string]int{}
-		scanned := 0
-		for i := range cmds {
-			if scanned >= 200 {
-				break
-			}
-			if !resendable(cmds[i]) {
-				continue
-			}
-			scanned++
-			v, sig := viewOf(cmds[i])
-			if j, ok := freqIdx[sig]; ok {
-				frequent[j].Count++
-				continue
-			}
-			v.Count = 1
-			freqIdx[sig] = len(frequent)
-			frequent = append(frequent, v)
-		}
-		sort.SliceStable(frequent, func(a, b int) bool { return frequent[a].Count > frequent[b].Count })
-		n := 0
-		for _, v := range frequent {
-			if v.Count < 2 {
-				break
-			}
-			n++
-		}
-		if n > recentMax {
-			n = recentMax
-		}
-		frequent = frequent[:n]
 	}
 
 	data := map[string]any{
@@ -15272,7 +15257,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Prefill":          prefill,
 		"PaletteJSON":      template.JS(paletteJSON),
 		"RecentSends":      recents,
-		"FrequentSends":    frequent,
 		"RequireReason":    h.cfg.RequireReason(),
 	}
 	// Live status: the Actions page's history table re-fetches just this fragment on a
@@ -15380,6 +15364,11 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		bucketByID[c.ID] = commandBucket(c, summaries[c.ID], dismissed[c.ID])
 		if c.TargetType == "devices" {
 			serialIDs = append(serialIDs, c.ID)
+		}
+		for _, m := range batches[c.ID] {
+			if m.ID != c.ID && m.TargetType == "devices" {
+				serialIDs = append(serialIDs, m.ID)
+			}
 		}
 	}
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
