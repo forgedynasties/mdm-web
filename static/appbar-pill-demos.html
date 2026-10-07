@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Header that turns into a pill · page backgrounds · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:880px;line-height:1.6}
+.lead b{color:var(--text-2)}
+h2.sec{font-size:17px;margin:44px 0 6px;letter-spacing:-.01em}
+.opt{margin:28px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:880px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1024px){.grid2{grid-template-columns:1fr}}
+
+/* ── the scrollable mock "browser" ── */
+.fr{position:relative;height:380px;overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg);box-shadow:var(--shadow-sm)}
+.fr .pg{padding:76px 24px 40px;max-width:900px;margin:0 auto}
+.fr .ph1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.fr .psub{color:var(--text-faint);font-size:12.5px;margin:0 0 16px}
+.fr .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 0 12px;font-size:13px}
+.fr .card b{display:block;margin-bottom:4px}
+.fr .card .ln{height:8px;border-radius:4px;background:var(--surface-3);margin:7px 0;width:70%}
+.fr .card .ln.s{width:45%}
+.hint{position:absolute;right:12px;bottom:10px;font-size:11px;color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 9px;pointer-events:none}
+
+/* ── mock appbar (shared) ── */
+.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;
+  background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(0,0,0,.06);
+  box-shadow:0 4px 6px rgba(0,0,0,.04),0 12px 40px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.6)}
+html[data-theme=dark] .bar{background:rgba(10,10,20,.4);border-bottom-color:rgba(255,255,255,.12);box-shadow:0 4px 6px rgba(0,0,0,.12),0 12px 40px rgba(0,0,0,.35)}
+.bar .brand{font-weight:600;font-size:22px;letter-spacing:-.01em}
+.bar .brand i{font-style:normal;color:var(--accent)}
+.bar .right{display:flex;gap:8px}
+.bar .ic{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;color:var(--text-2)}
+.bar .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8}
+.bar .acct{height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.bar .acct .av{width:20px;height:20px;border-radius:50%;background:var(--accent)}
+
+/* A · pill on scroll (DeepSeek) */
+.fr.a .bar{position:sticky;top:0;margin:0;border-radius:0;transition:margin .3s ease,border-radius .3s ease,padding .3s ease,background-color .3s ease,box-shadow .3s ease,border-color .3s ease,top .3s ease}
+.fr.a.sc .bar{top:8px;margin:0 auto;width:min(100% - 48px,1140px);border-radius:100px;padding:6px 10px 6px 20px;border:1px solid rgba(0,0,0,.1);border-bottom-color:rgba(0,0,0,.1);
+  background:rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.7)}
+html[data-theme=dark] .fr.a.sc .bar{background:rgba(20,18,17,.5);border-color:rgba(255,255,255,.14)}
+.fr.a.sc .bar .brand{font-size:18px}
+.fr.a.sc .bar .ic,.fr.a.sc .bar .acct{height:30px;border-radius:99px}
+.fr.a.sc .bar .ic{width:30px}
+
+/* B · transparent at top, glass once scrolled */
+.fr.b .bar{background:transparent;border-bottom-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:background-color .3s ease,box-shadow .3s ease,border-color .3s ease}
+.fr.b.sc .bar{background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom-color:rgba(0,0,0,.06);box-shadow:0 4px 6px rgba(0,0,0,.04),0 12px 40px rgba(0,0,0,.08)}
+html[data-theme=dark] .fr.b.sc .bar{background:rgba(10,10,20,.4);border-bottom-color:rgba(255,255,255,.12)}
+
+/* C · pill from the start */
+.fr.c .bar{top:8px;margin:8px auto 0;width:min(100% - 48px,1140px);border-radius:100px;padding:6px 10px 6px 20px;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(0,0,0,.1),inset 0 1px 0 rgba(255,255,255,.7)}
+html[data-theme=dark] .fr.c .bar{background:rgba(20,18,17,.5);border-color:rgba(255,255,255,.14)}
+.fr.c .bar .brand{font-size:18px}.fr.c .bar .ic,.fr.c .bar .acct{height:30px;border-radius:99px}.fr.c .bar .ic{width:30px}
+.fr.c .pg{padding-top:24px}
+
+/* D · pill + hides on scroll down, returns on scroll up */
+.fr.d .bar{top:8px;margin:8px auto 0;width:min(100% - 48px,1140px);border-radius:100px;padding:6px 10px 6px 20px;border:1px solid rgba(0,0,0,.1);background:rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(0,0,0,.1);transition:transform .25s ease,opacity .25s ease}
+html[data-theme=dark] .fr.d .bar{background:rgba(20,18,17,.5);border-color:rgba(255,255,255,.14)}
+.fr.d .bar .brand{font-size:18px}.fr.d .bar .ic,.fr.d .bar .acct{height:30px;border-radius:99px}.fr.d .bar .ic{width:30px}
+.fr.d.hide .bar{transform:translateY(-80px);opacity:0}
+.fr.d .pg{padding-top:24px}
+
+/* ── backgrounds ── */
+.bgf{position:relative;height:300px;overflow:hidden;border:1px solid var(--border);border-radius:14px}
+.bgf .lay{position:absolute;inset:0}
+.bgf .pg{position:relative;padding:22px 24px}
+.bgf .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:0 0 10px;font-size:13px;max-width:460px}
+.bgf .card .ln{height:8px;border-radius:4px;background:var(--surface-3);margin:7px 0;width:70%}
+.bgf .card .ln.s{width:45%}
+.bg1 .lay{background:var(--bg)}
+.bg2 .lay{background:#faf8f5}
+html[data-theme=dark] .bg2 .lay{background:#141210}
+.bg2 .lay:before{content:"";position:absolute;inset:-20%;background:
+  radial-gradient(600px 380px at 8% -10%,rgba(249,103,78,.13),transparent 60%),
+  radial-gradient(520px 360px at 95% 10%,rgba(26,99,192,.09),transparent 60%),
+  radial-gradient(500px 300px at 50% 110%,rgba(15,109,51,.06),transparent 60%)}
+html[data-theme=dark] .bg2 .lay:before{background:
+  radial-gradient(600px 380px at 8% -10%,rgba(249,128,95,.16),transparent 60%),
+  radial-gradient(520px 360px at 95% 10%,rgba(90,150,255,.10),transparent 60%)}
+.bg2 .card,.bg4 .card{background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-color:rgba(0,0,0,.06)}
+html[data-theme=dark] .bg2 .card,html[data-theme=dark] .bg4 .card{background:rgba(30,28,26,.55);border-color:rgba(255,255,255,.1)}
+.bg3 .lay{background:var(--bg)}
+.bg3 canvas{position:absolute;inset:0;width:100%;height:100%}
+.bg4 .lay{background:var(--bg);background-image:radial-gradient(rgba(0,0,0,.09) 1px,transparent 1px);background-size:18px 18px}
+html[data-theme=dark] .bg4 .lay{background-image:radial-gradient(rgba(255,255,255,.10) 1px,transparent 1px)}
+.bg4 .lay:after{content:"";position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 0,transparent,var(--bg) 100%)}
+</style></head><body>
+<div class="themebar"><button class="on" onclick="setT('light',this)">Light</button><button onclick="setT('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Header that turns into a pill · page backgrounds</h1>
+<p class="lead">Taken from deepseek.com: their header is a fixed, transparent bar that, 20px into a scroll, gains a translucent white fill, a 12px backdrop blur and a hairline border, with a 100px radius, so it reads as a floating pill the content slides under. Their page is warm off-white (<b>#f9f8f8</b>) with an animated "flow field" canvas behind the hero and 30%-white glass cards. <b>Ours today:</b> a full-width sticky glass bar, always on, flat <b>#f7f7f7</b> page, white cards, and the dock already floats as a pill at the bottom. <b>Scroll inside each frame</b> to see the behaviour.</p>
+
+<h2 class="sec">Header</h2>
+<div class="grid2">
+
+<div class="opt">
+<p class="oname">A · Pill on scroll <span class="rec">I'd pick this</span></p>
+<p class="onote">Full-width bar at the top of a page, like now. After 20px of scroll it pulls in to a centred pill (max 1140px, 100px radius), icons go round, brand shrinks a notch; 300ms ease. <b>Good:</b> top pill + bottom dock make a matched pair; the page edge shows through the gap on scroll. <b>Bad:</b> the bar must become <code>position:fixed</code>, so every page gets a fixed top padding; one more thing that animates while you scroll.</p>
+<div class="fr a" data-mode="a">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p>
+    <div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">B · Transparent at rest, glass on scroll</p>
+<p class="onote">Same shape as today, but the bar starts with no fill, no blur, no border — just the page. Once scrolled it becomes today's glass bar. <b>Good:</b> zero layout change, the cheapest version of the DeepSeek feel, no fixed-position rework. <b>Bad:</b> no pill; at rest the brand floats over the page top with nothing anchoring it.</p>
+<div class="fr b" data-mode="b">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p>
+    <div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">C · Pill always</p>
+<p class="onote">The bar is a floating pill from the first pixel, no state change. <b>Good:</b> simplest to build and reason about; mirrors the dock exactly. <b>Bad:</b> nothing happens on scroll, which is the part you asked for; the pill eats 8px more height than a flush bar.</p>
+<div class="fr c" data-mode="c">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p>
+    <div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">D · Pill that hides on the way down, returns on the way up</p>
+<p class="onote">Pill from the start; scrolling down slides it off the top, any upward scroll brings it back. <b>Good:</b> the most room for tables, the dock still gives navigation. <b>Bad:</b> the bell and the account menu vanish while reading; motion on every scroll flip, which this dashboard has avoided on purpose (the 2026-09-09 scroll-performance notes in style.css).</p>
+<div class="fr d" data-mode="d">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p>
+    <div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="hint">scroll ↓ then ↑</span>
+</div>
+</div>
+</div>
+
+<h2 class="sec">Page background</h2>
+<p class="lead">All four keep the tokens; dark theme shown with the toggle top-right.</p>
+<div class="grid2">
+
+<div class="opt">
+<p class="oname">1 · Flat <span class="now">Today</span></p>
+<p class="onote">Plain <code>--bg</code>, white cards. <b>Good:</b> nothing competes with the data; cheapest to paint. <b>Bad:</b> every page looks the same from the top of the viewport down; nothing says "top of page".</p>
+<div class="bgf bg1"><div class="lay"></div><div class="pg"><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div></div></div>
+</div>
+
+<div class="opt">
+<p class="oname">2 · Warm paper + two soft glows <span class="rec">I'd pick this</span></p>
+<p class="onote">Page goes warm off-white (<code>#faf8f5</code> — already the PWA theme colour), with a coral glow top-left and a faint blue one top-right, fixed to the viewport so they stay put while the page scrolls. Cards turn 62% white with a 10px blur so the glow shows through their edges. <b>Good:</b> the DeepSeek softness, pure CSS, no motion, pairs with the pill header. <b>Bad:</b> glass cards are one more blur layer; big tables stay opaque so it's only the card chrome.</p>
+<div class="bgf bg2"><div class="lay"></div><div class="pg"><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div></div></div>
+</div>
+
+<div class="opt">
+<p class="oname">3 · Flow-field canvas (what DeepSeek does)</p>
+<p class="onote">A canvas behind the page draws slow particle trails along a noise field, at very low alpha. Paused when the tab is hidden, off under <code>prefers-reduced-motion</code>. <b>Good:</b> the closest copy, and it looks alive on the overview. <b>Bad:</b> a full-viewport canvas repainting at 30–60fps under a blurred header on a data-dense dashboard; the Actions page was already made faster by removing exactly this kind of work. Would need to be overview-only.</p>
+<div class="bgf bg3"><div class="lay"></div><canvas id="flow"></canvas><div class="pg"><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div></div></div>
+</div>
+
+<div class="opt">
+<p class="oname">4 · Dot grid that fades out</p>
+<p class="onote">A faint 18px dot grid at the top of the page that fades into the flat background by mid-viewport; cards as in 2. <b>Good:</b> an engineering feel that suits a device console; static, nearly free. <b>Bad:</b> busier behind tables than a glow; reads as a design tool rather than ops.</p>
+<div class="bgf bg4"><div class="lay"></div><div class="pg"><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div></div></div>
+</div>
+</div>
+
+<p class="lead" style="margin-top:34px"><b>What I'd build:</b> header A + background 2. A uses the same glass recipe the dock has, so the two pills match; 2 is the one background that adds warmth without any per-frame cost. The pill transition is a single <code>is-scrolled</code> class toggled from a passive scroll listener (20px threshold, rAF-throttled) — the same hook B and D would use. Combinations are fine: A+1, B+2, C+4 all work; 3 I'd only ship on the overview, if at all.</p>
+</div>
+<script>
+function setT(t,b){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b))}
+document.querySelectorAll('.fr').forEach(function(f){
+  var last=0, mode=f.getAttribute('data-mode');
+  f.addEventListener('scroll',function(){
+    var y=f.scrollTop;
+    f.classList.toggle('sc',y>20);
+    if(mode==='d'){ f.classList.toggle('hide', y>last && y>40); last=y; }
+  },{passive:true});
+});
+// flow field (option 3): slow trails along a sin/cos field, low alpha
+(function(){
+  var c=document.getElementById('flow'); if(!c) return; var g=c.getContext('2d');
+  var W,H,P=[]; function size(){W=c.width=c.clientWidth;H=c.height=c.clientHeight;} size(); addEventListener('resize',size);
+  for(var i=0;i<140;i++) P.push({x:Math.random()*600,y:Math.random()*300});
+  function dark(){return document.documentElement.getAttribute('data-theme')==='dark'}
+  function tick(t){
+    g.fillStyle=dark()?'rgba(20,18,16,.08)':'rgba(247,247,247,.08)'; g.fillRect(0,0,W,H);
+    g.strokeStyle=dark()?'rgba(249,128,95,.35)':'rgba(249,103,78,.30)'; g.lineWidth=1;
+    P.forEach(function(p){
+      var a=Math.sin(p.x*.012+t*.0003)+Math.cos(p.y*.014-t*.0002);
+      var nx=p.x+Math.cos(a)*1.1, ny=p.y+Math.sin(a)*1.1;
+      g.beginPath(); g.moveTo(p.x,p.y); g.lineTo(nx,ny); g.stroke();
+      p.x=nx; p.y=ny; if(p.x<0||p.x>W||p.y<0||p.y>H){p.x=Math.random()*W;p.y=Math.random()*H;}
+    });
+    if(!document.hidden) requestAnimationFrame(tick); else setTimeout(function(){requestAnimationFrame(tick)},500);
+  }
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches) requestAnimationFrame(tick);
+})();
+</script>
+</body></html>

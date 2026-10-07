@@ -1574,6 +1574,16 @@
       .catch(function () { if (gen !== _repGen) return; mdmStopThink(); if (pre) pre.textContent = 'Network error.'; if (full) full.innerHTML = ''; })
       .finally(function () { if (gen === _repGen) { btn.disabled = false; btn.textContent = lbl; } });
   };
+  // ── Appbar pill: 20px into a scroll the bar pulls in to a floating pill (style.css
+  // .appbar.is-scrolled). Passive listener, one class toggle per frame at most.
+  (function () {
+    var bar = document.querySelector('.appbar'); if (!bar) return;
+    var queued = false;
+    function apply() { queued = false; var on = (window.scrollY || document.documentElement.scrollTop || 0) > 20; if (on !== bar.classList.contains('is-scrolled')) bar.classList.toggle('is-scrolled', on); }
+    window.addEventListener('scroll', function () { if (!queued) { queued = true; requestAnimationFrame(apply); } }, { passive: true });
+    document.addEventListener('htmx:afterSwap', apply);
+    apply();
+  })();
   // ── List tools: one search box, filter chips and a "Show all N" cap for long lists.
   // Root: .lt[data-lt-n="25"]. Rows: .lt-row[data-grp][data-f-<facet>][data-lt-text].
   // Chips: .lt-chip[data-f][data-v] — same facet = OR, across facets = AND. Group
