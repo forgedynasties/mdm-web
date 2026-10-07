@@ -81,6 +81,8 @@ type Device struct {
 	EnrollmentStatus string     `json:"enrollment_status"`
 	EnrolledAt       time.Time  `json:"enrolled_at"`
 	KeyRotatedAt     *time.Time `json:"key_rotated_at,omitempty"`
+	// EnrolledBy is the username that enrolled the device through AIO Enroll ("" = not recorded).
+	EnrolledBy string `json:"enrolled_by,omitempty"`
 	// OnboardedAt is nil while the device waits in the onboarding inbox (nobody has
 	// confirmed its site/group/class yet).
 	OnboardedAt *time.Time `json:"onboarded_at,omitempty"`
@@ -545,6 +547,7 @@ type DeviceFilter struct {
 	AgentKind           string    // "firmware" | "dpc" (DPC agent) | "mdm-lite" | "" (no filter)
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
+	EnrolledBy          string    // username that enrolled the device via AIO Enroll, or "" (no filter)
 	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
 	Hygiene             string    // a clean-up job from the Overview (see hygieneWhere), or ""
 	ActiveThresholdSecs int       // legacy: seconds before a device is considered offline (unused for online/offline now)
@@ -2370,7 +2373,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -2504,6 +2507,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	case "done":
 		wheres = append(wheres, "d.onboarded_at IS NOT NULL")
 	}
+	if f.EnrolledBy != "" {
+		wheres = append(wheres, fmt.Sprintf("d.enrolled_by = $%d", argN))
+		args = append(args, f.EnrolledBy)
+		argN++
+	}
 	if f.AgentKind != "" {
 		w, a := agentKindWhere(f.AgentKind, &argN)
 		wheres = append(wheres, w)
@@ -2616,7 +2624,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			d.discharge_total_pct, d.discharge_backfilled,
 			d.product,
 			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
-			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
@@ -2888,12 +2896,12 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			(d.restaurant_id IS NOT NULL) AS deployed_effective,
 			d.product,
 			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
-			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -2965,11 +2973,11 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 			d.hidden,
 			d.product,
 			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
-			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.id = $1
-	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt)
+	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}

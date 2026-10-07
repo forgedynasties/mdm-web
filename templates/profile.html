@@ -136,6 +136,17 @@
       {{else}}<div class="pf-empty">No commands sent yet.</div>{{end}}
     </div>
 
+    <div class="cc-card">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrolled devices</h2><span class="m">{{len .Enrolled}} via AIO Enroll</span></div>
+      {{if .Enrolled}}
+      <div class="pf-list">
+        {{range .Enrolled}}
+        <div class="pf-act"><span class="t" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span><span class="a mono"><a href="/devices/{{.Serial}}">{{.Serial}}</a></span><span class="d">{{classLabel .DeviceClass}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span></div>
+        {{end}}
+      </div>
+      {{else}}<div class="pf-empty">No devices enrolled through AIO Enroll under this account.</div>{{end}}
+    </div>
+
     {{if .CanSeeActivity}}
     <div class="cc-card">
       <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Recent activity</h2></div>
