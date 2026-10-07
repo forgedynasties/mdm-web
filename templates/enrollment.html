@@ -88,8 +88,18 @@
   </div>
 
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
-  <div class="cc-card" id="en-inbox-card">
+  <div class="cc-card lt" id="en-inbox-card" data-lt-n="25">
     <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h2>Needs assignment</h2><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><button type="button" class="cc-btn sm" data-copy-serials="#en-inbox" title="Copy the serials waiting for assignment, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button><a class="r" href="/devices?onboarding=pending">All →</a></div>
+    <div class="lt-bar">
+      <input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search inbox" autocomplete="off">
+      <div class="lt-chips">
+        <button type="button" class="lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
+        <button type="button" class="lt-chip" data-f="kind" data-v="dpc">Standard client</button>
+        <button type="button" class="lt-chip" data-f="type" data-v="needed">Type needed</button>
+      </div>
+      <span class="lt-count"></span>
+    </div>
+    <div class="lt-none lt-out">No waiting device matches.</div>
     <div id="en-inbox">{{template "enroll-inbox" .}}</div>
   </div>
 
@@ -141,13 +151,22 @@
 
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
-  <div class="cc-card" id="en-recent">
+  <div class="cc-card lt" id="en-recent" data-lt-n="15">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
     {{if .Enrollments}}
+    <div class="lt-bar">
+      <input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off">
+      <div class="lt-chips">
+        <button type="button" class="lt-chip" data-f="path" data-v="app">AIO Enroll</button>
+        <button type="button" class="lt-chip" data-f="path" data-v="other">adb script / QR</button>
+      </div>
+      <span class="lt-count"></span>
+    </div>
+    <div class="lt-none lt-out">No enrollment matches.</div>
     <div style="overflow:auto"><table class="en-recent">
       <tr><th>When</th><th>By</th><th>Device</th><th>Class</th><th>Venue</th><th>Path</th></tr>
       {{range .Enrollments}}
-      <tr>
+      <tr class="lt-row" data-f-path="{{if .EnrolledBy}}app{{else}}other{{end}}" data-lt-text="{{.Serial}} {{if .EnrolledBy}}{{(userBubble .EnrolledBy).Name}} {{.EnrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
         <td class="small" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</td>
         <td>{{if .EnrolledBy}}{{template "ubub" (userBubble .EnrolledBy)}} {{if userURL .EnrolledBy}}<a href="{{userURL .EnrolledBy}}" class="link-detail">{{(userBubble .EnrolledBy).Name}}</a>{{else}}{{(userBubble .EnrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved by hand.">not recorded</span>{{end}}</td>
         <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
@@ -156,6 +175,7 @@
         <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else}}<span class="muted small">adb script / QR</span>{{end}}</td>
       </tr>
       {{end}}
+      <tr class="lt-more lt-out" data-what="enrollments"><td colspan="6"><button type="button" class="app-more lt-more-t"></button></td></tr>
     </table></div>
     {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
   </div>
@@ -277,6 +297,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   function applyInbox(html) {
     var box = el('en-inbox'); if (!box) return;
     box.innerHTML = html;
+    if (window.ltInit) ltInit();
     var n = parseInt((box.firstElementChild && box.firstElementChild.dataset.count) || '0', 10) || 0;
     var m = el('en-inbox-m'); if (m) m.textContent = n ? n + ' waiting' : 'nothing waiting';
     var k = el('en-kpi-inbox'); if (k) { k.textContent = n; k.classList.toggle('warn', n > 0); }
@@ -317,12 +338,12 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 {{if .Inbox}}
 {{$canOp := canAdminOrOperator .Role}}
 {{range .Inbox}}
-<div class="en-row" id="dev-{{.SerialNumber}}">
+{{$m := extraField .LatestExtra "model"}}{{$manu := extraField .LatestExtra "manufacturer"}}
+<div class="en-row lt-row" id="dev-{{.SerialNumber}}" data-f-kind="{{.AgentKind}}" data-f-type="{{if and .IsDPC (eq .Class "")}}needed{{else}}set{{end}}" data-lt-text="{{.SerialNumber}} {{$manu}} {{$m}} {{.ProductLabel}} {{.RestaurantName}} {{.KindLabel}}">
   <div class="id">
     <a class="sn" href="/devices/{{.SerialNumber}}">{{.SerialNumber}}</a>
     <div class="sub">
       <span class="cc-tag">{{.KindLabel}}</span>
-      {{$m := extraField .LatestExtra "model"}}{{$manu := extraField .LatestExtra "manufacturer"}}
       <span>{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</span>
       <span>· {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</span>
       {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
@@ -352,8 +373,9 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   {{else}}<div></div>{{end}}
 </div>
 {{end}}
+<div class="lt-more lt-out" data-what="waiting"><button type="button" class="app-more lt-more-t"></button></div>
 {{else}}
-<div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing waiting</b>A device that enrolls, or checks in for the first time, appears here until it has a site.</div></div>
+<div class="cc-empty lt-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing waiting</b>A device that enrolls, or checks in for the first time, appears here until it has a site.</div></div>
 {{end}}
 </div>
 {{end}}

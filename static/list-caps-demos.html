@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Long lists — show more or pages · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:860px;line-height:1.6}
+.lead b{color:var(--text-2)}
+.opt{margin:30px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.frame{border:1px dashed var(--border);border-radius:14px;padding:16px;background:var(--surface2)}
+.muted{color:var(--text-faint)}.small{font-size:12px}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+table.adb{width:100%;border-collapse:collapse;font-size:13px}
+table.adb th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.adb td{padding:9px 12px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:middle}
+table.adb tr.grp td{background:var(--surface2);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 12px}
+table.adb tr:last-child td{border-bottom:0}
+.ser{font-weight:650;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;color:var(--text)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px}
+.dot.off{background:var(--text-faint)}
+.cc-card{padding:0;overflow:hidden}
+.app-more{display:block;width:calc(100% - 36px);margin:8px 18px 14px;padding:9px;font:inherit;font-size:12.5px;font-weight:600;color:var(--accent-text);background:var(--accent-soft);border:0;border-radius:9px;cursor:pointer}
+.pager{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:12.5px;color:var(--text-faint);border-top:1px solid var(--border)}
+.pager .sp{flex:1}
+.pager a{color:var(--accent-text);font-weight:650;text-decoration:none;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface)}
+.pager a.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pager select{font:inherit;font-size:12px;padding:3px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.fold td{padding:6px 12px}
+.fold button{font:inherit;font-size:11px;font-weight:700;color:var(--accent-text);background:transparent;border:1px solid var(--border);border-radius:7px;padding:2px 9px;cursor:pointer}
+.more-row td{text-align:center;padding:8px}
+.more-row a{font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.where{margin:14px 0 0;font-size:12.5px;color:var(--text-faint);line-height:1.6}
+.where b{color:var(--text-2)}
+</style></head><body>
+<div class="themebar"><button class="on" onclick="setT('light',this)">Light</button><button onclick="setT('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Long lists: Clients, Enrollment, Wireless adb</h1>
+<p class="lead">Today these pages print every row. <b>Clients</b> (per-group rows, Releases), <b>Enrollment</b> (Recent enrollments, Inbox), <b>Wireless adb</b> (Open / Off / Can't groups) have no cap and no pager. Fleet is ~290 devices, so a group can run to a couple of hundred rows. Three ways to cap them; the same mock (the adb page's "Open now" group) stands in for all of them.</p>
+
+<div class="opt">
+<p class="oname">A · "Show all N" button <span class="now">Today on the device page</span><span class="rec">I'd pick this</span></p>
+<p class="onote">First 25 rows render, the rest are in the page but hidden; one button under the list shows them. Same control the device page already uses for actions (<code>.app-more</code>). <b>Good:</b> zero server change, tick-all and client-side filters still see every row, one click to see everything, nothing to re-learn. <b>Bad:</b> a 300-row page still ships 300 rows (fine at this fleet size).</p>
+<div class="frame"><div class="cc-card"><table class="adb">
+<tr><th style="width:30px"><input type="checkbox"></th><th>Device</th><th>Venue</th><th>adb</th><th>Reach</th><th>Last change</th></tr>
+<tr class="grp"><td colspan="6">Open now · 61</td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="ser">AT070AABU00231</span></td><td>Lab</td><td>On</td><td>Tunnel</td><td class="muted">2 h ago</td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="ser">AT070AABU00188</span></td><td>Burger Bros · Downtown</td><td>On</td><td>Tunnel</td><td class="muted">yesterday</td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot off"></span><span class="ser">AT070AABU00102</span></td><td>Pita Place</td><td>On</td><td>—</td><td class="muted">3 d ago</td></tr>
+<tr><td colspan="6" class="muted small" style="text-align:center">… 22 more rows …</td></tr>
+</table><button class="app-more">Show all 61 open</button></div></div>
+</div>
+
+<div class="opt">
+<p class="oname">B · Pages, like the fleet list <span class="now">Today on /devices</span></p>
+<p class="onote">Server returns 50 per page with a pager at the foot and a per-page picker. <b>Good:</b> the page is always small, matches /devices, URL names the page so it can be shared. <b>Bad:</b> the adb page's tick-all and batch bar only reach the page you are on; three groups on one page need three pagers or lose the grouping; each list needs a handler change (offset/limit on five queries).</p>
+<div class="frame"><div class="cc-card"><table class="adb">
+<tr><th style="width:30px"><input type="checkbox"></th><th>Device</th><th>Venue</th><th>adb</th><th>Reach</th><th>Last change</th></tr>
+<tr class="grp"><td colspan="6">Open now · 61</td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="ser">AT070AABU00231</span></td><td>Lab</td><td>On</td><td>Tunnel</td><td class="muted">2 h ago</td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="ser">AT070AABU00188</span></td><td>Burger Bros · Downtown</td><td>On</td><td>Tunnel</td><td class="muted">yesterday</td></tr>
+<tr><td colspan="6" class="muted small" style="text-align:center">… 48 more rows …</td></tr>
+</table><div class="pager"><span>Showing 1–50 of 61</span><span class="sp"></span><a class="on">1</a><a>2</a><a>Next ›</a><span>Per page</span><select><option>25</option><option selected>50</option><option>100</option></select></div></div></div>
+</div>
+
+<div class="opt">
+<p class="oname">C · Collapsed groups, like Clients' "Not seen in 14 days"</p>
+<p class="onote">Each group header carries its count and a Show / Hide toggle; the first group opens by default, the rest start folded. <b>Good:</b> already the pattern on Clients for dormant rows, the page is short at a glance, and the counts tell the story without scrolling. <b>Bad:</b> a single big group (61 open) is still 61 rows once opened, so it needs A inside it anyway; doesn't fit flat lists (Recent enrollments, Releases).</p>
+<div class="frame"><div class="cc-card"><table class="adb">
+<tr><th style="width:30px"><input type="checkbox"></th><th>Device</th><th>Venue</th><th>adb</th><th>Reach</th><th>Last change</th></tr>
+<tr class="grp"><td colspan="6">Open now · 61 <span style="float:right"><button class="cl-fold" style="font:inherit;border:1px solid var(--border);border-radius:7px;background:transparent;padding:1px 8px;color:var(--accent-text);cursor:pointer">Hide</button></span></td></tr>
+<tr><td><input type="checkbox"></td><td><span class="dot"></span><span class="ser">AT070AABU00231</span></td><td>Lab</td><td>On</td><td>Tunnel</td><td class="muted">2 h ago</td></tr>
+<tr><td colspan="6" class="muted small" style="text-align:center">… 60 more rows …</td></tr>
+<tr class="grp"><td colspan="6">Off · 140 <span style="float:right"><button style="font:inherit;border:1px solid var(--border);border-radius:7px;background:transparent;padding:1px 8px;color:var(--accent-text);cursor:pointer">Show</button></span></td></tr>
+<tr class="grp"><td colspan="6">Can't · 9 <span style="float:right"><button style="font:inherit;border:1px solid var(--border);border-radius:7px;background:transparent;padding:1px 8px;color:var(--accent-text);cursor:pointer">Show</button></span></td></tr>
+</table></div></div>
+</div>
+
+<p class="where"><b>Where each would land.</b> A: Clients group rows (25 then "Show all"), Releases (10 then "Show all"), Recent enrollments (15), Inbox (25), adb groups (25 each). B: same lists, server-paged at 50. C: adb groups and Clients groups fold; flat lists still get A.<br>
+<b>Why A:</b> it already exists on the device page, costs no server change, and keeps tick-all / batch honest on the adb page. B only pays off past ~1 000 rows, which no list here reaches.</p>
+</div>
+<script>
+function setT(t,b){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b))}
+</script>
+</body></html>

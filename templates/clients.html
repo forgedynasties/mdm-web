@@ -130,7 +130,14 @@ document.addEventListener('click', function () {
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') document.querySelectorAll('.cl-pop').forEach(function (p) { p.hidden = true; });
 });
-// Dormant rows start folded; the header button is the only thing that reveals them.
+// Dormant rows start folded; the header button reveals them — or a search that hits one.
+document.addEventListener('lt:change', function (e) {
+  if (!e.detail || !e.detail.active || e.target.id !== 'cl-devs') return;
+  e.target.querySelectorAll('[data-fold]').forEach(function (h) {
+    var key = h.getAttribute('data-fold'), btn = h.querySelector('.cl-fold');
+    if (btn && btn.getAttribute('aria-expanded') !== 'true' && e.target.querySelector('.cl-tr[data-dormant="' + key + '"]:not(.lt-out)')) clFold(btn, key);
+  });
+});
 function clFold(btn, key) {
   var open = btn.getAttribute('aria-expanded') === 'true';
   document.querySelectorAll('[data-dormant="' + key + '"]').forEach(function (row) {
@@ -299,12 +306,24 @@ function clPick(a) {
       <span><i class="unk"></i>{{.Unknown}} never reported a version</span>
       <span><i class="ok"></i>{{.UpToDate}} up to date</span>
     </div>
-    <div class="cl-tbl">
+    <div class="cl-tbl lt" id="cl-devs" data-lt-n="25">
+      <div class="lt-bar">
+        <input class="lt-q" type="search" placeholder="Search serial or version…" aria-label="Search devices" autocomplete="off">
+        <div class="lt-chips">
+          <button type="button" class="lt-chip" data-f="state" data-v="behind">Behind</button>
+          <button type="button" class="lt-chip" data-f="state" data-v="current">Up to date</button>
+          <button type="button" class="lt-chip" data-f="state" data-v="unknown">No version</button>
+          <button type="button" class="lt-chip" data-f="state" data-v="updating">Updating</button>
+          <button type="button" class="lt-chip" data-f="state" data-v="elsewhere">On another server</button>
+        </div>
+        <span class="lt-count"></span>
+      </div>
+      <div class="lt-none lt-out">No device matches.</div>
       <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
       {{range $g := .Groups}}
-      <div class="cl-grp"><span>{{$g.Label}}</span><span class="n">{{add (len $g.Rows) (len $g.Dormant)}}</span><span class="cl-meta">{{$g.Why}}</span></div>
+      <div class="cl-grp lt-grp" data-grp="{{$g.Key}}"><span>{{$g.Label}}</span><span class="n"><span class="lt-n">{{len $g.Rows}}</span>{{if $g.Dormant}} + {{len $g.Dormant}} dormant{{end}}</span><span class="cl-meta">{{$g.Why}}</span></div>
       {{range $g.Rows}}
-      <div class="cl-tr">
+      <div class="cl-tr lt-row" data-grp="{{$g.Key}}" data-f-state="{{if .Elsewhere}}elsewhere{{else}}{{.State}}{{end}}" data-lt-text="{{.Serial}} {{.Version}}{{if .Elsewhere}} {{.Elsewhere}}{{end}}">
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
@@ -340,15 +359,16 @@ function clPick(a) {
         </span>
       </div>
       {{end}}
+      {{if $g.Rows}}<div class="lt-more lt-out" data-grp="{{$g.Key}}" data-what="active"><button type="button" class="app-more lt-more-t"></button></div>{{end}}
       {{if $g.Dormant}}
       {{/* Long-unseen devices are still listed — most are retired or boxed hardware,
            and inline they outnumber the rows worth acting on three to one. */}}
-      <div class="cl-grp dim" data-fold="{{$g.Key}}">
-        <span>Not seen in 14 days</span><span class="n">{{len $g.Dormant}}</span>
+      <div class="cl-grp dim lt-grp" data-fold="{{$g.Key}}" data-grp="{{$g.Key}}-d">
+        <span>Not seen in 14 days</span><span class="n lt-n">{{len $g.Dormant}}</span>
         <button type="button" class="cl-fold" aria-expanded="false" onclick="clFold(this,'{{$g.Key}}')">Show</button>
       </div>
       {{range $g.Dormant}}
-      <div class="cl-tr dim hidden" data-dormant="{{$g.Key}}">
+      <div class="cl-tr dim hidden lt-row" data-dormant="{{$g.Key}}" data-grp="{{$g.Key}}-d" data-f-state="{{if .Elsewhere}}elsewhere{{else}}{{.State}}{{end}}" data-lt-text="{{.Serial}} {{.Version}}{{if .Elsewhere}} {{.Elsewhere}}{{end}}">
         <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
         <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
         <span>
@@ -370,6 +390,7 @@ function clPick(a) {
         </span>
       </div>
       {{end}}
+      <div class="lt-more lt-out hidden" data-dormant="{{$g.Key}}" data-grp="{{$g.Key}}-d" data-what="dormant"><button type="button" class="app-more lt-more-t"></button></div>
       {{end}}
       {{end}}
     </div>
@@ -379,11 +400,20 @@ function clPick(a) {
 
     <div class="cl-sec"><span>Releases</span></div>
     {{if .History}}
-    <div class="cl-rel">
+    <div class="cl-rel lt" id="cl-rels" data-lt-n="10">
+      <div class="lt-bar">
+        <input class="lt-q" type="search" placeholder="Search version or changelog…" aria-label="Search releases" autocomplete="off">
+        <div class="lt-chips">
+          <button type="button" class="lt-chip" data-f="hosted" data-v="1">Hosted</button>
+          <button type="button" class="lt-chip" data-f="hosted" data-v="0">Previous</button>
+        </div>
+        <span class="lt-count"></span>
+      </div>
+      <div class="lt-none lt-out">No release matches.</div>
       {{$slot := .Slot}}
       {{range $i, $h := .History}}
       {{$b := $h.Build}}
-      <div class="cl-rr">
+      <div class="cl-rr lt-row" data-f-hosted="{{if $h.Hosted}}1{{else}}0{{end}}" data-lt-text="{{$b.Version}} {{$b.VersionCode}} {{$b.Changelog}} {{$b.Name}}">
         <span class="cl-ver">{{if $b.Version}}{{$b.Version}}{{else}}unversioned{{end}}{{if $b.VersionCode}}<div class="cl-meta">code {{$b.VersionCode}}</div>{{end}}</span>
         <span class="cl-chg">{{if $b.Changelog}}{{$b.Changelog}}{{else}}<span class="cl-meta">No changelog — the publisher sent none.</span>{{end}}<div class="cl-meta">{{$b.Name}}</div></span>
         <span class="cl-meta">{{$b.At.Format "2 Jan 15:04"}}</span>
@@ -415,6 +445,7 @@ function clPick(a) {
         </span>
       </div>
       {{end}}
+      <div class="lt-more lt-out" data-what="releases"><button type="button" class="app-more lt-more-t"></button></div>
     </div>
     {{else}}
     <div class="cl-empty">

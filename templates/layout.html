@@ -1574,6 +1574,57 @@
       .catch(function () { if (gen !== _repGen) return; mdmStopThink(); if (pre) pre.textContent = 'Network error.'; if (full) full.innerHTML = ''; })
       .finally(function () { if (gen === _repGen) { btn.disabled = false; btn.textContent = lbl; } });
   };
+  // ── List tools: one search box, filter chips and a "Show all N" cap for long lists.
+  // Root: .lt[data-lt-n="25"]. Rows: .lt-row[data-grp][data-f-<facet>][data-lt-text].
+  // Chips: .lt-chip[data-f][data-v] — same facet = OR, across facets = AND. Group
+  // header: .lt-grp[data-grp] with a .lt-n count. Cap control: .lt-more[data-grp]
+  // (its label goes in .lt-more-t if present). .lt-empty hides while a filter is on,
+  // .lt-none shows when nothing matches, .lt-count says how many did. Every change
+  // fires 'lt:change' on the root so a page can keep its own state (ticks) honest.
+  (function () {
+    function init(root) {
+      if (root.__ltApply) { root.__ltApply(); return; }
+      var n = parseInt(root.getAttribute('data-lt-n') || '25', 10), open = {};
+      var q = root.querySelector('.lt-q');
+      function apply() {
+        var text = (q && q.value || '').trim().toLowerCase(), facets = {};
+        root.querySelectorAll('.lt-chip.on').forEach(function (c) { var f = c.getAttribute('data-f'); (facets[f] = facets[f] || []).push(c.getAttribute('data-v')); });
+        var active = !!text || Object.keys(facets).length > 0, seen = {}, shown = {}, total = 0;
+        root.querySelectorAll('.lt-row').forEach(function (r) {
+          var g = r.getAttribute('data-grp') || '';
+          var ok = !text || (r.getAttribute('data-lt-text') || r.textContent).toLowerCase().indexOf(text) >= 0;
+          if (ok) for (var f in facets) { if (facets[f].indexOf(r.getAttribute('data-f-' + f) || '') < 0) { ok = false; break; } }
+          r.classList.toggle('lt-out', !ok);
+          if (!ok) { r.classList.remove('lt-hid'); return; }
+          seen[g] = (seen[g] || 0) + 1; total++;
+          var hid = !open[g] && seen[g] > n;
+          r.classList.toggle('lt-hid', hid); if (!hid) shown[g] = (shown[g] || 0) + 1;
+        });
+        root.querySelectorAll('.lt-grp').forEach(function (h) {
+          var g = h.getAttribute('data-grp') || '', c = seen[g] || 0, ns = h.querySelector('.lt-n');
+          if (ns) ns.textContent = c; h.classList.toggle('lt-out', active && c === 0);
+        });
+        root.querySelectorAll('.lt-more').forEach(function (b) {
+          var g = b.getAttribute('data-grp') || '', c = seen[g] || 0, rest = c - (shown[g] || 0);
+          b.classList.toggle('lt-out', rest <= 0);
+          var what = b.getAttribute('data-what'); (b.querySelector('.lt-more-t') || b).textContent = 'Show all ' + c + (what ? ' ' + what : '');
+        });
+        root.querySelectorAll('.lt-empty').forEach(function (e) { e.classList.toggle('lt-out', active); });
+        var none = root.querySelector('.lt-none'); if (none) none.classList.toggle('lt-out', !(active && total === 0));
+        var cnt = root.querySelector('.lt-count'); if (cnt) cnt.textContent = active ? total + (total === 1 ? ' match' : ' matches') : '';
+        root.dispatchEvent(new CustomEvent('lt:change', { detail: { active: active, total: total } }));
+      }
+      root.__ltApply = apply;
+      if (q) q.addEventListener('input', apply);
+      root.querySelectorAll('.lt-chip').forEach(function (c) { c.addEventListener('click', function () { c.classList.toggle('on'); apply(); }); });
+      root.addEventListener('click', function (e) { var b = e.target.closest('.lt-more'); if (b && root.contains(b)) { open[b.getAttribute('data-grp') || ''] = true; apply(); } });
+      apply();
+    }
+    window.ltInit = function (scope) { (scope || document).querySelectorAll('.lt').forEach(init); };
+    document.addEventListener('DOMContentLoaded', function () { ltInit(); });
+    document.addEventListener('htmx:afterSwap', function () { ltInit(); });
+    if (document.readyState !== 'loading') ltInit();
+  })();
   document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('ai-sum-raw')) window.mdmInitReportCard(); });
   // hx-boost swaps only <main>, so DOMContentLoaded never re-fires; re-render the
   // report card whenever a swap brings one in (else it's stuck on the server-side
