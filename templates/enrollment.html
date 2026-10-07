@@ -142,7 +142,7 @@
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
   <div class="cc-card" id="en-recent">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">last 30 days · {{len .Enrollments}}</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
     {{if .Enrollments}}
     <div style="overflow:auto"><table class="en-recent">
       <tr><th>When</th><th>By</th><th>Device</th><th>Class</th><th>Venue</th><th>Path</th></tr>
@@ -153,7 +153,7 @@
         <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
         <td>{{classLabel .DeviceClass}}</td>
         <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else if eq .AgentKind "dpc"}}<span class="muted small">adb script / QR</span>{{else}}<span class="muted small">firmware, first check-in</span>{{end}}</td>
+        <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else}}<span class="muted small">adb script / QR</span>{{end}}</td>
       </tr>
       {{end}}
     </table></div>
@@ -162,14 +162,20 @@
 
   {{/* ── How devices get here ───────────────────────────────────────────── */}}
   <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">three paths, one fleet</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">four paths, one fleet</span></div>
     <div class="en-how">
       <div class="cc-seg" id="en-how-tabs">
-        <button type="button" class="on" data-pane="qr">QR provisioning</button>
+        <button type="button" class="on" data-pane="app">AIO Enroll app</button>
+        <button type="button" data-pane="qr">QR provisioning</button>
         <button type="button" data-pane="adb">adb</button>
         <button type="button" data-pane="fw">Firmware MDM devices</button>
       </div>
-      <div class="en-pane on" data-pane="qr">
+      <div class="en-pane on" data-pane="app">
+        <div class="en-step"><div class="en-num">1</div><div><div class="b">Open AIO Enroll on your Mac, Windows or Linux machine and sign in</div><div class="t">Your dashboard account. The app gets its own enrollment token per person and device type, so every device it enrolls records <b>who</b> enrolled it — that is the "Enrolled by" on the device page and in the log above.</div></div></div>
+        <div class="en-step"><div class="en-num">2</div><div><div class="b">Plug in a clean device, or pair it over Wi-Fi</div><div class="t">Factory-reset, with <b>no accounts</b> added, USB debugging on. The app lists what it sees and tells our hardware from lookalikes by serial.</div></div></div>
+        <div class="en-step"><div class="en-num">3</div><div><div class="b">Pick the device type and site, press Enroll</div><div class="t">The app installs the standard client, makes it Device Owner and hands it its token over adb — the same steps as the adb path, without the terminal. The device shows up here within a minute.</div></div></div>
+      </div>
+      <div class="en-pane" data-pane="qr">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Create a profile above</div><div class="t">Device type, site and group are applied to every device that scans it. A profile with a site skips the inbox entirely.</div></div></div>
         <div class="en-step"><div class="en-num">2</div><div><div class="b">Factory-reset device, tap the welcome screen 6×</div><div class="t">Android opens the QR provisioning camera. No account may exist on the device yet.</div></div></div>
         <div class="en-step"><div class="en-num">3</div><div><div class="b">Scan the profile's QR</div><div class="t">The device downloads the agent, sets it as Device Owner, exchanges the token for its own credential and appears here within seconds.</div></div></div>
