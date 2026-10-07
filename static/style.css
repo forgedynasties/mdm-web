@@ -7463,13 +7463,16 @@ div.lt-more{padding:0 15px}
    glow is smooth and there is nothing to blur (see the 2026-09-09 notes above). ── */
 .appbar { --ph: 0;
   top: calc(8px * var(--ph));
-  width: calc(100% - 48px * var(--ph)); max-width: calc(1140px + 4000px * (1 - var(--ph))); margin: 0 auto;
+  /* One straight interpolation from full width to the pill width (--pw, set by
+     layout.html = min(viewport - 48px, 1140px)). A max-width that animated alongside
+     only started to bite near the end on wide screens, which read as a second step. */
+  width: calc(100% * (1 - var(--ph)) + var(--pw, 1140px) * var(--ph)); margin: 0 auto;
   border-radius: calc(100px * var(--ph));
   padding-left: calc(24px - 2px * var(--ph)); padding-right: calc(24px - 10px * var(--ph));
   border-bottom-color: rgba(0, 0, 0, calc(.06 * (1 - var(--ph))));
   background: rgba(255, 255, 255, calc(.6 - .05 * var(--ph)));
   box-shadow: 0 0 0 1px rgba(0, 0, 0, calc(.1 * var(--ph))), 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, calc(.08 + .02 * var(--ph))), inset 0 1px 0 rgba(255, 255, 255, .6);
-  transition-property: top, width, max-width, border-radius, background-color, box-shadow, padding, border-color;
+  transition-property: top, width, border-radius, background-color, box-shadow, padding, border-color;
   transition-duration: .7s; transition-timing-function: cubic-bezier(.22, 1, .36, 1); }
 .appbar.is-scrolled { --ph: 1; }
 html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, calc(.4 + .1 * var(--ph)));

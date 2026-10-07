@@ -1580,6 +1580,8 @@
   (function () {
     var bar = document.querySelector('.appbar'); if (!bar) return;
     var queued = false;
+    function size() { bar.style.setProperty('--pw', Math.min(document.documentElement.clientWidth - 48, 1140) + 'px'); }
+    window.addEventListener('resize', size, { passive: true }); size();
     function apply() { queued = false; var on = (window.scrollY || document.documentElement.scrollTop || 0) > 40; if (on !== bar.classList.contains('is-scrolled')) bar.classList.toggle('is-scrolled', on); }
     window.addEventListener('scroll', function () { if (!queued) { queued = true; requestAnimationFrame(apply); } }, { passive: true });
     document.addEventListener('htmx:afterSwap', apply);
