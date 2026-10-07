@@ -292,6 +292,13 @@ func (m *Manager) AddAllow(sessionID, allowFrom string) error {
 	s.allow = append(s.allow, more...)
 	s.AllowFrom = allowText(s.allow)
 	s.allowMu.Unlock()
+	// The refused address that prompted this is no longer refused: clear it so the page
+	// moves on to the connect step instead of still offering "Allow it".
+	if r := s.LastRefused(); r != "" {
+		if ip := net.ParseIP(r); ip != nil && s.allowed(ip) {
+			s.lastRefused.Store("")
+		}
+	}
 	log.Printf("[adbtunnel] session %s: now allows %s", s.ID[:8], s.AllowFrom)
 	return nil
 }

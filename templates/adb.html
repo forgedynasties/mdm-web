@@ -136,7 +136,7 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
     {{$t := .Tunnel}}
     <div class="adb-step"><span class="n done">1</span><span class="t">Tunnel open on <b>port {{$t.Port}}</b> for {{$t.User}} · closes in {{$t.ClosesInText}}
       <form method="POST" action="/adb/tunnel/{{$t.ID}}/end" style="display:inline;margin-left:6px"><button class="cc-btn sm danger" type="submit">End</button></form></span></div>
-    <div class="adb-step"><span class="n {{if $t.LastRefused}}now{{else}}done{{end}}">2</span><span class="t">Allowed from <span class="adb-mono">{{$t.AllowFrom}}</span>
+    <div class="adb-step"><span class="n {{if $t.LastRefused}}now{{else}}done{{end}}">2</span><span class="t">Allowed from <span class="adb-mono" id="adb-allowed">{{$t.AllowFrom}}</span>
       {{if $t.LastRefused}}<form method="POST" action="/adb/tunnel/{{$t.ID}}/allow" class="adb-row" style="margin-top:4px"><span class="cc-tag bad">refused {{$t.LastRefused}}</span><input type="hidden" name="allow_from" value="{{$t.LastRefused}}"><button class="cc-btn sm primary" type="submit">Allow it</button></form>
       <span class="small muted">Your adb left through another address than your browser (two WAN links, VPN).</span>{{end}}</span></div>
     <div class="adb-step"><span class="n {{if $t.Connected}}done{{else if not $t.LastRefused}}now{{end}}">3</span><span class="t">
@@ -153,8 +153,8 @@ table.adb .empty{color:var(--text-faint);font-size:12.5px}
     <form method="POST" action="/adb/tunnel">
       <input type="hidden" name="serial" value="{{.Device.SerialNumber}}">
       <div class="adb-step"><span class="n now">1</span><span class="t">Accept connections only from<br>
-        <input class="adb-in" name="allow_from" value="{{$.MyIP}}" placeholder="IPs or CIDRs, comma-separated" style="margin:4px 0 2px">
-        <span class="small muted">Prefilled with your browser's address. If adb later shows as refused, one click adds it.</span></span></div>
+        <input class="adb-in" id="adb-allow" name="allow_from" value="{{$.MyIP}}" data-mine="{{$.MyIP}}" placeholder="IPs or CIDRs, comma-separated" style="margin:4px 0 2px">
+        <span class="small muted">Your browser's address, plus any you allowed before from this browser. If adb shows as refused, one click adds it.</span></span></div>
       <div class="adb-step"><span class="n">2</span><span class="t"><button class="cc-btn sm primary" type="submit">Open tunnel</button> <span class="small muted">binds a random port on {{$.TunnelHost}} for those addresses only</span></span></div>
       <div class="adb-step"><span class="n">3</span><span class="t">Run the <span class="adb-mono">adb connect</span> line it shows.</span></div>
     </form>
@@ -187,6 +187,21 @@ function adbClear(){adbBoxes().forEach(function(c){c.checked=false});document.ge
 adbBoxes().forEach(function(c){c.addEventListener('change',adbCount)});
 document.getElementById('adb-all').addEventListener('change',function(){var on=this.checked;adbBoxes().forEach(function(c){c.checked=on});adbCount();});
 adbCount();
+// Remember every address this browser has allowed, so the next tunnel is prefilled with
+// all of them: an office with two WAN links sends adb out through an address the server
+// only learns when it refuses it, and that should happen once, not every session.
+(function(){
+  var KEY='adb-allow', mem=[];
+  try{mem=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+  function remember(list){list.split(/[,\s]+/).forEach(function(a){if(a&&mem.indexOf(a)<0)mem.push(a)});try{localStorage.setItem(KEY,JSON.stringify(mem))}catch(e){}}
+  var live=document.getElementById('adb-allowed'); if(live) remember(live.textContent);
+  var box=document.getElementById('adb-allow');
+  if(box){
+    var all=[box.dataset.mine].concat(mem.filter(function(a){return a!==box.dataset.mine}));
+    box.value=all.join(', ');
+    box.form.addEventListener('submit',function(){remember(box.value)});
+  }
+})();
 {{if .Sessions}}
 // A live tunnel's state changes under the page (attempt, refused, connected): refresh
 // while nothing is ticked, so the steps track `adb connect` without a hand reload.
