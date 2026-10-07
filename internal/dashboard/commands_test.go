@@ -15,21 +15,21 @@ import (
 // ends up able to wipe a device, and narrowing it is how a button that is offered
 // stops working.
 var wantCommandRoles = map[string][]string{
-	"screenshot":       {"admin", "dev", "operator", "user_manager", "super_op", "viewer"},
-	"install_apk":      {"admin", "dev", "operator", "user_manager", "super_op"},
-	"uninstall":        {"admin", "dev", "operator", "user_manager", "super_op"},
-	"reboot":           {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_reload":       {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_restart":      {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_clear_cache":  {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_update_check": {"admin", "dev", "operator", "user_manager", "super_op"},
-	"app_update":       {"admin", "dev", "operator", "user_manager", "super_op"},
-	"shell":            {"admin", "dev"},
-	"query":            {"admin", "dev", "operator", "user_manager", "super_op"},
-	"collect_logs":     {"admin", "dev", "operator", "user_manager", "super_op"},
-	"ota":              {"admin", "dev", "super_op"},
-	"update_splash":    {"admin", "dev"},
-	"logcat":           {"admin", "dev"},
+	"screenshot":       {"admin", "operator", "user_manager", "super_op", "viewer"},
+	"install_apk":      {"admin", "operator", "user_manager", "super_op"},
+	"uninstall":        {"admin", "operator", "user_manager", "super_op"},
+	"reboot":           {"admin", "operator", "user_manager", "super_op"},
+	"app_reload":       {"admin", "operator", "user_manager", "super_op"},
+	"app_restart":      {"admin", "operator", "user_manager", "super_op"},
+	"app_clear_cache":  {"admin", "operator", "user_manager", "super_op"},
+	"app_update_check": {"admin", "operator", "user_manager", "super_op"},
+	"app_update":       {"admin", "operator", "user_manager", "super_op"},
+	"shell":            {"admin"},
+	"query":            {"admin", "operator", "user_manager", "super_op"},
+	"collect_logs":     {"admin", "operator", "user_manager", "super_op"},
+	"ota":              {"admin", "super_op"},
+	"update_splash":    {"admin"},
+	"logcat":           {"admin"},
 	"wipe":             {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
@@ -127,12 +127,10 @@ func TestNonAdminCanReachTheOfferedCommands(t *testing.T) {
 			t.Errorf("an operator is offered %q (%v) but the policy refuses it: %s", c.Type, c.Roles, d.Reason)
 		}
 	}
-	// A dev, likewise, for the dev-level types.
-	dv := newAccess("dev", db.AccessPolicy{})
-	for _, typ := range []string{"update_splash", "shell", "ota"} {
-		if d := dv.decide(policyActionForCommand(typ), &d1); !d.Allowed {
-			t.Errorf("a dev is offered %q but the policy refuses it: %s", typ, d.Reason)
-		}
+	// A super op, likewise, for the one sensitive type it holds by default.
+	so := newAccess("super_op", db.AccessPolicy{})
+	if d := so.decide(policyActionForCommand("ota"), &d1); !d.Allowed {
+		t.Errorf("a super op is offered %q but the policy refuses it: %s", "ota", d.Reason)
 	}
 }
 

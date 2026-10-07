@@ -246,8 +246,6 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 
 func roleArticle(role string) string {
 	switch role {
-	case "dev":
-		return "a dev"
 	case "user_manager":
 		return "an access admin"
 	case "super_op":
@@ -350,7 +348,7 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 		"Summary":      h.policySummary(ctx, u, pol),
 		"RoleSentence": roleCeilingSentence(u.Role),
 		"RoleLower":    strings.ToLower(roleLabel(u.Role)),
-		"HasBase":      u.Role == "operator" || u.Role == "user_manager" || u.Role == "super_op" || u.Role == "dev",
+		"HasBase":      u.Role == "operator" || u.Role == "user_manager" || u.Role == "super_op",
 		"ActorIsAdmin": actor.unrestricted(),
 		"UsersTab":     "access",
 	})
@@ -358,8 +356,6 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 
 func roleCeilingSentence(role string) string {
 	switch role {
-	case "dev":
-		return "A dev can do everything an operator can, plus shell and OTA updates. Rules say where."
 	case "user_manager":
 		return "An access admin can do everything an operator can, and manage users. Rules say where."
 	case "super_op":
@@ -915,7 +911,7 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, rw)
 	}
-	order := map[string]int{"operator": 0, "user_manager": 1, "super_op": 1, "dev": 2, "viewer": 3, "owner": 4, "admin": 5}
+	order := map[string]int{"operator": 0, "user_manager": 1, "super_op": 1, "viewer": 3, "owner": 4, "admin": 5}
 	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":     "Access control",

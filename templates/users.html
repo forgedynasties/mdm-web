@@ -130,7 +130,7 @@
     <div class="uu-row" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}" data-role="{{.Role}}" data-access="{{if $g.Grants}}custom{{else}}default{{end}}" data-sessions="{{if $g.Sensitive}}1{{else}}0{{end}}" data-verified="{{if .Email}}{{if .EmailVerifiedAt}}1{{else}}0{{end}}{{else}}1{{end}}" data-last="{{if and $sm $sm.LastAt}}{{timeISO (deref $sm.LastAt)}}{{end}}">
       <a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}</a>
       <div class="uu-id">
-        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a> <span class="cc-pill {{if eq .Role "admin"}}danger{{else if or (eq .Role "dev") (eq .Role "user_manager")}}warn{{else if eq .Role "operator"}}info{{else}}{{end}}" style="margin-left:6px;vertical-align:middle;">{{roleLabel .Role}}</span></div>
+        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a> <span class="cc-pill {{if eq .Role "admin"}}danger{{else if eq .Role "user_manager"}}warn{{else if eq .Role "operator"}}info{{else}}{{end}}" style="margin-left:6px;vertical-align:middle;">{{roleLabel .Role}}</span></div>
         <div class="uu-meta mono">
           {{.Username}} · Joined {{shortDate .CreatedAt}}
           {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
@@ -181,7 +181,7 @@
       <div class="form-row">
         <label class="form-label" for="f-role">Role</label>
         <select name="role" id="f-role" class="form-input">
-          {{range .Assignable}}<option value="{{.}}"{{if eq . "viewer"}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — actions, queries, QA, per access policy{{else if eq . "user_manager"}} — operator + manage users &amp; access control{{else if eq . "dev"}} — operator + releases, OTA, deployments, access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — sees only their restaurant's devices{{end}}</option>{{end}}
+          {{range .Assignable}}<option value="{{.}}"{{if eq . "viewer"}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — actions, queries, QA, per access policy{{else if eq . "user_manager"}} — operator + manage users &amp; access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — sees only their restaurant's devices{{end}}</option>{{end}}
         </select>
       </div>
       <div class="form-row" id="f-restaurants-row" hidden>

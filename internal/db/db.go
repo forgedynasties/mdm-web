@@ -13284,6 +13284,13 @@ UPDATE users SET role = 'super_op' WHERE role = 'ota_admin';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','dev','admin','owner'));
 
+-- 2026-10-07: the 'dev' role is retired. Its release / shell / sign-off rights are
+-- the super admin's now; the accounts that held it become super ops (operator + OTA
+-- + remote + access rules). Remap before the constraint drops the value.
+UPDATE users SET role = 'super_op' WHERE role = 'dev';
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','admin','owner'));
+
 -- idx_checkins_device_id was a strict prefix of idx_checkins_device_created_at, so the
 -- planner never had a reason to choose it: measured over 6.5 hours of live traffic the
 -- composite took 29,440 scans and this one took none, while both were written on every

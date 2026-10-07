@@ -71,15 +71,14 @@ func InstallShapedSQL() string {
 // Role sets, named so the table reads as policy rather than string soup. They are
 // shared (and never written to) across entries.
 var (
-	rolesAdmin    = []string{"admin"}
-	rolesAdminDev = []string{"admin", "dev"}
+	rolesAdmin = []string{"admin"}
 	// rolesOperator: the everyday action set. Operators, the access admin and the
 	// super op carry it; viewers do not. Where it is allowed is the access policy's
 	// business, not this table's.
-	rolesOperator = []string{"admin", "dev", "operator", "user_manager", "super_op"}
+	rolesOperator = []string{"admin", "operator", "user_manager", "super_op"}
 	// rolesViewer: rolesOperator plus viewer — read-only actions that narrow the
 	// fleet rather than change it (a viewer's screenshot is visibility).
-	rolesViewer = []string{"admin", "dev", "operator", "user_manager", "super_op", "viewer"}
+	rolesViewer = []string{"admin", "operator", "user_manager", "super_op", "viewer"}
 )
 
 var commands = []Command{
@@ -90,7 +89,7 @@ var commands = []Command{
 	{Type: "install_apk", Cap: CapInstallAPK, Roles: rolesOperator, API: true, InstallShaped: true},
 	{Type: "uninstall", Cap: CapUninstall, Roles: rolesOperator, API: true},
 	{Type: "reboot", Cap: CapReboot, Roles: rolesOperator, API: true},
-	{Type: "shell", Cap: CapShell, Roles: rolesAdminDev, API: true},
+	{Type: "shell", Cap: CapShell, Roles: rolesAdmin, API: true},
 
 	// ── MDM-lite app controls ────────────────────────────────────────────────
 	// The menu board app's own controls, all gated by one capability and one grant:
@@ -123,15 +122,15 @@ var commands = []Command{
 	// Live logs are not a queued command at all — a log stream is a logcat_request
 	// row and a stream frame pair. The entry carries the capability that decides
 	// whether the device page offers the surface, and the role gate on it.
-	{Type: "logcat", Cap: CapLogcat, Roles: rolesAdminDev},
+	{Type: "logcat", Cap: CapLogcat, Roles: rolesAdmin},
 
 	// ── Firmware-level writes ───────────────────────────────────────────────
-	{Type: "ota", Cap: CapOTA, Roles: []string{"admin", "dev", "super_op"}, API: true},
+	{Type: "ota", Cap: CapOTA, Roles: []string{"admin", "super_op"}, API: true},
 
 	// Boot logo write. Evaluated as "ota" — a system-partition image write, dev
 	// ceiling, sensitive — because as its own name it matched no access action and
 	// refused a dev the one surface that offers it (the boot-logo form).
-	{Type: "update_splash", Cap: CapUpdateSplash, Roles: rolesAdminDev, API: true, Access: "ota"},
+	{Type: "update_splash", Cap: CapUpdateSplash, Roles: rolesAdmin, API: true, Access: "ota"},
 
 	// Full-device factory reset — DPC-agent devices only, and the most destructive
 	// action there is. Admin-only, so no policy key of its own; see

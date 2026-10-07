@@ -5,7 +5,7 @@
 {{$rel := .Release}}
 {{$role := .Role}}
 {{$isAdmin := canRelease $role}}
-{{$canQfil := or (eq $role "admin") (eq $role "dev") (eq $role "operator")}}
+{{$canQfil := or (eq $role "admin") (eq $role "operator")}}
 
 <style>
 /* ── Release workspace · command center ──────────────────────────── */
@@ -22,7 +22,7 @@
       <span class="cc-tag {{releaseStatusClass $rel.Status}}" style="font-size:11px;padding:3px 8px;">{{$rel.Status}}</span>
       <span class="mono">{{$rel.Version}}</span>
       <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
-      {{if $rel.IsDev}}<span class="cc-tag warn" title="Dev release — hidden from the default list, but pushable by anyone with OTA rights">dev</span>{{end}}
+      {{if $rel.IsDev}}<span class="cc-tag warn" title="Work-in-progress release — only super admins see it, but anyone with OTA rights can push it">dev</span>{{end}}
     </h1>
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
   </div>
@@ -32,7 +32,7 @@
     {{if canRelease $role}}
     <form action="/releases/{{$rel.ID}}/dev" method="POST" style="display:inline;"{{if $rel.IsDev}} hx-confirm="Release {{$rel.Version}} to everyone? It stops being folded away behind the dev toggle."{{end}}>
       <input type="hidden" name="dev" value="{{if $rel.IsDev}}0{{else}}1{{end}}">
-      <button type="submit" class="cc-btn" title="{{if $rel.IsDev}}Only devs and admins can see this release{{else}}Everyone can see this release{{end}}">{{if $rel.IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
+      <button type="submit" class="cc-btn" title="{{if $rel.IsDev}}Only super admins can see this release{{else}}Everyone can see this release{{end}}">{{if $rel.IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
     </form>
     {{end}}
     {{/* Straight to the fleet, scoped to this build: "which devices are on it" is the
