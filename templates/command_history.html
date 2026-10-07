@@ -201,7 +201,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   <div id="cmd-history-table">
     {{if .Rows}}
       {{$day := ""}}
-      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "Cluster" (index $.Clusters .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
+      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "TargetSerials" $.TargetSerials "Cluster" (index $.Clusters .ID) "Bucket" (index $.BucketByID .ID))}}{{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
         <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
