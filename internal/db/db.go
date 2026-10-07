@@ -2828,7 +2828,7 @@ type FamilySample struct {
 // serials (the DPC agent's android-<id> fallback, corrupt msm- reads) are left for the caller to drop.
 func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT serial_number, COALESCE(device_class, ''),
+		SELECT serial_number, COALESCE(device_class, ''), COALESCE(product, ''),
 		       COALESCE(latest_extra->>'manufacturer', ''), COALESCE(latest_extra->>'model', '')
 		FROM devices
 		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND serial_number <> ''`)
@@ -2839,8 +2839,15 @@ func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
 	var out []FamilySample
 	for rows.Next() {
 		var f FamilySample
-		if err := rows.Scan(&f.Serial, &f.DeviceClass, &f.Manufacturer, &f.Model); err != nil {
+		var product string
+		if err := rows.Scan(&f.Serial, &f.DeviceClass, &product, &f.Manufacturer, &f.Model); err != nil {
 			return nil, err
+		}
+		// Firmware devices often leave device_class empty and carry their class in the
+		// product they report: resolve it the way Device.Class does.
+		if f.DeviceClass == "" && product != "" {
+			p, _ := prod.Resolve(product)
+			f.DeviceClass = p.Class
 		}
 		out = append(out, f)
 	}
@@ -13300,6 +13307,21 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 UPDATE users SET role = 'super_op' WHERE role = 'dev';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','admin','owner'));
+
+-- The one adb key pair the firmware trusts (2026-10-07, for the AIO Enroll Android app).
+-- One row; the private key is sealed with FLEET_ADB_KEY_SECRET before it gets here. The
+-- version lives in its own one-row table so it keeps rising across a delete + re-upload.
+CREATE TABLE IF NOT EXISTS fleet_adb_key (
+    id                 INT PRIMARY KEY CHECK (id = 1),
+    version            INT NOT NULL,
+    fingerprint        TEXT NOT NULL,
+    public_key         TEXT NOT NULL,
+    private_key_sealed TEXT NOT NULL,
+    uploaded_by        TEXT NOT NULL DEFAULT '',
+    uploaded_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS fleet_adb_key_seq (id INT PRIMARY KEY CHECK (id = 1), last_version INT NOT NULL DEFAULT 0);
+INSERT INTO fleet_adb_key_seq (id, last_version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
 
 -- idx_checkins_device_id was a strict prefix of idx_checkins_device_created_at, so the
 -- planner never had a reason to choose it: measured over 6.5 hours of live traffic the

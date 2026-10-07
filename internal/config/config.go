@@ -1082,6 +1082,10 @@ func (c *Config) RequireReason() bool {
 
 // AgentAPKURL is where a factory-reset device downloads the DPC agent from during
 // QR provisioning ("" = QR cold-provisioning is off). Settings win over env.
+// FleetAdbKeySecret seals the fleet adb private key at rest (internal/fleetkey). Env only,
+// never stored: without it the key cannot be uploaded or served.
+func (c *Config) FleetAdbKeySecret() string { return os.Getenv("FLEET_ADB_KEY_SECRET") }
+
 func (c *Config) AgentAPKURL() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

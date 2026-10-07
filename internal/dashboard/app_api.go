@@ -325,6 +325,9 @@ func (h *Handler) AppMe(w http.ResponseWriter, r *http.Request, s *db.Session) {
 		out["has_avatar"] = u.HasAvatar()
 		out["avatar_ver"] = u.AvatarVer
 	}
+	// The fleet adb key's version (0 when none): the app re-fetches when it changes.
+	v, _ := h.db.FleetAdbKeyVersion(r.Context())
+	out["adb_key_version"] = v
 	appJSON(w, http.StatusOK, out)
 }
 
@@ -379,4 +382,5 @@ func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/app/enroll-token", h.requireApp(h.AppEnrollToken))
 	mux.HandleFunc("GET /api/v1/app/restaurants", h.requireApp(h.AppRestaurants))
 	mux.HandleFunc("GET /api/v1/app/agent", h.requireApp(h.AppAgent))
+	mux.HandleFunc("GET /api/v1/app/adb-key", h.requireApp(h.AppAdbKey))
 }

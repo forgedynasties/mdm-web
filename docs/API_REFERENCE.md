@@ -355,3 +355,26 @@ Check-in (`POST /api/v1/checkin`) keyframes may carry `extra.agent_type` (`"dpc"
 `extra.capabilities` (array of capability names, see `internal/product/caps.go`) and
 `extra.capabilities_degraded`. They are persisted on the device and drive which
 actions the dashboard offers.
+
+
+## Fleet adb key (admin key)
+
+The one adb key pair the AIO firmware trusts, handed to the AIO Enroll Android app after
+sign-in so it can `adb connect` to firmware devices without a pairing code. The private
+key is sealed at rest with `FLEET_ADB_KEY_SECRET` (server env) and is never returned by
+the admin API; only the app endpoint returns it, audited and rate-limited.
+
+| Method | Path | Body / result |
+|---|---|---|
+| `PUT` | `/api/v1/fleet-adb-key` | `{"private_key_pem","public_key"}` → `{"version","fingerprint"}`. RSA 2048-bit or larger; `public_key` is adb's one-line `adbkey.pub`. `503` when the secret is unset. |
+| `GET` | `/api/v1/fleet-adb-key` | `{"version","fingerprint","uploaded_by","uploaded_at"}`, `404` when none. |
+| `DELETE` | `/api/v1/fleet-adb-key` | `{"removed":true,"version"}`. |
+
+The fingerprint is the first 12 hex characters of SHA-256 over the decoded `adbkey.pub` blob.
+
+App side (bearer session, operator or above): `GET /api/v1/app/adb-key` →
+`{"version","fingerprint","private_key_pem","public_key"}`, `Cache-Control: no-store`,
+`404` when none, `429` past 10 fetches an hour per person. Every fetch is written to the
+audit log (`fleet_adb_key.fetch`) with the user, the client IP and the `X-AIO-Device`
+header. `GET /api/v1/app/me` carries `adb_key_version` (0 when none) so the app knows
+when to re-fetch.

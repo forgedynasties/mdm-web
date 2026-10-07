@@ -287,6 +287,9 @@ type Handler struct {
 	// to blunt brute-force / credential-spray (F-01).
 	loginFails *ratelimit.Counter
 
+	// fleetKeyFetches throttles /api/v1/app/adb-key per person (fleet_adb_key.go).
+	fleetKeyFetches *ratelimit.Counter
+
 	// signupAttempts/resetAttempts throttle the public sign-up and forgot-password
 	// endpoints per source IP and per email, same shape as loginFails.
 	signupAttempts *ratelimit.Counter
@@ -1742,6 +1745,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		otaGate:        otagate.New(d, cfg),
 		publicOrigins:  parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:     ratelimit.New(15 * time.Minute),
+		fleetKeyFetches: ratelimit.New(time.Hour),
 		signupAttempts: ratelimit.New(time.Hour),
 		resetAttempts:  ratelimit.New(time.Hour),
 		mail:           mustMailer(),
@@ -18525,6 +18529,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
 		}(),
 		"AgentAPKFromEnv":       h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
+		"FleetAdbKey":           h.fleetAdbKeyView(r),
 		"Apps":                  repoApps,
 		"Families":              setFams,
 		"Suggestions":           setSugg,
@@ -21878,6 +21883,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))
 	mux.HandleFunc("GET /events/server", h.requireAdminOrOperator(drainable(h.ServerEvents)))
 	post("POST /settings/agent-apk/remove", h.requireStrictAdmin(h.SettingsAgentAPKRemove))
+	post("POST /settings/fleet-adb-key", h.requireStrictAdmin(h.SettingsFleetAdbKeyUpload))
+	post("POST /settings/fleet-adb-key/remove", h.requireStrictAdmin(h.SettingsFleetAdbKeyRemove))
 	// Public on purpose: a factory-reset phone downloads the agent from the QR.
 	// One route per hosted agent slot (DPC, and the firmware client per tree — the
 	// platform key is the tree's, so one build serves its user and userdebug devices

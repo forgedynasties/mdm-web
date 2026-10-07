@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"mdm/internal/db"
 )
@@ -158,14 +159,16 @@ func matchFamily(serial string, fs []serialFamily) *serialFamily {
 }
 
 type serialClass struct {
-	Class      string `json:"class"`                  // fleet | production | family | lookalike | other
-	Name       string `json:"name,omitempty"`         // fleet only: what the device is ("AIO T7"), from what it reports
-	Family     string `json:"family,omitempty"`       // family only: "SUNMI D2s_KDS_STGL"
-	Count      int    `json:"family_count,omitempty"` // family only: how many enrolled devices share it
-	Production string `json:"production,omitempty"`   // batch name, for production / fleet devices that match one
-	Model      string `json:"model,omitempty"`        // model code of the batch
-	Status     string `json:"status,omitempty"`       // fleet only: enrollment status
-	DevClass   string `json:"device_class,omitempty"`
+	Class      string     `json:"class"`                  // fleet | production | family | lookalike | other
+	Name       string     `json:"name,omitempty"`         // fleet only: what the device is ("AIO T7"), from what it reports
+	Family     string     `json:"family,omitempty"`       // family only: "SUNMI D2s_KDS_STGL"
+	Count      int        `json:"family_count,omitempty"` // family only: how many enrolled devices share it
+	Production string     `json:"production,omitempty"`   // batch name, for production / fleet devices that match one
+	Model      string     `json:"model,omitempty"`        // model code of the batch
+	Status     string     `json:"status,omitempty"`       // fleet only: enrollment status
+	DevClass   string     `json:"device_class,omitempty"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"` // fleet only
+	Online     bool       `json:"online,omitempty"`       // fleet only: seen within 3× the check-in interval
 }
 
 // deviceTitle is the human name of a device from what it reports: "AIO T7", "SUNMI D2s_KDS_STGL".
@@ -194,7 +197,11 @@ func classifySerial(serial string, known *db.Device, ps []db.Production, fs []se
 	}
 	switch {
 	case known != nil:
-		c := serialClass{Class: "fleet", Status: known.EnrollmentStatus, DevClass: known.DeviceClass, Name: deviceTitle(known)}
+		c := serialClass{Class: "fleet", Status: known.EnrollmentStatus, DevClass: known.Class(), Name: deviceTitle(known)}
+		if !known.LastSeenAt.IsZero() {
+			t := known.LastSeenAt
+			c.LastSeenAt = &t
+		}
 		if batch != nil {
 			c.Production, c.Model = batch.Name, batch.ModelCode
 		}
@@ -253,7 +260,11 @@ func (h *Handler) AppClassify(w http.ResponseWriter, r *http.Request, _ *db.Sess
 		if d, err := h.db.GetDevice(r.Context(), s); err == nil && d != nil {
 			known = d
 		}
-		out[s] = classifySerial(s, known, ps, fams)
+		c := classifySerial(s, known, ps, fams)
+		if c.LastSeenAt != nil {
+			c.Online = time.Since(*c.LastSeenAt) <= time.Duration(h.cfg.CheckinInterval()*3)*time.Second
+		}
+		out[s] = c
 	}
 	appJSON(w, http.StatusOK, map[string]any{"serials": out})
 }

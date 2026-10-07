@@ -1030,6 +1030,43 @@ function kioskAddPkg(pkg, el){
     <div class="muted small" style="margin-top:8px;">Get the checksum from the signed APK: <code>keytool -printcert -jarfile aio-mdm-dpc.apk</code>, then base64url-encode the SHA-256 without padding.</div>
   </div>
 </div>
+
+{{/* ── Fleet adb key: the one key pair the AIO firmware trusts, for the AIO Enroll Android app.
+     The private key is sealed at rest (FLEET_ADB_KEY_SECRET) and never shown here. ── */}}
+{{$fk := .FleetAdbKey}}
+<div class="cc-card" style="margin-bottom:16px;" id="fleet-adb-key">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg></span>
+    <h2>Fleet adb key</h2>
+    {{if $fk.Key}}<span class="cc-tag ok">uploaded · v{{$fk.Key.Version}}</span>{{else}}<span class="cc-tag warn">none uploaded</span>{{end}}
+    {{if not $fk.SecretSet}}<span class="cc-tag danger" title="Set FLEET_ADB_KEY_SECRET in the server env; without it the key can neither be stored nor served">FLEET_ADB_KEY_SECRET unset</span>{{end}}
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:10px;"><b>What it is.</b> The adb key baked into the firmware images (<span class="mono">/adb_keys</span>). The AIO Enroll Android app fetches it after sign-in so it can <span class="mono">adb connect</span> to firmware devices with no pairing code. Every fetch is logged below. The private key is encrypted at rest and never displayed.</div>
+    {{if $fk.Key}}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="cc-tag ok">fingerprint</span><span class="mono small">{{$fk.Key.Fingerprint}}</span>
+      <span class="muted small">version {{$fk.Key.Version}} · uploaded {{timeSince $fk.Key.UploadedAt}}{{if $fk.Key.UploadedBy}} by {{$fk.Key.UploadedBy}}{{end}}</span>
+      <form action="/settings/fleet-adb-key/remove" method="POST" hx-boost="false" style="display:inline;margin-left:auto;" onsubmit="return confirm('Remove the fleet adb key? The apps lose it on their next sign-in and cannot connect to firmware devices until a key is uploaded again.')"><button type="submit" class="cc-btn" style="font-size:12px;padding:6px 14px;">Remove</button></form>
+    </div>
+    {{end}}
+    <form action="/settings/fleet-adb-key" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey (private, PEM)<input type="file" name="adbkey" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey.pub<input type="file" name="adbkey_pub" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;"{{if not $fk.SecretSet}} disabled{{end}}>{{if $fk.Key}}Replace key{{else}}Upload key{{end}}</button>
+    </form>
+    <div class="muted small" style="margin-top:8px;">Both files come from the machine whose key the firmware trusts: <code>~/.android/adbkey</code> and <code>~/.android/adbkey.pub</code>. RSA 2048-bit or larger.</div>
+  </div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:8px;"><b>Last fetches</b> · who pulled the key through the app, from where, on which phone.</div>
+    {{if $fk.Fetches}}
+    <table class="cc-table" style="font-size:12.5px;">
+      <tr><th>When</th><th>Who</th><th>Key</th><th>From · device</th></tr>
+      {{range $fk.Fetches}}<tr><td class="muted" title="{{formatTime .CreatedAt}}">{{timeSince .CreatedAt}}</td><td>{{.Actor}}</td><td class="mono">{{.Target}}</td><td class="muted">{{.Detail}}</td></tr>{{end}}
+    </table>
+    {{else}}<div class="muted small">No fetches yet.</div>{{end}}
+  </div>
+</div>
   {{template "app-library" .}}
   </section>
 
