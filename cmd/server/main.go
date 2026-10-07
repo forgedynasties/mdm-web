@@ -223,16 +223,24 @@ func main() {
 	// stream frames — their ack carries none — so this is where it gets read.
 	var onShellOutput func(deviceID, commandID uuid.UUID, output string)
 	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
-		if onShellOutput != nil {
-			if out := shellMgr.CommandOutput(commandID, deviceID); out != "" {
+		ctx := context.Background()
+		out := shellMgr.CommandOutput(commandID, deviceID)
+		if out != "" {
+			if onShellOutput != nil {
 				onShellOutput(deviceID, commandID, out)
+			}
+			// Persist the streamed output as the command's result. The firmware client
+			// also acks over HTTP with what it collected (that write lands later and wins),
+			// but the standard client only ever streams — so without this a DPC shell
+			// completed with an empty result in the admin API and the command history.
+			if err := database.SaveCommandResult(ctx, commandID, deviceID, out); err != nil {
+				log.Printf("OnCommandDone: save output: %v", err)
 			}
 		}
 		status := "completed"
 		if exitCode != 0 {
 			status = "failed"
 		}
-		ctx := context.Background()
 		if err := database.AckCommand(ctx, commandID, deviceID, status); err != nil {
 			if !errors.Is(err, db.ErrCommandNotTargeted) {
 				log.Printf("OnCommandDone: AckCommand error: %v", err)

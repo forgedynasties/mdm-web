@@ -91,7 +91,7 @@ if (!window.__dlRowNav) {
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
       <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> {{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$mfr := extraField .LatestExtra "manufacturer"}}<span class="dl-product" title="Hardware model">{{if and (ne $mfr "") (ne $mfr "—")}}{{$mfr}} {{end}}{{$mdl}}</span>{{else}}<span class="dl-product" title="Product">{{.ProductLabel}}</span>{{end}}</span>
-      <span class="dl-onboard">{{if .SerialCorrupt}}<span class="dl-ktag bad" title="This tablet's serial read corrupt, so it identifies by its Android ID (msm-…). Its bootloader needs re-flashing.">Corrupted serial</span>{{end}}{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}</span>
+      <span class="dl-onboard">{{if .SerialCorrupt}}<span class="dl-ktag bad" title="This tablet's serial read corrupt, so it identifies by its Android ID (msm-…). Its bootloader needs re-flashing.">Corrupted serial</span>{{end}}{{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}} {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .EnrolledAt}}{{if .EnrolledBy}} · <b title="Enrolled with AIO Enroll by {{.EnrolledBy}}">{{(userBubble .EnrolledBy).Name}}</b>{{end}}</span>
     </div>
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
@@ -266,12 +266,13 @@ if (!window.__dlRowNav) {
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterLifecycle .FilterHygiene}}
+{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterEnrolledBy .FilterLifecycle .FilterHygiene}}
 <div class="fleet-chips">
   {{/* A clean-up job from the Overview's checklist: only ever arrives by link. */}}
   {{if .FilterHygiene}}<span class="fchip"><span class="k">Clean up</span> {{.FilterHygiene}} <button type="button" class="x" onclick="navigateDevices({page: '1', hygiene: ''})" aria-label="Clear clean-up filter">×</button></span>{{end}}
   {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}Standard MDM{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}Firmware MDM{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
   {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
+  {{if .FilterEnrolledBy}}<span class="fchip"><span class="k">Enrolled by</span> {{(userBubble .FilterEnrolledBy).Name}} <button type="button" class="x" onclick="clearOne('filter-enrolled-by')" aria-label="Clear enrolled by">×</button></span>{{end}}
   {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
@@ -914,6 +915,11 @@ a.fleet-rail-item{min-height:40px}
             <option value="pending" {{if eq .FilterOnboarding "pending"}}selected{{end}}>Waiting for a site</option>
             <option value="done" {{if eq .FilterOnboarding "done"}}selected{{end}}>Placed</option>
           </select></label>
+        <label class="fp-field"><span>Enrolled by</span>
+          <select id="filter-enrolled-by" onchange="applyFilters()">
+            <option value="">Anyone</option>
+            {{range .Enrollers}}<option value="{{.Username}}" {{if eq .Username $.FilterEnrolledBy}}selected{{end}}>{{(userBubble .Username).Name}} · {{.Count}}</option>{{end}}
+          </select></label>
         <label class="fp-field"><span>Status</span>
           <select id="filter-lifecycle" onchange="applyFilters()">
             <option value="">In the fleet</option>
@@ -975,7 +981,8 @@ function getFilterVals(overrides) {
     charging: p.get('charging') || '',
     timezone: p.get('timezone') || '',
     hidden: p.get('hidden') || '',
-    hygiene: p.get('hygiene') || ''
+    hygiene: p.get('hygiene') || '',
+    enrolled_by: p.get('enrolled_by') || ''
   };
   var fg = document.getElementById('filter-group');
   var fp = document.getElementById('filter-production');
@@ -989,11 +996,13 @@ function getFilterVals(overrides) {
   var fkind = document.getElementById('filter-kind');
   var fclass = document.getElementById('filter-class');
   var fonb = document.getElementById('filter-onboarding');
+  var fenb = document.getElementById('filter-enrolled-by');
   var flife = document.getElementById('filter-lifecycle');
   var sq = document.getElementById('search-input');
   if (fkind) vals.kind = fkind.value;
   if (fclass) vals.class = fclass.value;
   if (fonb) vals.onboarding = fonb.value;
+  if (fenb) vals.enrolled_by = fenb.value;
   if (flife) vals.lifecycle = flife.value;
   if (fg) vals.group = fg.value;
   if (fp) vals.production = fp.value;
@@ -1055,9 +1064,9 @@ function mdmDevSkeleton() {
 // and inspector stay put. Switching collection resets the search + popover filters.
 function scopeRoster(anchor, u) {
   clearSelectAllMatching();
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-enrolled-by', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -1104,9 +1113,9 @@ function clearSearch() {
 function clearFilters() {
   // Clears the popover filters + search + visibility, but keeps the rail
   // collection (group/restaurant) in scope.
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
+  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-enrolled-by', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', lifecycle: '', hygiene: ''});
+  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
@@ -1315,7 +1324,7 @@ function syncFilterUI() {
   else if (status === 'offline') view = 'offline';
   document.querySelectorAll('#fleet-views .fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // Filters badge: popover filters only (group/restaurant are the rail's job).
-  var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone', 'kind', 'class', 'onboarding', 'lifecycle'].forEach(function(k) { if (p.get(k)) cnt++; });
+  var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone', 'kind', 'class', 'onboarding', 'enrolled_by', 'lifecycle'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');
   if (btn) {
     btn.classList.toggle('has', cnt > 0);

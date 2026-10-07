@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enrolled by · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:840px;line-height:1.6}
+.lead b{color:var(--text-2)}
+h2.sec{font-size:17px;margin:44px 0 6px;letter-spacing:-.01em}
+.opt{margin:26px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:840px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.frame{border:1px dashed var(--border);border-radius:14px;padding:16px;background:var(--surface2)}
+.pad{padding:14px 16px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sp{flex:1}
+.muted{color:var(--text-faint)}.small{font-size:12px}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+.hero .nm{font-weight:800;font-size:19px;font-family:var(--font-mono,ui-monospace,monospace);letter-spacing:-.01em}
+.hero .sub{font-size:12.5px;color:var(--text-faint);margin-top:4px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 14px;font-size:13px;align-items:center}
+.kv .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.bub{display:inline-flex;align-items:center;gap:6px}
+.bub .av{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.bub a{color:var(--text);text-decoration:none;font-weight:600}
+.bub a:hover{text-decoration:underline}
+.app{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent-text)}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--border-soft,var(--border))}
+table.t tr:last-child td{border-bottom:0}
+.dl{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:13px}
+.dl .s{font-family:var(--font-mono,ui-monospace,monospace);font-weight:650}
+.dl .on{font-size:11.5px;color:var(--text-faint)}
+.fl{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint)}
+.fl.on{background:var(--text);color:var(--bg);border-color:transparent}
+.tl{border-left:2px solid var(--border);margin-left:8px;padding-left:14px}
+.tl .e{position:relative;padding:4px 0 12px;font-size:13px}
+.tl .e::before{content:"";position:absolute;left:-19px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.tl .w{font-size:11.5px;color:var(--text-faint)}
+</style>
+<script>function setTheme(t){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));}</script>
+</head><body>
+<div class="themebar"><button data-t="light" onclick="setTheme('light')">Light</button><button data-t="dark" onclick="setTheme('dark')">Dark</button></div>
+<div class="wrap">
+<h1>"Enrolled by" on the dashboard</h1>
+<p class="lead">AIO Enroll records which account enrolled each device (<span class="mono">devices.enrolled_by</span>, a username, with the
+app's own name on the enrollment profile). The app shows it; the dashboard doesn't, anywhere. Three places it could go — pick any mix.
+The sample data is live: the five Tonight Rollout devices were backfilled to <b>Ali</b>; the Pixel 3a XL was moved from stage by hand, so
+it has no enroller, which must read as "not recorded", not as a blank.</p>
+
+<h2 class="sec">Today <span class="now">Deployed</span></h2>
+<p class="onote">The device page says when, not who. Hero line: "Enrolled 5 Oct"; Enrollment card: one "Enrolled" row. Fleet list rows: "Enrolled 5 Oct".</p>
+<div class="frame"><div class="cc-card"><div class="pad hero">
+  <div class="row"><span class="nm">ADRB0AAMY00187</span><span class="cc-tag ok">Online</span><span class="cc-tag">Standard client</span></div>
+  <div class="sub">HK1 RBOX D8 · Standard client 0.2.8 · Enrolled 5 Oct · Last seen 2 h ago</div>
+</div></div>
+<div class="cc-card" style="margin-top:12px"><div class="pad"><h3 style="margin:0 0 10px;font-size:14px">Enrollment <span class="cc-tag ok">active</span></h3>
+  <div class="kv"><span class="k">Enrolled</span><span>5 Oct 2026</span><span class="k">Agent</span><span>Standard client 0.2.8</span><span class="k">Device key</span><span>own key since 5 Oct</span></div>
+</div></div></div>
+
+<div class="opt">
+  <div class="oname">A · Device page: who, in the hero line and the Enrollment card <span class="now">Chosen · built</span> <span class="rec">Recommended</span></div>
+  <p class="onote">Hero: "Enrolled 5 Oct by Ali"; Enrollment card gets an <b>Enrolled by</b> row with the person's bubble (links to their
+  profile) and a small "AIO Enroll" mark for the path. Devices with nothing recorded show "not recorded" in muted text, with a tooltip
+  saying why (enrolled before the app, or moved by hand). <b>Good:</b> answers the question where it is asked — on the device — and the
+  bubble resolves the username to the current display name like the activity log does. <b>Bad:</b> says nothing fleet-wide: "what did
+  Fawwad enroll this week" is still a question with no page.</p>
+  <div class="frame"><div class="cc-card"><div class="pad hero">
+    <div class="row"><span class="nm">ADRB0AAMY00187</span><span class="cc-tag ok">Online</span><span class="cc-tag">Standard client</span></div>
+    <div class="sub">HK1 RBOX D8 · Standard client 0.2.8 · Enrolled 5 Oct by <b style="color:var(--text-2)">Ali</b> · Last seen 2 h ago</div>
+  </div></div>
+  <div class="cc-card" style="margin-top:12px"><div class="pad"><h3 style="margin:0 0 10px;font-size:14px">Enrollment <span class="cc-tag ok">active</span></h3>
+    <div class="kv">
+      <span class="k">Enrolled</span><span>5 Oct 2026, 21:11</span>
+      <span class="k">Enrolled by</span><span class="bub"><span class="av">A</span><a href="#">Ali</a> <span class="app">AIO Enroll</span> <span class="muted small">on a Mac</span></span>
+      <span class="k">Agent</span><span>Standard client 0.2.8</span>
+      <span class="k">Device key</span><span>own key since 5 Oct</span>
+    </div>
+  </div></div>
+  <div class="cc-card" style="margin-top:12px"><div class="pad"><h3 style="margin:0 0 10px;font-size:14px">Enrollment <span class="cc-tag ok">active</span></h3>
+    <div class="kv">
+      <span class="k">Enrolled</span><span>6 Oct 2026</span>
+      <span class="k">Enrolled by</span><span class="muted" title="Enrolled before AIO Enroll recorded this, or moved from another server by hand.">not recorded</span>
+    </div>
+  </div></div></div>
+</div>
+
+<div class="opt">
+  <div class="oname">B · Fleet list: enroller in the row, and a filter <span class="now">Chosen · built</span></div>
+  <p class="onote">The row's "Enrolled 5 Oct" becomes "Enrolled 5 Oct · Ali", and the filter rail gets an <b>Enrolled by</b> chip listing
+  the people who have enrolled anything. <b>Good:</b> one click shows everything a person set up; good for checking a tech's day.
+  <b>Bad:</b> the fleet row is already the densest line in the app; most rows will read "not recorded" for a long time, which is noise
+  until the fleet turns over.</p>
+  <div class="frame">
+    <div class="row" style="margin-bottom:10px"><span class="fl">Class ▾</span><span class="fl">Venue ▾</span><span class="fl on">Enrolled by: Ali ✕</span><span class="fl">Online</span></div>
+    <div class="dl"><span class="s">ADRB0AAMY00187</span><span class="muted">Tonight Rollout · TBD</span><span class="sp"></span><span class="on">Enrolled 5 Oct · <b>Ali</b></span></div>
+    <div class="dl" style="margin-top:6px"><span class="s">DP02256GJ0466</span><span class="muted">Tonight Rollout · TBD</span><span class="sp"></span><span class="on">Enrolled 5 Oct · <b>Ali</b></span></div>
+    <div class="dl" style="margin-top:6px"><span class="s">DK19256F40580</span><span class="muted">Tonight Rollout · TBD</span><span class="sp"></span><span class="on">Enrolled 5 Oct · <b>Ali</b></span></div>
+  </div>
+</div>
+
+<div class="opt">
+  <div class="oname">C · Enrollment page: a "Recent enrollments" log <span class="now">Chosen · built</span> <span class="rec">Recommended with A</span></div>
+  <p class="onote">Fleet › Enrollment gains a table of enrollments newest first: when, who, device, class, venue, path (AIO Enroll /
+  adb script / QR). Rows link to the device and the person. <b>Good:</b> this is the fleet-wide answer — who enrolled what, this week —
+  and the Enrollment page is where someone looks for it; it also makes the per-person enrollment profiles visible, which today exist
+  on live with no UI. <b>Bad:</b> a new table to feed: it reads from <span class="mono">enrolled_at</span> / <span class="mono">enrolled_by</span>
+  on devices, so devices enrolled before the column existed show as "not recorded" rather than being missing.</p>
+  <div class="frame"><div class="cc-card"><div class="pad">
+    <div class="row" style="margin-bottom:8px"><h3 style="margin:0;font-size:14px">Recent enrollments</h3><span class="sp"></span><span class="fl">Everyone ▾</span><span class="fl">7 days ▾</span></div>
+    <table class="t">
+      <tr><th>When</th><th>By</th><th>Device</th><th>Class</th><th>Venue</th><th>Path</th></tr>
+      <tr><td>5 Oct 21:16</td><td><span class="bub"><span class="av">A</span><a href="#">Ali</a></span></td><td><a class="mono" href="#">AK270AABU00139</a></td><td>Kiosk</td><td>Tonight Rollout · TBD</td><td><span class="app">AIO Enroll</span></td></tr>
+      <tr><td>5 Oct 21:11</td><td><span class="bub"><span class="av">A</span><a href="#">Ali</a></span></td><td><a class="mono" href="#">ADRB0AAMY00187</a></td><td>Dongle</td><td>Tonight Rollout · TBD</td><td><span class="app">AIO Enroll</span></td></tr>
+      <tr><td>5 Oct 20:57</td><td><span class="bub"><span class="av">A</span><a href="#">Ali</a></span></td><td><a class="mono" href="#">DP02256GJ0466</a></td><td>POS</td><td>Tonight Rollout · TBD</td><td><span class="app">AIO Enroll</span></td></tr>
+      <tr><td>5 Oct 13:16</td><td><span class="muted">not recorded</span></td><td><a class="mono" href="#">DP02253X11001</a></td><td>POS</td><td>Test Lab</td><td class="muted">adb script</td></tr>
+      <tr><td>6 Oct 09:02</td><td><span class="muted">not recorded</span></td><td><a class="mono" href="#">93RAX0A0ZY</a></td><td>Handheld</td><td>Test Lab</td><td class="muted">moved from stage</td></tr>
+    </table>
+  </div></div></div>
+</div>
+
+<div class="opt">
+  <div class="oname">D · Person's profile: "Enrolled devices" timeline <span class="now">Chosen · built</span></div>
+  <p class="onote">On /users/&lt;name&gt; a timeline of the devices that account enrolled. <b>Good:</b> fits the profile page's existing
+  "Recent" block; nice for a review. <b>Bad:</b> buried — you have to know to look at a person to find a device's enroller. Only worth it
+  after A or C.</p>
+  <div class="frame"><div class="cc-card"><div class="pad"><h3 style="margin:0 0 10px;font-size:14px">Enrolled devices · 5</h3>
+    <div class="tl"><div class="e"><span class="mono">AK270AABU00139</span> · Kiosk · Tonight Rollout<div class="w">5 Oct 21:16 · AIO Enroll</div></div>
+      <div class="e"><span class="mono">ADRB0AAMY00187</span> · Dongle · Tonight Rollout<div class="w">5 Oct 21:11 · AIO Enroll</div></div></div>
+  </div></div></div>
+</div>
+
+<p class="lead" style="margin-top:40px"><b>My pick: A + C.</b> A answers "who set this one up" on the device itself; C answers "what got
+enrolled, by whom" on the page people already open for enrollment, and surfaces the per-person profiles live already has. B's fleet-row
+text is noise while most devices say "not recorded"; D can follow later.</p>
+</div>
+<script>setTheme(document.documentElement.getAttribute('data-theme')||'light')</script>
+</body></html>

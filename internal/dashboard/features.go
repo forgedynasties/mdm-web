@@ -61,6 +61,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
+	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -70,6 +71,8 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"AdminComponent": "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
 		"AgentPackage":   "aio.app.mdmclient.dpc",
 		"Profiles":       profiles,
+		"Enrollments":    enrollments,
+		"Names":          h.actorDisplayNames(r.Context()),
 		"Groups":         groups,
 		"Restaurants":    restaurants,
 		"Classes":        product.Classes(),

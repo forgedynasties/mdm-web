@@ -17,6 +17,7 @@
 .en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
 @media(max-width:860px){.en-row{grid-template-columns:1fr;gap:8px}.en-row form{justify-content:flex-start}}
 /* profile cards */
+.en-recent{width:100%;border-collapse:collapse;font-size:13px}.en-recent th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 17px;border-bottom:1px solid var(--border-soft)}.en-recent td{padding:9px 17px;border-bottom:1px solid var(--border-soft);vertical-align:middle;white-space:nowrap}.en-recent tr:last-child td{border-bottom:0}.en-recent .ubub{vertical-align:middle;margin-right:4px}.en-empty{padding:18px 17px;color:var(--muted);font-size:13px}
 .en-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:14px 17px}
 .en-p{border:1px solid var(--border);border-radius:var(--r-3);background:var(--surface);padding:13px 14px;display:flex;flex-direction:column;gap:9px;min-width:0}
 .en-p.off{opacity:.6}
@@ -136,6 +137,27 @@
     {{else}}
     <div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div>
     {{end}}
+  </div>
+
+  {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
+       Devices enrolled before the app recorded it show as "not recorded". ── */}}
+  <div class="cc-card" id="en-recent">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">last 30 days · {{len .Enrollments}}</span></div>
+    {{if .Enrollments}}
+    <div style="overflow:auto"><table class="en-recent">
+      <tr><th>When</th><th>By</th><th>Device</th><th>Class</th><th>Venue</th><th>Path</th></tr>
+      {{range .Enrollments}}
+      <tr>
+        <td class="small" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</td>
+        <td>{{if .EnrolledBy}}{{template "ubub" (userBubble .EnrolledBy)}} {{if userURL .EnrolledBy}}<a href="{{userURL .EnrolledBy}}" class="link-detail">{{(userBubble .EnrolledBy).Name}}</a>{{else}}{{(userBubble .EnrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved by hand.">not recorded</span>{{end}}</td>
+        <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
+        <td>{{classLabel .DeviceClass}}</td>
+        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else if eq .AgentKind "dpc"}}<span class="muted small">adb script / QR</span>{{else}}<span class="muted small">firmware, first check-in</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </table></div>
+    {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
   </div>
 
   {{/* ── How devices get here ───────────────────────────────────────────── */}}

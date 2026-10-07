@@ -3158,6 +3158,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	if viewingOther && canManage && user != nil {
 		pol, _ = h.db.GetUserAccess(ctx, user.Username)
 	}
+	enrolled, _ := h.db.RecentEnrollments(ctx, username, time.Time{}, 50)
 	h.render(w, r, "profile.html", map[string]any{
 		"Policy":         pol,
 		"PolicyEmpty":    pol.IsEmpty(),
@@ -3170,6 +3171,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Username":       username,
 		"Stats":          stats,
 		"Recent":         recent,
+		"Enrolled":       enrolled,
 		"ViewingOther":   viewingOther,
 		"CanManage":      canManage,
 		"CanSeeActivity": !viewingOther || h.role(r) == "admin", // only a super admin reads someone else's activity
@@ -4620,6 +4622,7 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		AgentKind:           r.URL.Query().Get("kind"),
 		Class:               r.URL.Query().Get("class"),
 		Onboarding:          r.URL.Query().Get("onboarding"),
+		EnrolledBy:          r.URL.Query().Get("enrolled_by"),
 		Lifecycle:           r.URL.Query().Get("lifecycle"),
 		Hygiene:             r.URL.Query().Get("hygiene"),
 		ActiveThresholdSecs: activeThreshold,
@@ -5002,6 +5005,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// same shape as Online: a device that moved is silent here for a reason, and a
 	// fleet list that calls that "offline" sends someone to look for working hardware.
 	custody, _ := h.db.DeviceCustodyMap(r.Context(), nickIDs)
+	enrollers, _ := h.db.ListEnrollers(r.Context())
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
@@ -5054,6 +5058,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterKind":           r.URL.Query().Get("kind"),
 		"FilterClass":          r.URL.Query().Get("class"),
 		"FilterOnboarding":     r.URL.Query().Get("onboarding"),
+		"FilterEnrolledBy":     r.URL.Query().Get("enrolled_by"),
+		"Enrollers":            enrollers,
+		"Names":                h.actorDisplayNames(r.Context()),
 		"FilterLifecycle":      r.URL.Query().Get("lifecycle"),
 		"FilterHygiene":        db.HygieneJobLabel(r.URL.Query().Get("hygiene")),
 		"Classes":              product.Classes(),
@@ -6444,6 +6451,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"Security":            h.securityFor(r.Context(), device),
+		"EnrolledByName":      h.displayName(r, device.EnrolledBy),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
