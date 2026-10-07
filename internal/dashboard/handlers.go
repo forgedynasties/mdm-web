@@ -21718,6 +21718,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /adb/commands", h.requireAdmin(h.AdbBatch))
 	post("POST /adb/tunnel", h.requireAdmin(h.AdbTunnelOpen))
 	post("POST /adb/tunnel/{id}/end", h.requireAdmin(h.AdbTunnelEnd))
+	post("POST /adb/tunnel/{id}/allow", h.requireAdmin(h.AdbTunnelAllow))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.deviceRoute("view", h.DeviceSetPollInterval)))
 	post("POST /devices/{serial}/move-server", h.requireStrictAdmin(h.deviceRoute("shell", h.DeviceMoveServer)))
 	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))

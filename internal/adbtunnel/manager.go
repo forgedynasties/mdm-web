@@ -66,7 +66,7 @@ type Session struct {
 	DeviceID  uuid.UUID
 	Serial    string
 	User      string
-	AllowFrom string // IP or CIDR the listener accepts from
+	AllowFrom string // the IPs / CIDRs the listener accepts from, comma-separated
 	Port      int
 	CreatedAt time.Time
 	ExpiresAt time.Time
@@ -77,8 +77,10 @@ type Session struct {
 	conns      int64 // TCP connections accepted (lifetime)
 	refused    int64 // TCP connections refused by AllowFrom
 	lastError  atomic.Value // string: the device's last reported failure
+	lastRefused atomic.Value // string: the last source IP the listener turned away
 
-	allow   *net.IPNet
+	allowMu sync.RWMutex
+	allow   []*net.IPNet
 	ln      net.Listener
 	mgr     *Manager
 	mu      sync.Mutex
@@ -150,7 +152,9 @@ func (m *Manager) PortRange() string {
 }
 
 // Open starts a session for deviceID. An existing session for the device is closed
-// first (single-operator model, like remote screen). allowFrom is an IP or CIDR.
+// first (single-operator model, like remote screen). allowFrom is one or more IPs or
+// CIDRs, comma-separated: an office with two WAN links sends the browser and adb out
+// through different addresses, so one IP is often not enough.
 func (m *Manager) Open(deviceID uuid.UUID, serial, user, allowFrom string) (*Session, error) {
 	if !m.Enabled() {
 		return nil, ErrNotConfigured
@@ -175,7 +179,7 @@ func (m *Manager) Open(deviceID uuid.UUID, serial, user, allowFrom string) (*Ses
 	}
 	now := time.Now()
 	s := &Session{
-		ID: newID(), DeviceID: deviceID, Serial: serial, User: user, AllowFrom: allow.String(),
+		ID: newID(), DeviceID: deviceID, Serial: serial, User: user, AllowFrom: allowText(allow),
 		Port: port, CreatedAt: now, ExpiresAt: now.Add(maxLife),
 		allow: allow, ln: ln, mgr: m, streams: map[string]*stream{}, closed: make(chan struct{}),
 	}
@@ -273,6 +277,25 @@ func (m *Manager) AttachDevice(sessionID, streamID string, deviceID uuid.UUID, c
 	}
 }
 
+// AddAllow lets one more IP or CIDR through an existing session, keeping its port — the
+// page's "Allow it" after a refused connection.
+func (m *Manager) AddAllow(sessionID, allowFrom string) error {
+	s, ok := m.Get(sessionID)
+	if !ok {
+		return ErrNoSession
+	}
+	more, err := parseAllow(allowFrom)
+	if err != nil {
+		return err
+	}
+	s.allowMu.Lock()
+	s.allow = append(s.allow, more...)
+	s.AllowFrom = allowText(s.allow)
+	s.allowMu.Unlock()
+	log.Printf("[adbtunnel] session %s: now allows %s", s.ID[:8], s.AllowFrom)
+	return nil
+}
+
 // DeviceError records why the device could not open a stream (adbd not listening,
 // wrong port…), for the page to show instead of a silent hang.
 func (m *Manager) DeviceError(sessionID string, deviceID uuid.UUID, msg string) {
@@ -335,6 +358,24 @@ func (s *Session) BytesDown() int64 { return atomic.LoadInt64(&s.bytesDown) }
 func (s *Session) Conns() int64     { return atomic.LoadInt64(&s.conns) }
 func (s *Session) Refused() int64   { return atomic.LoadInt64(&s.refused) }
 
+// LastRefused is the last source IP the listener turned away ("" = none): what to add
+// to the allow list when the admin's adb host leaves through a different address.
+func (s *Session) LastRefused() string {
+	v, _ := s.lastRefused.Load().(string)
+	return v
+}
+
+func (s *Session) allowed(ip net.IP) bool {
+	s.allowMu.RLock()
+	defer s.allowMu.RUnlock()
+	for _, n := range s.allow {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 // LastError is the device's last reported failure to open a stream ("" = none).
 func (s *Session) LastError() string {
 	v, _ := s.lastError.Load().(string)
@@ -382,8 +423,11 @@ func (s *Session) accept() {
 			return // listener closed
 		}
 		ip := remoteIP(c)
-		if ip == nil || !s.allow.Contains(ip) {
+		if ip == nil || !s.allowed(ip) {
 			atomic.AddInt64(&s.refused, 1)
+			if ip != nil {
+				s.lastRefused.Store(ip.String())
+			}
 			log.Printf("[adbtunnel] session %s: refused %s (allowed %s)", s.ID[:8], c.RemoteAddr(), s.AllowFrom)
 			_ = c.Close()
 			continue
@@ -513,24 +557,40 @@ func remoteIP(c net.Conn) net.IP {
 	return net.ParseIP(host)
 }
 
-// parseAllow accepts a single IP or a CIDR and returns it as a network.
-func parseAllow(s string) (*net.IPNet, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
+// parseAllow accepts IPs and CIDRs, comma- or space-separated, as networks.
+func parseAllow(list string) ([]*net.IPNet, error) {
+	var out []*net.IPNet
+	for _, s := range strings.FieldsFunc(list, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' }) {
+		if _, n, err := net.ParseCIDR(s); err == nil {
+			out = append(out, n)
+			continue
+		}
+		ip := net.ParseIP(s)
+		if ip == nil {
+			return nil, fmt.Errorf("%q is not an IP address or CIDR", s)
+		}
+		bits := 32
+		if ip.To4() == nil {
+			bits = 128
+		}
+		out = append(out, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+	}
+	if len(out) == 0 {
 		return nil, errors.New("an allowed address is required")
 	}
-	if _, n, err := net.ParseCIDR(s); err == nil {
-		return n, nil
+	return out, nil
+}
+
+func allowText(nets []*net.IPNet) string {
+	parts := make([]string, 0, len(nets))
+	for _, n := range nets {
+		if ones, bits := n.Mask.Size(); ones == bits {
+			parts = append(parts, n.IP.String()) // a single address reads better without /32
+		} else {
+			parts = append(parts, n.String())
+		}
 	}
-	ip := net.ParseIP(s)
-	if ip == nil {
-		return nil, fmt.Errorf("%q is not an IP address or CIDR", s)
-	}
-	bits := 32
-	if ip.To4() == nil {
-		bits = 128
-	}
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}, nil
+	return strings.Join(parts, ", ")
 }
 
 // IdleText / ClosesInText are the page's "idle 4 min" / "closes in 56 min".
