@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Header pill — how it moves · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:880px;line-height:1.6}
+.lead b{color:var(--text-2)}
+.opt{margin:28px 0 0}
+.oname{font-weight:750;font-size:15px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 12px;max-width:880px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface-3);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1024px){.grid2{grid-template-columns:1fr}}
+.fr{position:relative;height:420px;overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--bg);box-shadow:var(--shadow-sm)}
+.fr:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 260px at 6% -8%,rgba(249,103,78,.13),transparent 60%),radial-gradient(380px 240px at 96% 8%,rgba(26,99,192,.09),transparent 60%)}
+.fr .pg{padding:18px 24px 40px;max-width:900px;margin:0 auto;position:relative}
+.fr .ph1{font-size:21px;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.fr .psub{color:var(--text-faint);font-size:12.5px;margin:0 0 16px}
+.fr .card{background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.06);border-radius:14px;padding:14px 16px;margin:0 0 12px;font-size:13px}
+html[data-theme=dark] .fr .card{background:rgba(30,28,26,.6);border-color:rgba(255,255,255,.09)}
+.fr .card b{display:block;margin-bottom:4px}
+.fr .card .ln{height:8px;border-radius:4px;background:var(--surface-3);margin:7px 0;width:70%}
+.fr .card .ln.s{width:45%}
+.hint{position:absolute;right:12px;bottom:10px;font-size:11px;color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 9px;pointer-events:none;z-index:9}
+.meter{position:absolute;left:12px;bottom:10px;font:600 10.5px var(--mono);color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 9px;pointer-events:none;z-index:9}
+
+/* the bar: everything driven by --ph (0 flush → 1 pill) and --pf (fill/ring, defaults to --ph) */
+.bar{--ph:0;--pf:var(--ph);--rmax:100px;--inset:48px;
+  position:sticky;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  top:calc(8px * var(--ph));width:calc(100% - var(--inset) * var(--ph));max-width:calc(1140px + 4000px * (1 - var(--ph)));margin:0 auto;
+  border-radius:calc(var(--rmax) * var(--ph));padding:12px calc(24px - 10px * var(--ph)) 12px calc(24px - 2px * var(--ph));
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(0,0,0,calc(.06 * (1 - var(--pf))));
+  background:rgba(255,255,255,calc(.6 - .05 * var(--pf)));
+  box-shadow:0 0 0 1px rgba(0,0,0,calc(.1 * var(--pf))),0 4px 6px rgba(0,0,0,.04),0 12px 40px rgba(0,0,0,calc(.08 + .02 * var(--pf))),inset 0 1px 0 rgba(255,255,255,.6)}
+html[data-theme=dark] .bar{background:rgba(10,10,20,calc(.4 + .1 * var(--pf)));border-bottom-color:rgba(255,255,255,calc(.12 * (1 - var(--pf))));box-shadow:0 0 0 1px rgba(255,255,255,calc(.14 * var(--pf))),0 4px 6px rgba(0,0,0,.12),0 12px 40px rgba(0,0,0,.35)}
+.bar .brand{font-weight:600;font-size:22px;letter-spacing:-.01em}.bar .brand i{font-style:normal;color:var(--accent)}
+.bar .right{display:flex;gap:8px}
+.bar .ic{width:34px;height:34px;border-radius:calc(10px + 89px * var(--ph));border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;color:var(--text-2)}
+.bar .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8}
+.bar .acct{height:34px;padding:0 12px;border-radius:calc(10px + 89px * var(--ph));border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.bar .acct .av{width:20px;height:20px;border-radius:50%;background:var(--accent)}
+/* scroll-linked variants: tiny linear smoothing between frames */
+.fr.linked .bar,.fr.linked .bar .ic,.fr.linked .bar .acct{transition:top .12s linear,width .12s linear,max-width .12s linear,border-radius .12s linear,background-color .12s linear,box-shadow .12s linear,padding .12s linear,border-color .12s linear}
+/* toggled variants: one long eased transition, class sets the vars */
+.fr.toggled .bar,.fr.toggled .bar .ic,.fr.toggled .bar .acct{transition-property:top,width,max-width,border-radius,background-color,box-shadow,padding,border-color;transition-duration:var(--dur,.7s);transition-timing-function:var(--ease,cubic-bezier(.22,1,.36,1))}
+.fr.toggled.on .bar{--ph:1}
+.fr.soft .bar{--rmax:22px;--inset:24px}
+</style></head><body>
+<div class="themebar"><button class="on" onclick="setT('light',this)">Light</button><button onclick="setT('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Header pill: how it should move</h1>
+<p class="lead">Same destination every time (flush bar → floating pill); only the motion differs. Two families: <b>scroll-linked</b> (the shape follows your finger: stop scrolling and it stops mid-way) and <b>toggled</b> (crossing a line starts one eased animation that runs to the end on its own). The first version shipped was a toggled 300ms flip, which is the "one large step". The counter bottom-left shows the pill progress 0–100%. <b>Scroll inside each frame</b>, slowly and fast.</p>
+
+<div class="grid2">
+
+<div class="opt">
+<p class="oname">1 · Scroll-linked, 160px, ease-out <span class="now">Live now</span></p>
+<p class="onote">Progress = scroll ÷ 160px, eased so most of the change happens early. <b>Good:</b> never ahead of you. <b>Bad:</b> on a mouse wheel one notch is ~100px, so it still covers most of the morph in a single tick — which is what you saw.</p>
+<div class="fr linked" data-m="linked" data-run="160" data-ease="out">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">2 · Scroll-linked, 400px, linear</p>
+<p class="onote">Same idea, but the morph is spread over 400px of scroll with no easing: one wheel notch moves it a quarter of the way. <b>Good:</b> the most gradual; it feels like the bar is being pulled in by the page. <b>Bad:</b> on short pages it never finishes; the half-pill state is on screen a lot.</p>
+<div class="fr linked" data-m="linked" data-run="400" data-ease="lin">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">3 · Scroll-linked, two phases <span class="rec">I'd pick this</span></p>
+<p class="onote">First 0–100px: only the fill, ring and shadow come up — the bar "lifts" but keeps its shape. Then 100–320px: it pulls in and rounds. Nothing changes colour and shape at the same time, so no single tick looks like a jump. <b>Good:</b> the subtlest of the linked ones; the lift reads before the shrink. <b>Bad:</b> two things to tune instead of one.</p>
+<div class="fr linked" data-m="phased" data-run="320">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">4 · Toggled, slow settle (700ms, ease-out-expo)</p>
+<p class="onote">Crossing 40px starts one animation: fast at first, then a long soft tail; back the same way under 40px. Not tied to scroll speed, so a wheel flick and a slow drag look identical. <b>Good:</b> always the same, always completes, feels "designed" rather than tracked. <b>Bad:</b> it is still a threshold; scroll to 41px and stop, and the bar keeps moving after you did.</p>
+<div class="fr toggled" data-m="toggle" data-at="40" style="--dur:.7s;--ease:cubic-bezier(.22,1,.36,1)">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">5 · Toggled, soft corners only (500ms)</p>
+<p class="onote">Smaller destination: the bar insets 12px a side and rounds to 22px, not a full 100px pill, with the lift. Less distance to travel means less to notice. <b>Good:</b> the calmest possible version; still clearly "floating" once scrolled. <b>Bad:</b> no longer a pill, so it doesn't match the dock's round ends.</p>
+<div class="fr toggled soft" data-m="toggle" data-at="40" style="--dur:.5s;--ease:cubic-bezier(.4,0,.2,1)">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓</span>
+</div>
+</div>
+
+<div class="opt">
+<p class="oname">6 · Scroll-linked, with inertia</p>
+<p class="onote">Target progress comes from scroll (over 240px), but the bar chases it at ~10% per frame, so a wheel flick becomes a glide that settles over ~400ms, and a slow drag tracks closely. <b>Good:</b> no step can ever be larger than the glide allows, whatever the input device; still ends where the scroll says. <b>Bad:</b> a rAF loop runs while it settles (stops when caught up).</p>
+<div class="fr linked" data-m="inertia" data-run="240">
+  <div class="bar"><span class="brand"><i>AIO</i> MDM</span><div class="right"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg></span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><span class="acct"><span class="av"></span>Ali</span></div></div>
+  <div class="pg"><p class="ph1">Fleet</p><p class="psub">292 devices · 14 restaurants</p><div class="card"><b>Burger Bros · Downtown</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Pita Place</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Lab</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Tonight Rollout</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Warehouse</b><div class="ln"></div><div class="ln s"></div></div><div class="card"><b>Mall kiosks</b><div class="ln"></div><div class="ln s"></div></div></div>
+  <span class="meter">0%</span><span class="hint">scroll ↓ flick it</span>
+</div>
+</div>
+</div>
+
+<p class="lead" style="margin-top:34px"><b>What I'd build:</b> 3, or 6 if you want it to feel buttery on a wheel. 3 is the quietest because the lift and the shrink never overlap; 6 is the one that cannot step, whatever the input. Both are the same CSS as what's live, only the number-feeding changes.</p>
+</div>
+<script>
+function setT(t,b){document.documentElement.setAttribute('data-theme',t);document.querySelectorAll('.themebar button').forEach(x=>x.classList.toggle('on',x===b))}
+document.querySelectorAll('.fr').forEach(function(f){
+  var bar=f.querySelector('.bar'), meter=f.querySelector('.meter'), m=f.getAttribute('data-m'), run=+f.getAttribute('data-run')||160, at=+f.getAttribute('data-at')||40;
+  var cur=0, target=0, loop=false;
+  function set(ph,pf){ bar.style.setProperty('--ph',ph); bar.style.setProperty('--pf',pf==null?ph:pf); meter.textContent=Math.round(ph*100)+'%'; }
+  function clamp(v){return Math.min(1,Math.max(0,v))}
+  function onScroll(){
+    var y=f.scrollTop;
+    if(m==='toggle'){ f.classList.toggle('on',y>at); meter.textContent=y>at?'100%':'0%'; return; }
+    if(m==='linked'){ var t=clamp(y/run); if(f.getAttribute('data-ease')==='out') t=1-Math.pow(1-t,2); set(Math.round(t*200)/200); return; }
+    if(m==='phased'){ var pf=clamp(y/100), ph=clamp((y-100)/(run-100)); ph=1-Math.pow(1-ph,2); set(Math.round(ph*200)/200, Math.round(pf*200)/200); return; }
+    if(m==='inertia'){ target=clamp(y/run); if(!loop){loop=true;requestAnimationFrame(step)} }
+  }
+  function step(){ cur+= (target-cur)*0.1; if(Math.abs(target-cur)<0.004){cur=target;loop=false} set(Math.round(cur*500)/500); if(loop) requestAnimationFrame(step); }
+  f.addEventListener('scroll',onScroll,{passive:true});
+});
+</script>
+</body></html>

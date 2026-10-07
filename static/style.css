@@ -7453,10 +7453,11 @@ div.lt-more{padding:0 15px}
 
 /* ── Appbar: pill on scroll, page: warm paper + two soft glows (2026-10-07, picked from
    static/appbar-pill-demos.html — header A, background 2). The bar stays sticky and keeps
-   its height. The pill is not a toggle: --ph runs 0→1 over the first 160px of scroll
-   (layout.html sets it from a passive, rAF-throttled listener), and width, inset, radius,
-   fill and the hairline ring all follow it, so the bar morphs with the page instead of
-   flipping at a threshold. A short transition only smooths the frame steps. The glows are
+   its height. 40px into a scroll layout.html adds .is-scrolled, which sets --ph to 1;
+   width, inset, radius, fill and the hairline ring all derive from --ph and run through
+   one 700ms ease-out-expo transition (fast start, long soft tail — picked from
+   static/appbar-motion-demos.html, option 4, over scroll-linked morphs that stepped
+   on a wheel notch). Same animation back below 40px. The glows are
    one fixed pseudo-element behind the page, so they cost nothing per frame; cards go
    slightly translucent so the glow shows at their edges — no backdrop-filter on them, the
    glow is smooth and there is nothing to blur (see the 2026-09-09 notes above). ── */
@@ -7468,11 +7469,13 @@ div.lt-more{padding:0 15px}
   border-bottom-color: rgba(0, 0, 0, calc(.06 * (1 - var(--ph))));
   background: rgba(255, 255, 255, calc(.6 - .05 * var(--ph)));
   box-shadow: 0 0 0 1px rgba(0, 0, 0, calc(.1 * var(--ph))), 0 4px 6px rgba(0, 0, 0, .04), 0 12px 40px rgba(0, 0, 0, calc(.08 + .02 * var(--ph))), inset 0 1px 0 rgba(255, 255, 255, .6);
-  transition: top .12s linear, width .12s linear, max-width .12s linear, border-radius .12s linear, background-color .12s linear, box-shadow .12s linear, padding .12s linear; }
+  transition-property: top, width, max-width, border-radius, background-color, box-shadow, padding, border-color;
+  transition-duration: .7s; transition-timing-function: cubic-bezier(.22, 1, .36, 1); }
+.appbar.is-scrolled { --ph: 1; }
 html[data-theme="dark"] .appbar { background: rgba(10, 10, 20, calc(.4 + .1 * var(--ph)));
   border-bottom-color: rgba(255, 255, 255, calc(.12 * (1 - var(--ph))));
   box-shadow: 0 0 0 1px rgba(255, 255, 255, calc(.14 * var(--ph))), 0 4px 6px rgba(0, 0, 0, .12), 0 12px 40px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); }
-.appbar .appbar-icon, .appbar .appbar-acct { border-radius: calc(10px + 89px * var(--ph)); transition: border-radius .12s linear; }
+.appbar .appbar-icon, .appbar .appbar-acct { border-radius: calc(10px + 89px * var(--ph)); transition: border-radius .7s cubic-bezier(.22, 1, .36, 1); }
 @media (prefers-reduced-motion: reduce) { .appbar, .appbar .appbar-icon, .appbar .appbar-acct { transition: none; } }
 
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
