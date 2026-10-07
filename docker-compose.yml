@@ -63,11 +63,13 @@ services:
       # 8000; the live cutover sets LEGACY_OTA_PORT=8000 in .env.
       - "${LEGACY_OTA_PORT:-8010}:${LEGACY_OTA_PORT:-8010}"
       # adb tunnels (internal/adbtunnel): the server binds one port per session inside
-      # this range, so it has to be published 1:1 — the dashboard tells admins the
-      # port the server bound. Keep ADB_TUNNEL_PORTS in .env equal to this range (both
-      # ends) and open the same range in the instance's security group; unset leaves
-      # the Wireless adb page without tunnels.
-      - "${ADB_TUNNEL_PORTS:-42000-42019}:${ADB_TUNNEL_PORTS:-42000-42019}"
+      # ADB_TUNNEL_PORTS, so the range is published 1:1 — the dashboard tells admins
+      # the port the server bound. Set it in .env (a different range per stack on a
+      # shared box: stage and live both live on one instance, and a fixed default here
+      # made live fail to start because stage already held the ports) and open the
+      # same range in the security group. Unset: a single ephemeral host port is mapped
+      # (harmless, never collides) and the page offers no tunnels.
+      - "${ADB_TUNNEL_PORTS:-0}:${ADB_TUNNEL_PORTS:-42000}"
     env_file: .env
     environment:
       # Was hardcoded to "postgres" (the local container), which silently overrode whatever
