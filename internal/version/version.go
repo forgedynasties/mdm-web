@@ -32,6 +32,24 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.55.0",
+		Date:    "2026-10-07",
+		Changes: []string{
+			"Wireless adb from anywhere. A new Wireless adb page lists every device adb was ever switched on for, switches it on or off in batches, and opens an adb tunnel through the MDM server, so `adb connect` works from any network without being on the device's Wi-Fi. A tunnel accepts only the addresses you allow, shows a refused address with an Allow-it button, and closes itself after an hour idle. Firmware client 1.8.9 and standard client 0.2.9 carry the device side.",
+			"AIO Enroll, a desktop app for Mac, Windows and Linux, enrolls devices over a USB cable with a dashboard sign-in. The dashboard records who enrolled each standard-client device: on the device page, as a Fleet column and filter, in a Recent enrollments log on the Enrollment page, and on the person's profile.",
+			"A new Overview for everyone: every device is a square grouped by restaurant and type, worst first, next to a map of your restaurants, a needs-attention list, service uptime and a clean-up checklist. Devices away from their venue show a dashed line on the map.",
+			"The dock: names under every icon, live figures (online ring, alert count, running actions), your three most-visited pages, and the search field. Admin pages live in the ⌘K palette's pages mode; Esc closes it from anywhere and Shift-Enter opens a result in a new tab.",
+			"The top bar pulls in to a floating pill once you scroll, over a warm paper background. Long lists on Clients, Enrollment and Wireless adb get a search box, filter chips and a Show-all cap.",
+			"Alerts are problems now: one card per device fault with assign, acknowledge, snooze and resolve-with-a-reason; crash signatures across several devices are release issues; after-hours alerts hold until morning with a digest. Kiosk exits on site stay out until someone locks the device again, and say so.",
+			"Access control rewritten around two questions, which devices and what they can do, with reusable access profiles. The dev role is retired: those accounts are super ops, and releases, shell and release issues belong to the super admin.",
+			"Device keys: firmware devices register their own key and the shared one is refused for them afterwards; a device that lost its key is let back in from its usual address once a day with a warning, or reset from its Settings tab. Tablets reporting a corrupted serial are refused and shown at the top of the Fleet.",
+			"Kiosk policies are rules only: ordered, enforced every minute, with a per-device status. Collect logs from one device or many. Guest info (venue Wi-Fi, table label) is sent to tablets. Fast temperature readings per device, kept 24 hours.",
+			"Offline check-ins: a device that was out of reach sends its readings later, drawn as shaded spans on its charts. The device graph reads battery cycles from lifetime wear, hovers with a readout beside the plot, and shows a flapping charger as a hatched run.",
+			"Clients page: the firmware client and standard client, their devices grouped by what can be acted on, releases with download, checksum and rollback. Every venue can get a weekly report in six plain-language layouts, as a page, a PDF or an email.",
+			"Under the hood: check-in history on a bounded queue, telemetry stored by shape instead of one row per report, faster deploys that confirm what is running, a deploying page instead of a gateway error, and a Server page with the MDM's own load and slowest routes. Both environments now share the development database cluster.",
+		},
+	},
+	{
 		Version: "1.54.0",
 		Date:    "2026-09-20",
 		Changes: []string{
