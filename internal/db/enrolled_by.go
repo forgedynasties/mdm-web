@@ -45,13 +45,14 @@ type Enrollment struct {
 	EnrolledBy     string
 }
 
-// RecentEnrollments lists enrollments newest first. by narrows to one username ("" =
-// everyone); since drops older ones (zero = no limit).
+// RecentEnrollments lists enrollments newest first: standard-client devices only, since a
+// firmware device is onboarded by its image and nobody "enrolls" it. by narrows to one
+// username ("" = everyone); since drops older ones (zero = no limit).
 func (d *DB) RecentEnrollments(ctx context.Context, by string, since time.Time, limit int) ([]Enrollment, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.serial_number, d.device_class, d.agent_kind, COALESCE(r.name, ''), d.enrolled_at, d.enrolled_by
 		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE d.enrollment_status NOT IN ('retired', 'wiped')
+		WHERE d.enrollment_status NOT IN ('retired', 'wiped') AND d.agent_kind = 'dpc'
 		  AND ($1 = '' OR d.enrolled_by = $1)
 		  AND ($2::timestamptz IS NULL OR d.enrolled_at >= $2)
 		ORDER BY d.enrolled_at DESC LIMIT $3`, by, nullTime(since), limit)
