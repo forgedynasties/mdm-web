@@ -26,6 +26,13 @@ func humanizeAudit(e db.AuditEntry) string {
 	switch e.Action {
 
 	// ── device toggles ────────────────────────────────────────────────────────
+	case "device.adb_tcp":
+		if strings.HasPrefix(d, "on") {
+			return "turned wireless adb " + d
+		}
+		return "turned wireless adb off"
+	case "device.adb_tunnel":
+		return "adb tunnel: " + d
 	case "device.wlc_charging":
 		return onOff(d, "wireless charging")
 	case "device.kiosk":

@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — a native Mac feel — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* Page chrome (uses the dashboard theme) */
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1180px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:900px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:900px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:900px;line-height:1.5}.pc b{color:var(--text)}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:1100px;margin:12px 0 0}
+.rule{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.5}
+.rule b{display:block;font-size:13px;margin-bottom:2px}
+.modebar{display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:12px;color:var(--muted)}
+.modebar button{border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-weight:600;padding:5px 12px;border-radius:99px;cursor:pointer}
+.modebar button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ───────── The Mac look, scoped to .mac so the demo page itself is unaffected ───────── */
+.mac{
+  --m-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --m-bg:#ffffff; --m-side:rgba(236,236,240,.78); --m-side-solid:#ececf0; --m-text:#1d1d1f; --m-sub:#6e6e73;
+  --m-sep:rgba(0,0,0,.09); --m-group:#f5f5f7; --m-row:#ffffff; --m-hover:rgba(0,0,0,.045);
+  --m-sel:rgba(249,103,78,.16); --m-selText:#c4432a; --m-accent:#f9674e; --m-ok:#28a745; --m-warn:#d97706; --m-bad:#e5484d;
+  --m-shadow:0 22px 70px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.18);
+  font-family:var(--m-font);color:var(--m-text);-webkit-font-smoothing:antialiased;
+  border-radius:12px;overflow:hidden;box-shadow:var(--m-shadow);background:var(--m-bg);
+  font-size:13px;max-width:980px;
+}
+.mac.dark{
+  --m-bg:#1e1e20; --m-side:rgba(40,40,44,.82); --m-side-solid:#28282c; --m-text:#f5f5f7; --m-sub:#98989d;
+  --m-sep:rgba(255,255,255,.09); --m-group:#2a2a2d; --m-row:#323236; --m-hover:rgba(255,255,255,.06);
+  --m-sel:rgba(249,103,78,.24); --m-selText:#ff9a83;
+  --m-shadow:0 22px 70px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.12);
+}
+.mac *{box-sizing:border-box}
+.mac .ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
+.mac .lights{display:flex;gap:8px;padding:0 4px}
+.mac .lights i{width:12px;height:12px;border-radius:50%;display:block}
+.mac .lights i:nth-child(1){background:#ff5f57}.mac .lights i:nth-child(2){background:#febc2e}.mac .lights i:nth-child(3){background:#28c840}
+.mac .win{display:grid;grid-template-columns:230px 1fr;height:520px}
+/* translucent sidebar (real app: macOS vibrancy via Tauri window effects) */
+.mac .side{background:var(--m-side);backdrop-filter:saturate(180%) blur(30px);-webkit-backdrop-filter:saturate(180%) blur(30px);border-right:.5px solid var(--m-sep);padding:12px 10px;display:flex;flex-direction:column;gap:2px;overflow:auto}
+.mac .side .top{height:28px;display:flex;align-items:center;margin-bottom:10px}
+.mac .sec{font-size:11px;font-weight:600;color:var(--m-sub);padding:10px 10px 4px}
+.mac .item{display:flex;align-items:center;gap:9px;padding:5px 10px;border-radius:7px;cursor:default;font-size:13px;line-height:18px;color:var(--m-text)}
+.mac .item:hover{background:var(--m-hover)}
+.mac .item.sel{background:var(--m-sel);color:var(--m-selText);font-weight:500}
+.mac .item .glyph{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex:none}
+.mac .item .glyph .ic{width:13px;height:13px;stroke-width:1.9}
+.mac .item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mac .item .meta{display:flex;gap:4px;align-items:center;color:var(--m-sub)}
+.mac .item .meta .ic{width:12px;height:12px}
+.mac .item.sel .meta{color:var(--m-selText)}
+.mac .ok{width:14px;height:14px;border-radius:50%;background:var(--m-ok);color:#fff;display:flex;align-items:center;justify-content:center}
+.mac .ok .ic{width:9px;height:9px;stroke-width:3}
+.mac .dot{width:8px;height:8px;border-radius:50%;background:var(--m-bad)}
+.mac .count{font-size:11px;color:var(--m-sub);font-variant-numeric:tabular-nums}
+.mac .main{display:flex;flex-direction:column;min-width:0;background:var(--m-bg)}
+/* unified toolbar */
+.mac .tb{height:52px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:.5px solid var(--m-sep);flex:none}
+.mac .tb .title{font-weight:700;font-size:13px}
+.mac .tb .sub{font-size:11px;color:var(--m-sub)}
+.mac .tb .sp{flex:1}
+.mac .tbtn{width:30px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--m-sub);border:0;background:transparent}
+.mac .tbtn:hover{background:var(--m-hover);color:var(--m-text)}
+.mac .tbtn .ic{width:16px;height:16px}
+.mac .search{height:26px;border-radius:7px;background:var(--m-hover);display:flex;align-items:center;gap:6px;padding:0 8px;color:var(--m-sub);width:170px;font-size:12px}
+.mac .search .ic{width:13px;height:13px}
+.mac .avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.mac .content{flex:1;overflow:auto;padding:22px 26px 26px}
+/* grouped inset lists, the System Settings look */
+.mac .hdr{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.mac .hdr .big{width:56px;height:56px;border-radius:14px;background:linear-gradient(180deg,#8e8e93,#636366);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.mac .hdr .big .ic{width:28px;height:28px;stroke-width:1.5}
+.mac .hdr h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.mac .hdr p{margin:2px 0 0;color:var(--m-sub);font-size:12px}
+.mac .group{background:var(--m-group);border-radius:10px;margin-bottom:16px;overflow:hidden;border:.5px solid var(--m-sep)}
+.mac .ghead{font-size:11px;font-weight:600;color:var(--m-sub);margin:0 0 6px 10px}
+.mac .row{display:flex;align-items:center;gap:10px;padding:9px 12px;min-height:36px;background:var(--m-row)}
+.mac .row+.row{border-top:.5px solid var(--m-sep)}
+.mac .row .k{flex:1;color:var(--m-text)}
+.mac .row .v{color:var(--m-sub);font-variant-numeric:tabular-nums}
+.mac .row .v.mono{font-size:12px}
+.mac .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:99px}
+.mac .pill .ic{width:11px;height:11px}
+.mac .pill.okp{color:var(--m-ok);background:color-mix(in srgb,var(--m-ok) 13%,transparent)}
+.mac .pill.badp{color:var(--m-bad);background:color-mix(in srgb,var(--m-bad) 13%,transparent)}
+.mac .pill.warnp{color:var(--m-warn);background:color-mix(in srgb,var(--m-warn) 14%,transparent)}
+/* segmented control */
+.mac .seg{display:inline-flex;background:var(--m-hover);border-radius:7px;padding:2px;gap:2px}
+.mac .seg button{border:0;background:transparent;font:inherit;font-size:12px;color:var(--m-text);padding:3px 12px;border-radius:5px;cursor:pointer}
+.mac .seg button.on{background:var(--m-row);box-shadow:0 1px 2px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.06);font-weight:500}
+.mac.dark .seg button.on{background:#636366}
+/* buttons */
+.mac .btn{border:0;font:inherit;font-size:13px;font-weight:500;border-radius:7px;padding:5px 14px;cursor:pointer;background:var(--m-row);color:var(--m-text);box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 1px 1px rgba(0,0,0,.06)}
+.mac.dark .btn{background:#4a4a4e;box-shadow:none}
+.mac .btn.primary{background:var(--m-accent);color:#fff;box-shadow:0 1px 1px rgba(0,0,0,.12)}
+.mac .btn.primary:hover{filter:brightness(1.05)}
+.mac .btn.link{background:transparent;box-shadow:none;color:var(--m-selText);padding:2px 4px}
+.mac .btn.danger{color:var(--m-bad)}
+.mac .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.mac .switch{width:32px;height:19px;border-radius:10px;background:var(--m-ok);position:relative;flex:none}
+.mac .switch::after{content:"";position:absolute;top:2px;right:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.mac .switch.off{background:rgba(120,120,128,.32)}.mac .switch.off::after{right:auto;left:2px}
+/* sheet (macOS drops sheets from the toolbar, it does not centre a modal) */
+.mac .sheetwrap{position:absolute;inset:52px 0 0 0;background:rgba(0,0,0,.18);display:flex;justify-content:center;align-items:flex-start;animation:fadeM .2s both}
+.mac .sheet{margin-top:0;width:360px;background:var(--m-bg);border-radius:0 0 12px 12px;box-shadow:0 18px 50px rgba(0,0,0,.35);padding:20px 22px 16px;animation:dropM .28s cubic-bezier(.2,.9,.25,1) both}
+.mac .sheet h3{margin:0 0 4px;font-size:15px}
+.mac .sheet p{margin:0 0 12px;color:var(--m-sub);font-size:12px;line-height:1.5}
+.mac .code{display:flex;gap:6px;margin:6px 0 14px}
+.mac .code span{flex:1;height:42px;border-radius:8px;background:var(--m-group);border:.5px solid var(--m-sep);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.mac .code span.f{box-shadow:0 0 0 3px color-mix(in srgb,var(--m-accent) 35%,transparent);border-color:var(--m-accent)}
+@keyframes dropM{from{transform:translateY(-100%)}to{transform:none}}
+@keyframes fadeM{from{opacity:0}to{opacity:1}}
+.mac .rel{position:relative}
+/* B: the Configurator-style tiles */
+.mac .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.mac .tile{border-radius:12px;padding:16px 12px 12px;text-align:center;border:.5px solid var(--m-sep);background:var(--m-group);cursor:default;position:relative}
+.mac .tile.sel{outline:3px solid color-mix(in srgb,var(--m-accent) 45%,transparent);background:var(--m-row)}
+.mac .tile .art{width:64px;height:84px;margin:0 auto 10px;border-radius:12px;border:3px solid #3a3a3c;background:linear-gradient(160deg,#5ac8fa22,#af52de22);position:relative}
+.mac .tile .art.tv{width:96px;height:58px;border-radius:6px;margin-top:14px;margin-bottom:22px}
+.mac .tile .art.kds{width:96px;height:64px;border-radius:8px;margin-top:10px;margin-bottom:20px}
+.mac .tile b{display:block;font-size:12.5px;font-weight:600}
+.mac .tile small{display:block;color:var(--m-sub);font-size:11px;margin:2px 0 6px}
+.mac .tile .badge{position:absolute;top:8px;right:8px}
+.mac .bottombar{height:44px;border-top:.5px solid var(--m-sep);display:flex;align-items:center;gap:8px;padding:0 14px;flex:none;color:var(--m-sub);font-size:12px}
+
+/* ───────── Animations window ───────── */
+.mac .mlist{position:relative;display:flex;flex-direction:column;gap:2px}
+.mac .msel{position:absolute;left:0;right:0;top:0;height:28px;border-radius:7px;background:var(--m-sel);transition:transform .32s cubic-bezier(.2,.9,.25,1),opacity .2s;pointer-events:none;opacity:0}
+.mac .mlist .item{position:relative;height:28px;z-index:1;transition:color .2s}
+.mac .mlist .item.sel{background:transparent}
+.mac .item.enter{animation:rowIn .42s cubic-bezier(.2,.9,.25,1) both}
+@keyframes rowIn{0%{height:0;opacity:0;transform:translateX(-8px)}60%{height:28px;opacity:.6}100%{height:28px;opacity:1;transform:none}}
+.mac .meta .c{display:flex;transition:opacity .3s,transform .3s cubic-bezier(.2,.9,.25,1),width .3s;width:12px;overflow:hidden}
+.mac .meta .c.gone{opacity:0;transform:scale(.3);width:0}
+.mac .meta .c.new{animation:popM .45s cubic-bezier(.3,1.6,.5,1) both}
+.mac .stat{width:14px;display:flex;justify-content:center}
+.mac .stat .ok{animation:popM .5s cubic-bezier(.3,1.6,.5,1) both}
+.mac .stat .dot.pulse{animation:pulseM .7s ease-in-out 2}
+@keyframes popM{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes pulseM{50%{transform:scale(1.7);box-shadow:0 0 0 4px color-mix(in srgb,var(--m-bad) 25%,transparent)}}
+.mac .xfade{animation:xfadeM .3s cubic-bezier(.2,.9,.25,1) both}
+@keyframes xfadeM{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.mac .seg.thumb{position:relative}
+.mac .seg.thumb .th{position:absolute;top:2px;bottom:2px;border-radius:5px;background:var(--m-row);box-shadow:0 1px 2px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.06);transition:left .28s cubic-bezier(.2,.9,.25,1),width .28s cubic-bezier(.2,.9,.25,1)}
+.mac.dark .seg.thumb .th{background:#636366}
+.mac .seg.thumb button{position:relative;z-index:1;background:transparent!important;box-shadow:none!important}
+.mac .mspin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:rotM .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}
+.mac .mspin.d{border-color:color-mix(in srgb,var(--m-sub) 35%,transparent);border-top-color:var(--m-sub);margin:0}
+@keyframes rotM{to{transform:rotate(360deg)}}
+.mac .btn{transition:transform .12s,filter .15s,background .2s}
+.mac .btn:active,.mac .btn.press{transform:scale(.96)}
+.mac .pbar{height:2px;background:transparent;position:relative;overflow:hidden;flex:none}
+.mac .pbar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--m-accent);transition:width .5s cubic-bezier(.2,.9,.25,1)}
+.mac .step .chk{width:16px;height:16px;border-radius:50%;background:var(--m-ok);color:#fff;display:flex;align-items:center;justify-content:center;animation:popM .35s cubic-bezier(.3,1.6,.5,1) both}
+.mac .step .chk .ic{width:10px;height:10px;stroke-width:3}
+.mac .step .chk path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawM .35s .1s ease-out forwards}
+@keyframes drawM{to{stroke-dashoffset:0}}
+.mac .step{animation:xfadeM .28s both}
+.mac .step .k.dim{color:var(--m-sub)}
+.mac .bigok{width:56px;height:56px;border-radius:14px;background:var(--m-ok);color:#fff;display:flex;align-items:center;justify-content:center;animation:springM .6s cubic-bezier(.3,1.6,.5,1) both}
+.mac .bigok .ic{width:30px;height:30px;stroke-width:2.6}
+.mac .bigok path{stroke-dasharray:24;stroke-dashoffset:24;animation:drawM .4s .25s ease-out forwards}
+@keyframes springM{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+.mac .banner{position:absolute;top:10px;right:12px;width:270px;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--m-bg) 82%,transparent);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);box-shadow:0 10px 30px rgba(0,0,0,.25),0 0 0 .5px var(--m-sep);transform:translateX(320px);transition:transform .45s cubic-bezier(.2,1.2,.3,1);z-index:9;font-size:12px}
+.mac .banner.show{transform:none}
+.mac .banner .app{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.mac .banner .app .ic{width:16px;height:16px}
+.mac .banner b{display:block;font-size:12.5px}.mac .banner span{color:var(--m-sub)}
+.mac .sheetwrap.out{animation:fadeOutM .25s both}.mac .sheet.out{animation:liftM .25s ease-in both}
+@keyframes fadeOutM{to{opacity:0}}@keyframes liftM{to{transform:translateY(-100%)}}
+.mac .sheet.shake{animation:shakeM .45s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shakeM{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-8px)}40%,60%{transform:translateX(8px)}}
+.mac .code span{transition:box-shadow .15s,border-color .15s}
+.mac .code span.typed{animation:popM .18s both}
+.mac .pill.flip{animation:xfadeM .3s both}
+.mac .pill.shake{animation:shakeM .45s}
+.mac .switch{transition:background .2s}.mac .switch::after{transition:left .22s cubic-bezier(.2,.9,.25,1),right .22s cubic-bezier(.2,.9,.25,1)}
+.mac .switch.anim::after{right:auto;left:15px}.mac .switch.anim.off::after{left:2px}
+.chips2{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.chips2 button{border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;cursor:pointer}
+.chips2 button.play{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chips2 button.now{outline:2px solid var(--accent);outline-offset:1px}
+.nowplaying{font-size:12.5px;color:var(--accent-text);font-weight:700;min-height:18px;margin:0 0 8px}
+@media(max-width:1000px){.rules{grid-template-columns:1fr}.mac .win{grid-template-columns:190px 1fr}}
+@media (prefers-reduced-motion:reduce){.mac *{animation:none!important}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — making it feel like a real Mac app</h1>
+<p class="lead">Today the app borrows the web dashboard's look (cards, orange outlines, big rounded pills, emoji-sized icons). A Mac app feels “professional” because it follows a small set of system conventions people already know from Finder, System Settings and Apple Configurator. Below: the same screen — <b>Google Pixel 6, ready to enrol, connected by USB + Wi-Fi</b> — redrawn three Mac-native ways. Each window has a light/dark switch and an interactive bit.</p>
+
+<div class="rules">
+ <div class="rule"><b>Window, not a web page</b>Traffic lights inside the window, a <i>unified toolbar</i> (title, search, account, “+”), and a <i>translucent sidebar</i> that blurs the desktop behind it (Tauri: <span class="mono">titleBarStyle: Overlay</span> + macOS vibrancy; Windows gets Mica).</div>
+ <div class="rule"><b>System type and spacing</b>The system font (San Francisco) at 13 px, regular weight for text, semibold only for titles. 8-pt spacing, hairline (0.5 px) separators, tabular numbers for serials and versions.</div>
+ <div class="rule"><b>Grouped lists, not cards</b>Information sits in grey inset groups with label-left / value-right rows — the System Settings pattern — instead of coloured chips and boxes.</div>
+ <div class="rule"><b>One accent, used rarely</b>AIO coral only for the selection and the one primary button. Status uses Apple's green/amber/red as small pills, never full-colour panels.</div>
+ <div class="rule"><b>Native controls</b>Segmented control for the class, real switches, push buttons with a hairline border; “Forget” and “Switch to Wi-Fi” become plain buttons in a row, destructive in red text.</div>
+ <div class="rule"><b>Sheets, menus, shortcuts</b>The pairing code drops down as a <i>sheet</i> from the toolbar (not a centred web modal); a real app menu (File ▸ Add over Wi-Fi ⌘N, View ▸ Only ours ⌘⇧O); right-click menus on rows; ⌘R refresh, ⌘↩ enrol.</div>
+</div>
+
+<!-- ───────── A ───────── -->
+<span class="eyebrow">Option A</span>
+<div class="dname">System Settings style: sidebar + grouped detail <span class="rec">recommended</span></div>
+<div class="ddesc">Sidebar sections <b>Devices · Nearby · Saved</b> with small coloured glyphs (like Settings), a unified toolbar, and the device shown as grouped rows: Device, Connection, Enrollment. The class is a segmented control; Enrol is the only coloured button. Press <b>Pair a phone…</b> in the sidebar to see the sheet.</div>
+<div class="modebar">Appearance <button data-mode="A" data-v="light" class="on">Light</button><button data-mode="A" data-v="dark">Dark</button></div>
+<div class="mac" id="A"></div>
+<p class="pc"><b>Good:</b> instantly familiar to every Mac user, scales to many devices, calm. <b>Bad:</b> the biggest visual change from today (logic and features stay identical).</p>
+
+<!-- ───────── B ───────── -->
+<span class="eyebrow">Option B</span>
+<div class="dname">Apple Configurator style: device tiles + inspector</div>
+<div class="ddesc">Connected devices as large tiles with a drawing of the hardware (phone, TV box, KDS), status as a small badge on the tile. Select a tile and the details appear in the same grouped rows underneath. Feels great on a bench with several devices plugged in.</div>
+<div class="modebar">Appearance <button data-mode="B" data-v="light" class="on">Light</button><button data-mode="B" data-v="dark">Dark</button></div>
+<div class="mac" id="B"></div>
+<p class="pc"><b>Good:</b> very visual, obviously “a device tool”. <b>Bad:</b> needs simple drawings per hardware type; less room for long lists.</p>
+
+<!-- ───────── C ───────── -->
+<span class="eyebrow">Option C</span>
+<div class="dname">Today's layout, Mac-polished</div>
+<div class="ddesc">Keeps the current structure (rail + centred panel) but swaps the web styling for Mac details: vibrancy sidebar, system font, hairlines, segmented class picker, smaller icons, native buttons. Least change.</div>
+<div class="modebar">Appearance <button data-mode="C" data-v="light" class="on">Light</button><button data-mode="C" data-v="dark">Dark</button></div>
+<div class="mac" id="C"></div>
+<p class="pc"><b>Good:</b> lowest risk, quick. <b>Bad:</b> the centred big-icon panel still reads a little “web”.</p>
+
+
+<!-- ───────── Animations ───────── -->
+<span class="eyebrow">All animations</span>
+<div class="dname">Every motion in the app, Mac style</div>
+<div class="ddesc">Short, springy, and only where something actually changed — the way macOS moves. Press <b>▶ Play all</b>, or play one at a time. Durations are 0.2–0.45 s with an ease-out spring; everything turns off with the system's “Reduce motion”.</div>
+<div class="chips2" id="Mchips">
+ <button class="play" data-a="all">▶ Play all</button>
+ <button data-a="plug">Phone plugged in</button><button data-a="select">Select a device</button><button data-a="class">Pick a class</button>
+ <button data-a="enrol">Enrol + progress</button><button data-a="notify">Done notification</button><button data-a="pair">Pairing sheet</button>
+ <button data-a="wrong">Wrong code</button><button data-a="unplug">Unplug cable</button><button data-a="blocked">Blocked phone</button><button data-a="toggle">Switch</button>
+</div>
+<div class="nowplaying" id="Mnow"></div>
+<div class="modebar">Appearance <button data-mode="M" data-v="light" class="on">Light</button><button data-mode="M" data-v="dark">Dark</button></div>
+<div class="mac" id="M"><div class="win"><div class="side"><div class="top"><div class="lights"><i></i><i></i><i></i></div></div><div class="sec">Devices</div><div class="mlist" id="Mlist"><div class="msel" id="Msel"></div></div></div>
+ <div class="main rel"><div class="tb"><div><div class="title" id="Mtitle">AIO Enroll</div><div class="sub" id="Msub">Waiting for devices</div></div><span class="sp"></span><div class="search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>Search</div><div class="avatar">AH</div></div>
+ <div class="pbar"><i id="Mbar"></i></div><div class="content" id="Mcontent"></div><div id="Msheet"></div>
+ <div class="banner" id="Mbanner"><div class="app"><svg class="ic" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg></div><div><b>Google Pixel 6 enrolled</b><span>Enrolled as kds by Ali Hassan</span></div></div>
+ </div></div></div>
+<p class="pc"><b>What moves, and why:</b> rows slide in when a device appears · the selection glides between rows · the detail pane cross-fades · the segmented thumb slides · Enrol turns into a progress bar with steps ticking off · success springs in and the sidebar row gets its green badge · a Notification Center banner when done · the pairing sheet drops from the toolbar and shakes on a wrong code (like a wrong Mac password) · unplugging fades the cable icon out · a blocked phone pulses red once · switches slide.</p>
+
+<span class="eyebrow">What changes in the app, whichever you pick</span>
+<p class="lead">• <b>Window:</b> overlay title bar with the traffic lights in our toolbar, macOS vibrancy on the sidebar, Mica on Windows, normal title bar on Linux.<br>
+• <b>Typography and icons:</b> system font stack, one consistent 1.6-stroke icon set at 13–16 px (no emoji anywhere), tabular numbers.<br>
+• <b>Native menus and shortcuts:</b> app menu, right-click menus on devices, keyboard shortcuts listed in the menus.<br>
+• <b>Sheets</b> for the pairing code and sign-in instead of centred pop-ups; <b>notifications</b> (Notification Center) when an enrolment finishes while the window is in the background.<br>
+• <b>Dark mode</b> follows the system exactly, with Apple's dark greys instead of our near-black.<br>
+• Everything the app does today stays: pairing, merge, nearby/ours, enrolled by, adb help.</p>
+<p class="lead"><b>Pick A, B or C</b> (or tell me what to borrow from each).</p>
+</div>
+
+<script>
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const I={
+ phone:ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>'),
+ tv:ic('<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>'),
+ kds:ic('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h5M7 12.5h8M9 21h6"/>'),
+ tablet:ic('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M10.5 17h3"/>'),
+ usb:ic('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>'),
+ wifi:ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>'),
+ chk:ic('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+ plus:ic('<path d="M12 5v14M5 12h14"/>'),
+ search:ic('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>'),
+ refresh:ic('<path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/>'),
+ radio:ic('<circle cx="12" cy="12" r="2"/><path d="M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>'),
+ clock:ic('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+ key:ic('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>'),
+};
+const DEV=[
+ {n:'Google Pixel 6',g:I.phone,c:'#8e8e93',conn:['usb','wifi'],st:'ready'},
+ {n:'AIO T7',g:I.tablet,c:'#f9674e',conn:['wifi'],st:'ok'},
+ {n:'SUNMI D2s KDS',g:I.kds,c:'#34c759',conn:['wifi'],st:'ok'},
+ {n:'HK1 RBOX D8',g:I.tv,c:'#5e5ce6',conn:['usb'],st:'blocked'},
+];
+const NEAR=[['AIO T7','10.32.0.113','#f9674e',I.tablet],['Phone','10.32.1.13','#8e8e93',I.phone],['Phone','10.32.2.93','#8e8e93',I.phone]];
+const lights='<div class="lights"><i></i><i></i><i></i></div>';
+const stat=d=>d.st==='ok'?`<span class="ok">${I.chk}</span>`:d.st==='blocked'?'<span class="dot"></span>':'';
+const conn=d=>d.conn.map(k=>I[k]).join('');
+const item=(d,sel)=>`<div class="item ${sel?'sel':''}"><span class="glyph" style="background:${d.c}">${d.g}</span><span class="nm">${d.n}</span><span class="meta">${conn(d)}</span>${stat(d)}</div>`;
+const toolbar=(title,sub)=>`<div class="tb"><div><div class="title">${title}</div><div class="sub">${sub}</div></div><span class="sp"></span><button class="tbtn" title="Refresh (⌘R)">${I.refresh}</button><div class="search">${I.search}Search devices</div><button class="tbtn" title="Add over Wi-Fi (⌘N)">${I.plus}</button><div class="avatar" title="Signed in">AH</div></div>`;
+let cls={A:'kds',B:'kds',C:'kds'},sheet={A:false};
+function segHTML(k){return `<div class="seg" data-k="${k}">${['dongle','pos','kds','kiosk'].map(c=>`<button class="${c===cls[k]?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>`;}
+function groups(k){
+  return `<div class="ghead">DEVICE</div><div class="group">
+    <div class="row"><span class="k">Model</span><span class="v">Google Pixel 6</span></div>
+    <div class="row"><span class="k">Serial number</span><span class="v mono">18121FDF60022T</span></div>
+    <div class="row"><span class="k">Android</span><span class="v">17</span></div></div>
+   <div class="ghead">CONNECTION</div><div class="group">
+    <div class="row"><span class="k">USB</span><span class="pill okp">${I.chk} Connected</span></div>
+    <div class="row"><span class="k">Wi-Fi</span><span class="v mono">10.32.2.210:5555</span><button class="btn link danger">Forget</button></div>
+    <div class="row"><span class="k">Safe to unplug the cable</span><span class="switch" title="Uses Wi-Fi when unplugged"></span></div></div>
+   <div class="ghead">ENROLLMENT</div><div class="group">
+    <div class="row"><span class="k">Status</span><span class="pill warnp">Not enrolled</span></div>
+    <div class="row"><span class="k">Used as</span>${segHTML(k)}</div>
+    <div class="row"><span class="k">Enrolled by</span><span class="v">You (Ali Hassan) when you press Enrol</span></div></div>
+   <div class="actions"><button class="btn">Switch to Wi-Fi only</button><button class="btn primary">Enrol</button></div>`;
+}
+function A(){
+  const el=document.getElementById('A');
+  el.innerHTML=`<div class="win"><div class="side"><div class="top">${lights}</div>
+    <div class="sec">Devices</div>${DEV.map((d,i)=>item(d,i===0)).join('')}
+    <div class="sec">Nearby <span class="count">· 3</span></div>${NEAR.map(n=>`<div class="item"><span class="glyph" style="background:${n[2]}">${n[3]}</span><span class="nm">${n[0]}</span><span class="count mono">${n[1]}</span></div>`).join('')}
+    <div class="sec">Wi-Fi</div><div class="item" id="Apair"><span class="glyph" style="background:#0a84ff">${I.key}</span><span class="nm">Pair a phone…</span></div>
+   </div><div class="main rel">${toolbar('Google Pixel 6','Ready to enrol')}<div class="content">
+    <div class="hdr"><div class="big">${I.phone}</div><div><h2>Google Pixel 6</h2><p>Ready to enrol · USB + Wi-Fi</p></div></div>${groups('A')}</div>
+    ${sheet.A?`<div class="sheetwrap" id="Aback"><div class="sheet"><h3>Pair with AIO T7</h3><p>Enter the 6-digit code shown on the phone under Wireless debugging ▸ Pair device with pairing code.</p><div class="code"><span>4</span><span>8</span><span>2</span><span class="f">9</span><span></span><span></span></div><div class="actions"><button class="btn" id="Acancel">Cancel</button><button class="btn primary" disabled style="opacity:.5">Pair</button></div></div></div>`:''}
+   </div></div>`;
+  wire('A',A);
+  el.querySelector('#Apair').onclick=()=>{sheet.A=true;A();};
+  const b=el.querySelector('#Acancel');if(b)b.onclick=()=>{sheet.A=false;A();};
+  const bk=el.querySelector('#Aback');if(bk)bk.onclick=e=>{if(e.target===bk){sheet.A=false;A();}};
+}
+let selB=0;
+function B(){
+  const el=document.getElementById('B');
+  const art=['','tv','kds',''];
+  el.innerHTML=`<div class="win" style="grid-template-columns:1fr"><div class="main">
+    <div class="tb">${lights}<div style="margin-left:8px"><div class="title">AIO Enroll</div><div class="sub">4 devices connected</div></div><span class="sp"></span><button class="tbtn">${I.refresh}</button><div class="search">${I.search}Search</div><button class="tbtn">${I.plus}</button><div class="avatar">AH</div></div>
+    <div class="content"><div class="tiles">${DEV.map((d,i)=>`<div class="tile ${i===selB?'sel':''}" data-i="${i}"><span class="badge">${stat(d)}</span><div class="art ${['','kds','kds','tv'][i]}"></div><b>${d.n}</b><small>${d.st==='ok'?'Enrolled':d.st==='blocked'?'Has an account':'Ready'} · ${d.conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')}</small></div>`).join('')}</div>
+    <div style="margin-top:18px">${selB===0?groups('B'):`<div class="ghead">DEVICE</div><div class="group"><div class="row"><span class="k">${DEV[selB].n}</span><span class="pill ${DEV[selB].st==='ok'?'okp':'badp'}">${DEV[selB].st==='ok'?'Enrolled':'Can’t be enrolled'}</span></div></div>`}</div></div>
+    <div class="bottombar">${I.radio.replace('class="ic"','class="ic" style="width:14px;height:14px"')} 3 phones nearby · <span class="btn link">Show</span><span style="flex:1"></span>Signed in as Ali Hassan</div>
+  </div></div>`;
+  wire('B',B);
+  el.querySelectorAll('.tile').forEach(t=>t.onclick=()=>{selB=+t.dataset.i;B();});
+}
+function C(){
+  const el=document.getElementById('C');
+  el.innerHTML=`<div class="win"><div class="side"><div class="top">${lights}</div>${DEV.map((d,i)=>item(d,i===0)).join('')}
+    <div class="sec">Nearby · 3</div><div class="sec" style="padding-top:0">Saved</div></div>
+    <div class="main">${toolbar('AIO Enroll','')}<div class="content" style="display:flex;flex-direction:column;align-items:center;text-align:center">
+     <div class="hdr" style="flex-direction:column;gap:8px;margin-top:10px"><div class="big" style="width:72px;height:72px;border-radius:18px">${I.phone}</div><div><h2>Google Pixel 6</h2><p class="mono">18121FDF60022T · Android 17</p></div></div>
+     <div style="display:flex;gap:6px;margin-bottom:16px"><span class="pill okp">${I.usb}${I.wifi} USB + Wi-Fi</span></div>
+     <div style="margin-bottom:12px">${segHTML('C')}</div>
+     <button class="btn primary" style="padding:7px 40px">Enrol</button>
+     <div style="margin-top:auto;padding-top:24px;display:flex;gap:16px;color:var(--m-sub);font-size:12px"><button class="btn link">Switch to Wi-Fi only</button><button class="btn link danger">Forget Wi-Fi link</button></div>
+    </div></div></div>`;
+  wire('C',C);
+}
+function wire(k,fn){
+  document.querySelectorAll(`#${k} .seg[data-k="${k}"] button`).forEach(b=>b.onclick=()=>{cls[k]=b.dataset.c;fn();});
+}
+document.querySelectorAll('.modebar button').forEach(b=>b.onclick=()=>{
+  const k=b.dataset.mode;document.getElementById(k).classList.toggle('dark',b.dataset.v==='dark');
+  document.querySelectorAll(`.modebar button[data-mode="${k}"]`).forEach(x=>x.classList.toggle('on',x===b));
+});
+A();B();C();
+
+/* ───────── Animations player ───────── */
+const M={el:document.getElementById('M')};
+const $m=(id)=>document.getElementById(id);
+const msleep=ms=>new Promise(r=>setTimeout(r,ms));
+let mtok={};
+const BASE=[{n:'AIO T7',g:I.tablet,c:'#f9674e',conn:['wifi'],st:'ok'},{n:'SUNMI D2s KDS',g:I.kds,c:'#34c759',conn:['wifi'],st:'ok'}];
+let mrows=[];
+function mrow(d,enter){
+  const el=document.createElement('div');el.className='item'+(enter?' enter':'');
+  el.innerHTML=`<span class="glyph" style="background:${d.c}">${d.g}</span><span class="nm">${d.n}</span><span class="meta">${d.conn.map(k=>`<span class="c" data-k="${k}">${I[k]}</span>`).join('')}</span><span class="stat">${d.st==='ok'?`<span class="ok">${I.chk}</span>`:d.st==='blocked'?'<span class="dot"></span>':''}</span>`;
+  return el;
+}
+function mreset(){
+  const list=$m('Mlist');list.querySelectorAll('.item').forEach(e=>e.remove());
+  mrows=BASE.map(d=>({...d}));mrows.forEach(d=>list.appendChild(mrow(d,false)));
+  $m('Msel').style.opacity=0;$m('Mtitle').textContent='AIO Enroll';$m('Msub').textContent='2 devices';
+  $m('Mcontent').innerHTML='<div class="xfade" style="text-align:center;color:var(--m-sub);margin-top:120px">Plug in a phone, or pair one over Wi-Fi.</div>';
+  $m('Msheet').innerHTML='';$m('Mbanner').classList.remove('show');$m('Mbar').style.width='0';
+}
+function mselect(i){
+  const sel=$m('Msel'),items=[...$m('Mlist').querySelectorAll('.item')];
+  sel.style.opacity=1;sel.style.transform=`translateY(${i*30}px)`;
+  items.forEach((e,k)=>e.classList.toggle('sel',k===i));
+}
+function mdetail(d,extra=''){
+  const both=d.conn.length>1;
+  $m('Mtitle').textContent=d.n;$m('Msub').textContent=d.st==='ok'?'Enrolled':d.st==='blocked'?'Can’t be enrolled':'Ready to enrol';
+  $m('Mcontent').innerHTML=`<div class="xfade"><div class="hdr"><div class="big" id="Mbig">${d.g}</div><div><h2>${d.n}</h2><p>${d.st==='blocked'?'Has an account':'Ready to enrol'} · <span id="Mconn">${d.conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')}</span></p></div></div>
+   <div class="ghead">CONNECTION</div><div class="group"><div class="row"><span class="k">Connected</span><span class="pill okp" id="Mcp">${d.conn.map(c=>I[c]).join('')} ${d.conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')}</span></div>
+   <div class="row"><span class="k">Use Wi-Fi when the cable is unplugged</span><span class="switch anim off" id="Msw"></span></div></div>
+   <div class="ghead">ENROLLMENT</div><div class="group" id="Mgroup">
+    ${d.st==='blocked'?`<div class="row"><span class="k">Status</span><span class="pill badp" id="Mbad">Has an account · Can’t be enrolled</span></div>`:
+    `<div class="row"><span class="k">Used as</span><div class="seg thumb" id="Mseg"><span class="th"></span>${['dongle','pos','kds','kiosk'].map(c=>`<button data-c="${c}">${c}</button>`).join('')}</div></div>`}</div>
+   ${d.st==='blocked'?'':`<div class="actions"><button class="btn primary" id="Mgo">Enrol</button></div>`}${extra}</div>`;
+  const seg=$m('Mseg');if(seg)mthumb('pos',true);
+}
+function mthumb(c,instant){
+  const seg=$m('Mseg');if(!seg)return;const b=seg.querySelector(`[data-c="${c}"]`),th=seg.querySelector('.th');
+  if(instant){th.style.transition='none';}
+  th.style.left=b.offsetLeft+'px';th.style.width=b.offsetWidth+'px';
+  if(instant){void th.offsetWidth;th.style.transition='';}
+}
+const PIXEL={n:'Google Pixel 6',g:I.phone,c:'#8e8e93',conn:['usb'],st:'ready'};
+async function press(el){if(!el)return;el.classList.add('press');await msleep(130);el.classList.remove('press');}
+const A_={
+ async plug(t){$m('Mnow').textContent='A phone is plugged in: its row slides into the sidebar';const d={...PIXEL};mrows.push(d);$m('Mlist').appendChild(mrow(d,true));$m('Msub').textContent='3 devices';await msleep(700);},
+ async select(t){$m('Mnow').textContent='Selecting: the highlight glides, the detail cross-fades';if(mrows.length<3)await A_.plug(t);
+   mselect(0);mdetail(mrows[0]);await msleep(650);if(mtok!==t)return;mselect(1);mdetail(mrows[1]);await msleep(650);if(mtok!==t)return;mselect(2);mdetail(mrows[2]);await msleep(600);},
+ async class(t){$m('Mnow').textContent='Picking a class: the segmented thumb slides';if(!$m('Mseg'))await A_.select(t);
+   for(const c of ['kds','kiosk','dongle','kds']){if(mtok!==t)return;mthumb(c);await msleep(420);}},
+ async enrol(t){$m('Mnow').textContent='Enrol: the button turns into progress, steps tick off, success springs in';if(!$m('Mgo'))await A_.class(t);if(mtok!==t)return;
+   const go=$m('Mgo');await press(go);go.innerHTML='<span class="mspin"></span>Enrolling…';go.disabled=true;
+   const g=$m('Mgroup');const steps=['Checking the device','Installing the agent','Setting Device Owner','Starting the agent','Waiting for the MDM'];
+   for(let i=0;i<steps.length;i++){if(mtok!==t)return;
+     const r=document.createElement('div');r.className='row step';r.innerHTML=`<span class="k">${steps[i]}</span><span class="mspin d"></span>`;g.appendChild(r);
+     $m('Mbar').style.width=((i+1)/steps.length*100)+'%';await msleep(480);r.lastChild.outerHTML=`<span class="chk">${I.chk}</span>`;}
+   await msleep(250);if(mtok!==t)return;
+   $m('Mbig').outerHTML=`<div class="bigok" id="Mbig">${I.chk}</div>`;go.textContent='Enrolled';go.style.background='var(--m-ok)';
+   $m('Msub').textContent='Enrolled · kds';const hp=$m('Mcontent').querySelector('.hdr p');if(hp)hp.innerHTML='Enrolled as kds · <span id="Mconn">'+mrows[2].conn.map(c=>c==='usb'?'USB':'Wi-Fi').join(' + ')+'</span>';const row=$m('Mlist').querySelectorAll('.item')[2];if(row)row.querySelector('.stat').innerHTML=`<span class="ok">${I.chk}</span>`;
+   mrows[2].st='ok';await msleep(500);$m('Mbar').style.transition='opacity .4s';$m('Mbar').style.opacity=0;await msleep(450);$m('Mbar').style.width='0';$m('Mbar').style.opacity=1;$m('Mbar').style.transition='';},
+ async notify(t){$m('Mnow').textContent='Done while you were elsewhere: a Notification Center banner';const b=$m('Mbanner');b.classList.add('show');await msleep(2200);b.classList.remove('show');await msleep(500);},
+ async pair(t,wrong){$m('Mnow').textContent=wrong?'Wrong code: the sheet shakes, like a wrong Mac password':'Pairing: the sheet drops from the toolbar, digits fill in';
+   const sh=$m('Msheet');sh.innerHTML=`<div class="sheetwrap" id="Mback"><div class="sheet" id="Mshe"><h3>Pair with AIO T7</h3><p>Enter the 6-digit code shown on the phone.</p><div class="code" id="Mcode">${'<span></span>'.repeat(6)}</div><div class="actions"><button class="btn">Cancel</button><button class="btn primary" id="Mpb" style="opacity:.5">Pair</button></div></div></div>`;
+   await msleep(450);const boxes=[...$m('Mcode').children];
+   const type=async(code)=>{boxes.forEach(b=>{b.textContent='';b.classList.remove('f','typed');});
+     for(let i=0;i<6;i++){if(mtok!==t)return;boxes.forEach((b,k)=>b.classList.toggle('f',k===i));boxes[i].textContent=code[i];boxes[i].classList.add('typed');await msleep(140);}
+     boxes.forEach(b=>b.classList.remove('f'));$m('Mpb').style.opacity=1;};
+   if(wrong){await type('111111');if(mtok!==t)return;await press($m('Mpb'));await msleep(250);$m('Mshe').classList.add('shake');await msleep(520);$m('Mshe').classList.remove('shake');$m('Mpb').style.opacity=.5;await msleep(200);}
+   await type('482913');if(mtok!==t)return;await press($m('Mpb'));$m('Mpb').innerHTML='<span class="mspin"></span>Pairing…';await msleep(900);if(mtok!==t)return;
+   $m('Mshe').classList.add('out');$m('Mback').classList.add('out');await msleep(260);sh.innerHTML='';
+   if(!mrows.some(r=>r.n==='AIO T7 (2)')){const d={n:'AIO T7 (2)',g:I.tablet,c:'#f9674e',conn:['wifi'],st:'ready'};mrows.push(d);$m('Mlist').appendChild(mrow(d,true));await msleep(450);mselect(mrows.length-1);mdetail(d);}
+   await msleep(600);},
+ async wrong(t){await A_.pair(t,true);},
+ async unplug(t){$m('Mnow').textContent='Unplugging the cable: the USB icon fades out, the Wi-Fi link carries on';
+   let i=mrows.findIndex(r=>r.n==='Google Pixel 6');if(i<0){await A_.plug(t);i=mrows.length-1;}
+   const d=mrows[i];if(!d.conn.includes('wifi')){d.conn=['usb','wifi'];const meta=$m('Mlist').querySelectorAll('.item')[i].querySelector('.meta');const w=document.createElement('span');w.className='c new';w.innerHTML=I.wifi;meta.appendChild(w);}
+   mselect(i);mdetail(d);await msleep(900);if(mtok!==t)return;
+   const u=$m('Mlist').querySelectorAll('.item')[i].querySelector('.c[data-k="usb"]');if(u)u.classList.add('gone');
+   const p=$m('Mcp');if(p){p.classList.remove('flip');void p.offsetWidth;p.innerHTML=`${I.wifi} Wi-Fi`;p.classList.add('flip');}
+   const c=$m('Mconn');if(c)c.textContent='Wi-Fi';d.conn=['wifi'];await msleep(900);},
+ async blocked(t){$m('Mnow').textContent='A phone that can’t be enrolled: the red dot pulses once, the status shakes';
+   const d={n:'HK1 RBOX D8',g:I.tv,c:'#5e5ce6',conn:['usb'],st:'blocked'};mrows.push(d);const el=mrow(d,true);$m('Mlist').appendChild(el);await msleep(450);
+   mselect(mrows.length-1);mdetail(d);el.querySelector('.dot').classList.add('pulse');await msleep(350);const b=$m('Mbad');if(b)b.classList.add('shake');await msleep(1200);},
+ async toggle(t){$m('Mnow').textContent='Switches slide';if(!$m('Msw')){mselect(0);mdetail(mrows[0]);await msleep(400);}
+   for(let k=0;k<3;k++){if(mtok!==t)return;$m('Msw').classList.toggle('off');await msleep(550);}},
+};
+async function mplay(which){
+  const t=mtok={};document.querySelectorAll('#Mchips button').forEach(b=>b.classList.toggle('now',b.dataset.a===which));
+  mreset();await msleep(350);
+  const seq=which==='all'?['plug','select','class','enrol','notify','pair','wrong','unplug','blocked','toggle']:[which];
+  for(const a of seq){if(mtok!==t)return;document.querySelectorAll('#Mchips button').forEach(b=>b.classList.toggle('now',b.dataset.a===a||(which==='all'&&b.dataset.a==='all')));await A_[a](t);await msleep(350);}
+  if(mtok===t)$m('Mnow').textContent='Done. Press any button to replay.';
+}
+document.querySelectorAll('#Mchips button').forEach(b=>b.onclick=()=>mplay(b.dataset.a));
+mreset();
+</script></body></html>

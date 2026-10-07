@@ -72,3 +72,55 @@ func (d *DB) LastAdbTCPAttempt(ctx context.Context, deviceID uuid.UUID) (status,
 	}
 	return status, output, at, true, nil
 }
+
+// AdbTCPFleetRow is one device's wireless-adb history for the Wireless adb page: its
+// last adb_tcp attempt (whatever became of it) and, when it completed, what it set.
+type AdbTCPFleetRow struct {
+	DeviceID   uuid.UUID
+	LastStatus string // delivered / received / completed / failed / …
+	LastOutput string // the device's reply (why a try failed)
+	LastAt     time.Time
+	LastBy     string // username snapshotted on the command
+	Port       int    // what the last attempt asked for (0 = off)
+	Hours      int
+}
+
+// AdbTCPFleet returns the last adb_tcp command per device, for every device that ever
+// got one. One query for the page instead of two per device (LastAdbTCP +
+// LastAdbTCPAttempt), which would not scale past a handful of rows.
+func (d *DB) AdbTCPFleet(ctx context.Context) (map[uuid.UUID]AdbTCPFleetRow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (s.device_id) s.device_id, s.status, COALESCE(cr.output, ''), s.updated_at,
+		       c.created_by, c.payload
+		FROM command_status s
+		JOIN commands c ON c.id = s.command_id
+		LEFT JOIN command_results cr ON cr.command_id = s.command_id AND cr.device_id = s.device_id
+		WHERE c.type = 'adb_tcp'
+		ORDER BY s.device_id, c.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]AdbTCPFleetRow{}
+	for rows.Next() {
+		var r AdbTCPFleetRow
+		var payload json.RawMessage
+		if err := rows.Scan(&r.DeviceID, &r.LastStatus, &r.LastOutput, &r.LastAt, &r.LastBy, &payload); err != nil {
+			return nil, err
+		}
+		p := struct {
+			Port  *int `json:"port"`
+			Hours *int `json:"hours"`
+		}{}
+		_ = json.Unmarshal(payload, &p)
+		r.Port, r.Hours = 5555, 24
+		if p.Port != nil {
+			r.Port = *p.Port
+		}
+		if p.Hours != nil {
+			r.Hours = *p.Hours
+		}
+		out[r.DeviceID] = r
+	}
+	return out, rows.Err()
+}

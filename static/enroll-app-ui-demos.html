@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — friendlier UI & motion — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1080px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:820px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:820px;line-height:1.5;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:820px;line-height:1.5;}
+.pc b{color:var(--text);}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.ctl{display:flex;gap:8px;align-items:center;margin:0 0 10px;}
+.mono{font-family:var(--font-mono,monospace);font-size:11.5px;}
+
+/* window frame */
+.win{width:100%;max-width:780px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 18px 44px rgba(20,22,40,.16);position:relative;}
+.tb{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.tb i{width:12px;height:12px;border-radius:50%;display:block;}
+.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.tb .t{flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--muted);margin-right:48px;}
+.stage{min-height:360px;padding:18px 20px 52px;position:relative;}
+.h{font-size:16px;font-weight:700;margin:0 0 2px;}.s{font-size:12px;color:var(--muted);margin:0 0 14px;}
+.foot{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted);background:var(--surface2);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:pulse 1.4s infinite;}
+@keyframes pulse{50%{opacity:.3}}
+.ph{width:36px;height:36px;border-radius:10px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;}
+.cls{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+
+/* shared motion */
+@keyframes slidein{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--ok-edge)}100%{box-shadow:0 0 0 14px transparent}}
+@keyframes radar{0%{transform:scale(.3);opacity:.7}100%{transform:scale(1.7);opacity:0}}
+@keyframes shake{20%,60%{transform:translateX(-3px)}40%,80%{transform:translateX(3px)}}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.in{animation:slidein .45s cubic-bezier(.2,.8,.2,1) both;}
+.tagpop{animation:pop .4s cubic-bezier(.2,.9,.3,1.3) both;}
+.check{width:22px;height:22px;stroke:var(--ok);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.check path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .45s .1s ease-out forwards;}
+.spin{width:14px;height:14px;border:2px solid var(--accent-edge);border-top-color:var(--accent);border-radius:50%;animation:rot .8s linear infinite;display:inline-block;}
+@keyframes rot{to{transform:rotate(360deg)}}
+.radar{position:relative;width:120px;height:120px;margin:34px auto 12px;display:flex;align-items:center;justify-content:center;font-size:34px;}
+.radar b{position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:radar 2.4s ease-out infinite;}
+.radar b:nth-child(2){animation-delay:.8s}.radar b:nth-child(3){animation-delay:1.6s}
+.emptyt{text-align:center;color:var(--muted);font-size:13px;}.emptyt b{display:block;color:var(--text);font-size:14px;margin-bottom:2px;}
+.press{transform:scale(.94);transition:transform .12s;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}}
+
+/* A · list */
+.row{display:flex;align-items:center;gap:12px;padding:12px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);margin-bottom:9px;position:relative;overflow:hidden;}
+.row .m{flex:1;min-width:0}.row .m b{display:block;font-size:13px}.row .m span{font-size:11.5px;color:var(--muted)}
+.row .bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));transition:width .6s ease;}
+.row .stepline{font-size:11.5px;color:var(--accent-text);display:flex;align-items:center;gap:7px;animation:fade .3s both;}
+.row.done{animation:flash .9s ease-out;border-color:var(--ok-edge);}
+.row.blocked{border-color:var(--danger-edge);}
+.row .help{font-size:11.5px;color:var(--muted);max-width:230px;line-height:1.4;}
+
+/* B · focus */
+.focus{display:grid;grid-template-columns:200px 1fr;gap:14px;min-height:300px;}
+.rail{display:flex;flex-direction:column;gap:8px;}
+.ri{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;position:relative;}
+.ri.on{border-color:var(--accent-edge);background:var(--accent-soft);}
+.ri .ph{width:28px;height:28px;font-size:14px;}
+.ri i{position:absolute;right:9px;top:50%;width:8px;height:8px;border-radius:50%;margin-top:-4px;background:var(--ok);}
+.ri i.bad{background:var(--danger)}.ri i.wait{background:var(--warn)}
+.hero{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:22px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;position:relative;overflow:hidden;}
+.bigph{width:84px;height:84px;border-radius:22px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:6px;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0;}
+.chips span{padding:7px 15px;border-radius:99px;border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.chips span.on{background:var(--accent);color:#fff;border-color:var(--accent);transform:translateY(-1px);}
+.bigbtn{padding:11px 34px;font-size:14px;border-radius:12px;}
+.tl{list-style:none;margin:6px 0 0;padding:0;text-align:left;width:100%;max-width:300px;}
+.tl li{display:flex;align-items:center;gap:11px;padding:6px 0;font-size:12.5px;color:var(--muted);position:relative;transition:color .3s;}
+.tl li::before{content:"";width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex:none;background:var(--surface);transition:all .3s;z-index:1;}
+.tl li:not(:last-child)::after{content:"";position:absolute;left:7px;top:24px;width:2px;height:16px;background:var(--border);transition:background .3s;}
+.tl li.on{color:var(--text);font-weight:600}.tl li.on::before{border-color:var(--accent);border-top-color:transparent;animation:rot .8s linear infinite;}
+.tl li.ok{color:var(--text)}.tl li.ok::before{background:var(--ok);border-color:var(--ok);}
+.tl li.ok:not(:last-child)::after{background:var(--ok)}
+.ring{position:absolute;left:50%;top:92px;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:3px solid var(--ok);opacity:0;pointer-events:none;}
+.ring.go{animation:radar .9s ease-out;}
+.okbig{width:64px;height:64px;border-radius:50%;background:var(--ok-bg);display:flex;align-items:center;justify-content:center;animation:pop .5s both;}
+.okbig .check{width:34px;height:34px;}
+
+/* C · bench */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.tile{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;position:relative;}
+.tile b{font-size:13px}.tile .k{font-size:11px;color:var(--muted)}
+.rg{position:relative;width:76px;height:76px;margin-bottom:2px;}
+.rg svg{position:absolute;inset:0;transform:rotate(-90deg);}
+.rg circle{fill:none;stroke-width:5;}
+.rg .bg{stroke:var(--surface-3)}.rg .fg{stroke:var(--accent);stroke-linecap:round;stroke-dasharray:201;stroke-dashoffset:201;transition:stroke-dashoffset .7s ease,stroke .3s;}
+.rg .ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;}
+.tile.done .fg{stroke:var(--ok);stroke-dashoffset:0}
+.tile.done{animation:flash .9s ease-out;border-color:var(--ok-edge)}
+.tile.blocked{border-color:var(--danger-edge)}
+.tile.blocked .fg{stroke:var(--danger);stroke-dashoffset:0;opacity:.35}
+.tile.shake{animation:shake .4s}
+.tile .step{font-size:11px;color:var(--accent-text);min-height:14px;animation:fade .3s both;}
+.counter{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;}
+.counter .n{font-size:30px;font-weight:800;line-height:1;transition:transform .25s;}
+.counter .n.bump{transform:scale(1.25);color:var(--ok);}
+.counter span{font-size:12px;color:var(--muted)}
+.conf{position:absolute;width:7px;height:7px;border-radius:2px;left:50%;top:44px;pointer-events:none;animation:burst .9s ease-out forwards;}
+@keyframes burst{to{transform:translate(var(--x),var(--y)) rotate(var(--r));opacity:0}}
+@media(max-width:820px){.focus{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — friendlier, with motion</h1>
+<p class="lead">Same app, same options-A list idea you picked, but three different ways to make it friendly and alive. Each window below is <b>interactive</b>: press <b>▶ Play</b> to run the whole story — waiting for a device → a phone is plugged in → someone clicks Enroll → seven steps run → done — with a second, <b>blocked</b> device beside it to show the friendly error. All motion respects “reduce motion” in the OS.</p>
+<p class="lead">Words people see are plain (“Installing the agent…”), never adb output. Errors say <b>what to do</b>, not what failed.</p>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">Calm list with live progress <span class="rec">recommended</span></div>
+<div class="ddesc">Keeps the list you chose. Waiting state is a soft radar pulse. A device slides in; on Enroll the row grows a progress bar with the current step written in words; on success the row flashes green and the check draws itself. Blocked rows explain the fix right on the row.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="A">▶ Play</button></div>
+<div class="win" id="A"></div>
+<p class="pc"><b>Good:</b> least change from what you approved, scales to many devices, everything visible at once. <b>Bad:</b> less “wow” than the others; progress is a thin bar.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">Focus panel with a step timeline</div>
+<div class="ddesc">Left rail lists devices with a status dot; the big panel shows the selected one. Pick a class as pills, press a large Enroll button, and a vertical timeline fills in step by step with a ring burst and big check at the end. Most guided, great for a first-timer.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="B">▶ Play</button></div>
+<div class="win" id="B"></div>
+<p class="pc"><b>Good:</b> impossible to miss what is happening; feels like a setup assistant. <b>Bad:</b> one device in focus at a time, so batch enrolling means extra clicks.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">Bench tiles with progress rings and a counter</div>
+<div class="ddesc">Each device is a tile with a ring that fills as it enrolls, then turns green with a small confetti pop. A running “enrolled today” counter bumps on every success — good motivation on a bench doing 30 devices. Blocked tiles shake once and show the fix.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="C">▶ Play</button></div>
+<div class="win" id="C"></div>
+<p class="pc"><b>Good:</b> several devices enrolling in parallel are easy to watch; fun. <b>Bad:</b> least information per device; confetti may feel unserious to some.</p>
+
+<span class="eyebrow">Recommendation</span>
+<p class="lead"><b>A</b>, plus two bits borrowed: B's step wording as a tooltip-style detail, and C's “enrolled today” counter in the footer. It keeps batch work fast and still feels polished.</p>
+<p class="lead">Also planned in all options: light/dark following the OS, a first-run welcome that says “Plug in a device”, a one-line “adb not found / driver missing” help card, and Esc/Enter keyboard shortcuts.</p>
+</div>
+
+<script>
+const STEPS=['Checking the device','Getting a token','Installing the agent','Setting Device Owner','Granting permissions','Starting the agent','Waiting for the server'];
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const CHECK='<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const tb='<div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>';
+const runs={};           // cancel token per demo
+const alive=(id,t)=>runs[id]===t;
+
+/* ───────── A ───────── */
+async function playA(){
+  const id='A',t=runs[id]={};const el=document.getElementById(id);
+  el.innerHTML=tb+`<div class="stage"><div class="h">Connected devices</div><div class="s">Plug in a device and tap “Allow USB debugging”.</div>
+   <div class="list"></div>
+   <div class="empty"><div class="radar"><b></b><b></b><b></b>📱</div><div class="emptyt"><b>Waiting for a device</b>Connect one with a USB cable.</div></div></div>
+   <div class="foot"><span class="dot"></span><span class="f">Watching for devices</span><span style="flex:1"></span><span class="mono cnt">0 enrolled today</span></div>`;
+  const list=el.querySelector('.list'),empty=el.querySelector('.empty');
+  await sleep(1800);if(!alive(id,t))return;
+  empty.remove();
+  const r=document.createElement('div');r.className='row in';
+  r.innerHTML=`<div class="ph">📺</div><div class="m"><b>Google HK1 RBOX D8</b><span class="mono">A1B2C3D4E5 · Android 11</span></div>
+    <span class="cc-tag ok st">Ready</span><div class="act"><select class="cls"><option>dongle</option></select> <button class="cc-btn primary sm">Enroll</button></div><div class="bar"></div>`;
+  list.appendChild(r);
+  await sleep(700);if(!alive(id,t))return;
+  const b=document.createElement('div');b.className='row blocked in';
+  b.innerHTML=`<div class="ph">📱</div><div class="m"><b>Pixel 6</b><span class="mono">18121FDF60022T · Android 17</span></div>
+    <span class="help">Signed in to a Google account. Factory reset it, then plug it in again <u>without</u> adding an account.</span><span class="cc-tag bad">Blocked</span>`;
+  list.appendChild(b);
+  await sleep(1800);if(!alive(id,t))return;
+  const btn=r.querySelector('button');btn.classList.add('press');await sleep(160);btn.classList.remove('press');
+  r.querySelector('.act').innerHTML='<span class="stepline"><span class="spin"></span><span class="sl"></span></span>';
+  r.querySelector('.st').outerHTML='<span class="cc-tag warn st">Enrolling…</span>';
+  const bar=r.querySelector('.bar'),sl=r.querySelector('.sl');
+  for(let i=0;i<STEPS.length;i++){
+    if(!alive(id,t))return;
+    sl.textContent=STEPS[i]+'…';sl.parentNode.style.animation='none';void sl.offsetWidth;sl.parentNode.style.animation='';
+    bar.style.width=((i+1)/STEPS.length*100)+'%';
+    await sleep(750);
+  }
+  r.classList.add('done');
+  r.querySelector('.act').innerHTML=CHECK+'<span class="mono" style="color:var(--muted)">agent 0.2.8</span>';
+  r.querySelector('.st').outerHTML='<span class="cc-tag ok tagpop">Enrolled · dongle</span>';
+  bar.style.width='0';
+  el.querySelector('.cnt').textContent='1 enrolled today';
+}
+
+/* ───────── B ───────── */
+async function playB(){
+  const id='B',t=runs[id]={};const el=document.getElementById(id);
+  el.innerHTML=tb+`<div class="stage"><div class="focus"><div class="rail"></div><div class="hero"></div></div></div>
+   <div class="foot"><span class="dot"></span>Watching for devices</div>`;
+  const rail=el.querySelector('.rail'),hero=el.querySelector('.hero');
+  hero.innerHTML='<div class="radar"><b></b><b></b><b></b>📱</div><div class="emptyt"><b>Plug in a device</b>It appears here by itself.</div>';
+  await sleep(1800);if(!alive(id,t))return;
+  rail.innerHTML=`<div class="ri on in" data-k="1"><div class="ph">📺</div>HK1 RBOX D8<i class="wait"></i></div>`;
+  let cls='dongle';
+  hero.innerHTML=`<div class="bigph in">📺</div><div class="h in">Google HK1 RBOX D8</div><div class="s mono in" style="margin:0">A1B2C3D4E5 · Android 11</div>
+    <div class="s in" style="margin-top:12px">What is this device used for?</div>
+    <div class="chips in">${['dongle','pos','kds','kiosk'].map(c=>`<span class="${c===cls?'on':''}">${c}</span>`).join('')}</div>
+    <button class="cc-btn primary bigbtn in">Enroll this device</button>`;
+  await sleep(900);if(!alive(id,t))return;
+  rail.insertAdjacentHTML('beforeend','<div class="ri in"><div class="ph">📱</div>Pixel 6<i class="bad"></i></div>');
+  await sleep(900);if(!alive(id,t))return;
+  const chips=[...hero.querySelectorAll('.chips span')];
+  chips.forEach(c=>c.classList.remove('on'));chips[0].classList.add('on');
+  await sleep(1000);if(!alive(id,t))return;
+  const btn=hero.querySelector('button');btn.classList.add('press');await sleep(160);
+  hero.innerHTML=`<div class="bigph">📺</div><div class="h">Enrolling HK1 RBOX D8…</div><ul class="tl">${STEPS.map(s=>`<li>${s}</li>`).join('')}</ul><div class="ring"></div>`;
+  const lis=[...hero.querySelectorAll('li')];
+  for(const li of lis){if(!alive(id,t))return;li.classList.add('on');await sleep(700);li.classList.remove('on');li.classList.add('ok');}
+  hero.innerHTML=`<div class="okbig">${CHECK}</div><div class="h" style="margin-top:8px">Enrolled</div><div class="s">HK1 RBOX D8 · dongle · agent 0.2.8</div><button class="cc-btn primary">Next device</button><div class="ring go"></div>`;
+  rail.querySelector('i').className='';
+}
+
+/* ───────── C ───────── */
+async function playC(){
+  const id='C',t=runs[id]={};const el=document.getElementById(id);
+  el.innerHTML=tb+`<div class="stage"><div class="counter"><div class="n">0</div><span>enrolled today</span></div><div class="tiles"></div></div>
+   <div class="foot"><span class="dot"></span>Watching for devices</div>`;
+  const tiles=el.querySelector('.tiles'),n=el.querySelector('.n');
+  const mk=(icon,name,sub)=>{const d=document.createElement('div');d.className='tile in';
+    d.innerHTML=`<div class="rg"><svg viewBox="0 0 76 76"><circle class="bg" cx="38" cy="38" r="32"/><circle class="fg" cx="38" cy="38" r="32"/></svg><div class="ic">${icon}</div></div><b>${name}</b><span class="k mono">${sub}</span><div class="slot"></div>`;
+    tiles.appendChild(d);return d;};
+  await sleep(1000);if(!alive(id,t))return;
+  const a=mk('📺','HK1 RBOX D8','A1B2C3D4E5');a.querySelector('.slot').innerHTML='<span class="cc-tag ok">Ready</span><div style="height:6px"></div><button class="cc-btn primary sm" style="width:100%">Enroll</button>';
+  await sleep(600);if(!alive(id,t))return;
+  const b=mk('🧾','Sunmi D3 Pro','D3P20230411');b.querySelector('.slot').innerHTML='<span class="cc-tag ok">Ready</span><div style="height:6px"></div><button class="cc-btn primary sm" style="width:100%">Enroll</button>';
+  await sleep(600);if(!alive(id,t))return;
+  const c=mk('📱','Pixel 6','18121FDF60022T');c.classList.add('blocked','shake');
+  c.querySelector('.slot').innerHTML='<span class="cc-tag bad">Blocked</span><div class="k" style="font-size:11px;color:var(--muted);margin-top:4px">Has a Google account.<br>Factory reset first.</div>';
+  await sleep(1500);if(!alive(id,t))return;
+  const go=async(tile,stagger)=>{
+    await sleep(stagger);
+    const bt=tile.querySelector('button');bt.classList.add('press');await sleep(150);
+    tile.querySelector('.slot').innerHTML='<span class="cc-tag warn">Enrolling…</span><div class="step"></div>';
+    const st=tile.querySelector('.step'),fg=tile.querySelector('.fg');
+    for(let i=0;i<STEPS.length;i++){
+      if(!alive(id,t))return;
+      st.textContent=STEPS[i]+'…';st.style.animation='none';void st.offsetWidth;st.style.animation='';
+      fg.style.strokeDashoffset=201-201*((i+1)/STEPS.length);await sleep(650);
+    }
+    tile.classList.add('done');tile.querySelector('.slot').innerHTML='<span class="cc-tag ok tagpop">Enrolled</span>';
+    tile.querySelector('.ic').innerHTML=CHECK.replace('class="check"','class="check" style="width:34px;height:34px"');
+    n.textContent=+n.textContent+1;n.classList.add('bump');setTimeout(()=>n.classList.remove('bump'),250);
+    const cols=['#f9674e','#7a80f6','#28c840','#febc2e'];
+    for(let k=0;k<14;k++){const p=document.createElement('i');p.className='conf';
+      p.style.background=cols[k%4];p.style.setProperty('--x',(Math.random()*140-70)+'px');p.style.setProperty('--y',(Math.random()*-80-10)+'px');p.style.setProperty('--r',(Math.random()*360)+'deg');
+      tile.appendChild(p);setTimeout(()=>p.remove(),950);}
+  };
+  await Promise.all([go(a,0),go(b,900)]);   // two enroll in parallel
+}
+
+const fns={A:playA,B:playB,C:playC};
+document.querySelectorAll('[data-play]').forEach(b=>b.addEventListener('click',()=>fns[b.dataset.play]()));
+['A','B','C'].forEach(k=>fns[k]());
+</script></body></html>

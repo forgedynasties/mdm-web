@@ -254,6 +254,21 @@ Pen-test angles worth probing: token entropy and lifetime, single-use enforcemen
 
 ---
 
+## 4b. adb tunnel, device leg — GET `/api/v1/adb-tunnel/{session}/{stream}?serial=…` (WebSocket upgrade)
+
+Device auth (`X-API-Key`, bound identity enforced like `/api/v1/ws`). The server asks for
+it with an `adb_tunnel_open` frame on the command socket (`{"session","stream","port"}`)
+after an admin's `adb connect` reached the session's listener; the agent dials
+`127.0.0.1:port` (adbd) and carries it here as binary frames, both ways, until either end
+closes. `adb_tunnel_close` on the command socket drops every stream of a session. A dial
+failure is reported as one text frame `{"error":"…"}` before closing. Sessions are opened
+and ended from the dashboard's Wireless adb page (`/adb`, admin only); the listener is a
+port from `ADB_TUNNEL_PORTS` that accepts only the opener's IP. See `internal/adbtunnel`.
+
+Status: `101` · `400` bad serial · `401` · `404` unknown/finished session, or another device's.
+
+---
+
 ## 5. WebSocket message protocol
 
 Device connects to `/api/v1/ws?serial=…`. Frames are JSON text frames dispatched by a top-level `"type"` field (`cmd/server/main.go`), except binary frames (type 2) which carry remote-control capture data.

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — wireless adb (pair & connect) — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1080px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:860px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.5;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:860px;line-height:1.5;}.pc b{color:var(--text);}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.ctl{display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap;}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px;}
+.seg button{border:0;background:transparent;font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 12px;border-radius:99px;cursor:pointer;}
+.seg button.on{background:var(--accent);color:#fff;}
+.mono{font-family:var(--font-mono,monospace);font-size:11.5px;}
+
+.win{width:100%;max-width:860px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 18px 44px rgba(20,22,40,.16);position:relative;}
+.tb{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.tb i{width:12px;height:12px;border-radius:50%;display:block;}
+.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.tb .t{flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--muted);margin-right:48px;}
+.stage{min-height:470px;padding:16px;position:relative;display:flex;flex-direction:column;overflow:hidden;}
+.foot{display:flex;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted);background:var(--surface2);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite;}
+@keyframes pulse{50%{opacity:.3}}
+@keyframes slidein{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes shake{20%,60%{transform:translateX(-3px)}40%,80%{transform:translateX(3px)}}
+@keyframes wave{0%{transform:scale(.4);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+.in{animation:slidein .4s cubic-bezier(.2,.8,.2,1) both;}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block;}
+.spin{width:14px;height:14px;border:2px solid var(--accent-edge);border-top-color:var(--accent);border-radius:50%;animation:rot .8s linear infinite;display:inline-block;vertical-align:-2px;}
+.check{width:18px;height:18px;stroke:var(--ok);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.check path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .4s .05s ease-out forwards;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}}
+
+/* phone */
+.phone{width:150px;height:290px;border-radius:26px;border:5px solid #1b1d24;background:var(--surface);position:relative;overflow:hidden;flex:none;box-shadow:0 10px 26px rgba(20,22,40,.25);}
+.phone::before{content:"";position:absolute;top:7px;left:50%;width:46px;height:5px;margin-left:-23px;border-radius:3px;background:#1b1d24;z-index:3;}
+.scr{position:absolute;inset:0;padding:26px 10px 10px;font-size:10.5px;display:flex;flex-direction:column;gap:6px;}
+.scr h6{margin:0 0 4px;font-size:12px;}
+.li{padding:7px 8px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:space-between;}
+.li.hl{outline:2px solid var(--accent);animation:pulse 1.2s infinite;}
+.tog{width:26px;height:14px;border-radius:8px;background:var(--border);position:relative;transition:background .3s;}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform .3s;}
+.tog.on{background:var(--ok);}.tog.on::after{transform:translateX(12px);}
+.big{font-family:var(--font-mono,monospace);font-size:15px;font-weight:800;letter-spacing:.14em;text-align:center;margin:4px 0;}
+.kv{font-size:9.5px;color:var(--muted);text-align:center}.kv b{display:block;font-size:11px;color:var(--text);font-family:var(--font-mono,monospace);margin-top:1px}
+.dlg{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px;box-shadow:0 8px 22px rgba(20,22,40,.2);animation:pop .4s both;}
+.dlg b.h{display:block;font-size:10.5px;margin-bottom:4px}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.cap{font-size:11px;color:var(--muted);text-align:center;max-width:170px;min-height:30px;}
+
+/* steps */
+.split{display:grid;grid-template-columns:1fr 190px;gap:20px;align-items:start;flex:1;}
+.steps{display:flex;flex-direction:column;gap:8px;}
+.cs{display:flex;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);transition:all .3s;opacity:.65;}
+.cs.on{opacity:1;border-color:var(--accent-edge);background:var(--accent-soft);}
+.cs.ok{opacity:1;border-color:var(--ok-edge);}
+.cs.bad{opacity:1;border-color:var(--danger-edge);background:var(--danger-bg);animation:shake .4s;}
+.cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;}
+.cs.on .n{background:var(--accent);color:#fff;}.cs.ok .n{background:var(--ok-bg);}.cs.bad .n{background:var(--danger);color:#fff;}
+.cs b{display:block;font-size:12.5px}.cs span.d{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.cs .check{width:16px;height:16px;}
+.form{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.form input{font:inherit;font-size:12.5px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:150px;}
+.form input.code{width:90px;letter-spacing:.2em;text-align:center;font-family:var(--font-mono,monospace);}
+.found{display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border-radius:11px;border:1px dashed var(--accent-edge);background:var(--surface);animation:slidein .4s both;}
+.found .ph{width:30px;height:30px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:15px;}
+.found .m{flex:1}.found .m b{display:block;font-size:12px}.found .m span{font-size:11px;color:var(--muted)}
+.radar{position:relative;width:16px;height:16px;flex:none}.radar b{position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);animation:wave 1.8s ease-out infinite;}
+.radar b+b{animation-delay:.9s}
+.attempts{display:flex;gap:6px;margin:8px 0 2px}
+.attempts i{width:26px;height:6px;border-radius:3px;background:var(--surface-3);transition:background .3s}
+.attempts i.go{background:var(--accent)}.attempts i.fail{background:var(--danger)}.attempts i.ok{background:var(--ok)}
+.diag{margin-top:10px;display:flex;flex-direction:column;gap:6px;animation:slidein .4s both;}
+.diag div{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11.5px;line-height:1.45;}
+.diag em{font-style:normal;font-weight:800;color:var(--accent-text);flex:none;}
+.diag b{display:block;font-size:12px}
+.msg{font-size:12px;margin-top:8px;padding:8px 10px;border-radius:10px;animation:slidein .3s both;}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.bad{background:var(--danger-bg);color:var(--danger)}
+
+/* B */
+.rail{width:200px;border-right:1px solid var(--border-soft);padding:12px;display:flex;flex-direction:column;gap:8px;flex:none;}
+.ri{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;}
+.addw{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;border:1px dashed var(--accent-edge);background:var(--accent-soft);color:var(--accent-text);font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-align:left;}
+.addw.on{background:var(--accent);color:#fff;border-style:solid;}
+.pane{flex:1;padding:16px;display:flex;flex-direction:column;}
+.row2{display:flex;min-height:470px;}
+.hint{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+@media(max-width:860px){.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — wireless adb: pair, connect, and when connect fails</h1>
+<p class="lead">Android 11+ can connect over Wi-Fi, but it takes two <i>different</i> address/port pairs (one to <b>pair</b> with a 6-digit code, another to <b>connect</b>), and both change often. That is why <b>connect doesn't always work</b>. These demos show how the app walks someone through it, finds the phone automatically when it can, and — when connect fails — <b>retries on its own, then explains the likely cause in plain words</b> with a one-click “Reset adb and try again”.</p>
+<p class="lead">Press <b>▶ Play</b> on each. The segment switches between a <b>working</b> run and a <b>connect fails</b> run.</p>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">“Wi-Fi” tab in the Help drawer <span class="rec">recommended</span></div>
+<div class="ddesc">Fits what you chose before (the “?” drawer). A fourth tab, <b>Wi-Fi</b>, walks four steps beside the animated phone: same network → turn on Wireless debugging → <b>Pair</b> (phone shows a code + pairing address; the app has two fields) → <b>Connect</b> (phone auto-discovered via mDNS, one click; manual IP:port fallback). The phone then appears in the normal device list.</div>
+<div class="ctl"><div class="seg" data-for="A"><button class="on" data-s="ok">Works</button><button data-s="fail">Connect fails</button></div><button class="cc-btn primary sm" data-play="A">▶ Play</button></div>
+<div class="win" id="A"></div>
+<p class="pc"><b>Good:</b> USB stays the default; wireless help is there when wanted, keeps the main screen clean. <b>Bad:</b> a bit hidden for someone who only has Wi-Fi to work with.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">“+ Add over Wi-Fi” button in the device rail</div>
+<div class="ddesc">A dashed button under the device list opens the same four steps as a full panel (no drawer). Once connected, the new device slides into the rail. More visible, aimed at benches that work wirelessly all day. Saved pairings: the app lists phones you paired before so “Connect” is one click next time.</div>
+<div class="ctl"><div class="seg" data-for="B"><button class="on" data-s="ok">Works</button><button data-s="fail">Connect fails</button></div><button class="cc-btn primary sm" data-play="B">▶ Play</button></div>
+<div class="win" id="B"></div>
+<p class="pc"><b>Good:</b> discoverable, great for wireless-first users, remembers paired phones. <b>Bad:</b> a permanent button in the rail that USB users never need.</p>
+
+<span class="eyebrow">What makes “connect” more reliable (both options)</span>
+<p class="lead">1) <b>Auto-discovery</b> (<span class="mono">adb mdns services</span>): the app lists phones with Wireless debugging on, with the <i>current</i> connect port filled in, so nobody types a stale port.<br>
+2) <b>Disconnect first</b>, then <b>3 attempts</b> a second apart (the first often fails right after pairing or wake-up); on the last attempt it restarts the adb helper.<br>
+3) <b>Plain-language diagnosis</b> on failure: different Wi-Fi / VPN, port changed (re-read it on the phone, it changes each time Wireless debugging is toggled), phone asleep, not paired yet, or a firewall blocking mDNS. Each with the fix.<br>
+4) <b>Pairing mistakes caught early</b>: the code is 6 digits, the pairing port is not the connect port, and the code dies when the dialog closes.<br>
+5) Bundled Google adb is used (some distro-built adb versions lack mDNS and show “Type the address instead”).</p>
+<p class="lead"><b>Pick A or B</b> (I'd go A, with B's “saved phones” list inside it). After that I build it into the app.</p>
+</div>
+
+<script>
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const tb='<div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>';
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const PH=ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+const WIFI=ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>');
+const CHECK='<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const runs={};const state={A:'ok',B:'ok'};
+
+const STEPS=[
+ ['Same Wi-Fi','Phone and this computer must be on the <b>same network</b> (no guest Wi-Fi, no VPN).'],
+ ['Turn on Wireless debugging','Settings → Developer options → <b>Wireless debugging</b> on.'],
+ ['Pair (once per computer)','Tap “Pair device with pairing code”. Type the <b>pairing</b> address and the 6 digits here.'],
+ ['Connect','Pick the phone below, or type the <b>IP address &amp; port</b> from the Wireless debugging screen.'],
+];
+
+function phoneScene(el,scene,alive){
+  el.innerHTML='<div class="phone"><div class="scr"></div></div>';const s=el.querySelector('.scr');
+  if(scene==='wifi'){s.innerHTML='<h6>Wi-Fi</h6><div class="li hl">Office-Wifi <span>✓</span></div><div class="li">Guest <span></span></div><div class="li">Home <span></span></div>';}
+  if(scene==='wd'){s.innerHTML='<h6>Developer options</h6><div class="li">USB debugging<div class="tog on"></div></div><div class="li hl">Wireless debugging<div class="tog" id="tg"></div></div>';
+    sleep(900).then(()=>alive()&&s.querySelector('#tg')?.classList.add('on'));}
+  if(scene==='pair'){s.innerHTML='<h6>Wireless debugging</h6><div class="dlg"><b class="h">Pair with device</b><div class="kv">Wi-Fi pairing code</div><div class="big">482 913</div><div class="kv">IP address &amp; Port<b>192.168.1.20:37215</b></div></div><div class="li" style="margin-top:8px">Pair with QR code<span>›</span></div>';}
+  if(scene==='connect'){s.innerHTML='<h6>Wireless debugging</h6><div class="li">Device name<span>Pixel</span></div><div class="li hl" style="flex-direction:column;align-items:flex-start;gap:2px"><span style="color:var(--muted);font-size:9.5px">IP address &amp; Port</span><b class="mono" style="font-size:11.5px">192.168.1.20:41231</b></div><div class="li">Pair device with pairing code<span>›</span></div>';}
+}
+const CAP={wifi:'Phone on the same Wi-Fi as this computer',wd:'Developer options → turn on Wireless debugging',pair:'Pairing dialog: the code and the pairing address',connect:'Main screen: this is the connect address'};
+
+function stepsHTML(){return STEPS.map((s,i)=>`<div class="cs" data-i="${i}"><div class="n">${i+1}</div><div style="flex:1"><b>${s[0]}</b><span class="d">${s[1]}</span><div class="extra"></div></div></div>`).join('');}
+const setState=(cs,i,st,badge)=>{cs[i].classList.remove('on','ok','bad');if(st)cs[i].classList.add(st);if(st==='ok')cs[i].querySelector('.n').innerHTML=CHECK;else if(st==='bad')cs[i].querySelector('.n').textContent='!';else cs[i].querySelector('.n').textContent=i+1;};
+
+async function flow(root,id,tok,mode){
+  const alive=()=>runs[id]===tok;
+  const cs=[...root.querySelectorAll('.cs')],slot=root.querySelector('.ph-slot'),cap=root.querySelector('.cap'),foot=root.querySelector('.fmsg');
+  const scene=(n)=>{cap.textContent=CAP[n];phoneScene(slot,n,alive);};
+  setState(cs,0,'on');scene('wifi');await sleep(1700);if(!alive())return;
+  setState(cs,0,'ok');setState(cs,1,'on');scene('wd');await sleep(2200);if(!alive())return;
+  setState(cs,1,'ok');setState(cs,2,'on');scene('pair');
+  const ex=cs[2].querySelector('.extra');
+  ex.innerHTML='<div class="form"><label>Pairing address<input value=""></label><label>6-digit code<input class="code" value=""></label><button class="cc-btn primary sm" disabled>Pair</button></div><div class="pmsg"></div>';
+  const [ia,ic2]=ex.querySelectorAll('input'),pb=ex.querySelector('button');
+  const type=async(el,t)=>{for(const ch of t){if(!alive())return;el.value+=ch;await sleep(55);}};
+  await sleep(700);await type(ia,'192.168.1.20:37215');await type(ic2,'482913');if(!alive())return;
+  pb.disabled=false;await sleep(500);pb.innerHTML='<span class="spin"></span> Pairing…';await sleep(1300);if(!alive())return;
+  pb.innerHTML='Paired ✓';pb.disabled=true;ex.querySelector('.pmsg').innerHTML='<div class="msg ok">Paired. Next: connect using the <i>other</i> address on the phone.</div>';
+  setState(cs,2,'ok');setState(cs,3,'on');scene('connect');
+  const ex3=cs[3].querySelector('.extra');
+  ex3.innerHTML='<div class="found"><div class="radar"><b></b><b></b></div><div class="m"><b>Looking for phones on your network…</b><span>mDNS discovery</span></div></div>';
+  await sleep(1600);if(!alive())return;
+  ex3.innerHTML=`<div class="found"><div class="ph">${PH}</div><div class="m"><b>Pixel 6</b><span class="mono">192.168.1.20:41231</span></div><button class="cc-btn primary sm" id="cn">Connect</button></div>
+    <div class="form"><label>Or type it<input value="" placeholder="192.168.1.20:41231"></label><span class="hint" style="margin:0 0 6px">The port changes whenever Wireless debugging is toggled.</span></div><div class="attempts"><i></i><i></i><i></i></div><div class="cmsg"></div>`;
+  await sleep(1300);if(!alive())return;
+  const cn=ex3.querySelector('#cn'),at=[...ex3.querySelectorAll('.attempts i')];
+  cn.innerHTML='<span class="spin"></span> Connecting…';
+  const tries=mode==='ok'?2:3;
+  for(let a=0;a<tries;a++){if(!alive())return;at[a].classList.add('go');await sleep(1200);at[a].classList.remove('go');
+    if(mode==='ok'&&a===1){at[a].classList.add('ok');break;}at[a].classList.add('fail');
+    if(a===0)ex3.querySelector('.cmsg').innerHTML='<div class="msg bad">First try failed — trying again…</div>';
+    if(a===2)ex3.querySelector('.cmsg').innerHTML='<div class="msg bad">Restarting adb and trying one last time…</div>';}
+  if(!alive())return;
+  if(mode==='ok'){setState(cs,3,'ok');cn.innerHTML='Connected ✓';cn.disabled=true;ex3.querySelector('.cmsg').innerHTML='<div class="msg ok">Connected. The phone is now in your device list.</div>';
+    const f=root.querySelector('.fmsg');if(f)f.innerHTML='<span class="dot"></span>Pixel 6 connected over Wi-Fi';root.dispatchEvent(new CustomEvent('connected'));}
+  else{setState(cs,3,'bad');cn.innerHTML='Try again';
+    ex3.querySelector('.cmsg').innerHTML=`<div class="msg bad">Couldn’t connect to 192.168.1.20:41231. Most likely one of these:</div><div class="diag">
+      <div><em>1</em><span><b>The port changed</b>It changes every time Wireless debugging is switched off and on. Re-read it on the phone’s Wireless debugging screen.</span></div>
+      <div><em>2</em><span><b>Different network or VPN</b>The phone and computer must share one Wi-Fi. Turn VPNs off.</span></div>
+      <div><em>3</em><span><b>Phone asleep</b>Wake the screen and keep it on while connecting.</span></div>
+      <div><em>4</em><span><b>Not paired with this computer</b>Do step 3 again.</span></div>
+      <div style="gap:10px;align-items:center"><span style="flex:1"><b>Still stuck?</b>Restart the adb helper and re-discover.</span><button class="cc-btn sm">Reset adb and try again</button></div></div>`;}
+}
+
+/* ───────── A: drawer with Wi-Fi tab ───────── */
+async function playA(){
+  const id='A',tok=runs[id]={};const el=document.getElementById(id);
+  el.innerHTML=tb+`<div class="stage"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted)"><div style="font-size:16px;font-weight:700;color:var(--text)">Plug in a device</div><div style="font-size:12.5px;margin-top:3px">It appears here by itself.</div></div>
+   <div class="dr" style="position:absolute;top:0;right:0;bottom:0;width:560px;max-width:100%;background:var(--surface);border-left:1px solid var(--border);box-shadow:-14px 0 30px rgba(20,22,40,.18);display:flex;flex-direction:column;animation:slidein .4s both">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border-soft);font-weight:700;font-size:13px">Help<span class="cc-btn sm">Close</span></div>
+    <div style="display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border-soft)">${['Phone','Computer','Wi-Fi','Trouble?'].map((t,i)=>`<span style="padding:5px 10px;border-radius:8px;font-size:11.5px;font-weight:700;${i===2?'background:var(--accent-soft);color:var(--accent-text)':'color:var(--muted)'}">${t}</span>`).join('')}</div>
+    <div class="split" style="padding:14px;overflow:auto;flex:1;grid-template-columns:1fr 160px"><div class="steps">${stepsHTML()}</div><div class="pcol" style="position:sticky;top:0"><div class="ph-slot"></div><div class="cap"></div></div></div></div></div>
+   <div class="foot fmsg"><span class="dot"></span>Watching for devices</div>`;
+  flow(el,id,tok,state.A);
+}
+
+/* ───────── B: rail button + panel ───────── */
+async function playB(){
+  const id='B',tok=runs[id]={};const el=document.getElementById(id);
+  el.innerHTML=tb+`<div class="row2"><div class="rail"><div class="ri" style="opacity:.55">${PH}<span>No USB devices</span></div><button class="addw on">${WIFI} Add over Wi-Fi</button><div class="hint" style="margin-top:6px">Saved phones</div><div class="ri" style="opacity:.8;font-size:11.5px"><span style="flex:1">Sunmi D2s</span><span class="cc-btn sm" style="padding:2px 8px">Connect</span></div></div>
+   <div class="pane"><div style="font-size:16px;font-weight:700;margin-bottom:2px">Add a phone over Wi-Fi</div><div style="font-size:12px;color:var(--muted);margin-bottom:10px">Android 11 or newer. USB is still the most reliable way.</div>
+   <div class="split" style="grid-template-columns:1fr 160px"><div class="steps">${stepsHTML()}</div><div class="pcol"><div class="ph-slot"></div><div class="cap"></div></div></div></div></div>
+   <div class="foot fmsg"><span class="dot"></span>Watching for devices</div>`;
+  el.addEventListener('connected',()=>{if(runs[id]!==tok)return;const r=el.querySelector('.rail');r.querySelector('.ri').outerHTML=`<div class="ri in">${PH}<span>Pixel 6 · Wi-Fi</span><i style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--ok)"></i></div>`;},{once:true});
+  flow(el,id,tok,state.B);
+}
+
+const fns={A:playA,B:playB};
+document.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>fns[b.dataset.play]());
+document.querySelectorAll('.seg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));state[sg.dataset.for]=b.dataset.s;fns[sg.dataset.for]();}));
+['A','B'].forEach(k=>fns[k]());
+</script></body></html>

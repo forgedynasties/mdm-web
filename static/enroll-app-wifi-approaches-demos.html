@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — wireless: different approaches — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1080px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:860px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:860px;line-height:1.5;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:860px;line-height:1.5;}.pc b{color:var(--text);}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.ctl{display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap;}
+.mono{font-family:var(--font-mono,monospace);font-size:11.5px;}
+.win{width:100%;max-width:860px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 18px 44px rgba(20,22,40,.16);}
+.tb{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.tb i{width:12px;height:12px;border-radius:50%;display:block;}
+.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.tb .t{flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--muted);margin-right:48px;}
+.stage{min-height:470px;padding:18px;}
+@keyframes slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes pulse{50%{opacity:.35}}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes draw{to{stroke-dashoffset:0}}
+.in{animation:slidein .35s cubic-bezier(.2,.8,.2,1) both;}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rot .8s linear infinite;display:inline-block;vertical-align:-2px;}
+.check{width:16px;height:16px;stroke:var(--ok);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.check path{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .4s .05s ease-out forwards;}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block;}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}}
+
+.h{font-size:16px;font-weight:700;margin:0 0 2px}.s{font-size:12px;color:var(--muted);margin:0 0 12px}
+
+/* approach cards / tabs */
+.ap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.apc{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:12px;cursor:pointer;text-align:left;font:inherit;color:var(--text);transition:all .2s;display:flex;flex-direction:column;gap:4px;position:relative;}
+.apc:hover{border-color:var(--accent-edge);transform:translateY(-1px)}
+.apc.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 8px 20px rgba(249,103,78,.14);}
+.apc .ico{width:32px;height:32px;border-radius:10px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--muted);}
+.apc.on .ico{background:var(--accent);color:#fff}
+.apc b{font-size:13px}.apc span{font-size:11.5px;color:var(--muted);line-height:1.4}
+.apc .tag{position:absolute;top:10px;right:10px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-text);background:var(--accent-soft);border-radius:99px;padding:2px 7px;}
+.apc.on .tag{background:var(--accent);color:#fff}
+
+/* steps */
+.split{display:grid;grid-template-columns:1fr 160px;gap:18px;align-items:start;}
+.steps{display:flex;flex-direction:column;gap:8px;}
+.cs{display:flex;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);transition:all .3s;opacity:.65;}
+.cs.on{opacity:1;border-color:var(--accent-edge);background:var(--accent-soft);}
+.cs.ok{opacity:1;border-color:var(--ok-edge);}
+.cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none;}
+.cs.on .n{background:var(--accent);color:#fff}.cs.ok .n{background:var(--ok-bg)}
+.cs b{display:block;font-size:12.5px}.cs span.d{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.once{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-text);margin-left:6px}
+.form{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.form input{font:inherit;font-size:12.5px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:150px;}
+.form input.code{width:90px;letter-spacing:.2em;text-align:center;font-family:var(--font-mono,monospace);}
+.msg{font-size:12px;margin-top:8px;padding:8px 10px;border-radius:10px;animation:slidein .3s both;}.msg.ok{background:var(--ok-bg);color:var(--ok)}
+.found{display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border-radius:11px;border:1px dashed var(--accent-edge);background:var(--surface);}
+.found .m{flex:1}.found .m b{display:block;font-size:12px}.found .m span{font-size:11px;color:var(--muted)}
+.note{font-size:11.5px;color:var(--muted);margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--surface-3);line-height:1.5}
+
+/* phone */
+.phone{width:150px;height:290px;border-radius:26px;border:5px solid #1b1d24;background:var(--surface);position:relative;overflow:hidden;box-shadow:0 10px 26px rgba(20,22,40,.25);}
+.phone::before{content:"";position:absolute;top:7px;left:50%;width:46px;height:5px;margin-left:-23px;border-radius:3px;background:#1b1d24;z-index:3;}
+.scr{position:absolute;inset:0;padding:26px 10px 10px;font-size:10.5px;display:flex;flex-direction:column;gap:6px;}
+.scr h6{margin:0 0 4px;font-size:12px}
+.li{padding:7px 8px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:space-between;}
+.li.hl{outline:2px solid var(--accent);animation:pulse 1.2s infinite}
+.big{font-family:var(--font-mono,monospace);font-size:15px;font-weight:800;letter-spacing:.14em;text-align:center;margin:4px 0}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:8px;position:sticky;top:0}
+.cap{font-size:11px;color:var(--muted);text-align:center;max-width:170px;min-height:30px}
+
+/* B: question flow */
+.q{max-width:520px;margin:0 auto;text-align:center;animation:slidein .35s both;}
+.q h2{font-size:18px;margin:16px 0 4px}.q p{font-size:12.5px;color:var(--muted);margin:0 0 16px}
+.opts{display:flex;flex-direction:column;gap:9px;text-align:left}
+.opt{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);cursor:pointer;font:inherit;color:var(--text);transition:all .2s;}
+.opt:hover{border-color:var(--accent);transform:translateX(3px)}
+.opt .ico{width:34px;height:34px;border-radius:10px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted);flex:none}
+.opt b{display:block;font-size:13px}.opt span{font-size:11.5px;color:var(--muted)}
+.crumb{font-size:11.5px;color:var(--accent-text);font-weight:700;cursor:pointer;margin-bottom:10px;display:inline-block}
+@media(max-width:860px){.ap{grid-template-columns:1fr}.split{grid-template-columns:1fr}}
+.seg2{display:inline-flex;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px;gap:2px}
+.seg2 button{border:0;background:transparent;font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);padding:5px 12px;border-radius:11px;cursor:pointer}
+.seg2 button.on{background:var(--accent);color:#fff}
+.pairbox summary{font-size:12px;font-weight:700;cursor:pointer;color:var(--accent-text)}
+.msg.bad{background:var(--danger-bg);color:var(--danger)}.msg.info{background:var(--surface-3);color:var(--text)}
+.diag{margin-top:8px;display:flex;flex-direction:column;gap:6px;animation:slidein .4s both}
+.diag div{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11.5px;line-height:1.45}
+.diag em{font-style:normal;font-weight:800;color:var(--accent-text);flex:none}.diag b{display:block;font-size:12px}
+.cs.bad{opacity:1;border-color:var(--danger-edge);background:var(--danger-bg)}.cs.bad .n{background:var(--danger);color:#fff}
+.btnpulse{animation:pulse 1s infinite}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — wireless: pair only when needed</h1>
+<p class="lead">Pairing and connecting are <b>not a fixed sequence</b>. In practice:</p>
+<p class="lead">
+• <b>Already paired</b> (or the phone is trusted): just press <b>Connect</b> — no code, no pairing step.<br>
+• <b>First time:</b> Connect says it isn't paired, the panel opens <b>Pair with a code</b>, and after pairing <b>most phones connect by themselves</b> — the app waits for that before asking for anything.<br>
+• <b>Sometimes it doesn't</b> auto-connect after pairing: then the app says so and you press Connect.<br>
+• <b>Connect fails</b> for another reason: plain-language causes plus “Reset adb”.</p>
+<p class="lead"><b>This is how the app now works</b> (built). Pick a scenario, then ▶ Play.</p>
+
+<span class="eyebrow">Option A — in the app now</span>
+<div class="dname">One “Connect” step, pairing folded in <span class="rec">built</span></div>
+<div class="ddesc">Steps 1–2 are info (Wi-Fi, Wireless debugging on). Step 3 is <b>Connect</b>: phones found on the network are listed; pairing hides in a “Not paired yet?” section that opens by itself when it's needed.</div>
+<div class="ctl"><div class="seg2" id="segA"><button class="on" data-s="paired">Already paired</button><button data-s="auto">First time → connects by itself</button><button data-s="manual">First time → connect manually</button><button data-s="fail">Connect fails</button></div><button class="cc-btn primary sm" data-play="A">▶ Play</button></div>
+<div class="win" id="A"></div>
+<p class="pc"><b>Good:</b> repeat users never see pairing; first-timers are walked into it exactly when needed; no fake “step 4”. <b>Bad:</b> pairing is a little less discoverable up front — hence the “Not paired yet?” link stays visible.</p>
+
+<span class="eyebrow">Option B — optional extra</span>
+<div class="dname">“Switch to Wi-Fi” button on a USB-connected phone</div>
+<div class="ddesc">For a phone that is <b>already plugged in</b>: one button in its panel runs <span class="mono">adb tcpip 5555</span> and connects to the phone's own IP — no pairing, no codes, works on any Android version, and the fixed port avoids the “port changed” problem. It stays on Wi-Fi until the phone restarts. Not built yet.</div>
+<div class="ctl"><button class="cc-btn primary sm" data-play="B">▶ Play</button></div>
+<div class="win" id="B"></div>
+<p class="pc"><b>Good:</b> simplest path when a cable is at hand. <b>Bad:</b> an extra button on every USB device panel (only shown for Android devices on a cable).</p>
+
+<span class="eyebrow">Notes</span>
+<p class="lead">• Phones found on the network also appear in the <b>left rail</b> (“Found on your network”) with a one-click Connect, so for paired phones the wizard isn't even needed.<br>
+• Failure help (port changed / different network / asleep / not paired / reset adb) shows under Connect in every scenario.<br>
+• Tell me if you want Option B built.</p>
+</div>
+
+<script>
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const tb='<div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>';
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const ICO={
+ key:ic('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/>'),
+ link:ic('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+ usb:ic('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>'),
+};
+const CHECK='<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const runs={};
+const sleep2=sleep;
+function scene(el,n,alive){
+  el.innerHTML='<div class="phone"><div class="scr"></div></div>';const s=el.querySelector('.scr');
+  if(n==='wifi')s.innerHTML='<h6>Wi-Fi</h6><div class="li hl">Office-Wifi <span>✓</span></div><div class="li">Guest <span></span></div>';
+  if(n==='wd'){s.innerHTML='<h6>Developer options</h6><div class="li">USB debugging<span>on</span></div><div class="li hl">Wireless debugging<span id="tg">off</span></div>';sleep(900).then(()=>alive()&&(s.querySelector('#tg').textContent='on'));}
+  if(n==='pair')s.innerHTML='<h6>Wireless debugging</h6><div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px"><b style="font-size:10.5px">Pair with device</b><div class="big">482 913</div><div style="font-size:9.5px;color:var(--muted);text-align:center;white-space:nowrap">192.168.1.20:37215</div></div>';
+  if(n==='connect')s.innerHTML='<h6>Wireless debugging</h6><div class="li hl" style="flex-direction:column;align-items:flex-start"><span style="color:var(--muted);font-size:9.5px">IP address &amp; Port</span><b class="mono" style="font-size:9.5px;white-space:nowrap">192.168.1.20:41231</b></div>';
+  if(n==='allow')s.innerHTML='<div style="height:30px"></div><div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;animation:pop .4s both"><b style="font-size:11px">Allow USB debugging?</b><div style="text-align:right;margin-top:8px;font-weight:700;color:var(--accent-text)">Allow</div></div>';
+}
+const setSt=(cs,i,st)=>{cs[i].classList.remove('on','ok','bad');if(st)cs[i].classList.add(st);cs[i].querySelector('.n').innerHTML=st==='ok'?CHECK:i+1;};
+const state={A:'paired'};
+const STEPS3=[
+ ['Same Wi-Fi','Phone and this computer on the <b>same network</b> (no guest Wi-Fi, no VPN).','wifi'],
+ ['Turn on Wireless debugging','Developer options → <b>Wireless debugging</b> on.','wd'],
+ ['Connect','Pick the phone below. <b>Paired it before? That’s all.</b> First time? It will ask you to pair with a code.','connect'],
+];
+const PHI=ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+async function type(el,t,alive){for(const ch of t){if(!alive())return;el.value+=ch;await sleep(55);}}
+
+async function playA(){
+  const id='A',tok=runs[id]={};const el=document.getElementById(id),mode=state.A,alive=()=>runs[id]===tok;
+  el.innerHTML=tb+`<div class="stage"><div class="h">Add a phone over Wi-Fi</div><div class="s">Android 11 or newer. USB is still the most reliable way.</div><div class="split"><div class="steps">${STEPS3.map((s,i)=>`<div class="cs" data-i="${i}"><div class="n">${i+1}</div><div style="flex:1;min-width:0"><b>${s[0]}</b><span class="d">${s[1]}</span><div class="ex"></div></div></div>`).join('')}</div><div class="pcol"><div class="ph"></div><div class="cap"></div></div></div></div>`;
+  const cs=[...el.querySelectorAll('.cs')],ph=el.querySelector('.ph'),cap=el.querySelector('.cap');
+  const sc=(n,t)=>{scene(ph,n,alive);cap.textContent=t;};
+  setSt(cs,0,'on');sc('wifi','Same Wi-Fi as this computer');await sleep(1500);if(!alive())return;
+  setSt(cs,0,'ok');setSt(cs,1,'on');sc('wd','Turn on Wireless debugging');await sleep(2000);if(!alive())return;
+  setSt(cs,1,'ok');setSt(cs,2,'on');sc('connect','Main screen: the connect address');
+  const ex=cs[2].querySelector('.ex');
+  ex.innerHTML=`<div class="found"><div style="font-size:15px;color:var(--muted)">${PHI}</div><div class="m"><b>Phone on your network</b><span class="mono">192.168.1.20:41231</span></div><button class="cc-btn primary sm" id="cn">Connect</button></div><div class="cmsg"></div>
+   <details class="pairbox" style="margin-top:10px"><summary>Not paired yet? Pair with a code</summary><div class="form"><label>Pairing address<input id="pa"></label><label>6-digit code<input id="pc" class="code"></label><button class="cc-btn primary sm" id="pb">Pair</button></div><div class="pm"></div></details>`;
+  const cn=ex.querySelector('#cn'),cm=ex.querySelector('.cmsg'),pbx=ex.querySelector('.pairbox'),pa=ex.querySelector('#pa'),pc=ex.querySelector('#pc'),pb=ex.querySelector('#pb'),pm=ex.querySelector('.pm');
+  await sleep(1400);if(!alive())return;
+  const press=async(b)=>{b.style.transform='scale(.93)';await sleep(150);b.style.transform='';};
+  const success=(t)=>{setSt(cs,2,'ok');cm.innerHTML=`<div class="msg ok">${t}</div>`;};
+  await press(cn);cn.innerHTML='<span class="spin"></span> Connecting…';cm.innerHTML='<div class="msg info">Trying — it retries up to 3 times.</div>';await sleep(1600);if(!alive())return;
+  if(mode==='paired'){cn.innerHTML='Connected ✓';success('Connected. It now shows up in your device list.');return;}
+  if(mode==='fail'){
+    cn.innerHTML='Connect';setSt(cs,2,'on');cs[2].classList.add('bad');
+    cm.innerHTML=`<div class="msg bad">Couldn’t connect to 192.168.1.20:41231. Most likely one of these:</div><div class="diag"><div><em>1</em><span><b>The port changed</b>It changes every time Wireless debugging is switched off and on. Re-read it on the phone.</span></div><div><em>2</em><span><b>Different network or VPN</b>The phone and computer must share one Wi-Fi.</span></div><div><em>3</em><span><b>Phone asleep</b>Wake the screen while connecting.</span></div><div><em>4</em><span><b>Not paired with this computer</b>Pair it with a code.</span></div><div style="align-items:center"><span style="flex:1"><b>Still stuck?</b>Restart the adb helper.</span><button class="cc-btn sm">Reset adb and try again</button></div></div>`;return;}
+  // first time: connect says "not paired" -> pair opens by itself
+  cn.innerHTML='Connect';cm.innerHTML='<div class="msg info">This computer isn’t paired with that phone yet. Pair it with a code below — it usually connects by itself afterwards.</div>';
+  pbx.open=true;sc('pair','Pairing dialog: the code and the pairing address');
+  await sleep(700);await type(pa,'192.168.1.20:37215',alive);await type(pc,'482913',alive);if(!alive())return;
+  await sleep(500);await press(pb);pb.innerHTML='<span class="spin"></span> Pairing…';await sleep(1200);if(!alive())return;
+  pb.innerHTML='<span class="spin"></span> Paired — waiting for it to connect…';pm.innerHTML='<div class="msg ok">Paired. Most phones connect by themselves now — checking…</div>';
+  await sleep(2600);if(!alive())return;
+  if(mode==='auto'){pb.innerHTML='Paired ✓';success('Paired and connected by itself. It now shows up in your device list.');return;}
+  pb.innerHTML='Pair';pm.innerHTML='<div class="msg ok">Paired. It didn’t connect by itself, so press Connect on the phone above.</div>';
+  sc('connect','Main screen: the connect address');cn.classList.add('btnpulse');await sleep(1800);if(!alive())return;
+  cn.classList.remove('btnpulse');await press(cn);cn.innerHTML='<span class="spin"></span> Connecting…';await sleep(1500);if(!alive())return;
+  cn.innerHTML='Connected ✓';success('Connected. It now shows up in your device list.');
+}
+
+async function playB(){
+  const id='B',tok=runs[id]={};const el=document.getElementById(id),alive=()=>runs[id]===tok;
+  el.innerHTML=tb+`<div class="stage"><div style="max-width:520px;margin:0 auto;text-align:center"><div class="phone" style="margin:0 auto 10px;width:96px;height:150px;border-width:4px"><div class="scr" style="padding:18px 8px"><div class="li" style="font-size:9px">USB connected</div></div></div><div class="h">Google Pixel 6</div><div class="s mono">18121FDF60022T · Android 17 · USB</div>
+   <button class="cc-btn primary" id="sw" style="padding:10px 22px">Switch to Wi-Fi</button><div class="note" style="text-align:left;margin-top:14px">No pairing and no codes. The app runs <span class="mono">adb tcpip 5555</span>, reads the phone’s IP and connects to it. You can then unplug the cable. It stays on Wi-Fi until the phone restarts.</div><div class="res"></div></div></div>`;
+  await sleep(1800);if(!alive())return;
+  const b=el.querySelector('#sw'),r=el.querySelector('.res');b.style.transform='scale(.93)';await sleep(150);b.style.transform='';
+  b.innerHTML='<span class="spin"></span> Switching…';r.innerHTML='<div class="msg info" style="text-align:left">Restarting the phone’s adb on port 5555…</div>';await sleep(1400);if(!alive())return;
+  r.innerHTML='<div class="msg info" style="text-align:left">Connecting to 192.168.1.20:5555…</div>';await sleep(1200);if(!alive())return;
+  b.innerHTML='On Wi-Fi ✓';b.disabled=true;r.innerHTML='<div class="msg ok" style="text-align:left">On Wi-Fi. You can unplug the cable.</div>';
+}
+document.querySelector('[data-play="A"]').onclick=()=>playA();
+document.querySelector('[data-play="B"]').onclick=()=>playB();
+document.querySelectorAll('#segA button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segA button').forEach(x=>x.classList.toggle('on',x===b));state.A=b.dataset.s;playA();});
+playA();playB();
+</script></body></html>

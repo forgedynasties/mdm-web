@@ -32,3 +32,7 @@
 	url = https://github.com/ali-aio/mdm-lite.git
 	branch = main
 
+[submodule "aio-mdm-enroll-app"]
+	path = aio-mdm-enroll-app
+	url = https://github.com/ali-aio/mdm-enroll-app.git
+	branch = main

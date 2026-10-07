@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
@@ -69,6 +70,7 @@ type Handler struct {
 	geolocate   *geolocate.Resolver
 	geocoder    *geolocate.Geocoder
 	remote      *remote.Manager
+	tunnels     *adbtunnel.Manager
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
@@ -1837,6 +1839,207 @@ func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, devices)
+}
+
+// qaTestDataRow mirrors the Fleet page's CSV export (serial/battery/charging/wlc/ram/
+// storage) plus device_class/restaurant/groups and battery-cycle accounting. Extra
+// carries the device's full latest check-in payload as-is: new telemetry fields show
+// up here automatically as the client starts reporting them, with no MDM-side change
+// needed — the point of this API is that the testing team's dashboard no longer waits
+// on us to add a column every time they want a new field.
+type qaTestDataRow struct {
+	SerialNumber   string   `json:"serial_number"`
+	DeviceClass    string   `json:"device_class"`
+	RestaurantName string   `json:"restaurant_name"`
+	Groups         []string `json:"groups"`
+	LastSeenAt     string   `json:"last_seen_at"`
+	BatteryPct     int      `json:"battery_pct"`
+	BatteryTempC   *float64 `json:"battery_temp_c,omitempty"`
+	Charging       bool     `json:"charging"`
+	WlcState       string   `json:"wlc_state"`
+	ChargingPad    bool     `json:"charging_pad"`
+	RamUsedPct     int64    `json:"ram_used_pct"`
+	StorageFreePct int64    `json:"storage_free_pct"`
+	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
+	// discharged (never resets); divide by 100 for equivalent full cycles. Left raw
+	// rather than pre-converted so a future change to the conversion doesn't silently
+	// change numbers already in a QA spreadsheet.
+	DischargeTotalPct   int64           `json:"discharge_total_pct"`
+	DischargeBackfilled bool            `json:"discharge_backfilled"`
+	Extra               json.RawMessage `json:"extra,omitempty"`
+}
+
+// ListTestDataDevices is the QA-key-gated, read-only fleet snapshot behind the testing
+// team's own dashboard — replaces them pulling the Fleet page's CSV export by hand.
+// One row per device, same fields as that export plus device_class/restaurant/groups.
+// Optional ?group=<name> / ?restaurant=<name> narrow the result server-side — the
+// testing team works within a specific lab group or site, not the whole fleet, and
+// there's no reason to ship rows they're going to throw away client-side anyway.
+func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
+	filter := db.DeviceFilter{
+		// Scoped to firmware-client devices (T7/Kiosk) only — that's what the testing
+		// team is actually running test cycles against right now. Drop this (or make
+		// it a query param) once they need DPC-agent devices too.
+		AgentKind: product.KindFirmware,
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
+		groupList, err := h.db.ListGroups(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		id, ok := uuid.Nil, false
+		for _, g := range groupList {
+			if strings.EqualFold(g.Name, name) {
+				id, ok = g.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "group not found"})
+			return
+		}
+		filter.GroupID = id
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("restaurant")); name != "" {
+		restaurants, err := h.db.ListRestaurants(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		id, ok := uuid.Nil, false
+		for _, rest := range restaurants {
+			if strings.EqualFold(rest.Name, name) {
+				id, ok = rest.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "restaurant not found"})
+			return
+		}
+		filter.RestaurantID = id
+	}
+
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 10000, "", "")
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	groups, err := h.db.GroupNamesByDevice(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	out := make([]qaTestDataRow, 0, len(devices))
+	for _, d := range devices {
+		row := qaTestDataRow{
+			SerialNumber:        d.SerialNumber,
+			// d.DeviceClass is the raw stored column — empty for most devices (they
+			// inherit their class from their product instead, e.g. T7 -> "t7"). d.Class()
+			// resolves that the same way the real dashboard does; using the raw field
+			// here left every device showing device_class: "".
+			DeviceClass:         d.Class(),
+			RestaurantName:      d.RestaurantName,
+			Groups:              groups[d.ID],
+			LastSeenAt:          d.LastSeenAt.UTC().Format(time.RFC3339),
+			BatteryPct:          d.BatteryPct,
+			Charging:            extraBoolField(d.LatestExtra, "charging"),
+			WlcState:            extraString(d.LatestExtra, "wlc_state"),
+			ChargingPad:         extraBoolField(d.LatestExtra, "charging_pad"),
+			RamUsedPct:          extraInt64(d.LatestExtra, "ram_used_pct"),
+			StorageFreePct:      extraInt64(d.LatestExtra, "storage_free_pct"),
+			DischargeTotalPct:   d.DischargeTotalPct,
+			DischargeBackfilled: d.DischargeBackfilled,
+			Extra:               d.LatestExtra,
+		}
+		if temp, ok := extractBatteryTempC(d.LatestExtra); ok {
+			row.BatteryTempC = &temp
+		}
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// ListTestDataFilters gives the testing team's dashboard the group/restaurant names it
+// can pass to ListTestDataDevices, without needing the admin key just to populate a
+// picker. Names only — device counts, IDs, timestamps are an admin-key concern.
+func (h *Handler) ListTestDataFilters(w http.ResponseWriter, r *http.Request) {
+	groups, err := h.db.ListGroups(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	restaurants, err := h.db.ListRestaurants(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	groupNames := make([]string, 0, len(groups))
+	for _, g := range groups {
+		groupNames = append(groupNames, g.Name)
+	}
+	restaurantNames := make([]string, 0, len(restaurants))
+	for _, rest := range restaurants {
+		restaurantNames = append(restaurantNames, rest.Name)
+	}
+	writeJSON(w, http.StatusOK, map[string][]string{
+		"groups":      groupNames,
+		"restaurants": restaurantNames,
+	})
+}
+
+// ListTestDataDeviceHistory is the time-series sibling of ListTestDataDevices, for
+// battery-cycle runs and anything else that needs more than the latest snapshot — a
+// full per-sample feed over a date range, rather than a once-a-cycle fleet pull.
+// Reuses StreamExportShaped (the same query behind the Fleet page's CSV export) and
+// returns its rows as-is, Extra included, for the same decoupling reason as above.
+// Query params: start, end (RFC3339, default the last 7 days), interval_sec (default
+// 300), cycles (include charge-cycle boundary rows, default false).
+func (h *Handler) ListTestDataDeviceHistory(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	if device.AgentKind != product.KindFirmware {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+
+	end := time.Now().UTC()
+	start := end.Add(-7 * 24 * time.Hour)
+	if v := r.URL.Query().Get("start"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			start = t
+		}
+	}
+	if v := r.URL.Query().Get("end"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			end = t
+		}
+	}
+	intervalSec := 300
+	if v := r.URL.Query().Get("interval_sec"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			intervalSec = n
+		}
+	}
+	cycles := r.URL.Query().Get("cycles") == "true"
+
+	rows := make([]db.ExportRow, 0, 256)
+	err = h.db.StreamExportShaped(r.Context(), []uuid.UUID{device.ID}, start, end, intervalSec, cycles, func(row db.ExportRow) error {
+		rows = append(rows, row)
+		return nil
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, rows)
 }
 
 // ListRestaurants returns the venues, for tooling that has to iterate them — the

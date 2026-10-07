@@ -27,6 +27,7 @@ import (
 	"mdm/internal/metrics"
 	"mdm/internal/middleware"
 	"mdm/internal/ota"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
 	"mdm/internal/shell"
@@ -89,6 +90,13 @@ func main() {
 	}
 	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
+	}
+	// QA_API_KEY (optional): a separate, read-only key for the testing team's own
+	// dashboard — GET /api/v1/testdata/devices only, never the admin-key surface.
+	// Unset disables the route entirely rather than falling back to the admin key.
+	qaAPIKey := strings.TrimSpace(getEnv("QA_API_KEY", ""))
+	if qaAPIKey != "" && (len(qaAPIKey) < 32 || qaAPIKey == deviceAPIKey || qaAPIKey == adminAPIKey || qaAPIKey == sessionSecret || qaAPIKey == deviceEnrollKey) {
+		log.Fatalf("QA_API_KEY must be at least 32 bytes and distinct from the other keys")
 	}
 	configPath := getEnv("CONFIG_PATH", "config/display.json")
 
@@ -234,6 +242,17 @@ func main() {
 		hub.PublishCommandUpdate(commandID)
 	}
 	remoteMgr := remote.New(hub)
+	// adb tunnels: a port range the server binds per session (ADB_TUNNEL_PORTS, e.g.
+	// "42000-42019", also published in docker-compose.yml and opened in the security
+	// group) and the host name admins `adb connect` to (ADB_TUNNEL_HOST, default: the
+	// dashboard's own). Unset = the Wireless adb page offers no tunnels.
+	tunnelMgr, err := adbtunnel.New(hub, os.Getenv("ADB_TUNNEL_HOST"), os.Getenv("ADB_TUNNEL_PORTS"))
+	if err != nil {
+		log.Fatalf("adb tunnels: %v", err)
+	}
+	if tunnelMgr.Enabled() {
+		log.Printf("adb tunnels enabled on ports %s", tunnelMgr.PortRange())
+	}
 	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(func(deviceID uuid.UUID, data []byte) {
 		defer recoverLog("ws binary from " + deviceID.String())
@@ -315,6 +334,7 @@ func main() {
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)
+	apiHandler.SetAdbTunnels(tunnelMgr)
 	expvar.Publish("ingest", expvar.Func(func() any { return apiHandler.IngestStats() }))
 	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
 	// /connect flush can fire before the socket opens, and a never-delivered command has
@@ -407,8 +427,37 @@ func main() {
 	// counters. Scrape as JSON; not exposed to devices or the public.
 	mux.Handle("GET /debug/vars", adminAuth(expvar.Handler()))
 
+	// Testing team's own read-only key — GET /api/v1/testdata/devices only, so a leaked
+	// key can't reach anything the admin key can (reboot, wipe, kiosk unlock, ...).
+	// CORS is wide open (*) rather than an allowlist: the dashboard calling this is a
+	// static page that can be hosted/moved anywhere, and the route is already gated by
+	// its own key, so an origin check adds no real protection here.
+	if qaAPIKey != "" {
+		qaAuth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
+		qaCORS := func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Headers", "X-API-Key")
+				w.Header().Set("Access-Control-Allow-Methods", "GET")
+				if r.Method == http.MethodOptions {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				h.ServeHTTP(w, r)
+			})
+		}
+		mux.Handle("GET /api/v1/testdata/devices", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataDevices))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/devices/{serial}/history", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataDeviceHistory))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/history", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/filters", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataFilters))))
+		mux.Handle("OPTIONS /api/v1/testdata/filters", qaCORS(http.NotFoundHandler()))
+	}
+
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
+	// The device's leg of an adb tunnel stream (see internal/adbtunnel).
+	mux.Handle("GET /api/v1/adb-tunnel/{session}/{stream}", deviceAuth(http.HandlerFunc(apiHandler.ConnectAdbTunnel)))
 
 	// Enrollment — unauthenticated by design: the profile token IS the credential
 	// (rate-limited per IP inside the handler). Exchanges a token for a device key.
@@ -464,6 +513,7 @@ func main() {
 	// bakes in at compile time (see internal/api/enrollment_profiles.go).
 	mux.Handle("GET /api/v1/enrollment-profiles", adminAuth(http.HandlerFunc(apiHandler.ListEnrollmentProfiles)))
 	mux.Handle("POST /api/v1/enrollment-profiles", adminAuth(middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.CreateEnrollmentProfile))))
+	mux.Handle("POST /api/v1/devices/enrolled-by", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetEnrolledBy))))
 
 	// Deployments: cancelling one was dashboard-only, which left a stalled rollout
 	// unclearable without a browser (see internal/api/releases.go).
@@ -476,6 +526,7 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)
 	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)
 

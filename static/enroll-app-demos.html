@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app (macOS) — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1080px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:820px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:820px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.pc{font-size:12px;color:var(--muted);margin:10px 0 0;max-width:820px;line-height:1.5;}
+.pc b{color:var(--text);}
+
+/* mac window */
+.win{width:100%;max-width:760px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);box-shadow:0 18px 44px rgba(20,22,40,.16);}
+.tb{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+.tb i{width:12px;height:12px;border-radius:50%;display:block;}
+.tb i:nth-child(1){background:#ff5f57}.tb i:nth-child(2){background:#febc2e}.tb i:nth-child(3){background:#28c840}
+.tb .t{flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--muted);margin-right:48px;}
+.pad{padding:18px 20px;}
+.h{font-size:16px;font-weight:700;margin:0 0 2px;}
+.s{font-size:12px;color:var(--muted);margin:0 0 14px;}
+.cls{font-size:12px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+.foot{display:flex;align-items:center;gap:8px;padding:9px 16px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted);background:var(--surface2);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;}
+.pulse{animation:p 1.2s infinite}@keyframes p{50%{opacity:.3}}
+.mono{font-family:var(--font-mono,monospace);font-size:11.5px;}
+.ph{width:34px;height:34px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;}
+
+/* A · list */
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border-soft);}
+.lrow:last-child{border-bottom:0}
+.lrow .m{flex:1;min-width:0}.lrow .m b{display:block;font-size:13px}.lrow .m span{font-size:11.5px;color:var(--muted)}
+
+/* B · cards */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.dc{border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--surface);}
+.dc.ready{border-color:var(--ok-edge);}
+.dc .ph{width:44px;height:44px;font-size:22px}
+.dc b{font-size:13px}.dc span.k{font-size:11.5px;color:var(--muted)}
+.dc .cc-btn{width:100%}
+
+/* C · wizard */
+.steps{display:flex;gap:6px;margin-bottom:16px;}
+.steps div{flex:1;height:4px;border-radius:2px;background:var(--surface-3)}
+.steps div.on{background:var(--accent)}
+.big{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px 10px;gap:8px;}
+.big .ph{width:64px;height:64px;font-size:32px;border-radius:16px}
+.big .cc-btn{padding:10px 28px;font-size:14px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.seg span{padding:6px 14px;border-radius:99px;border:1px solid var(--border);font-size:12px;font-weight:600}
+.seg span.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — macOS app</h1>
+<p class="lead">A native Mac window that runs <b>locally</b> (no Tailscale, no SSH). Open the app → every device in the Mac's own <code>adb devices</code> appears → click <b>Enroll</b> → done. It watches for plug/unplug on its own, so there is no refresh button and no connect step. The server URL, adb binary and class tokens are bundled/fetched by the app, so the person never types anything.</p>
+<p class="lead">Every option shows the same four states: <b>Ready</b>, <b>Enrolling</b>, <b>Enrolled</b>, <b>Blocked</b> (account present / other Device Owner) and <b>Unauthorized</b> (USB-debugging prompt not accepted).</p>
+
+<!-- ───────── A ───────── -->
+<span class="eyebrow">Option A</span>
+<div class="dname">Device list <span class="rec">recommended</span></div>
+<div class="ddesc">Plain list, one row per device, status chip and one action on the right. Closest to Finder / System Settings. Fastest to scan when a person plugs in 5–20 devices in a row. Class is a small dropdown next to the button, remembered from the last enroll.</div>
+<div class="win">
+  <div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>
+  <div class="pad">
+    <div class="h">Connected devices</div>
+    <div class="s">Plug in a device and tap “Allow USB debugging”. It shows up here.</div>
+    <div class="lrow"><div class="ph">📺</div><div class="m"><b>Google HK1 RBOX D8</b><span class="mono">A1B2C3D4E5 · Android 11</span></div><span class="cc-tag ok">Ready</span><select class="cls"><option>dongle</option></select><button class="cc-btn primary sm">Enroll</button></div>
+    <div class="lrow"><div class="ph">🧾</div><div class="m"><b>Sunmi D3 Pro</b><span class="mono">D3P20230411 · Android 11</span></div><span class="cc-tag warn">Enrolling…</span><select class="cls" disabled><option>pos</option></select><button class="cc-btn sm" disabled>Installing agent</button></div>
+    <div class="lrow"><div class="ph">🍳</div><div class="m"><b>Sunmi D2s</b><span class="mono">D2S99120 · Android 11</span></div><span class="cc-tag ok">Enrolled · kds</span><span class="mono" style="color:var(--muted)">agent 0.2.8</span></div>
+    <div class="lrow"><div class="ph">📱</div><div class="m"><b>Pixel 6</b><span class="mono">1A2B3C · Android 14</span></div><span class="cc-tag bad">Blocked — Google account</span><button class="cc-btn sm">How to fix</button></div>
+    <div class="lrow"><div class="ph">❔</div><div class="m"><b>Unknown device</b><span class="mono">0123456789ABCDEF</span></div><span class="cc-tag">Unauthorized</span><span class="mono" style="color:var(--muted)">Accept prompt on device</span></div>
+  </div>
+  <div class="foot"><span class="dot pulse"></span> Watching for devices · adb 1.0.41 bundled</div>
+</div>
+<p class="pc"><b>Good:</b> dense, calm, familiar. <b>Bad:</b> small targets; less friendly if the person is non-technical.</p>
+
+<!-- ───────── B ───────── -->
+<span class="eyebrow">Option B</span>
+<div class="dname">Device cards</div>
+<div class="ddesc">Each device is a card with a big icon; status colours the card border. Easier to read from a distance on a bench, and class is a chip row on the card. Takes more space per device.</div>
+<div class="win">
+  <div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>
+  <div class="pad">
+    <div class="h">3 devices · 1 ready</div><div class="s">Waiting for more…</div>
+    <div class="grid">
+      <div class="dc ready"><div class="ph">📺</div><b>HK1 RBOX D8</b><span class="k mono">A1B2C3D4E5</span><span class="cc-tag ok" style="align-self:flex-start">Ready</span><select class="cls"><option>dongle</option></select><button class="cc-btn primary">Enroll</button></div>
+      <div class="dc"><div class="ph">🍳</div><b>Sunmi D2s</b><span class="k mono">D2S99120</span><span class="cc-tag ok" style="align-self:flex-start">Enrolled · kds</span><button class="cc-btn" disabled>Done ✓</button></div>
+      <div class="dc"><div class="ph">📱</div><b>Pixel 6</b><span class="k mono">1A2B3C</span><span class="cc-tag bad" style="align-self:flex-start">Blocked</span><button class="cc-btn">How to fix</button></div>
+    </div>
+  </div>
+  <div class="foot"><span class="dot pulse"></span> Watching for devices</div>
+</div>
+<p class="pc"><b>Good:</b> big buttons, status obvious at a glance. <b>Bad:</b> 20 devices means scrolling; slower for batch work.</p>
+
+<!-- ───────── C ───────── -->
+<span class="eyebrow">Option C</span>
+<div class="dname">Setup-assistant wizard</div>
+<div class="ddesc">Macs’ “Setup Assistant” style: one device, one big decision per screen — plug in → pick class → enroll → done. Hand-holding for first-timers. Poor for batches (always one device at a time), so it needs a “Next device” loop.</div>
+<div class="cols">
+  <div class="win">
+    <div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>
+    <div class="pad"><div class="steps"><div class="on"></div><div class="on"></div><div></div><div></div></div>
+      <div class="big"><div class="ph">📺</div><div class="h">HK1 RBOX D8 found</div><div class="s">What is this device used for?</div>
+        <div class="seg"><span class="on">Dongle</span><span>POS</span><span>KDS</span><span>Kiosk</span></div>
+        <button class="cc-btn primary" style="margin-top:10px">Enroll this device</button></div></div>
+  </div>
+  <div class="win">
+    <div class="tb"><i></i><i></i><i></i><div class="t">AIO Enroll</div></div>
+    <div class="pad"><div class="steps"><div class="on"></div><div class="on"></div><div class="on"></div><div class="on"></div></div>
+      <div class="big"><div class="ph" style="background:var(--ok-bg)">✓</div><div class="h">Enrolled</div><div class="s">HK1 RBOX D8 · dongle · agent 0.2.8</div>
+        <button class="cc-btn primary" style="margin-top:10px">Next device</button></div></div>
+  </div>
+</div>
+<p class="pc"><b>Good:</b> impossible to get wrong. <b>Bad:</b> slow when enrolling many devices.</p>
+
+<span class="eyebrow">Recommendation</span>
+<p class="lead"><b>A</b>. It matches “open app, devices show up, click Enroll” with zero extra steps and handles one or many devices. Plug-and-play auto-refresh, per-row status, no connect button.</p>
+
+<span class="eyebrow">Decisions for you</span>
+<p class="lead">1) Pick A / B / C (or mix). 2) <b>Class tokens</b>: today they are hardcoded in <code>server.py</code>. A distributed Mac app must not ship them or an admin key inside the binary — proposal: the app signs in once (admin key stored in macOS Keychain) and fetches/mints tokens from the MDM. 3) <b>adb</b>: bundle platform-tools inside the app so nothing needs installing. 4) <b>Tech</b>: proposal is Tauri/Swift-free-simple: a small Go or Swift app; I would choose <b>Swift/SwiftUI</b> for a real native window, or a Python+webview shell if you want to reuse the existing console logic faster.</p>
+</div></body></html>

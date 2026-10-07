@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll app — telling our phones from the rest — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1100px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:880px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 10px;max-width:880px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.pc{font-size:12px;color:var(--muted);margin:8px 0 0;max-width:880px;line-height:1.5}.pc b{color:var(--text)}
+.mono{font-family:var(--font-mono,monospace);font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.col h4{margin:0 0 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.rail{border:1px solid var(--border);border-radius:14px;background:var(--bg);padding:12px;box-shadow:0 10px 26px rgba(20,22,40,.1);display:flex;flex-direction:column;gap:7px;min-height:380px}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+@keyframes slidein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.ri{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600}
+.ri .ph{width:26px;height:26px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.ri .ph .ic{width:15px;height:15px}.ri .nm{flex:1}
+.grp{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.gh{display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:12px;font-weight:700}
+.gh .ic{width:15px;height:15px;color:var(--accent)}
+.badge{background:var(--accent);color:#fff;border-radius:99px;font-size:10.5px;font-weight:800;padding:1px 7px}
+.sw{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none}
+.sw i{width:26px;height:15px;border-radius:9px;background:var(--border);position:relative;transition:background .2s;display:block}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw.on i{background:var(--accent)}.sw.on i::after{transform:translateX(11px)}
+.list{border-top:1px solid var(--border-soft)}
+.row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-soft);animation:slidein .25s both}
+.row:last-child{border-bottom:0}
+.row .a{flex:1;min-width:0}.row .a b{display:block;font-size:12px;font-weight:700}
+.row .a .mono{display:block;color:var(--muted);font-size:10.5px;overflow-wrap:anywhere}
+.row.other{opacity:.62}.row.other b{font-weight:600}
+.go{border:1px solid var(--border);background:var(--surface);color:var(--accent-text);font:inherit;font-size:10.5px;font-weight:700;border-radius:7px;padding:2px 9px;cursor:pointer}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;margin:2px 4px 0 0}
+.chip .ic{width:11px;height:11px}
+.chip.fleet{background:var(--ok-bg);color:var(--ok)}
+.chip.prod{background:var(--accent-soft);color:var(--accent-text)}
+.chip.look{background:var(--warn-bg);color:var(--warn)}
+.chip.oth{background:var(--surface-3);color:var(--muted)}
+.tabs{display:flex;border-bottom:1px solid var(--border-soft)}
+.tabs button{flex:1;border:0;background:transparent;font:inherit;font-size:11.5px;font-weight:700;color:var(--muted);padding:8px 4px;cursor:pointer;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--accent-text);border-bottom-color:var(--accent)}
+.more{padding:8px 10px;font-size:11.5px;font-weight:700;color:var(--accent-text);cursor:pointer;border-top:1px solid var(--border-soft)}
+.more:hover{background:var(--surface2)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AIO Enroll — telling our phones from the rest</h1>
+<p class="lead">The network never gives a phone's factory MAC (and Android hides it behind a random one anyway), but it does give the <b>hardware serial</b> — and our serials are structured. The MDM already knows the pattern through <b>productions</b>: <span class="mono">product + model + variant + sku + batch + 5-digit sequence</span>, with each batch owning a range of sequence numbers. So for every nearby phone the app can ask the server one question and get one of four answers:</p>
+<div class="legend">
+ <span class="chip fleet">✓ In your fleet</span> <span style="font-size:12px;color:var(--muted)">the MDM already has this serial</span>
+ <br><span class="chip prod">AIO · T7 batch BU</span> <span style="font-size:12px;color:var(--muted)">not seen yet, but inside a production batch's range</span>
+ <br><span class="chip look">Looks like ours?</span> <span style="font-size:12px;color:var(--muted)">our product and model code, but no batch covers it (new batch not entered, or a typo)</span>
+ <br><span class="chip oth">Other phone</span> <span style="font-size:12px;color:var(--muted)">not our hardware</span>
+</div>
+<p class="lead" style="margin-top:12px">Three ways to use that in the Nearby phones list, all with the serial shown on every row. Each column shows the same five phones.</p>
+
+<div class="grid">
+ <div class="col"><h4>Option A · sort + chips + “Only ours” switch</h4><div class="rail" id="A"></div></div>
+ <div class="col"><h4>Option B · Ours / Others tabs</h4><div class="rail" id="B"></div></div>
+ <div class="col"><h4>Option C · ours up front, “3 others” folded</h4><div class="rail" id="C"></div></div>
+</div>
+
+<span class="eyebrow">Option A</span>
+<div class="dname">Ours first, each row labelled, one “Only ours” switch <span class="rec">recommended</span></div>
+<div class="ddesc">Our phones float to the top, each with a coloured chip saying <i>why</i> it is ours. Other phones stay in the list but dimmed and last. The switch in the header hides them (off by default, so an off-the-shelf phone you want to enrol is never lost).</div>
+<p class="pc"><b>Good:</b> nothing is hidden by surprise, the reason is visible, one control. <b>Bad:</b> the list still contains the others unless you flip the switch.</p>
+
+<span class="eyebrow">Option B</span>
+<div class="dname">Two tabs: Ours · Others</div>
+<div class="ddesc">The group opens on <b>Ours (2)</b>; <b>Others (3)</b> is one click away. Clean separation, nothing dimmed.</div>
+<p class="pc"><b>Good:</b> very tidy. <b>Bad:</b> a phone that is mis-detected is hiding in the wrong tab.</p>
+
+<span class="eyebrow">Option C</span>
+<div class="dname">Show ours, fold the rest behind “3 other phones”</div>
+<div class="ddesc">Only ours are listed. Underneath, a quiet link “Show 3 other phones” expands them in place.</div>
+<p class="pc"><b>Good:</b> least visual noise. <b>Bad:</b> the others are easy to overlook.</p>
+
+<span class="eyebrow">How it is decided (all options)</span>
+<p class="lead">• The app asks the server in one call for all the serials on screen; the server looks up the MDM's devices and its production ranges (the same data as the Productions page).<br>
+• <b>Nothing changes for how pairing works</b> — this only labels and orders the list.<br>
+• A phone that is <b>Looks like ours?</b> gets a hint to add its batch on the Productions page — that is how a new batch is spotted early.<br>
+• Works the same for the pairing requests in the rail.<br>
+• Needs the small server addition (already written and tested: <span class="mono">POST /api/v1/app/classify</span>); it goes live only when you say so.</p>
+<p class="lead"><b>Pick A, B or C.</b></p>
+</div>
+
+<script>
+const ic=i=>`<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const WIFI=ic('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>');
+const CHK=ic('<path d="M5 12.5l4.5 4.5L19 7.5"/>');
+const PH=ic('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+const MINE=[['Google Pixel 6',PH],['AIO T7',PH]];
+const NEAR=[
+ {ip:'10.32.0.113',sn:'AT070AA2600030',cls:'fleet',label:'In your fleet'},
+ {ip:'10.32.2.167',sn:'AT070AABU00875',cls:'prod',label:'AIO · T7 batch BU'},
+ {ip:'10.32.1.13',sn:'DP02256HJ0342',cls:'oth',label:'Other phone'},
+ {ip:'10.32.1.211',sn:'R95Y405MG3X',cls:'oth',label:'Other phone'},
+ {ip:'10.32.2.93',sn:'DP02256GJ0499',cls:'oth',label:'Other phone'},
+];
+const ours=n=>n.cls==='fleet'||n.cls==='prod';
+const chip=n=>`<span class="chip ${n.cls==='fleet'?'fleet':n.cls==='prod'?'prod':'oth'}">${n.cls==='fleet'?CHK+' ':''}${n.label}</span>`;
+const row=(n,i)=>`<div class="row ${ours(n)?'':'other'}" style="animation-delay:${i*40}ms"><div class="a"><b>Phone</b><span class="mono">${n.ip} · ${n.sn}</span>${chip(n)}</div><button class="go">Pair</button></div>`;
+const mine=()=>MINE.map(m=>`<div class="ri"><div class="ph">${m[1]}</div><span class="nm">${m[0]}</span></div>`).join('');
+const head=(extra='')=>`<div class="gh">${WIFI}Nearby phones <span class="badge">${NEAR.length}</span>${extra}</div>`;
+
+/* A */
+let aOnly=false;
+function A(){
+  const list=[...NEAR].sort((a,b)=>ours(b)-ours(a)).filter(n=>!aOnly||ours(n));
+  document.getElementById('A').innerHTML=mine()+`<div class="grp">${head(`<span class="sw ${aOnly?'on':''}" id="aSw">Only ours<i></i></span>`)}<div class="list">${list.map(row).join('')}</div></div>`;
+  document.getElementById('aSw').onclick=()=>{aOnly=!aOnly;A();};
+}
+/* B */
+let bTab='ours';
+function B(){
+  const o=NEAR.filter(ours),x=NEAR.filter(n=>!ours(n)),list=bTab==='ours'?o:x;
+  document.getElementById('B').innerHTML=mine()+`<div class="grp">${head()}<div class="tabs"><button class="${bTab==='ours'?'on':''}" data-t="ours">Ours (${o.length})</button><button class="${bTab==='oth'?'on':''}" data-t="oth">Others (${x.length})</button></div><div class="list">${list.map(row).join('')}</div></div>`;
+  document.querySelectorAll('#B [data-t]').forEach(b=>b.onclick=()=>{bTab=b.dataset.t;B();});
+}
+/* C */
+let cMore=false;
+function C(){
+  const o=NEAR.filter(ours),x=NEAR.filter(n=>!ours(n));
+  document.getElementById('C').innerHTML=mine()+`<div class="grp">${head()}<div class="list">${o.map(row).join('')}${cMore?x.map(row).join(''):''}</div><div class="more" id="cm">${cMore?'Hide other phones':`Show ${x.length} other phones`}</div></div>`;
+  document.getElementById('cm').onclick=()=>{cMore=!cMore;C();};
+}
+A();B();C();
+</script></body></html>

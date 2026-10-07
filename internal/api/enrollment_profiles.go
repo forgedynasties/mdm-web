@@ -143,3 +143,34 @@ func (h *Handler) CreateEnrollmentProfile(w http.ResponseWriter, r *http.Request
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"profile": enrollmentProfileToJSON(*p)})
 }
+
+// SetEnrolledBy records which account enrolled a set of devices, for devices enrolled before the
+// enroll app tracked it. The account must exist.
+//
+//	POST /api/v1/devices/enrolled-by  {"username":"...","serials":["..."]}  →  {"updated":N}
+func (h *Handler) SetEnrolledBy(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Username string   `json:"username"`
+		Serials  []string `json:"serials"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	body.Username = strings.TrimSpace(body.Username)
+	if body.Username == "" || len(body.Serials) == 0 || len(body.Serials) > 500 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "username and 1-500 serials are required"})
+		return
+	}
+	u, err := h.db.GetUserByUsername(r.Context(), body.Username)
+	if err != nil || u == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such account"})
+		return
+	}
+	n, err := h.db.SetEnrolledBy(r.Context(), body.Serials, u.Username)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"updated": n, "username": u.Username})
+}
