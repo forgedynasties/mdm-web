@@ -213,18 +213,28 @@ type sightingFrame struct {
 // IngestSighting records one net_sighting. deviceID is the scout's; its restaurant is the
 // venue the sighting belongs to. A scout with no restaurant (a bench unit) is ignored.
 func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []byte) {
-	scout, err := s.db.GetDeviceByID(ctx, scoutID)
-	if err != nil || scout == nil || scout.RestaurantID == nil {
+	scoutSerial, restaurantID, err := s.db.DeviceScoutVenue(ctx, scoutID)
+	if err != nil {
+		log.Printf("[scout] sighting from %s: %v", scoutID, err)
+		return
+	}
+	if restaurantID == nil {
+		log.Printf("[scout] sighting from %s ignored: scout is not placed at a venue", scoutSerial)
 		return
 	}
 	var f sightingFrame
-	if err := json.Unmarshal(raw, &f); err != nil || f.Serial == "" {
+	if err := json.Unmarshal(raw, &f); err != nil {
+		log.Printf("[scout] sighting from %s: bad frame: %v", scoutSerial, err)
+		return
+	}
+	if f.Serial == "" {
+		log.Printf("[scout] sighting from %s at %s: no serial in the probe, dropped", scoutSerial, f.Host)
 		return
 	}
 	state, reason := classifySighting(f)
 	up := db.SightingUpsert{
-		RestaurantID:    *scout.RestaurantID,
-		ScoutSerial:     scout.SerialNumber,
+		RestaurantID:    *restaurantID,
+		ScoutSerial:     scoutSerial,
 		Host:            f.Host,
 		Port:            orDefault(f.Port, 5555),
 		Serial:          f.Serial,
@@ -248,7 +258,10 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 	}
 	if err := s.db.UpsertSighting(ctx, up); err != nil {
 		log.Printf("[scout] upsert sighting %s: %v", f.Serial, err)
+		return
 	}
+	log.Printf("[scout] sighting %s (%s %s) at %s via %s: %s %s",
+		f.Serial, f.Manufacturer, f.Model, f.Host, scoutSerial, up.State, up.Reason)
 }
 
 // classifySighting maps a probe to ready/blocked. Mirrors enroll-adb.sh's blockers.
@@ -295,9 +308,8 @@ func (s *Service) IngestEnrollDone(ctx context.Context, scoutID uuid.UUID, raw [
 		log.Printf("[scout] finish job %s: %v", f.Job, err)
 	}
 	if f.OK && f.Serial != "" {
-		scout, err := s.db.GetDeviceByID(ctx, scoutID)
-		if err == nil && scout != nil {
-			_ = s.db.SetEnrolledViaSerial(ctx, f.Serial, scout.SerialNumber)
+		if scoutSerial, _, err := s.db.DeviceScoutVenue(ctx, scoutID); err == nil {
+			_ = s.db.SetEnrolledViaSerial(ctx, f.Serial, scoutSerial)
 		}
 	}
 }

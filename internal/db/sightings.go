@@ -252,3 +252,13 @@ func (d *DB) SetRestaurantScan(ctx context.Context, id uuid.UUID, scanEnabled, a
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET scan_enabled=$2, auto_enroll=$3 WHERE id=$1`, id, scanEnabled, autoEnroll)
 	return err
 }
+
+// DeviceScoutVenue returns a device's serial and the venue it is placed at, or a nil
+// restaurant when it is unplaced. The scout needs both for every frame a device sends it,
+// and GetDeviceByID does not select restaurant_id — a sighting ingested through that path
+// looked like a bench unit and was dropped without a trace.
+func (d *DB) DeviceScoutVenue(ctx context.Context, id uuid.UUID) (serial string, restaurantID *uuid.UUID, err error) {
+	err = d.pool.QueryRow(ctx,
+		`SELECT serial_number, restaurant_id FROM devices WHERE id = $1`, id).Scan(&serial, &restaurantID)
+	return serial, restaurantID, err
+}
