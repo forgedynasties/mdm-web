@@ -6851,6 +6851,9 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		"Title":    device.SerialNumber + " — History",
 		"Device":   device,
 		"Commands": commands,
+		// device-commands (shared with the device page) reads $.Online to decide which
+		// actions to offer; without it the History tab rendered a 500.
+		"Online": h.hub.IsConnected(device.ID),
 	})
 }
 
