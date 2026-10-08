@@ -12,7 +12,7 @@
 .en-tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
 .en-tabs .n{font-size:10.5px;font-weight:700;background:var(--surface2);border-radius:99px;padding:1px 7px;color:var(--text-faint)}
 .en-tabs .n.w{background:var(--warn-bg);color:var(--warn)}
-.en-pane{display:none}.en-pane.on{display:block}
+.en-tabpane{display:none}.en-tabpane.on{display:block}
 /* Profiles as a list (demo P3): name, one grey line of facts, status, and a ⋯ menu
    holding QR / Copy token / Edit / Revoke — the destructive one behind a menu, where
    it belongs. The QR opens as a full-width row under its profile. */
@@ -125,7 +125,7 @@
     <button type="button" role="tab" data-tab="how">How devices get here</button>
   </div>
 
-  <section class="en-pane" data-tab="found" role="tabpanel">
+  <section class="en-tabpane" data-tab="found" role="tabpanel">
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
     <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
@@ -183,7 +183,7 @@
 
   </section>
 
-  <section class="en-pane" data-tab="inbox" role="tabpanel">
+  <section class="en-tabpane" data-tab="inbox" role="tabpanel">
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
   {{/* Capped at 8: the inbox is a working list, and the shared list JS turns the
      .lt-more below it into "Show all N waiting". 25 meant every row rendered inline
@@ -205,7 +205,7 @@
 
   </section>
 
-  <section class="en-pane" data-tab="profiles" role="tabpanel">
+  <section class="en-tabpane" data-tab="profiles" role="tabpanel">
   {{/* ── Profiles ── a list, not cards (demo P3) ─────────────────────────── */}}
   <div class="cc-card lt" id="en-profiles" data-lt-n="10">
     <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span>{{if $canOp}}<button type="button" class="cc-btn sm" onclick="enOpenModal()">New profile</button>{{end}}</div>
@@ -254,7 +254,7 @@
   </div>
   </section>
 
-  <section class="en-pane" data-tab="recent" role="tabpanel">
+  <section class="en-tabpane" data-tab="recent" role="tabpanel">
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
   <div class="cc-card lt" id="en-recent" data-lt-n="15">
@@ -288,7 +288,7 @@
 
   </section>
 
-  <section class="en-pane" data-tab="how" role="tabpanel">
+  <section class="en-tabpane" data-tab="how" role="tabpanel">
   {{/* ── How devices get here ───────────────────────────────────────────── */}}
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">four paths, one fleet</span></div>
@@ -371,7 +371,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   // names that does not exist falls back to the page's default for its current state.
   (function () {
     var strip = document.querySelector('.en-tabs'); if (!strip) return;
-    var tabs = [].slice.call(strip.querySelectorAll('[data-tab]')), panes = [].slice.call(document.querySelectorAll('.en-pane'));
+    var tabs = [].slice.call(strip.querySelectorAll('[data-tab]')), panes = [].slice.call(document.querySelectorAll('.en-tabpane'));
     function show(t, push) {
       tabs.forEach(function (b) { var on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
       panes.forEach(function (p) { p.classList.toggle('on', p.dataset.tab === t); });
