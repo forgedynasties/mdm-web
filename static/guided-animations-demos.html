@@ -5,136 +5,244 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
-.wrap{max-width:1100px;margin:0 auto}
+.wrap{max-width:1120px;margin:0 auto}
 h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
-h2{font-size:17px;margin:34px 0 6px}
-h3{font-size:13.5px;margin:18px 0 6px}
+h2{font-size:17px;margin:36px 0 4px}
+h2 small{font-size:11.5px;color:var(--text-faint);font-weight:600;margin-left:8px}
 p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
 p b,li b{color:var(--text)}
-.lead{color:var(--text-faint);max-width:900px;margin:0 0 6px}
+.lead{color:var(--text-faint);max-width:920px;margin:0 0 6px}
 .themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
 .themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
 .themebar button.on{background:var(--accent);color:#fff}
-.opt{border:1px solid var(--border);border-radius:14px;padding:16px;margin:12px 0 26px;background:var(--surface)}
-.opt.now{border-color:var(--warn)}
-.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
-.badge.now{background:var(--warn-bg);color:var(--warn)}
-.badge.pick{background:var(--ok-bg);color:var(--ok)}
-.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 2px 0}
-.gb>div{font-size:12.5px;line-height:1.55}
-.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
-.where{font-size:11.5px;color:var(--text-faint);margin:6px 0 10px}
-.where b{color:var(--text-2)}
-.row{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:11px;background:var(--bg);font-size:13px;max-width:640px}
-.row .sn{font-weight:700;color:var(--accent-text,var(--accent))}
-.row .rs{font-size:11px;color:var(--text-faint)}
-.tag{font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--surface2);color:var(--text-faint);margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.sec{border:1px solid var(--border);border-radius:14px;padding:16px;margin:10px 0 8px;background:var(--surface)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cell h4{font-size:12.5px;margin:0 0 8px;color:var(--text-2)}
+.cell h4 em{font-style:normal;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:99px;margin-right:6px;vertical-align:1px}
+.now h4 em{background:var(--warn-bg);color:var(--warn)}
+.new h4 em{background:var(--ok-bg);color:var(--ok)}
+.why{font-size:12px;color:var(--text-faint);line-height:1.55;margin:8px 0 0}
+.why b{color:var(--text-2)}
+.verdict{font-size:12.5px;margin:10px 2px 0;padding:9px 12px;border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent);border-radius:0 10px 10px 0}
+/* primitives */
+.row{display:flex;align-items:center;gap:12px;padding:9px 13px;border:1px solid var(--border);border-radius:11px;background:var(--bg);font-size:12.5px;margin:6px 0}
+.sn{font-weight:700;color:var(--accent-text,var(--accent))}
+.rs{font-size:10.5px;color:var(--text-faint)}
+.tag{font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--surface2);color:var(--text-faint);margin-left:auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .tag.info{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent-text,var(--accent))}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.warn{background:var(--warn-bg);color:var(--warn)}.tag.bad{background:var(--danger-bg,#fde8e8);color:var(--danger)}
 .dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:breathe 1.2s ease-in-out infinite}
 @keyframes breathe{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
-/* B · step rail */
-.rail{display:flex;gap:0;align-items:flex-start;max-width:720px;margin:6px 0 2px}
-.st{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;font-size:10.5px;color:var(--text-faint);text-align:center}
-.st .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-weight:800;font-size:11px;transition:background .3s,color .3s,box-shadow .3s;position:relative;z-index:1}
-.st::before{content:"";position:absolute;top:12px;left:-50%;right:50%;height:2px;background:var(--border)}
+.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:5px 10px;display:inline-flex;align-items:center;gap:6px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.spin{width:12px;height:12px;border:2px solid color-mix(in srgb,currentColor 30%,transparent);border-top-color:currentColor;border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+/* step rail */
+.rail{display:flex;align-items:flex-start;width:100%;margin:6px 0 0}
+.st{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;font-size:10px;color:var(--text-faint);text-align:center}
+.st .n{width:22px;height:22px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-weight:800;font-size:10.5px;position:relative;z-index:1;transition:background .3s}
+.st::before{content:"";position:absolute;top:11px;left:-50%;right:50%;height:2px;background:var(--border)}
 .st:first-child::before{display:none}
-.st.ok .n{background:var(--ok);color:#fff}
-.st.ok::before{background:var(--ok)}
-.st.on .n{background:var(--accent);color:#fff;box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 50%,transparent);animation:pulse 1.2s infinite}
-.st.on{color:var(--text)}
-@keyframes pulse{70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
-.st .n svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.st.ok .n{background:var(--ok);color:#fff}.st.ok::before{background:var(--ok)}
+.st.on .n{background:var(--accent);color:#fff;animation:pulse 1.2s infinite}.st.on{color:var(--text)}
+.st.bad .n{background:var(--danger);color:#fff}.st.bad{color:var(--danger)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 50%,transparent)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.st .n svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .st.ok .n svg path{stroke-dasharray:20;stroke-dashoffset:20;animation:draw .35s ease-out forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
-/* C · checklist (desktop .cs) */
-.cs{display:flex;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);transition:all .3s;opacity:.7;max-width:420px;margin:6px 0}
+/* fleet row arrival + online flip */
+.arrive{animation:arrive .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes arrive{from{opacity:0;transform:translateY(-6px);background:color-mix(in srgb,var(--ok) 18%,var(--bg))}to{opacity:1;transform:none}}
+.glow{animation:glow 1.8s ease-out both}
+@keyframes glow{0%{box-shadow:inset 0 0 0 999px color-mix(in srgb,var(--ok) 16%,transparent)}100%{box-shadow:none}}
+.pres{width:9px;height:9px;border-radius:50%;background:var(--ok);position:relative}
+.pres::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--ok);animation:ringpulse 1.6s ease-out infinite}
+@keyframes ringpulse{0%{opacity:.8;transform:scale(.7)}100%{opacity:0;transform:scale(1.5)}}
+/* progress ring + bar */
+.ring{width:38px;height:38px;border-radius:50%;background:conic-gradient(var(--accent) var(--p,62%),var(--surface2) 0);display:grid;place-items:center;flex:none}
+.ring i{width:28px;height:28px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-style:normal;font-size:9.5px;font-weight:800}
+.bar{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;flex:1;position:relative}
+.bar i{display:block;height:100%;background:var(--accent);width:var(--p,40%);transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
+.bar i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 1.6s linear infinite}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.bar.seg{display:flex;gap:2px}.bar.seg i::after{display:none}
+.bar.seg i.ok{background:var(--ok)}.bar.seg i.go{background:var(--accent)}.bar.seg i.bad{background:var(--danger)}.bar.seg i.wait{background:var(--border)}
+/* kiosk toggle */
+.tog{width:34px;height:18px;border-radius:9px;background:var(--border);position:relative;transition:background .3s;display:inline-block;vertical-align:middle}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .3s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.tog.on{background:var(--ok)}.tog.on::after{transform:translateX(16px)}
+.lock{display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.lock svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.lock.locking svg{animation:shake .4s}
+@keyframes shake{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+/* alerts */
+.al{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);font-size:12.5px;margin:6px 0}
+.al .sev{width:8px;height:8px;border-radius:50%;background:var(--danger)}
+.al.new{animation:arrive .5s both}
+.al.done{opacity:.55}
+.al.done .sev{background:var(--ok)}
+.al .tick{margin-left:auto}
+.al .tick svg{width:16px;height:16px;stroke:var(--ok);fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.al.done .tick svg path{stroke-dasharray:22;stroke-dashoffset:22;animation:draw .4s ease-out forwards}
+/* venue health ring (restaurants) */
+.vh{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--bg);font-size:12.5px;margin:6px 0}
+.vh .ring{--p:88%}.vh .ring.b{--p:40%;background:conic-gradient(var(--warn) var(--p),var(--surface2) 0)}
+/* coach mark */
+.coach{position:relative;display:inline-block;margin:10px 0}
+.coach .ringm{position:absolute;inset:-6px;border-radius:12px;border:2px solid var(--accent);animation:ringm 1.4s ease-out infinite;pointer-events:none}
+@keyframes ringm{0%{opacity:.9;transform:scale(.96)}100%{opacity:0;transform:scale(1.18)}}
+.tipbox{position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%);width:230px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 11px;font-size:11.5px;box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));animation:slidein .4s both;z-index:2}
+.tipbox b{display:block;font-size:12px;margin-bottom:2px}.tipbox .nx{color:var(--accent-text,var(--accent));font-weight:700;margin-top:4px;display:block}
+@keyframes slidein{from{opacity:0;transform:translate(-8px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
+/* checklist (desktop .cs) */
+.cs{display:flex;gap:11px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);transition:all .3s;opacity:.7;margin:6px 0}
 .cs.on{opacity:1;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .cs.ok{opacity:1;border-color:var(--ok)}
-.cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:11.5px;font-weight:800;flex:none}
+.cs .n{width:22px;height:22px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
 .cs.on .n{background:var(--accent);color:#fff}.cs.ok .n{background:var(--ok-bg);color:var(--ok)}
-.cs b{display:block;font-size:12.5px}.cs span{font-size:11.5px;color:var(--text-faint);line-height:1.45}
-/* D · coach mark */
-.coach{position:relative;display:inline-block;margin:8px 0}
-.coach .btn{font-size:12px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:6px 12px}
-.coach .ring{position:absolute;inset:-6px;border-radius:12px;border:2px solid var(--accent);animation:ringpulse 1.4s ease-out infinite;pointer-events:none}
-@keyframes ringpulse{0%{opacity:.9;transform:scale(.96)}100%{opacity:0;transform:scale(1.18)}}
-.coach .tipbox{position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%);width:230px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 11px;font-size:11.5px;box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));animation:slidein .4s both}
-.coach .tipbox b{display:block;font-size:12px;margin-bottom:2px}
-.coach .tipbox .nx{color:var(--accent-text,var(--accent));font-weight:700;margin-top:4px;display:block}
-@keyframes slidein{from{opacity:0;transform:translate(-8px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
-/* E · toast timeline */
-.toasts{display:grid;gap:6px;max-width:380px}
-.toast{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:12px;animation:tin .35s both}
-.toast:nth-child(2){animation-delay:.6s}.toast:nth-child(3){animation-delay:1.2s}.toast:nth-child(4){animation-delay:1.8s}
-.toast .i{width:18px;height:18px;border-radius:50%;background:var(--ok);display:grid;place-items:center;flex:none}
-.toast .i.sp{background:none;border:2px solid color-mix(in srgb,var(--accent) 35%,transparent);border-top-color:var(--accent);animation:rot .8s linear infinite}
-@keyframes rot{to{transform:rotate(360deg)}}
-@keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.cs b{display:block;font-size:12px}.cs span{font-size:11px;color:var(--text-faint);line-height:1.45}
+/* cmdk */
+.cmdk{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:8px;max-width:420px;box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));animation:pop .25s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(-4px)}to{opacity:1;transform:none}}
+.cmdk input{width:100%;font:inherit;font-size:13px;border:0;background:var(--surface2);border-radius:8px;padding:8px 10px;color:var(--text)}
+.cmdk .r{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;font-size:12.5px;animation:arrive .3s both}
+.cmdk .r:nth-child(3){animation-delay:.05s}.cmdk .r:nth-child(4){animation-delay:.1s}
+.cmdk .r.on{background:var(--surface2)}
+.cmdk .r .k{margin-left:auto;font-size:10px;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:0 5px}
+.skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--surface2) 25%,color-mix(in srgb,var(--surface2) 60%,var(--surface)) 50%,var(--surface2) 75%);background-size:200% 100%;animation:sk 1.2s linear infinite;margin:6px 0}
+@keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
 .mini{font-size:11px;color:var(--text-faint)}
+table.motion{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+table.motion th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:6px 8px;border-bottom:1px solid var(--border)}
+table.motion td{padding:7px 8px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
-@media(max-width:720px){.gb{grid-template-columns:1fr}.coach .tipbox{position:static;transform:none;width:auto;margin-top:8px}}
+@media(max-width:800px){.two{grid-template-columns:1fr}.tipbox{position:static;transform:none;width:auto;margin-top:8px}}
 </style></head>
 <body>
 <div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
 <div class="wrap">
-<h1>Guided motion across the MDM</h1>
-<p class="lead">The desktop Enroll app walks a person through a job with a few small, consistent moves: a <b>numbered checklist</b> whose current step glows accent and whose done steps turn green, a <b>pulsing highlight</b> on the thing to tap next with a <b>ripple</b> when it is tapped, <b>toasts that slide in</b> as things complete, and a <b>bobbing help button</b> on first run. The dashboard has none of this — a scout enrolment reads "step 3/8" in a static tag until you reload. Below: one vocabulary, five places it would apply, and what each move is for. All honour <span class="mono">prefers-reduced-motion</span>.</p>
+<h1>Guided motion across the whole MDM</h1>
+<p class="lead">The desktop Enroll app guides with a handful of small, repeated moves: a numbered checklist whose current step glows and whose done steps turn green, a pulse on the thing to press next and a ripple when pressed, toasts that slide in, a spinner that is honest about waiting. The dashboard today has almost none of it: things change on reload, buttons give no feedback, long jobs are a number in a tag. Below, <b>each page of the MDM</b>: what it does now on the left, what it would do with the same five moves on the right. Everything honours <span class="mono">prefers-reduced-motion</span>.</p>
 
-<h2>A · Today<span class="badge now">live now</span></h2>
-<div class="opt now">
-  <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs">AIO T7 · 10.32.2.0</div></div><span class="tag info">enrolling · step 3/8</span></div>
-  <div class="gb"><div><b>Good</b> Honest, cheap.</div><div><b>Bad</b> Frozen until reload; no sense of what step 3 is, how far along, or that anything is happening. Same for app installs, OTA rollouts and client updates — each has its own progress wording and none moves.</div></div>
+<h2>The five moves <small>one 60-line stylesheet, shared by every page</small></h2>
+<div class="sec">
+<table class="motion">
+<tr><th>Move</th><th>Means</th><th>Keyframe</th><th>Length</th></tr>
+<tr><td><b>Breathe</b> — a dot or ring that pulses</td><td>"this is alive / in progress right now"</td><td><span class="mono">breathe</span>, <span class="mono">pulse</span></td><td>1.2s, loops</td></tr>
+<tr><td><b>Draw</b> — a tick strokes itself in</td><td>"this just finished"</td><td><span class="mono">draw</span></td><td>350ms, once</td></tr>
+<tr><td><b>Arrive</b> — drops in from above with a green wash</td><td>"this is new since you looked"</td><td><span class="mono">arrive</span>, <span class="mono">glow</span></td><td>500ms, once</td></tr>
+<tr><td><b>Fill</b> — a bar or ring that moves toward done</td><td>"how far along, how much left"</td><td><span class="mono">shimmer</span> on a width transition</td><td>600ms per change</td></tr>
+<tr><td><b>Point</b> — a pulsing ring around one control, with a tip</td><td>"press this first" (first visit only, once)</td><td><span class="mono">ringm</span>, <span class="mono">slidein</span></td><td>1.4s, until dismissed</td></tr>
+</table>
 </div>
 
-<h2>B · Live step rail — the eight steps, drawn<span class="badge pick">my pick for jobs</span></h2>
-<div class="opt">
-  <div class="where">Where: <b>scout enrolment row</b> (expands under the row while running), <b>device page → Install progress</b>, <b>OTA rollout per device</b>, <b>client update</b>. Same component, different step lists.</div>
-  <div class="row" style="max-width:720px;flex-wrap:wrap"><div><span class="sn">AT070AA2600030</span><div class="rs">AIO T7 · 10.32.2.0 · via AT070AABU00231</div></div><span class="tag info"><span class="dot"></span>step 3/8 · Installing the agent</span>
-    <div class="rail" style="flex-basis:100%">
-      <div class="st ok"><div class="n"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>Checking</div>
-      <div class="st ok"><div class="n"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>Token</div>
-      <div class="st on"><div class="n">3</div>Installing</div>
-      <div class="st"><div class="n">4</div>Device Owner</div>
-      <div class="st"><div class="n">5</div>Permissions</div>
-      <div class="st"><div class="n">6</div>Starting</div>
-      <div class="st"><div class="n">7</div>Registering</div>
-      <div class="st"><div class="n">8</div>First check-in</div>
-    </div>
-  </div>
-  <div class="gb"><div><b>Good</b> Shows position, what the current step is doing and how much is left, in one glance. Done steps draw their tick (the app's <span class="mono">draw</span> keyframe), the current one pulses, failures turn the step red with the reason underneath. Reuses the step names the client and the desktop app already share, so all three agree.</div><div><b>Bad</b> Needs horizontal room — eight steps collapse to dots under ~520px. Needs live data: the row has to refetch while running (the scout card now does, every 3s).</div></div>
-</div>
+<h2>Fleet <small>/devices</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Rows change silently</h4>
+    <div class="row"><span style="width:9px;height:9px;border-radius:50%;background:var(--ok)"></span><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · AIO Test Bistro</div></div><span class="tag">online</span></div>
+    <div class="row"><span style="width:9px;height:9px;border-radius:50%;background:var(--text-faint)"></span><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro</div></div><span class="tag">offline 2h</span></div>
+    <p class="why">The hub already pushes device updates; the row just repaints. You cannot tell what changed, or that a device you were waiting for arrived.</p></div>
+  <div class="cell new"><h4><em>with motion</em>Arrivals drop in, flips glow once</h4>
+    <div class="row arrive"><span class="pres"></span><div><span class="sn">A3CC008G00100162</span><div class="rs">QUALCOMM C8G · just enrolled</div></div><span class="tag ok">new</span></div>
+    <div class="row glow"><span class="pres"></span><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro</div></div><span class="tag ok">back online</span></div>
+    <p class="why"><b>Arrive</b> for a device that enrols while you watch, <b>glow</b> once when a row flips offline→online, a <b>breathing</b> presence dot only while a device is mid-something (installing, updating). Nothing loops forever on a quiet fleet.</p></div>
+</div></div>
 
-<h2>C · Checklist card — the desktop app's own component</h2>
-<div class="opt">
-  <div class="where">Where: <b>first-run setup</b> (Settings → fleet adb key, agent APK, first venue), <b>enrol a stock device by hand</b> (the How-devices tab), <b>new restaurant</b> onboarding.</div>
-  <div class="cs ok"><div class="n">✓</div><div><b>Upload the fleet adb key</b><span>Settings → Fleet adb key. Done 8 Oct.</span></div></div>
-  <div class="cs on"><div class="n">2</div><div><b>Host the standard client</b><span>Publish an APK to the <i>dpc</i> slot so QR and scout enrolment can install it.</span></div></div>
-  <div class="cs"><div class="n">3</div><div><b>Turn scanning on for a venue</b><span>Restaurant → Scout → Scan this venue's Wi-Fi.</span></div></div>
-  <div class="gb"><div><b>Good</b> Lifted straight from the Enroll app (<span class="mono">.cs / .cs.on / .cs.ok</span>), so the two products feel like one. Vertical, so it fits anywhere; each step is a link to where it is done.</div><div><b>Bad</b> It is for setup sequences a person works through, not for watching a machine do a job — for that B is the shape.</div></div>
-</div>
+<h2>Device page <small>/devices/{serial}</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Buttons give nothing back</h4>
+    <div class="row"><span class="btn">Lock kiosk</span><span class="btn">Reboot</span><span class="btn">Update agent</span><span class="tag">then wait, then reload</span></div>
+    <div class="row"><div><b style="font-size:12px">Install progress</b><div class="rs">com.aioapp.pos · installing</div></div><span class="tag info">downloading</span></div>
+    <p class="why">A press sends a command and the page polls; the button looks the same whether it worked, queued, or was refused. Install progress is a word that changes.</p></div>
+  <div class="cell new"><h4><em>with motion</em>Press → in flight → done, in the button itself</h4>
+    <div class="row"><span class="btn pri"><span class="spin"></span>Rebooting…</span><span class="lock locking"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Kiosk <span class="tog on"></span></span><span class="tag ok">locked ✓</span></div>
+    <div class="row"><span class="ring"><i>62%</i></span><div style="flex:1"><b style="font-size:12px">com.aioapp.pos 4.2.1</b><div class="rail"><div class="st ok"><div class="n"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>sent</div><div class="st ok"><div class="n"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>downloaded</div><div class="st on"><div class="n">3</div>installing</div><div class="st"><div class="n">4</div>started</div></div></div></div>
+    <p class="why">The button becomes its own status: spinner while the device has it, a drawn tick when the ack lands, red with the reason if refused. The kiosk toggle slides and the padlock gives one small shake as it locks. Installs, OTAs and agent updates get the <b>step rail</b> with a <b>ring</b> for the byte count — the same component the scout enrolment uses.</p></div>
+</div></div>
 
-<h2>D · Coach marks — pulse ring + tip, first visit only</h2>
-<div class="opt">
-  <div class="where">Where: <b>Enroll page</b> ("Scan now" the first time a venue has a scout), <b>Clients</b> ("Update all behind"), <b>device page</b> (the exit-kiosk code). One per page, dismissed once, remembered per user.</div>
-  <div class="coach"><span class="btn">Scan now</span><span class="ring"></span><div class="tipbox"><b>Scan this venue's Wi-Fi</b>Your Tableside AI looks for devices that trust the fleet key and lists them here. Runs every 15 min by itself.<span class="nx">Got it →</span></div></div>
-  <div class="gb"><div><b>Good</b> The app's pulse-and-ripple, used for the one thing a newcomer should press. Zero cost for people who already know the page — shows once, never again.</div><div><b>Bad</b> Easy to overdo; more than one per page and it becomes a tour nobody wants. Needs a tiny "seen" store per user (a <span class="mono">user_layouts</span> key would do).</div></div>
-</div>
+<h2>Commands <small>/commands · Actions</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>A table of statuses</h4>
+    <div class="row"><div><b style="font-size:12px">app_update → 12 devices</b><div class="rs">sent 14:02</div></div><span class="tag">7 done · 3 pending · 2 failed</span></div>
+    <p class="why">Right numbers, no shape. You read three counts and do the arithmetic.</p></div>
+  <div class="cell new"><h4><em>with motion</em>A segmented fill that moves as acks arrive</h4>
+    <div class="row"><div style="flex:1"><b style="font-size:12px">app_update → 12 devices</b><div class="bar seg" style="margin-top:6px"><i class="ok" style="width:58%"></i><i class="go" style="width:16%"></i><i class="bad" style="width:16%"></i><i class="wait" style="width:10%"></i></div><div class="rs" style="margin-top:4px">7 done · 2 installing · 2 failed · 1 waiting</div></div><span class="tag info"><span class="dot"></span>running</span></div>
+    <p class="why"><b>Fill</b>: green grows, accent breathes, red stays put. One glance says "mostly done, two to look at". When the last ack lands the accent segment collapses and the row's badge draws its tick.</p></div>
+</div></div>
 
-<h2>E · Toast timeline — events as they land</h2>
-<div class="opt">
-  <div class="where">Where: anything the server pushes while you watch — <b>scout job steps</b>, <b>command deliveries</b>, <b>a device coming back online</b>. Uses the existing toast system (<span class="mono">hxToast</span>) with a slide-in and a spinner for the step in flight.</div>
-  <div class="toasts">
-    <div class="toast"><span class="i"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5 10 17l9-10"/></svg></span>Token minted for AT070AA2600030</div>
-    <div class="toast"><span class="i"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5 10 17l9-10"/></svg></span>Agent installed (0.2.8)</div>
-    <div class="toast"><span class="i sp"></span>Setting Device Owner…</div>
-    <div class="toast mini" style="animation-delay:2.4s">next: permissions, start, register, first check-in</div>
-  </div>
-  <div class="gb"><div><b>Good</b> No layout to design — it rides the toast system every page already has, so a job started from any page can be followed from any page.</div><div><b>Bad</b> Toasts are transient; miss one and it is gone. Fine as a companion to B, weak on its own.</div></div>
-</div>
+<h2>Updates / OTA rollouts <small>/updates</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Per-device rows, polled</h4>
+    <div class="row"><div><span class="sn">AT070AABU00600</span><div class="rs">v2.0.98 → v2.1.025</div></div><span class="tag">downloading 41%</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00622</span><div class="rs">v2.0.98 → v2.1.025</div></div><span class="tag">applying</span></div>
+    <p class="why">Each row is right; the rollout as a whole has no face. A 100-device rollout is a hundred rows.</p></div>
+  <div class="cell new"><h4><em>with motion</em>The rollout has one bar; rows get the rail</h4>
+    <div class="row"><div style="flex:1"><b style="font-size:12px">v2.1.025 → 101 devices</b><div class="bar" style="margin-top:6px"><i style="--p:38%"></i></div><div class="rs" style="margin-top:4px">38 applied · 44 downloading · 19 waiting for Wi-Fi</div></div><span class="tag info"><span class="dot"></span>38%</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00600</span><div class="rail" style="width:260px"><div class="st ok"><div class="n"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></div>offered</div><div class="st on"><div class="n">2</div>download</div><div class="st"><div class="n">3</div>verify</div><div class="st"><div class="n">4</div>apply</div><div class="st"><div class="n">5</div>reboot</div></div></div><span class="tag info">41%</span></div>
+    <p class="why">The rollout's bar <b>shimmers</b> while anything is moving and goes flat when done. Each device's rail shows which of the five OTA stages it is in, and a failed stage turns red with the reason — <span class="mono">SLOT_SWITCH_FAILED</span> becomes a red step 5, not a line in a log.</p></div>
+</div></div>
+
+<h2>Clients <small>/clients</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>"Update all behind" then a 6s poll</h4>
+    <div class="row"><span class="btn pri">Update all behind <b>12</b></span><span class="tag">rows flip to "updating" eventually</span></div>
+    <p class="why">The page already polls while anything updates; the rows swap text. The behind-count card just changes number.</p></div>
+  <div class="cell new"><h4><em>with motion</em>The behind count drains into the up-to-date count</h4>
+    <div class="row"><div style="flex:1"><div class="bar seg"><i class="ok" style="width:72%"></i><i class="go" style="width:18%"></i><i class="wait" style="width:10%"></i></div><div class="rs" style="margin-top:4px">75 up to date · 9 installing · 3 behind</div></div><span class="tag info"><span class="dot"></span>updating 9</span></div>
+    <div class="row"><div><span class="sn">AT070AA2600037</span><div class="rs">1.6.2 → 1.9.2</div></div><span class="tag info"><span class="spin"></span>installing</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">1.9.2</div></div><span class="tag ok">up to date ✓</span></div>
+    <p class="why">The split bar the page already has gets <b>Fill</b> — it animates between polls instead of jumping. A row finishing draws its tick; the "behind" count card counts down rather than snapping.</p></div>
+</div></div>
+
+<h2>Alerts <small>/alerts · the bell</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>The bell count changes; the list repaints</h4>
+    <div class="al"><span class="sev"></span><div><b style="font-size:12px">Possible impersonation</b><div class="rs">AT070AABU00139 · 2m</div></div></div>
+    <p class="why">Resolving an alert removes it. A new critical one appears in the list like it was always there.</p></div>
+  <div class="cell new"><h4><em>with motion</em>New ones arrive, resolved ones tick and fade</h4>
+    <div class="al new"><span class="sev"></span><div><b style="font-size:12px">Key reset automatically</b><div class="rs">AT070AABU00139 · just now · from 10.32.2.9</div></div><span class="tag warn">new</span></div>
+    <div class="al done"><span class="sev"></span><div><b style="font-size:12px">Offline &gt; 1h</b><div class="rs">K222026091304 · resolved: back online</div></div><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span></div>
+    <p class="why"><b>Arrive</b> for a new alert while the page is open (and the bell <b>bobs</b> once, the app's help-button move). Resolving <b>draws</b> a tick and fades the row over a second instead of yanking it — you see what you just did.</p></div>
+</div></div>
+
+<h2>Restaurants <small>/restaurants · venue page</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Counts per venue</h4>
+    <div class="vh"><div><b style="font-size:12px">AIO Test Bistro</b><div class="rs">4 devices · 4 online</div></div><span class="tag ok">healthy</span></div>
+    <p class="why">Fine at a glance for one venue; across forty, "3 of 12 online" is a sentence to parse.</p></div>
+  <div class="cell new"><h4><em>with motion</em>A health ring per venue, a scout that is visibly looking</h4>
+    <div class="vh"><span class="ring"><i>88%</i></span><div><b style="font-size:12px">AIO Test Bistro</b><div class="rs">7 of 8 online · scout sweeping <span class="dot" style="display:inline-block;vertical-align:middle;color:var(--accent)"></span></div></div><span class="tag ok">healthy</span></div>
+    <div class="vh"><span class="ring b"><i>40%</i></span><div><b style="font-size:12px">Downtown</b><div class="rs">4 of 10 online · 2 need a site</div></div><span class="tag warn">look</span></div>
+    <p class="why">The ring is the venue's online share; it <b>fills</b> as devices come back after a power cut. While its scout sweeps, a small breathing dot says so — the only hint today is a log line.</p></div>
+</div></div>
+
+<h2>Settings &amp; first run <small>/settings · a new server</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Cards, in whatever order</h4>
+    <div class="row"><div><b style="font-size:12px">Fleet adb key</b><div class="rs">none uploaded</div></div><span class="btn">Upload</span></div>
+    <div class="row"><div><b style="font-size:12px">Agent APK</b><div class="rs">not hosted</div></div><span class="btn">Publish</span></div>
+    <p class="why">Nothing says which to do first, or that the scout feature is inert until both are done.</p></div>
+  <div class="cell new"><h4><em>with motion</em>The Enroll app's checklist, verbatim</h4>
+    <div class="cs ok"><div class="n">✓</div><div><b>Upload the fleet adb key</b><span>Done 8 Oct — scouts can open devices.</span></div></div>
+    <div class="cs on"><div class="n">2</div><div><b>Host the standard client</b><span>Publish to the <i>dpc</i> slot so QR and scout enrolment have something to install.</span></div></div>
+    <div class="cs"><div class="n">3</div><div><b>Turn scanning on for a venue</b><span>Restaurant → Scout. Until then the scheduler sweeps nothing.</span></div></div>
+    <div class="coach"><span class="btn pri">Publish</span><span class="ringm"></span><div class="tipbox"><b>Start here</b>The one thing the next step needs. Shows once; dismiss and it stays dismissed for you.<span class="nx">Got it →</span></div></div>
+    <p class="why">Lifted from the app's guide (<span class="mono">.cs/.cs.on/.cs.ok</span>): current step accent, done steps green, each a link. One <b>Point</b> coach mark on the control that step needs, first visit only. Also the right shape for a new restaurant (name → address → first device → scout on).</p></div>
+</div></div>
+
+<h2>Everywhere: loading and search <small>⌘K · page loads · HTMX swaps</small></h2>
+<div class="sec"><div class="two">
+  <div class="cell now"><h4><em>now</em>Blank, then content</h4>
+    <div style="height:54px;border:1px dashed var(--border);border-radius:10px;display:grid;place-items:center;font-size:11px;color:var(--text-faint)">(nothing, then everything)</div>
+    <p class="why">A partial that takes 400ms shows as a flash; a slow device page shows as a white block.</p></div>
+  <div class="cell new"><h4><em>with motion</em>Skeletons where content will be; results arrive in order</h4>
+    <div class="skel" style="width:60%"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:40%"></div>
+    <div class="cmdk" style="margin-top:8px"><input value="downtown" readonly><div class="r on">🏬 Downtown <span class="k">venue</span></div><div class="r">📱 AT070AABU00139 · Downtown <span class="k">device</span></div><div class="r">⚙ Downtown · scout settings <span class="k">page</span></div></div>
+    <p class="why">A skeleton with the app's <b>shimmer</b> holds the space, so nothing jumps. Command-palette results <b>arrive</b> staggered by 50ms, which reads as "found these" rather than "replaced the list". Both are pure CSS on markup that already exists.</p></div>
+</div></div>
 
 <h2>Recommendation</h2>
-<p><b>B as the one job-progress component</b>, used everywhere a machine does steps — scout enrolment, installs, OTA, client updates — with the step names each job already has. <b>C</b> for the two or three setup sequences a human works through, lifted from the Enroll app as-is so the products match. <b>D</b> sparingly: one coach mark per page, shown once. <b>E</b> only as the companion that lets you walk away from the page. The moves themselves — pulse, draw-tick, slide-in, ripple — are the app's four keyframes, so one small shared stylesheet covers all of it.</p>
-<p class="mini">Already shipped while this was being written: the scout card re-fetches itself every 3s during a job and the badge now reads "step 3/8 · Installing the agent" with a breathing dot — the minimum version of B's data path, so B can be built on top without another server change.</p>
+<div class="verdict">Adopt the five moves as one shared stylesheet (<span class="mono">static/motion.css</span>, ~60 lines, the app's keyframes renamed), then apply them in this order: <b>1</b> buttons that show their own in-flight/done/failed state (device page, clients, commands — the broadest payoff, no new data); <b>2</b> the step rail for every stepped job (scout enrol, install, OTA, agent update — one component, four step lists; the scout card already refetches itself so it is the first host); <b>3</b> arrive/glow on live lists (fleet, alerts, cmdk); <b>4</b> the checklist for first-run and new-restaurant; <b>5</b> one coach mark per page, shown once. Skip: anything that loops on a quiet screen — motion means something is happening, so a still page must be able to be still.</div>
 </div>
 <script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
 </body></html>

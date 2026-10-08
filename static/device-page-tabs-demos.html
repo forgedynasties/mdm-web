@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device page — tabs · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:920px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+.mk{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px}
+.hero{display:flex;align-items:center;gap:12px;margin:0 0 10px}
+.hero .sn{font-family:var(--font-mono,ui-monospace,monospace);font-size:16px;font-weight:700}
+.hero .meta{font-size:11.5px;color:var(--text-faint)}
+.hero .acts{margin-left:auto;display:flex;gap:6px}
+.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:0 0 12px;overflow-x:auto;scrollbar-width:none}
+.tabs span{font-size:12.5px;font-weight:700;color:var(--text-faint);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.tabs span.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs .n{font-size:10px;background:var(--surface2);border-radius:99px;padding:1px 6px;color:var(--text-faint)}
+.tabs .n.w{background:var(--warn-bg);color:var(--warn)}
+.tabs .adm{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:0 4px}
+.tabs .more{margin-left:auto;color:var(--text-faint)}
+.card{border:1px solid var(--border);border-radius:11px;background:var(--surface);margin:0 0 9px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--border)}
+.ch h4{font-size:12.5px;margin:0;font-weight:700}
+.ch .m{font-size:10.5px;color:var(--text-faint)}
+.ch .r{margin-left:auto;font-size:10.5px;color:var(--accent-text,var(--accent));font-weight:700}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding:6px 11px;font-size:12px}
+.kv div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border-soft,var(--border))}
+.kv div:nth-child(-n+2){border-top:0}
+.kv span{color:var(--text-faint)}
+.cols{display:grid;grid-template-columns:1fr 290px;gap:10px;align-items:start}
+.side .card{margin-bottom:9px}
+.rowi{display:flex;align-items:center;gap:8px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));font-size:12px}
+.rowi:first-of-type{border-top:0}
+.rowi .tag{margin-left:auto;font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;background:var(--surface2);color:var(--text-faint)}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px;margin:0 0 10px}
+.seg span{font-size:11px;font-weight:700;color:var(--text-faint);padding:4px 9px;border-radius:6px}
+.seg span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.gear{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);display:grid;place-items:center;font-size:13px}
+.menu{border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));padding:4px;width:220px;font-size:12px;margin:6px 0 0 auto}
+.menu div{padding:6px 10px;border-radius:7px}
+.menu div.h{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding-top:8px}
+.menu div.d{color:var(--danger)}
+.note{font-size:11px;color:var(--text-faint);margin:6px 2px 0}
+@media(max-width:860px){.cols{grid-template-columns:1fr}.gb{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Device page — the tab strip, especially for admins</h1>
+<p class="lead">An admin sees <b>seven tabs</b>: Overview · Applications · Queue · History · Alerts · About · Settings. Two of them are themselves split into sections (About: who has access, activity, hardware, software, security; Settings: enrollment, wireless adb, installed applications), and the Overview carries fourteen different action buttons. Below the strip the page is fine; the strip itself is where the crowding is. Mock serial <span class="mono">AT070AABU00231</span>.</p>
+
+<h2>A · Today<span class="badge now">live now</span></h2>
+<div class="opt now"><div class="mk">
+  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online · 1.9.2 · v2.1.025</div></div><div class="acts"><span class="btn">Lock again</span><span class="btn">Update agent</span><span class="btn">Reset key</span><span class="btn">Retire</span></div></div>
+  <div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Queue<span class="n">2</span></span><span>History</span><span>Alerts<span class="n w">1</span></span><span>About</span><span>Settings</span></div>
+  <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82% · wireless pad</div><div><span>Wi-Fi</span>AIO-Office · −43 dBm</div><div><span>Kiosk</span>locked · aio.app.nugget</div><div><span>Last seen</span>12s ago</div></div></div>
+</div>
+<div class="gb"><div><b>Good</b> Everything has a tab; nothing is more than one click away.</div><div><b>Bad</b> Seven peers of unequal weight: Queue and History are small lists, About and Settings are five and three sections each. Admin-only tabs look like everyone's. On a laptop the strip already scrolls.</div></div>
+</div>
+
+<h2>B · Four tabs, the rest folds into them<span class="badge pick">my pick</span></h2>
+<div class="opt"><div class="mk">
+  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online · 1.9.2 · v2.1.025</div></div><div class="acts"><span class="btn pri">Actions ▾</span><span class="gear">⚙</span></div></div>
+  <div class="tabs"><span class="on">Overview</span><span>Apps<span class="n">13</span></span><span>Activity<span class="n w">3</span></span><span>Details</span></div>
+  <div class="cols">
+    <div>
+      <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82% · wireless pad</div><div><span>Wi-Fi</span>AIO-Office · −43 dBm</div><div><span>Kiosk</span>locked · aio.app.nugget</div><div><span>Last seen</span>12s ago</div></div></div>
+      <div class="card"><div class="ch"><h4>Charge · 24h</h4><span class="r">7d →</span></div><div style="height:48px;margin:10px 11px;border-radius:8px;background:linear-gradient(90deg,var(--ok-bg),var(--surface2))"></div></div>
+    </div>
+    <div class="side">
+      <div class="card"><div class="ch"><h4>Needs you</h4><span class="n" style="font-size:10px;background:var(--warn-bg);color:var(--warn);border-radius:99px;padding:1px 6px">1</span></div><div class="rowi">Possible impersonation · 2m <span class="tag">alert</span></div></div>
+      <div class="card"><div class="ch"><h4>In flight</h4></div><div class="rowi">app_update → 1.9.2 <span class="tag">installing</span></div><div class="rowi">reboot <span class="tag">queued</span></div></div>
+    </div>
+  </div>
+  <div class="menu"><div class="h">Device</div><div>Reboot</div><div>Lock again</div><div>Update agent</div><div>Send command…</div><div class="h">Enrollment</div><div>Mark onboarded</div><div>Reset device key…</div><div>Move to another server…</div><div class="h">Admin</div><div class="d">Retire</div></div>
+  <p class="note">↑ the Actions menu, grouped; ⚙ opens Settings as a drawer (enrollment · wireless adb · installed apps), admin-only, so it is not a tab everyone sees.</p>
+</div>
+<div class="gb"><div><b>Good</b> Four tabs of equal weight. <b>Activity</b> = Queue + History + Alerts as one timeline with filter chips (in flight · done · alerts), which is how people actually read it: "what happened to this device, latest first". <b>Details</b> = About's five sections. Fourteen buttons become one grouped Actions menu, and the admin-only Settings becomes a gear + drawer, so an operator's strip and an admin's are identical. Open alerts and in-flight commands surface on the Overview rail, so folding them does not hide them.</div>
+<div><b>Bad</b> "Activity" is a merge: someone who wants only the command queue filters for it. Settings-as-drawer is a new pattern on this page (the fleet page already has one).</div></div>
+</div>
+
+<h2>C · Five tabs, admin tabs marked and last</h2>
+<div class="opt"><div class="mk">
+  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online</div></div><div class="acts"><span class="btn pri">Actions ▾</span></div></div>
+  <div class="tabs"><span class="on">Overview</span><span>Apps</span><span>Activity<span class="n">3</span></span><span>About</span><span>Settings <span class="adm">admin</span></span></div>
+  <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82%</div><div><span>Wi-Fi</span>−43 dBm</div></div></div>
+</div>
+<div class="gb"><div><b>Good</b> Smallest honest change: merge Queue + History + Alerts into Activity, keep About and Settings as tabs, badge Settings as admin so its presence reads as a privilege rather than clutter. Actions grouped into one menu.</div>
+<div><b>Bad</b> Still five, still a tab that most people cannot open. About stays a five-section scroll.</div></div>
+</div>
+
+<h2>D · Two tabs and a left rail of sections</h2>
+<div class="opt"><div class="mk">
+  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online</div></div><div class="acts"><span class="btn pri">Actions ▾</span></div></div>
+  <div class="tabs"><span class="on">Live</span><span>Record</span></div>
+  <div class="cols" style="grid-template-columns:170px 1fr">
+    <div class="side"><div class="card"><div class="rowi" style="font-weight:700">Status</div><div class="rowi">Apps</div><div class="rowi">In flight <span class="tag">2</span></div><div class="rowi">Alerts <span class="tag">1</span></div><div class="rowi">History</div><div class="rowi">Hardware</div><div class="rowi">Software</div><div class="rowi">Security</div><div class="rowi">Access</div><div class="rowi">Enrollment</div><div class="rowi">Wireless adb</div></div></div>
+    <div><div class="card"><div class="ch"><h4>Status</h4></div><div class="kv"><div><span>Battery</span>82%</div><div><span>Wi-Fi</span>−43 dBm</div></div></div></div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Every section is one click and nothing is nested: Live (now) vs Record (what happened / what it is), with an eleven-entry rail. Scales to any number of sections without the strip growing.</div>
+<div><b>Bad</b> A rail eats 170px on every device page, and the two top tabs are a weak split — "Alerts" is both live and record. The biggest change of the four.</div></div>
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B.</b> Seven tabs are really four jobs — what is it doing now, what runs on it, what has happened to it, what is it — and B names those four. The two things that make the admin strip crowded, the fourteen loose buttons and the admin-only Settings tab, each become one control (an Actions menu, a gear drawer), so operators and admins see the same four tabs. <b>C</b> if you want the merge without the drawer. <b>D</b> only if the page is going to keep growing sections.</p>
+<p class="note">Tab URLs (<span class="mono">?tab=queue</span> etc.) would redirect to their new homes, so bookmarks and alert links keep working.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
