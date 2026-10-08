@@ -62,8 +62,6 @@
 .en-form .foot{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 </style>
 
-{{template "fleet-tabs" .}}
-
 {{$canOp := canAdminOrOperator .Role}}
 {{$inboxN := .Stats.Inbox}}
 <div class="cc-wrap">
@@ -139,7 +137,10 @@
   </div>
 
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
-  <div class="cc-card lt" id="en-inbox-card" data-lt-n="25">
+  {{/* Capped at 8: the inbox is a working list, and the shared list JS turns the
+     .lt-more below it into "Show all N waiting". 25 meant every row rendered inline
+     on any realistic fleet, which buried the cards under it. */}}
+  <div class="cc-card lt" id="en-inbox-card" data-lt-n="8">
     <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h2>Needs assignment</h2><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><button type="button" class="cc-btn sm" data-copy-serials="#en-inbox" title="Copy the serials waiting for assignment, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button><a class="r" href="/devices?onboarding=pending">All →</a></div>
     <div class="lt-bar">
       <input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search inbox" autocomplete="off">

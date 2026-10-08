@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll page — section layout · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:900px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+.mk{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px}
+.ttl{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0 0 2px}
+.ttl .hl{color:var(--warn)}
+.sub{font-size:12px;color:var(--text-faint);margin:0 0 12px}
+.cols{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;align-items:start}
+.card{border:1px solid var(--border);border-radius:12px;background:var(--surface);margin:0 0 10px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border)}
+.ch h3{font-size:13px;margin:0;font-weight:700}
+.ch .m{font-size:11px;color:var(--text-faint)}
+.ch .r{margin-left:auto;font-size:11px;font-weight:700;color:var(--accent-text,var(--accent));text-decoration:none}
+.ic{width:19px;height:19px;border-radius:6px;background:var(--surface2);display:grid;place-items:center;font-size:10px;color:var(--text-faint);font-weight:800}
+.ic.acc{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text,var(--accent))}
+.ic.w{background:var(--warn-bg);color:var(--warn)}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 12px;border-top:1px solid var(--border-soft,var(--border));align-items:center}
+.row:first-of-type{border-top:0}
+.sn{font-size:12.5px;font-weight:700;color:var(--accent-text,var(--accent))}
+.rs{font-size:10.5px;color:var(--text-faint);margin-top:2px}
+.tag{font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;background:var(--surface2);color:var(--text-faint);margin-right:4px}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.sel{font-size:11px;border:1px solid var(--border);border-radius:7px;padding:3px 6px;background:var(--surface);color:var(--text-2)}
+.btn{font-size:11px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:7px;padding:3px 8px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.more{display:block;width:100%;text-align:center;font-size:11px;font-weight:700;color:var(--accent-text,var(--accent));background:var(--surface2);border:0;border-top:1px solid var(--border);padding:6px}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;margin:0 0 10px}
+.seg button{font:inherit;font-size:11.5px;font-weight:700;border:0;background:transparent;color:var(--text-faint);padding:5px 10px;border-radius:7px;cursor:default}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.seg .n{font-size:10px;margin-left:5px;color:var(--text-faint)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px}
+.p{border:1px solid var(--border);border-radius:10px;padding:8px 9px;background:var(--bg)}
+.p b{font-size:12px}
+.p .meta{font-size:10px;color:var(--text-faint);margin-top:3px}
+.plist{padding:4px 0}
+.pl{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:7px 12px;border-top:1px solid var(--border-soft,var(--border));font-size:12px}
+.pl:first-child{border-top:0}
+.strip{display:flex;gap:8px;align-items:center;padding:8px 11px;border:1px solid var(--accent);border-radius:11px;background:color-mix(in srgb,var(--accent) 7%,transparent);margin:0 0 10px;font-size:12px}
+.strip .btn{margin-left:auto}
+.foot{display:flex;gap:10px;align-items:center;padding:9px 12px;font-size:11.5px;color:var(--text-faint)}
+.foot a{color:var(--accent-text,var(--accent));font-weight:700;text-decoration:none}
+.kv{display:flex;justify-content:space-between;font-size:11px;padding:5px 12px;border-top:1px solid var(--border-soft,var(--border));color:var(--text-faint)}
+.tiny{font-size:10.5px;color:var(--text-faint);padding:0 12px 9px}
+.acc{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--border);font-size:12.5px;font-weight:700}
+.acc .m{font-weight:400;font-size:11px;color:var(--text-faint)}
+.acc .cv{margin-left:auto;font-size:11px;color:var(--text-faint)}
+@media(max-width:1024px){.cols{grid-template-columns:1fr}}
+@media(max-width:720px){.gb{grid-template-columns:1fr}.pgrid{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Enroll page — how the sections sit</h1>
+<p class="lead">The tab strip is gone (the page is the enrollment page). What is left is <b>five full-width cards stacked in one column</b>: scout finds, needs assignment, profiles, recent enrollments, how devices get here. Everything is the same size and shouts equally loudly, so the two lists that need a person are buried among three that are reference material. These are four ways to arrange them.</p>
+
+<h2>A · Deployed today<span class="badge now">live now</span></h2>
+<div class="opt now"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week · 2 active profiles</div>
+  <div class="card"><div class="ch"><span class="ic acc">◎</span><h3>Found on a venue's Wi-Fi</h3><span class="m">1 ready</span></div><div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs">AIO T7 · 10.32.2.75 · via AT070AABU00231</div></div><div><button class="btn pri">Enrol</button></div></div></div>
+  <div class="card"><div class="ch"><span class="ic w">▣</span><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">Standard client</span>Sunmi D3 Pro<span class="tag warn" style="margin-left:4px">type needed</span></div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+  </div>
+  <div class="card"><div class="ch"><span class="ic">▦</span><h3>Enrollment profiles</h3><span class="m">2 profiles · 2 active</span></div>
+    <div class="pgrid"><div class="p"><b>mPOS rollout</b> <span class="tag ok">active</span><div class="meta">Handheld · Downtown · 3/5 enrolled</div></div><div class="p"><b>Menu boards</b> <span class="tag ok">active</span><div class="meta">Dongle · no site · 1 enrolled</div></div></div>
+  </div>
+  <div class="card"><div class="ch"><span class="ic">◷</span><h3>Recent enrollments</h3><span class="m">last 30 days · 3</span></div><div class="row"><div><span class="sn">K222026091306</span><div class="rs">by a teammate · 2d · Downtown</div></div><div></div></div></div>
+  <div class="card"><div class="ch"><span class="ic">?</span><h3>How devices get here</h3><span class="m">four paths, one fleet</span></div><div class="pgrid"><div class="p"><b>AIO Enroll app</b><div class="meta">3 steps</div></div><div class="p"><b>QR provisioning</b><div class="meta">3 steps</div></div></div></div>
+</div>
+<div class="gb"><div><b>Good</b> Nothing is hidden; one column reads top to bottom on any width.</div><div><b>Bad</b> Five equal cards, so the page has no subject. The work (two lists) and the reference (three cards) look identical, and the help card is as prominent as the queue.</div></div>
+</div>
+
+<h2>B · Work left, reference right<span class="badge pick">my pick</span></h2>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="cols">
+    <div>
+      <div class="strip"><span class="ic acc">◎</span><b>1 device found on a venue's Wi-Fi</b><span class="m" style="color:var(--text-faint)">AT070AA2600030 · AIO T7 · via 00231</span><button class="btn pri">Enrol</button></div>
+      <div class="card"><div class="ch"><span class="ic w">▣</span><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs"><span class="tag">Standard client</span>AIO T7<span class="tag warn" style="margin-left:4px">type needed</span></div></div><div><select class="sel"><option>Site…</option></select><select class="sel" style="margin-left:4px"><option>Type…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">Standard client</span>Sunmi D3 Pro · enrolled 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs"><span class="tag">Firmware client</span>Kiosk 22 · first seen 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <button class="more">Show all 15 waiting</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><div class="ch"><span class="ic">▦</span><h3>Profiles</h3><span class="m">2 active</span><a class="r">New →</a></div>
+        <div class="plist">
+          <div class="pl"><div><b>mPOS rollout</b><div class="rs">Handheld · Downtown</div></div><span class="tag">3/5</span><button class="btn">QR</button></div>
+          <div class="pl"><div><b>Menu boards</b><div class="rs">Dongle · no site</div></div><span class="tag">1</span><button class="btn">QR</button></div>
+        </div>
+      </div>
+      <div class="card"><div class="ch"><span class="ic">◷</span><h3>Recent</h3><span class="m">3 · 30 days</span><a class="r">All →</a></div>
+        <div class="pl"><div><b>K222026091306</b><div class="rs">a teammate · 2d</div></div><span></span><span></span></div>
+        <div class="pl"><div><b>5244ce4a</b><div class="rs">a teammate · 4d</div></div><span></span><span></span></div>
+      </div>
+      <div class="card"><div class="ch"><span class="ic">?</span><h3>How devices get here</h3></div>
+        <div class="foot"><a>AIO Enroll app</a> · <a>QR</a> · <a>adb</a> · <a>firmware</a></div>
+        <div class="tiny">Opens the steps in place. Server URL and fleet key live here too.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> The page has a subject: the queue is the widest thing on it, with the per-row Site/Type controls getting the room they need. The scout find becomes a one-line strip — it is one device, it never needed a card. Profiles, history and the how-to shrink into a reference rail that is still one click deep. Collapses to one column under 1024px with the work first.</div>
+<div><b>Bad</b> Profile cards lose the inline QR image (it moves to a popover). The right rail is nearly empty on a venue with no profiles.</div></div>
+</div>
+
+<h2>C · One queue, two tabs under it</h2>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">16</span> devices need you</div>
+  <div class="sub">15 waiting for a site · 1 found on Wi-Fi</div>
+  <div class="card"><div class="ch"><span class="ic w">▣</span><h3>To place</h3><span class="m">16 · newest first</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs"><span class="tag acc" style="background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent-text,var(--accent))">found on Wi-Fi</span>AIO T7 · 10.32.2.75 · via 00231</div></div><div><button class="btn pri">Enrol</button></div></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">first check-in</span>T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">AIO Enroll</span>Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 16</button>
+  </div>
+  <div class="seg"><button class="on">Profiles<span class="n">2</span></button><button>Recent<span class="n">3</span></button><button>How it works</button></div>
+  <div class="card"><div class="pgrid"><div class="p"><b>mPOS rollout</b> <span class="tag ok">active</span><div class="meta">Handheld · Downtown · 3/5</div></div><div class="p"><b>Menu boards</b> <span class="tag ok">active</span><div class="meta">Dongle · no site · 1</div></div></div></div>
+</div>
+<div class="gb"><div><b>Good</b> One list answers "what needs me", whatever path the device came in by, with a source tag per row. Everything else is one segmented control, so the page is two blocks tall.</div>
+<div><b>Bad</b> The two kinds of row do different things — Enrol versus Site+Type+Done — so the action column is ragged, and a scout row cannot be bulk-handled with the others. Mixing them also hides that a sighting is <i>not yet a device</i>.</div></div>
+</div>
+
+<h2>D · Same cards, reference collapsed</h2>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="strip"><span class="ic acc">◎</span><b>1 found on a venue's Wi-Fi</b><button class="btn pri">Enrol</button></div>
+  <div class="card"><div class="ch"><span class="ic w">▣</span><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">Standard client</span>Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15 waiting</button>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="acc"><span class="ic">▦</span>Enrollment profiles <span class="m">2 active</span><span class="cv">Show ▾</span></div>
+    <div class="acc"><span class="ic">◷</span>Recent enrollments <span class="m">3 · last 30 days</span><span class="cv">Show ▾</span></div>
+    <div class="acc"><span class="ic">?</span>How devices get here <span class="m">four paths</span><span class="cv">Show ▾</span></div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Smallest change of the three: same cards, same code, three of them start folded with their counts in the header. The page becomes one screen.</div>
+<div><b>Bad</b> A fold is a thing to remember and to click; profiles are used often enough that hiding them by default will annoy whoever creates one weekly. No use made of the width.</div></div>
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B.</b> It is the only one where the page's shape says what the page is for: the queue takes the width it needs for Site/Type/Done, the scout find states itself in one line, and profiles/history/help stay visible but stop competing. <b>C</b> is the boldest and I would not ship it — a sighting and an enrolled device are different things with different actions, and the merged table makes both worse. <b>D</b> is the cheap version of B, worth taking if you want the smallest diff rather than the better page.</p>
+<p>Already changed and on stage regardless of the pick: the tab strip is gone, so there is one <span class="mono">h1</span>, and the inbox caps at 8 with the existing "Show all N waiting" button doing the revealing.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>

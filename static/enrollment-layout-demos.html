@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll page — top of page &amp; inbox · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:880px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+/* mock chrome */
+.mk{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px 16px}
+.ft{display:flex;gap:4px;margin:0 0 12px;flex-wrap:wrap}
+.ft a{font-size:12.5px;font-weight:700;color:var(--text-faint);text-decoration:none;padding:6px 11px;border-radius:9px;display:flex;gap:6px;align-items:center;background:var(--surface2);border:1px solid transparent}
+.ft a.cur{background:var(--surface);border-color:var(--border);color:var(--text);box-shadow:var(--shadow-sm)}
+.ft .pill{font-size:10.5px;font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:0 6px;color:var(--text-faint)}
+.ft .pill.warn{color:var(--warn);border-color:var(--warn)}
+.ttl{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0 0 2px}
+.ttl .hl{color:var(--warn)}.ttl .ok{color:var(--ok)}
+.eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:3px}
+.sub{font-size:12.5px;color:var(--text-faint);margin:0 0 12px}
+.fleeth{font-size:19px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}
+.kpi{border:1px solid var(--border);border-radius:11px;padding:9px 11px;background:var(--surface)}
+.kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)}
+.kpi .v{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.kpi .v.warn{color:var(--warn)}
+.kpi .d{font-size:10.5px;color:var(--text-faint)}
+.card{border:1px solid var(--border);border-radius:12px;background:var(--surface);margin:0 0 10px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.ch h3{font-size:13.5px;margin:0;font-weight:700}
+.ch .m{font-size:11.5px;color:var(--text-faint);margin-left:2px}
+.ch .r{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--accent-text,var(--accent));text-decoration:none}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:8px 12px;border-top:1px solid var(--border-soft,var(--border));align-items:center}
+.row:first-of-type{border-top:0}
+.sn{font-size:12.5px;font-weight:700;color:var(--accent-text,var(--accent))}
+.rs{font-size:11px;color:var(--text-faint);margin-top:2px}
+.tag{font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;background:var(--surface2);color:var(--text-faint);margin-right:5px}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.sel{font-size:11.5px;border:1px solid var(--border);border-radius:7px;padding:4px 7px;background:var(--surface);color:var(--text-2)}
+.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:4px 9px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.more{display:block;width:100%;text-align:center;font-size:11.5px;font-weight:700;color:var(--accent-text,var(--accent));background:var(--surface2);border:0;border-top:1px solid var(--border);padding:7px}
+.dim{opacity:.5}
+@media(max-width:720px){.kpis{grid-template-columns:1fr 1fr}.gb{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Enroll page — the top of the page, and the inbox list</h1>
+<p class="lead">Two things asked about <b>/enrollment</b>: why the <b>Fleet · Devices 30 · Restaurants 1 · Groups 1 · Enroll 15</b> block is there, and the <b>Needs assignment</b> card listing every device with no "show all" control.</p>
+
+<h2>What is actually wrong today</h2>
+<ul>
+<li><b>Two <code>&lt;h1&gt;</code>s on one page.</b> <span class="mono">fleet-tabs</span> (layout.html:3405) emits <span class="mono">&lt;h1 class="ov-title"&gt;Fleet&lt;/h1&gt;</span>, then the page emits its own <span class="mono">&lt;h1 class="cc-h1"&gt;15 devices need a site&lt;/h1&gt;</span>. The convention is one <span class="mono">h1</span> per page — so the generic one is the one to go.</li>
+<li><b>The waiting count is on screen three times</b> — the <span class="mono">Enroll 15</span> tab pill, the <b>Waiting</b> KPI, and the card's own "15 waiting". Devices/Restaurants/Groups counts belong to the tabs they label; they are navigation, not this page's subject.</li>
+<li><b>The inbox never caps.</b> The card says <span class="mono">data-lt-n="25"</span>, and the shared list JS (layout.html:1593) does cap at that — but revealing the rest needs a <span class="mono">.lt-more</span> element, and the inbox partial has none. So today: 15 rows all show, and <b>past 25 rows the extras hide with no way to get them back</b>. That is a bug, not just a missing button.</li>
+</ul>
+
+<h2>A · Deployed today<span class="badge now">live now</span></h2>
+<div class="opt now"><div class="mk">
+  <div class="fleeth">Fleet</div>
+  <div class="ft"><a>Devices <span class="pill">30</span></a><a>Restaurants <span class="pill">1</span></a><a>Groups <span class="pill">1</span></a><a class="cur">Enroll <span class="pill warn">15</span></a></div>
+  <div class="eyebrow">Fleet · Enroll</div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub"><b>26</b> Firmware MDM · <b>4</b> Standard MDM · <b>3</b> enrolled this week · <b>2</b> active profiles</div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Waiting</div><div class="v warn">15</div><div class="d">need a site or type</div></div>
+    <div class="kpi"><div class="k">Standard MDM</div><div class="v">4</div><div class="d">outsourced devices</div></div>
+    <div class="kpi"><div class="k">Firmware MDM</div><div class="v">26</div><div class="d">our hardware</div></div>
+    <div class="kpi"><div class="k">Retired</div><div class="v">2</div><div class="d">kept for history</div></div>
+  </div>
+  <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs"><span class="tag">Standard client</span>AIO T7 · enrolled 6m<span class="tag warn" style="margin-left:5px">type needed</span></div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row dim"><div><span class="sn">…13 more rows, all rendered</span></div><div></div></div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Every number is reachable; the tabs make the fleet hub obvious.</div><div><b>Bad</b> Two h1s, the same 15 three times, and a list with no cap control.</div></div>
+</div>
+
+<h2>B · Tabs carry the fleet counts, the page keeps one title<span class="badge pick">my pick</span></h2>
+<div class="opt"><div class="mk">
+  <div class="ft"><a>Devices <span class="pill">30</span></a><a>Restaurants <span class="pill">1</span></a><a>Groups <span class="pill">1</span></a><a class="cur">Enroll <span class="pill warn">15</span></a></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week · 2 active profiles · 2 retired</div>
+  <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi"><div class="k">Found on Wi-Fi</div><div class="v">1</div><div class="d">ready to enrol</div></div>
+    <div class="kpi"><div class="k">Enrolled this week</div><div class="v">3</div><div class="d">standard client</div></div>
+    <div class="kpi"><div class="k">Active profiles</div><div class="v">2</div><div class="d">tokens that still work</div></div>
+  </div>
+  <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs"><span class="tag">Standard client</span>AIO T7 · enrolled 6m<span class="tag warn" style="margin-left:5px">type needed</span></div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">Standard client</span>Sunmi D3 Pro · enrolled 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs"><span class="tag">Firmware client</span>Kiosk 22 · first seen 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15</button>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> One h1 — the page's own. The duplicate "Fleet" heading goes; the tabs keep their counts, because there they label a destination instead of restating this page. The KPI row stops echoing the tabs and shows what this page is for instead (scout finds, recent enrolments, live tokens). The inbox caps at 8 with a real <span class="mono">.lt-more</span> button, which also fixes the >25 rows black hole.</div>
+<div><b>Bad</b> "Fleet" as a word disappears from the top of the page (it stays in the nav and the eyebrow if kept). Three KPIs instead of four changes the grid.</div></div>
+</div>
+
+<h2>C · No KPI row at all</h2>
+<div class="opt"><div class="mk">
+  <div class="ft"><a>Devices <span class="pill">30</span></a><a>Restaurants <span class="pill">1</span></a><a>Groups <span class="pill">1</span></a><a class="cur">Enroll <span class="pill warn">15</span></a></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week · 2 active profiles</div>
+  <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs"><span class="tag">Standard client</span>AIO T7 · enrolled 6m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15</button>
+  </div>
+  <div class="card"><div class="ch"><h3>Found on a venue's Wi-Fi</h3><span class="m">1 ready</span></div>
+    <div class="row"><div><span class="sn">AT070AA2600030</span><div class="rs">AIO T7 · 10.32.2.75 · via AT070AABU00231</div></div><div><button class="btn pri">Enrol</button></div></div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Shortest route to the work: title, then the two lists that need action. Nothing is stated twice anywhere.</div>
+<div><b>Bad</b> Retired and the client split lose their one-click filter links; they survive only as plain text in the sub-line.</div></div>
+</div>
+
+<h2>D · Keep four KPIs, make them this page's funnel</h2>
+<div class="opt"><div class="mk">
+  <div class="ft"><a>Devices <span class="pill">30</span></a><a>Restaurants <span class="pill">1</span></a><a>Groups <span class="pill">1</span></a><a class="cur">Enroll <span class="pill warn">15</span></a></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 2 retired</div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Found on Wi-Fi</div><div class="v">1</div><div class="d">seen by a scout</div></div>
+    <div class="kpi"><div class="k">Waiting</div><div class="v warn">15</div><div class="d">need a site or type</div></div>
+    <div class="kpi"><div class="k">This week</div><div class="v">3</div><div class="d">enrolled</div></div>
+    <div class="kpi"><div class="k">Profiles</div><div class="v">2</div><div class="d">active tokens</div></div>
+  </div>
+  <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><a class="r">All →</a></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span>T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15</button>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Reads left to right as the actual funnel — found → waiting → enrolled → tokens — and keeps the familiar four-tile shape.</div>
+<div><b>Bad</b> "Waiting 15" still repeats the tab pill and the card count, which was one of the complaints.</div></div>
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B.</b> It fixes the two concrete faults — the duplicate <span class="mono">h1</span> and the uncapped list — without taking anything away: the fleet counts stay in the tabs where they label a destination, and the KPI row stops repeating them and starts earning its space. <b>C</b> is B minus the KPI row, and is the better choice if you would rather the page be only lists; <b>D</b> keeps four tiles but leaves "Waiting" stated three times.</p>
+<p>The inbox change is the same in B, C and D, and it is small: cap <span class="mono">data-lt-n</span> at 8 and add <span class="mono">&lt;div class="lt-more lt-out" data-grp="" data-what="waiting"&gt;&lt;button class="app-more lt-more-t"&gt;&lt;/button&gt;&lt;/div&gt;</span> inside the <span class="mono">enroll-inbox</span> partial — the shared JS then labels it "Show all 15 waiting" and reveals the rest on click, exactly as the Clients page does.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
