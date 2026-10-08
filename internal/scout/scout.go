@@ -278,6 +278,13 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 		up.State = "ours"
 		up.Reason = ""
 	}
+	// Nor is a device this server already manages, however it got here: the desktop app
+	// enrols over USB, and the probe of such a device looks exactly like a fresh one
+	// that happens to have our client on it.
+	if known, err := s.db.DeviceKnown(ctx, f.Serial); err == nil && known {
+		up.State = "ours"
+		up.Reason = ""
+	}
 	if err := s.db.UpsertSighting(ctx, up); err != nil {
 		log.Printf("[scout] upsert sighting %s: %v", f.Serial, err)
 		return

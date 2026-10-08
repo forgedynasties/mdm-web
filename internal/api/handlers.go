@@ -758,6 +758,10 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.StampEnrolledViaScout(r.Context(), req.Serial); err != nil {
 		log.Printf("[enroll] %s: stamp scout: %v", req.Serial, err)
 	}
+	// And it is no longer something to enrol, so it leaves the scout inbox.
+	if err := h.db.MarkSightingOurs(r.Context(), req.Serial); err != nil {
+		log.Printf("[enroll] %s: clear sighting: %v", req.Serial, err)
+	}
 	verb := "enrolled"
 	if res.ReEnrolled {
 		verb = "re-enrolled (key rotated)"
