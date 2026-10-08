@@ -13,6 +13,7 @@
 .en-rail .en-pgrid{grid-template-columns:1fr;gap:9px;padding:12px}
 .en-rail .en-p{padding:11px 12px;gap:7px}
 .en-rail .en-p .h b{font-size:13px}
+#en-profiles .lt-more{margin:0 12px 12px}
 .en-rail .en-recent th{padding:7px 12px}
 .en-rail .en-recent td{padding:8px 12px;white-space:normal}
 /* The QRs live below both columns now, one open at a time, at a size worth scanning.
@@ -209,12 +210,14 @@
   <aside class="en-rail">
 
   {{/* ── Profiles ──────────────────────────────────────────────────────── */}}
-  <div class="cc-card" id="en-profiles">
+  {{/* Capped at 4 with the shared list cap: the rail is for a glance, and every
+       profile ever made is one click away under "Show all N profiles". */}}
+  <div class="cc-card lt" id="en-profiles" data-lt-n="4">
     <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span></div>
     {{if .Profiles}}
     <div class="en-pgrid">
       {{range .Profiles}}
-      <div class="en-p{{if not .Active}} off{{end}}" id="prof-{{.ID}}">
+      <div class="en-p lt-row{{if not .Active}} off{{end}}" id="prof-{{.ID}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}}">
         <div class="h"><b title="{{.Name}}">{{.Name}}</b>
           {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
         </div>
@@ -245,6 +248,7 @@
       </div>
       {{end}}
     </div>
+    <div class="lt-more lt-out" data-what="profiles"><button type="button" class="app-more lt-more-t"></button></div>
     {{else}}
     <div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div>
     {{end}}
