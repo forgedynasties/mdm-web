@@ -290,7 +290,7 @@ function clPick(a) {
         <input type="hidden" name="type" value="app_update">
         <input type="hidden" name="target_type" value="devices">
         <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
-        <button type="submit" class="cc-btn sm primary"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update all behind<span class="n">{{.Behind}}</span></button>
+        <button type="submit" class="cc-btn sm primary" data-coach="clients-update-all" data-coach-title="One press updates every device behind" data-coach-text="Each device downloads the hosted build and installs it itself; rows turn to 'installing' here as they pick it up, then to 'up to date' when they report the new version."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update all behind<span class="n">{{.Behind}}</span></button>
       </form>
       {{end}}
     </div>

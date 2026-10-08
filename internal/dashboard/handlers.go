@@ -1452,6 +1452,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// The scout's eight enrolment steps, by 1-based number — the same names the
 		// firmware client (NetScout.STEPS) and the Enroll apps use, so a badge that says
 		// "step 3/8 · Installing the agent" matches what the device is logging.
+		// seq a b → [a..b], for templates that draw a fixed number of steps.
+		"seq": func(a, b int) []int {
+			if b < a {
+				return nil
+			}
+			out := make([]int, 0, b-a+1)
+			for i := a; i <= b; i++ {
+				out = append(out, i)
+			}
+			return out
+		},
 		"scoutStep": func(n int) string {
 			steps := []string{"Checking the device", "Getting a token", "Installing the agent", "Setting Device Owner",
 				"Granting permissions", "Starting the agent", "Registering with the MDM", "First check-in"}

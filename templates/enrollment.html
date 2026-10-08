@@ -35,11 +35,7 @@
 .en-kebab .menu form{display:contents}
 .en-kebab .menu hr{border:0;border-top:1px solid var(--border-soft);margin:3px 2px}
 #en-profiles .lt-more{margin:0 17px 14px}
-/* The in-progress badge breathes so a live card reads as live. */
 .en-stepping{display:inline-flex;align-items:center;gap:6px}
-.en-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:en-breathe 1.2s ease-in-out infinite}
-@keyframes en-breathe{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
-@media (prefers-reduced-motion: reduce){.en-dot{animation:none}}
 /* A venue with one device found on it is one line, not a card's worth of chrome. */
 .en-sight.solo{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .en-quiet{padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.55}
@@ -115,7 +111,7 @@
     </div>
     {{if $canOp}}
     <div class="cc-actions">
-      <button type="button" class="cc-btn primary" onclick="enOpenModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>
+      <button type="button" class="cc-btn primary" onclick="enOpenModal()" data-coach="enroll-new-profile" data-coach-title="Start with a profile" data-coach-text="A profile is a scannable QR that says what a batch of devices is and where it goes. Scout and app enrolments mint their own; this one is for QR and adb."><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>
     </div>
     {{end}}
   </div>
@@ -460,7 +456,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
         </small>
       </div>
       {{if eq .State "enrolling"}}
-        <span class="cc-tag info en-stepping"><span class="en-dot"></span>step {{.Step}}/8 · {{scoutStep .Step}}</span>
+        <span class="cc-tag info en-stepping"><span class="m-dot"></span>step {{.Step}}/8 · {{scoutStep .Step}}</span>
       {{else if eq .State "unauthorized"}}
         {{/* adb answered, the key did not. Nothing can be read off it and nothing can be
              installed on it until someone at the device accepts the key, so the only
@@ -478,6 +474,13 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
         </form>
       {{end}}
     </div>
+    {{if eq .State "enrolling"}}
+    {{/* The eight steps, drawn: done ones tick, the current one pulses. Refreshed with
+         the card every 3s while the job runs (see enroll-scout). */}}
+    <div style="padding:0 16px 12px;border-bottom:1px solid var(--border-soft)">
+      <ol class="m-rail">{{$cur := .Step}}{{range $i := seq 1 8}}<li class="{{if lt $i $cur}}ok{{else if eq $i $cur}}on{{end}}"><i>{{if lt $i $cur}}<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>{{else}}{{$i}}{{end}}</i>{{scoutStep $i}}</li>{{end}}</ol>
+    </div>
+    {{end}}
     {{end}}
     {{end}}
     {{end}}

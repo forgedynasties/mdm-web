@@ -71,6 +71,7 @@
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/motion.css?v={{.AssetVer}}">
   {{/* The device picker's styles (co-* only), loaded here rather than by the pages
        that use it: a stylesheet inside <main> arrives after a boosted swap has
        already painted the page, which showed it unstyled for a moment. */}}
@@ -1567,6 +1568,41 @@
       .catch(function () { if (gen !== _repGen) return; mdmStopThink(); if (pre) pre.textContent = 'Network error.'; if (full) full.innerHTML = ''; })
       .finally(function () { if (gen === _repGen) { btn.disabled = false; btn.textContent = lbl; } });
   };
+  // ── Motion (static/motion.css). Two runtimes that need no per-page code:
+  //  · busy buttons: any submit button, and any hx-* trigger, shows a spinner while its
+  //    request is in flight, so a press is seen to do something before the answer lands.
+  //  · coach marks: one element per page may carry data-coach="id" with data-coach-title /
+  //    data-coach-text. The first time this person sees it, it gets a pulsing ring and a
+  //    tip; "Got it" remembers that, per person and per mark, in localStorage.
+  (function () {
+    function busy(el, on) { if (!el || el.tagName !== 'BUTTON') return; el.classList.toggle('is-busy', on); el.toggleAttribute('aria-busy', on); }
+    document.addEventListener('submit', function (e) {
+      var f = e.target; if (!(f instanceof HTMLFormElement) || f.hasAttribute('hx-post') || f.hasAttribute('hx-get')) return;
+      var b = e.submitter || f.querySelector('button[type=submit],button:not([type])'); busy(b, true);
+      setTimeout(function () { busy(b, false); }, 15000); // a full-page submit navigates; this is the fallback
+    }, true);
+    document.addEventListener('htmx:beforeRequest', function (e) { busy(e.detail && e.detail.elt && e.detail.elt.closest('button'), true); busy(e.detail && e.detail.requestConfig && e.detail.requestConfig.triggeringEvent && e.detail.requestConfig.triggeringEvent.submitter, true); });
+    document.addEventListener('htmx:afterRequest', function (e) { document.querySelectorAll('button.is-busy').forEach(function (b) { busy(b, false); }); });
+    var who = document.body.getAttribute('data-user') || '-';
+    function seen(id) { try { return localStorage.getItem('mdm.coach.' + who + '.' + id) === '1'; } catch (e) { return true; } }
+    function mark(id) { try { localStorage.setItem('mdm.coach.' + who + '.' + id, '1'); } catch (e) {} }
+    function coach() {
+      var el = document.querySelector('[data-coach]'); if (!el || el.classList.contains('m-coach')) return;
+      var id = el.getAttribute('data-coach'); if (!id || seen(id)) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { /* still show the tip, no ring loop */ }
+      el.classList.add('m-coach');
+      var tip = document.createElement('div'); tip.className = 'm-tip below'; tip.setAttribute('role', 'note');
+      tip.innerHTML = '<b></b><span></span><button type="button">Got it</button>';
+      tip.querySelector('b').textContent = el.getAttribute('data-coach-title') || '';
+      tip.querySelector('span').textContent = el.getAttribute('data-coach-text') || '';
+      function done() { mark(id); el.classList.remove('m-coach'); tip.remove(); }
+      tip.querySelector('button').addEventListener('click', function (ev) { ev.stopPropagation(); done(); });
+      el.addEventListener('click', done, { once: true });
+      var host = el.parentElement; if (host && getComputedStyle(host).position === 'static') host.style.position = 'relative';
+      el.insertAdjacentElement('afterend', tip);
+    }
+    coach(); document.addEventListener('htmx:afterSwap', coach); document.addEventListener('htmx:load', coach);
+  })();
   // ── Appbar pill: past 40px of scroll the bar gets .is-scrolled and style.css runs one
   // 700ms ease-out-expo transition to the floating pill; back again under 40px. Passive
   // listener, one class toggle at most per frame.
