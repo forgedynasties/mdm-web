@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -199,6 +200,8 @@ type sightingFrame struct {
 	Android      string `json:"android"`
 	Host         string `json:"host"`
 	Port         int    `json:"port"`
+	Auth         string `json:"auth"`   // "refused" when adb answered but would not take the key
+	Reason       string `json:"reason"` // what adb said when it refused
 	Owner        struct {
 		Set  bool   `json:"set"`
 		Ours bool   `json:"ours"`
@@ -225,6 +228,25 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 	var f sightingFrame
 	if err := json.Unmarshal(raw, &f); err != nil {
 		log.Printf("[scout] sighting from %s: bad frame: %v", scoutSerial, err)
+		return
+	}
+	// A host that speaks adb but refused the key has no serial to report — nothing can
+	// be read from it without auth. It is still listed, keyed on its address, because a
+	// person at the device can tap Allow and then it enrols like any other.
+	if f.Auth == "refused" {
+		if f.Host == "" {
+			return
+		}
+		why := strings.TrimSpace(f.Reason)
+		if why == "" {
+			why = "did not accept the fleet adb key"
+		}
+		if err := s.db.UpsertUnauthorized(ctx, *restaurantID, scoutSerial, f.Host, orDefault(f.Port, 5555),
+			"Has not accepted the fleet adb key — tap Allow on the device, or reflash it with the key"); err != nil {
+			log.Printf("[scout] upsert unauthorized %s: %v", f.Host, err)
+			return
+		}
+		log.Printf("[scout] unauthorized host %s via %s: %s", f.Host, scoutSerial, why)
 		return
 	}
 	if f.Serial == "" {

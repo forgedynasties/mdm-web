@@ -753,6 +753,11 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	// A device the scout enrolled carries that provenance on its record. The scout
+	// stamps it too, but it can get there first — see StampEnrolledViaScout.
+	if err := h.db.StampEnrolledViaScout(r.Context(), req.Serial); err != nil {
+		log.Printf("[enroll] %s: stamp scout: %v", req.Serial, err)
+	}
 	verb := "enrolled"
 	if res.ReEnrolled {
 		verb = "re-enrolled (key rotated)"
