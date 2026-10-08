@@ -129,6 +129,14 @@
 .alert-cat-panel.active{display:block;}
 .collapsible-header .collapse-caret{transition:transform .15s;display:inline-block;}
 .collapsible-header.open .collapse-caret{transform:rotate(90deg);}
+.st-steps{display:grid;gap:8px;padding:14px 16px}
+.cs{display:flex;gap:11px;padding:11px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);transition:all .3s;opacity:.7;text-decoration:none;color:inherit}
+.cs:hover{opacity:1}
+.cs.on{opacity:1;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.cs.ok{opacity:1;border-color:var(--ok)}
+.cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none}
+.cs.on .n{background:var(--accent);color:#fff}.cs.ok .n{background:var(--ok-bg);color:var(--ok)}
+.cs b{display:block;font-size:12.5px}.cs span{font-size:11.5px;color:var(--muted);line-height:1.45}
 </style>
 
 <div class="cc-wrap">
@@ -156,6 +164,20 @@
   <!-- ── General ─────────────────────────────────────── -->
   <!-- ── General — dashboard defaults, sessions ── -->
   <section class="settings-tab active" data-tab="general">
+{{/* Getting started — the Enroll app's checklist (.cs/.cs.on/.cs.ok), for the three
+     things a new server needs before scout enrolment does anything. Shown until all
+     three are done; the current step is accent, done ones green, each a link. */}}
+{{$keyOK := and .FleetAdbKey.SecretSet .FleetAdbKey.Key}}{{$apkOK := .AgentAPKHosted}}{{$scanOK := .AnyVenueScanning}}
+{{if not (and $keyOK $apkOK $scanOK)}}
+<div class="cc-card st-start" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{if $keyOK}}1{{else}}0{{end}}{{if $apkOK}}+1{{end}}{{if $scanOK}}+1{{end}} of 3 done</span></div>
+  <div class="st-steps">
+    <a class="cs {{if $keyOK}}ok{{else}}on{{end}}" href="/settings#fleet-adb-key"><span class="n">{{if $keyOK}}✓{{else}}1{{end}}</span><div><b>Upload the fleet adb key</b><span>{{if $keyOK}}Uploaded — scouts can open devices that trust it.{{else}}The key our images trust. Scouts cannot open a device without it.{{end}}</span></div></a>
+    <a class="cs {{if $apkOK}}ok{{else if $keyOK}}on{{end}}" href="/clients?slot=dpc"><span class="n">{{if $apkOK}}✓{{else}}2{{end}}</span><div><b>Host the standard client</b><span>{{if $apkOK}}Hosted — QR and scout enrolment have something to install.{{else}}Publish an APK to the dpc slot so QR and scout enrolment have something to install.{{end}}</span></div></a>
+    <a class="cs {{if $scanOK}}ok{{else if and $keyOK $apkOK}}on{{end}}" href="/restaurants"><span class="n">{{if $scanOK}}✓{{else}}3{{end}}</span><div><b>Turn scanning on for a venue</b><span>{{if $scanOK}}At least one venue is swept every 15 minutes.{{else}}Restaurant → Scout. Until then the scheduler sweeps nothing.{{end}}</span></div></a>
+  </div>
+</div>
+{{end}}
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Dashboard</h2></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">

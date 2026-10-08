@@ -64,8 +64,14 @@ button.is-busy::before{content:"";display:inline-block;width:11px;height:11px;ma
 .m-tip button{display:block;margin-top:6px;font:inherit;font-size:12px;font-weight:700;color:var(--accent-text,var(--accent));background:none;border:0;padding:0;cursor:pointer}
 .m-tip.below{top:calc(100% + 12px);left:0;transform:none;animation-name:m-arrive}
 
+/* bob: the app's help-button move — twice, on the bell when a new alert lands */
+.m-bob{animation:m-bob .5s ease-in-out 2}
+/* ring: a conic fill for a share (0–100), --p sets it, --ring-c its colour */
+.m-ring{--p:0%;--ring-c:var(--ok);display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:conic-gradient(var(--ring-c) var(--p),var(--surface2) 0);transition:--p .6s}
+.m-ring>span{width:30px;height:30px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+
 @media (prefers-reduced-motion: reduce){
-  .m-dot,.m-spin,.m-rail li.on>i,.m-coach::after,.m-bar.live>i::after{animation:none}
+  .m-dot,.m-spin,.m-rail li.on>i,.m-coach::after,.m-bar.live>i::after,.m-bob{animation:none}
   .m-arrive,.m-glow,.m-tip,.m-rail li.ok>i svg path{animation-duration:.01ms}
   .m-rail li.ok>i svg path{stroke-dashoffset:0}
   .m-bar>i{transition:none}

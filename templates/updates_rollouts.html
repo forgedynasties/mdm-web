@@ -19,6 +19,9 @@
 .up-roll{flex:2;min-width:0}
 .up-roll-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
 .up-pct{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+/* fill: rollout segments ease between refreshes; the downloading one shimmers (motion.css). */
+.up-roll .cc-stack i{transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
+.up-roll .cc-stack.live i.c2::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:m-shimmer 1.6s linear infinite}
 .up-right{display:flex;align-items:center;gap:12px;flex:none}
 .up-go{font-size:12.5px;font-weight:650;color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .up-go svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
@@ -101,7 +104,7 @@
     <div class="up-roll">
       {{if gt .DeviceTotal 0}}
       <div class="up-roll-head"><span class="up-pct">{{pctOf .DeviceInstalled .DeviceTotal}}%</span><span class="muted small">average progress</span></div>
-      <div class="cc-stack">
+      <div class="cc-stack{{if gt .DeviceDownloading 0}} live{{end}}">
         {{if gt .DeviceInstalled 0}}<i class="c4" style="width:{{pctOf .DeviceInstalled .DeviceTotal}}%"></i>{{end}}
         {{if gt .DeviceDownloading 0}}<i class="c2" style="width:{{pctOf .DeviceDownloading .DeviceTotal}}%"></i>{{end}}
         {{if gt .DeviceFailed 0}}<i class="c5" style="width:{{pctOf .DeviceFailed .DeviceTotal}}%;background:var(--danger)"></i>{{end}}

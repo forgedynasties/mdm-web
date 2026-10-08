@@ -18636,6 +18636,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		}(),
 		"AgentAPKFromEnv":       h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 		"FleetAdbKey":           h.fleetAdbKeyView(r),
+		// Getting-started checklist (General tab): is at least one venue being scanned?
+		"AnyVenueScanning": func() bool { ids, _ := h.db.RestaurantsToScan(r.Context()); return len(ids) > 0 }(),
 		"Apps":                  repoApps,
 		"Families":              setFams,
 		"Suggestions":           setSugg,
