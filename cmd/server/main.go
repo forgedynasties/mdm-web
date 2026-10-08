@@ -420,7 +420,17 @@ func main() {
 		case "net_sighting":
 			scoutSvc.IngestSighting(context.Background(), deviceID, raw)
 		case "net_scan_done":
-			// Informational for now (counts in the log); the sightings already landed.
+			// The sightings already landed; this is the only record of a sweep that
+			// found nothing, so log it rather than drop it.
+			var d struct {
+				Hosts    int `json:"hosts"`
+				Open     int `json:"open"`
+				Accepted int `json:"accepted"`
+			}
+			if json.Unmarshal(raw, &d) == nil {
+				log.Printf("[scout] net_scan_done from %s: %d hosts, %d open, %d ours",
+					deviceID, d.Hosts, d.Open, d.Accepted)
+			}
 		case "net_enroll_progress":
 			scoutSvc.IngestProgress(context.Background(), raw)
 		case "net_enroll_done":
