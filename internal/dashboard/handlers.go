@@ -2101,7 +2101,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	if role != "" {
 		if h.access(r).hidesDevices() {
 			data["AlertsOpenCount"], _ = h.visibleAlertCounts(r)
-		} else if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
+		} else if n, err := h.db.CountOpenAlerts(r.Context(), h.access(r).hidesIdentityAlerts()); err == nil {
 			data["AlertsOpenCount"] = n
 		}
 	}
@@ -3029,7 +3029,10 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	for i := range crashes {
 		crashes[i].Trace = trimTrace(crashes[i].Trace)
 	}
-	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)
+	// keepVisibleAlerts here is about the alert TYPE, not the device (this device is
+	// already known visible): it drops "Possible impersonation" for anyone but a
+	// super admin, so the device page agrees with the inbox.
+	raw := h.access(r).keepVisibleAlerts(mustAlerts(h.db.ListDeviceActiveAlerts(ctx, device.ID, panelRows)))
 	role := h.role(r)
 	canAct := roleCanOperate(role)
 	var alerts []humanAlert
@@ -5152,7 +5155,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { groups, _ = h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7) })
 	run(func() { hot, _ = h.db.CountHotDevices(ctx) })
 	run(func() { d14, _ = h.db.GetFleetDailyStats(ctx, 14) })
-	run(func() { openCount, _ = h.db.CountOpenAlerts(ctx) })
+	run(func() { openCount, _ = h.db.CountOpenAlerts(ctx, h.access(r).hidesIdentityAlerts()) })
 	run(func() { crashStats, _ = h.db.GetFleetCrashStats(ctx, 4) })
 	run(func() { versions, _ = h.db.GetFleetVersions(ctx) })
 	run(func() { deployments, _ = h.db.ListDeployments(ctx) })
@@ -7241,8 +7244,9 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 
 	// emitCount sends the current open-alert count so every connected client (the
 	// global nav badge and the alerts list) can update without each re-querying.
+	hideIdentity := h.access(r).hidesIdentityAlerts()
 	emitCount := func() {
-		n, err := h.db.CountOpenAlerts(ctx)
+		n, err := h.db.CountOpenAlerts(ctx, hideIdentity)
 		if err != nil {
 			return
 		}
@@ -7624,7 +7628,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	default:
 		view = ""
 	}
-	summary, err := h.db.AlertSummaryCounts(r.Context())
+	summary, err := h.db.AlertSummaryCounts(r.Context(), h.access(r).hidesIdentityAlerts())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -7653,8 +7657,10 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		active, err = h.db.ListDeviceActiveAlerts(r.Context(), *deviceID, 150)
 	} else {
 		active, err = h.db.ListActiveAlerts(r.Context(), 150)
-		active = h.access(r).keepVisibleAlerts(active)
 	}
+	// Filter both branches: the device-scoped one also has to drop identity alerts
+	// for a non-admin, and the device itself was already checked above.
+	active = h.access(r).keepVisibleAlerts(active)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -7873,6 +7879,10 @@ type crashCardView struct {
 // mustCrashes drops the error from a crash-event query — a failed crash lookup on a
 // device page should degrade to an empty tab, not a 500.
 func mustCrashes(events []db.CrashEvent, _ error) []db.CrashEvent { return events }
+
+// mustAlerts is mustCrashes for alert rows: the panels that take these treat a read
+// error as "nothing to show".
+func mustAlerts(alerts []db.Alert, _ error) []db.Alert { return alerts }
 
 // toCrashCards maps raw crash events to their view rows, deriving the kind badge.
 func toCrashCards(events []db.CrashEvent) []crashCardView {
@@ -8181,7 +8191,7 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary, _ := h.db.GetSummary(r.Context(), h.connectedSlice())
-	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
+	openAlerts, _ := h.db.CountOpenAlerts(r.Context(), h.access(r).hidesIdentityAlerts())
 	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
 	serials, _ := h.db.ListAllSerials(r.Context())
 
@@ -19235,7 +19245,7 @@ func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error
 		return db.AISummary{}, err
 	}
 	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
-	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+	openAlerts, _ := h.db.CountOpenAlerts(ctx, false)
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
 	deployed, lab, _ := h.db.DeploymentCounts(ctx)
@@ -19306,7 +19316,7 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 		return
 	}
 	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
-	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+	openAlerts, _ := h.db.CountOpenAlerts(ctx, false)
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)

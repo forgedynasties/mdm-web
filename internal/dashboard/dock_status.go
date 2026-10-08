@@ -24,16 +24,23 @@ type dockStatus struct {
 // for a few seconds instead of re-queried per tab.
 const dockCacheTTL = 15 * time.Second
 
+// dockKey keys the shared dock figures by what the viewer's role changes about
+// them: whether DPC devices are excluded, and whether identity ("Possible
+// impersonation") alerts count — super admin only, so a non-admin must not be
+// served an admin's cached figure, or the badge would show an alert they cannot open.
+type dockKey struct{ hideDPC, hideIdentity bool }
+
 var dockCache struct {
 	sync.Mutex
-	at  map[bool]time.Time // keyed by "hides DPC devices"
-	val map[bool]dockStatus
+	at  map[dockKey]time.Time
+	val map[dockKey]dockStatus
 }
 
 // DockStatus serves the live dock's figures as JSON.
 func (h *Handler) DockStatus(w http.ResponseWriter, r *http.Request) {
 	acc := h.access(r)
 	hideDPC := acc.hidesDPC()
+	key := dockKey{hideDPC: hideDPC, hideIdentity: acc.hidesIdentityAlerts()}
 	// Someone who sees part of the fleet gets counts of their part, never the shared
 	// fleet-wide figures (and never from the shared cache).
 	if acc.hidesDevices() {
@@ -46,7 +53,7 @@ func (h *Handler) DockStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dockCache.Lock()
-	st, fresh := dockCache.val[hideDPC], time.Since(dockCache.at[hideDPC]) < dockCacheTTL
+	st, fresh := dockCache.val[key], time.Since(dockCache.at[key]) < dockCacheTTL
 	dockCache.Unlock()
 
 	if !fresh {
@@ -63,13 +70,13 @@ func (h *Handler) DockStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		st = dockStatus{Online: sum.RecentlyActive, Total: sum.Total}
-		st.Alerts, _ = h.db.CountOpenAlerts(ctx)
-		st.Critical, st.Running, _ = h.db.DockCounts(ctx)
+		st.Alerts, _ = h.db.CountOpenAlerts(ctx, key.hideIdentity)
+		st.Critical, st.Running, _ = h.db.DockCounts(ctx, key.hideIdentity)
 		dockCache.Lock()
 		if dockCache.at == nil {
-			dockCache.at, dockCache.val = map[bool]time.Time{}, map[bool]dockStatus{}
+			dockCache.at, dockCache.val = map[dockKey]time.Time{}, map[dockKey]dockStatus{}
 		}
-		dockCache.at[hideDPC], dockCache.val[hideDPC] = time.Now(), st
+		dockCache.at[key], dockCache.val[key] = time.Now(), st
 		dockCache.Unlock()
 	}
 

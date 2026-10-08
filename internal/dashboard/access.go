@@ -582,15 +582,26 @@ func (a *access) keepVisible(devs []db.Device) []db.Device {
 	return out
 }
 
+// hidesIdentityAlerts: "Possible impersonation" (db.AlertTypeIdentityConflict) is a
+// security finding about the fleet's own identity — it names the addresses a serial
+// was used from, and the only answer to it is a key reset, which is an admin action.
+// Super admin sees it; every other role does not, in the inbox, the Overview, the
+// dock, the bell and their counts.
+func (a *access) hidesIdentityAlerts() bool { return a.role != "admin" }
+
 // keepVisibleAlerts drops alerts about devices the user may not see. Fleet
-// alerts (no device) stay.
+// alerts (no device) stay. Identity alerts are dropped for anyone but super admin.
 func (a *access) keepVisibleAlerts(alerts []db.Alert) []db.Alert {
-	if !a.hidesDevices() {
+	hideIdentity := a.hidesIdentityAlerts()
+	if !a.hidesDevices() && !hideIdentity {
 		return alerts
 	}
 	out := alerts[:0:0]
 	for _, x := range alerts {
-		if x.DeviceID == nil || a.canDevice("view", *x.DeviceID) {
+		if hideIdentity && x.Type == db.AlertTypeIdentityConflict {
+			continue
+		}
+		if x.DeviceID == nil || !a.hidesDevices() || a.canDevice("view", *x.DeviceID) {
 			out = append(out, x)
 		}
 	}
