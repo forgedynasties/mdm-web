@@ -186,16 +186,27 @@ func (h *Handler) raiseIdentityAlert(ctx context.Context, serial, what, ip, prev
 //
 // A device can lose its key without anyone doing anything wrong: 1.6.0/1.6.1 kept it
 // encrypted with an Android Keystore key, and a firmware update made that unreadable on
-// three devices on 30 Sep; clearing the client's data loses it too. The device then
-// calls with the shared key, which Phase 1 refuses for a serial that has its own key, so
-// it was locked out until an admin reset it. Now a device that keeps calling with the
-// shared key from the address it last used its own key from is let back in: its key is
-// forgotten, it registers a new one at its next check-in, and a warning says so. At
-// most once a day per device; from anywhere else it is refused and alerted as before.
+// three devices on 30 Sep; clearing the client's data loses it too; and in this fleet
+// the commonest cause by far is that we reflashed it. The device then calls with the
+// shared key, which Phase 1 refuses for a serial that has its own key.
+//
+// Until 2026-10-08 it was let back in only after three refusals, from the address it
+// last used its key from, once a day — otherwise locked out until an admin pressed
+// Reset. The user asked for the opposite default: let it straight back in, from
+// anywhere, on the first call, and raise an alert so a person can look. A device in a
+// restaurant that is dark because of a check we could not act on costs more than an
+// alert that turns out to be a reflash. The only gate left is a per-device ceiling on
+// how often this can happen in a day, past which the old refusal and the critical
+// "Possible impersonation" alert come back — the one case where "let it in" would be
+// a loop or a real attack.
+//
+// What the shared key can and cannot do is unchanged by this: it gets a serial's
+// record back onto the shared key, where the next check-in registers a new per-device
+// key; it does not read anything from the device or the server.
 
 const (
-	lostKeyWindow = 10 * time.Minute
-	lostKeyCalls  = 3 // refusals in the window before it is let back in
+	lostKeyWindow = 24 * time.Hour
+	lostKeyMaxDay = 6 // auto-resets per device per day before the refusal returns
 )
 
 var ownKeyIPs sync.Map // serial -> ip last written, to skip the database when unchanged
@@ -217,8 +228,10 @@ var lostKeyCallsSeen struct {
 	m map[string][]time.Time
 }
 
-// recoverLostKey counts a refused shared-key call and, on the third within the window
-// from the device's usual address, forgets its key. Reports whether the call may go on.
+// recoverLostKey forgets a device's own key on a refused shared-key call so the device
+// comes straight back, and raises a warning saying so. Reports whether the call may go
+// on; false means the daily ceiling is spent (or the write failed) and the caller
+// refuses and alerts as a possible impersonation instead.
 func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 	lostKeyCallsSeen.Lock()
 	if lostKeyCallsSeen.m == nil {
@@ -230,22 +243,22 @@ func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 			kept = append(kept, t)
 		}
 	}
-	kept = append(kept, time.Now())
-	lostKeyCallsSeen.m[serial] = kept
 	n := len(kept)
-	lostKeyCallsSeen.Unlock()
-	if n < lostKeyCalls {
+	if n >= lostKeyMaxDay {
+		lostKeyCallsSeen.m[serial] = kept
+		lostKeyCallsSeen.Unlock()
+		log.Printf("[device-key] %s: %d automatic key resets in %s already — not resetting again", serial, n, lostKeyWindow)
 		return false
 	}
-	ok, err := h.db.AutoResetDeviceKey(ctx, serial, ip)
+	kept = append(kept, time.Now())
+	lostKeyCallsSeen.m[serial] = kept
+	lostKeyCallsSeen.Unlock()
+	ok, err := h.db.AutoResetDeviceKeyAnywhere(ctx, serial)
 	if err != nil || !ok {
 		return false
 	}
 	forgetOwnKey(serial)
-	lostKeyCallsSeen.Lock()
-	delete(lostKeyCallsSeen.m, serial)
-	lostKeyCallsSeen.Unlock()
-	log.Printf("[device-key] %s lost its own key and was let back in from its usual address %s", serial, ip)
+	log.Printf("[device-key] %s used the shared key from %s; its own key was reset automatically (%d of %d today) so it comes back online", serial, ip, n+1, lostKeyMaxDay)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
@@ -253,13 +266,14 @@ func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 		if err != nil || dev == nil {
 			return
 		}
-		summary := "Lost its own key (after an update, or its data was cleared) and was let back in from its usual address; it registers a new one at its next check-in"
-		created, err := h.db.CreateAlertIfAbsent(ctx, nil, "key_recovered", dev.ID, "warning", summary, map[string]any{"ip": ip})
+		summary := fmt.Sprintf("Key reset automatically: the shared key was used for this device from %s, which had its own key. Usually a reflash or cleared data — it is back online and registers a new key at its next check-in. Look into it if nobody touched this device.", ip)
+		detail := map[string]any{"ip": ip, "auto_resets_24h": n + 1}
+		created, err := h.db.CreateAlertIfAbsent(ctx, nil, "key_recovered", dev.ID, "warning", summary, detail)
 		if err == nil && created {
 			h.alerts.Dispatch(ctx, []db.AlertNotification{{Type: "key_recovered", Severity: "warning", Summary: summary,
 				Serial: serial, DeviceID: dev.ID, EventAt: time.Now().UTC()}})
 		}
-		// The refusals it raised while locked out were this, not someone else.
+		// Any impersonation alert still open on it was this same device coming back.
 		_, _ = h.db.ResolveOpenAlert(ctx, "identity_conflict", dev.ID)
 		h.hub.PublishAlertUpdate()
 	}()

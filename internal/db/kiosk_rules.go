@@ -335,3 +335,17 @@ func (d *DB) AutoResetDeviceKey(ctx context.Context, serial, ip string) (bool, e
 		  AND (key_auto_reset_at IS NULL OR key_auto_reset_at < NOW() - interval '24 hours')`, serial, ip)
 	return tag.RowsAffected() == 1, err
 }
+
+// AutoResetDeviceKeyAnywhere forgets a firmware device's own key on the first shared-key
+// call, from any address, with no daily gate. Since 2026-10-08 that is the policy: a
+// serial calling with the shared key is almost always one of ours that was just
+// reflashed or had its data cleared, and the cost of being wrong (an alert nobody acted
+// on) is lower than a device in a restaurant sitting dark until someone finds the Reset
+// button. The caller bounds how often this may happen and raises the alert; this only
+// does the write. Reports whether a key was actually forgotten.
+func (d *DB) AutoResetDeviceKeyAnywhere(ctx context.Context, serial string) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE devices SET device_key_hash = NULL, key_reset_at = NOW(), key_auto_reset_at = NOW()
+		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL`, serial)
+	return tag.RowsAffected() == 1, err
+}
