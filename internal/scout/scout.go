@@ -11,8 +11,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,15 +36,58 @@ const enrollTokenTTL = 10 * time.Minute
 // staleAfter removes a ready/blocked/failed sighting not seen for this long.
 const staleAfter = 7 * 24 * time.Hour
 
+// scanTTL is how long a scan may be considered in flight before a venue is allowed
+// another one. A sweep of 254 hosts with a second patient pass takes well under this;
+// the ceiling only matters when a scout goes away mid-scan and never answers.
+const scanTTL = 3 * time.Minute
+
 // Service holds the shared dependencies. One instance, started with Run.
 type Service struct {
 	db  *db.DB
 	hub *ws.Hub
 	cfg *config.Config
+
+	// One scan per venue at a time. Several venues can share one physical network —
+	// two restaurants in a building, or the lab — and each picks its own scout, so
+	// without this the same /24 is swept twice over and every host is probed twice.
+	// The client refuses a second concurrent scan too; this stops the frame being sent
+	// at all, and gives the dashboard something to say.
+	mu       sync.Mutex
+	scanning map[uuid.UUID]time.Time
 }
 
 func New(database *db.DB, hub *ws.Hub, cfg *config.Config) *Service {
-	return &Service{db: database, hub: hub, cfg: cfg}
+	return &Service{db: database, hub: hub, cfg: cfg, scanning: map[uuid.UUID]time.Time{}}
+}
+
+// claimScan marks a venue as scanning, or reports how long the running scan has been
+// going so the caller can refuse.
+func (s *Service) claimScan(restaurantID uuid.UUID) (time.Duration, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if at, ok := s.scanning[restaurantID]; ok {
+		if since := time.Since(at); since < scanTTL {
+			return since, false
+		}
+	}
+	s.scanning[restaurantID] = time.Now()
+	return 0, true
+}
+
+func (s *Service) releaseScan(restaurantID uuid.UUID) {
+	s.mu.Lock()
+	delete(s.scanning, restaurantID)
+	s.mu.Unlock()
+}
+
+// ScanDone frees a venue when its scout reports the sweep finished (net_scan_done), so
+// the next scan does not have to wait out scanTTL.
+func (s *Service) ScanDone(ctx context.Context, scoutID uuid.UUID) {
+	_, restaurantID, err := s.db.DeviceScoutVenue(ctx, scoutID)
+	if err != nil || restaurantID == nil {
+		return
+	}
+	s.releaseScan(*restaurantID)
 }
 
 // fleetKeyPEM unseals the fleet adb private key. Returns an error the caller can show when
@@ -88,6 +133,9 @@ func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host st
 	if err != nil {
 		return err
 	}
+	if since, ok := s.claimScan(restaurantID); !ok {
+		return fmt.Errorf("a scan of this venue started %s ago — wait for it to finish", since.Round(time.Second))
+	}
 	frame := map[string]any{
 		"type":    "net_scan",
 		"session": newID(),
@@ -99,6 +147,7 @@ func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host st
 	}
 	raw, _ := json.Marshal(frame)
 	if !s.hub.Push(c.ID, raw) {
+		s.releaseScan(restaurantID)
 		return errors.New("scout went offline")
 	}
 	log.Printf("[scout] net_scan -> %s (restaurant %s, host %q)", c.Serial, restaurantID, host)
