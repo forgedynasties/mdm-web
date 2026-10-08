@@ -245,7 +245,9 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .cmd-timeline .ht-meta .sep{display:inline-block;width:3px}
 .cmd-timeline .ht-fail{color:var(--danger);font-weight:650}
 .cmd-timeline .ht-meter{display:flex;height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:6px;max-width:220px}
-.cmd-timeline .ht-meter i{display:block;height:100%;background:var(--accent-2)}
+.cmd-timeline .ht-meter i{display:block;height:100%;background:var(--accent-2);transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
+/* fill: the delivering segment shimmers while the command is still running (motion.css). */
+.cmd-timeline .ht-meter.live i.run::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:m-shimmer 1.6s linear infinite}
 .cmd-timeline .ht-meter i.ok{background:var(--ok)}.cmd-timeline .ht-meter i.fail{background:var(--danger)}.cmd-timeline .ht-meter i.run{background:var(--accent-2)}
 .cmd-timeline .ht-when{flex:none;font-size:11.5px;color:var(--muted)}
 .cmd-timeline .ht-by{display:block;font-size:11.5px;color:var(--text-faint);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2054,7 +2056,7 @@ window.CMD_PREFILL = {{.Prefill}};
     </span>
     {{/* Segmented delivery meter: completed / failed / delivering, queued as the
          empty remainder — same counts the summary already carries. */}}
-    {{if gt $total 0}}<span class="ht-meter" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="ok" style="width:{{pct $s.Completed $total}}%"></i><i class="fail" style="width:{{pct $s.Failed $total}}%"></i><i class="run" style="width:{{pct $s.Delivered $total}}%"></i></span>{{end}}
+    {{if gt $total 0}}<span class="ht-meter{{if eq $state "run"}} live{{end}}" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="ok" style="width:{{pct $s.Completed $total}}%"></i><i class="fail" style="width:{{pct $s.Failed $total}}%"></i><i class="run" style="width:{{pct $s.Delivered $total}}%"></i></span>{{end}}
   </div>
   {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user" hx-target="main" hx-swap="outerHTML">{{$c.CreatedBy}}</a>{{else}}{{$c.CreatedBy}}{{end}}{{template "ubub" (userBubble $c.CreatedBy)}}</span>{{else if and (eq $c.Type "reboot") (not $c.CreatedBy)}}<span class="ht-auto" title="Triggered by an OTA rollout, not by a person">Sent automatically</span>{{else}}<span class="ht-by empty"></span>{{end}}
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
