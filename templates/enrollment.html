@@ -35,6 +35,11 @@
 .en-kebab .menu form{display:contents}
 .en-kebab .menu hr{border:0;border-top:1px solid var(--border-soft);margin:3px 2px}
 #en-profiles .lt-more{margin:0 17px 14px}
+/* The in-progress badge breathes so a live card reads as live. */
+.en-stepping{display:inline-flex;align-items:center;gap:6px}
+.en-dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:en-breathe 1.2s ease-in-out infinite}
+@keyframes en-breathe{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){.en-dot{animation:none}}
 /* A venue with one device found on it is one line, not a card's worth of chrome. */
 .en-sight.solo{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .en-quiet{padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.55}
@@ -121,7 +126,7 @@
     <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
-    <button type="button" role="tab" data-tab="recent">Recent<span class="n">{{len .Enrollments}}</span></button>
+    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span></button>
     <button type="button" role="tab" data-tab="how">How devices get here</button>
   </div>
 
@@ -129,56 +134,7 @@
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
     <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
-    {{if not .FleetKeySet}}
-    <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
-      <b>No fleet adb key on this server.</b><br>Scouts need the key to open devices on a venue's Wi-Fi.<br>
-      <a class="cc-btn sm" href="/settings#fleet-adb-key" style="margin-top:8px">Settings → Fleet adb key</a>
-    </div>
-    {{else if not .Sightings}}
-    <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI does the looking.</div>
-    {{else}}
-    {{range .Sightings}}
-    {{$solo := eq (len .Items) 1}}
-    <div class="en-vh{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:10px;padding:9px 16px;{{if not $solo}}background:var(--surface2);{{end}}border-top:1px solid var(--border-soft);flex-wrap:wrap">
-      <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block"></span>
-      <b>{{.Name}}</b>
-      <span class="muted small">{{if .ScoutSerial}}· seen by {{.ScoutSerial}} {{end}}{{if not .LastSeen.IsZero}}· {{timeSince .LastSeen}}{{end}}</span>
-      <span style="flex:1"></span>
-      <form method="POST" action="/enrollment/scan" hx-boost="false" style="display:inline"><input type="hidden" name="restaurant_id" value="{{.RestaurantID}}"><button type="submit" class="cc-btn sm">Scan now</button></form>
-    </div>
-    {{range .Items}}
-    <div class="en-row{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft)">
-      <div style="flex:1;min-width:0">
-        <b style="display:block;font-size:13px">{{.Name}}</b>
-        <small class="muted" style="font-size:11.5px">
-          {{if .Serial}}<span class="cc-mono">{{.Serial}}</span>{{end}}{{if .Host}}{{if .Serial}} · {{end}}{{.Host}}{{end}}{{if .Android}} · Android {{.Android}}{{end}}
-          {{if eq .State "blocked"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
-          {{if eq .State "failed"}} · <span class="cc-tag bad">failed: {{.Reason}}</span>{{end}}
-          {{if eq .State "unauthorized"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
-        </small>
-      </div>
-      {{if eq .State "enrolling"}}
-        <span class="cc-tag info">enrolling · step {{.Step}}/8</span>
-      {{else if eq .State "unauthorized"}}
-        {{/* adb answered, the key did not. Nothing can be read off it and nothing can be
-             installed on it until someone at the device accepts the key, so the only
-             thing to offer is another look. */}}
-        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
-      {{else if eq .State "blocked"}}
-        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
-      {{else}}
-        <form method="POST" action="/enrollment/sightings/{{.ID}}/enroll" hx-boost="false" style="display:flex;gap:8px;align-items:center">
-          <select name="device_class" class="en-sel short" aria-label="Type" required>
-            <option value="" {{if not .ClassGuess}}selected{{end}} disabled>— type —</option>
-            {{$cg := .ClassGuess}}{{range $.Classes}}<option value="{{.}}" {{if eq . $cg}}selected{{end}}>{{classLabel .}}{{if eq . $cg}} · guess{{end}}</option>{{end}}
-          </select>
-          <button type="submit" class="cc-btn primary sm">{{if eq .State "failed"}}Try again{{else}}Enrol{{end}}</button>
-        </form>
-      {{end}}
-    </div>
-    {{end}}
-    {{end}}
-    {{end}}
+    {{template "enroll-scout" .}}
   </div>
 
   </section>
@@ -258,7 +214,7 @@
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
   <div class="cc-card lt" id="en-recent" data-lt-n="15">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
     {{if .Enrollments}}
     <div class="lt-bar">
       <input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off">
@@ -469,6 +425,65 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 
 {{/* Inbox rows: one per device that has no site yet. Re-fetched live via
      /enrollment?partial=inbox; the root carries data-count for the counters. */}}
+{{/* The scout card body. While any device is mid-enrolment it re-fetches itself every
+     3s (outerHTML, so the swapped-in copy decides whether to keep polling — once nothing
+     is enrolling the attributes are gone and it stops). Before this, "step 3/8" sat
+     frozen until someone reloaded. */}}
+{{define "enroll-scout"}}
+<div id="en-scout"{{if .Enrolling}} hx-get="/enrollment?partial=scout" hx-trigger="every 3s" hx-target="this" hx-swap="outerHTML"{{end}}>
+    {{if not .FleetKeySet}}
+    <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
+      <b>No fleet adb key on this server.</b><br>Scouts need the key to open devices on a venue's Wi-Fi.<br>
+      <a class="cc-btn sm" href="/settings#fleet-adb-key" style="margin-top:8px">Settings → Fleet adb key</a>
+    </div>
+    {{else if not .Sightings}}
+    <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI does the looking.</div>
+    {{else}}
+    {{range .Sightings}}
+    {{$solo := eq (len .Items) 1}}
+    <div class="en-vh{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:10px;padding:9px 16px;{{if not $solo}}background:var(--surface2);{{end}}border-top:1px solid var(--border-soft);flex-wrap:wrap">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block"></span>
+      <b>{{.Name}}</b>
+      <span class="muted small">{{if .ScoutSerial}}· seen by {{.ScoutSerial}} {{end}}{{if not .LastSeen.IsZero}}· {{timeSince .LastSeen}}{{end}}</span>
+      <span style="flex:1"></span>
+      <form method="POST" action="/enrollment/scan" hx-boost="false" style="display:inline"><input type="hidden" name="restaurant_id" value="{{.RestaurantID}}"><button type="submit" class="cc-btn sm">Scan now</button></form>
+    </div>
+    {{range .Items}}
+    <div class="en-row{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft)">
+      <div style="flex:1;min-width:0">
+        <b style="display:block;font-size:13px">{{.Name}}</b>
+        <small class="muted" style="font-size:11.5px">
+          {{if .Serial}}<span class="cc-mono">{{.Serial}}</span>{{end}}{{if .Host}}{{if .Serial}} · {{end}}{{.Host}}{{end}}{{if .Android}} · Android {{.Android}}{{end}}
+          {{if eq .State "blocked"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
+          {{if eq .State "failed"}} · <span class="cc-tag bad">failed: {{.Reason}}</span>{{end}}
+          {{if eq .State "unauthorized"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
+        </small>
+      </div>
+      {{if eq .State "enrolling"}}
+        <span class="cc-tag info en-stepping"><span class="en-dot"></span>step {{.Step}}/8 · {{scoutStep .Step}}</span>
+      {{else if eq .State "unauthorized"}}
+        {{/* adb answered, the key did not. Nothing can be read off it and nothing can be
+             installed on it until someone at the device accepts the key, so the only
+             thing to offer is another look. */}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
+      {{else if eq .State "blocked"}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
+      {{else}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/enroll" hx-boost="false" style="display:flex;gap:8px;align-items:center">
+          <select name="device_class" class="en-sel short" aria-label="Type" required>
+            <option value="" {{if not .ClassGuess}}selected{{end}} disabled>— type —</option>
+            {{$cg := .ClassGuess}}{{range $.Classes}}<option value="{{.}}" {{if eq . $cg}}selected{{end}}>{{classLabel .}}{{if eq . $cg}} · guess{{end}}</option>{{end}}
+          </select>
+          <button type="submit" class="cc-btn primary sm">{{if eq .State "failed"}}Try again{{else}}Enrol{{end}}</button>
+        </form>
+      {{end}}
+    </div>
+    {{end}}
+    {{end}}
+    {{end}}
+</div>
+{{end}}
+
 {{define "enroll-inbox"}}
 <div data-count="{{len .Inbox}}">
 {{if .Inbox}}

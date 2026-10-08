@@ -1449,6 +1449,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// joinLines renders a serial list for the shared picker's hidden field.
 		"joinLines":  func(v []string) string { return strings.Join(v, "\n") },
 		"classLabel": product.ClassLabel,
+		// The scout's eight enrolment steps, by 1-based number — the same names the
+		// firmware client (NetScout.STEPS) and the Enroll apps use, so a badge that says
+		// "step 3/8 · Installing the agent" matches what the device is logging.
+		"scoutStep": func(n int) string {
+			steps := []string{"Checking the device", "Getting a token", "Installing the agent", "Setting Device Owner",
+				"Granting permissions", "Starting the agent", "Registering with the MDM", "First check-in"}
+			if n >= 1 && n <= len(steps) {
+				return steps[n-1]
+			}
+			return ""
+		},
 		// serialHead / serialTail split a serial for the fleet layout that leads with it:
 		// the batch prefix stays quiet and the last few characters — the part support
 		// reads out loud, and the part that differs between two units of the same model —
