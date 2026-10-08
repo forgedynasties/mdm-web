@@ -174,16 +174,31 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	sightings, _ := h.db.ListSightings(r.Context())
+	sgroups := groupSightings(sightings)
+	readyN, enrolling := 0, false
+	for _, g := range sgroups {
+		readyN += g.ReadyN
+	}
+	for _, sg := range sightings {
+		if sg.State == "enrolling" {
+			enrolling = true
+			break
+		}
+	}
+	// The scout card polls itself while a job runs (see the enroll-scout template).
+	if r.URL.Query().Get("partial") == "scout" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "enroll-scout", map[string]any{
+			"Sightings": sgroups, "SightingsReady": readyN, "Enrolling": enrolling,
+			"FleetKeySet": h.cfg.FleetAdbKeySecret() != "", "Classes": product.Classes(), "Role": h.role(r),
+		})
+		return
+	}
 	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
-	sightings, _ := h.db.ListSightings(r.Context())
-	sgroups := groupSightings(sightings)
-	readyN := 0
-	for _, g := range sgroups {
-		readyN += g.ReadyN
-	}
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -204,6 +219,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"AgentAPKURL":    h.agentAPKURL(r),
 		"Sightings":      sgroups,
 		"SightingsReady": readyN,
+		"Enrolling":      enrolling,
 		"ScoutOn":        h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
 		"FleetKeySet":    h.cfg.FleetAdbKeySecret() != "",
 	})
