@@ -287,6 +287,33 @@ func (d *DB) StampEnrolledViaScout(ctx context.Context, serial string) error {
 	return err
 }
 
+// DeviceKnown reports whether this server already manages a device with that serial —
+// enrolled by any route, including the AIO Enroll desktop app. A scout probe cannot tell
+// the difference on its own: a device already running our standard client answers with
+// owner.ours = true, which classifySighting reads as "ready", because its blockers are
+// all about somebody else's owner. So the server has to say so.
+func (d *DB) DeviceKnown(ctx context.Context, serial string) (bool, error) {
+	var ok bool
+	err := d.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM devices
+		  WHERE serial_number = $1 AND enrollment_status NOT IN ('retired', 'wiped'))`, serial).Scan(&ok)
+	return ok, err
+}
+
+// MarkSightingOurs takes a serial out of the inbox because the device is now managed
+// here. Called when any enrolment lands, so a device the desktop app enrolled stops
+// being offered as something to enrol. An in-flight scout job is left alone — it
+// finishes and sets its own state.
+func (d *DB) MarkSightingOurs(ctx context.Context, serial string) error {
+	if serial == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE sightings SET state = 'ours', reason = ''
+		 WHERE serial = $1 AND state NOT IN ('enrolling', 'enrolled', 'ours')`, serial)
+	return err
+}
+
 // SetEnrolledViaSerial stamps the scout that enrolled a device, once it has appeared.
 func (d *DB) SetEnrolledViaSerial(ctx context.Context, serial, scoutSerial string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE devices SET enrolled_via_serial=$2 WHERE serial_number=$1`, serial, scoutSerial)
