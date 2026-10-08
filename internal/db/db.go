@@ -17127,6 +17127,17 @@ func (d *DB) DeleteEnrollmentProfile(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// DeleteExpiredEnrollmentProfiles removes every profile whose expiry has passed. Devices
+// they enrolled keep working — a profile is only a token for new enrolments. Returns how
+// many went, for the toast.
+func (d *DB) DeleteExpiredEnrollmentProfiles(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `DELETE FROM enrollment_profiles WHERE expires_at IS NOT NULL AND expires_at < NOW()`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // EnrollResult is what EnrollDevice learned, returned to the agent so it can show the
 // operator where the device landed.
 type EnrollResult struct {

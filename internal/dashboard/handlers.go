@@ -21916,6 +21916,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/{id}/activate", h.requireStrictAdmin(h.EnrollmentProfileActivate))
 	post("POST /enrollment/profiles/{id}/delete", h.requireStrictAdmin(h.EnrollmentProfileDelete))
 	post("POST /enrollment/profiles/{id}/update", h.requireStrictAdmin(h.EnrollmentProfileUpdate))
+	post("POST /enrollment/profiles/bulk", h.requireStrictAdmin(h.EnrollmentProfilesBulk))
+	post("POST /enrollment/profiles/delete-expired", h.requireStrictAdmin(h.EnrollmentProfilesDeleteExpired))
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))

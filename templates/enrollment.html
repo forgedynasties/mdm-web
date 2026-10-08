@@ -17,6 +17,13 @@
    holding QR / Copy token / Edit / Revoke — the destructive one behind a menu, where
    it belongs. The QR opens as a full-width row under its profile. */
 .en-prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px;align-items:center;padding:10px 17px;border-top:1px solid var(--border-soft)}
+.en-prow:has(>.en-pick){grid-template-columns:auto minmax(0,1fr) auto auto}
+.en-pick{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.en-bulk{display:flex;align-items:center;gap:8px;padding:8px 17px;border-bottom:1px solid var(--border-soft);font-size:12px;color:var(--text-faint)}
+.en-bulk .sp{flex:1}
+.en-bulk-all{display:flex;align-items:center;gap:8px;cursor:pointer}
+.en-bulk-all input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.en-bulk .cc-btn.danger{color:var(--danger)}
 .en-prow:first-child{border-top:0}
 .en-prow.off .pr-main{opacity:.6}
 .en-prow .pr-main{min-width:0}
@@ -160,16 +167,29 @@
   <section class="en-tabpane" data-tab="profiles" role="tabpanel">
   {{/* ── Profiles ── a list, not cards (demo P3) ─────────────────────────── */}}
   <div class="cc-card lt" id="en-profiles" data-lt-n="10">
-    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span>{{if $canOp}}<button type="button" class="cc-btn sm" onclick="enOpenModal()">New profile</button>{{end}}</div>
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span>{{if $canOp}}{{if gt .ExpiredProfiles 0}}<form method="POST" action="/enrollment/profiles/delete-expired" hx-boost="false" style="margin-left:auto" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete {{.ExpiredProfiles}} expired profile{{if ne .ExpiredProfiles 1}}s{{end}}? Devices they enrolled keep working."><button type="submit" class="cc-btn sm">Delete expired <span class="n">{{.ExpiredProfiles}}</span></button></form>{{end}}<button type="button" class="cc-btn sm" onclick="enOpenModal()"{{if gt .ExpiredProfiles 0}} style="margin-left:6px"{{else}} style="margin-left:auto"{{end}}>New profile</button>{{end}}</div>
     {{if .Profiles}}
     <div class="lt-bar">
       <input class="lt-q" type="search" placeholder="Search name, type, site…" aria-label="Search profiles" autocomplete="off">
       <span class="lt-count"></span>
     </div>
     <div class="lt-none lt-out">No profile matches.</div>
+    {{if $canOp}}
+    {{/* Selection toolbar: ticks in the rows below feed this form (the checkboxes carry
+         form="en-prof-bulk", so the list itself stays plain markup). Buttons wake up
+         when something is ticked; Delete asks first. */}}
+    <form id="en-prof-bulk" method="POST" action="/enrollment/profiles/bulk" hx-boost="false" class="en-bulk" onsubmit="return enBulkConfirm(this)">
+      <label class="en-bulk-all"><input type="checkbox" id="en-prof-all" aria-label="Select all profiles"> <span class="en-bulk-n" id="en-prof-n">none selected</span></label>
+      <span class="sp"></span>
+      <button type="submit" name="action" value="revoke" class="cc-btn sm" disabled>Revoke</button>
+      <button type="submit" name="action" value="activate" class="cc-btn sm" disabled>Reactivate</button>
+      <button type="submit" name="action" value="delete" class="cc-btn sm danger" disabled>Delete</button>
+    </form>
+    {{end}}
     <div>
       {{range .Profiles}}
       <div class="en-prow lt-row{{if not .Active}} off{{end}}" id="prof-{{.ID}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}}">
+        {{if $canOp}}<input type="checkbox" class="en-pick" name="ids" value="{{.ID}}" form="en-prof-bulk" aria-label="Select {{.Name}}">{{end}}
         <div class="pr-main">
           <b title="{{.Name}}">{{.Name}}</b>
           <div class="pr-facts">{{if .DeviceClass}}{{.ClassLabel}}{{else}}type not set{{end}} · {{if .RestaurantName}}{{.RestaurantName}}{{else}}no site, goes to the inbox{{end}}{{if .GroupName}} · {{.GroupName}}{{end}} · <b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}} enrolled{{if .LastEnrolledAt}} · last {{timeSince .LastEnrolledAt}}{{end}}{{if .ExpiresAt}} · {{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}{{end}}{{if .Notes}} · {{.Notes}}{{end}}</div>
@@ -340,6 +360,29 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       var d = e.target; if (!d || !d.classList || !d.classList.contains('en-kebab') || !d.open) return;
       document.querySelectorAll('details.en-kebab[open]').forEach(function (o) { if (o !== d) o.removeAttribute('open'); });
     }, true);
+  })();
+  // Profile selection: the toolbar's buttons wake up with the count; "all" ticks what
+  // the search currently shows; delete asks.
+  (function () {
+    var form = el('en-prof-bulk'); if (!form) return;
+    var all = el('en-prof-all'), n = el('en-prof-n');
+    function picks() { return [].slice.call(document.querySelectorAll('.en-pick')); }
+    function sync() {
+      var on = picks().filter(function (c) { return c.checked; }).length;
+      n.textContent = on ? on + ' selected' : 'none selected';
+      form.querySelectorAll('button').forEach(function (b) { b.disabled = !on; });
+    }
+    document.addEventListener('change', function (e) { if (e.target.classList && e.target.classList.contains('en-pick')) sync(); });
+    all.addEventListener('change', function () {
+      picks().forEach(function (c) { var row = c.closest('.lt-row'); if (!row || !row.classList.contains('lt-out')) c.checked = all.checked; });
+      sync();
+    });
+    window.enBulkConfirm = function (f) {
+      var a = document.activeElement && document.activeElement.value;
+      if (a === 'delete') { var k = picks().filter(function (c) { return c.checked; }).length; return confirm('Delete ' + k + ' profile' + (k === 1 ? '' : 's') + '? Devices they enrolled keep working.'); }
+      return true;
+    };
+    sync();
   })();
   window.enToggleQR = function (id) {
     var box = el('en-qr-' + id); if (!box) return;
