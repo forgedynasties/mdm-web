@@ -28,6 +28,7 @@ import (
 	"mdm/internal/ingest"
 	"mdm/internal/logstream"
 	"mdm/internal/metrics"
+	"mdm/internal/middleware"
 	"mdm/internal/otagate"
 	"mdm/internal/peers"
 	"mdm/internal/product"
@@ -203,6 +204,21 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil && middleware.BoundSerial(r) == "" {
+		// A serial the shared key vouches for, with no row: a device whose record was
+		// deleted (a stage wipe, a re-test, an admin removing it) or one that has never
+		// checked in. The firmware client reconnects its socket before it polls, and
+		// its HTTP poll can be many minutes away, so answering 404 here left devices
+		// looping on the socket for as long as that — 16 refusals and counting on stage
+		// after the 2026-10-08 wipe. Create the row the way a first check-in would; the
+		// check-in that follows fills in build, product and telemetry.
+		if _, _, isNew, _, _, uerr := h.db.UpsertCheckin(r.Context(), serial, "", nil, json.RawMessage(`{}`), true, ""); uerr == nil {
+			if isNew {
+				log.Printf("[ws] %s connected with the shared key and no record — created one; its check-in fills it in", serial)
+			}
+			device, err = h.db.GetDevice(r.Context(), serial)
+		}
+	}
 	if err != nil {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
@@ -308,7 +324,6 @@ func (h *Handler) runTelemetryRequestLoop(ctx context.Context, deviceID uuid.UUI
 		}
 	}
 }
-
 
 // PingDevice sends a ping_request to the device over WS and waits up to 5s for
 // a pong_response. Reports whether the device is truly responsive or just appears connected.
@@ -782,7 +797,6 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		"onboarded":    res.Onboarded,
 	})
 }
-
 
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
@@ -1945,7 +1959,7 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 	out := make([]qaTestDataRow, 0, len(devices))
 	for _, d := range devices {
 		row := qaTestDataRow{
-			SerialNumber:        d.SerialNumber,
+			SerialNumber: d.SerialNumber,
 			// d.DeviceClass is the raw stored column — empty for most devices (they
 			// inherit their class from their product instead, e.g. T7 -> "t7"). d.Class()
 			// resolves that the same way the real dashboard does; using the raw field
