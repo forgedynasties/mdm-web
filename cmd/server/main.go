@@ -30,6 +30,7 @@ import (
 	"mdm/internal/adbtunnel"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
+	"mdm/internal/scout"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -343,6 +344,10 @@ func main() {
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)
 	apiHandler.SetAdbTunnels(tunnelMgr)
+	// Scout enrolment: a firmware device finds and enrols stock devices on its venue's
+	// Wi-Fi. Frames arrive on the device WS (routed below); the scheduler and the
+	// dashboard's approve action both drive it.
+	scoutSvc := scout.New(database, hub, cfg)
 	expvar.Publish("ingest", expvar.Func(func() any { return apiHandler.IngestStats() }))
 	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
 	// /connect flush can fire before the socket opens, and a never-delivered command has
@@ -412,6 +417,14 @@ func main() {
 			hub.SignalPong(p.Nonce)
 		case "logcat_stream", "logcat_stream_end":
 			logMgr.HandleDeviceMessage(raw)
+		case "net_sighting":
+			scoutSvc.IngestSighting(context.Background(), deviceID, raw)
+		case "net_scan_done":
+			// Informational for now (counts in the log); the sightings already landed.
+		case "net_enroll_progress":
+			scoutSvc.IngestProgress(context.Background(), raw)
+		case "net_enroll_done":
+			scoutSvc.IngestEnrollDone(context.Background(), deviceID, raw)
 		default:
 			shellMgr.HandleDeviceMessage(deviceID, raw)
 		}
@@ -541,6 +554,7 @@ func main() {
 	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)
 	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)
+	dash.SetScout(scoutSvc)
 
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting
@@ -598,6 +612,7 @@ func main() {
 	// asked again on a schedule.
 	safego("peer-outbox", func() { apiHandler.Peers().RunOutbox(bgCtx, time.Minute) })
 	safego("peer-sweep", func() { apiHandler.Peers().RunSweep(bgCtx, 10*time.Minute) })
+	safego("scout-scan", func() { scoutSvc.Run(bgCtx) })
 
 	// One-time: fill the power/usage columns on days rolled up before they existed, so
 	// the restaurant metrics cover a full week from the first deploy.

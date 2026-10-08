@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sightings in the inbox — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:900px;line-height:1.6}
+.lead b{color:var(--text-2)}
+h2.sec{font-size:18px;margin:52px 0 4px;letter-spacing:-.01em}
+.secnote{color:var(--text-faint);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.55}
+.opt{margin:22px 0 0}
+.oname{font-weight:750;font-size:14.5px;margin:0 0 3px}
+.onote{color:var(--text-faint);font-size:12.5px;margin:0 0 10px;max-width:900px;line-height:1.55}
+.onote b{color:var(--text-2)}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.frame{border:1px dashed var(--border);border-radius:14px;padding:16px;background:var(--surface2)}
+.muted{color:var(--text-faint)}.small{font-size:12px}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12px}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;font-size:12.5px;line-height:1.5}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+.notes b{display:block;font-size:11px;color:var(--text-faint);font-weight:700;margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.notes,.two{grid-template-columns:1fr}}
+/* page chrome mock */
+.h1m{font-size:22px;font-weight:750;letter-spacing:-.02em;margin:0 0 2px}
+.h1m .w{color:var(--warn)}.h1m .a{color:var(--accent-text,var(--accent))}
+.subm{font-size:12.5px;color:var(--text-faint);margin-bottom:14px}
+.cc-card{margin-bottom:14px}
+.cc-ch .ic.sc{background:var(--accent-soft);color:var(--accent-text)}
+/* rows */
+.vh{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--surface2);border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);font-size:12.5px;flex-wrap:wrap}
+.vh b{font-size:13px}
+.vh .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:pl 1.5s infinite}
+.vh .dot.off{background:var(--text-faint);animation:none}
+@keyframes pl{50%{opacity:.3}}
+.vh .sp{flex:1}
+.rw{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft);font-size:13px}
+.rw:last-child{border-bottom:0}
+.rw .gl{width:32px;height:32px;border-radius:9px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.rw .t{flex:1;min-width:0}
+.rw .t b{display:block;font-size:13px}
+.rw .t small{color:var(--text-faint);font-size:11.5px;display:block}
+.rw.dim{opacity:.55}
+.rw.fade{opacity:.45}
+.rw.fade .t b::after{content:" · not seen for 2 days";font-weight:500;color:var(--text-faint);font-size:11.5px}
+select.cls{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+select.cls.guess{border-style:dashed}
+select.cls.none{border-color:var(--warn)}
+.prog{display:flex;flex-direction:column;gap:3px;font-size:11.5px;min-width:170px}
+.prog span{display:flex;gap:6px;align-items:center}
+.prog i{width:13px;height:13px;border-radius:50%;background:var(--surface-3);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:8px;flex:none}
+.prog .d i{background:var(--ok);color:#fff}
+.prog .n i{border:2px solid var(--accent);border-top-color:transparent;background:none;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar{height:5px;border-radius:3px;background:var(--surface-3);overflow:hidden;width:160px}
+.bar i{display:block;height:100%;background:var(--accent);width:45%}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-soft);padding:0 12px}
+.tabs span{padding:9px 12px;font-size:12.5px;font-weight:650;color:var(--text-faint);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs span .n{display:inline-block;min-width:16px;text-align:center;font-size:10.5px;border-radius:99px;padding:0 5px;background:var(--surface-3);margin-left:4px}
+.tabs span .n.w{background:var(--warn-bg);color:var(--warn)}
+/* modal */
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg,0 20px 60px rgba(0,0,0,.25));max-width:560px;overflow:hidden}
+.modal .mh{padding:14px 18px;border-bottom:1px solid var(--border-soft);font-weight:750;font-size:14.5px}
+.modal .mh small{display:block;font-weight:500;color:var(--text-faint);font-size:12px;margin-top:2px}
+.modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border-soft)}
+.cb{width:18px;height:18px;border-radius:5px;border:2px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:transparent;flex:none}
+.cb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* device page trail */
+.kv{display:grid;grid-template-columns:140px 1fr;gap:8px 14px;font-size:13px;padding:14px 16px}
+.kv .k{color:var(--text-faint);font-size:12px}
+table.rt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.rt th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 14px;border-bottom:1px solid var(--border)}
+table.rt td{padding:8px 14px;border-bottom:1px solid var(--border-soft)}
+.empty{padding:26px 16px;text-align:center;color:var(--text-faint);font-size:13px;line-height:1.6}
+.empty b{color:var(--text-2)}
+.verdict{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-top:40px}
+.verdict p{margin:6px 0;font-size:13.5px;line-height:1.6}
+.verdict li{font-size:13.5px;line-height:1.6}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Sightings in the onboarding inbox — the decisions inside option B</h1>
+<p class="lead">Option B is picked: what a venue's T7 finds on the Wi-Fi lands on the <b>Enroll</b> page (<span class="mono">/enrollment</span>). Six smaller decisions remain, each with two or three ways to do it and a recommendation. Mechanics are section 7 of <a href="/static/t7-enroller-plan.html">the plan</a>. The data is the same throughout: AIO Test Bistro (scout <span class="mono">AT070AA2600030</span>), Bayside Pizza (scout <span class="mono">AT070AABU00231</span>), and the four lab devices plus a second HK1. Nothing shown is deployed.</p>
+
+<!-- ═══════════ 1. Placement ═══════════ -->
+<h2 class="sec">1 · Where on the Enroll page</h2>
+<p class="secnote">Today the page is: heading with the inbox count → four KPIs → <b>Needs assignment</b> (firmware devices and token-enrolled standard devices waiting for a site) → Enrollment profiles → Recent enrollments → How devices get here. Sightings differ from the existing inbox in one way that matters: "Done" on an inbox row is an instant database write, while "Enrol" on a sighting is a minute-long job on another device that can fail halfway.</p>
+
+<div class="opt">
+<div class="oname">1A — Its own card above "Needs assignment" <span class="rec">recommended</span></div>
+<p class="onote">A new card, <b>Found on a venue's Wi-Fi</b>, first in the column because it is the only one with work that <i>moves hardware</i>. The heading counts both: "<b>3</b> need a site · <b>5</b> found nearby". "Needs assignment" stays exactly as it is.</p>
+<div class="frame">
+<div class="h1m"><span class="w">3</span> devices need a site · <span class="a">5</span> found nearby</div>
+<div class="subm"><b>31</b> Firmware MDM · <b>4</b> Standard MDM · <b>2</b> enrolled this week · <b>3</b> active profiles</div>
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic sc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">5 ready · 1 blocked · across 2 venues</span><a class="r" href="#">How this works</a></div>
+  <div class="vh"><span class="dot"></span><b>AIO Test Bistro</b><span class="muted">· seen by Tableside AI <span class="mono">AT070AA2600030</span> · scanned 2 min ago</span><span class="sp"></span><button class="cc-btn sm">Scan now</button><button class="cc-btn primary sm">Enrol all 2</button></div>
+  <div class="rw"><div class="gl">🍳</div><div class="t"><b>SUNMI D2s</b><small><span class="mono">D2S99120</span> · 10.32.1.13 · Android 11</small></div><select class="cls"><option>Kitchen display</option><option>POS terminal</option><option>Menu board</option><option>Self-order kiosk</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">🧾</div><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0342</span> · 10.32.1.186 · Android 11</small></div><select class="cls guess" title="guessed from the model"><option>POS terminal · guess</option><option>Kitchen display</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">🖥</div><div class="t"><b>ZC-3568K</b><small><span class="mono">K8KVWX2201</span> · 10.32.0.221 · Android 12 · <span class="cc-tag warn">Has a Google account</span> factory reset it, don't add an account</small></div><button class="cc-btn sm">Check again</button></div>
+  <div class="vh"><span class="dot"></span><b>Bayside Pizza</b><span class="muted">· seen by Tableside AI <span class="mono">AT070AABU00231</span> · scanned 9 min ago</span><span class="sp"></span><button class="cc-btn sm">Scan now</button><button class="cc-btn primary sm">Enrol all 2</button></div>
+  <div class="rw"><div class="gl">📺</div><div class="t"><b>Google HK1 RBOX D8</b><small><span class="mono">A1B2C3D4F0</span> · 10.44.0.18 · Android 11</small></div><select class="cls"><option>Menu board</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">📺</div><div class="t"><b>Google HK1 RBOX D8</b><small><span class="mono">A1B2C3D4F1</span> · 10.44.0.19 · Android 11</small></div><select class="cls"><option>Menu board</option></select><button class="cc-btn primary sm">Enrol</button></div>
+</div>
+<div class="cc-card" style="opacity:.75">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/></svg></span><h2>Needs assignment</h2><span class="m">3 waiting</span><a class="r" href="#">All →</a></div>
+  <div class="rw"><div class="gl">▣</div><div class="t"><b>Tableside AI · AT070AABU00240</b><small>firmware client · checked in 4 min ago</small></div><select class="cls"><option>— site —</option></select><button class="cc-btn sm">Done</button></div>
+  <div class="empty small" style="padding:10px">… unchanged …</div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>Different job, different card; the existing inbox and its filters are untouched. The heading tells the whole story in one line.</div>
+<div><b>Bad</b>A page that already has five cards gets a sixth; on a quiet day it is an empty card at the top (see §6 for the empty state).</div>
+<div><b>Code</b>New card + <span class="mono">enroll-sightings</span> partial; <span class="mono">Stats.Nearby</span>; the h1 learns a second number.</div>
+</div>
+</div>
+
+<div class="opt">
+<div class="oname">1B — One inbox, rows marked by source</div>
+<p class="onote">Sightings go into "Needs assignment" as rows with a <b>Found by T7</b> tag; their action is Enrol instead of Done. One list, one count.</p>
+<div class="frame">
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/></svg></span><h2>Needs assignment</h2><span class="m">8 waiting</span></div>
+  <div class="rw"><div class="gl">▣</div><div class="t"><b>Tableside AI · AT070AABU00240</b><small><span class="cc-tag">Firmware client</span> checked in 4 min ago</small></div><select class="cls"><option>— site —</option></select><button class="cc-btn sm">Done</button></div>
+  <div class="rw"><div class="gl">🍳</div><div class="t"><b>SUNMI D2s</b><small><span class="cc-tag accent">Found by T7</span> AIO Test Bistro · <span class="mono">D2S99120</span> · 10.32.1.13</small></div><select class="cls"><option>Kitchen display</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">📺</div><div class="t"><b>Google HK1 RBOX D8</b><small><span class="cc-tag accent">Found by T7</span> Bayside Pizza · <span class="mono">A1B2C3D4F0</span> · 10.44.0.18</small></div><select class="cls"><option>Menu board</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">📱</div><div class="t"><b>Samsung SM-X200</b><small><span class="cc-tag">Standard client</span> enrolled by QR, no site yet</small></div><select class="cls"><option>— site —</option></select><button class="cc-btn sm">Done</button></div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>Nothing new to learn; the inbox count is the one number people already watch.</div>
+<div><b>Bad</b>Done and Enrol side by side look alike and do very different things. No venue grouping, so "Enrol all" has nowhere to live, and the site column is redundant on sighting rows (the site is known).</div>
+<div><b>Code</b>Smallest template change; the row partial grows a branch.</div>
+</div>
+</div>
+
+<div class="opt">
+<div class="oname">1C — Tabs inside the inbox card</div>
+<p class="onote">Same card, two tabs: <b>Needs a site</b> and <b>Found nearby</b>. The card header count is the sum.</p>
+<div class="frame">
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/></svg></span><h2>Inbox</h2><span class="m">8 waiting</span></div>
+  <div class="tabs"><span>Needs a site <i class="n w">3</i></span><span class="on">Found nearby <i class="n">5</i></span></div>
+  <div class="vh"><span class="dot"></span><b>AIO Test Bistro</b><span class="muted">· 2 min ago</span><span class="sp"></span><button class="cc-btn primary sm">Enrol all 2</button></div>
+  <div class="rw"><div class="gl">🍳</div><div class="t"><b>SUNMI D2s</b><small><span class="mono">D2S99120</span> · 10.32.1.13</small></div><select class="cls"><option>Kitchen display</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="empty small" style="padding:8px">…</div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>One card, grouping preserved, the two jobs separated.</div>
+<div><b>Bad</b>Hides one of the two lists at any time; the page's search/chips bar (<span class="mono">.lt-bar</span>) would have to apply per tab. Tabs inside a card are not used anywhere else on the dashboard.</div>
+<div><b>Code</b>Medium: a tab switch plus two list bodies in one <span class="mono">.lt</span> card.</div>
+</div>
+</div>
+
+<!-- ═══════════ 2. Batch ═══════════ -->
+<h2 class="sec">2 · "Enrol all" — confirm or just go</h2>
+<p class="secnote">The venue header's <b>Enrol all</b> is the button that pays for the feature. What happens when it is pressed?</p>
+
+<div class="opt two">
+<div>
+<div class="oname">2A — Runs at once with the guesses</div>
+<p class="onote">Every <i>ready</i> row with a class is sent. Guesses are taken as they are; rows with no guess and blocked rows are skipped and stay.</p>
+<div class="frame"><div class="vh" style="border-radius:10px;border:1px solid var(--border)"><span class="dot"></span><b>AIO Test Bistro</b><span class="sp"></span><span class="small muted">2 of 2 sent · ZC-3568K skipped (blocked)</span></div></div>
+<div class="notes" style="grid-template-columns:1fr 1fr"><div><b>Good</b>One click, no dialog.</div><div><b>Bad</b>A wrong model guess becomes a wrong device class on a live device; fixable later but visible in the venue immediately.</div></div>
+</div>
+<div>
+<div class="oname">2B — A confirm sheet with one class per row <span class="rec">recommended</span></div>
+<p class="onote">A small modal: every ready device checked, class select per row (guesses marked), blocked rows listed unchecked with the reason. One button at the bottom with the real count.</p>
+<div class="frame">
+<div class="modal">
+  <div class="mh">Enrol 2 devices at AIO Test Bistro<small>via Tableside AI AT070AA2600030 · one after another · about 2 minutes</small></div>
+  <div class="rw"><span class="cb on">✓</span><div class="t"><b>SUNMI D2s</b><small><span class="mono">D2S99120</span></small></div><select class="cls"><option>Kitchen display</option><option>POS terminal</option></select></div>
+  <div class="rw"><span class="cb on">✓</span><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0342</span></small></div><select class="cls guess"><option>POS terminal · guess</option><option>Kitchen display</option></select></div>
+  <div class="rw dim"><span class="cb"></span><div class="t"><b>ZC-3568K</b><small>Has a Google account — factory reset, then it will be picked up again</small></div></div>
+  <div class="mf"><button class="cc-btn">Cancel</button><button class="cc-btn primary">Enrol 2</button></div>
+</div>
+</div>
+<div class="notes" style="grid-template-columns:1fr 1fr"><div><b>Good</b>The one place a person looks at the classes before hardware changes; matches the New profile modal already on the page.</div><div><b>Bad</b>One more click. For ten identical HK1 boxes it is a list of ten identical rows.</div></div>
+</div>
+</div>
+
+<!-- ═══════════ 3. Progress ═══════════ -->
+<h2 class="sec">3 · Watching it happen</h2>
+<p class="secnote">An enrolment is eight steps on the scout, 30–90 s each device. The row must say where it is, and the whole venue must say how far along the batch is.</p>
+
+<div class="opt">
+<div class="oname">3A — Steps in the row, a bar in the venue header <span class="rec">recommended</span></div>
+<p class="onote">The row's select and button give way to the step list (the same eight the Enroll apps show). The venue header shows "1 of 2 done" with a thin bar and the device currently running. When a device finishes, its row turns green for a few seconds and leaves; the device appears in the venue's list.</p>
+<div class="frame">
+<div class="cc-card">
+  <div class="vh"><span class="dot"></span><b>AIO Test Bistro</b><span class="muted">· enrolling · 1 of 2 done</span><div class="bar"><i></i></div><span class="sp"></span><button class="cc-btn sm">Stop after this one</button></div>
+  <div class="rw" style="background:var(--ok-bg)"><div class="gl">🍳</div><div class="t"><b>SUNMI D2s</b><small><span class="mono">D2S99120</span> · enrolled as Kitchen display · checking in</small></div><a class="cc-btn sm" href="#">Open</a></div>
+  <div class="rw"><div class="gl">🧾</div><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0342</span> · POS terminal</small></div><div class="prog"><span class="d"><i>✓</i>Checked · token · agent installed</span><span class="n"><i></i>Setting Device Owner</span><span><i>5</i>Granting permissions</span><span><i>6</i>Starting the agent</span><span><i>7</i>Registering · first check-in</span></div></div>
+  <div class="rw"><div class="gl">🖥</div><div class="t"><b>ZC-3568K</b><small><span class="mono">K8KVWX2201</span> · <span class="cc-tag warn">Has a Google account</span></small></div><button class="cc-btn sm">Check again</button></div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>The person who pressed the button sees exactly what the Enroll app would show, where they pressed it. A failure is a red row with the step it died on and <b>Try again</b>.</div>
+<div><b>Bad</b>Needs live updates on the page (the page already polls the inbox partial; the step list rides along).</div>
+<div><b>Code</b><span class="mono">net_enroll_progress</span> → <span class="mono">sightings.step</span>; the partial re-renders every 2 s while a job is live, as the install-progress page does.</div>
+</div>
+</div>
+
+<div class="opt">
+<div class="oname">3B — Hand off to the Commands page</div>
+<p class="onote">Pressing Enrol creates a <span class="mono">net_enroll</span> command and the row just says "enrolling → see command". Progress lives on <span class="mono">/commands/{id}</span>, as every other command's does.</p>
+<div class="frame"><div class="rw" style="border:1px solid var(--border);border-radius:10px;background:var(--surface)"><div class="gl">🧾</div><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0342</span></small></div><span class="cc-tag info">enrolling</span><a class="cc-btn sm" href="#">Command →</a></div></div>
+<div class="notes">
+<div><b>Good</b>No new progress UI; the command's delivery log is the history anyway.</div>
+<div><b>Bad</b>Sends the person away from the page mid-batch; the Commands page is per command, not per venue, so a batch of five is five pages.</div>
+<div><b>Code</b>Nearly none beyond the command type. Keep this as the <i>history</i> behind 3A, not the live view.</div>
+</div>
+</div>
+
+<!-- ═══════════ 4. Blocked / stale ═══════════ -->
+<h2 class="sec">4 · Blocked, stale and refused</h2>
+<p class="secnote">Three kinds of device the scout sees but cannot or should not enrol. Each needs a different amount of screen.</p>
+
+<div class="opt">
+<div class="oname">4A — Blocked rows stay with the fix and "Check again"; stale rows fade; refused are a count <span class="rec">recommended</span></div>
+<p class="onote"><b>Blocked</b> (account, foreign Device Owner, second user): the row stays in the venue with the reason and the fix in plain words, and a <b>Check again</b> that re-probes just that device, because the fix is a factory reset someone does on site and then wants confirmed. <b>Stale</b> (not seen for a day): the row fades and says so; after a week it goes, and comes back if seen again. <b>Refused our key</b>: never a row, only a count in the venue header, because a device that refused us is not ours to list.</p>
+<div class="frame">
+<div class="cc-card">
+  <div class="vh"><span class="dot"></span><b>AIO Test Bistro</b><span class="muted">· scanned 2 min ago · 1 device refused our key</span><span class="sp"></span><button class="cc-btn sm">Scan now</button></div>
+  <div class="rw"><div class="gl">🖥</div><div class="t"><b>ZC-3568K</b><small><span class="mono">K8KVWX2201</span> · 10.32.0.221 · <span class="cc-tag warn">Has a Google account</span> factory reset it and don't add an account; then press Check again</small></div><button class="cc-btn sm">Check again</button></div>
+  <div class="rw"><div class="gl">📱</div><div class="t"><b>Lenovo TB-X606F</b><small><span class="mono">HA1KXXYZ</span> · 10.32.2.140 · <span class="cc-tag bad">Owned by com.hexnode.mdm</span> another MDM is Device Owner; only a factory reset removes it</small></div><button class="cc-btn sm">Check again</button></div>
+  <div class="rw fade"><div class="gl">🧾</div><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0355</span> · last at 10.32.1.190</small></div><select class="cls" disabled><option>POS terminal</option></select><button class="cc-btn sm" disabled>Enrol</button></div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>The person on site gets a yes/no after the reset without waiting for the next scheduled scan. Stale rows neither lie nor vanish without trace.</div>
+<div><b>Bad</b>"Check again" is a third button on the row; the venue header carries a number nobody can click.</div>
+<div><b>Code</b><span class="mono">net_scan</span> with a single <span class="mono">host</span>; stale/removal in the nightly job.</div>
+</div>
+</div>
+
+<div class="opt">
+<div class="oname">4B — Only ready devices; everything else behind "3 more"</div>
+<p class="onote">The venue shows ready rows only. A folded line at the bottom, "3 more: 2 blocked, 1 not seen for 2 days", expands to the rest.</p>
+<div class="frame">
+<div class="cc-card">
+  <div class="vh"><span class="dot"></span><b>AIO Test Bistro</b><span class="sp"></span><button class="cc-btn primary sm">Enrol all 2</button></div>
+  <div class="rw"><div class="gl">🍳</div><div class="t"><b>SUNMI D2s</b><small><span class="mono">D2S99120</span></small></div><select class="cls"><option>Kitchen display</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw"><div class="gl">🧾</div><div class="t"><b>SUNMI D3 Pro</b><small><span class="mono">DP02256HJ0342</span></small></div><select class="cls guess"><option>POS terminal · guess</option></select><button class="cc-btn primary sm">Enrol</button></div>
+  <div class="rw" style="justify-content:center;color:var(--accent-text);font-weight:650;font-size:12.5px">3 more · 2 blocked, 1 not seen for 2 days ▾</div>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>Shortest list; the batch button's count and the visible rows agree.</div>
+<div><b>Bad</b>Hides the row the on-site person most needs after a factory reset. Same fold pattern as the Enroll app's "8 hidden", so not new, but there it hid strangers, here it hides our own hardware with a problem.</div>
+<div><b>Code</b>Same data as 4A, one more toggle.</div>
+</div>
+</div>
+
+<!-- ═══════════ 5. Trail ═══════════ -->
+<h2 class="sec">5 · Afterwards — the trail</h2>
+<p class="secnote">A device enrolled this way should say so wherever "enrolled by" already appears. Two surfaces exist: the device page's enrollment card and the Recent enrollments table on this page.</p>
+<div class="opt">
+<div class="oname">5A — "Enrolled by hw · via Tableside AI AT070AA2600030" <span class="rec">recommended</span></div>
+<p class="onote">The approver stays the person (that is who answers for it); the scout is the "via", linked to its device page. The Recent enrollments table gains a <b>via</b> column that is empty for app and QR enrolments. Phase 3 auto-enrolments say <b>zero-touch</b> as the person.</p>
+<div class="frame two">
+<div class="cc-card" style="margin:0">
+  <div class="cc-ch"><h2>Enrollment</h2><span class="m">standard client</span></div>
+  <div class="kv">
+    <div class="k">Enrolled</div><div>8 Oct 2026, 14:02</div>
+    <div class="k">Enrolled by</div><div><b>hw</b> · via <a href="#">Tableside AI AT070AA2600030</a></div>
+    <div class="k">Found</div><div>on AIO Test Bistro's Wi-Fi, 10.32.1.13, 8 Oct 13:48</div>
+    <div class="k">Profile</div><div>scout · AIO Test Bistro · D2S99120 <span class="cc-tag">one-shot</span></div>
+    <div class="k">Device key</div><div><span class="mono">dvk_…c41a</span> · registered 14:03</div>
+  </div>
+</div>
+<div class="cc-card" style="margin:0">
+  <div class="cc-ch"><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days</span></div>
+  <table class="rt"><tr><th>When</th><th>Device</th><th>Type</th><th>Venue</th><th>By</th><th>Via</th></tr>
+  <tr><td>14:02</td><td class="mono">D2S99120</td><td>Kitchen display</td><td>AIO Test Bistro</td><td>hw</td><td class="mono">AT070AA2600030</td></tr>
+  <tr><td>13:59</td><td class="mono">DP02256HJ0342</td><td>POS terminal</td><td>AIO Test Bistro</td><td>hw</td><td class="mono">AT070AA2600030</td></tr>
+  <tr><td>Yesterday</td><td class="mono">A1B2C3D4E5</td><td>Menu board</td><td>AIO Test Bistro</td><td>hw</td><td class="muted">AIO Enroll · Mac</td></tr>
+  <tr><td>5 Oct</td><td class="mono">R58N30ABC123</td><td>Handheld</td><td>Bayside Pizza</td><td>ali</td><td class="muted">QR</td></tr>
+  </table>
+</div>
+</div>
+<div class="notes">
+<div><b>Good</b>Answers "who did this and how" with no new page. The Enroll apps' "via" (Mac / phone) fits the same column, which also closes a gap that exists today.</div>
+<div><b>Bad</b>One more column in a table that is already wide on a laptop.</div>
+<div><b>Code</b><span class="mono">devices.enrolled_via</span> text ("scout:AT070…", "app:mac", "qr"); audit line unchanged in shape.</div>
+</div>
+</div>
+
+<!-- ═══════════ 6. Empty & degraded ═══════════ -->
+<h2 class="sec">6 · When there is nothing, or something is missing</h2>
+<p class="secnote">Three states the card will spend most of its life in. One option each; shown together because they share the card.</p>
+<div class="frame two">
+<div class="cc-card" style="margin:0">
+  <div class="cc-ch"><span class="ic sc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">nothing waiting</span></div>
+  <div class="empty"><b>Nothing new on any venue's Wi-Fi.</b><br>7 venues scanned in the last 15 minutes · last find 2 days ago (Bayside Pizza).<br><span class="small">A device that trusts the AIO adb key will show up here within 15 minutes of joining a venue's Wi-Fi.</span></div>
+</div>
+<div class="cc-card" style="margin:0">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">not scanning</span></div>
+  <div class="empty"><b>No fleet adb key on this server.</b><br>Scouts need the key to open devices on the Wi-Fi.<br><a class="cc-btn sm" href="#" style="margin-top:8px">Settings → Fleet adb key</a></div>
+</div>
+<div class="cc-card" style="margin:0;grid-column:1/-1">
+  <div class="vh" style="border-top:0"><span class="dot off"></span><b>Bayside Pizza</b><span class="muted">· no Tableside AI online here · last scanned yesterday 22:10 by <span class="mono">AT070AABU00231</span></span><span class="sp"></span><button class="cc-btn sm" disabled>Scan now</button></div>
+  <div class="rw fade"><div class="gl">📺</div><div class="t"><b>Google HK1 RBOX D8</b><small><span class="mono">A1B2C3D4F0</span> · 10.44.0.18</small></div><select class="cls" disabled><option>Menu board</option></select><button class="cc-btn sm" disabled title="No scout online">Enrol</button></div>
+</div>
+</div>
+<div class="notes">
+<div><b>Empty</b>Says what was checked and when, so an empty card is evidence, not absence.</div>
+<div><b>No key</b>The one setup step that makes the whole thing inert; link straight to it. Super admin only sees the link.</div>
+<div><b>No scout</b>Sightings stay, actions grey, reason in the header. The row is not stale (it was seen yesterday); the venue is.</div>
+</div>
+
+<div class="verdict">
+<p><b>Picks: 1A · 2B · 3A (3B as history) · 4A · 5A · the three states in §6.</b></p>
+<ul>
+<li><b>1A</b> because Enrol is a job and Done is a write; they should not sit in one list. The heading's second number is the only cost.</li>
+<li><b>2B</b> because the sheet is the one moment a person confirms a class before it is on a live device; the dialog pattern already exists on the page.</li>
+<li><b>3A</b> because the person who pressed Enrol should see the eight steps where they pressed it; the Commands page keeps the record.</li>
+<li><b>4A</b> because the blocked row with Check again is what the installer uses after a factory reset; refused devices are a number, never a row.</li>
+<li><b>5A</b> because "by whom, via what" is the same question for the Enroll apps, and the new column answers it for them too.</li>
+</ul>
+<p class="muted small">If these hold: build order is section 7.6 of the plan. First visible step on live is the §6 empty card with real scan counts and Enrol greyed — the read-only phase.</p>
+</div>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>

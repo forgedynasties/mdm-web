@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T7 as the enroller — plan · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:40px 0 8px;letter-spacing:-.01em}
+h3{font-size:14px;margin:18px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);margin:0 0 8px;max-width:860px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.55;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top;line-height:1.5}
+.flow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:14px 0}
+.box{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface)}
+.box h4{margin:0 0 6px;font-size:12.5px}
+.box ol{margin:0;padding-left:18px}
+.box li{font-size:12.5px}
+.box.scout{border-color:var(--accent-edge,var(--accent));background:var(--accent-soft)}
+.warn{border-left:3px solid var(--warn);padding:8px 12px;background:var(--warn-bg);border-radius:0 10px 10px 0;margin:10px 0}
+.ok{border-left:3px solid var(--ok);padding:8px 12px;background:var(--ok-bg);border-radius:0 10px 10px 0;margin:10px 0}
+.phase{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-soft,var(--border))}
+.phase .n{font-weight:800;font-size:12px;color:var(--accent-text,var(--accent))}
+.phase .n small{display:block;font-weight:600;color:var(--text-faint);margin-top:2px}
+.phase p{margin:0 0 4px}
+@media(max-width:720px){.flow,.phase{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>A T7 enrols the other devices in its restaurant</h1>
+<p class="lead">Plan for zero-touch enrolment of off-the-shelf hardware (Sunmi, HK1 boxes, kiosk boards) by the T7 that is already on the venue's Wi-Fi. UI options are in <a href="/static/t7-enroller-demos.html">t7-enroller-demos.html</a>; <b>option B (inbox) was picked on 8 Oct</b> — its detail is section 7 and <a href="/static/t7-enroller-inbox-demos.html">t7-enroller-inbox-demos.html</a>. Nothing here is built yet.</p>
+
+<h2>1. Where we are</h2>
+<ul>
+<li><b>Our images trust our adb key.</b> Since 5 Oct (<span class="mono">6d3b2286ef9</span>) the qcom tree ships <span class="mono">/adb_keys</span> with the fleet public key; adbd lets that key in with no prompt on every build variant.</li>
+<li><b>The vendor contract exists as an image:</b> branch <span class="mono">feat/sunmi-mock</span> (<span class="mono">ef25778322d</span>): no MDM client, <span class="mono">persist.sys.usb.config=adb</span>, <span class="mono">persist.adb.tcp.port=5555</span>, <span class="mono">ro.adb.secure=1</span>, our key in <span class="mono">/adb_keys</span>. That is exactly what we ask Sunmi and the others to put in their firmware for us. The T7 at 10.32.2.75 (AT070AA2600030) runs it and stands in for "a vendor device".</li>
+<li><b>The server already holds the fleet key</b> sealed under <span class="mono">FLEET_ADB_KEY_SECRET</span> (<span class="mono">internal/fleetkey</span>, <span class="mono">PUT /api/v1/fleet-adb-key</span>), and hands the private half to a signed-in operator app at <span class="mono">GET /api/v1/app/adb-key</span>, audited and rate-limited.</li>
+<li><b>AIO Enroll for Android</b> (<span class="mono">~/aio-mdm/mdm-enroll-android</span>, commit 79380f5) already does the whole job from a phone: mDNS discovery, try :5555 with the fleet key (<span class="mono">State.autoConnect</span>), one-shot probe (<span class="mono">Probe.read</span>: serial, maker, model, Android, Device Owner, accounts, users, agent versions), then the eight steps in <span class="mono">Enroller.kt</span> — token, install over <span class="mono">exec:cmd package install -S</span>, <span class="mono">dpm set-device-owner</span>, grants, <span class="mono">am start</span> with the token, wait for the server. Uses <span class="mono">libadb-android</span> for the adb protocol.</li>
+<li><b>The firmware client</b> (<span class="mono">com.aioapp.mdm</span>) is a system app with its own WS to the server, a hand-rolled WebSocket, and already proxies adbd bytes (<span class="mono">AdbTunnel.java</span>). It has no adb <i>client</i> yet.</li>
+</ul>
+<p>So the idea is to move what the phone app does into the T7, and let the server drive it. The phone and desktop apps stay for venues with no T7 and for the lab.</p>
+
+<h2>2. How it works</h2>
+<div class="flow">
+<div class="box"><h4>Server</h4><ol>
+<li>Picks a <b>scout</b> per restaurant: an online firmware device (T7 or kiosk), the one with the longest uptime.</li>
+<li>Sends it <span class="mono">net_scan</span> over the command WS, carrying the fleet private key <b>for this session only</b>.</li>
+<li>Stores what comes back as <b>sightings</b> (serial, host, model, state), shows them in the inbox / on the restaurant page.</li>
+<li>On approve: mints a one-shot enrolment token (restaurant = the scout's, class chosen, <span class="mono">max_enrolls=1</span>, 10 min) and sends <span class="mono">net_enroll</span>.</li>
+</ol></div>
+<div class="box scout"><h4>Scout (firmware client)</h4><ol>
+<li>Finds hosts: NsdManager <span class="mono">_adb._tcp</span> + <span class="mono">_adb-tls-connect._tcp</span>, plus a parallel TCP sweep of its own /24 on :5555 (254 connects, a few seconds). The sweep catches vendors whose adbd has mDNS off.</li>
+<li>For each open :5555: adb CNXN, AUTH with the fleet key. Refused → "not ours", left alone for an hour. Never answers a key prompt (no AUTH type 3), so no dialog ever pops on a stranger's device.</li>
+<li>Accepted → the same one-shot probe as the phone app. Reports a sighting.</li>
+<li>On <span class="mono">net_enroll</span>: downloads the DPC APK from the server, installs, sets Device Owner, grants, starts the agent with the token, streams progress; the server confirms the enrolment itself.</li>
+<li>Drops the key from memory when the scan session ends.</li>
+</ol></div>
+<div class="box"><h4>Target (vendor device)</h4><ol>
+<li>Ships with our public key in <span class="mono">/adb_keys</span>, adbd on tcp 5555 from boot, <span class="mono">ro.adb.secure=1</span>, no accounts, no Device Owner.</li>
+<li>Does nothing. Boots, joins Wi-Fi (vendor's staging or pre-set SSID), is found.</li>
+<li>Ends up with <span class="mono">aio.app.mdmclient.dpc</span> as Device Owner, enrolled into the restaurant the scout belongs to.</li>
+</ol></div>
+</div>
+
+<h3>Why the key travels per session, not in the image</h3>
+<p>The images are public and cloned onto hardware we don't control; a fleet <i>private</i> key baked into them would be in every vendor's hands within a week. The server already seals it and hands it to signed-in operators; a scout is a stronger identity than an operator's phone (platform-signed app, per-device key, known restaurant), so the same rule holds: fetched when needed, held in memory, discarded. It is <b>never</b> given to a DPC device, only to <span class="mono">agent_kind = firmware</span>.</p>
+
+<h3>The adb client on the T7</h3>
+<p>Plain-TCP adb protocol v1, ~400 lines of Java, no library (the AOSP tree has no Gradle deps): <span class="mono">CNXN</span> / <span class="mono">AUTH</span>(token → RSA-SHA1 PKCS#1 signature) / <span class="mono">OPEN</span> / <span class="mono">WRTE</span> / <span class="mono">OKAY</span> / <span class="mono">CLSE</span>, one stream at a time, 256 KB max payload. Streams needed: <span class="mono">shell:</span> and <span class="mono">exec:cmd package install -r -S &lt;size&gt;</span>. No TLS: :5555 is the plain transport, which is the whole point of the vendor ask. The TLS/pairing path (Wireless debugging) stays with the phone app.</p>
+
+<h3>Class guess</h3>
+<p>The server already maps a serial or model to a class for the Enroll apps (<span class="mono">POST /api/v1/app/classify</span>, productions). Reuse it: SUNMI D2s → kds, D3 Pro → pos, HK1 RBOX → dongle, ZC-3568K → kiosk, our own serial pattern → "firmware, self-enrols, skip". The guess is a default the approver can change; in auto mode (phase 3) it is the decision.</p>
+
+<h2>3. What a scout never does</h2>
+<ul>
+<li>Touch a device that <b>refused the key</b>. Not even a second try inside the hour.</li>
+<li>Enrol a device with <b>a Device Owner that isn't ours</b>, <b>any account</b>, or <b>a second user</b> — same blockers as <span class="mono">enroll-adb.sh</span>; it reports them so a person can factory-reset.</li>
+<li>Enrol <b>anything without an approval</b> unless the restaurant's auto-enrol switch is on (phase 3, off by default, super admin only).</li>
+<li>Scan outside its own /24, or any port but 5555 and advertised adb ports.</li>
+<li>Persist the fleet key. A scout that reboots mid-session asks the server again.</li>
+</ul>
+<div class="warn"><b>Risk worth naming:</b> a restaurant's Wi-Fi may host a device that trusts our key but belongs to someone else (a vendor demo unit, a returned device that was re-sold). Approval-before-enrol (phases 1–2) is the control; auto mode must stay per-restaurant and off by default.</div>
+
+<h2>4. Vendor ask (what we send Sunmi &amp; co.)</h2>
+<p>Reference image: <span class="mono">feat/sunmi-mock</span>. In words:</p>
+<table>
+<tr><th>Item</th><th>Value</th><th>Why</th></tr>
+<tr><td>Trusted adb key</td><td><span class="mono">/adb_keys</span> containing our one-line <span class="mono">adbkey.pub</span> (fingerprint on the dashboard, Settings → Fleet adb key)</td><td>No "Allow USB debugging?" dialog — nobody is there to tap it</td></tr>
+<tr><td>adbd on Wi-Fi from boot</td><td><span class="mono">persist.adb.tcp.port=5555</span>, <span class="mono">persist.sys.usb.config=adb</span></td><td>The scout connects without a cable and before any setup</td></tr>
+<tr><td>Key check stays on</td><td><span class="mono">ro.adb.secure=1</span></td><td>Only our key gets in; an open adbd would be a hole</td></tr>
+<tr><td>Not switched off by Settings or power saving</td><td>USB-debugging toggle / screen-off must not stop the tcp listener</td><td>Sunmi's Settings currently can; a kiosk sleeps a lot</td></tr>
+<tr><td>Clean out of the box</td><td>No accounts, no pre-set Device Owner, no second user</td><td><span class="mono">dpm set-device-owner</span> refuses otherwise and only a factory reset undoes it</td></tr>
+<tr><td>Serial readable</td><td><span class="mono">ro.serialno</span> set and stable; <span class="mono">Build.getSerial()</span> readable by a Device Owner</td><td>The device's identity on the dashboard</td></tr>
+<tr><td>Key survives updates</td><td>Vendor OTAs keep <span class="mono">/adb_keys</span></td><td>A re-flashed device must still be reachable</td></tr>
+<tr><td>Nice to have</td><td>adbd mDNS (<span class="mono">_adb._tcp</span>) on</td><td>Faster discovery; the /24 sweep is the fallback</td></tr>
+</table>
+
+<h2>5. Phases</h2>
+<div class="phase"><div class="n">Phase 0<small>this week</small></div><div>
+<p><b>Prove it between two T7s.</b> One on <span class="mono">feat/sunmi-mock</span> as the "vendor device", one on the normal image as scout. Hand-written adb client in the firmware client, triggered by a <span class="mono">net_scan</span> frame from stage, results in the server log only. Vendor one-pager from section 4 goes out in parallel.</p>
+</div></div>
+<div class="phase"><div class="n">Phase 1<small>read-only</small></div><div>
+<p><b>Sightings.</b> Server: <span class="mono">sightings</span> table, scout selection, <span class="mono">net_scan</span> on a schedule (every 15 min while the venue is open) or on demand. Dashboard: the "Found nearby" list on the restaurant page and in the onboarding inbox (demo options A/B). No enrolment yet; this alone tells us what is sitting on every venue's Wi-Fi.</p>
+</div></div>
+<div class="phase"><div class="n">Phase 2<small>approve → enrol</small></div><div>
+<p><b>One-click enrol from the dashboard.</b> <span class="mono">net_enroll</span> frame, one-shot token minted server-side, progress streamed, <span class="mono">enrolled_by</span> = the approver, "via T7 …230" on the device's record. Handles the four lab devices from the dashboard with nobody in the room.</p>
+</div></div>
+<div class="phase"><div class="n">Phase 3<small>zero touch</small></div><div>
+<p><b>Per-restaurant auto-enrol switch</b> (demo option D). Class from the server's guess; anything it can't classify waits for a person. Off by default, super admin only, every auto-enrolment audited and shown in the Daily Report.</p>
+</div></div>
+<div class="phase"><div class="n">Phase 4<small>later</small></div><div>
+<p>Scout also <b>re-enrols</b> a device that lost its agent (factory reset in the field) and <b>flags</b> devices that trust our key but aren't enrolled anywhere. Phone/desktop Enroll apps keep the lab and venues with no T7.</p>
+</div></div>
+
+<h2>6. Pieces to build</h2>
+<table>
+<tr><th>Where</th><th>What</th><th>Size</th></tr>
+<tr><td>Firmware client</td><td><span class="mono">AdbClient.java</span> (protocol + RSA auth + shell/exec streams), <span class="mono">NetScout.java</span> (discovery, sweep, probe, enrol steps), two new WS frames in <span class="mono">MdmService</span>; key held in memory only</td><td>~900 lines, client 1.9.x</td></tr>
+<tr><td>Server</td><td><span class="mono">sightings</span> table + repo; scout picker; <span class="mono">net_scan</span> / <span class="mono">net_enroll</span> command types; fleet-key hand-off to a firmware device (reuses <span class="mono">fleetkey</span>, new audit action <span class="mono">fleet_adb_key.scout</span>); one-shot token mint (reuses enrollment profiles); progress ingest</td><td>~1200 lines</td></tr>
+<tr><td>Dashboard</td><td>"Found nearby" card on <span class="mono">restaurant_detail</span>, inbox section on <span class="mono">enrollment</span>, device record "enrolled via T7 …"; phase 3 switch on the restaurant form</td><td>per the demo pick</td></tr>
+<tr><td>Image</td><td>Nothing new on the scout side. Vendor-side spec = <span class="mono">feat/sunmi-mock</span></td><td>—</td></tr>
+</table>
+<div class="ok"><b>Open questions for you:</b> (1) should a kiosk also be allowed to scout, or T7 only? (2) does the scout scan on a schedule or only when someone opens the restaurant page? (3) is phase 3 wanted at all, or is one-click always the ceiling?</div>
+
+<h2>7. Option B in detail — sightings in the onboarding inbox</h2>
+<p>Picked 8 Oct. The UI decisions inside B are in <a href="/static/t7-enroller-inbox-demos.html">t7-enroller-inbox-demos.html</a>. This section is the mechanics underneath them.</p>
+
+<h3>7.1 A sighting's life</h3>
+<pre>seen ──probe──▶ ready ──approve──▶ enrolling(step 1..8) ──▶ enrolled   (row leaves the inbox; device appears at the venue)
+   │                │                       └──fail──▶ failed(reason)   (row stays, "Try again")
+   │                ├──▶ blocked(reason)   account / foreign Device Owner / second user — "Check again" re-probes
+   │                ├──▶ ours              AIO serial pattern: firmware, enrols itself — folded under the venue, no action
+   │                └──▶ elsewhere         already enrolled on this server (or a peer) — not shown; counted
+   └──refused──▶ (not stored as a device; the venue header counts it, retried after 1 h)
+
+stale: not seen by any scan for 24 h → row fades;  7 days → row removed (it comes back if seen again)</pre>
+
+<h3>7.2 Data</h3>
+<pre>sightings
+  id, restaurant_id, scout_serial, host (inet), port,
+  serial, manufacturer, model, android, owner_pkg, owner_ours, accounts int, users int,
+  dpc_version, firmware_version,
+  state  text  -- ready | blocked | ours | enrolling | failed
+  reason text, class_guess text, class_confidence text ('catalog'|'model'|'none'),
+  first_seen, last_seen, approved_by, approved_at, job_id (→ commands)
+  unique (restaurant_id, serial)
+
+restaurants + scan_enabled bool default true, auto_enroll bool default false (phase 3)
+devices    + enrolled_via_serial text   -- the scout, for "via AT070AA2600030"</pre>
+<p>Refusals are kept in memory on the scout only (host → until), never sent up: a device that refused our key is not ours to list.</p>
+
+<h3>7.3 Frames (command WebSocket, firmware client ≥ 1.9.0)</h3>
+<pre>server → scout   {"type":"net_scan","session":"…","key_pem":"…","subnet":"auto","ttl_s":600}
+scout → server   {"type":"net_sighting","session":"…","host":"10.32.1.13","port":5555,
+                  "serial":"D2S99120","manufacturer":"SUNMI","model":"D2s","android":"11",
+                  "owner":{"set":false,"ours":false,"pkg":""},"accounts":0,"users":1,
+                  "dpc_version":"","firmware_version":null}
+scout → server   {"type":"net_scan_done","session":"…","hosts":254,"open":6,"accepted":4,"refused":1}
+
+server → scout   {"type":"net_enroll","job":"…","host":"10.32.1.13","serial":"D2S99120",
+                  "class":"kds","token":"enr_…","apk_url":"…","apk_sha256":"…","key_pem":"…"}
+scout → server   {"type":"net_enroll_progress","job":"…","step":3,"text":"Setting Device Owner…"}
+scout → server   {"type":"net_enroll_done","job":"…","ok":false,"reason":"set-device-owner: …"}</pre>
+<p><span class="mono">key_pem</span> rides inside the frame, so a scout holds it only while a session or job is live; the server logs <span class="mono">fleet_adb_key.scout</span> with the scout serial each time it sends one. The server verifies the enrolment itself (the device's own <span class="mono">POST /api/v1/enroll</span> with that token), so a scout's "ok" is a hint, not the record.</p>
+
+<h3>7.4 Server side</h3>
+<ul>
+<li><b>Scout picker:</b> per restaurant, the online <span class="mono">agent_kind=firmware</span> device with the longest uptime, client ≥ 1.9.0, Wi-Fi (not hotspot). Kiosks count as scouts unless you say T7-only.</li>
+<li><b>Schedule:</b> one scan per venue every 15 min inside service hours, every 2 h outside; plus "Scan now" from the inbox (operator or above, 1/min per venue). A venue with no online scout shows "no Tableside AI online here".</li>
+<li><b>Approve = one command:</b> <span class="mono">POST /enrollment/sightings/{id}/enroll {class}</span> → mints a hidden profile token (name "scout · venue · serial", <span class="mono">max_enrolls=1</span>, 10 min, restaurant set) → <span class="mono">net_enroll</span> to the scout → the job shows under <span class="mono">/commands</span> as type <span class="mono">net_enroll</span> with the eight steps as its delivery log. "Enrol all" is N of these, sent to the one scout in sequence (one adb install at a time keeps the Wi-Fi honest).</li>
+<li><b>Class guess</b> reuses the Enroll apps' <span class="mono">classify</span> (productions, then a model table: SUNMI D2s→kds, D3 Pro→pos, HK1/RBOX→dongle, ZC-3568K→kiosk). Confidence drives the row: a catalog hit is pre-selected, a model hit is pre-selected with "guess", none leaves the select on "— pick —" and keeps the venue's Enrol-all from including it.</li>
+<li><b>Permissions:</b> see sightings — any dashboard role that sees /enrollment; approve — operator and above (same as the Enroll apps' token mint); scan settings and phase 3 switch — super admin.</li>
+<li><b>Trail:</b> <span class="mono">devices.enrolled_by</span> = approver, <span class="mono">enrolled_via_serial</span> = scout; audit <span class="mono">device.enroll</span> "via AT070AA2600030"; the Recent enrollments table gains a "via" column; the device page says "Enrolled by hw · via Tableside AI AT070AA2600030".</li>
+</ul>
+
+<h3>7.5 Scout side</h3>
+<ul>
+<li>Runs the scan in a foreground thread with a Wi-Fi lock, 16 connects in parallel, 400 ms connect timeout: a /24 takes ~7 s. Skips its own address and anything in the refused cache.</li>
+<li>A probe is one shell stream (the phone app's <span class="mono">Probe.read</span>, markers between sections) — about a second per device.</li>
+<li>Enrol: APK streamed from the server straight into <span class="mono">exec:cmd package install -r -S</span>, never written to the T7's disk; the eight steps and their timeouts copied from <span class="mono">Enroller.kt</span> / <span class="mono">enroll.rs</span>.</li>
+<li>Pauses while a guest is using the tablet (screen on and unlocked for the T7's own app) — a scan is background work, not a reason for a stutter at the table.</li>
+</ul>
+
+<h3>7.6 Build order for B</h3>
+<ol>
+<li>Firmware client: <span class="mono">AdbClient</span> + <span class="mono">NetScout</span> scan/probe; <span class="mono">net_scan</span>/<span class="mono">net_sighting</span>. Test: scout T7 vs the sunmi-mock T7 on stage.</li>
+<li>Server: <span class="mono">sightings</span> table, scout picker, schedule, ingest. Inbox card with Enrol greyed ("coming") — phase 1 goes to live here.</li>
+<li>Firmware client: <span class="mono">net_enroll</span>; server: approve endpoint, token mint, command type, progress; inbox rows live. Lab's four devices re-enrolled this way from the desk.</li>
+<li>Trail (device page, recent table), restaurant-page slice, stale/removal rules, "Check again".</li>
+</ol>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
