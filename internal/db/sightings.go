@@ -135,11 +135,17 @@ func scanSighting(row interface {
 // ListSightings returns every sighting not yet enrolled, newest venue activity first then
 // ready devices first within a venue — the order the inbox card renders them. "ours"
 // (firmware devices that enrol themselves) are excluded: nothing to do with them here.
+//
+// "unauthorized" is excluded too. Those rows are every host on the venue's network that
+// speaks adb without trusting our key — a laptop, somebody's phone, a device from
+// another fleet — and nobody can act on them from here: no serial, no model, nothing to
+// install until somebody physically accepts the key. They stay in the table because
+// they answer "why did the scout not pick that one up", but they are not inbox work.
 func (d *DB) ListSightings(ctx context.Context) ([]Sighting, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT `+sightingCols+`
 		FROM sightings s JOIN restaurants r ON r.id = s.restaurant_id
-		WHERE s.state <> 'enrolled' AND s.state <> 'ours'
+		WHERE s.state NOT IN ('enrolled', 'ours', 'unauthorized')
 		ORDER BY r.name,
 		  CASE s.state WHEN 'enrolling' THEN 0 WHEN 'ready' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END,
 		  s.model, s.serial`)
