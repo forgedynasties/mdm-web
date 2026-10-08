@@ -84,34 +84,38 @@ func groupSightings(ss []db.Sighting) []sightingGroup {
 
 // ScoutScan triggers an immediate sweep of one venue (the "Scan now" button). With no
 // restaurant_id it sweeps every eligible venue.
+// The enrollment page is tabbed and the open tab lives in ?tab=, so every action
+// redirects back to the tab it was taken from: scout actions to Found on Wi-Fi,
+// profile actions to Profiles, onboarding to the inbox. A bare /enrollment would land
+// on the page's default tab, which after "Scan now" read as being thrown out.
 func (h *Handler) ScoutScan(w http.ResponseWriter, r *http.Request) {
 	if h.scout == nil {
-		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Scout enrolment is not enabled", "error")
 		return
 	}
 	rid := strings.TrimSpace(r.FormValue("restaurant_id"))
 	host := strings.TrimSpace(r.FormValue("host"))
 	id, err := uuid.Parse(rid)
 	if err != nil {
-		h.hxDoneToast(w, r, "/enrollment", "Unknown venue", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown venue", "error")
 		return
 	}
 	if err := h.scout.StartScan(r.Context(), id, host); err != nil {
-		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", err.Error(), "error")
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Scanning the venue's Wi-Fi…", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=found", "Scanning the venue's Wi-Fi…", "success")
 }
 
 // ScoutEnroll approves one sighting: the scout installs the standard client on it.
 func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
 	if h.scout == nil {
-		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Scout enrolment is not enabled", "error")
 		return
 	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
 	class := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
@@ -122,34 +126,34 @@ func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
 		_, _, _, apkSHA = h.cfg.AgentAPKHostedBuild()
 	}
 	if err := h.scout.Approve(r.Context(), id, class, h.currentUsername(r), serverURL, apkURL, apkSHA); err != nil {
-		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", err.Error(), "error")
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Enrolling the device…", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=found", "Enrolling the device…", "success")
 }
 
 // ScoutRecheck re-probes one device (the "Check again" button on a blocked row), e.g.
 // after someone factory-resets it on site. It asks the scout to scan just that host.
 func (h *Handler) ScoutRecheck(w http.ResponseWriter, r *http.Request) {
 	if h.scout == nil {
-		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Scout enrolment is not enabled", "error")
 		return
 	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
 	sg, err := h.db.GetSighting(r.Context(), id)
 	if err != nil || sg == nil {
-		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
 	if err := h.scout.StartScan(r.Context(), sg.RestaurantID, sg.Host); err != nil {
-		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=found", err.Error(), "error")
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Checking the device again…", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=found", "Checking the device again…", "success")
 }
 
 // EnrollmentPage shows enrollment profiles (revocable QR/zero-touch tokens) plus the
@@ -209,7 +213,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) EnrollmentProfileCreate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		h.hxDoneToast(w, r, "/enrollment", "Profile name is required", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Profile name is required", "error")
 		return
 	}
 	in := enrollmentProfileInputFromForm(r)
@@ -224,7 +228,7 @@ func (h *Handler) EnrollmentProfileCreate(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Enrollment profile created", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Enrollment profile created", "success")
 }
 
 // enrollmentProfileInputFromForm reads the profile intent fields shared by create and
@@ -264,14 +268,14 @@ func (h *Handler) EnrollmentProfileUpdate(w http.ResponseWriter, r *http.Request
 	in := enrollmentProfileInputFromForm(r)
 	in.Name = strings.TrimSpace(r.FormValue("name"))
 	if in.Name == "" {
-		h.hxDoneToast(w, r, "/enrollment", "Profile name is required", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Profile name is required", "error")
 		return
 	}
 	if err := h.db.UpdateEnrollmentProfile(r.Context(), id, in); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Profile updated", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Profile updated", "success")
 }
 
 func (h *Handler) enrollmentProfileSetRevoked(w http.ResponseWriter, r *http.Request, revoked bool) {
@@ -288,7 +292,7 @@ func (h *Handler) enrollmentProfileSetRevoked(w http.ResponseWriter, r *http.Req
 	if revoked {
 		msg = "Profile revoked — its QR codes stop working immediately"
 	}
-	h.hxDoneToast(w, r, "/enrollment", msg, "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", msg, "success")
 }
 
 func (h *Handler) EnrollmentProfileRevoke(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +313,7 @@ func (h *Handler) EnrollmentProfileDelete(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.hxDoneToast(w, r, "/enrollment", "Profile deleted", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Profile deleted", "success")
 }
 
 // EnrollmentProfileQR renders the Android managed-provisioning QR payload for a profile
@@ -2035,7 +2039,7 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 	h.hub.PublishDeviceUpdate(device.ID)
 	from := r.FormValue("from")
 	if from == "" {
-		from = "/enrollment"
+		from = "/enrollment?tab=inbox"
 	}
 	h.hxDoneToast(w, r, from, "Device onboarded", "success")
 }
