@@ -41,6 +41,11 @@ type Sighting struct {
 
 // Name is the display name, dropping a maker the model already repeats.
 func (s Sighting) Name() string {
+	// A host that refused the key tells us nothing about itself, so it is named by its
+	// address — that is all anybody has to go on until it is authorized.
+	if s.Manufacturer == "" && s.Model == "" && s.Serial == "" {
+		return s.Host
+	}
 	if s.Model == "" {
 		return s.Manufacturer
 	}
@@ -79,7 +84,7 @@ func (d *DB) UpsertSighting(ctx context.Context, s SightingUpsert) error {
 		    android, owner_pkg, owner_ours, accounts, users, dpc_version, firmware_version,
 		    class_guess, state, reason, last_seen)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
-		ON CONFLICT (restaurant_id, serial) DO UPDATE SET
+		ON CONFLICT (restaurant_id, serial) WHERE serial <> '' DO UPDATE SET
 		    scout_serial = EXCLUDED.scout_serial, host = EXCLUDED.host, port = EXCLUDED.port,
 		    manufacturer = EXCLUDED.manufacturer, model = EXCLUDED.model, android = EXCLUDED.android,
 		    owner_pkg = EXCLUDED.owner_pkg, owner_ours = EXCLUDED.owner_ours,
@@ -91,6 +96,23 @@ func (d *DB) UpsertSighting(ctx context.Context, s SightingUpsert) error {
 		s.RestaurantID, s.ScoutSerial, s.Host, s.Port, s.Serial, s.Manufacturer, s.Model,
 		s.Android, s.OwnerPkg, s.OwnerOurs, s.Accounts, s.Users, s.DPCVersion, s.FirmwareVersion,
 		s.ClassGuess, s.State, s.Reason)
+	return err
+}
+
+// UpsertUnauthorized records a host that speaks adb but refused the fleet key. There is
+// no serial to key on — props cannot be read without auth — so the address is the key,
+// and an existing row for that address is only refreshed. A row that already carries a
+// serial is left alone: the device was authorized at some point, which is the better
+// information, and a later refusal (someone revoked the key on it) should not erase it.
+func (d *DB) UpsertUnauthorized(ctx context.Context, restaurantID uuid.UUID, scoutSerial, host string, port int, reason string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO sightings (restaurant_id, scout_serial, host, port, serial, state, reason, last_seen)
+		VALUES ($1, $2, $3, $4, '', 'unauthorized', $5, NOW())
+		ON CONFLICT (restaurant_id, host) WHERE serial = '' DO UPDATE SET
+		    scout_serial = EXCLUDED.scout_serial, port = EXCLUDED.port, last_seen = NOW(),
+		    state = CASE WHEN sightings.state IN ('enrolling','enrolled') THEN sightings.state ELSE 'unauthorized' END,
+		    reason = CASE WHEN sightings.state IN ('enrolling','enrolled') THEN sightings.reason ELSE EXCLUDED.reason END`,
+		restaurantID, scoutSerial, host, port, reason)
 	return err
 }
 
@@ -239,6 +261,24 @@ func (d *DB) RestaurantsToScan(ctx context.Context) ([]uuid.UUID, error) {
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// StampEnrolledViaScout fills in enrolled_via_serial from the sighting that approved
+// this serial. The scout's own net_enroll_done also stamps it (SetEnrolledViaSerial),
+// but that frame can arrive before the device's enrol POST has created the row — a
+// brand-new serial, or one deleted for a re-test — and an UPDATE on a row that is not
+// there yet is lost in silence. Calling this at enrol time closes that race from the
+// other side; both are idempotent and neither overwrites an existing value.
+func (d *DB) StampEnrolledViaScout(ctx context.Context, serial string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE devices d SET enrolled_via_serial = s.scout_serial
+		  FROM sightings s
+		 WHERE d.serial_number = $1
+		   AND s.serial = $1
+		   AND s.scout_serial <> ''
+		   AND s.state IN ('enrolling', 'enrolled')
+		   AND COALESCE(d.enrolled_via_serial, '') = ''`, serial)
+	return err
 }
 
 // SetEnrolledViaSerial stamps the scout that enrolled a device, once it has appeared.

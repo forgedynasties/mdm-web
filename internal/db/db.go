@@ -13359,6 +13359,18 @@ CREATE TABLE IF NOT EXISTS sightings (
 CREATE INDEX IF NOT EXISTS idx_sightings_restaurant ON sightings(restaurant_id);
 CREATE INDEX IF NOT EXISTS idx_sightings_job ON sightings(job_id) WHERE job_id <> '';
 
+-- A device that answers adb but refuses the fleet key is still a device worth showing:
+-- adb devices calls it "unauthorized" and the Enroll app lists it, because someone at
+-- the device can tap Allow and then it enrols like any other. Nothing about it can be
+-- read without auth, so its row has no serial and is keyed on the address instead. That
+-- needs the one-row-per-serial rule to apply only to rows that have a serial, so the
+-- table constraint is replaced by two partial unique indexes.
+ALTER TABLE sightings DROP CONSTRAINT IF EXISTS sightings_restaurant_id_serial_key;
+CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_serial
+    ON sightings(restaurant_id, serial) WHERE serial <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_host_noserial
+    ON sightings(restaurant_id, host) WHERE serial = '';
+
 -- Per-venue scout controls. scan_enabled gates the scheduled sweep; auto_enroll (phase 3,
 -- super admin, off by default) lets the scout enrol classifiable devices with no approval.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS scan_enabled BOOLEAN NOT NULL DEFAULT TRUE;

@@ -130,13 +130,19 @@
       <div style="flex:1;min-width:0">
         <b style="display:block;font-size:13px">{{.Name}}</b>
         <small class="muted" style="font-size:11.5px">
-          <span class="cc-mono">{{.Serial}}</span>{{if .Host}} · {{.Host}}{{end}}{{if .Android}} · Android {{.Android}}{{end}}
+          {{if .Serial}}<span class="cc-mono">{{.Serial}}</span>{{end}}{{if .Host}}{{if .Serial}} · {{end}}{{.Host}}{{end}}{{if .Android}} · Android {{.Android}}{{end}}
           {{if eq .State "blocked"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
           {{if eq .State "failed"}} · <span class="cc-tag bad">failed: {{.Reason}}</span>{{end}}
+          {{if eq .State "unauthorized"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
         </small>
       </div>
       {{if eq .State "enrolling"}}
         <span class="cc-tag info">enrolling · step {{.Step}}/8</span>
+      {{else if eq .State "unauthorized"}}
+        {{/* adb answered, the key did not. Nothing can be read off it and nothing can be
+             installed on it until someone at the device accepts the key, so the only
+             thing to offer is another look. */}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
       {{else if eq .State "blocked"}}
         <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
       {{else}}
