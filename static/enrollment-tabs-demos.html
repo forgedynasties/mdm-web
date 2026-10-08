@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll page — tabs &amp; profile cards · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1140px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+h3{font-size:14px;margin:22px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:900px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+.mk{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px}
+.ttl{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0 0 2px}
+.ttl .hl{color:var(--warn)}
+.sub{font-size:11.5px;color:var(--text-faint);margin:0 0 12px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:0 0 12px}
+.tabs span{font-size:12.5px;font-weight:700;color:var(--text-faint);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs span.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs .n{font-size:10.5px;margin-left:6px;background:var(--surface2);border-radius:99px;padding:1px 6px;color:var(--text-faint)}
+.tabs .n.w{background:var(--warn-bg);color:var(--warn)}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px}
+.seg span{font-size:11px;font-weight:700;color:var(--text-faint);padding:4px 9px;border-radius:6px}
+.seg span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.cols{display:grid;grid-template-columns:1.62fr 1fr;gap:10px;align-items:start}
+.card{border:1px solid var(--border);border-radius:11px;background:var(--surface);margin:0 0 9px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--border)}
+.ch h4{font-size:12.5px;margin:0;font-weight:700}
+.ch .m{font-size:10.5px;color:var(--text-faint)}
+.ch .r{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--accent-text,var(--accent))}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));align-items:center;font-size:12px}
+.row:first-of-type{border-top:0}
+.sn{font-weight:700;color:var(--accent-text,var(--accent));font-size:12px}
+.rs{font-size:10px;color:var(--text-faint)}
+.tag{font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;background:var(--surface2);color:var(--text-faint)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.btn{font-size:10.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:7px;padding:3px 8px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.sel{font-size:10.5px;border:1px solid var(--border);border-radius:6px;padding:2px 5px;background:var(--surface);color:var(--text-2)}
+.more{display:block;width:100%;text-align:center;font-size:10.5px;font-weight:700;color:var(--accent-text,var(--accent));background:var(--surface2);border:0;border-top:1px solid var(--border);padding:5px}
+.quiet{font-size:11px;color:var(--text-faint);padding:9px 11px}
+/* profile card variants */
+.pc{border:1px solid var(--border);border-radius:10px;background:var(--bg);margin:8px 11px;padding:9px 11px;font-size:11.5px}
+.pc .h{display:flex;gap:8px;align-items:center;font-weight:700;font-size:12.5px}
+.pc .h .tag{margin-left:auto}
+.pc .l{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:5px;color:var(--text-faint);font-size:10.5px}
+.pc .tok{font-family:var(--font-mono,ui-monospace,monospace);font-size:10.5px;background:var(--surface2);border-radius:5px;padding:3px 7px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc .acts{display:flex;gap:4px;margin-left:auto}
+.prow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));font-size:12px}
+.prow:first-of-type{border-top:0}
+.ptab{width:100%;border-collapse:collapse;font-size:11.5px}
+.ptab th{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);text-align:left;padding:6px 11px;border-bottom:1px solid var(--border)}
+.ptab td{padding:7px 11px;border-top:1px solid var(--border-soft,var(--border))}
+.kebab{font-weight:800;color:var(--text-faint);padding:0 6px}
+.dim{color:var(--text-faint)}
+@media(max-width:860px){.cols{grid-template-columns:1fr}.gb{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Enroll page — tabs, and the profile cards</h1>
+<p class="lead">Two asks. <b>Tabs</b>: the page currently stacks everything — two columns of work and reference, then QR and how-to full width — and it has grown to six sections; a tab strip would show one at a time. <b>Profile cards</b>: in the rail each one was six lines tall (name, tags, counts, notes, token, buttons); what should one look like? The sticky page bar is <b>gone in every option</b> below — it is being removed regardless of the pick.</p>
+
+<h2>Part 1 · Tabs</h2>
+
+<h3>A · Deployed now — two columns, no tabs<span class="badge now">live now</span></h3>
+<div class="opt now"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="cols">
+    <div>
+      <div class="card"><div class="ch"><h4>Found on a venue's Wi-Fi</h4><span class="m">0 ready</span></div><div class="row"><div><span class="sn">VA54262U40436</span><div class="rs">SUNMI V3 · 10.32.2.36 · has an account</div></div><div><button class="btn">Check again</button></div></div></div>
+      <div class="card"><div class="ch"><h4>Needs assignment</h4><span class="m">15 waiting</span><span class="r">All →</span></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <button class="more">Show all 15 waiting</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><div class="ch"><h4>Profiles</h4><span class="m">2 active</span></div><div class="pc"><div class="h">mPOS rollout <span class="tag ok">active</span></div><div class="l"><span class="tag">Handheld</span><span class="tag">Downtown</span><span style="margin-left:auto">3/5 · last 2d</span></div><div class="l"><span class="tok">enr_c0a537dbef7d8cb5e4de…</span><span class="acts"><button class="btn">QR</button><button class="btn">Edit</button><button class="btn">Revoke</button></span></div></div></div>
+      <div class="card"><div class="ch"><h4>Recent</h4><span class="m">11 · 30 days</span></div><div class="row"><div><span class="sn">AK270AABU00139</span><div class="rs">a teammate · 2d</div></div><div></div></div></div>
+    </div>
+  </div>
+  <div class="card"><div class="ch"><h4>Provisioning QR</h4><span class="m">press QR on a profile</span></div><div class="quiet">Nothing open.</div></div>
+  <div class="card"><div class="ch"><h4>How devices get here</h4><span class="m">four paths, one fleet</span></div><div class="quiet">AIO Enroll · QR · adb · firmware</div></div>
+</div>
+<div class="gb"><div><b>Good</b> Everything on one page; the work is on top.</div><div><b>Bad</b> Six sections to scroll past; QR and how-to are below the fold whether or not you need them; the rail still competes with the queue.</div></div>
+</div>
+
+<h3>B · Page tabs — one section at a time<span class="badge pick">my pick</span></h3>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="tabs"><span class="on">Needs assignment<span class="n w">15</span></span><span>Found on Wi-Fi<span class="n">1</span></span><span>Profiles<span class="n">2</span></span><span>Recent<span class="n">11</span></span><span>How devices get here</span></div>
+  <div class="card"><div class="ch"><h4>Needs assignment</h4><span class="m">15 waiting</span><span class="r">Copy serials</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs"><span class="tag">Firmware client</span> T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs"><span class="tag">Standard client</span> Sunmi D3 Pro · 1h <span class="tag warn">type needed</span></div></div><div><select class="sel"><option>Site…</option></select><select class="sel" style="margin-left:4px"><option>Type…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs"><span class="tag">Firmware client</span> Kiosk 22 · 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">AK270AABU09999</span><div class="rs"><span class="tag">Firmware client</span> Kiosk 27 · 1d</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15 waiting</button>
+  </div>
+  <p class="dim" style="font-size:11px;margin:4px 2px 0">Profiles tab: the cards at full width with the QR opening inline again. How-to tab: the four paths. The tab is in the URL (<span class="mono">/enrollment?tab=profiles</span>), so links and reloads land on the right one.</p>
+</div>
+<div class="gb"><div><b>Good</b> One thing on screen, full width, with counts on every tab so nothing is hidden — the warn pill on "Needs assignment" says there is work before you click. The QR goes back inside its profile card where it belongs, because the card has the width again. No rail, so no balance problem and no sticky bar needed: the tab strip sits right under the title.</div>
+<div><b>Bad</b> A scout find and a waiting device are on different tabs, so a person clears one and may not notice the other — the counts are the only cue. Switching is a click.</div></div>
+</div>
+
+<h3>C · Two tabs — Work and Setup</h3>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="tabs"><span class="on">Work<span class="n w">16</span></span><span>Setup<span class="n">2 profiles</span></span></div>
+  <div class="card"><div class="ch"><h4>Found on a venue's Wi-Fi</h4><span class="m">0 ready</span></div><div class="row"><div><span class="sn">VA54262U40436</span><div class="rs">SUNMI V3 · has an account</div></div><div><button class="btn">Check again</button></div></div></div>
+  <div class="card"><div class="ch"><h4>Needs assignment</h4><span class="m">15 waiting</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15 waiting</button>
+  </div>
+  <p class="dim" style="font-size:11px;margin:4px 2px 0">Setup tab: Profiles (full width, QR inline), Recent enrollments, How devices get here.</p>
+</div>
+<div class="gb"><div><b>Good</b> Keeps the two queues together — the thing B gives up — and still gets profiles/recent/how-to out of the way. Two tabs is the smallest strip that can.</div>
+<div><b>Bad</b> "Setup" is a vaguer name than the three things inside it; Recent is history, not setup. The Work tab is the current left column, so the win over A is only the rail going away.</div></div>
+</div>
+
+<h3>D · Rail tabs — columns stay, the rail stops stacking</h3>
+<div class="opt"><div class="mk">
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM</div>
+  <div class="cols">
+    <div>
+      <div class="card"><div class="ch"><h4>Needs assignment</h4><span class="m">15 waiting</span></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <button class="more">Show all 15 waiting</button>
+      </div>
+    </div>
+    <div>
+      <div class="card"><div style="padding:8px 11px;border-bottom:1px solid var(--border)"><span class="seg"><span class="on">Profiles 2</span><span>Recent 11</span><span>How-to</span></span></div>
+        <div class="prow"><div><b>mPOS rollout</b><div class="rs">Handheld · Downtown</div></div><span class="tag ok">3/5</span><button class="btn">QR</button></div>
+        <div class="prow"><div><b>Menu boards</b><div class="rs">Dongle · no site</div></div><span class="tag">1</span><button class="btn">QR</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Smallest change: the rail becomes one card with a segmented control, so its height is whichever pane is open, never all three. Queue and scout finds stay on screen together.</div>
+<div><b>Bad</b> Still two columns, still a narrow rail — profile cards stay cramped and the QR stays exiled below. A tab inside a column is a second navigation level.</div></div>
+</div>
+
+<h2>Part 2 · The profile card</h2>
+<p class="lead">Shown at rail width (the hard case). At full width — option B above — the current six-line card is fine and the QR fits inside it again.</p>
+
+<h3>P1 · Six lines<span class="badge now">live before today</span></h3>
+<div class="opt now"><div class="card" style="max-width:360px"><div class="pc"><div class="h">mPOS rollout <span class="tag ok">active</span></div><div class="l"><span class="tag">Handheld</span><span class="tag">Downtown</span></div><div class="l"><b>3</b>/5 enrolled · last 2d · expires in 26d</div><div class="l">Downtown handhelds, batch 2</div><div class="l"><span class="tok">enr_c0a537dbef7d8cb5e4de34ab5b7602c0</span> <button class="btn">Copy</button></div><div class="l"><button class="btn">QR</button><button class="btn">Edit</button><button class="btn">Revoke</button></div></div></div>
+<div class="gb"><div><b>Good</b> Everything visible, including the note.</div><div><b>Bad</b> Six lines per profile; four profiles is a screen.</div></div>
+</div>
+
+<h3>P2 · Three lines — what shipped a minute ago</h3>
+<div class="opt"><div class="card" style="max-width:360px"><div class="pc"><div class="h">mPOS rollout <span class="tag ok">active</span></div><div class="l"><span class="tag">Handheld</span><span class="tag">Downtown</span><span style="margin-left:auto">3/5 · last 2d</span></div><div class="l"><span class="tok">enr_c0a537dbef7d8cb5e4de…</span><span class="acts"><button class="btn">QR</button><button class="btn">Edit</button><button class="btn">Revoke</button></span></div></div></div>
+<div class="gb"><div><b>Good</b> Halves the height; note hidden (Edit shows it), token still copyable.</div><div><b>Bad</b> Three buttons and a token on one line get tight below ~340px; Revoke sits one slip away from QR.</div></div>
+</div>
+
+<h3>P3 · One line per profile, kebab for actions<span class="badge pick">my pick (for a rail)</span></h3>
+<div class="opt"><div class="card" style="max-width:360px">
+  <div class="prow"><div><b>mPOS rollout</b><div class="rs">Handheld · Downtown · 3/5 · last 2d</div></div><span class="tag ok">active</span><span class="kebab">⋯</span></div>
+  <div class="prow"><div><b>Menu boards</b><div class="rs">Dongle · no site · 1 enrolled</div></div><span class="tag ok">active</span><span class="kebab">⋯</span></div>
+  <div class="prow"><div><b>Pixel test</b><div class="rs">Handheld · Downtown · 1/1</div></div><span class="tag">spent</span><span class="kebab">⋯</span></div>
+  <button class="more">Show all 6 profiles</button>
+</div>
+<div class="gb"><div><b>Good</b> A list, not cards: name, one grey line of facts, status, and a ⋯ menu holding QR / Copy token / Edit / Revoke. Six profiles fit where one P1 card did. Revoke is behind a menu, where a destructive action should be.</div>
+<div><b>Bad</b> Token and QR are two clicks instead of one. If profiles are used daily that is a tax; if weekly, it is nothing.</div></div>
+</div>
+
+<h3>P4 · Table</h3>
+<div class="opt"><div class="card" style="max-width:520px"><table class="ptab"><tr><th>Profile</th><th>Type · Site</th><th>Used</th><th>Status</th><th></th></tr>
+<tr><td><b>mPOS rollout</b></td><td>Handheld · Downtown</td><td>3/5</td><td><span class="tag ok">active</span></td><td><span class="kebab">⋯</span></td></tr>
+<tr><td><b>Menu boards</b></td><td>Dongle · —</td><td>1</td><td><span class="tag ok">active</span></td><td><span class="kebab">⋯</span></td></tr></table></div>
+<div class="gb"><div><b>Good</b> Densest; sortable later.</div><div><b>Bad</b> Needs the full width — in a rail it is the Recent-enrollments overflow all over again.</div></div>
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B for the page, and then the profile card question mostly disappears</b>: on its own tab a profile has the full width, P1's card is fine there, and the QR goes back inside it. If you keep two columns instead (A or D), take <b>P3</b> for the rail — a list with a ⋯ menu is the only shape that stays short no matter how many profiles accumulate. <b>C</b> is the compromise if you want tabs but refuse to split the two queues.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
