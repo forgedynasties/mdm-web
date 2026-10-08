@@ -386,13 +386,6 @@ func (h *Handler) EnrollmentProfilesDeleteExpired(w http.ResponseWriter, r *http
 	h.hxDoneToast(w, r, "/enrollment?tab=profiles", fmt.Sprintf("%d expired profile%s deleted", n, plural(int(n))), "success")
 }
 
-func plural(n int) string {
-	if n == 1 {
-		return ""
-	}
-	return "s"
-}
-
 // EnrollmentProfileQR renders the Android managed-provisioning QR payload for a profile
 // as a PNG. Scanned from the setup wizard (tap the welcome screen 6×), it installs the
 // agent as Device Owner and hands it the server URL + enrollment token.
