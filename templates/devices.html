@@ -2378,6 +2378,22 @@ document.addEventListener('keydown', function(e) {
     });
   })();
 
+  // motion: when the list re-fetches (refresh-devices), a card whose serial was not in
+  // the previous render drops in with a green wash (motion.css .m-arrive) — a device
+  // that enrolled while you were looking. First render is silent: everything is new.
+  (function () {
+    var seen = null;
+    function serials() { var o = {}; document.querySelectorAll('#device-table-container .dl-card[data-serial]').forEach(function (c) { o[c.getAttribute('data-serial')] = 1; }); return o; }
+    document.addEventListener('htmx:afterSwap', function (e) {
+      if (!e.target || e.target.id !== 'device-table-container') return;
+      var now = serials();
+      if (seen) { for (var k in now) if (!seen[k]) { var c = document.querySelector('#device-table-container .dl-card[data-serial="' + k.replace(/"/g, '') + '"]'); if (c) c.classList.add('m-arrive'); } }
+      seen = now;
+    });
+    document.addEventListener('DOMContentLoaded', function () { seen = serials(); });
+    if (document.readyState !== 'loading') seen = serials();
+  })();
+
   // Real-time row patching via SSE.
   (function () {
     if (!window.EventSource) return;
@@ -2467,6 +2483,8 @@ document.addEventListener('keydown', function(e) {
         // Serial, Column — the label is in the tooltip) must not grow a label the
         // first time a row ticks, which is what keying this off .dl-l1 alone did.
         var dotOnly = !st.textContent.trim() || !!st.closest('.dl-l1');
+        // motion: a card that just came back online glows once (motion.css .m-glow).
+        if (d.online && !st.classList.contains('on')) { card.classList.remove('m-glow'); void card.offsetWidth; card.classList.add('m-glow'); }
         st.className = 'dl-status ' + (d.online ? 'on' : ci ? 'checkin' : 'off');
         if (dotOnly) { st.title = lbl; st.setAttribute('aria-label', lbl); st.innerHTML = '<i></i>'; }
         else st.innerHTML = '<i></i>' + lbl;
