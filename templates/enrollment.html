@@ -2,49 +2,39 @@
 {{template "header" .}}
 <style>
 /* ── Enroll · command center ─────────────────────────────────────────── */
-/* Two columns: the work on the left (what a person came here to clear), the
-   reference on the right (profiles, who enrolled what, the four paths). Under
-   1024 it stacks with the work first, which is the order that matters. */
-.en-cols{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);gap:14px;align-items:start}
-.en-cols>*{min-width:0}
-@media(max-width:1024px){.en-cols{grid-template-columns:1fr}}
-/* The rail holds the same cards at a narrower measure, so nothing is rebuilt:
-   one profile per row, a QR that stacks under it, a tighter table. */
-.en-rail .en-pgrid{grid-template-columns:1fr;gap:9px;padding:12px}
-/* Profile cards in the rail: three lines, not six. The card keeps the full-width
-   layout's pieces but lays them out as a wrapping row — name and status, then tags
-   and counts side by side, then the token with the buttons on its right. Notes are
-   hidden here (Edit shows them); the QR already lives below the columns. */
-.en-rail .en-p{padding:9px 11px;gap:5px 8px;flex-direction:row;flex-wrap:wrap;align-items:center}
-.en-rail .en-p .h{flex:1 0 100%}
-.en-rail .en-p .h b{font-size:13px}
-.en-rail .en-p .tags{gap:4px}
-.en-rail .en-p .tags .cc-tag,.en-rail .en-p .meta{font-size:10.5px}
-.en-rail .en-p .meta{gap:8px;margin-left:auto}
-.en-rail .en-p .meta + .meta{display:none}
-.en-rail .en-p .tok{flex:1 1 120px;font-size:10.5px;padding:3px 7px}
-.en-rail .en-p .act{margin-top:0;gap:4px}
-.en-rail .en-p .act button,.en-rail .en-p .act form button{padding:3px 8px;font-size:11px}
-#en-profiles .lt-more{margin:0 12px 12px}
-/* Recent, in the rail: When / By / Device only. Class, Venue and Path are on the device
-   page one click away, and six columns in a third of the width forced the table — and
-   with it the page — wider than the viewport. The card clips whatever is left over so
-   nothing in the rail can ever scroll the page sideways again. */
-.en-rail .cc-card{min-width:0;overflow:hidden}
-.en-rail .en-recent th{padding:7px 12px}
-.en-rail .en-recent td{padding:8px 12px;white-space:normal;word-break:break-word}
-.en-rail .en-recent th:nth-child(n+4),.en-rail .en-recent td:nth-child(n+4){display:none}
-.en-rail .en-recent .lt-more td{display:table-cell}
-.en-rail .en-recent .mono{font-size:12px}
-/* The QRs live below both columns now, one open at a time, at a size worth scanning.
-   .en-qr-none shows only while none is open — :has keeps that in CSS with no JS. */
-.en-qrwrap{padding:14px 17px}
-.en-qrwrap .en-qr{padding-top:0;border-top:0}
-.en-qrwrap .en-qr img{width:208px;height:208px}
-.en-qrwrap:has(.en-qr.open) .en-qr-none{display:none}
-.en-quiet.en-qr-none{padding:4px 0}
-.en-rail .en-empty{padding:14px 12px;font-size:12.5px}
-.en-rail .cc-ch{padding-left:12px;padding-right:12px}
+/* Tabs: one section at a time, full width (static/enrollment-tabs-demos.html, B).
+   The strip sits under the title; each tab carries its count so nothing is hidden.
+   The open tab rides in the URL (?tab=) so links and reloads land on it. */
+.en-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:4px 0 16px;overflow-x:auto;scrollbar-width:none}
+.en-tabs::-webkit-scrollbar{display:none}
+.en-tabs button{font:inherit;font-size:13px;font-weight:700;color:var(--text-faint);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 13px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.en-tabs button:hover{color:var(--text)}
+.en-tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.en-tabs .n{font-size:10.5px;font-weight:700;background:var(--surface2);border-radius:99px;padding:1px 7px;color:var(--text-faint)}
+.en-tabs .n.w{background:var(--warn-bg);color:var(--warn)}
+.en-pane{display:none}.en-pane.on{display:block}
+/* Profiles as a list (demo P3): name, one grey line of facts, status, and a ⋯ menu
+   holding QR / Copy token / Edit / Revoke — the destructive one behind a menu, where
+   it belongs. The QR opens as a full-width row under its profile. */
+.en-prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 12px;align-items:center;padding:10px 17px;border-top:1px solid var(--border-soft)}
+.en-prow:first-child{border-top:0}
+.en-prow.off .pr-main{opacity:.6}
+.en-prow .pr-main{min-width:0}
+.en-prow .pr-main b{font-size:13.5px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.en-prow .pr-facts{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+.en-prow .pr-facts b{display:inline;color:var(--text);font-size:12px;white-space:normal}
+.en-prow .en-qr{grid-column:1/-1;margin-top:4px}
+.en-kebab{position:relative}
+.en-kebab>summary{list-style:none;cursor:pointer;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);display:grid;place-items:center;font-weight:800;font-size:16px;line-height:1;letter-spacing:.5px}
+.en-kebab>summary::-webkit-details-marker{display:none}
+.en-kebab>summary:hover,.en-kebab[open]>summary{border-color:var(--rule-2);color:var(--text)}
+.en-kebab .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:180px;padding:4px;display:grid;gap:1px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18))}
+.en-kebab .menu button{font:inherit;font-size:12.5px;font-weight:600;text-align:left;padding:7px 10px;border:0;border-radius:7px;background:none;color:var(--text);cursor:pointer;width:100%}
+.en-kebab .menu button:hover{background:var(--surface2)}
+.en-kebab .menu button.danger{color:var(--danger)}
+.en-kebab .menu form{display:contents}
+.en-kebab .menu hr{border:0;border-top:1px solid var(--border-soft);margin:3px 2px}
+#en-profiles .lt-more{margin:0 17px 14px}
 /* A venue with one device found on it is one line, not a card's worth of chrome. */
 .en-sight.solo{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .en-quiet{padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.55}
@@ -125,10 +115,17 @@
     {{end}}
   </div>
 
+  {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
+       any are ready, else profiles — whatever has work, or setup when nothing does. */}}
+  <div class="en-tabs" role="tablist" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
+    <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
+    <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
+    <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
+    <button type="button" role="tab" data-tab="recent">Recent<span class="n">{{len .Enrollments}}</span></button>
+    <button type="button" role="tab" data-tab="how">How devices get here</button>
+  </div>
 
-  <div class="en-cols">
-  <div class="en-work">
-
+  <section class="en-pane" data-tab="found" role="tabpanel">
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
     <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
@@ -184,11 +181,14 @@
     {{end}}
   </div>
 
+  </section>
+
+  <section class="en-pane" data-tab="inbox" role="tabpanel">
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
   {{/* Capped at 8: the inbox is a working list, and the shared list JS turns the
      .lt-more below it into "Show all N waiting". 25 meant every row rendered inline
      on any realistic fleet, which buried the cards under it. */}}
-  <div class="cc-card lt" id="en-inbox-card" data-lt-n="8">
+  <div class="cc-card lt" id="en-inbox-card" data-lt-n="12">
     <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h2>Needs assignment</h2><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><button type="button" class="cc-btn sm" data-copy-serials="#en-inbox" title="Copy the serials waiting for assignment, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button><a class="r" href="/devices?onboarding=pending">All →</a></div>
     <div class="lt-bar">
       <input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search inbox" autocomplete="off">
@@ -203,45 +203,46 @@
     <div id="en-inbox">{{template "enroll-inbox" .}}</div>
   </div>
 
-  </div>{{/* /en-work */}}
+  </section>
 
-  <aside class="en-rail">
-
-  {{/* ── Profiles ──────────────────────────────────────────────────────── */}}
-  {{/* Capped at 4 with the shared list cap: the rail is for a glance, and every
-       profile ever made is one click away under "Show all N profiles". */}}
-  <div class="cc-card lt" id="en-profiles" data-lt-n="4">
-    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span></div>
+  <section class="en-pane" data-tab="profiles" role="tabpanel">
+  {{/* ── Profiles ── a list, not cards (demo P3) ─────────────────────────── */}}
+  <div class="cc-card lt" id="en-profiles" data-lt-n="10">
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span>{{if $canOp}}<button type="button" class="cc-btn sm" onclick="enOpenModal()">New profile</button>{{end}}</div>
     {{if .Profiles}}
-    <div class="en-pgrid">
+    <div class="lt-bar">
+      <input class="lt-q" type="search" placeholder="Search name, type, site…" aria-label="Search profiles" autocomplete="off">
+      <span class="lt-count"></span>
+    </div>
+    <div class="lt-none lt-out">No profile matches.</div>
+    <div>
       {{range .Profiles}}
-      <div class="en-p lt-row{{if not .Active}} off{{end}}" id="prof-{{.ID}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}}">
-        <div class="h"><b title="{{.Name}}">{{.Name}}</b>
-          {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
+      <div class="en-prow lt-row{{if not .Active}} off{{end}}" id="prof-{{.ID}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}}">
+        <div class="pr-main">
+          <b title="{{.Name}}">{{.Name}}</b>
+          <div class="pr-facts">{{if .DeviceClass}}{{.ClassLabel}}{{else}}type not set{{end}} · {{if .RestaurantName}}{{.RestaurantName}}{{else}}no site, goes to the inbox{{end}}{{if .GroupName}} · {{.GroupName}}{{end}} · <b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}} enrolled{{if .LastEnrolledAt}} · last {{timeSince .LastEnrolledAt}}{{end}}{{if .ExpiresAt}} · {{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}{{end}}{{if .Notes}} · {{.Notes}}{{end}}</div>
         </div>
-        <div class="tags">
-          <span class="cc-tag">{{if .DeviceClass}}{{.ClassLabel}}{{else}}type not set{{end}}</span>
-          <span class="cc-tag{{if not .RestaurantName}} warn{{end}}">{{if .RestaurantName}}{{.RestaurantName}}{{else}}no site · goes to inbox{{end}}</span>
-          {{if .GroupName}}<span class="cc-tag">{{.GroupName}}</span>{{end}}
-        </div>
-        <div class="meta">
-          <span><b>{{.EnrollCount}}</b>{{if .MaxEnrolls}} / {{.MaxEnrolls}}{{end}} enrolled</span>
-          {{if .LastEnrolledAt}}<span>last {{timeSince .LastEnrolledAt}}</span>{{end}}
-          {{if .ExpiresAt}}<span>{{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}</span>{{end}}
-        </div>
-        {{if .Notes}}<div class="meta">{{.Notes}}</div>{{end}}
-        <div class="tok"><span title="{{.Token}}">{{.Token}}</span><button type="button" onclick="enCopy(this,'{{.Token}}')">Copy</button></div>
-        <div class="act">
-          <button type="button" onclick="enToggleQR('{{.ID}}')">QR</button>
-          {{if $canOp}}
-          <button type="button" onclick="enOpenModal(this)" data-id="{{.ID}}" data-name="{{.Name}}" data-class="{{.DeviceClass}}" data-site="{{if .RestaurantID}}{{.RestaurantID}}{{end}}" data-group="{{if .GroupID}}{{.GroupID}}{{end}}" data-max="{{if .MaxEnrolls}}{{.MaxEnrolls}}{{end}}" data-notes="{{.Notes}}">Edit</button>
-          {{if .Revoked}}
-          <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" style="display:inline" hx-boost="false"><button type="submit">Reactivate</button></form>
-          <form method="POST" action="/enrollment/profiles/{{.ID}}/delete" style="display:inline" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete this profile? Devices already enrolled keep working."><button type="submit" class="danger">Delete</button></form>
-          {{else}}
-          <form method="POST" action="/enrollment/profiles/{{.ID}}/revoke" style="display:inline" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Revoke this profile? Its QR and token stop enrolling new devices immediately. Devices already enrolled keep working."><button type="submit" class="danger">Revoke</button></form>
-          {{end}}
-          {{end}}
+        {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
+        <details class="en-kebab">
+          <summary aria-label="Actions for {{.Name}}" title="Actions">⋯</summary>
+          <div class="menu">
+            <button type="button" onclick="enToggleQR('{{.ID}}');this.closest('details').removeAttribute('open')">Show QR</button>
+            <button type="button" onclick="enCopy(this,'{{.Token}}')">Copy token</button>
+            {{if $canOp}}
+            <button type="button" onclick="enOpenModal(this)" data-id="{{.ID}}" data-name="{{.Name}}" data-class="{{.DeviceClass}}" data-site="{{if .RestaurantID}}{{.RestaurantID}}{{end}}" data-group="{{if .GroupID}}{{.GroupID}}{{end}}" data-max="{{if .MaxEnrolls}}{{.MaxEnrolls}}{{end}}" data-notes="{{.Notes}}">Edit</button>
+            <hr>
+            {{if .Revoked}}
+            <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" hx-boost="false"><button type="submit">Reactivate</button></form>
+            <form method="POST" action="/enrollment/profiles/{{.ID}}/delete" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete this profile? Devices already enrolled keep working."><button type="submit" class="danger">Delete</button></form>
+            {{else}}
+            <form method="POST" action="/enrollment/profiles/{{.ID}}/revoke" hx-boost="false" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Revoke this profile? Its QR and token stop enrolling new devices immediately. Devices already enrolled keep working."><button type="submit" class="danger">Revoke</button></form>
+            {{end}}
+            {{end}}
+          </div>
+        </details>
+        <div class="en-qr" id="en-qr-{{.ID}}">
+          <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
+          <div class="t"><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field — <span class="cc-mono" title="{{.Token}}">{{.Token}}</span>{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
         </div>
       </div>
       {{end}}
@@ -251,10 +252,12 @@
     <div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div>
     {{end}}
   </div>
+  </section>
 
+  <section class="en-pane" data-tab="recent" role="tabpanel">
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
-  <div class="cc-card lt" id="en-recent" data-lt-n="6">
+  <div class="cc-card lt" id="en-recent" data-lt-n="15">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
     {{if .Enrollments}}
     <div class="lt-bar">
@@ -283,29 +286,9 @@
     {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
   </div>
 
-  </aside>{{/* /en-rail */}}
-  </div>{{/* /en-cols — reference that wants width goes below, full bleed */}}
+  </section>
 
-  {{/* The QR a profile opens: one at a time, at a size worth scanning. It lived inside
-       each profile card in the rail, where a 168px image made the column twice the
-       height of the work beside it. enToggleQR still finds it by id. */}}
-  <div class="cc-card" id="en-qrs">
-    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Provisioning QR</h2><span class="m">press QR on a profile</span></div>
-    {{if .Profiles}}
-    <div class="en-qrwrap">
-      {{range .Profiles}}
-      <div class="en-qr" id="en-qr-{{.ID}}">
-        <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
-        <div class="t"><b>{{.Name}}</b><br><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field.{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
-      </div>
-      {{end}}
-      <div class="en-quiet en-qr-none">Nothing open — press <b>QR</b> on a profile above.</div>
-    </div>
-    {{else}}
-    <div class="en-quiet">No profiles yet, so there is no QR to show.</div>
-    {{end}}
-  </div>
-
+  <section class="en-pane" data-tab="how" role="tabpanel">
   {{/* ── How devices get here ───────────────────────────────────────────── */}}
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">four paths, one fleet</span></div>
@@ -345,6 +328,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       </div>
     </div>
   </div>
+  </section>
 </div>
 
 {{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
@@ -383,6 +367,28 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, function () { fallback(); }); } else fallback();
     function fallback() { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove(); done(); }
   };
+  // Tabs. The open one rides in ?tab= (replaceState, no history spam); a tab the URL
+  // names that does not exist falls back to the page's default for its current state.
+  (function () {
+    var strip = document.querySelector('.en-tabs'); if (!strip) return;
+    var tabs = [].slice.call(strip.querySelectorAll('[data-tab]')), panes = [].slice.call(document.querySelectorAll('.en-pane'));
+    function show(t, push) {
+      tabs.forEach(function (b) { var on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      panes.forEach(function (p) { p.classList.toggle('on', p.dataset.tab === t); });
+      if (push) { try { var u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); } catch (e) {} }
+    }
+    var want = new URLSearchParams(location.search).get('tab');
+    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : strip.dataset.default, false);
+    tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab, true); }); });
+    // One ⋯ menu open at a time; a click anywhere else closes it.
+    document.addEventListener('click', function (e) {
+      document.querySelectorAll('details.en-kebab[open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
+    });
+    document.addEventListener('toggle', function (e) {
+      var d = e.target; if (!d || !d.classList || !d.classList.contains('en-kebab') || !d.open) return;
+      document.querySelectorAll('details.en-kebab[open]').forEach(function (o) { if (o !== d) o.removeAttribute('open'); });
+    }, true);
+  })();
   window.enToggleQR = function (id) {
     var box = el('en-qr-' + id); if (!box) return;
     var img = box.querySelector('img[data-src]');
