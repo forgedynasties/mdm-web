@@ -7,6 +7,10 @@
 # `branch` is what `git submodule update --remote` follows. Not all are main —
 # the DPC agent lives on menu-board.
 #
+# MDM Lite (aio-mdm-lite) was dropped on 2026-10-08: it left the client lineup on
+# 2026-10-05 and nothing here targets it any more. The AIO Enroll Android app took
+# its slot — the phone counterpart of the desktop Enroll app, enrolling over adb.
+#
 # URLs are https under ali-aio, the same account that owns AIOApp/mdm's default
 # github.com key — so a recursive clone needs no ssh Host alias and the submodule
 # entries render as real links on the web UI. The repos are public; the earlier
@@ -27,12 +31,11 @@
 	url = https://github.com/ali-aio/mdm-client-dpc.git
 	branch = menu-board
 
-[submodule "aio-mdm-lite"]
-	path = aio-mdm-lite
-	url = https://github.com/ali-aio/mdm-lite.git
-	branch = main
-
 [submodule "aio-mdm-enroll-app"]
 	path = aio-mdm-enroll-app
 	url = https://github.com/ali-aio/mdm-enroll-app.git
+	branch = main
+[submodule "aio-mdm-enroll-android"]
+	path = aio-mdm-enroll-android
+	url = https://github.com/ali-aio/mdm-enroll-android.git
 	branch = main
