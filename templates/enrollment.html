@@ -2,8 +2,28 @@
 {{template "header" .}}
 <style>
 /* ── Enroll · command center ─────────────────────────────────────────── */
-.en-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:900px){.en-kpis{grid-template-columns:repeat(2,1fr)}}
+/* Two columns: the work on the left (what a person came here to clear), the
+   reference on the right (profiles, who enrolled what, the four paths). Under
+   1024 it stacks with the work first, which is the order that matters. */
+.en-cols{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);gap:14px;align-items:start}
+.en-cols>*{min-width:0}
+@media(max-width:1024px){.en-cols{grid-template-columns:1fr}}
+/* The rail holds the same cards at a narrower measure, so nothing is rebuilt:
+   one profile per row, a QR that stacks under it, a tighter table. */
+.en-rail .en-pgrid{grid-template-columns:1fr;gap:9px;padding:12px}
+.en-rail .en-p{padding:11px 12px;gap:7px}
+.en-rail .en-p .h b{font-size:13px}
+.en-rail .en-qr{flex-direction:column;gap:9px}
+.en-rail .en-qr img{width:100%;max-width:200px;height:auto}
+.en-rail .en-recent th{padding:7px 12px}
+.en-rail .en-recent td{padding:8px 12px;white-space:normal}
+.en-rail .en-how{padding:12px}
+.en-rail .en-step{padding:8px 0}
+.en-rail .en-empty{padding:14px 12px;font-size:12.5px}
+.en-rail .cc-ch{padding-left:12px;padding-right:12px}
+/* A venue with one device found on it is one line, not a card's worth of chrome. */
+.en-sight.solo{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.en-quiet{padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.55}
 /* inbox rows */
 .en-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft)}
 .en-row:first-child{border-top:none}
@@ -69,7 +89,10 @@
     <div>
       <div class="cc-eyebrow">Fleet · Enroll</div>
       <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> device{{if ne $inboxN 1}}s{{end}} need{{if eq $inboxN 1}}s{{end}} a site{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
-      <div class="cc-sub"><b>{{.Stats.Firmware}}</b> Firmware MDM · <b>{{.Stats.DPC}}</b> Standard MDM{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</div>
+      {{/* The KPI tiles are gone: every number on them was already on this page
+           (the inbox count twice over), so the ones worth keeping live here, each
+           still a link to the fleet filter it names. */}}
+      <div class="cc-sub"><a href="/devices?kind=firmware"><b>{{.Stats.Firmware}}</b> Firmware MDM</a> · <a href="/devices?kind=dpc"><b>{{.Stats.DPC}}</b> Standard MDM</a>{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}{{if gt .Stats.Retired 0}} · <a href="/devices?lifecycle=retired">{{.Stats.Retired}} retired</a>{{end}}</div>
     </div>
     {{if $canOp}}
     <div class="cc-actions">
@@ -78,12 +101,9 @@
     {{end}}
   </div>
 
-  <div class="cc-kpis en-kpis">
-    <a class="cc-kpi" href="#en-inbox-card"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Waiting</span><div class="v{{if gt $inboxN 0}} warn{{end}}" id="en-kpi-inbox">{{$inboxN}}</div><div class="d">need a site or type</div></a>
-    <a class="cc-kpi" href="/devices?kind=dpc"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>Standard MDM</span><div class="v">{{.Stats.DPC}}</div><div class="d">outsourced Android devices</div></a>
-    <a class="cc-kpi" href="/devices?kind=firmware"><span class="k"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Firmware MDM</span><div class="v">{{.Stats.Firmware}}</div><div class="d">our hardware, auto-enrolled</div></a>
-    <a class="cc-kpi" href="/devices?lifecycle=retired"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Retired</span><div class="v">{{.Stats.Retired}}</div><div class="d">kept for history</div></a>
-  </div>
+
+  <div class="en-cols">
+  <div class="en-work">
 
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
@@ -94,13 +114,11 @@
       <a class="cc-btn sm" href="/settings#fleet-adb-key" style="margin-top:8px">Settings → Fleet adb key</a>
     </div>
     {{else if not .Sightings}}
-    <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
-      <b>Nothing new on any venue's Wi-Fi.</b><br>
-      <span class="small muted">A device that trusts the AIO adb key and sits on a venue's Wi-Fi shows up here within 15 minutes. Each venue's Tableside AI does the looking.</span>
-    </div>
+    <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI does the looking.</div>
     {{else}}
     {{range .Sightings}}
-    <div class="en-vh" style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--surface2);border-top:1px solid var(--border-soft);flex-wrap:wrap">
+    {{$solo := eq (len .Items) 1}}
+    <div class="en-vh{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:10px;padding:9px 16px;{{if not $solo}}background:var(--surface2);{{end}}border-top:1px solid var(--border-soft);flex-wrap:wrap">
       <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block"></span>
       <b>{{.Name}}</b>
       <span class="muted small">{{if .ScoutSerial}}· seen by {{.ScoutSerial}} {{end}}{{if not .LastSeen.IsZero}}· {{timeSince .LastSeen}}{{end}}</span>
@@ -108,7 +126,7 @@
       <form method="POST" action="/enrollment/scan" hx-boost="false" style="display:inline"><input type="hidden" name="restaurant_id" value="{{.RestaurantID}}"><button type="submit" class="cc-btn sm">Scan now</button></form>
     </div>
     {{range .Items}}
-    <div class="en-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft)">
+    <div class="en-row{{if $solo}} en-sight solo{{end}}" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft)">
       <div style="flex:1;min-width:0">
         <b style="display:block;font-size:13px">{{.Name}}</b>
         <small class="muted" style="font-size:11.5px">
@@ -154,6 +172,10 @@
     <div class="lt-none lt-out">No waiting device matches.</div>
     <div id="en-inbox">{{template "enroll-inbox" .}}</div>
   </div>
+
+  </div>{{/* /en-work */}}
+
+  <aside class="en-rail">
 
   {{/* ── Profiles ──────────────────────────────────────────────────────── */}}
   <div class="cc-card" id="en-profiles">
@@ -203,7 +225,7 @@
 
   {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
        Devices enrolled before the app recorded it show as "not recorded". ── */}}
-  <div class="cc-card lt" id="en-recent" data-lt-n="15">
+  <div class="cc-card lt" id="en-recent" data-lt-n="6">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Recent enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
     {{if .Enrollments}}
     <div class="lt-bar">
@@ -271,6 +293,9 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       </div>
     </div>
   </div>
+
+  </aside>{{/* /en-rail */}}
+  </div>{{/* /en-cols */}}
 </div>
 
 {{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
