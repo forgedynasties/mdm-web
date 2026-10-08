@@ -887,7 +887,7 @@ type ClientRailEntry struct {
 type ClientSlotView struct {
 	Slot     string
 	Label    string
-	Variant  string // short name inside a group ("QCOM · v2.1.x"); empty when ungrouped
+	Variant  string // short name inside a group; empty when ungrouped (nothing is grouped now)
 	Note     string // what this slot is for, in words
 	Hosted   bool
 	Build    config.AgentAPKBuild
@@ -896,6 +896,10 @@ type ClientSlotView struct {
 	UpToDate int
 	Behind   int
 	Unknown  int // never reported a version — an older client, or one that predates reporting
+	// Devices on this client whose own slot has no hosted build — an older image whose
+	// platform key does not trust the build this slot serves. They are real devices on
+	// this client and are counted here, but no update can be offered to them.
+	NoBuild  int
 	Versions []ClientVersionCount
 	// Filled for the selected client only: the page shows one client's devices and
 	// releases at a time, so there is no reason to build them for the other four.
@@ -998,8 +1002,10 @@ func groupClientRows(rows []ClientDeviceRow, hosted string, now time.Time) []Cli
 		{Key: "elsewhere", Label: "On another MDM",
 			Why: "reporting to another server — it collects its updates there, not here"},
 		{Key: "current", Label: "Up to date", Why: currentWhy},
+		{Key: "nobuild", Label: "No build for this image",
+			Why: "an older system image — its platform key does not trust this build, so it needs a firmware OTA first"},
 	}
-	at := map[string]int{"behind": 0, "updating": 0, "unknown": 1, "current": 3}
+	at := map[string]int{"behind": 0, "updating": 0, "unknown": 1, "current": 3, "nobuild": 4}
 	for _, row := range rows {
 		i, ok := at[row.State]
 		if !ok {
@@ -1053,13 +1059,15 @@ func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA strin
 // clientSlotOrder and clientSlotLabels are the client catalogue, shared by the
 // Clients page and the device page's client pill so the two can never drift.
 // Menu board + Lite dropped from the active client lineup entirely (2026-10-05) — just
-// firmware and the standard (DPC) client now.
-var clientSlotOrder = []string{"firmware-qcom", "firmware-gms", "dpc"}
+// firmware and the standard (DPC) client now. GMS is not supported (2026-10-08): the
+// slot key stays for the publish API and for whatever is still out there on that image,
+// but it is not a client this dashboard offers, so the firmware client is one row with
+// no tree to choose and the build line is never named after a tree.
+var clientSlotOrder = []string{"firmware-qcom", "dpc"}
 
 var clientSlotLabels = map[string]string{
 	"dpc":           "Standard MDM",
-	"firmware-qcom": "Firmware MDM · QCOM (T7, kiosks)",
-	"firmware-gms":  "Firmware MDM · GMS (frozen)",
+	"firmware-qcom": "Firmware MDM",
 }
 
 // ClientPillView is the device hero's client pill: which client manages this device,
@@ -1122,9 +1130,13 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.Version, v.Misreported = "", true
 	}
 	v.Slot = agentSlotFor(d)
-	v.SlotLabel = clientSlotLabels[v.Slot]
+	// The label and the "this one" marker follow the row the Clients page shows, so a
+	// device on an older image still names its client. Everything below keeps the real
+	// slot, which is what decides whether a build is hosted for it at all.
+	disp := clientDisplaySlot(v.Slot)
+	v.SlotLabel = clientSlotLabels[disp]
 	for _, slot := range clientSlotOrder {
-		row := ClientPillRow{Slot: slot, Label: clientSlotLabels[slot], This: slot == v.Slot}
+		row := ClientPillRow{Slot: slot, Label: clientSlotLabels[slot], This: slot == disp}
 		if b, hosted := h.cfg.AgentAPKSlot(slot); hosted {
 			row.Version = b.Version
 		}
@@ -1155,21 +1167,16 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	order := clientSlotOrder
 	labels := clientSlotLabels
-	// The firmware client is one client with one build per tree, because each tree
-	// signs with its own platform key. That split has to stay — a device only installs
-	// the key it already trusts — but it is not three clients, so it is one rail row
-	// with the trees as variants inside it.
-	firmwareGroup := []string{"firmware-qcom", "firmware-gms"}
-	variants := map[string]string{
-		"firmware-qcom": "QCOM · v2.1.x",
-		"firmware-gms":  "GMS · v2.0.x",
-	}
+	// One firmware client, one build. There is no tree to pick any more, so there are
+	// no variants and nothing collapses into a group: `variants` stays empty, which is
+	// what keeps the variant tabs and the group header off the page.
+	firmwareGroup := []string{"firmware-qcom"}
+	variants := map[string]string{}
 	const firmwareLabel = "Firmware MDM"
-	const firmwareNote = "The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant."
+	const firmwareNote = "The system app in our AOSP images, covering user and userdebug builds alike. It is platform-signed, so a device installs only a build signed with the key its own image trusts."
 	notes := map[string]string{
 		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
-		"firmware-qcom": "Devices on the QCOM tree (v2.1.x), user and userdebug alike. Signed with that tree's platform key — a GMS device cannot install this build. The only actively published firmware line.",
-		"firmware-gms":  "Devices on the GMS tree (v2.0.x), user and userdebug alike. Signed with that tree's platform key, which differs from QCOM's. GMS is no longer built — this slot stays only for devices still out there on it.",
+		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
 	}
 
 	views := map[string]*ClientSlotView{}
@@ -1186,13 +1193,17 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 
 	for i := range devices {
 		d := &devices[i]
-		v := views[agentSlotFor(d)]
+		real := agentSlotFor(d)
+		v := views[clientDisplaySlot(real)]
 		if v == nil {
 			continue
 		}
 		v.Devices++
 		name, code := clientVersionOf(d)
 		switch {
+		case real != v.Slot:
+			// Folded in from a slot with nothing published: counted, never offered.
+			v.NoBuild++
 		case code == 0 || !versionComparable(d, v.Build.Package):
 			v.Unknown++
 		case v.Hosted && code >= v.Build.VersionCode:
@@ -1240,7 +1251,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	sel := views[selected]
 	selIDs := make([]uuid.UUID, 0, len(devices))
 	for i := range devices {
-		if agentSlotFor(&devices[i]) == selected {
+		if clientDisplaySlot(agentSlotFor(&devices[i])) == selected {
 			selIDs = append(selIDs, devices[i].ID)
 		}
 	}
@@ -1248,7 +1259,8 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	custody, _ := h.db.DeviceCustodyMap(r.Context(), selIDs)
 	for i := range devices {
 		d := &devices[i]
-		if agentSlotFor(d) != selected {
+		real := agentSlotFor(d)
+		if clientDisplaySlot(real) != selected {
 			continue
 		}
 		name, code := clientVersionOf(d)
@@ -1268,6 +1280,11 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 			row.Unreachable = true
 		}
 		switch {
+		case real != sel.Slot:
+			// Its image trusts a different platform key, so the hosted build cannot be
+			// installed on it from here — it needs a firmware OTA first. The version it
+			// reports is real and stays on the row; only the update is withheld.
+			row.State = "nobuild"
 		case code == 0 || !versionComparable(d, sel.Build.Package):
 			row.State = "unknown"
 		case sel.Hosted && code >= sel.Build.VersionCode:
@@ -1300,7 +1317,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	sel.Behind = len(behind)
 
 	// Behind first — those are the rows an operator came here to act on — then by serial.
-	rank := map[string]int{"behind": 0, "unknown": 1, "current": 2}
+	rank := map[string]int{"behind": 0, "unknown": 1, "current": 2, "nobuild": 3}
 	sort.Slice(sel.Rows, func(i, j int) bool {
 		if rank[sel.Rows[i].State] != rank[sel.Rows[j].State] {
 			return rank[sel.Rows[i].State] < rank[sel.Rows[j].State]
@@ -1533,6 +1550,22 @@ func SeedAgentAPKArchive(cfg *config.Config) (int, error) {
 // device, else the firmware client built with the same platform key as the image on
 // the device. A device that has not reported its build tags is assumed to be a user
 // build, which is what the fleet runs.
+// clientDisplaySlot folds a device's real slot onto the client row that shows it. The
+// firmware client is one row and names no tree, so a device on an older v2.0.x image is
+// counted and listed with the rest of the firmware fleet — the Clients page total is the
+// fleet, not the part of it we happen to publish for.
+//
+// Only the display folds. What a device may install still follows agentSlotFor: the
+// hosted build is platform-signed, and offering it to an image whose key does not trust
+// it would queue an install Android refuses. That is what the "no build for this image"
+// row state says instead.
+func clientDisplaySlot(slot string) string {
+	if slot == "firmware-gms" {
+		return "firmware-qcom"
+	}
+	return slot
+}
+
 func agentSlotFor(d *db.Device) string {
 	if d == nil {
 		return "dpc"

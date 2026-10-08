@@ -76,6 +76,7 @@
 .cl-split-bar i.ok,.cl-legend i.ok{background:var(--ok,#1c7d50)}
 .cl-split-bar i.behind,.cl-legend i.behind{background:var(--warn,#c98a12)}
 .cl-split-bar i.unk,.cl-legend i.unk{background:var(--text-faint);opacity:.45}
+.cl-split-bar i.nobuild,.cl-legend i.nobuild{background:var(--text-faint);opacity:.28}
 .cl-legend{display:flex;gap:15px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:12px}
 .cl-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:6px}
 .cl-grp{display:flex;align-items:center;gap:9px;padding:8px 15px;background:var(--surface2);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--border)}
@@ -279,7 +280,7 @@ function clPick(a) {
       </div>
       <div class="cl-card"><div class="k">Devices</div><div class="v">{{.Devices}}</div><div class="sub">on this client</div></div>
       <div class="cl-card"><div class="k">On this build</div><div class="v">{{.UpToDate}}</div></div>
-      <div class="cl-card{{if .Behind}} warn{{end}}"><div class="k">Behind</div><div class="v">{{.Behind}}</div>{{if .Unknown}}<div class="sub">{{.Unknown}} never reported a version</div>{{end}}</div>
+      <div class="cl-card{{if .Behind}} warn{{end}}"><div class="k">Behind</div><div class="v">{{.Behind}}</div>{{if .Unknown}}<div class="sub">{{.Unknown}} never reported a version</div>{{end}}{{if .NoBuild}}<div class="sub">{{.NoBuild}} need a newer image</div>{{end}}</div>
     </div>
 
     <div class="cl-sec">
@@ -296,14 +297,16 @@ function clPick(a) {
 
     {{if .Rows}}
     {{$total := len .Rows}}
-    <div class="cl-split-bar" title="{{.Behind}} behind · {{.Unknown}} never reported a version · {{.UpToDate}} up to date">
+    <div class="cl-split-bar" title="{{.Behind}} behind · {{.Unknown}} never reported a version{{if .NoBuild}} · {{.NoBuild}} no build for this image{{end}} · {{.UpToDate}} up to date">
       {{if .Behind}}<i class="behind" style="width:{{pct .Behind $total}}%"></i>{{end}}
       {{if .Unknown}}<i class="unk" style="width:{{pct .Unknown $total}}%"></i>{{end}}
+      {{if .NoBuild}}<i class="nobuild" style="width:{{pct .NoBuild $total}}%"></i>{{end}}
       {{if .UpToDate}}<i class="ok" style="width:{{pct .UpToDate $total}}%"></i>{{end}}
     </div>
     <div class="cl-legend">
       <span><i class="behind"></i>{{.Behind}} behind</span>
       <span><i class="unk"></i>{{.Unknown}} never reported a version</span>
+      {{if .NoBuild}}<span><i class="nobuild"></i>{{.NoBuild}} no build for this image</span>{{end}}
       <span><i class="ok"></i>{{.UpToDate}} up to date</span>
     </div>
     <div class="cl-tbl lt" id="cl-devs" data-lt-n="25">
@@ -313,6 +316,7 @@ function clPick(a) {
           <button type="button" class="lt-chip" data-f="state" data-v="behind">Behind</button>
           <button type="button" class="lt-chip" data-f="state" data-v="current">Up to date</button>
           <button type="button" class="lt-chip" data-f="state" data-v="unknown">No version</button>
+          <button type="button" class="lt-chip" data-f="state" data-v="nobuild">No build for this image</button>
           <button type="button" class="lt-chip" data-f="state" data-v="updating">Updating</button>
           <button type="button" class="lt-chip" data-f="state" data-v="elsewhere">On another server</button>
         </div>
@@ -331,6 +335,7 @@ function clPick(a) {
           {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else if eq .Progress "pending"}}queued{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
           {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
+          {{else if eq .State "nobuild"}}<span class="cl-tag unk" title="This device runs an older system image. The hosted client is platform-signed with a key that image does not trust, so Android would refuse the install — it needs a firmware OTA before it can take a client update.">no build for this image</span>
           {{else}}<span class="cl-tag unk">no version</span>{{end}}
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
@@ -343,6 +348,10 @@ function clPick(a) {
                   title="This device reports to {{.Elsewhere}}">On {{.Elsewhere}}</button>
           {{else if eq .State "updating"}}
           <button type="button" class="cc-btn sm" disabled title="The device has the command and is installing {{$.Selected.Build.Version}}. It restarts itself when it lands."><span class="cl-spin"></span>Updating</button>
+          {{else if eq .State "nobuild"}}
+          {{/* Nothing is published for the key this image trusts, so the button exists
+               only to say so — a blank cell reads as a page that forgot to draw one. */}}
+          <button type="button" class="cc-btn sm" disabled title="No build is published for this device's system image — its platform key does not trust the hosted client, so a firmware OTA has to come first."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
           {{else if eq .State "unknown"}}
           {{/* A client that never reported its own version predates client OTA: the
                build on it has no ClientUpdater to receive app_update, so offering the
@@ -376,6 +385,7 @@ function clPick(a) {
           {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else if eq .Progress "pending"}}queued{{else}}sent to device{{end}}</span>
           {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
           {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
+          {{else if eq .State "nobuild"}}<span class="cl-tag unk" title="This device runs an older system image. The hosted client is platform-signed with a key that image does not trust, so Android would refuse the install — it needs a firmware OTA before it can take a client update.">no build for this image</span>
           {{else}}<span class="cl-tag unk">no version</span>{{end}}
         </span>
         <span class="cl-meta">{{timeSince .LastSeen}}</span>
