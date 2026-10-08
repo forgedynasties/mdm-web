@@ -3378,16 +3378,27 @@ func (d *DB) AddDeviceToGroup(ctx context.Context, serial string, groupID uuid.U
 	return err
 }
 
-func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+// AddDevicesToGroup tags every named device, ignoring serials already in the group,
+// and returns how many rows it actually added. The count is what the dashboard
+// reports back: a pasted list whose serials are not in the fleet adds nothing, and
+// the operator has to be told that instead of seeing a silent success.
+//
+// Serials are matched case-insensitively — a serial pasted in the wrong case is the
+// same device, and an exact-match-only lookup made it look like an unknown one.
+func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uuid.UUID) (int, error) {
 	if len(serials) == 0 {
-		return nil
+		return 0, nil
 	}
-	_, err := d.pool.Exec(ctx, `
+	tag, err := d.pool.Exec(ctx, `
 		INSERT INTO device_groups (device_id, group_id)
-		SELECT id, $2 FROM devices WHERE serial_number = ANY($1)
+		SELECT d.id, $2 FROM devices d
+		WHERE upper(d.serial_number) = ANY(SELECT upper(s) FROM unnest($1::text[]) s)
 		ON CONFLICT DO NOTHING
 	`, serials, groupID)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID uuid.UUID) error {
@@ -3401,16 +3412,22 @@ func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID u
 
 // RemoveDevicesFromGroup removes many devices from a group in one statement, so the
 // group members list can offer a bulk "Remove from group" instead of one-by-one.
-func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, groupID uuid.UUID) (int, error) {
 	if len(serials) == 0 {
-		return nil
+		return 0, nil
 	}
-	_, err := d.pool.Exec(ctx, `
+	tag, err := d.pool.Exec(ctx, `
 		DELETE FROM device_groups
 		WHERE group_id = $2
-		AND device_id IN (SELECT id FROM devices WHERE serial_number = ANY($1))
+		AND device_id IN (
+			SELECT id FROM devices
+			WHERE upper(serial_number) = ANY(SELECT upper(s) FROM unnest($1::text[]) s)
+		)
 	`, serials, groupID)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // ListDeviceGroups returns the groups a single device belongs to (for the device
@@ -9604,8 +9621,18 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 	return out, total, rows.Err()
 }
 
+// AlertTypeIdentityConflict is the "Possible impersonation" alert: something used a
+// device's serial without its own key, or one serial connected from two addresses at
+// once. It is a security finding about the fleet's identity, not a device fault an
+// operator can fix, and it names the addresses involved — so it is shown to super
+// admins only. Every read path that renders or counts alerts for a signed-in user
+// passes hideIdentity for anyone else (dashboard: access.hidesIdentityAlerts).
+const AlertTypeIdentityConflict = "identity_conflict"
+
 // AlertSummaryCounts returns headline counts for the alerts page in a single query.
-func (d *DB) AlertSummaryCounts(ctx context.Context) (AlertSummary, error) {
+// hideIdentity leaves identity_conflict out, so the headline agrees with the list
+// below it for a user who cannot see those alerts.
+func (d *DB) AlertSummaryCounts(ctx context.Context, hideIdentity bool) (AlertSummary, error) {
 	var s AlertSummary
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*),
@@ -9616,37 +9643,42 @@ func (d *DB) AlertSummaryCounts(ctx context.Context) (AlertSummary, error) {
 		       COUNT(*) FILTER (WHERE severity = 'warning'  AND status <> 'resolved'),
 		       COUNT(*) FILTER (WHERE severity = 'info'     AND status <> 'resolved')
 		FROM alerts
-	`).Scan(&s.Total, &s.Open, &s.Acknowledged, &s.Resolved, &s.Critical, &s.Warning, &s.Info)
+		WHERE NOT ($1 AND type = '`+AlertTypeIdentityConflict+`')
+	`, hideIdentity).Scan(&s.Total, &s.Open, &s.Acknowledged, &s.Resolved, &s.Critical, &s.Warning, &s.Info)
 	return s, err
 }
 
 // CountOpenAlerts returns the number of alerts in the 'open' status (for nav badge).
-func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
+// hideIdentity leaves identity_conflict out — a badge counting an alert the user
+// cannot open is worse than no badge.
+func (d *DB) CountOpenAlerts(ctx context.Context, hideIdentity bool) (int, error) {
 	var n int
 	// Exclude alerts on inactive (hidden) devices so silenced units don't inflate the
 	// count; fleet-level alerts (no device) always count.
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
-		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)`).Scan(&n)
+		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)
+		  AND NOT ($1 AND a.type = '`+AlertTypeIdentityConflict+`')`, hideIdentity).Scan(&n)
 	return n, err
 }
 
 // DockCounts feeds the live dock: open critical alerts that are not snoozed, and
 // commands sent in the last 15 minutes that some device has not finished. The
 // window keeps a command wedged at 'delivered' for days from spinning forever.
-func (d *DB) DockCounts(ctx context.Context) (critical, running int, err error) {
+func (d *DB) DockCounts(ctx context.Context, hideIdentity bool) (critical, running int, err error) {
 	err = d.pool.QueryRow(ctx, `
 		SELECT
 			(SELECT COUNT(*) FROM alerts a
 			 LEFT JOIN devices dv ON dv.id = a.device_id
 			 WHERE a.status = 'open' AND a.severity = 'critical'
 			   AND (a.muted_until IS NULL OR a.muted_until < NOW())
-			   AND (a.device_id IS NULL OR NOT dv.hidden)),
+			   AND (a.device_id IS NULL OR NOT dv.hidden)
+			   AND NOT ($1 AND a.type = '`+AlertTypeIdentityConflict+`')),
 			(SELECT COUNT(*) FROM commands c
 			 WHERE c.created_at > NOW() - INTERVAL '15 minutes'
 			   AND EXISTS (SELECT 1 FROM command_status cs
-			               WHERE cs.command_id = c.id AND cs.status IN ('pending', 'delivered')))`).Scan(&critical, &running)
+			               WHERE cs.command_id = c.id AND cs.status IN ('pending', 'delivered')))`, hideIdentity).Scan(&critical, &running)
 	return critical, running, err
 }
 

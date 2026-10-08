@@ -35,3 +35,23 @@ func TestParseSerialsFieldPastedList(t *testing.T) {
 		}
 	}
 }
+
+// A pasted list arrives in whatever shape the operator copied it: one per line,
+// space separated out of a spreadsheet row, tab separated, semicolons, repeats.
+// All of it must come back as individual serials — the group add used to split on
+// newlines and commas only and silently matched nothing for the rest.
+func TestParseSerialsFieldSeparators(t *testing.T) {
+	cases := map[string]int{
+		"AT070AABU00269 AT070AABU00182 AT070AABU00376":   3,
+		"AT070AABU00269\tAT070AABU00182":                 2,
+		"AT070AABU00269;AT070AABU00182; AT070AABU00376":  3,
+		"AT070AABU00269\r\n\r\nAT070AABU00182":           2,
+		"AT070AABU00269, AT070AABU00269, AT070AABU00182": 2, // dedup
+		"at070aabu00269 AT070AABU00269":                  1, // dedup is case-insensitive
+	}
+	for in, want := range cases {
+		if got := parseSerialsField([]string{in}); len(got) != want {
+			t.Errorf("parseSerialsField(%q) = %v (%d), want %d", in, got, len(got), want)
+		}
+	}
+}

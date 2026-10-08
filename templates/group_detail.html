@@ -86,6 +86,18 @@ function grpToggleAll(cb) {
   document.querySelectorAll('#group-members .device-cb').forEach(function (b) { b.checked = cb.checked; });
   grpUpdateBulkBar();
 }
+// These add/remove calls go out as a plain fetch, not through htmx, so htmx never
+// sees the HX-Trigger header and its toast listener never fires. Read the header
+// here and show the server's own message — without it an add that matched nothing
+// (serials not in the fleet, or already members) looked exactly like a success.
+function grpToastFrom(r) {
+  var h = r.headers.get('HX-Trigger');
+  if (!h) return;
+  try {
+    var d = JSON.parse(h).toast;
+    if (d && window.showToast) showToast(d.msg || 'Done', d.type || 'info');
+  } catch (e) {}
+}
 function grpRemoveSelected(gid) {
   var serials = [];
   document.querySelectorAll('#group-members .device-cb').forEach(function (b) { if (b.checked) serials.push(b.value); });
@@ -95,11 +107,12 @@ function grpRemoveSelected(gid) {
   serials.forEach(function (s) { body.append('serials', s); });
   fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
     .then(function (r) {
-      if (!r.ok) return;
+      if (!r.ok) { if (window.showToast) showToast('Could not remove those devices', 'error'); return; }
+      grpToastFrom(r);
       document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
       if (window.pkReload) window.pkReload();                        // removed devices reappear in "Available devices"
     })
-    .catch(function () {});
+    .catch(function () { if (window.showToast) showToast('Could not remove those devices', 'error'); });
 }
 
 // Add staged devices without reloading the page: POST via fetch, then fire
@@ -116,12 +129,17 @@ function dpAddSubmit(e, gid) {
   body.set('serials', field.value);
   fetch('/groups/' + gid + '/devices', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
     .then(function (r) {
-      if (!r.ok) { if (btn) btn.disabled = false; return; }
+      if (!r.ok) {
+        if (btn) btn.disabled = false;
+        if (window.showToast) showToast('Could not add those devices', 'error');
+        return;
+      }
+      grpToastFrom(r);                                               // "Added N devices · not on this server: …"
       document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
       if (window.pkClear) window.pkClear();                          // empty the basket + reset count/button
       if (window.pkReload) window.pkReload();                        // added devices leave the "available" pane
     })
-    .catch(function () { if (btn) btn.disabled = false; });
+    .catch(function () { if (btn) btn.disabled = false; if (window.showToast) showToast('Could not add those devices', 'error'); });
   return false;
 }
 </script>

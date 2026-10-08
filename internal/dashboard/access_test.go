@@ -292,3 +292,28 @@ func TestGrantRedundant(t *testing.T) {
 		}
 	}
 }
+
+// "Possible impersonation" is super-admin-only: it names the addresses a serial was
+// used from and the only fix is a key reset. Every other role must not see it, while
+// ordinary device alerts are untouched.
+func TestIdentityAlertsSuperAdminOnly(t *testing.T) {
+	alerts := []db.Alert{
+		{Type: db.AlertTypeIdentityConflict, Severity: "critical"},
+		{Type: "overheating", Severity: "warning"},
+	}
+	for _, role := range []string{"admin", "operator", "viewer", ""} {
+		got := newAccess(role, db.AccessPolicy{}).keepVisibleAlerts(alerts)
+		want := 1
+		if role == "admin" {
+			want = 2
+		}
+		if len(got) != want {
+			t.Errorf("role %q: kept %d alerts, want %d", role, len(got), want)
+		}
+		for _, a := range got {
+			if role != "admin" && a.Type == db.AlertTypeIdentityConflict {
+				t.Errorf("role %q: identity alert leaked", role)
+			}
+		}
+	}
+}
