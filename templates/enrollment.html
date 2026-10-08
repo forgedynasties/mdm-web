@@ -11,8 +11,20 @@
 /* The rail holds the same cards at a narrower measure, so nothing is rebuilt:
    one profile per row, a QR that stacks under it, a tighter table. */
 .en-rail .en-pgrid{grid-template-columns:1fr;gap:9px;padding:12px}
-.en-rail .en-p{padding:11px 12px;gap:7px}
+/* Profile cards in the rail: three lines, not six. The card keeps the full-width
+   layout's pieces but lays them out as a wrapping row — name and status, then tags
+   and counts side by side, then the token with the buttons on its right. Notes are
+   hidden here (Edit shows them); the QR already lives below the columns. */
+.en-rail .en-p{padding:9px 11px;gap:5px 8px;flex-direction:row;flex-wrap:wrap;align-items:center}
+.en-rail .en-p .h{flex:1 0 100%}
 .en-rail .en-p .h b{font-size:13px}
+.en-rail .en-p .tags{gap:4px}
+.en-rail .en-p .tags .cc-tag,.en-rail .en-p .meta{font-size:10.5px}
+.en-rail .en-p .meta{gap:8px;margin-left:auto}
+.en-rail .en-p .meta + .meta{display:none}
+.en-rail .en-p .tok{flex:1 1 120px;font-size:10.5px;padding:3px 7px}
+.en-rail .en-p .act{margin-top:0;gap:4px}
+.en-rail .en-p .act button,.en-rail .en-p .act form button{padding:3px 8px;font-size:11px}
 #en-profiles .lt-more{margin:0 12px 12px}
 /* Recent, in the rail: When / By / Device only. Class, Venue and Path are on the device
    page one click away, and six columns in a third of the width forced the table — and
