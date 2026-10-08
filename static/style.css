@@ -4786,6 +4786,13 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cl-score.warn { background: var(--warn-bg); color: var(--warn); }
 .cl-score.bad { background: var(--danger-bg); color: var(--danger); }
 .cl-score.is-empty { background: var(--surface2); color: var(--text-faint); }
+/* motion: the score as a ring — the conic fill is the score itself (motion.css .m-ring).
+   Colour follows the same ok / warn / bad bands as the pill it replaces. */
+.cl-score.m-ring { padding: 0; width: 34px; height: 34px; border-radius: 50%; display: inline-grid; place-items: center; }
+.cl-score.m-ring > span { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 11px; }
+.cl-score.m-ring.ok { background: conic-gradient(var(--ok) var(--p), var(--surface2) 0); }
+.cl-score.m-ring.warn { background: conic-gradient(var(--warn) var(--p), var(--surface2) 0); }
+.cl-score.m-ring.bad { background: conic-gradient(var(--danger) var(--p), var(--surface2) 0); }
 .cl-meta { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
 .cl-meta .danger { color: var(--danger); }
 .cl-foot { display: flex; align-items: center; gap: 14px; margin-top: 13px; padding-top: 11px;
