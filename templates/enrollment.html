@@ -14,8 +14,16 @@
 .en-rail .en-p{padding:11px 12px;gap:7px}
 .en-rail .en-p .h b{font-size:13px}
 #en-profiles .lt-more{margin:0 12px 12px}
+/* Recent, in the rail: When / By / Device only. Class, Venue and Path are on the device
+   page one click away, and six columns in a third of the width forced the table — and
+   with it the page — wider than the viewport. The card clips whatever is left over so
+   nothing in the rail can ever scroll the page sideways again. */
+.en-rail .cc-card{min-width:0;overflow:hidden}
 .en-rail .en-recent th{padding:7px 12px}
-.en-rail .en-recent td{padding:8px 12px;white-space:normal}
+.en-rail .en-recent td{padding:8px 12px;white-space:normal;word-break:break-word}
+.en-rail .en-recent th:nth-child(n+4),.en-rail .en-recent td:nth-child(n+4){display:none}
+.en-rail .en-recent .lt-more td{display:table-cell}
+.en-rail .en-recent .mono{font-size:12px}
 /* The QRs live below both columns now, one open at a time, at a size worth scanning.
    .en-qr-none shows only while none is open — :has keeps that in CSS with no JS. */
 .en-qrwrap{padding:14px 17px}
