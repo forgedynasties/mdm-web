@@ -3378,16 +3378,27 @@ func (d *DB) AddDeviceToGroup(ctx context.Context, serial string, groupID uuid.U
 	return err
 }
 
-func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+// AddDevicesToGroup tags every named device, ignoring serials already in the group,
+// and returns how many rows it actually added. The count is what the dashboard
+// reports back: a pasted list whose serials are not in the fleet adds nothing, and
+// the operator has to be told that instead of seeing a silent success.
+//
+// Serials are matched case-insensitively — a serial pasted in the wrong case is the
+// same device, and an exact-match-only lookup made it look like an unknown one.
+func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uuid.UUID) (int, error) {
 	if len(serials) == 0 {
-		return nil
+		return 0, nil
 	}
-	_, err := d.pool.Exec(ctx, `
+	tag, err := d.pool.Exec(ctx, `
 		INSERT INTO device_groups (device_id, group_id)
-		SELECT id, $2 FROM devices WHERE serial_number = ANY($1)
+		SELECT d.id, $2 FROM devices d
+		WHERE upper(d.serial_number) = ANY(SELECT upper(s) FROM unnest($1::text[]) s)
 		ON CONFLICT DO NOTHING
 	`, serials, groupID)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID uuid.UUID) error {
@@ -3401,16 +3412,22 @@ func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID u
 
 // RemoveDevicesFromGroup removes many devices from a group in one statement, so the
 // group members list can offer a bulk "Remove from group" instead of one-by-one.
-func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, groupID uuid.UUID) (int, error) {
 	if len(serials) == 0 {
-		return nil
+		return 0, nil
 	}
-	_, err := d.pool.Exec(ctx, `
+	tag, err := d.pool.Exec(ctx, `
 		DELETE FROM device_groups
 		WHERE group_id = $2
-		AND device_id IN (SELECT id FROM devices WHERE serial_number = ANY($1))
+		AND device_id IN (
+			SELECT id FROM devices
+			WHERE upper(serial_number) = ANY(SELECT upper(s) FROM unnest($1::text[]) s)
+		)
 	`, serials, groupID)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // ListDeviceGroups returns the groups a single device belongs to (for the device

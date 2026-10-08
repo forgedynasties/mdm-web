@@ -9523,17 +9523,31 @@ func (h *Handler) GroupDevicesModal(w http.ResponseWriter, r *http.Request) {
 // parseSerialsField splits the "serials" form field(s) into individual,
 // trimmed, non-empty serial numbers. The group forms submit selected devices
 // as a single newline-separated <textarea name="serials">, so the raw form
-// value is one multi-line blob — it must be split, not used as-is. Also
-// tolerates comma separators and repeated form values.
+// value is one multi-line blob — it must be split, not used as-is.
+//
+// Separators are any whitespace, comma or semicolon — the same set picker.js
+// splits a pasted list on (/[\s,;]+/). They used to differ: the server split on
+// newlines and commas only, so a list pasted space- or tab-separated (out of a
+// spreadsheet cell, a chat line, a shell loop) arrived as ONE token, matched no
+// device, and the add silently did nothing. Duplicates are dropped, keeping the
+// first spelling, so a pasted list with repeats reports an honest count.
 func parseSerialsField(values []string) []string {
 	var out []string
+	seen := map[string]struct{}{}
 	for _, v := range values {
 		for _, part := range strings.FieldsFunc(v, func(r rune) bool {
-			return r == '\n' || r == '\r' || r == ','
+			return unicode.IsSpace(r) || r == ',' || r == ';'
 		}) {
-			if part = cleanSerialToken(part); part != "" {
-				out = append(out, part)
+			part = cleanSerialToken(part)
+			if part == "" {
+				continue
 			}
+			k := strings.ToUpper(part)
+			if _, dup := seen[k]; dup {
+				continue
+			}
+			seen[k] = struct{}{}
+			out = append(out, part)
 		}
 	}
 	return out
@@ -9572,7 +9586,7 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
 	if len(serials) > 0 {
-		if err := h.db.AddDevicesToGroup(r.Context(), serials, group.ID); err != nil {
+		if _, err := h.db.AddDevicesToGroup(r.Context(), serials, group.ID); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -10528,13 +10542,15 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 		serials = append(serials, s)
 	}
 	serials = append(serials, parseSerialsField(r.Form["serials"])...)
+	asked := len(serials)
 	// Only devices the user can see: moving a device changes whose rules cover it.
 	serials = h.keepVisibleSerials(r, serials)
 	if len(serials) == 0 {
-		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+		h.groupMembershipDone(w, r, id, "Nothing to add", "warn")
 		return
 	}
-	if err := h.db.AddDevicesToGroup(r.Context(), serials, id); err != nil {
+	added, err := h.db.AddDevicesToGroup(r.Context(), serials, id)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -10543,9 +10559,58 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(did)
 		}
 	}
-	// HX request (the group page's add form): 204 + group-updated so the members
-	// list refreshes in place. Plain POST (no JS) still redirects back to the group.
-	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+	// Say what happened. An add can legitimately move nothing — serials that are not
+	// in the fleet, or devices already in this group — and the members list refreshing
+	// unchanged used to be the only hint, which reads as a broken button.
+	msg, typ := h.groupChangeMessage(r.Context(), "Added", "to this group", serials, asked, added)
+	// HX request (the group page's add form): 204 + toast + group-updated so the
+	// members list refreshes in place. Plain POST (no JS) redirects back with a flash.
+	h.groupMembershipDone(w, r, id, msg, typ)
+}
+
+// groupChangeMessage builds the operator-facing summary of a group add/remove:
+// how many rows actually changed, and — when fewer than asked — which of the pasted
+// serials are not devices on this server, named in the message so the operator can
+// fix the list instead of guessing. verb is "Added"/"Removed", where reads as
+// "… to this group"/"… from this group".
+func (h *Handler) groupChangeMessage(ctx context.Context, verb, where string, serials []string, asked, changed int) (string, string) {
+	var unknown []string
+	if changed < len(serials) {
+		if known, err := h.db.SerialIDs(ctx, serials); err == nil {
+			upper := make(map[string]struct{}, len(known))
+			for s := range known {
+				upper[strings.ToUpper(s)] = struct{}{}
+			}
+			for _, s := range serials {
+				if _, ok := upper[strings.ToUpper(s)]; !ok {
+					unknown = append(unknown, s)
+				}
+			}
+		}
+	}
+	typ := "success"
+	if changed == 0 {
+		typ = "warn"
+	}
+	msg := fmt.Sprintf("%s %d device%s %s", verb, changed, plural(changed), where)
+	switch {
+	case len(unknown) > 0 && len(unknown) <= 6:
+		msg += fmt.Sprintf(" · not on this server: %s", strings.Join(unknown, ", "))
+	case len(unknown) > 6:
+		msg += fmt.Sprintf(" · %d serial%s not on this server (%s, …)", len(unknown), plural(len(unknown)), strings.Join(unknown[:3], ", "))
+	case changed == 0 && asked > 0:
+		msg += " · already up to date"
+	}
+	if hidden := asked - len(serials); hidden > 0 {
+		msg += fmt.Sprintf(" · %d outside your visibility", hidden)
+	}
+	return msg, typ
+}
+
+// groupMembershipDone answers a group add/remove: a toast plus the "group-updated"
+// event that refreshes the members card and the KPIs in place.
+func (h *Handler) groupMembershipDone(w http.ResponseWriter, r *http.Request, id uuid.UUID, msg, typ string) {
+	h.hxDoneToastEvents(w, r, "/groups/"+id.String()+"?flash="+url.QueryEscape(msg)+"&flash_type="+typ, msg, typ, "group-updated")
 }
 
 func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
@@ -10803,12 +10868,15 @@ func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	r.ParseForm()
-	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
+	parsed := parseSerialsField(r.Form["serials"])
+	asked := len(parsed)
+	serials := h.keepVisibleSerials(r, parsed)
 	if len(serials) == 0 {
-		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+		h.groupMembershipDone(w, r, id, "Nothing to remove", "warn")
 		return
 	}
-	if err := h.db.RemoveDevicesFromGroup(r.Context(), serials, id); err != nil {
+	removed, err := h.db.RemoveDevicesFromGroup(r.Context(), serials, id)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -10817,7 +10885,8 @@ func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) 
 			h.hub.PublishDeviceUpdate(did)
 		}
 	}
-	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+	msg, typ := h.groupChangeMessage(r.Context(), "Removed", "from this group", serials, asked, removed)
+	h.groupMembershipDone(w, r, id, msg, typ)
 }
 
 // GroupMembers renders just the members card of a group for an in-place htmx
