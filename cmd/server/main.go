@@ -431,6 +431,8 @@ func main() {
 				log.Printf("[scout] net_scan_done from %s: %d hosts, %d open, %d ours",
 					deviceID, d.Hosts, d.Open, d.Accepted)
 			}
+			// The venue is free for another scan now, rather than after scanTTL.
+			scoutSvc.ScanDone(context.Background(), deviceID)
 		case "net_enroll_progress":
 			scoutSvc.IngestProgress(context.Background(), raw)
 		case "net_enroll_done":
