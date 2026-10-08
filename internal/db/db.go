@@ -13323,6 +13323,51 @@ CREATE TABLE IF NOT EXISTS fleet_adb_key (
 CREATE TABLE IF NOT EXISTS fleet_adb_key_seq (id INT PRIMARY KEY CHECK (id = 1), last_version INT NOT NULL DEFAULT 0);
 INSERT INTO fleet_adb_key_seq (id, last_version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
 
+-- Scout enrolment (plan: "a T7 enrols the other devices in its restaurant"). A firmware
+-- device (the scout) sweeps its restaurant's Wi-Fi on :5555 with the fleet adb key and
+-- reports every device that answers as a sighting; an operator (or, later, the auto-enrol
+-- switch) turns a sighting into an enrolled standard-client device. One row per
+-- (restaurant, serial): the latest scan overwrites the last.
+CREATE TABLE IF NOT EXISTS sightings (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    restaurant_id    UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    scout_serial     TEXT NOT NULL DEFAULT '',   -- the firmware device that saw it
+    host             TEXT NOT NULL DEFAULT '',    -- last address on the venue's Wi-Fi
+    port             INT  NOT NULL DEFAULT 5555,
+    serial           TEXT NOT NULL,
+    manufacturer     TEXT NOT NULL DEFAULT '',
+    model            TEXT NOT NULL DEFAULT '',
+    android          TEXT NOT NULL DEFAULT '',
+    owner_pkg        TEXT NOT NULL DEFAULT '',
+    owner_ours       BOOLEAN NOT NULL DEFAULT FALSE,
+    accounts         INT  NOT NULL DEFAULT 0,
+    users            INT  NOT NULL DEFAULT 1,
+    dpc_version      TEXT NOT NULL DEFAULT '',
+    firmware_version TEXT NOT NULL DEFAULT '',
+    class_guess      TEXT NOT NULL DEFAULT '',
+    -- ready | blocked | ours | enrolling | failed | enrolled
+    state            TEXT NOT NULL DEFAULT 'ready',
+    reason           TEXT NOT NULL DEFAULT '',    -- why blocked / why a job failed
+    step             INT  NOT NULL DEFAULT 0,     -- 1..8 while enrolling
+    approved_by      TEXT NOT NULL DEFAULT '',
+    approved_at      TIMESTAMPTZ,
+    job_id           TEXT NOT NULL DEFAULT '',    -- the net_enroll job currently running
+    first_seen       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (restaurant_id, serial)
+);
+CREATE INDEX IF NOT EXISTS idx_sightings_restaurant ON sightings(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_sightings_job ON sightings(job_id) WHERE job_id <> '';
+
+-- Per-venue scout controls. scan_enabled gates the scheduled sweep; auto_enroll (phase 3,
+-- super admin, off by default) lets the scout enrol classifiable devices with no approval.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS scan_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS auto_enroll  BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- The scout that enrolled a device over the Wi-Fi (its serial), for "enrolled via T7 …".
+-- Distinct from enrolled_via (an enrollment-profile id, the QR/token path).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via_serial TEXT NOT NULL DEFAULT '';
+
 -- idx_checkins_device_id was a strict prefix of idx_checkins_device_created_at, so the
 -- planner never had a reason to choose it: measured over 6.5 hours of live traffic the
 -- composite took 29,440 scans and this one took none, while both were written on every

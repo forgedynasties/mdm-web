@@ -87,6 +87,57 @@
     <a class="cc-kpi" href="/devices?lifecycle=retired"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Retired</span><div class="v">{{.Stats.Retired}}</div><div class="d">kept for history</div></a>
   </div>
 
+  {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
+  <div class="cc-card" id="en-scout-card">
+    <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
+    {{if not .FleetKeySet}}
+    <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
+      <b>No fleet adb key on this server.</b><br>Scouts need the key to open devices on a venue's Wi-Fi.<br>
+      <a class="cc-btn sm" href="/settings#fleet-adb-key" style="margin-top:8px">Settings → Fleet adb key</a>
+    </div>
+    {{else if not .Sightings}}
+    <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
+      <b>Nothing new on any venue's Wi-Fi.</b><br>
+      <span class="small muted">A device that trusts the AIO adb key and sits on a venue's Wi-Fi shows up here within 15 minutes. Each venue's Tableside AI does the looking.</span>
+    </div>
+    {{else}}
+    {{range .Sightings}}
+    <div class="en-vh" style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--surface2);border-top:1px solid var(--border-soft);flex-wrap:wrap">
+      <span style="width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block"></span>
+      <b>{{.Name}}</b>
+      <span class="muted small">{{if .ScoutSerial}}· seen by {{.ScoutSerial}} {{end}}{{if not .LastSeen.IsZero}}· {{timeSince .LastSeen}}{{end}}</span>
+      <span style="flex:1"></span>
+      <form method="POST" action="/enrollment/scan" hx-boost="false" style="display:inline"><input type="hidden" name="restaurant_id" value="{{.RestaurantID}}"><button type="submit" class="cc-btn sm">Scan now</button></form>
+    </div>
+    {{range .Items}}
+    <div class="en-row" style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-soft)">
+      <div style="flex:1;min-width:0">
+        <b style="display:block;font-size:13px">{{.Name}}</b>
+        <small class="muted" style="font-size:11.5px">
+          <span class="cc-mono">{{.Serial}}</span>{{if .Host}} · {{.Host}}{{end}}{{if .Android}} · Android {{.Android}}{{end}}
+          {{if eq .State "blocked"}} · <span class="cc-tag warn">{{.Reason}}</span>{{end}}
+          {{if eq .State "failed"}} · <span class="cc-tag bad">failed: {{.Reason}}</span>{{end}}
+        </small>
+      </div>
+      {{if eq .State "enrolling"}}
+        <span class="cc-tag info">enrolling · step {{.Step}}/8</span>
+      {{else if eq .State "blocked"}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
+      {{else}}
+        <form method="POST" action="/enrollment/sightings/{{.ID}}/enroll" hx-boost="false" style="display:flex;gap:8px;align-items:center">
+          <select name="device_class" class="en-sel short" aria-label="Type" required>
+            <option value="" {{if not .ClassGuess}}selected{{end}} disabled>— type —</option>
+            {{$cg := .ClassGuess}}{{range $.Classes}}<option value="{{.}}" {{if eq . $cg}}selected{{end}}>{{classLabel .}}{{if eq . $cg}} · guess{{end}}</option>{{end}}
+          </select>
+          <button type="submit" class="cc-btn primary sm">{{if eq .State "failed"}}Try again{{else}}Enrol{{end}}</button>
+        </form>
+      {{end}}
+    </div>
+    {{end}}
+    {{end}}
+    {{end}}
+  </div>
+
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
   <div class="cc-card lt" id="en-inbox-card" data-lt-n="25">
     <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h2>Needs assignment</h2><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><button type="button" class="cc-btn sm" data-copy-serials="#en-inbox" title="Copy the serials waiting for assignment, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button><a class="r" href="/devices?onboarding=pending">All →</a></div>

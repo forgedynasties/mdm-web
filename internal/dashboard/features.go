@@ -32,6 +32,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/product"
+	"mdm/internal/scout"
 )
 
 // This file holds the DPC-agent feature pages: enrollment, the fleet-wide
@@ -39,6 +40,117 @@ import (
 // app configurations. Kept separate from the huge handlers.go so the feature
 // surface is easy to find and extend. All pages render through h.render (which
 // injects role/brand/nav via withRole).
+
+// SetScout wires the scout-enrolment service (main.go). nil before that, which the
+// handlers below treat as "feature off".
+func (h *Handler) SetScout(s *scout.Service) { h.scout = s }
+
+// sightingGroup is one venue's sightings, for the "Found on a venue's Wi-Fi" card.
+type sightingGroup struct {
+	RestaurantID string
+	Name         string
+	ScoutSerial  string
+	LastSeen     time.Time
+	ReadyN       int
+	Items        []db.Sighting
+}
+
+// groupSightings buckets the flat list by venue, preserving the DB's within-venue order.
+func groupSightings(ss []db.Sighting) []sightingGroup {
+	var groups []sightingGroup
+	idx := map[string]int{}
+	for _, s := range ss {
+		key := s.RestaurantID.String()
+		i, ok := idx[key]
+		if !ok {
+			i = len(groups)
+			idx[key] = i
+			groups = append(groups, sightingGroup{RestaurantID: key, Name: s.RestaurantName, ScoutSerial: s.ScoutSerial})
+		}
+		g := &groups[i]
+		g.Items = append(g.Items, s)
+		if s.State == "ready" {
+			g.ReadyN++
+		}
+		if s.ScoutSerial != "" {
+			g.ScoutSerial = s.ScoutSerial
+		}
+		if s.LastSeen.After(g.LastSeen) {
+			g.LastSeen = s.LastSeen
+		}
+	}
+	return groups
+}
+
+// ScoutScan triggers an immediate sweep of one venue (the "Scan now" button). With no
+// restaurant_id it sweeps every eligible venue.
+func (h *Handler) ScoutScan(w http.ResponseWriter, r *http.Request) {
+	if h.scout == nil {
+		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		return
+	}
+	rid := strings.TrimSpace(r.FormValue("restaurant_id"))
+	host := strings.TrimSpace(r.FormValue("host"))
+	id, err := uuid.Parse(rid)
+	if err != nil {
+		h.hxDoneToast(w, r, "/enrollment", "Unknown venue", "error")
+		return
+	}
+	if err := h.scout.StartScan(r.Context(), id, host); err != nil {
+		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		return
+	}
+	h.hxDoneToast(w, r, "/enrollment", "Scanning the venue's Wi-Fi…", "success")
+}
+
+// ScoutEnroll approves one sighting: the scout installs the standard client on it.
+func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
+	if h.scout == nil {
+		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		return
+	}
+	class := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
+	serverURL := h.baseURL(r)
+	apkURL := h.agentAPKURL(r)
+	apkSHA := ""
+	if h.cfg.AgentAPKHosted() {
+		_, _, _, apkSHA = h.cfg.AgentAPKHostedBuild()
+	}
+	if err := h.scout.Approve(r.Context(), id, class, h.currentUsername(r), serverURL, apkURL, apkSHA); err != nil {
+		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		return
+	}
+	h.hxDoneToast(w, r, "/enrollment", "Enrolling the device…", "success")
+}
+
+// ScoutRecheck re-probes one device (the "Check again" button on a blocked row), e.g.
+// after someone factory-resets it on site. It asks the scout to scan just that host.
+func (h *Handler) ScoutRecheck(w http.ResponseWriter, r *http.Request) {
+	if h.scout == nil {
+		h.hxDoneToast(w, r, "/enrollment", "Scout enrolment is not enabled", "error")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		return
+	}
+	sg, err := h.db.GetSighting(r.Context(), id)
+	if err != nil || sg == nil {
+		h.hxDoneToast(w, r, "/enrollment", "Unknown device", "error")
+		return
+	}
+	if err := h.scout.StartScan(r.Context(), sg.RestaurantID, sg.Host); err != nil {
+		h.hxDoneToast(w, r, "/enrollment", err.Error(), "error")
+		return
+	}
+	h.hxDoneToast(w, r, "/enrollment", "Checking the device again…", "success")
+}
 
 // EnrollmentPage shows enrollment profiles (revocable QR/zero-touch tokens) plus the
 // manual adb provisioning path with the shared device API key.
@@ -62,6 +174,12 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
+	sightings, _ := h.db.ListSightings(r.Context())
+	sgroups := groupSightings(sightings)
+	readyN := 0
+	for _, g := range sgroups {
+		readyN += g.ReadyN
+	}
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -80,6 +198,10 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Stats":          stats,
 		"HasAgentAPK":    h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
 		"AgentAPKURL":    h.agentAPKURL(r),
+		"Sightings":      sgroups,
+		"SightingsReady": readyN,
+		"ScoutOn":        h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
+		"FleetKeySet":    h.cfg.FleetAdbKeySecret() != "",
 	})
 }
 

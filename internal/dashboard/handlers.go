@@ -53,6 +53,7 @@ import (
 	"mdm/internal/product"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
+	"mdm/internal/scout"
 	"mdm/internal/shell"
 	"mdm/internal/totp"
 	"mdm/internal/version"
@@ -239,6 +240,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 type Handler struct {
 	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
 	onKeyReset  func(serial string)    // tells the device API a key was reset (SetKeyResetHook)
+	scout       *scout.Service         // scout enrolment (SetScout); nil until wired in main
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -21805,6 +21807,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
 	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
+	post("POST /enrollment/scan", h.requireOperatorOrAdmin(h.ScoutScan))
+	post("POST /enrollment/sightings/{id}/enroll", h.requireOperatorOrAdmin(h.ScoutEnroll))
+	post("POST /enrollment/sightings/{id}/recheck", h.requireOperatorOrAdmin(h.ScoutRecheck))
 	post("POST /enrollment/profiles", h.requireStrictAdmin(h.EnrollmentProfileCreate))
 	post("POST /enrollment/profiles/{id}/revoke", h.requireStrictAdmin(h.EnrollmentProfileRevoke))
 	post("POST /enrollment/profiles/{id}/activate", h.requireStrictAdmin(h.EnrollmentProfileActivate))
