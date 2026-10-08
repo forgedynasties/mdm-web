@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Favicon — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:32px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:900px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:14px;margin:12px 0 8px}
+.opt{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:14px}
+.opt.now{border-color:var(--warn)}
+.opt h3{font-size:13.5px;margin:0 0 2px}
+.badge{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:6px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.note{font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-top:8px}
+/* the sizes a favicon is actually seen at */
+.sizes{display:flex;align-items:flex-end;gap:14px;padding:12px 0 6px}
+.sizes .s{display:grid;gap:5px;justify-items:center}
+.sizes .s span{font-size:9.5px;color:var(--text-faint)}
+.sizes svg{display:block;border-radius:4px}
+.s16 svg{width:16px;height:16px}.s32 svg{width:32px;height:32px}.s64 svg{width:64px;height:64px}
+/* a browser tab mock, which is the real test */
+.tab{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:9px 9px 0 0;padding:6px 10px;max-width:215px;margin-top:6px}
+.tab svg{width:16px;height:16px;flex:none;border-radius:3px}
+.tab .t{font-size:11.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Favicon</h1>
+<p class="lead">What ships today is a dark rounded square holding a thin outlined tablet with three text lines and a green dot — five elements inside 32px, which at the 16px a tab actually renders turns into a grey smudge. It also shares nothing with the brand: the wordmark and the app icon are a <b>periwinkle → coral</b> gradient (<span class="mono">#7a80f6 → #f9674e</span>), while the favicon is slate and green. Each option below is drawn at 16, 32 and 64px, and in a tab strip — judge it at 16.</p>
+
+<div class="grid">
+
+  <div class="opt now">
+    <h3>A · Today<span class="badge now">live now</span></h3>
+    <div class="sizes">
+      <div class="s s16"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="#0b0d10"/><rect x="6" y="6" width="20" height="20" rx="2" fill="none" stroke="#343d52" stroke-width="1.5"/><path d="M11 12h10M11 16h6M11 20h8" stroke="#f4f5f7" stroke-width="1.6" stroke-linecap="round"/><circle cx="22.5" cy="20" r="1.5" fill="#59c97a"/></svg><span>16</span></div>
+      <div class="s s32"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="#0b0d10"/><rect x="6" y="6" width="20" height="20" rx="2" fill="none" stroke="#343d52" stroke-width="1.5"/><path d="M11 12h10M11 16h6M11 20h8" stroke="#f4f5f7" stroke-width="1.6" stroke-linecap="round"/><circle cx="22.5" cy="20" r="1.5" fill="#59c97a"/></svg><span>32</span></div>
+      <div class="s s64"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="#0b0d10"/><rect x="6" y="6" width="20" height="20" rx="2" fill="none" stroke="#343d52" stroke-width="1.5"/><path d="M11 12h10M11 16h6M11 20h8" stroke="#f4f5f7" stroke-width="1.6" stroke-linecap="round"/><circle cx="22.5" cy="20" r="1.5" fill="#59c97a"/></svg><span>64</span></div>
+    </div>
+    <div class="tab"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="4" fill="#0b0d10"/><rect x="6" y="6" width="20" height="20" rx="2" fill="none" stroke="#343d52" stroke-width="1.5"/><path d="M11 12h10M11 16h6M11 20h8" stroke="#f4f5f7" stroke-width="1.6" stroke-linecap="round"/><circle cx="22.5" cy="20" r="1.5" fill="#59c97a"/></svg><span class="t">Fleet · AIO MDM</span></div>
+    <div class="note">Five shapes and three stroke widths inside 32px. Off-brand colours. At 16px the lines merge and the dot is a single grey pixel.</div>
+  </div>
+
+  <div class="opt">
+    <h3>A monogram on the brand gradient<span class="badge pick">my pick</span></h3>
+    <div class="sizes">
+      <div class="s s16"><svg viewBox="0 0 32 32"><defs><linearGradient id="fg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a80f6"/><stop offset="1" stop-color="#f9674e"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#fg1)"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="#fff"/></svg><span>16</span></div>
+      <div class="s s32"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg1)"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="#fff"/></svg><span>32</span></div>
+      <div class="s s64"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg1)"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="#fff"/></svg><span>64</span></div>
+    </div>
+    <div class="tab"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg1)"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="#fff"/></svg><span class="t">Fleet · AIO MDM</span></div>
+    <div class="note">One letter, one shape, full-bleed brand gradient — the same ramp as the wordmark and app icon. Survives 16px because it is a single counter-formed glyph, and it reads as AIO rather than as "some device".</div>
+  </div>
+
+  <div class="opt">
+    <h3>C · Device silhouette, solid</h3>
+    <div class="sizes">
+      <div class="s s16"><svg viewBox="0 0 32 32"><defs><linearGradient id="fg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a80f6"/><stop offset="1" stop-color="#f9674e"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#fg2)"/><rect x="10" y="6" width="12" height="20" rx="3" fill="#fff"/><rect x="13.5" y="22" width="5" height="1.6" rx=".8" fill="#7a80f6"/></svg><span>16</span></div>
+      <div class="s s32"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg2)"/><rect x="10" y="6" width="12" height="20" rx="3" fill="#fff"/><rect x="13.5" y="22" width="5" height="1.6" rx=".8" fill="#7a80f6"/></svg><span>32</span></div>
+      <div class="s s64"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg2)"/><rect x="10" y="6" width="12" height="20" rx="3" fill="#fff"/><rect x="13.5" y="22" width="5" height="1.6" rx=".8" fill="#7a80f6"/></svg><span>64</span></div>
+    </div>
+    <div class="tab"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg2)"/><rect x="10" y="6" width="12" height="20" rx="3" fill="#fff"/><rect x="13.5" y="22" width="5" height="1.6" rx=".8" fill="#7a80f6"/></svg><span class="t">Fleet · AIO MDM</span></div>
+    <div class="note">Keeps today's idea — this manages devices — but as one filled shape instead of outlines, on brand colour. Clear at 16px. The same silhouette as the 512px app icon, so the two finally match.</div>
+  </div>
+
+  <div class="opt">
+    <h3>D · Signal arcs — "fleet, reporting in"</h3>
+    <div class="sizes">
+      <div class="s s16"><svg viewBox="0 0 32 32"><defs><linearGradient id="fg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a80f6"/><stop offset="1" stop-color="#f9674e"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="url(#fg3)"/><circle cx="16" cy="21" r="3.2" fill="#fff"/><path d="M9.5 15.5a9 9 0 0 1 13 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M12.8 19a5 5 0 0 1 6.4 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/></svg><span>16</span></div>
+      <div class="s s32"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg3)"/><circle cx="16" cy="21" r="3.2" fill="#fff"/><path d="M9.5 15.5a9 9 0 0 1 13 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M12.8 19a5 5 0 0 1 6.4 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/></svg><span>32</span></div>
+      <div class="s s64"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg3)"/><circle cx="16" cy="21" r="3.2" fill="#fff"/><path d="M9.5 15.5a9 9 0 0 1 13 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M12.8 19a5 5 0 0 1 6.4 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/></svg><span>64</span></div>
+    </div>
+    <div class="tab"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="url(#fg3)"/><circle cx="16" cy="21" r="3.2" fill="#fff"/><path d="M9.5 15.5a9 9 0 0 1 13 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M12.8 19a5 5 0 0 1 6.4 0" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".55"/></svg><span class="t">Fleet · AIO MDM</span></div>
+    <div class="note">Says "devices checking in" rather than naming a product. Distinctive in a tab strip, but the two arcs are close enough at 16px that the thinner one half-disappears, and it reads a little like Wi-Fi.</div>
+  </div>
+
+  <div class="opt">
+    <h3>E · Dark square, brand monogram</h3>
+    <div class="sizes">
+      <div class="s s16"><svg viewBox="0 0 32 32"><defs><linearGradient id="fg4" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f9674e"/><stop offset="1" stop-color="#7a80f6"/></linearGradient></defs><rect width="32" height="32" rx="7" fill="#0b0d10"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="url(#fg4)"/></svg><span>16</span></div>
+      <div class="s s32"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0b0d10"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="url(#fg4)"/></svg><span>32</span></div>
+      <div class="s s64"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0b0d10"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="url(#fg4)"/></svg><span>64</span></div>
+    </div>
+    <div class="tab"><svg viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0b0d10"/><path d="M16 7.5 23.5 24.5h-4.2l-1.2-3h-4.2l-1.2 3H8.5L16 7.5Zm0 6.6-1.6 4.1h3.2L16 14.1Z" fill="url(#fg4)"/></svg><span class="t">Fleet · AIO MDM</span></div>
+    <div class="note">Same glyph as B but on the dark chip, gradient on the letter. Holds its own against a dark browser chrome, where a gradient tile can look like a photo; the thin gradient strokes lose contrast at 16px though.</div>
+  </div>
+
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B.</b> A favicon is read at 16px in a strip of a dozen tabs: one shape, one colour move, no strokes. B is the only option that is still unmistakable there, and it ties the tab to the wordmark and the 512px app icon by using the same periwinkle → coral ramp. <b>C</b> is the choice if you want the tab to say "device management" rather than "AIO" — it is nearly as legible. D is the most distinctive at 64px and the weakest at 16. E is worth it only if most people run dark browser chrome.</p>
+<p class="note">Whichever wins: it replaces <span class="mono">static/favicon.svg</span> (referenced by <span class="mono">layout.html</span> and every demo page), and I would re-cut <span class="mono">static/app-icon.svg</span> from the same shape so the PWA icon and the tab agree.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>

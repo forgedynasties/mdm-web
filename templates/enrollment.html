@@ -13,12 +13,27 @@
 .en-rail .en-pgrid{grid-template-columns:1fr;gap:9px;padding:12px}
 .en-rail .en-p{padding:11px 12px;gap:7px}
 .en-rail .en-p .h b{font-size:13px}
-.en-rail .en-qr{flex-direction:column;gap:9px}
-.en-rail .en-qr img{width:100%;max-width:200px;height:auto}
 .en-rail .en-recent th{padding:7px 12px}
 .en-rail .en-recent td{padding:8px 12px;white-space:normal}
-.en-rail .en-how{padding:12px}
-.en-rail .en-step{padding:8px 0}
+/* The QRs live below both columns now, one open at a time, at a size worth scanning.
+   .en-qr-none shows only while none is open — :has keeps that in CSS with no JS. */
+.en-qrwrap{padding:14px 17px}
+.en-qrwrap .en-qr{padding-top:0;border-top:0}
+.en-qrwrap .en-qr img{width:208px;height:208px}
+.en-qrwrap:has(.en-qr.open) .en-qr-none{display:none}
+.en-quiet.en-qr-none{padding:4px 0}
+/* Page bar: the appbar keeps the brand, this keeps the page — what it is, how much is
+   waiting, and the one action. Sticky under the appbar so scrolling never loses it. */
+.en-bar{position:sticky;top:72px;z-index:30;display:flex;align-items:center;gap:10px;
+  margin:0 0 12px;padding:8px 14px;border:1px solid var(--border);border-radius:12px;
+  background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);
+  box-shadow:var(--shadow-sm);flex-wrap:wrap}
+.en-bar .nm{font-weight:700;font-size:13.5px}
+.en-bar .st{font-size:12px;color:var(--text-faint)}
+.en-bar .st b{color:var(--text)}
+.en-bar .st b.w{color:var(--warn)}
+.en-bar .sp{flex:1}
+@media(max-width:1024px){.en-bar{top:8px}}
 .en-rail .en-empty{padding:14px 12px;font-size:12.5px}
 .en-rail .cc-ch{padding-left:12px;padding-right:12px}
 /* A venue with one device found on it is one line, not a card's worth of chrome. */
@@ -101,6 +116,16 @@
     {{end}}
   </div>
 
+
+  <div class="en-bar">
+    <span class="nm">Enroll</span>
+    <span class="st">{{if gt $inboxN 0}}<b class="w">{{$inboxN}}</b> waiting{{else}}<b>all</b> placed{{end}}
+      · {{if .Sightings}}<b>{{.SightingsReady}}</b> found on Wi-Fi{{else}}nothing nearby{{end}}
+      · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}</span>
+    <span class="sp"></span>
+    <a class="cc-btn sm" href="#en-inbox-card">Inbox</a>
+    {{if $canOp}}<button type="button" class="cc-btn sm primary" onclick="enOpenModal()">New profile</button>{{end}}
+  </div>
 
   <div class="en-cols">
   <div class="en-work">
@@ -217,10 +242,6 @@
           {{end}}
           {{end}}
         </div>
-        <div class="en-qr" id="en-qr-{{.ID}}">
-          <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
-          <div class="t"><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field.{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
-        </div>
       </div>
       {{end}}
     </div>
@@ -258,6 +279,29 @@
       <tr class="lt-more lt-out" data-what="enrollments"><td colspan="6"><button type="button" class="app-more lt-more-t"></button></td></tr>
     </table></div>
     {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
+  </div>
+
+  </aside>{{/* /en-rail */}}
+  </div>{{/* /en-cols — reference that wants width goes below, full bleed */}}
+
+  {{/* The QR a profile opens: one at a time, at a size worth scanning. It lived inside
+       each profile card in the rail, where a 168px image made the column twice the
+       height of the work beside it. enToggleQR still finds it by id. */}}
+  <div class="cc-card" id="en-qrs">
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Provisioning QR</h2><span class="m">press QR on a profile</span></div>
+    {{if .Profiles}}
+    <div class="en-qrwrap">
+      {{range .Profiles}}
+      <div class="en-qr" id="en-qr-{{.ID}}">
+        <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
+        <div class="t"><b>{{.Name}}</b><br><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field.{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
+      </div>
+      {{end}}
+      <div class="en-quiet en-qr-none">Nothing open — press <b>QR</b> on a profile above.</div>
+    </div>
+    {{else}}
+    <div class="en-quiet">No profiles yet, so there is no QR to show.</div>
+    {{end}}
   </div>
 
   {{/* ── How devices get here ───────────────────────────────────────────── */}}
@@ -299,9 +343,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       </div>
     </div>
   </div>
-
-  </aside>{{/* /en-rail */}}
-  </div>{{/* /en-cols */}}
 </div>
 
 {{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
@@ -344,7 +385,11 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     var box = el('en-qr-' + id); if (!box) return;
     var img = box.querySelector('img[data-src]');
     if (img && !img.src) img.src = img.getAttribute('data-src');
-    box.classList.toggle('open');
+    var opening = !box.classList.contains('open');
+    // One at a time: a second open QR just pushes the page around.
+    document.querySelectorAll('.en-qr.open').forEach(function (o) { if (o !== box) o.classList.remove('open'); });
+    box.classList.toggle('open', opening);
+    if (opening) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   // create / edit modal
   window.enOpenModal = function (btn) {
