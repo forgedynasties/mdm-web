@@ -196,6 +196,12 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
+	expiredN := 0
+	for _, pr := range profiles {
+		if pr.Expired() {
+			expiredN++
+		}
+	}
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
@@ -208,6 +214,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"AdminComponent": "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
 		"AgentPackage":   "aio.app.mdmclient.dpc",
 		"Profiles":       profiles,
+		"ExpiredProfiles": expiredN,
 		"Enrollments":    enrollments,
 		"Names":          h.actorDisplayNames(r.Context()),
 		"Groups":         groups,
@@ -330,6 +337,60 @@ func (h *Handler) EnrollmentProfileDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 	h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Profile deleted", "success")
+}
+
+// EnrollmentProfilesBulk applies one action — revoke, activate or delete — to the
+// profiles ticked in the list. Unknown ids are skipped rather than failing the batch.
+func (h *Handler) EnrollmentProfilesBulk(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	action := strings.TrimSpace(r.FormValue("action"))
+	var ids []uuid.UUID
+	for _, raw := range r.Form["ids"] {
+		if id, err := uuid.Parse(strings.TrimSpace(raw)); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Nothing selected", "error")
+		return
+	}
+	n := 0
+	for _, id := range ids {
+		var err error
+		switch action {
+		case "revoke":
+			err = h.db.SetEnrollmentProfileRevoked(r.Context(), id, true)
+		case "activate":
+			err = h.db.SetEnrollmentProfileRevoked(r.Context(), id, false)
+		case "delete":
+			err = h.db.DeleteEnrollmentProfile(r.Context(), id)
+		default:
+			h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Unknown action", "error")
+			return
+		}
+		if err == nil {
+			n++
+		}
+	}
+	verb := map[string]string{"revoke": "revoked", "activate": "reactivated", "delete": "deleted"}[action]
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", fmt.Sprintf("%d profile%s %s", n, plural(n), verb), "success")
+}
+
+// EnrollmentProfilesDeleteExpired clears every profile past its expiry in one go.
+func (h *Handler) EnrollmentProfilesDeleteExpired(w http.ResponseWriter, r *http.Request) {
+	n, err := h.db.DeleteExpiredEnrollmentProfiles(r.Context())
+	if err != nil {
+		h.hxDoneToast(w, r, "/enrollment?tab=profiles", "Could not delete expired profiles", "error")
+		return
+	}
+	h.hxDoneToast(w, r, "/enrollment?tab=profiles", fmt.Sprintf("%d expired profile%s deleted", n, plural(int(n))), "success")
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 // EnrollmentProfileQR renders the Android managed-provisioning QR payload for a profile
