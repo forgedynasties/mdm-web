@@ -1,128 +1,117 @@
 <!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Device page — tabs · AIO MDM</title>
-<link rel="stylesheet" href="/static/fonts/fonts.css">
-<link rel="stylesheet" href="/static/style.css">
+<title>Device page — tabs, with 231's real data · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css"><link rel="stylesheet" href="/static/style.css">
 <style>
 body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
-.wrap{max-width:1120px;margin:0 auto}
+.wrap{max-width:1160px;margin:0 auto}
 h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
 h2{font-size:17px;margin:34px 0 6px}
 p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
 p b,li b{color:var(--text)}
-.lead{color:var(--text-faint);max-width:920px;margin:0 0 6px}
+.lead{color:var(--text-faint);max-width:940px;margin:0 0 6px}
 .themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
 .themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
 .themebar button.on{background:var(--accent);color:#fff}
 .opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
 .opt.now{border-color:var(--warn)}
 .badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
-.badge.now{background:var(--warn-bg);color:var(--warn)}
-.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.badge.now{background:var(--warn-bg);color:var(--warn)}.badge.pick{background:var(--ok-bg);color:var(--ok)}
 .gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
 .gb>div{font-size:12.5px;line-height:1.55}
 .gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
-.mk{border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px}
-.hero{display:flex;align-items:center;gap:12px;margin:0 0 10px}
-.hero .sn{font-family:var(--font-mono,ui-monospace,monospace);font-size:16px;font-weight:700}
-.hero .meta{font-size:11.5px;color:var(--text-faint)}
-.hero .acts{margin-left:auto;display:flex;gap:6px}
-.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:5px 10px;white-space:nowrap}
+.vp{height:520px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);padding:14px}
+.hero{display:flex;align-items:center;gap:12px;margin:0 0 6px;flex-wrap:wrap}
+.hero .sn{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.hero .sn .mono{font-family:var(--font-mono,ui-monospace,monospace);font-weight:600;font-size:14px;color:var(--text-2)}
+.hero .hw{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;color:var(--text-faint);margin-left:6px}
+.hero .meta{font-size:11.5px;color:var(--text-faint);margin-top:3px}
+.pill{font-size:10.5px;font-weight:700;border-radius:99px;padding:1px 8px;background:var(--surface2);color:var(--text-faint)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:5px 10px;white-space:nowrap;display:inline-block}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:0 0 12px;overflow-x:auto;scrollbar-width:none}
-.tabs span{font-size:12.5px;font-weight:700;color:var(--text-faint);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.gear{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);display:inline-grid;place-items:center;font-size:14px;background:var(--surface)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:8px 0 12px;overflow-x:auto;scrollbar-width:none}
+.tabs span{font-size:12.5px;font-weight:700;color:var(--text-faint);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .tabs span.on{color:var(--text);border-bottom-color:var(--accent)}
-.tabs .n{font-size:10px;background:var(--surface2);border-radius:99px;padding:1px 6px;color:var(--text-faint)}
-.tabs .n.w{background:var(--warn-bg);color:var(--warn)}
-.tabs .adm{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);border:1px solid var(--border);border-radius:5px;padding:0 4px}
-.tabs .more{margin-left:auto;color:var(--text-faint)}
+.tabs .n{font-size:10px;background:var(--surface2);border-radius:99px;padding:1px 6px;color:var(--text-faint);margin-left:5px}
+.tabs .n.w{background:var(--warn-bg);color:var(--warn)}.tabs .n.adm{background:none;border:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em;font-size:9px}
 .card{border:1px solid var(--border);border-radius:11px;background:var(--surface);margin:0 0 9px;overflow:hidden}
+.card.danger{border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
 .ch{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--border)}
-.ch h4{font-size:12.5px;margin:0;font-weight:700}
-.ch .m{font-size:10.5px;color:var(--text-faint)}
-.ch .r{margin-left:auto;font-size:10.5px;color:var(--accent-text,var(--accent));font-weight:700}
-.kv{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding:6px 11px;font-size:12px}
-.kv div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border-soft,var(--border))}
-.kv div:nth-child(-n+2){border-top:0}
-.kv span{color:var(--text-faint)}
-.cols{display:grid;grid-template-columns:1fr 290px;gap:10px;align-items:start}
-.side .card{margin-bottom:9px}
-.rowi{display:flex;align-items:center;gap:8px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));font-size:12px}
-.rowi:first-of-type{border-top:0}
-.rowi .tag{margin-left:auto;font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;background:var(--surface2);color:var(--text-faint)}
-.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px;margin:0 0 10px}
-.seg span{font-size:11px;font-weight:700;color:var(--text-faint);padding:4px 9px;border-radius:6px}
-.seg span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
-.gear{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);display:grid;place-items:center;font-size:13px}
-.menu{border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));padding:4px;width:220px;font-size:12px;margin:6px 0 0 auto}
-.menu div{padding:6px 10px;border-radius:7px}
-.menu div.h{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding-top:8px}
-.menu div.d{color:var(--danger)}
+.ch h4{font-size:12.5px;margin:0;font-weight:700}.ch .m{font-size:10.5px;color:var(--text-faint)}.ch .r{margin-left:auto;font-size:10.5px;color:var(--accent-text,var(--accent));font-weight:700}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 16px;padding:4px 11px 8px;font-size:12px}
+.kv div{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--border-soft,var(--border))}
+.kv span{color:var(--text-faint)}.kv b{font-weight:700}.kv small{color:var(--text-faint);font-size:10.5px;margin-left:4px}
+.graph{padding:10px 11px}.graph svg{width:100%;height:120px;display:block;background:linear-gradient(var(--surface2) 1px,transparent 1px) 0 0/100% 30px}
+.gl{display:flex;gap:14px;font-size:11px;color:var(--text-faint);margin-bottom:6px;align-items:center}.gl i{display:inline-block;width:9px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}.gl .rng{margin-left:auto}.gl .rng b{color:var(--text)}
+.gx{display:flex;justify-content:space-between;font-size:10px;color:var(--text-faint);margin-top:4px}
+.map{height:70px;margin:10px 11px;border-radius:8px;background:radial-gradient(circle at 60% 50%,color-mix(in srgb,var(--accent) 30%,transparent),transparent 40%),linear-gradient(var(--surface2),var(--surface2));display:grid;place-items:center;font-size:11px;color:var(--text-2)}
+.tbl{font-size:12px}.tr{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border))}.tr.th{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);border-top:0;background:var(--surface2)}
+.tr3{display:grid;grid-template-columns:52px 1fr auto;gap:10px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));font-size:12px;align-items:center}
+.tr3 .ok{color:var(--ok);font-weight:700}.tr3 .warn{color:var(--warn);font-weight:700}
+.ub{width:20px;height:20px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:10px;font-weight:800}
+.quiet{padding:10px 11px;font-size:12px;color:var(--text-2);line-height:1.6}
+.dim{color:var(--text-faint)}.mono{font-family:var(--font-mono,ui-monospace,monospace)}
+.cols{display:grid;grid-template-columns:1fr 300px;gap:10px;align-items:start}
+.menu{border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18));padding:4px;width:230px;font-size:12px}
+.menu div{padding:6px 10px;border-radius:7px}.menu div.h{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding-top:8px}.menu div.d{color:var(--danger)}
+.drawer{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:10px;box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.18))}
+.drawer h5{margin:0 0 8px;font-size:12.5px;display:flex;justify-content:space-between}
+.sidenav{border:1px solid var(--border);border-radius:11px;background:var(--surface);overflow:hidden;font-size:12px}
+.sidenav div{padding:7px 11px;border-top:1px solid var(--border-soft,var(--border))}.sidenav div:first-child{border-top:0}.sidenav div.on{background:var(--surface2);font-weight:700}
 .note{font-size:11px;color:var(--text-faint);margin:6px 2px 0}
-@media(max-width:860px){.cols{grid-template-columns:1fr}.gb{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
-</style></head>
-<body>
+@media(max-width:860px){.cols{grid-template-columns:1fr}.gb{grid-template-columns:1fr}}
+</style></head><body>
 <div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
 <div class="wrap">
-<h1>Device page — the tab strip, especially for admins</h1>
-<p class="lead">An admin sees <b>seven tabs</b>: Overview · Applications · Queue · History · Alerts · About · Settings. Two of them are themselves split into sections (About: who has access, activity, hardware, software, security; Settings: enrollment, wireless adb, installed applications), and the Overview carries fourteen different action buttons. Below the strip the page is fine; the strip itself is where the crowding is. Mock serial <span class="mono">AT070AABU00231</span>.</p>
-
-<h2>A · Today<span class="badge now">live now</span></h2>
-<div class="opt now"><div class="mk">
-  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online · 1.9.2 · v2.1.025</div></div><div class="acts"><span class="btn">Lock again</span><span class="btn">Update agent</span><span class="btn">Reset key</span><span class="btn">Retire</span></div></div>
-  <div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Queue<span class="n">2</span></span><span>History</span><span>Alerts<span class="n w">1</span></span><span>About</span><span>Settings</span></div>
-  <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82% · wireless pad</div><div><span>Wi-Fi</span>AIO-Office · −43 dBm</div><div><span>Kiosk</span>locked · aio.app.nugget</div><div><span>Last seen</span>12s ago</div></div></div>
+<h1>Device page — the tab strip, on AT070AABU00231's real page</h1>
+<p class="lead">Every option below is built from what stage actually serves for <span class="mono">AT070AABU00231</span> right now: the hero (TSAI · HW 84F90681 · online · v2.1.025 · onboarded Oct 8 · 78 %), the real Actions menu, the vitals card, the graph drawn from its last 30 samples (6 h: battery 80 → 78 %, temp 32.7 → 32.2 °C, RAM 51.6 → 54.1 %), its 27 apps, the empty queue, today's history, "All clear" alerts, and the About and Settings cards word for word. Each mock scrolls. The only difference between options is <b>how the seven tabs are arranged</b>.</p>
+<h2>A · Today — seven tabs<span class="badge now">live now</span></h2>
+<div class="opt now"><div class="vp"><div class="hero"><div><div class="sn">TSAI <span class="mono">AT070AABU00231</span> <span class="hw">HW 84F90681</span></div>
+<div class="meta"><span class="pill ok">● Online</span> <span>v2.1.025-aio-glance-22</span> · <span>Tableside AI</span> · <span>Onboarded Oct 8, 2026</span> · <span>Last seen 3m ago</span> · <span>Battery 78%</span></div></div></div><div class="acts"><span class="btn">Remote Control</span><span class="btn">Kiosk · off</span><span class="btn pri">Actions ▾</span></div><div class="tabs"><span class="on">Overview</span><span class="">Applications</span><span class="">Queue</span><span class="">History</span><span class="">Alerts</span><span class="">About</span><span class="">Settings</span></div>
+<div class="card"><div class="ch"><h4>Vitals</h4><span class="m">You · Device · UTC</span></div><div class="graph"><div class="gl"><span><i style="background:var(--ok)"></i>Battery 78%</span><span><i style="background:var(--warn)"></i>Temp 32.2°C</span><span><i style="background:var(--accent)"></i>RAM 54%</span><span class="rng">1h · <b>6h</b> · 12h · 24h · 48h</span></div>
+<svg viewBox="0 0 640 120" preserveAspectRatio="none"><polyline points="0.0,58.1 0.3,58.1 14.3,57.9 41.5,57.6 41.7,57.6 72.4,57.6 103.9,57.2 115.7,57.7 140.5,57.0 165.2,56.9 189.9,56.7 213.9,56.9 257.9,56.1 272.8,57.0 301.3,56.6 332.2,55.4 379.5,56.2 392.8,55.9 418.1,55.2 436.4,55.4 454.9,55.7 469.7,55.8 496.4,55.2 515.2,56.2 544.6,55.5 559.5,55.2 566.4,55.3 597.3,54.8 613.6,55.7 640.0,55.1" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity=".8"/><polyline points="0.0,73.8 0.3,74.4 14.3,72.0 41.5,75.6 41.7,75.6 72.4,69.0 103.9,70.2 115.7,77.4 140.5,71.4 165.2,69.6 189.9,76.8 213.9,72.6 257.9,72.0 272.8,70.8 301.3,76.8 332.2,74.4 379.5,78.6 392.8,78.0 418.1,77.4 436.4,78.6 454.9,77.4 469.7,73.8 496.4,79.2 515.2,76.2 544.6,77.4 559.5,76.8 566.4,75.0 597.3,73.2 613.6,74.4 640.0,76.8" fill="none" stroke="var(--warn)" stroke-width="1.6" opacity=".9"/><polyline points="0.0,60.0 0.3,60.0 14.3,60.0 41.5,60.0 41.7,60.0 72.4,60.0 103.9,60.0 115.7,60.0 140.5,60.0 165.2,60.0 189.9,60.0 213.9,60.0 257.9,63.0 272.8,63.0 301.3,63.0 332.2,63.0 379.5,63.0 392.8,63.0 418.1,63.0 436.4,63.0 454.9,63.0 469.7,63.0 496.4,63.0 515.2,63.0 544.6,63.0 559.5,63.0 566.4,63.0 597.3,66.0 613.6,66.0 640.0,66.0" fill="none" stroke="var(--ok)" stroke-width="2"/></svg>
+<div class="gx"><span>12:29 UTC</span><span>on battery · wireless pad present · 30 samples</span><span>14:13 UTC</span></div></div><div class="kv"><div><span>Battery</span><b>78%</b></div><div><span>Temp</span><b>32.2°C</b></div><div><span>RAM</span><b>54%</b> <small>1964 / 3630 MB</small></div><div><span>Uptime</span><b>4h 22m</b></div><div><span>Wi-Fi</span><b>AIO-Office</b> <small>−43 dBm</small></div><div><span>IP</span><b>10.32.3.29</b></div></div></div><div class="card"><div class="ch"><h4>Location</h4><span class="m">±50 m</span></div><div class="map"><span>J58C+P3H, C-9, Gulberg Greens Block C, Islamabad</span></div></div>
 </div>
-<div class="gb"><div><b>Good</b> Everything has a tab; nothing is more than one click away.</div><div><b>Bad</b> Seven peers of unequal weight: Queue and History are small lists, About and Settings are five and three sections each. Admin-only tabs look like everyone's. On a laptop the strip already scrolls.</div></div>
+<div class="gb"><div><b>Good</b> Everything has a tab; the Overview is strong — graph, vitals, location.</div><div><b>Bad</b> Seven peers of unequal weight. Queue is "Nothing queued", History is five lines, Alerts is "All clear" — three tabs for one screen of content. About is five cards, Settings three. Settings is admin-only but looks like everyone's. The hero already has an Actions menu <i>and</i> loose buttons.</div></div></div><h2>B · Four tabs — Overview · Apps · Activity · Details; Settings as a gear drawer<span class="badge pick">my pick</span></h2>
+<div class="opt"><div class="vp"><div class="hero"><div><div class="sn">TSAI <span class="mono">AT070AABU00231</span> <span class="hw">HW 84F90681</span></div>
+<div class="meta"><span class="pill ok">● Online</span> <span>v2.1.025-aio-glance-22</span> · <span>Tableside AI</span> · <span>Onboarded Oct 8, 2026</span> · <span>Last seen 3m ago</span> · <span>Battery 78%</span></div></div><div class="acts"><span class="btn">Remote Control</span><span class="btn">Kiosk · off</span><span class="btn pri">Actions ▾</span><span class="gear" title="Settings (admin)">⚙</span></div></div><div class="tabs"><span class="on">Overview</span><span class="">Apps <span class="n ">27</span></span><span class="">Activity <span class="n ">5</span></span><span class="">Details</span></div>
+<div class="cols"><div>
+<div class="card"><div class="ch"><h4>Vitals</h4><span class="m">You · Device · UTC</span></div><div class="graph"><div class="gl"><span><i style="background:var(--ok)"></i>Battery 78%</span><span><i style="background:var(--warn)"></i>Temp 32.2°C</span><span><i style="background:var(--accent)"></i>RAM 54%</span><span class="rng">1h · <b>6h</b> · 12h · 24h · 48h</span></div>
+<svg viewBox="0 0 640 120" preserveAspectRatio="none"><polyline points="0.0,58.1 0.3,58.1 14.3,57.9 41.5,57.6 41.7,57.6 72.4,57.6 103.9,57.2 115.7,57.7 140.5,57.0 165.2,56.9 189.9,56.7 213.9,56.9 257.9,56.1 272.8,57.0 301.3,56.6 332.2,55.4 379.5,56.2 392.8,55.9 418.1,55.2 436.4,55.4 454.9,55.7 469.7,55.8 496.4,55.2 515.2,56.2 544.6,55.5 559.5,55.2 566.4,55.3 597.3,54.8 613.6,55.7 640.0,55.1" fill="none" stroke="var(--accent)" stroke-width="1.6" opacity=".8"/><polyline points="0.0,73.8 0.3,74.4 14.3,72.0 41.5,75.6 41.7,75.6 72.4,69.0 103.9,70.2 115.7,77.4 140.5,71.4 165.2,69.6 189.9,76.8 213.9,72.6 257.9,72.0 272.8,70.8 301.3,76.8 332.2,74.4 379.5,78.6 392.8,78.0 418.1,77.4 436.4,78.6 454.9,77.4 469.7,73.8 496.4,79.2 515.2,76.2 544.6,77.4 559.5,76.8 566.4,75.0 597.3,73.2 613.6,74.4 640.0,76.8" fill="none" stroke="var(--warn)" stroke-width="1.6" opacity=".9"/><polyline points="0.0,60.0 0.3,60.0 14.3,60.0 41.5,60.0 41.7,60.0 72.4,60.0 103.9,60.0 115.7,60.0 140.5,60.0 165.2,60.0 189.9,60.0 213.9,60.0 257.9,63.0 272.8,63.0 301.3,63.0 332.2,63.0 379.5,63.0 392.8,63.0 418.1,63.0 436.4,63.0 454.9,63.0 469.7,63.0 496.4,63.0 515.2,63.0 544.6,63.0 559.5,63.0 566.4,63.0 597.3,66.0 613.6,66.0 640.0,66.0" fill="none" stroke="var(--ok)" stroke-width="2"/></svg>
+<div class="gx"><span>12:29 UTC</span><span>on battery · wireless pad present · 30 samples</span><span>14:13 UTC</span></div></div><div class="kv"><div><span>Battery</span><b>78%</b></div><div><span>Temp</span><b>32.2°C</b></div><div><span>RAM</span><b>54%</b> <small>1964 / 3630 MB</small></div><div><span>Uptime</span><b>4h 22m</b></div><div><span>Wi-Fi</span><b>AIO-Office</b> <small>−43 dBm</small></div><div><span>IP</span><b>10.32.3.29</b></div></div></div><div class="card"><div class="ch"><h4>Location</h4><span class="m">±50 m</span></div><div class="map"><span>J58C+P3H, C-9, Gulberg Greens Block C, Islamabad</span></div></div>
+</div><div>
+<div class="card"><div class="ch"><h4>Right now</h4></div><div class="tr3"><span>Queue</span><span class="dim">nothing running</span><span></span></div><div class="tr3"><span>Alerts</span><span class="dim">all clear</span><span class="ok">✓</span></div><div class="tr3"><span>Agent</span><span>1.9.2 · up to date</span><span class="ok">✓</span></div></div>
+<div class="menu"><div class="h">Diagnostics</div><div>Realtime logs</div><div>Screenshot</div><div>Collect logs</div><div class="h">Device</div><div>Shell</div><div>Reboot</div><div class="h">Agent</div><div class="dim">Agent up to date (1.9.2)</div><div>Export CSV</div></div>
+<p class="note">↑ the existing Actions menu, unchanged. ⚙ opens Settings as a drawer:</p>
+<div class="drawer"><h5>Settings <span class="dim">admin · ×</span></h5><div class="card"><div class="ch"><h4>Enrollment</h4><span class="pill ok">active</span></div><div class="kv"><div><span>MDM</span><b>Firmware 1.9.2</b> <small>system app</small></div><div><span>First seen</span><b>Oct 8, 2026</b></div><div><span>Credential</span><b>Own key</b> <small>since Oct 8, 2026</small></div><div><span>Server</span><b>mdm-stage.dev.aioapp.com</b></div></div></div>
+<div class="card"><div class="ch"><h4>Product</h4></div><div class="quiet">Tableside AI (product default) · <span class="dim">Menu board · POS terminal · Self-order kiosk · Kitchen display · Handheld · Payment terminal · Tablet · Other</span></div></div>
+<div class="card"><div class="ch"><h4>Wireless adb</h4><span class="m">off</span></div><div class="quiet">Opens adbd on :5555 for 24h. Needs client 1.4.9+ — this device has 1.9.2.</div></div>
+<div class="card danger"><div class="ch"><h4>Careful</h4></div><div class="quiet"><span class="btn">Move to another server…</span> <span class="btn">Reset device key…</span> <span class="btn">Retire</span><br><small class="dim">Retiring keeps the history. Resetting the key lets the device register a new one. Moving writes persist.sys.mdm.url and reboots.</small></div></div></div>
+</div></div>
+<p class="note"><b>Activity</b> tab = Queue + History + Alerts as one timeline, newest first, with chips <i>in flight · done · alerts</i>. <b>Details</b> tab = today's About (Activity, Hardware, Software, Security, Who has access). Old links <span class="mono">?tab=queue|history|alerts</span> redirect into Activity; <span class="mono">?tab=about</span> → Details; <span class="mono">?tab=settings</span> opens the drawer.</p>
 </div>
-
-<h2>B · Four tabs, the rest folds into them<span class="badge pick">my pick</span></h2>
-<div class="opt"><div class="mk">
-  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online · 1.9.2 · v2.1.025</div></div><div class="acts"><span class="btn pri">Actions ▾</span><span class="gear">⚙</span></div></div>
-  <div class="tabs"><span class="on">Overview</span><span>Apps<span class="n">13</span></span><span>Activity<span class="n w">3</span></span><span>Details</span></div>
-  <div class="cols">
-    <div>
-      <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82% · wireless pad</div><div><span>Wi-Fi</span>AIO-Office · −43 dBm</div><div><span>Kiosk</span>locked · aio.app.nugget</div><div><span>Last seen</span>12s ago</div></div></div>
-      <div class="card"><div class="ch"><h4>Charge · 24h</h4><span class="r">7d →</span></div><div style="height:48px;margin:10px 11px;border-radius:8px;background:linear-gradient(90deg,var(--ok-bg),var(--surface2))"></div></div>
-    </div>
-    <div class="side">
-      <div class="card"><div class="ch"><h4>Needs you</h4><span class="n" style="font-size:10px;background:var(--warn-bg);color:var(--warn);border-radius:99px;padding:1px 6px">1</span></div><div class="rowi">Possible impersonation · 2m <span class="tag">alert</span></div></div>
-      <div class="card"><div class="ch"><h4>In flight</h4></div><div class="rowi">app_update → 1.9.2 <span class="tag">installing</span></div><div class="rowi">reboot <span class="tag">queued</span></div></div>
-    </div>
-  </div>
-  <div class="menu"><div class="h">Device</div><div>Reboot</div><div>Lock again</div><div>Update agent</div><div>Send command…</div><div class="h">Enrollment</div><div>Mark onboarded</div><div>Reset device key…</div><div>Move to another server…</div><div class="h">Admin</div><div class="d">Retire</div></div>
-  <p class="note">↑ the Actions menu, grouped; ⚙ opens Settings as a drawer (enrollment · wireless adb · installed apps), admin-only, so it is not a tab everyone sees.</p>
+<div class="gb"><div><b>Good</b> Four tabs of equal weight that match how the page is read: what is it doing, what runs on it, what has happened, what is it. The three thin tabs (Queue/History/Alerts) become one timeline that is actually worth opening, and their current state is summarised on the Overview rail so nothing is hidden by the fold. Admin-only Settings stops being a tab, so an operator and an admin see the same strip.</div><div><b>Bad</b> A merged Activity means someone who wants just the command queue uses a chip. The drawer is a new pattern on this page (the fleet page has one already).</div></div></div><h2>C · Five tabs — merge the thin three, keep About and Settings</h2>
+<div class="opt"><div class="vp"><div class="hero"><div><div class="sn">TSAI <span class="mono">AT070AABU00231</span> <span class="hw">HW 84F90681</span></div>
+<div class="meta"><span class="pill ok">● Online</span> <span>v2.1.025-aio-glance-22</span> · <span>Tableside AI</span> · <span>Onboarded Oct 8, 2026</span> · <span>Last seen 3m ago</span> · <span>Battery 78%</span></div></div><div class="acts"><span class="btn">Remote Control</span><span class="btn">Kiosk · off</span><span class="btn pri">Actions ▾</span></div></div><div class="tabs"><span class="">Overview</span><span class="">Apps <span class="n ">27</span></span><span class="on">Activity <span class="n ">5</span></span><span class="">About</span><span class="">Settings <span class="n adm">admin</span></span></div>
+<div class="card"><div class="ch"><h4>Activity</h4><span class="m">queue · history · alerts</span><span class="r">in flight · done · alerts</span></div>
+<div class="tr3"><span>14:09</span><span>check-in</span><span class="dim">battery 78% · −43 dBm</span></div>
+<div class="tr3"><span>12:36</span><span>app_update → 1.9.2</span><span class="ok">done</span></div>
+<div class="tr3"><span>12:34</span><span>onboard</span><span class="dim">Ali Hassan · AIO Test Bistro</span></div>
+<div class="tr3"><span>12:29</span><span>enrolled</span><span class="dim">new per-device key</span></div>
+<div class="tr3"><span>12:20</span><span>check-in refused</span><span class="warn">401 · key unknown</span></div></div></div><div class="card"><div class="ch"><h4>Alerts</h4><span class="m">0 open</span></div><div class="quiet">All clear — no active alerts, and no crashes on the build it runs now.</div></div>
 </div>
-<div class="gb"><div><b>Good</b> Four tabs of equal weight. <b>Activity</b> = Queue + History + Alerts as one timeline with filter chips (in flight · done · alerts), which is how people actually read it: "what happened to this device, latest first". <b>Details</b> = About's five sections. Fourteen buttons become one grouped Actions menu, and the admin-only Settings becomes a gear + drawer, so an operator's strip and an admin's are identical. Open alerts and in-flight commands surface on the Overview rail, so folding them does not hide them.</div>
-<div><b>Bad</b> "Activity" is a merge: someone who wants only the command queue filters for it. Settings-as-drawer is a new pattern on this page (the fleet page already has one).</div></div>
-</div>
-
-<h2>C · Five tabs, admin tabs marked and last</h2>
-<div class="opt"><div class="mk">
-  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online</div></div><div class="acts"><span class="btn pri">Actions ▾</span></div></div>
-  <div class="tabs"><span class="on">Overview</span><span>Apps</span><span>Activity<span class="n">3</span></span><span>About</span><span>Settings <span class="adm">admin</span></span></div>
-  <div class="card"><div class="ch"><h4>Overview</h4></div><div class="kv"><div><span>Battery</span>82%</div><div><span>Wi-Fi</span>−43 dBm</div></div></div>
-</div>
-<div class="gb"><div><b>Good</b> Smallest honest change: merge Queue + History + Alerts into Activity, keep About and Settings as tabs, badge Settings as admin so its presence reads as a privilege rather than clutter. Actions grouped into one menu.</div>
-<div><b>Bad</b> Still five, still a tab that most people cannot open. About stays a five-section scroll.</div></div>
-</div>
-
-<h2>D · Two tabs and a left rail of sections</h2>
-<div class="opt"><div class="mk">
-  <div class="hero"><div><div class="sn">AT070AABU00231</div><div class="meta">Tableside AI · AIO Test Bistro · online</div></div><div class="acts"><span class="btn pri">Actions ▾</span></div></div>
-  <div class="tabs"><span class="on">Live</span><span>Record</span></div>
-  <div class="cols" style="grid-template-columns:170px 1fr">
-    <div class="side"><div class="card"><div class="rowi" style="font-weight:700">Status</div><div class="rowi">Apps</div><div class="rowi">In flight <span class="tag">2</span></div><div class="rowi">Alerts <span class="tag">1</span></div><div class="rowi">History</div><div class="rowi">Hardware</div><div class="rowi">Software</div><div class="rowi">Security</div><div class="rowi">Access</div><div class="rowi">Enrollment</div><div class="rowi">Wireless adb</div></div></div>
-    <div><div class="card"><div class="ch"><h4>Status</h4></div><div class="kv"><div><span>Battery</span>82%</div><div><span>Wi-Fi</span>−43 dBm</div></div></div></div>
-  </div>
-</div>
-<div class="gb"><div><b>Good</b> Every section is one click and nothing is nested: Live (now) vs Record (what happened / what it is), with an eleven-entry rail. Scales to any number of sections without the strip growing.</div>
-<div><b>Bad</b> A rail eats 170px on every device page, and the two top tabs are a weak split — "Alerts" is both live and record. The biggest change of the four.</div></div>
-</div>
-
-<h2>Recommendation</h2>
-<p><b>B.</b> Seven tabs are really four jobs — what is it doing now, what runs on it, what has happened to it, what is it — and B names those four. The two things that make the admin strip crowded, the fourteen loose buttons and the admin-only Settings tab, each become one control (an Actions menu, a gear drawer), so operators and admins see the same four tabs. <b>C</b> if you want the merge without the drawer. <b>D</b> only if the page is going to keep growing sections.</p>
-<p class="note">Tab URLs (<span class="mono">?tab=queue</span> etc.) would redirect to their new homes, so bookmarks and alert links keep working.</p>
-</div>
-<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
-</body></html>
+<div class="gb"><div><b>Good</b> Smallest honest change: Queue + History + Alerts become Activity; About and Settings stay where they are; Settings is badged <i>admin</i> so its presence reads as a privilege, not clutter.</div><div><b>Bad</b> Still five, still one tab most people cannot open, About still a five-card scroll.</div></div></div><h2>D · Two tabs and a section rail</h2>
+<div class="opt"><div class="vp"><div class="hero"><div><div class="sn">TSAI <span class="mono">AT070AABU00231</span> <span class="hw">HW 84F90681</span></div>
+<div class="meta"><span class="pill ok">● Online</span> <span>v2.1.025-aio-glance-22</span> · <span>Tableside AI</span> · <span>Onboarded Oct 8, 2026</span> · <span>Last seen 3m ago</span> · <span>Battery 78%</span></div></div><div class="acts"><span class="btn pri">Actions ▾</span></div></div><div class="tabs"><span class="">Live</span><span class="on">Record</span></div>
+<div class="cols" style="grid-template-columns:180px 1fr"><div class="sidenav"><div>Vitals</div><div>Apps · 27</div><div>Queue</div><div>Alerts</div><div class="on">History</div><div>Activity</div><div>Hardware</div><div>Software</div><div>Security</div><div>Access</div><div>Enrollment</div><div>Wireless adb</div></div><div><div class="card"><div class="ch"><h4>History</h4><span class="m">today</span></div>
+<div class="tr3"><span>14:09</span><span>check-in</span><span class="dim">battery 78% · −43 dBm</span></div>
+<div class="tr3"><span>12:36</span><span>app_update → 1.9.2</span><span class="ok">done</span></div>
+<div class="tr3"><span>12:34</span><span>onboard</span><span class="dim">Ali Hassan · AIO Test Bistro</span></div>
+<div class="tr3"><span>12:29</span><span>enrolled</span><span class="dim">new per-device key</span></div>
+<div class="tr3"><span>12:20</span><span>check-in refused</span><span class="warn">401 · key unknown</span></div></div><div class="card"><div class="ch"><h4>Activity</h4><span class="r">all activity</span></div><div class="tr3"><span class="ub">A</span><span>Ali Hassan · device onboard</span><span class="dim">8 Oct 2026, 12:34 UTC</span></div></div></div></div>
+<div class="gb"><div><b>Good</b> Twelve sections, each one click, none nested; the strip never grows again.</div><div><b>Bad</b> A 180px rail on every device page, and "Live vs Record" is a weak split — Alerts is both. The biggest change of the four.</div></div></div><h2>Recommendation</h2>
+<p><b>B.</b> On this device the seven tabs hold one screen of content three times over (Queue "nothing queued", History five lines, Alerts "all clear") — B folds exactly those into one Activity timeline and summarises their state on the Overview, so the strip drops to four without hiding anything. The Actions menu already exists in the hero; B keeps it and moves only the admin-only Settings into a gear, which is what makes an admin's strip look like an operator's. <b>C</b> if you want the merge without the drawer; <b>D</b> only if the page is going to keep growing sections.</p>
+</div><script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script></body></html>
