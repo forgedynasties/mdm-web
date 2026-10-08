@@ -11,6 +11,16 @@
       {{if eq .Status "downloading"}}downloading{{if .Progress}} {{.Progress}}%{{end}}{{else if eq .Status "installing"}}installing{{else}}{{.Status}}{{end}}
     </span>
   </div>
+  {{/* The four steps, drawn (motion.css .m-rail): sent → downloading → installing →
+       installed. A failure turns the step it died on red. Refreshed with the rows every
+       2s until all done. */}}
+  {{$st := .Status}}
+  <ol class="m-rail ip-rail">
+    <li class="ok"><i><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></i>Sent</li>
+    <li class="{{if eq $st "downloading"}}on{{else if or (eq $st "installing") (eq $st "installed") (eq $st "completed")}}ok{{else if eq $st "failed"}}bad{{end}}"><i>{{if or (eq $st "installing") (eq $st "installed") (eq $st "completed")}}<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>{{else}}2{{end}}</i>Downloading</li>
+    <li class="{{if eq $st "installing"}}on{{else if or (eq $st "installed") (eq $st "completed")}}ok{{end}}"><i>{{if or (eq $st "installed") (eq $st "completed")}}<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>{{else}}3{{end}}</i>Installing</li>
+    <li class="{{if or (eq $st "installed") (eq $st "completed")}}ok{{end}}"><i>{{if or (eq $st "installed") (eq $st "completed")}}<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>{{else}}4{{end}}</i>Installed</li>
+  </ol>
   {{end}}
   {{if not .Rows}}<div class="muted" style="padding:20px;">Nothing to show — the installs may already have completed.</div>{{end}}
   {{if .AllDone}}<div class="ip-done">All done.</div>{{end}}
@@ -31,7 +41,9 @@
   .ip-m{flex:1;min-width:0;}
   .ip-nm{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:7px;}
   .ip-bar{height:7px;border-radius:99px;background:var(--surface-3,var(--surface2));overflow:hidden;}
-  .ip-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s ease;}
+  .ip-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden;}
+  .ip-bar i:not(.ok):not(.bad)::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:m-shimmer 1.6s linear infinite;}
+  .ip-rail{margin:2px 6px 10px 63px;width:auto;max-width:420px;}
   .ip-bar i.ok{background:var(--ok,#2bb673);}
   .ip-bar i.bad{background:var(--danger,#c0392b);}
   .ip-st{flex:none;white-space:nowrap;text-transform:capitalize;}

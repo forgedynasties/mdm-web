@@ -2965,8 +2965,10 @@
       var badge = navLink.querySelector('.nav-badge');
       if (!badge) return;
       badge.classList.remove('nav-badge-pulse');
+      navLink.classList.remove('m-bob');
       void badge.offsetWidth; // restart the animation
       badge.classList.add('nav-badge-pulse');
+      navLink.classList.add('m-bob'); // motion.css: the bell itself bobs twice
     }
 
     if (!document.getElementById('alerts-wrap')) return; // no bell (restaurant owner) → no stream
