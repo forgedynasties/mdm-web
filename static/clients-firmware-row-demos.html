@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Firmware client row — options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+h3{font-size:13.5px;margin:16px 0 6px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:880px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:16px 16px 6px;margin:14px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+/* --- mock of the real page --- */
+.mock{display:grid;grid-template-columns:190px 1fr;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);margin:12px 0}
+.side{background:var(--surface2);border-right:1px solid var(--border);padding:10px}
+.scap{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);padding:4px 6px 8px}
+.si{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border-radius:9px;font-size:13px;font-weight:600;color:var(--text-2);text-decoration:none;margin-bottom:3px}
+.si.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.si .n{font-size:11px;font-weight:700;color:var(--text-faint);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:1px 7px}
+.si .n.warn{color:var(--warn);border-color:var(--warn)}
+.det{padding:14px 16px}
+.det h4{font-size:16px;margin:0 0 2px}
+.note{font-size:12px;color:var(--text-faint);line-height:1.5;margin:0 0 12px;max-width:640px}
+.vseg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;margin-bottom:10px}
+.vseg a{font-size:12px;font-weight:700;color:var(--text-faint);padding:5px 11px;border-radius:7px;text-decoration:none;display:flex;gap:6px;align-items:center}
+.vseg a.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.vseg .n{font-size:10.5px;color:var(--text-faint)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 12px}
+.card{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--bg)}
+.card.warnc{border-color:var(--warn)}
+.card .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.card .v{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.card .sub{font-size:10.5px;color:var(--text-faint)}
+.bar{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:2px 0 6px}
+.bar i{display:block}.bar .behind{background:var(--warn)}.bar .unk{background:var(--border)}.bar .ok{background:var(--ok)}.bar .nb{background:var(--text-faint);opacity:.45}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--text-faint);margin-bottom:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.legend .behind{background:var(--warn)}.legend .unk{background:var(--border)}.legend .ok{background:var(--ok)}.legend .nb{background:var(--text-faint);opacity:.45}
+.tbl{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.th,.tr{display:grid;grid-template-columns:1.2fr .8fr 1.1fr .8fr 92px;gap:8px;padding:7px 10px;align-items:center;font-size:12.5px}
+.th{background:var(--surface2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.tr{border-top:1px solid var(--border)}
+.grp{display:grid;grid-template-columns:1fr auto;padding:6px 10px;background:var(--surface2);border-top:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text-faint)}
+.sn{font-weight:600;color:var(--accent-text,var(--accent))}
+.tag{font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;display:inline-block}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.behind{background:var(--warn-bg);color:var(--warn)}
+.tag.unk{background:var(--surface2);color:var(--text-faint)}
+.btn{font-size:11.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:8px;padding:4px 9px}
+.btn[disabled]{opacity:.5}
+.dash{color:var(--text-faint)}
+@media(max-width:720px){.mock{grid-template-columns:1fr}.cards{grid-template-columns:1fr 1fr}.gb{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Clients page — the firmware client as one row</h1>
+<p class="lead">GMS is not supported any more, and no label should name a tree (QCOM is the default and the only line built). But <b>101 of the 188 live devices run v2.0.x images</b> — 54% of the fleet — and <span class="mono">agentSlotFor</span> maps them to the <span class="mono">firmware-gms</span> slot. The decision is what their rows say, now that there is one <b>Firmware MDM</b> row and no build published for their platform key. Slot keys, the publish API and <span class="mono">?slot=</span> links do not change in any option.</p>
+
+<h2>A · Deployed today<span class="badge now">live now</span></h2>
+<div class="opt now">
+<div class="mock">
+  <div class="side"><div class="scap">Clients</div>
+    <a class="si on"><span class="nm">Firmware MDM</span><span class="n warn">188</span></a>
+    <a class="si"><span class="nm">Standard MDM</span><span class="n">4</span></a>
+  </div>
+  <div class="det">
+    <h4>Firmware MDM</h4>
+    <p class="note">The system app in our AOSP images. One build per tree, covering that tree's user and userdebug builds alike: the client is platform-signed, and the platform key belongs to the tree, not the variant.</p>
+    <div class="vseg"><a class="on">QCOM · v2.1.x<span class="n">87</span></a><a>GMS · v2.0.x<span class="n">101</span></a></div>
+    <div class="cards">
+      <div class="card"><div class="k">Hosted build</div><div class="v">1.9.0</div><div class="sub">code 73</div></div>
+      <div class="card"><div class="k">Devices</div><div class="v">87</div><div class="sub">on this client</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">75</div></div>
+      <div class="card warnc"><div class="k">Behind</div><div class="v">12</div></div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Nothing is hidden, and the two signing keys are impossible to confuse.</div>
+<div><b>Bad</b> Names both trees everywhere, offers GMS as a client you can pick and publish to, and splits one fleet across two tabs.</div></div>
+</div>
+
+<h2>B · One row, "no build for this device"<span class="badge pick">my pick</span></h2>
+<div class="opt">
+<div class="mock">
+  <div class="side"><div class="scap">Clients</div>
+    <a class="si on"><span class="nm">Firmware MDM</span><span class="n warn">188</span></a>
+    <a class="si"><span class="nm">Standard MDM</span><span class="n">4</span></a>
+  </div>
+  <div class="det">
+    <h4>Firmware MDM</h4>
+    <p class="note">The system app in our AOSP images, covering user and userdebug builds alike. It is platform-signed, so a device installs only a build signed with the key its own image trusts.</p>
+    <div class="cards">
+      <div class="card"><div class="k">Hosted build</div><div class="v">1.9.0</div><div class="sub">code 73</div></div>
+      <div class="card"><div class="k">Devices</div><div class="v">188</div><div class="sub">on this client</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">75</div></div>
+      <div class="card warnc"><div class="k">Behind</div><div class="v">12</div><div class="sub">101 need a newer image</div></div>
+    </div>
+    <div class="bar"><i class="behind" style="width:6.4%"></i><i class="nb" style="width:53.7%"></i><i class="ok" style="width:39.9%"></i></div>
+    <div class="legend"><span><i class="behind"></i>12 behind</span><span><i class="nb"></i>101 no build for this image</span><span><i class="ok"></i>75 up to date</span></div>
+    <div class="tbl">
+      <div class="th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AABU00231</a><span>1.9.0</span><span><span class="tag ok">up to date</span></span><span class="dash">2m</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AA2600037</a><span>1.6.2</span><span><span class="tag behind">behind</span></span><span class="dash">1h</span><span><button class="btn">Update</button></span></div>
+      <div class="tr"><a class="sn">AT070AABU00600</a><span>1.6.1</span><span><span class="tag unk" title="This device runs an older system image. The hosted client is signed with a key that image does not trust, so nothing can be installed on it from here — it needs a firmware OTA first.">no build for this image</span></span><span class="dash">6m</span><span><button class="btn" disabled>Update</button></span></div>
+      <div class="tr"><a class="sn">AT070AABU00622</a><span>1.6.1</span><span><span class="tag unk">no build for this image</span></span><span class="dash">21m</span><span><button class="btn" disabled>Update</button></span></div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> One fleet, one count (188) — the page total finally matches the fleet. Nothing names a tree. The 101 are visible, searchable and filterable, and the disabled button with its tooltip says exactly why they cannot be updated, which is the question an operator actually asks. "Behind" keeps meaning "a working update is one click away", so Update-all-behind stays honest.</div>
+<div><b>Bad</b> One new row state and one new chip to carry. The 101 sit in the list and will outnumber everything else until those devices get a newer image.</div></div>
+</div>
+
+<h2>C · One row, folded into "no version"</h2>
+<div class="opt">
+<div class="mock">
+  <div class="side"><div class="scap">Clients</div>
+    <a class="si on"><span class="nm">Firmware MDM</span><span class="n warn">188</span></a>
+    <a class="si"><span class="nm">Standard MDM</span><span class="n">4</span></a>
+  </div>
+  <div class="det">
+    <h4>Firmware MDM</h4>
+    <p class="note">The system app in our AOSP images, covering user and userdebug builds alike.</p>
+    <div class="cards">
+      <div class="card"><div class="k">Hosted build</div><div class="v">1.9.0</div><div class="sub">code 73</div></div>
+      <div class="card"><div class="k">Devices</div><div class="v">188</div><div class="sub">on this client</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">75</div></div>
+      <div class="card warnc"><div class="k">Behind</div><div class="v">12</div><div class="sub">101 not updatable from here</div></div>
+    </div>
+    <div class="tbl">
+      <div class="th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AABU00231</a><span>1.9.0</span><span><span class="tag ok">up to date</span></span><span class="dash">2m</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AABU00600</a><span>1.6.1</span><span><span class="tag unk">no version</span></span><span class="dash">6m</span><span><button class="btn" disabled>Update</button></span></div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Zero new vocabulary — reuses the existing "no version" state and its chip, so it is the smallest change by far.</div>
+<div><b>Bad</b> It is a lie: those devices did report a version (1.6.1), they just cannot take this build. An operator reading "no version" next to "1.6.1" learns nothing and will file it as a bug.</div></div>
+</div>
+
+<h2>D · One row, the 101 collapsed out of the list</h2>
+<div class="opt">
+<div class="mock">
+  <div class="side"><div class="scap">Clients</div>
+    <a class="si on"><span class="nm">Firmware MDM</span><span class="n warn">188</span></a>
+    <a class="si"><span class="nm">Standard MDM</span><span class="n">4</span></a>
+  </div>
+  <div class="det">
+    <h4>Firmware MDM</h4>
+    <p class="note">The system app in our AOSP images, covering user and userdebug builds alike.</p>
+    <div class="cards">
+      <div class="card"><div class="k">Hosted build</div><div class="v">1.9.0</div><div class="sub">code 73</div></div>
+      <div class="card"><div class="k">Devices</div><div class="v">188</div><div class="sub">on this client</div></div>
+      <div class="card"><div class="k">On this build</div><div class="v">75</div></div>
+      <div class="card warnc"><div class="k">Behind</div><div class="v">12</div></div>
+    </div>
+    <div class="tbl">
+      <div class="th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AABU00231</a><span>1.9.0</span><span><span class="tag ok">up to date</span></span><span class="dash">2m</span><span></span></div>
+      <div class="tr"><a class="sn">AT070AA2600037</a><span>1.6.2</span><span><span class="tag behind">behind</span></span><span class="dash">1h</span><span><button class="btn">Update</button></span></div>
+      <div class="grp"><span>101 on an older image · no build published for their key</span><span>show</span></div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Keeps the count right and the working list short — the rows you can act on stay at the top, the rest are one click away. Uses the group header the table already has.</div>
+<div><b>Bad</b> A collapsed group hides over half the fleet by default, and search/filter chips have to decide whether they reach inside it.</div></div>
+</div>
+
+<h2>Recommendation</h2>
+<p><b>B.</b> It gets the count right (188 = the fleet), names no tree, and the one thing it adds — a row state that says "no build for this image" with a disabled Update and a tooltip — is the honest answer to the only question those 101 rows raise. C reuses existing vocabulary but states something false next to a version number that is plainly there. D is B plus a collapse, and is worth doing later if the 101 rows turn out to drown the list; it is a presentation tweak on top of the same data, not a different decision.</p>
+<p>Either way the plumbing is the same: one display slot for the firmware client, with the device's real slot still deciding what may be installed — which is what stops a v2.0.x device ever being offered a build its platform key rejects.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
