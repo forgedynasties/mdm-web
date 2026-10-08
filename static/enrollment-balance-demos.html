@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll page — column balance &amp; sticky header · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1140px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:34px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);max-width:900px;margin:0 0 6px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.opt{border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0 26px;background:var(--surface)}
+.opt.now{border-color:var(--warn)}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:var(--surface2);color:var(--text-faint);margin-left:8px;vertical-align:2px}
+.badge.now{background:var(--warn-bg);color:var(--warn)}
+.badge.pick{background:var(--ok-bg);color:var(--ok)}
+.gb{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 2px 2px}
+.gb>div{font-size:12.5px;line-height:1.55}
+.gb b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:3px}
+/* a scrollable viewport so each option can actually be scrolled */
+.vp{height:330px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--bg);position:relative;padding:0 12px 14px}
+.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:9px 2px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border-soft,var(--border))}
+.bar.pill{top:6px;border:1px solid var(--border);border-radius:99px;padding:7px 14px;box-shadow:var(--shadow-sm);background:color-mix(in srgb,var(--surface) 92%,transparent)}
+.bar .bt{font-weight:800;font-size:13px}
+.bar .bs{font-size:11px;color:var(--text-faint)}
+.bar .ba{margin-left:auto;display:flex;gap:6px}
+.ttl{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:12px 0 2px}
+.ttl .hl{color:var(--warn)}
+.sub{font-size:11.5px;color:var(--text-faint);margin:0 0 10px}
+.cols{display:grid;grid-template-columns:1.62fr 1fr;gap:10px;align-items:start}
+.cols.sticky-rail>.rail{position:sticky;top:52px}
+.card{border:1px solid var(--border);border-radius:11px;background:var(--surface);margin:0 0 9px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--border)}
+.ch h3{font-size:12.5px;margin:0;font-weight:700}
+.ch .m{font-size:10.5px;color:var(--text-faint)}
+.ch .r{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--accent-text,var(--accent))}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:7px 11px;border-top:1px solid var(--border-soft,var(--border));align-items:center;font-size:12px}
+.row:first-of-type{border-top:0}
+.sn{font-weight:700;color:var(--accent-text,var(--accent));font-size:12px}
+.rs{font-size:10px;color:var(--text-faint)}
+.tag{font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 6px;background:var(--surface2);color:var(--text-faint)}
+.btn{font-size:10.5px;font-weight:700;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:7px;padding:3px 8px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.sel{font-size:10.5px;border:1px solid var(--border);border-radius:6px;padding:2px 5px;background:var(--surface);color:var(--text-2)}
+.more{display:block;width:100%;text-align:center;font-size:10.5px;font-weight:700;color:var(--accent-text,var(--accent));background:var(--surface2);border:0;border-top:1px solid var(--border);padding:5px}
+.pl{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:6px 11px;border-top:1px solid var(--border-soft,var(--border));font-size:11.5px}
+.pl:first-child{border-top:0}
+.qr{height:96px;margin:8px 11px;border:1px dashed var(--border);border-radius:8px;display:grid;place-items:center;font-size:10px;color:var(--text-faint)}
+.steps{padding:8px 11px;font-size:11px;color:var(--text-faint);line-height:1.6}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px;margin:0 11px 8px}
+.seg span{font-size:10.5px;font-weight:700;color:var(--text-faint);padding:4px 8px;border-radius:6px}
+.seg span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.full{margin-top:10px}
+.hint{font-size:11px;color:var(--text-faint);margin:6px 2px 0}
+@media(max-width:860px){.cols{grid-template-columns:1fr}.gb{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Enroll page — the lopsided columns, and a header that stays</h1>
+<p class="lead">Two faults in what shipped an hour ago. <b>The rail is far longer than the work column</b>: profiles carry an inline QR (168px each), "Recent" holds 6 rows plus a search bar, and the four how-it-works panes are full step lists — against a left column that is one strip and a list capped at 8. And <b>nothing stays put while you scroll</b>: the appbar morphs into a floating pill at 40px but carries no page context, so once the title scrolls away there is nothing saying what page you are on or how many devices are waiting. Each option below is scrollable — try them.</p>
+
+<h2>A · Deployed today<span class="badge now">live now</span></h2>
+<div class="opt now">
+<div class="vp">
+  <div class="bar"><span class="bt">AIO MDM</span><span class="bs">appbar — no page context</span></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="cols">
+    <div>
+      <div class="card"><div class="ch"><h3>Found on a venue's Wi-Fi</h3><span class="m">0 ready</span></div><div class="row"><div><span class="sn">77621cc9</span><div class="rs">10.32.1.5 · has an account</div></div><div><button class="btn">Check again</button></div></div></div>
+      <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><span class="r">All →</span></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs">Kiosk 22 · 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <button class="more">Show all 15 waiting</button>
+      </div>
+      <div style="height:6px"></div>
+    </div>
+    <div class="rail">
+      <div class="card"><div class="ch"><h3>Enrollment profiles</h3><span class="m">2 active</span></div>
+        <div class="pl"><div><b>mPOS rollout</b><div class="rs">Handheld · Downtown · 3/5</div></div><button class="btn">QR</button></div>
+        <div class="qr">QR 168×168 inline</div>
+        <div class="pl"><div><b>Menu boards</b><div class="rs">Dongle · no site · 1</div></div><button class="btn">QR</button></div>
+        <div class="qr">QR 168×168 inline</div>
+      </div>
+      <div class="card"><div class="ch"><h3>Recent enrollments</h3><span class="m">3 · 30 days</span></div>
+        <div class="pl"><div><b>K222026091306</b><div class="rs">a teammate · 2d</div></div><span></span></div>
+        <div class="pl"><div><b>5244ce4a</b><div class="rs">a teammate · 4d</div></div><span></span></div>
+        <div class="pl"><div><b>93RAX0A0ZY</b><div class="rs">a teammate · 6d</div></div><span></span></div>
+      </div>
+      <div class="card"><div class="ch"><h3>How devices get here</h3></div>
+        <div class="seg"><span class="on">AIO Enroll</span><span>QR</span><span>adb</span><span>firmware</span></div>
+        <div class="steps">1 · Open AIO Enroll and sign in<br>2 · Plug in a clean device, or pair over Wi-Fi<br>3 · Pick type and site, press Enroll<br><br>Server URL · fleet device key…</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Everything is on one page, one click deep.</div><div><b>Bad</b> The rail runs two to three times the height of the work column, so the page is mostly reference material; scroll far enough and nothing on screen says what page this is.</div></div>
+</div>
+
+<h2>B · Reference goes full width underneath; rail keeps only what is short<span class="badge pick">my pick</span></h2>
+<div class="opt">
+<div class="vp">
+  <div class="bar pill"><span class="bt">Enroll</span><span class="bs"><b style="color:var(--warn)">15</b> waiting · 0 found</span><span class="ba"><button class="btn pri">New profile</button></span></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM · 3 enrolled this week</div>
+  <div class="cols">
+    <div>
+      <div class="card"><div class="ch"><h3>Found on a venue's Wi-Fi</h3><span class="m">0 ready</span></div><div class="row"><div><span class="sn">77621cc9</span><div class="rs">10.32.1.5 · has an account</div></div><div><button class="btn">Check again</button></div></div></div>
+      <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span><span class="r">All →</span></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs">Kiosk 22 · 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">AK270AABU09999</span><div class="rs">Kiosk 27 · 1d</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+        <button class="more">Show all 15 waiting</button>
+      </div>
+    </div>
+    <div class="rail">
+      <div class="card"><div class="ch"><h3>Profiles</h3><span class="m">2 active</span><span class="r">New →</span></div>
+        <div class="pl"><div><b>mPOS rollout</b><div class="rs">Handheld · Downtown</div></div><span class="tag">3/5</span></div>
+        <div class="pl"><div><b>Menu boards</b><div class="rs">Dongle · no site</div></div><span class="tag">1</span></div>
+      </div>
+      <div class="card"><div class="ch"><h3>Recent</h3><span class="m">3 · 30 days</span><span class="r">All →</span></div>
+        <div class="pl"><div><b>K222026091306</b><div class="rs">a teammate · 2d</div></div><span></span></div>
+        <div class="pl"><div><b>5244ce4a</b><div class="rs">a teammate · 4d</div></div><span></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card full"><div class="ch"><h3>How devices get here</h3><span class="m">four paths, one fleet</span></div>
+    <div class="seg"><span class="on">AIO Enroll app</span><span>QR provisioning</span><span>adb</span><span>Firmware MDM devices</span></div>
+    <div class="steps">1 · Open AIO Enroll on your machine and sign in — every device it enrols records who did it.<br>2 · Plug in a clean device, or pair it over Wi-Fi.<br>3 · Pick the device type and site, press Enroll.</div>
+  </div>
+  <div class="card"><div class="ch"><h3>Profile QR</h3><span class="m">opens on the profile you pick</span></div><div class="qr">QR renders here, full width — one at a time</div></div>
+</div>
+<div class="gb"><div><b>Good</b> The rail holds only short summaries, so the two columns end near the same height. The step lists and the QR — the two things that made the rail tall — get the full width they were always cramped in. The sticky bar carries the page name, the waiting count and New profile, so scrolling never loses context.</div>
+<div><b>Bad</b> The how-to and the QR are below the fold; a profile's QR is one click rather than already open.</div></div>
+</div>
+
+<h2>C · Sticky rail — it stays while the work column scrolls</h2>
+<div class="opt">
+<div class="vp">
+  <div class="bar pill"><span class="bt">Enroll</span><span class="bs"><b style="color:var(--warn)">15</b> waiting</span></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="sub">26 Firmware MDM · 4 Standard MDM</div>
+  <div class="cols sticky-rail">
+    <div>
+      <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span></div>
+        <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">T7 · 2m</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Sunmi D3 Pro</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs">Kiosk 22</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">AK270AABU09999</span><div class="rs">Kiosk 27</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">15309017</span><div class="rs">Kiosk 18</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">2e02f2e5</span><div class="rs">Dongle</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">5244ce65</span><div class="rs">KDS</div></div><div><button class="btn">Done</button></div></div>
+        <div class="row"><div><span class="sn">1164ef81</span><div class="rs">POS</div></div><div><button class="btn">Done</button></div></div>
+      </div>
+    </div>
+    <div class="rail">
+      <div class="card"><div class="ch"><h3>Profiles</h3><span class="m">2 active</span></div>
+        <div class="pl"><div><b>mPOS rollout</b><div class="rs">3/5</div></div><button class="btn">QR</button></div>
+        <div class="pl"><div><b>Menu boards</b><div class="rs">1</div></div><button class="btn">QR</button></div>
+      </div>
+      <div class="card"><div class="ch"><h3>How devices get here</h3></div><div class="steps">AIO Enroll · QR · adb · firmware</div></div>
+    </div>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> Length stops mattering — the rail is pinned, and a long inbox scrolls past it. Cheapest change of the three: one <span class="mono">position:sticky</span> on the rail.</div>
+<div><b>Bad</b> Only helps when the rail is shorter than the viewport, which today it is not — so it has to be combined with trimming it (B). A pinned rail taller than the screen cannot be scrolled to its end.</div></div>
+</div>
+
+<h2>D · One column, reference behind a tab strip</h2>
+<div class="opt">
+<div class="vp">
+  <div class="bar pill"><span class="bt">Enroll</span><span class="bs">Inbox · Profiles · Recent · How-to</span></div>
+  <div class="ttl"><span class="hl">15</span> devices need a site</div>
+  <div class="seg" style="margin-left:0"><span class="on">Inbox<span style="opacity:.6"> 15</span></span><span>Found 0</span><span>Profiles 2</span><span>Recent 3</span><span>How-to</span></div>
+  <div class="card"><div class="ch"><h3>Needs assignment</h3><span class="m">15 waiting</span></div>
+    <div class="row"><div><span class="sn">AT070AABU00231</span><div class="rs">Firmware client · T7 · first seen 2m</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">K222026091304</span><div class="rs">Standard client · Sunmi D3 Pro · 1h</div></div><div><select class="sel"><option>Site…</option></select><select class="sel" style="margin-left:4px"><option>Type…</option></select> <button class="btn">Done</button></div></div>
+    <div class="row"><div><span class="sn">2df2f2f7</span><div class="rs">Firmware client · Kiosk 22 · 3h</div></div><div><select class="sel"><option>Site…</option></select> <button class="btn">Done</button></div></div>
+    <button class="more">Show all 15 waiting</button>
+  </div>
+</div>
+<div class="gb"><div><b>Good</b> No balance problem to solve — one column, full width for the row controls, and each section is a tab with its count. Scales no matter how long profiles or history get.</div>
+<div><b>Bad</b> Hides the scout finds behind a tab, which is the one thing that appears without anyone asking. And it is the layout we just moved away from, one tab strip later.</div></div>
+</div>
+
+<h2>The header, separately</h2>
+<p>All of B, C and D show the same sticky bar, because the fix is independent of the columns: the appbar already sticks and morphs to a pill at 40px — what it lacks is <b>anything about this page</b>. Filling it on scroll with the page name, the waiting count and the primary action (New profile) means the context never leaves the screen, and it costs one line of markup per page plus a class the existing scroll handler already toggles. If you would rather not touch the global appbar, the same bar can be a page-level sticky strip under it.</p>
+
+<h2>Recommendation</h2>
+<p><b>B, with C's sticky rail once the rail is short enough to fit.</b> B removes the two things that make the rail tall — the inline QRs and the four step lists — and gives them the width they deserved anyway; after that the columns end within a card of each other, and pinning the rail is a one-line follow-up. D is the honest fallback if you decide the page should stop being two columns at all, but it undoes this morning's pick.</p>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>
