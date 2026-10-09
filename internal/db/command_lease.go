@@ -155,3 +155,21 @@ func (d *DB) StampCommandRoundTrip(ctx context.Context, deviceID uuid.UUID) erro
 		UPDATE devices SET last_round_trip_ok_at = NOW() WHERE id = $1`, deviceID)
 	return err
 }
+
+// DeviceReadsHTTPCommands reports whether this device's last check-in said it can fetch
+// commands over HTTP (client 1.9.5+ firmware, or a DPC agent that reports the same).
+//
+// It decides what the socket carries: a pull-capable client gets a content-free "wake"
+// frame and fetches its own work, which means a half-open socket can only cost it a poll
+// interval. A client that cannot pull must still be handed the whole command over the
+// socket — that is the only path the 101 v2.0.x devices will ever have, so the push path
+// stays for good.
+func (d *DB) DeviceReadsHTTPCommands(ctx context.Context, deviceID uuid.UUID) bool {
+	var yes bool
+	if err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE((latest_extra->>'http_commands')::boolean, false)
+		FROM devices WHERE id = $1`, deviceID).Scan(&yes); err != nil {
+		return false
+	}
+	return yes
+}

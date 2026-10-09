@@ -614,6 +614,18 @@ func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 		log.Printf("[ws] GetPendingCommandsForDevice error: %v", err)
 		return
 	}
+	// A client that can fetch its own work is told there is some, and fetches it over HTTP
+	// where the hand-over is confirmed by a 200. Nothing is marked delivered here: the
+	// pull does that, so a lost wake leaves the queue honest. Clients that cannot pull —
+	// every v2.0.x device, permanently — keep the push path below unchanged.
+	if len(cmds) > 0 && h.db.DeviceReadsHTTPCommands(ctx, deviceID) {
+		if h.hub.Push(deviceID, marshalWake("commands")) {
+			return
+		}
+		// The socket went away between the flush and the push; its next poll picks the
+		// work up anyway.
+		return
+	}
 	for _, cmd := range cmds {
 		msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, cmd.Payload)
 		if !h.hub.Push(deviceID, msg) {
@@ -669,6 +681,11 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	}
 
 	for _, deviceID := range targetIDs {
+		// Pull-capable clients get the nudge, not the payload — see marshalWake.
+		if h.db.DeviceReadsHTTPCommands(ctx, deviceID) {
+			h.hub.Push(deviceID, marshalWake("commands"))
+			continue
+		}
 		if !h.hub.Push(deviceID, msg) {
 			continue
 		}
@@ -1871,6 +1888,12 @@ func (h *Handler) RedriveStuckDeliveries(ctx context.Context) {
 		if !h.hub.IsConnected(s.DeviceID) {
 			continue
 		}
+		if h.db.DeviceReadsHTTPCommands(ctx, s.DeviceID) {
+			// Re-nudge rather than re-push: the command is already in its queue, and the
+			// device decides when it has capacity to take it.
+			h.hub.Push(s.DeviceID, marshalWake("commands"))
+			continue
+		}
 		msg := marshalCommand(s.CommandID, s.Type, s.ApkURL, s.Payload)
 		if !h.hub.Push(s.DeviceID, msg) {
 			continue
@@ -2906,6 +2929,19 @@ func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessag
 		"apk_url":      apkURL,
 		"payload":      payload,
 	})
+	return msg
+}
+
+// marshalWake is the whole frame a pull-capable client gets instead of a command: "there
+// is work, fetch it now rather than at your next poll".
+//
+// It carries no id and no payload on purpose. A command written to a half-open socket is
+// swallowed and the queue shows a delivery that never happened (AT070AABU00077); a wake
+// written to the same socket costs the device one poll interval and nothing else. The
+// client already handles a content-free nudge of exactly this shape — checkin_now — so
+// this is a pattern both clients have shipped for months, applied to the command queue.
+func marshalWake(reason string) []byte {
+	msg, _ := json.Marshal(map[string]any{"type": "wake", "reason": reason})
 	return msg
 }
 

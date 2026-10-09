@@ -5416,7 +5416,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			-- max_attempts rides along because the delivery filter below reads it; a CTE
 			-- column that is selected but unused costs nothing, a missing one is a runtime
 			-- error on every delivery path at once.
-			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at, c.max_attempts
+			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at, c.max_attempts, c.lane
 			FROM commands c
 			WHERE c.id IN (
 				SELECT id FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
@@ -5497,7 +5497,14 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			-- screenshots that pile up) block every newer command forever.
 			OR NOT EXISTS (
 				SELECT 1 FROM live c2
-				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.type NOT IN ('ota', 'canary')
+				-- Same lane only. One queue per device meant a wedged install held up a
+				-- screenshot, a reboot and everything else for the rest of the hour; a
+				-- lane ("install", "shell", "firmware", "device") serializes work against
+				-- its own kind, which is the actual reason the gate exists. Rows created
+				-- before lanes existed default to 'default', so they serialize together
+				-- exactly as they did before.
+				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.lane = c.lane
+				  AND c2.type NOT IN ('ota', 'canary')
 				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 			)
