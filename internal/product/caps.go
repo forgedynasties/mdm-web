@@ -105,8 +105,9 @@ const (
 	CapInstallAPK    = "install_apk"
 	CapUninstall     = "uninstall"
 	CapReboot        = "reboot"
-	CapWipe          = "wipe"   // factory reset (Device Owner only)
-	CapConfig        = "config" // managed app configurations
+	CapWipe          = "wipe"     // factory reset (Device Owner only)
+	CapUnenroll      = "unenroll" // hand the device back: drop Device Owner, keep the data
+	CapConfig        = "config"   // managed app configurations
 	CapTelemetry     = "telemetry"
 	CapScreenCapture = "screen_capture" // screenshot + remote screen
 	CapInput         = "input"          // remote taps/keys

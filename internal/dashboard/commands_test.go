@@ -31,6 +31,7 @@ var wantCommandRoles = map[string][]string{
 	"update_splash":    {"admin"},
 	"logcat":           {"admin"},
 	"wipe":             {"admin"},
+	"unenroll":         {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
 }

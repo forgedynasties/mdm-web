@@ -415,6 +415,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
         <option value="query">Query</option>
         <option value="collect_logs">Collect logs</option>
         <option value="wipe">Wipe</option>
+        <option value="unenroll">Unenroll</option>
       </select>
       <select id="filter-target" class="filter-select" aria-label="Filter by target" onchange="filterCommands()">
         <option value="">All targets</option>
@@ -635,7 +636,7 @@ window.CMD_PREFILL = {{.Prefill}};
     ['Diagnostics', ['screenshot', 'query', 'collect_logs']]
   ];
   // Not offered from the fleet console at all (they would otherwise land in "Other").
-  var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true,
+  var GRID_HIDDEN = { set_kiosk: true, update_splash: true, shell: true, wipe: true, unenroll: true,
                       app_update: true, app_reload: true, app_restart: true,
                       app_clear_cache: true, app_update_check: true };
 
@@ -1048,7 +1049,7 @@ window.CMD_PREFILL = {{.Prefill}};
     reboot: { fw: 1, dpc: 1, lite: 0 }, screenshot: { fw: 1, dpc: 1, lite: 1 },
     query: { fw: 1, dpc: 1, lite: 0 }, shell: { fw: 1, dpc: 1, lite: 0 },
     set_kiosk: { fw: 1, dpc: 1, lite: 0 }, update_splash: { fw: 1, dpc: 0, lite: 0 },
-    wipe: { fw: 0, dpc: 1, lite: 0 }
+    wipe: { fw: 0, dpc: 1, lite: 0 }, unenroll: { fw: 0, dpc: 1, lite: 0 }
   };
   function kindRuns(t, k) {
     var sup = lastImpact.kindSup && lastImpact.kindSup[t];
