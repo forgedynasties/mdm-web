@@ -70,6 +70,7 @@
 .cl-tag.go .cl-spin{margin-right:0}
 @keyframes cl-sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.cl-spin{animation:none}}
+.cl-sent::before,.cl-sent::after{content:none!important}
 .cl-url{font-family:var(--mono);font-size:11px;color:var(--text-faint);word-break:break-all}
 .cl-split-bar{height:5px;border-radius:4px;background:var(--surface2);overflow:hidden;display:flex;margin-bottom:9px}
 .cl-split-bar i{display:block;height:100%;transition:width .6s cubic-bezier(.2,.8,.2,1);position:relative;overflow:hidden}
@@ -183,7 +184,10 @@ function clElsewhere(serial, peer, url) {
 
 function clSent(form) {
   var b = form.querySelector('button[type=submit]');
-  if (b) { b.disabled = true; b.innerHTML = '<span class="cl-spin"></span>Sent'; }
+  // .cl-sent kills the pseudo-element spinner the global submit feedback adds
+  // (.btn-submitting::after in style.css): this button draws its own, and the two
+  // together put a spinner on each side of the word.
+  if (b) { b.disabled = true; b.classList.add('cl-sent'); b.innerHTML = '<span class="cl-spin"></span>Sent'; }
   var d = document.getElementById('cl-detail');
   var slot = (new URLSearchParams(location.search)).get('slot') || '';
   setTimeout(function () {
