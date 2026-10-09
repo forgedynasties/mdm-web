@@ -90,20 +90,54 @@ func (s *Service) ScanDone(ctx context.Context, scoutID uuid.UUID) {
 	s.releaseScan(*restaurantID)
 }
 
-// fleetKeyPEM unseals the fleet adb private key. Returns an error the caller can show when
-// no key is set (the feature is inert until one is uploaded in Settings).
+// fleetKeyPEM unseals the default adb private key. Returns an error the caller can show
+// when no key is set (the feature is inert until one is uploaded in Settings).
 func (s *Service) fleetKeyPEM(ctx context.Context) (string, error) {
-	if s.cfg.FleetAdbKeySecret() == "" {
-		return "", errors.New("FLEET_ADB_KEY_SECRET is not set")
-	}
-	k, err := s.db.GetFleetAdbKey(ctx)
+	keys, err := s.fleetKeys(ctx)
 	if err != nil {
 		return "", err
 	}
-	if k == nil {
-		return "", errors.New("no fleet adb key uploaded")
+	return keys[0].PEM, nil
+}
+
+// labelledKey is one key as it rides in a frame: the scout tries each and tells us which
+// one the device took.
+type labelledKey struct {
+	Label string `json:"label"`
+	PEM   string `json:"key_pem"`
+}
+
+// fleetKeys unseals every adb key, default first. A device only trusts the key that was in
+// its own image, so the scout is given all of them rather than one.
+func (s *Service) fleetKeys(ctx context.Context) ([]labelledKey, error) {
+	if s.cfg.FleetAdbKeySecret() == "" {
+		return nil, errors.New("FLEET_ADB_KEY_SECRET is not set")
 	}
-	return fleetkey.Open(s.cfg.FleetAdbKeySecret(), k.PrivateSealed)
+	stored, err := s.db.ListFleetAdbKeys(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]labelledKey, 0, len(stored))
+	for _, k := range stored {
+		pem, err := fleetkey.Open(s.cfg.FleetAdbKeySecret(), k.PrivateSealed)
+		if err != nil {
+			log.Printf("[scout] key %s will not unseal: %v", k.Label, err)
+			continue // one bad key must not cost the scout the others
+		}
+		out = append(out, labelledKey{Label: k.Label, PEM: pem})
+	}
+	if len(out) == 0 {
+		return nil, errors.New("no fleet adb key uploaded")
+	}
+	return out, nil
+}
+
+// withKeys puts the keys in a frame: the list for a scout that understands labels, and the
+// default key alone under the old name for one that does not.
+func withKeys(frame map[string]any, keys []labelledKey) map[string]any {
+	frame["keys"] = keys
+	frame["key_pem"] = keys[0].PEM
+	return frame
 }
 
 // pickScout returns the connected firmware device that should scout a restaurant, or an
@@ -125,7 +159,7 @@ func (s *Service) pickScout(ctx context.Context, restaurantID uuid.UUID) (db.Sco
 // StartScan sends a scout a net_scan for its whole venue, or (host set) a re-probe of one
 // device. The key rides in the frame and is used only for this scan.
 func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host string) error {
-	key, err := s.fleetKeyPEM(ctx)
+	keys, err := s.fleetKeys(ctx)
 	if err != nil {
 		return err
 	}
@@ -136,12 +170,11 @@ func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host st
 	if since, ok := s.claimScan(restaurantID); !ok {
 		return fmt.Errorf("a scan of this venue started %s ago — wait for it to finish", since.Round(time.Second))
 	}
-	frame := map[string]any{
+	frame := withKeys(map[string]any{
 		"type":    "net_scan",
 		"session": newID(),
-		"key_pem": key,
 		"ttl_s":   600,
-	}
+	}, keys)
 	if host != "" {
 		frame["host"] = host
 	}
@@ -169,7 +202,7 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 	if sg.State != "ready" && sg.State != "failed" {
 		return errors.New("this device is not ready to enrol")
 	}
-	key, err := s.fleetKeyPEM(ctx)
+	keys, err := s.fleetKeys(ctx)
 	if err != nil {
 		return err
 	}
@@ -190,7 +223,7 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 	if !ok {
 		return errors.New("this device is already being enrolled")
 	}
-	frame := map[string]any{
+	frame := withKeys(map[string]any{
 		"type":       "net_enroll",
 		"job":        job,
 		"host":       sg.Host,
@@ -201,8 +234,9 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 		"apk_url":    apkURL,
 		"apk_sha256": apkSHA256,
 		"server_url": serverURL,
-		"key_pem":    key,
-	}
+		// The key this device took when it was seen: the scout tries it first.
+		"key_label": sg.KeyLabel,
+	}, keys)
 	raw, _ := json.Marshal(frame)
 	if !s.hub.Push(c.ID, raw) {
 		_ = s.db.FinishSighting(ctx, job, false, "scout went offline")
@@ -260,6 +294,7 @@ type sightingFrame struct {
 	Users           int    `json:"users"`
 	DPCVersion      string `json:"dpc_version"`
 	FirmwareVersion string `json:"firmware_version"`
+	KeyLabel        string `json:"key_label"`
 }
 
 // IngestSighting records one net_sighting. deviceID is the scout's; its restaurant is the
@@ -319,6 +354,7 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 		DPCVersion:      f.DPCVersion,
 		FirmwareVersion: f.FirmwareVersion,
 		ClassGuess:      prod.ClassForModel("", f.Manufacturer, f.Model),
+		KeyLabel:        f.KeyLabel,
 		State:           state,
 		Reason:          reason,
 	}

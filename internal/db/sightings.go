@@ -29,6 +29,7 @@ type Sighting struct {
 	DPCVersion      string
 	FirmwareVersion string
 	ClassGuess      string
+	KeyLabel        string // which of our adb keys it accepted; "" when the scout is older
 	State           string
 	Reason          string
 	Step            int
@@ -72,6 +73,7 @@ type SightingUpsert struct {
 	DPCVersion      string
 	FirmwareVersion string
 	ClassGuess      string
+	KeyLabel        string // which of our adb keys it accepted
 	State           string // ready | blocked | ours
 	Reason          string
 }
@@ -82,8 +84,8 @@ func (d *DB) UpsertSighting(ctx context.Context, s SightingUpsert) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO sightings (restaurant_id, scout_serial, host, port, serial, manufacturer, model,
 		    android, owner_pkg, owner_ours, accounts, users, dpc_version, firmware_version,
-		    class_guess, state, reason, last_seen)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
+		    class_guess, key_label, state, reason, last_seen)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
 		ON CONFLICT (restaurant_id, serial) WHERE serial <> '' DO UPDATE SET
 		    scout_serial = EXCLUDED.scout_serial, host = EXCLUDED.host, port = EXCLUDED.port,
 		    manufacturer = EXCLUDED.manufacturer, model = EXCLUDED.model, android = EXCLUDED.android,
@@ -91,11 +93,13 @@ func (d *DB) UpsertSighting(ctx context.Context, s SightingUpsert) error {
 		    accounts = EXCLUDED.accounts, users = EXCLUDED.users,
 		    dpc_version = EXCLUDED.dpc_version, firmware_version = EXCLUDED.firmware_version,
 		    class_guess = EXCLUDED.class_guess, last_seen = NOW(),
+		    -- Keep the last label that worked when a newer scout cannot say.
+		    key_label = CASE WHEN EXCLUDED.key_label <> '' THEN EXCLUDED.key_label ELSE sightings.key_label END,
 		    state = CASE WHEN sightings.state IN ('enrolling','enrolled') THEN sightings.state ELSE EXCLUDED.state END,
 		    reason = CASE WHEN sightings.state IN ('enrolling','enrolled') THEN sightings.reason ELSE EXCLUDED.reason END`,
 		s.RestaurantID, s.ScoutSerial, s.Host, s.Port, s.Serial, s.Manufacturer, s.Model,
 		s.Android, s.OwnerPkg, s.OwnerOurs, s.Accounts, s.Users, s.DPCVersion, s.FirmwareVersion,
-		s.ClassGuess, s.State, s.Reason)
+		s.ClassGuess, s.KeyLabel, s.State, s.Reason)
 	return err
 }
 
@@ -118,7 +122,7 @@ func (d *DB) UpsertUnauthorized(ctx context.Context, restaurantID uuid.UUID, sco
 
 const sightingCols = `s.id, s.restaurant_id, COALESCE(r.name,''), s.scout_serial, s.host, s.port, s.serial,
 	s.manufacturer, s.model, s.android, s.owner_pkg, s.owner_ours, s.accounts, s.users,
-	s.dpc_version, s.firmware_version, s.class_guess, s.state, s.reason, s.step,
+	s.dpc_version, s.firmware_version, s.class_guess, s.key_label, s.state, s.reason, s.step,
 	s.approved_by, s.approved_at, s.job_id, s.first_seen, s.last_seen`
 
 func scanSighting(row interface {
@@ -127,7 +131,7 @@ func scanSighting(row interface {
 	var s Sighting
 	err := row.Scan(&s.ID, &s.RestaurantID, &s.RestaurantName, &s.ScoutSerial, &s.Host, &s.Port, &s.Serial,
 		&s.Manufacturer, &s.Model, &s.Android, &s.OwnerPkg, &s.OwnerOurs, &s.Accounts, &s.Users,
-		&s.DPCVersion, &s.FirmwareVersion, &s.ClassGuess, &s.State, &s.Reason, &s.Step,
+		&s.DPCVersion, &s.FirmwareVersion, &s.ClassGuess, &s.KeyLabel, &s.State, &s.Reason, &s.Step,
 		&s.ApprovedBy, &s.ApprovedAt, &s.JobID, &s.FirstSeen, &s.LastSeen)
 	return s, err
 }

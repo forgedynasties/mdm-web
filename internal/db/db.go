@@ -13424,6 +13424,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_serial
     ON sightings(restaurant_id, serial) WHERE serial <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_host_noserial
     ON sightings(restaurant_id, host) WHERE serial = '';
+-- Which of our adb keys the device accepted (2026-10-09). A device trusts the key that was
+-- in its image, so this says which vendor's build it is running — and, when a key has to be
+-- rotated, exactly which devices are affected. '' = unknown (a scout older than vendor keys).
+ALTER TABLE sightings ADD COLUMN IF NOT EXISTS key_label TEXT NOT NULL DEFAULT '';
 
 -- Per-venue scout controls. scan_enabled gates the scheduled sweep; auto_enroll (phase 3,
 -- super admin, off by default) lets the scout enrol classifiable devices with no approval.
