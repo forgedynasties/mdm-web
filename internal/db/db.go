@@ -5051,6 +5051,12 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		return nil, err
 	}
 	metrics.Default.Emit("command", "warn", cmdType+" → "+targetType+" ("+strconv.Itoa(len(targetIDs))+")")
+	// First line of this command's history, written after the commit so the log never
+	// mentions a command that was rolled back.
+	d.AppendCommandEvent(ctx, cmd.ID, uuid.Nil, "created", map[string]any{
+		"type": cmdType, "lane": spec.Lane, "guarantee": string(spec.Guarantee),
+		"target_type": targetType, "targets": len(targetIDs), "by": createdBy,
+	})
 	return &cmd, nil
 }
 
@@ -5407,7 +5413,10 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- row by row instead ran a command_status probe per command ever created: 740 ms for
 		-- zero rows on live, on every connect, ack and minute flush — a CPU core, fleet-wide.
 		WITH live AS MATERIALIZED (
-			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
+			-- max_attempts rides along because the delivery filter below reads it; a CTE
+			-- column that is selected but unused costs nothing, a missing one is a runtime
+			-- error on every delivery path at once.
+			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at, c.max_attempts
 			FROM commands c
 			WHERE c.id IN (
 				SELECT id FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
