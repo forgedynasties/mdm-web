@@ -152,12 +152,28 @@ func (d *DB) DevicesNeedingCanary(ctx context.Context, staleAfter, seenWithin ti
 		  AND d.custody_server = ''
 		  AND d.last_seen_at > NOW() - $2::interval
 		  AND (d.last_round_trip_ok_at IS NULL OR d.last_round_trip_ok_at < NOW() - $1::interval)
+		  -- One probe per staleAfter window, full stop. Keyed on the command existing at
+		  -- all rather than on its status: a command that has not been handed out yet has
+		  -- NO command_status row, so a status-based check saw nothing queued and probed
+		  -- the same device every minute (observed on stage: 3 devices re-probed on every
+		  -- tick, which would have been 1440 probes a day each instead of one).
 		  AND NOT EXISTS (
-			SELECT 1 FROM command_status cs
-			JOIN commands c ON c.id = cs.command_id
-			WHERE cs.device_id = d.id
-			  AND cs.status NOT IN ('installed', 'failed', 'completed', 'cancelled', 'expired')
-			  AND c.created_at > NOW() - INTERVAL '1 hour')
+			SELECT 1 FROM commands c2
+			JOIN command_targets ct2 ON ct2.command_id = c2.id
+			WHERE ct2.target_id = d.id AND c2.type = 'canary'
+			  AND c2.created_at > NOW() - $1::interval)
+		  -- And never while this device has real work outstanding: that work is the
+		  -- measurement, and a probe would only measure the probe. Again by existence, not
+		  -- status, so a command still waiting to be delivered counts.
+		  AND NOT EXISTS (
+			SELECT 1 FROM commands c3
+			JOIN command_targets ct3 ON ct3.command_id = c3.id
+			WHERE ct3.target_id = d.id
+			  AND c3.created_at > NOW() - INTERVAL '1 hour'
+			  AND NOT EXISTS (
+				SELECT 1 FROM command_status s3
+				WHERE s3.command_id = c3.id AND s3.device_id = d.id
+				  AND s3.status IN ('installed', 'failed', 'completed', 'cancelled', 'expired')))
 		ORDER BY d.last_round_trip_ok_at ASC NULLS FIRST
 		LIMIT $3`, staleAfter, seenWithin, limit)
 	if err != nil {

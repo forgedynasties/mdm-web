@@ -186,3 +186,53 @@ func TestLanesSerializeOnlyAgainstTheirOwnKind(t *testing.T) {
 		t.Error("the second shell shares a lane with the first and must wait for it")
 	}
 }
+
+// The probe must fire once a day, not once a minute. The first version keyed "is there
+// already work for this device" on command_status, but a command that has not been handed
+// out yet has no status row at all — so every tick saw an idle device and queued another
+// probe (stage, 9 Oct: the same 3 devices re-probed every minute).
+func TestCanaryProbesADeviceOnceNotEveryTick(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	suffix := time.Now().Format("150405.000")
+	b := 80
+	dev, _, _, _, _, err := d.UpsertCheckin(ctx, "CANARY-A"+suffix, "v2.1.099", &b, nil, false, "t7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	has := func() bool {
+		due, err := d.DevicesNeedingCanary(ctx, 20*time.Hour, 2*time.Hour, 50)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range due {
+			if c.DeviceID == dev {
+				return true
+			}
+		}
+		return false
+	}
+	if !has() {
+		t.Fatal("a device with no proven round trip should be due a probe")
+	}
+	if _, err := d.CreateCommandBy(ctx, "canary", "", []byte(`{"cmd":"echo mdm-canary"}`), "devices", []uuid.UUID{dev}, "control probe"); err != nil {
+		t.Fatal(err)
+	}
+	// Nothing has been delivered or acked, so there is no command_status row yet — the
+	// exact state the first version mistook for "idle".
+	if has() {
+		t.Fatal("the device was probed again while its probe was still outstanding")
+	}
+}
