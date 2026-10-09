@@ -77,12 +77,23 @@ func (h *Handler) AppAdbKey(w http.ResponseWriter, r *http.Request, s *db.Sessio
 		appErr(w, http.StatusServiceUnavailable, "the keys cannot be unsealed on this server")
 		return
 	}
-	device := strings.TrimSpace(r.Header.Get("X-AIO-Device"))
-	if device == "" {
-		device = "unknown device"
+	// Who asked, in enough detail to recognise a fetch nobody expected: which app and
+	// version, and which machine. Both come from the client, so they are clamped to a
+	// sane length and are evidence of nothing on their own.
+	clip := func(v, fallback string) string {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return fallback
+		}
+		if len(v) > 64 {
+			v = v[:64]
+		}
+		return v
 	}
+	app := clip(r.Header.Get("X-AIO-App"), "unknown app")
+	device := clip(r.Header.Get("X-AIO-Device"), "unknown device")
 	h.auditAs(r, s.Username, "fleet_adb_key.fetch", out[0]["fingerprint"].(string),
-		fmt.Sprint(len(out))+" key(s) · "+strings.Join(fps, ", ")+" · "+ratelimit.ClientIP(r)+" · "+device)
+		fmt.Sprint(len(out))+" key(s) · "+strings.Join(fps, ", ")+" · "+ratelimit.ClientIP(r)+" · "+app+" · "+device)
 
 	body := map[string]any{"version": newest, "keys": out}
 	// ListFleetAdbKeys puts "default" first, so out[0] is it when it exists.
