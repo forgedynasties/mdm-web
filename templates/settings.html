@@ -1019,6 +1019,15 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── App library ── -->
   <section class="settings-tab" data-tab="applibrary">
+  {{template "app-library" .}}
+  </section>
+
+
+
+  {{/* ── Enrollment — the adb keys device images trust, one per vendor. The Enroll apps and
+       a scout fetch them to connect with no pairing code. Private keys are sealed at rest
+       (FLEET_ADB_KEY_SECRET) and never shown here. ── */}}
+  <section class="settings-tab" data-tab="enrollment">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
@@ -1054,15 +1063,6 @@ function kioskAddPkg(pkg, el){
   </div>
 </div>
 
-  {{template "app-library" .}}
-  </section>
-
-
-
-  {{/* ── Enrollment — the adb keys device images trust, one per vendor. The Enroll apps and
-       a scout fetch them to connect with no pairing code. Private keys are sealed at rest
-       (FLEET_ADB_KEY_SECRET) and never shown here. ── */}}
-  <section class="settings-tab" data-tab="enrollment">
 {{$fk := .FleetAdbKey}}
 <div class="cc-card" style="margin-bottom:16px;" id="fleet-adb-key">
   <div class="cc-ch">
