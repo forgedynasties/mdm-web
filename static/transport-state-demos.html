@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reporting but unreachable — how to show it · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1060px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5b16;background:#fdf3d2;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .now{background:rgba(210,170,40,.18);color:#e3c75f;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55;}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+/* fleet row mock */
+.row{display:flex;align-items:center;gap:14px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);margin-bottom:8px;}
+.row .ser{font-weight:700;font-size:13.5px;min-width:160px;}
+.row .meta{color:var(--text-faint);font-size:12px;margin-left:auto;}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:750;padding:3px 10px;border-radius:99px;border:1px solid transparent;}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.b-on{background:#e6f6ee;color:#1c7d50;} .b-on .dot{background:#2bb673;}
+.b-off{background:var(--surface-3);color:var(--text-faint);} .b-off .dot{background:#9aa0ac;}
+.b-warn{background:#fdeedd;color:#9a5213;} .b-warn .dot{background:#e8822e;}
+.b-bad{background:#fde8e8;color:#9c2b2b;} .b-bad .dot{background:#e05353;}
+html[data-theme="dark"] .b-on{background:rgba(43,182,115,.18);color:#5fd49a;}
+html[data-theme="dark"] .b-warn{background:rgba(232,130,46,.2);color:#f0a865;}
+html[data-theme="dark"] .b-bad{background:rgba(224,83,83,.2);color:#f08a8a;}
+.sub{font-size:11px;color:var(--text-faint);margin-top:2px;}
+.chipline{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;}
+.filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+.f{font-size:12px;font-weight:650;padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);}
+.f.on{background:var(--accent);border-color:transparent;color:#fff;}
+.hero{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:16px 18px;}
+.hero .top{display:flex;align-items:center;gap:12px;}
+.hero .nm{font-size:19px;font-weight:760;letter-spacing:-.01em;}
+.banner{display:flex;gap:11px;align-items:flex-start;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.55;margin-top:12px;}
+.banner.warn{background:#fdeedd;color:#7a4412;border:1px solid #f3cfa8;}
+.banner.bad{background:#fde8e8;color:#8c2727;border:1px solid #f1c0c0;}
+html[data-theme="dark"] .banner.warn{background:rgba(232,130,46,.14);border-color:rgba(232,130,46,.35);color:#f0b277;}
+html[data-theme="dark"] .banner.bad{background:rgba(224,83,83,.14);border-color:rgba(224,83,83,.35);color:#f09999;}
+.banner b{display:block;margin-bottom:2px;}
+table.cmp{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+table.cmp th,table.cmp td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+table.cmp th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);}
+@media (max-width:720px){body{padding:20px 16px 80px;}.goodbad{grid-template-columns:1fr;}.row{flex-wrap:wrap;}.row .meta{margin-left:0;}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>Reporting but unreachable — how the dashboard should show it</h1>
+<p class="lead">
+A firmware device whose WebSocket is gone keeps checking in over HTTP. Its telemetry is current, its
+battery and temperatures are live, "Last seen" says <em>just now</em> — and the badge says
+<b>Offline</b>, because the badge is live socket presence. Nothing anywhere says the thing that
+matters: commands sent to it will not run. That is what took a day to find on AT070AABU00077
+(9 Oct 2026: 15h of check-ins, a shell command stuck at <code>delivered</code>).
+</p>
+<p class="lead">
+With client 1.9.5 the server hands pending commands back in the check-in response, so such a device
+is <b>reachable but delayed</b>. On a client older than 1.9.5 — including every v2.0.x device, which
+cannot take the qcom-signed build — it is <b>not reachable at all</b>. The UI has to tell those two
+apart, because one is a note and the other is a truck roll. Pick one.
+</p>
+
+<!-- ───────────────────────── A ───────────────────────── -->
+<div class="eyebrow">Option A</div>
+<div class="dname">Third badge state<span class="now">closest to today</span></div>
+<p class="ddesc">
+Online / Offline becomes Online / <b>No control</b> / Offline. One badge, one place, every page that
+already renders the badge gets it free. The amber state means "alive and reporting, but we cannot
+command it".
+</p>
+<div class="panel">
+  <div class="row"><span class="ser">AT070AABU00232</span>
+    <span class="badge b-on"><span class="dot"></span>Online</span>
+    <span class="meta">just now · 41° · 68%</span></div>
+  <div class="row"><span class="ser">AT070AABU00077</span>
+    <span class="badge b-warn"><span class="dot"></span>No control</span>
+    <span class="meta">just now · 39° · 93%</span></div>
+  <div class="row"><span class="ser">AT070AABU00318</span>
+    <span class="badge b-off"><span class="dot"></span>Offline</span>
+    <span class="meta">6h ago · — · —</span></div>
+  <div class="goodbad">
+    <div><b>Good at</b> One vocabulary, no new column, no layout change. The contradiction
+      ("Offline · just now") disappears on its own. Sorts and filters that group by status keep working.</div>
+    <div><b>Bad at</b> Folds "delayed but reachable" and "cannot be reached" into one amber badge —
+      the operator still has to open the device to learn which. Three states is the most a single
+      badge can carry before it stops reading at a glance.</div>
+  </div>
+</div>
+
+<!-- ───────────────────────── B ───────────────────────── -->
+<div class="eyebrow">Option B</div>
+<div class="dname">Badge stays binary, transport is its own chip<span class="rec">my pick</span></div>
+<p class="ddesc">
+Online/Offline keeps meaning exactly what it means today — live socket — and a second chip names the
+channel: <b>WS</b>, <b>HTTP only</b>, or <b>No channel</b>. The two facts stay separate because they
+are separate, and "HTTP only" vs "No channel" is visible without opening anything.
+</p>
+<div class="panel">
+  <div class="row"><span class="ser">AT070AABU00232</span>
+    <span class="badge b-on"><span class="dot"></span>Online</span>
+    <span class="badge b-off">WS</span>
+    <span class="meta">just now · 41° · 68%</span></div>
+  <div class="row"><span class="ser">AT070AABU00077</span>
+    <span class="badge b-off"><span class="dot"></span>Offline</span>
+    <span class="badge b-warn"><span class="dot"></span>HTTP only</span>
+    <span class="meta">just now · 39° · 93%</span></div>
+  <div class="row"><span class="ser">AT070AABU00064</span>
+    <span class="badge b-off"><span class="dot"></span>Offline</span>
+    <span class="badge b-bad"><span class="dot"></span>No channel</span>
+    <span class="meta">2m ago · 37° · 54% · client 1.8.9</span></div>
+  <div class="row"><span class="ser">AT070AABU00318</span>
+    <span class="badge b-off"><span class="dot"></span>Offline</span>
+    <span class="meta">6h ago · — · —</span></div>
+  <div class="filters" style="margin-top:14px">
+    <span class="f on">All 188</span><span class="f">Online 50</span>
+    <span class="f">HTTP only 23</span><span class="f">No channel 14</span><span class="f">Offline 101</span>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Says precisely which of the three situations a device is in, in the roster,
+      without a click. The filter row is the fleet-wide number — the thing that would have shown this
+      the day it started. Nothing existing changes meaning.</div>
+    <div><b>Bad at</b> Two badges per row costs width and a little noise on a page already dense with
+      chips; a healthy fleet shows a "WS" chip on every row that carries no information.
+      (Fixable: render the transport chip only when it is <em>not</em> WS.)</div>
+  </div>
+</div>
+
+<!-- ───────────────────────── C ───────────────────────── -->
+<div class="eyebrow">Option C</div>
+<div class="dname">Device page banner only</div>
+<p class="ddesc">
+Leave the roster alone. The device page carries a banner, worded for whoever opens it, and the fleet
+learns about it through the alert instead of the badge.
+</p>
+<div class="panel">
+  <div class="hero">
+    <div class="top"><span class="nm">AT070AABU00077</span>
+      <span class="badge b-off"><span class="dot"></span>Offline</span>
+      <span class="meta" style="margin-left:auto">Last seen just now · v2.1.024 · client 1.8.9</span></div>
+    <div class="banner bad"><span>⛔</span><span><b>Reporting, but nothing can be sent to it</b>
+      No WebSocket for 15h 12m while still checking in every 5 minutes. This client takes commands over
+      the socket only, so anything queued for it will sit at <code>delivered</code> and expire.
+      Its socket thread is gone — a reboot is the only thing that brings it back.</span></div>
+    <div class="banner warn" style="margin-top:8px"><span>⚠️</span><span><b>Commands are going over check-in</b>
+      No WebSocket for 41m. Client 1.9.5 takes commands in the check-in response, so this device is
+      reachable, roughly a minute behind. Remote screen and adb tunnel need the socket and will not work.</span></div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Room to explain, and to say what to do about it — the only option that can
+      carry the "a reboot is the only fix" sentence. No roster changes at all.</div>
+    <div><b>Bad at</b> Invisible until someone already suspects that device. The fleet page keeps
+      showing the same contradiction that cost a day. Really a complement to A or B, not a rival.</div>
+  </div>
+</div>
+
+<div class="eyebrow">Side by side</div>
+<div class="panel">
+<table class="cmp">
+  <tr><th>&nbsp;</th><th>A — third state</th><th>B — transport chip</th><th>C — banner</th></tr>
+  <tr><td>Kills the "Offline · just now" contradiction</td><td>Yes</td><td>Yes</td><td>On the device page only</td></tr>
+  <tr><td>Tells delayed from unreachable</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Visible fleet-wide</td><td>Yes</td><td>Yes, with a count</td><td>No</td></tr>
+  <tr><td>Changes what "Offline" means</td><td>Yes</td><td>No</td><td>No</td></tr>
+  <tr><td>Work</td><td>Badge helper + templates</td><td>Badge helper, roster filter, device page</td><td>Device page only</td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>Deployed today:</b> none of these — the dashboard has only Online/Offline from live socket presence.
+<b>I would ship B plus C's banner.</b> B because the two facts the operator needs (is it alive, can we
+command it) are two facts, and folding them into one badge is what hid this; the chip is suppressed
+when it is plain WS, so a healthy fleet looks exactly as it does now. C because when a device is in
+the worst state the page has to say that a reboot is the fix, and a chip cannot say that. A is the
+cheap version if the roster must stay single-badge.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,tl=document.getElementById('tl'),td=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);tl.classList.toggle('on',t==='light');td.classList.toggle('on',t==='dark');}
+tl.onclick=()=>set('light');td.onclick=()=>set('dark');set('light');
+</script>
+</body></html>

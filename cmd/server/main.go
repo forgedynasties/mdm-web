@@ -315,6 +315,32 @@ func main() {
 	expvar.Publish("db_pool", expvar.Func(func() any { return database.PoolStats() }))
 	expvar.Publish("ws_connected_devices", expvar.Func(func() any { return len(hub.ConnectedIDs()) }))
 	expvar.Publish("goroutines", expvar.Func(func() any { return runtime.NumGoroutine() }))
+	// Devices that are reporting and cannot be commanded: checking in, but holding no
+	// WebSocket for over commandChannelGrace. One number for the failure that hid behind
+	// a healthy-looking fleet for a day — if it is not ~0, control is being lost somewhere.
+	// Devices that reconnected without checking in are corrected here rather than left
+	// counted, so the gauge does not drift upward on its own.
+	expvar.Publish("devices_no_command_channel", expvar.Func(func() any {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		missing, err := database.ListWSMissingDevices(ctx, 20*time.Minute, 15*time.Minute)
+		if err != nil {
+			return -1
+		}
+		n := 0
+		var reconnected []uuid.UUID
+		for _, m := range missing {
+			if hub.IsConnected(m.DeviceID) {
+				reconnected = append(reconnected, m.DeviceID)
+				continue
+			}
+			n++
+		}
+		if len(reconnected) > 0 {
+			_ = database.ClearWSMissingForDevices(ctx, reconnected)
+		}
+		return n
+	}))
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -502,6 +528,9 @@ func main() {
 	mux.Handle("POST /api/v1/device-key", devicePost(apiHandler.RegisterDeviceKey))
 	mux.Handle("POST /api/v1/devices/{serial}/key-reset", adminAuth(http.HandlerFunc(apiHandler.ResetDeviceKey)))
 	mux.Handle("POST /api/v1/devices/{serial}/simulate-offline", adminAuth(http.HandlerFunc(apiHandler.SimulateOffline)))
+	// Pull delivery: the device asks for its own work, so a device with no socket is late
+	// rather than unreachable. Same auth as the WebSocket; see api/commands_pull.go.
+	mux.Handle("GET /api/v1/commands/pending", deviceAuth(http.HandlerFunc(apiHandler.PendingCommands)))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
 	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
 	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))
