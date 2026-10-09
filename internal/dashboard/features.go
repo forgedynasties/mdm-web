@@ -205,6 +205,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
+	unenrollments, _ := h.db.RecentUnenrollments(r.Context(), time.Now().AddDate(0, 0, -90), 60)
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":          "Enrollment",
 		"ActivePage":     "enrollment",
@@ -216,6 +217,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Profiles":       profiles,
 		"ExpiredProfiles": expiredN,
 		"Enrollments":    enrollments,
+		"Unenrollments":  unenrollments,
 		"Names":          h.actorDisplayNames(r.Context()),
 		"Groups":         groups,
 		"Restaurants":    restaurants,

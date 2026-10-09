@@ -129,7 +129,7 @@
     <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
-    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span></button>
+    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span>{{if .Unenrollments}}<span class="n" title="handed back">−{{len .Unenrollments}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="how">How devices get here</button>
   </div>
 
@@ -257,6 +257,29 @@
     </table></div>
     {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
   </div>
+
+  {{/* ── Unenrollments: who handed a device back (devices.unenrolled_by). The device
+       dropped Device Owner and stopped reporting; its data stayed on it. Only shown
+       once it has happened, so a server that has never unenrolled anything is unchanged. ── */}}
+  {{if .Unenrollments}}
+  <div class="cc-card lt" id="en-unenrolled" data-lt-n="15" style="margin-top:16px;">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span><h2>Unenrollments</h2><span class="m">handed back · last 90 days · {{len .Unenrollments}}</span></div>
+    <div style="overflow:auto"><table class="en-recent">
+      <tr><th>When</th><th>Unenrolled by</th><th>Device</th><th>Class</th><th>Venue</th></tr>
+      {{range .Unenrollments}}
+      <tr class="lt-row" data-lt-text="{{.Serial}} {{if .UnenrolledBy}}{{(userBubble .UnenrolledBy).Name}} {{.UnenrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
+        <td class="small" title="{{formatTime .UnenrolledAt}}">{{timeSince .UnenrolledAt}}</td>
+        <td>{{if .UnenrolledBy}}{{template "ubub" (userBubble .UnenrolledBy)}} {{if userURL .UnenrolledBy}}<a href="{{userURL .UnenrolledBy}}" class="link-detail">{{(userBubble .UnenrolledBy).Name}}</a>{{else}}{{(userBubble .UnenrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Unenrolled before this was recorded.">not recorded</span>{{end}}</td>
+        <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
+        <td>{{classLabel .DeviceClass}}</td>
+        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
+      </tr>
+      {{end}}
+      <tr class="lt-more lt-out" data-what="unenrollments"><td colspan="5"><button type="button" class="app-more lt-more-t"></button></td></tr>
+    </table></div>
+    <div class="muted small" style="padding:0 16px 14px;">The device kept its data; it stopped being managed from here. Enrolling it again starts from a factory reset.</div>
+  </div>
+  {{end}}
 
   </section>
 

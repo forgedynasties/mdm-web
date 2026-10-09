@@ -5699,7 +5699,8 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 	// several paths — otherwise a device that left would just look like one gone quiet.
 	if status == "completed" || status == "installed" {
 		_, err = d.pool.Exec(ctx, `
-			UPDATE devices SET enrollment_status = $2
+			UPDATE devices SET enrollment_status = $2, unenrolled_at = NOW(),
+			       unenrolled_by = COALESCE((SELECT created_by FROM commands WHERE id = $3), '')
 			WHERE id = $1 AND EXISTS (SELECT 1 FROM commands c WHERE c.id = $3 AND c.type = 'unenroll')`,
 			deviceID, EnrollUnenrolled, commandID)
 	}
@@ -13447,6 +13448,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_host_noserial
 -- in its image, so this says which vendor's build it is running — and, when a key has to be
 -- rotated, exactly which devices are affected. '' = unknown (a scout older than vendor keys).
 ALTER TABLE sightings ADD COLUMN IF NOT EXISTS key_label TEXT NOT NULL DEFAULT '';
+
+-- Who handed a device back, and when (2026-10-09). The mirror of enrolled_by/enrolled_at:
+-- an unenroll is a person's decision and the Enrollment page shows it next to the
+-- enrolments, so a device leaving the fleet is as accountable as one joining it.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS unenrolled_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS unenrolled_at TIMESTAMPTZ;
 
 -- Which adb key a device is known to take (2026-10-09), by serial, whoever found out: the
 -- Enroll apps when they connect, a scout when it scans, the device's own client when it

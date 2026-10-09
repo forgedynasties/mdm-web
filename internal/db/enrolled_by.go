@@ -77,3 +77,38 @@ func nullTime(t time.Time) *time.Time {
 	}
 	return &t
 }
+
+// Unenrollment is one device handed back: who sent the unenroll, and when the device
+// reported it done. The mirror of [Enrollment].
+type Unenrollment struct {
+	Serial         string
+	DeviceClass    string
+	RestaurantName string
+	UnenrolledAt   time.Time
+	UnenrolledBy   string
+}
+
+// RecentUnenrollments lists devices that reported an unenroll, newest first. A device
+// unenrolled before this was recorded has no name against it, like an old enrolment.
+func (d *DB) RecentUnenrollments(ctx context.Context, since time.Time, limit int) ([]Unenrollment, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, d.device_class, COALESCE(r.name, ''),
+		       COALESCE(d.unenrolled_at, d.last_seen_at), d.unenrolled_by
+		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE d.enrollment_status = 'unenrolled'
+		  AND ($1::timestamptz IS NULL OR COALESCE(d.unenrolled_at, d.last_seen_at) >= $1)
+		ORDER BY COALESCE(d.unenrolled_at, d.last_seen_at) DESC LIMIT $2`, nullTime(since), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Unenrollment
+	for rows.Next() {
+		var u Unenrollment
+		if err := rows.Scan(&u.Serial, &u.DeviceClass, &u.RestaurantName, &u.UnenrolledAt, &u.UnenrolledBy); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
