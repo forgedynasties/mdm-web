@@ -173,3 +173,33 @@ func (d *DB) DeviceReadsHTTPCommands(ctx context.Context, deviceID uuid.UUID) bo
 	}
 	return yes
 }
+
+// CommandEventRow is one history line with the device it belongs to, for a command's
+// detail page: a multi-device send has a separate story per device.
+type CommandEventRow struct {
+	DeviceID *uuid.UUID
+	At       time.Time
+	Kind     string
+	Detail   json.RawMessage
+}
+
+// ListAllCommandEvents returns every event for one command, oldest first, including the
+// device-less ones (a 'created' row belongs to the command, not to any single device).
+func (d *DB) ListAllCommandEvents(ctx context.Context, commandID uuid.UUID) ([]CommandEventRow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id, at, kind, detail FROM command_events
+		WHERE command_id = $1 ORDER BY at, id`, commandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CommandEventRow
+	for rows.Next() {
+		var e CommandEventRow
+		if err := rows.Scan(&e.DeviceID, &e.At, &e.Kind, &e.Detail); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

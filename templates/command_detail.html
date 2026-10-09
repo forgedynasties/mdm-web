@@ -142,6 +142,30 @@
        at whatever the first render said. */}}
   <div id="ad-stats-src" hidden style="display:none">{{template "command-stats" .}}</div>
 </div>
+
+{{/* What actually happened, per device, with the waits named. The single status this
+     page used to show said "delivered" as soon as the server wrote the command to a
+     socket — and a half-open socket swallows that frame, so the page reported success
+     for a command the device never saw. The gap between two events is where the answer
+     lives, so the gaps are what this labels. */}}
+{{if .Timelines}}
+<div class="ad-tl-wrap">
+  {{range $serial, $steps := .Timelines}}
+  <details class="ad-tl"{{if eq (len $.Deliveries) 1}} open{{end}}>
+    <summary><span class="ad-tl-sn">{{$serial}}</span><span class="ad-tl-hint">history</span></summary>
+    <ol class="ad-tl-list">
+      {{range $steps}}
+      <li class="{{if .Bad}}bad{{else if .Done}}ok{{end}}">
+        {{if .Gap}}<div class="ad-tl-gap{{if .Bad}} bad{{end}}">{{.Gap}}</div>{{end}}
+        <div class="ad-tl-row"><b>{{.Label}}</b>{{if .At}}<span class="ad-tl-at">{{.At}}</span>{{end}}</div>
+        {{if .Note}}<div class="ad-tl-note">{{.Note}}</div>{{end}}
+      </li>
+      {{end}}
+    </ol>
+  </details>
+  {{end}}
+</div>
+{{end}}
 {{end}}
 
 {{define "command_detail.html"}}
@@ -149,6 +173,32 @@
 {{$cmd := .Command}}
 <style>
   .ad-wrap{max-width:1180px;margin:0 auto}
+  /* Command history. A wait is drawn as a labelled break in the rail rather than another
+     bullet, because the wait is the finding — "sent 06:03:41, received 08:17:53" reads as
+     two facts, where "2h 14m with no confirmation" reads as the answer. */
+  .ad-tl-wrap{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .ad-tl{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .ad-tl>summary{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:12.5px}
+  .ad-tl>summary::-webkit-details-marker{display:none}
+  .ad-tl>summary::before{content:"";width:0;height:0;border-left:5px solid var(--text-faint);
+    border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+  .ad-tl[open]>summary::before{transform:rotate(90deg)}
+  .ad-tl-sn{font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .ad-tl-hint{color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-left:auto}
+  .ad-tl-list{list-style:none;margin:0;padding:4px 16px 14px 30px;border-top:1px solid var(--border-soft)}
+  .ad-tl-list li{position:relative;padding:9px 0 0}
+  .ad-tl-list li::before{content:"";position:absolute;left:-16px;top:15px;width:8px;height:8px;border-radius:50%;
+    background:var(--border);box-shadow:0 0 0 3px var(--surface)}
+  .ad-tl-list li::after{content:"";position:absolute;left:-13px;top:23px;bottom:-9px;width:2px;background:var(--border-soft)}
+  .ad-tl-list li:last-child::after{display:none}
+  .ad-tl-list li.ok::before{background:var(--ok)}
+  .ad-tl-list li.bad::before{background:var(--danger)}
+  .ad-tl-row{display:flex;align-items:baseline;gap:10px;font-size:13px;line-height:1.5}
+  .ad-tl-row b{font-weight:650;color:var(--text)}
+  .ad-tl-at{color:var(--text-faint);font-size:11.5px;font-variant-numeric:tabular-nums;margin-left:auto}
+  .ad-tl-note{color:var(--text-faint);font-size:12px;line-height:1.45;margin-top:1px}
+  .ad-tl-gap{font-size:11.5px;color:var(--text-faint);font-style:italic;padding:2px 0 6px}
+  .ad-tl-gap.bad{color:var(--danger);font-style:normal;font-weight:650}
   .ad-head{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);padding:16px 18px}
   @media(max-width:700px){.ad-head{grid-template-columns:auto 1fr}.ad-pct{grid-column:1/-1;text-align:left}}
   .ad-glyph{width:56px;height:56px;flex:none;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px var(--accent-soft);overflow:hidden}

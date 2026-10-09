@@ -16637,6 +16637,9 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Siblings":   siblings,
 		"Nicknames":  nick,
 		"Deliveries": deliveries,
+		// What actually happened to this command, per device, with the waits named — the
+		// difference between "we sent it" and "it ran". See command_timeline.go.
+		"Timelines":  h.commandTimelines(r.Context(), cmd.ID, deliveries),
 		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
