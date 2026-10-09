@@ -12,9 +12,12 @@ import (
 	"mdm/internal/ratelimit"
 )
 
-// The fleet adb key: the one key pair the AIO firmware trusts, handed to the AIO Enroll
-// Android app after sign-in so it can adb-connect to firmware devices with no pairing
-// step. Settings → App library holds the card; the app fetches it from /api/v1/app/adb-key.
+// The fleet adb keys: the key pairs device images trust, handed to the AIO Enroll apps
+// after sign-in so they can adb-connect with no pairing step. One per vendor — a key
+// baked into an image can only be changed by a firmware release, so a single shared key
+// means one leak reopens every device we have. "default" is the key the AIO firmware
+// carries. Settings → App library holds the card; the apps fetch them from
+// /api/v1/app/adb-key.
 
 // roleCanFetchFleetKey says who may pull the private key through the app. Equal to
 // "may enroll" for now, so it can be tightened later without touching the app.
@@ -22,7 +25,12 @@ func roleCanFetchFleetKey(role string) bool { return roleCanOperate(role) }
 
 const fleetKeyFetchesPerHour = 10
 
-// AppAdbKey: GET /api/v1/app/adb-key → {"version","fingerprint","private_key_pem","public_key"}.
+// AppAdbKey: GET /api/v1/app/adb-key → every key the apps should try, newest version first:
+//
+//	{"version","keys":[{"label","fingerprint","version","private_key_pem","public_key"},…]}
+//
+// The default key's fields are repeated at the top level ("fingerprint", "private_key_pem",
+// "public_key") because the apps released before there were several read only those.
 // Every fetch is audited with who, from where and which phone; 10 per hour per person.
 func (h *Handler) AppAdbKey(w http.ResponseWriter, r *http.Request, s *db.Session) {
 	if !roleCanFetchFleetKey(s.Role) {
@@ -34,28 +42,53 @@ func (h *Handler) AppAdbKey(w http.ResponseWriter, r *http.Request, s *db.Sessio
 		appErr(w, http.StatusTooManyRequests, fmt.Sprintf("at most %d key fetches an hour; try again in %d minute(s)", fleetKeyFetchesPerHour, int(retry.Minutes())+1))
 		return
 	}
-	k, err := h.db.GetFleetAdbKey(r.Context())
+	keys, err := h.db.ListFleetAdbKeys(r.Context())
 	if err != nil {
 		appErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	if k == nil {
+	if len(keys) == 0 {
 		appErr(w, http.StatusNotFound, "no fleet adb key uploaded")
 		return
 	}
-	pem, err := fleetkey.Open(h.cfg.FleetAdbKeySecret(), k.PrivateSealed)
-	if err != nil {
-		appErr(w, http.StatusServiceUnavailable, err.Error())
+	secret := h.cfg.FleetAdbKeySecret()
+	out := make([]map[string]any, 0, len(keys))
+	newest, fps := 0, make([]string, 0, len(keys))
+	for _, k := range keys {
+		pem, err := fleetkey.Open(secret, k.PrivateSealed)
+		if err != nil {
+			// One key that will not unseal must not cost the app the others.
+			h.auditAs(r, s.Username, "fleet_adb_key.fetch", k.Fingerprint, k.Label+" · could not unseal: "+err.Error())
+			continue
+		}
+		out = append(out, map[string]any{
+			"label": k.Label, "version": k.Version, "fingerprint": k.Fingerprint,
+			"private_key_pem": pem, "public_key": k.PublicKey,
+		})
+		if k.Version > newest {
+			newest = k.Version
+		}
+		fps = append(fps, k.Label+"/"+k.Fingerprint)
+	}
+	if len(out) == 0 {
+		// Every key failed to unseal: the secret is wrong or missing, which is the one
+		// thing the operator needs told.
+		appErr(w, http.StatusServiceUnavailable, "the keys cannot be unsealed on this server")
 		return
 	}
 	device := strings.TrimSpace(r.Header.Get("X-AIO-Device"))
 	if device == "" {
 		device = "unknown device"
 	}
-	h.auditAs(r, s.Username, "fleet_adb_key.fetch", k.Fingerprint, "v"+fmt.Sprint(k.Version)+" · "+ratelimit.ClientIP(r)+" · "+device)
-	appJSON(w, http.StatusOK, map[string]any{
-		"version": k.Version, "fingerprint": k.Fingerprint, "private_key_pem": pem, "public_key": k.PublicKey,
-	})
+	h.auditAs(r, s.Username, "fleet_adb_key.fetch", out[0]["fingerprint"].(string),
+		fmt.Sprint(len(out))+" key(s) · "+strings.Join(fps, ", ")+" · "+ratelimit.ClientIP(r)+" · "+device)
+
+	body := map[string]any{"version": newest, "keys": out}
+	// ListFleetAdbKeys puts "default" first, so out[0] is it when it exists.
+	for _, f := range []string{"fingerprint", "private_key_pem", "public_key"} {
+		body[f] = out[0][f]
+	}
+	appJSON(w, http.StatusOK, body)
 }
 
 // fleetAdbKeyView is what the Settings card shows: metadata and the last fetches, never the key.

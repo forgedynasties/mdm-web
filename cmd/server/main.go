@@ -551,6 +551,11 @@ func main() {
 	mux.Handle("PUT /api/v1/fleet-adb-key", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.PutFleetAdbKey))))
 	mux.Handle("GET /api/v1/fleet-adb-key", adminAuth(http.HandlerFunc(apiHandler.GetFleetAdbKey)))
 	mux.Handle("DELETE /api/v1/fleet-adb-key", adminAuth(http.HandlerFunc(apiHandler.DeleteFleetAdbKey)))
+	// The same three, for one vendor's key, plus the list.
+	mux.Handle("PUT /api/v1/fleet-adb-key/{label}", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.PutFleetAdbKey))))
+	mux.Handle("GET /api/v1/fleet-adb-key/{label}", adminAuth(http.HandlerFunc(apiHandler.GetFleetAdbKey)))
+	mux.Handle("DELETE /api/v1/fleet-adb-key/{label}", adminAuth(http.HandlerFunc(apiHandler.DeleteFleetAdbKey)))
+	mux.Handle("GET /api/v1/fleet-adb-keys", adminAuth(http.HandlerFunc(apiHandler.ListFleetAdbKeys)))
 
 	// Deployments: cancelling one was dashboard-only, which left a stalled rollout
 	// unclearable without a browser (see internal/api/releases.go).

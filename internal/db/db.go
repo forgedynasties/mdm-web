@@ -13355,6 +13355,28 @@ CREATE TABLE IF NOT EXISTS fleet_adb_key (
 CREATE TABLE IF NOT EXISTS fleet_adb_key_seq (id INT PRIMARY KEY CHECK (id = 1), last_version INT NOT NULL DEFAULT 0);
 INSERT INTO fleet_adb_key_seq (id, last_version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
 
+-- One key per vendor (2026-10-09). A key baked into a vendor's image cannot be changed
+-- without a firmware release, so one key shared by every vendor means one leak reopens the
+-- whole fleet; a key per vendor keeps a leak to that vendor's units. 'default' is the key
+-- that was the only one before this table existed, and is still what the firmware trusts.
+-- The version counter stays global (fleet_adb_key_seq): the apps re-fetch the whole set
+-- when it moves, so any upload tells every app that something changed.
+CREATE TABLE IF NOT EXISTS fleet_adb_keys (
+    label              TEXT PRIMARY KEY,
+    version            INT NOT NULL,
+    fingerprint        TEXT NOT NULL,
+    public_key         TEXT NOT NULL,
+    private_key_sealed TEXT NOT NULL,
+    uploaded_by        TEXT NOT NULL DEFAULT '',
+    uploaded_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Carry the single old row over. ON CONFLICT DO NOTHING so a later deploy cannot put a
+-- stale copy back over a key uploaded since; fleet_adb_key itself is left alone, unread.
+INSERT INTO fleet_adb_keys (label, version, fingerprint, public_key, private_key_sealed, uploaded_by, uploaded_at)
+SELECT 'default', version, fingerprint, public_key, private_key_sealed, uploaded_by, uploaded_at
+FROM fleet_adb_key WHERE id = 1
+ON CONFLICT (label) DO NOTHING;
+
 -- Scout enrolment (plan: "a T7 enrols the other devices in its restaurant"). A firmware
 -- device (the scout) sweeps its restaurant's Wi-Fi on :5555 with the fleet adb key and
 -- reports every device that answers as a sighting; an operator (or, later, the auto-enrol
