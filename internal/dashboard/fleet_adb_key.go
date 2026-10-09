@@ -117,12 +117,20 @@ func (h *Handler) AppAdbKeySeen(w http.ResponseWriter, r *http.Request, s *db.Se
 	appJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
-// fleetAdbKeyView is what the Settings card shows: metadata and the last fetches, never the key.
+// fleetAdbKeyView is what the Settings card shows: each key's metadata, how many devices are
+// known to take it, and the last fetches. Never a private key.
 func (h *Handler) fleetAdbKeyView(r *http.Request) map[string]any {
-	k, _ := h.db.GetFleetAdbKey(r.Context())
+	keys, _ := h.db.ListFleetAdbKeys(r.Context())
+	counts, _ := h.db.CountDevicesByAdbKey(r.Context())
 	fetches, _ := h.db.ListAuditByAction(r.Context(), "fleet_adb_key.fetch", 20)
-	v := map[string]any{"Key": k, "Fetches": fetches, "SecretSet": h.cfg.FleetAdbKeySecret() != ""}
-	return v
+	k, _ := h.db.GetFleetAdbKey(r.Context())
+	return map[string]any{
+		"Keys":      keys,
+		"Devices":   counts,
+		"Key":       k, // the default one, for the "is this server set up" check
+		"Fetches":   fetches,
+		"SecretSet": h.cfg.FleetAdbKeySecret() != "",
+	}
 }
 
 // SettingsFleetAdbKeyUpload: POST /settings/fleet-adb-key (multipart: adbkey, adbkey_pub).
@@ -140,13 +148,18 @@ func (h *Handler) SettingsFleetAdbKeyUpload(w http.ResponseWriter, r *http.Reque
 		return r.FormValue(field)
 	}
 	priv, pub := read("adbkey"), read("adbkey_pub")
+	label, err := db.CleanFleetAdbKeyLabel(r.FormValue("label"))
+	if err != nil {
+		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+		return
+	}
 	if _, err := fleetkey.ValidatePrivate(priv); err != nil {
 		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
 		return
 	}
-	fp, err := fleetkey.Fingerprint(pub)
-	if err != nil {
-		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+	fp, err2 := fleetkey.Fingerprint(pub)
+	if err2 != nil {
+		h.hxDoneToast(w, r, "/settings", err2.Error(), "error")
 		return
 	}
 	sealed, err := fleetkey.Seal(h.cfg.FleetAdbKeySecret(), strings.TrimSpace(priv)+"\n")
@@ -154,28 +167,33 @@ func (h *Handler) SettingsFleetAdbKeyUpload(w http.ResponseWriter, r *http.Reque
 		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
 		return
 	}
-	v, err := h.db.PutFleetAdbKey(r.Context(), strings.TrimSpace(pub), sealed, fp, h.currentUsername(r))
+	v, err := h.db.PutFleetAdbKeyByLabel(r.Context(), label, strings.TrimSpace(pub), sealed, fp, h.currentUsername(r))
 	if err != nil {
 		h.hxDoneToast(w, r, "/settings", "Could not store the key", "error")
 		return
 	}
-	h.audit(r, "fleet_adb_key.upload", fp, fmt.Sprintf("version %d", v))
-	h.hxDoneToast(w, r, "/settings", fmt.Sprintf("Fleet adb key stored · %s · version %d", fp, v), "success")
+	h.audit(r, "fleet_adb_key.upload", fp, fmt.Sprintf("%s · version %d", label, v))
+	h.hxDoneToast(w, r, "/settings", fmt.Sprintf("adb key %s stored · %s · version %d", label, fp, v), "success")
 }
 
 // SettingsFleetAdbKeyRemove: POST /settings/fleet-adb-key/remove.
 func (h *Handler) SettingsFleetAdbKeyRemove(w http.ResponseWriter, r *http.Request) {
-	k, _ := h.db.GetFleetAdbKey(r.Context())
-	if k == nil {
-		h.hxDoneToast(w, r, "/settings", "No fleet adb key to remove", "error")
+	label, err := db.CleanFleetAdbKeyLabel(r.FormValue("label"))
+	if err != nil {
+		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
 		return
 	}
-	if err := h.db.DeleteFleetAdbKey(r.Context()); err != nil {
+	k, _ := h.db.GetFleetAdbKeyByLabel(r.Context(), label)
+	if k == nil {
+		h.hxDoneToast(w, r, "/settings", "No "+label+" adb key to remove", "error")
+		return
+	}
+	if err := h.db.DeleteFleetAdbKeyByLabel(r.Context(), label); err != nil {
 		h.hxDoneToast(w, r, "/settings", "Could not remove the key", "error")
 		return
 	}
-	h.audit(r, "fleet_adb_key.remove", k.Fingerprint, fmt.Sprintf("version %d", k.Version))
-	h.hxDoneToast(w, r, "/settings", "Fleet adb key removed · the apps drop their copy on next sign-in", "success")
+	h.audit(r, "fleet_adb_key.remove", k.Fingerprint, fmt.Sprintf("%s · version %d", label, k.Version))
+	h.hxDoneToast(w, r, "/settings", "adb key "+label+" removed · the apps drop their copy on next sign-in", "success")
 }
 
 var _ = time.Now
