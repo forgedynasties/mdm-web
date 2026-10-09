@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings → adb keys, one per vendor</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css"><link rel="stylesheet" href="/static/style.css">
+<style>
+  .demo-wrap{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+  .demo-head{margin:0 0 24px}
+  .opt{margin:0 0 34px}
+  .opt > h2{font-size:15px;margin:0 0 4px}
+  .note{font-size:12.5px;line-height:1.6}
+  .note b{font-weight:600}
+  .now{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--border-soft);margin-left:6px;vertical-align:middle}
+</style></head><body>
+<div class="demo-wrap">
+
+<div class="demo-head">
+  <h1>Settings → adb keys</h1>
+  <p class="muted note">The server now holds <b>one adb key per vendor</b> instead of one for everybody: a key baked
+  into a vendor's image can only be replaced by a firmware release, so one shared key means a single leak reopens the
+  whole fleet. The Settings card was built for exactly one key. Three ways it could show several — pick one and I'll
+  build it.</p>
+</div>
+
+<!-- ─────────────────────────── A ─────────────────────────── -->
+<div class="opt">
+  <h2>A · One row per key</h2>
+  <p class="muted note">The card keeps its shape; the single key block becomes a table. Upload gains a <b>label</b> box.</p>
+  <div class="cc-card" style="margin:10px 0 0">
+    <div class="cc-ch">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg></span>
+      <h2>adb keys</h2><span class="cc-tag ok">4 keys</span>
+    </div>
+    <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+      <div class="muted small" style="margin-bottom:10px;"><b>What they are.</b> The keys built into device images
+      (<span class="mono">/adb_keys</span>). The Enroll apps fetch them after sign-in and try each one, so a device
+      connects with no pairing code. Private keys are encrypted at rest and never displayed.</div>
+      <table class="cc-table" style="font-size:12.5px;">
+        <tr><th>Label</th><th>Fingerprint</th><th>Devices</th><th>Uploaded</th><th></th></tr>
+        <tr><td><b>default</b> <span class="cc-tag ok" style="font-size:10px">firmware</span></td><td class="mono">00025f10e96f</td><td class="muted">AIO T7, kiosks</td><td class="muted">2 days ago</td><td style="text-align:right"><button class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button></td></tr>
+        <tr><td><b>sunmi</b></td><td class="mono">6e71782df4e8</td><td class="muted">D3 Pro, D2s KDS</td><td class="muted">today</td><td style="text-align:right"><button class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button></td></tr>
+        <tr><td><b>mega-kiosk</b></td><td class="mono">f4bc0bb15a95</td><td class="muted">ZC-3568K</td><td class="muted">today</td><td style="text-align:right"><button class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button></td></tr>
+        <tr><td><b>dongle</b></td><td class="mono">929c4e693c31</td><td class="muted">TV box</td><td class="muted">today</td><td style="text-align:right"><button class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button></td></tr>
+      </table>
+      <form style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+        <input class="cc-input" placeholder="label, e.g. sunmi" style="font-size:12px;padding:6px 10px;width:160px;">
+        <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey (private, PEM)</label>
+        <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey.pub</label>
+        <button class="cc-btn primary" style="font-size:12px;padding:6px 14px;">Add key</button>
+      </form>
+    </div>
+    <div style="padding:16px;">
+      <div class="muted small" style="margin-bottom:8px;"><b>Last fetches</b> · who pulled keys through an app, from where, on which machine.</div>
+      <table class="cc-table" style="font-size:12.5px;">
+        <tr><th>When</th><th>Who</th><th>Key</th><th>From · device</th></tr>
+        <tr><td class="muted">4 min ago</td><td>ali</td><td class="mono">00025f10e96f</td><td class="muted">4 key(s) · default, sunmi, mega-kiosk, dongle · 10.32.0.4 · Pixel 6</td></tr>
+      </table>
+    </div>
+  </div>
+  <p class="note" style="margin-top:8px"><b>Good:</b> everything visible at once; adding a vendor is one row and one form.
+  <b>Bad:</b> the table is the whole card now — with 10 vendors it is long, and "default" does not look special.</p>
+</div>
+
+<!-- ─────────────────────────── B ─────────────────────────── -->
+<div class="opt">
+  <h2>B · Firmware key on top, vendor keys under it</h2>
+  <p class="muted note">The card we have today stays exactly as it is <span class="now">deployed today</span>, and vendor keys are a second block beneath.</p>
+  <div class="cc-card" style="margin:10px 0 0">
+    <div class="cc-ch">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg></span>
+      <h2>Fleet adb key</h2><span class="cc-tag ok">uploaded · v1</span>
+    </div>
+    <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+      <div class="muted small" style="margin-bottom:10px;"><b>What it is.</b> The adb key baked into the AIO firmware images (<span class="mono">/adb_keys</span>).</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="cc-tag ok">fingerprint</span><span class="mono small">00025f10e96f</span>
+        <span class="muted small">version 1 · uploaded 2 days ago by API key</span>
+        <button class="cc-btn" style="font-size:12px;padding:6px 14px;margin-left:auto;">Remove</button>
+      </div>
+    </div>
+    <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+      <div class="muted small" style="margin-bottom:10px;"><b>Vendor keys.</b> Devices we buy in, whose images carry a key of their own. The apps try each.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <span class="cc-tag">sunmi · <span class="mono">6e71782df4e8</span></span>
+        <span class="cc-tag">mega-kiosk · <span class="mono">f4bc0bb15a95</span></span>
+        <span class="cc-tag">dongle · <span class="mono">929c4e693c31</span></span>
+        <button class="cc-btn" style="font-size:11px;padding:4px 10px;">Add a vendor key</button>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:8px"><b>Good:</b> smallest change, and it says which key is ours and which are bought in.
+  <b>Bad:</b> two upload paths doing the same job; a vendor key's fetch history and upload date are hidden behind a chip.</p>
+</div>
+
+<!-- ─────────────────────────── C ─────────────────────────── -->
+<div class="opt">
+  <h2>C · A card per key</h2>
+  <p class="muted note">Each key is its own small card in a grid, like the Clients page.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:10px;">
+    <div class="cc-card" style="padding:14px;"><div style="display:flex;align-items:center;gap:8px;"><b>default</b><span class="cc-tag ok" style="font-size:10px">firmware</span></div><div class="mono small" style="margin:6px 0">00025f10e96f</div><div class="muted small">AIO T7, kiosks · v1 · 2 days ago</div></div>
+    <div class="cc-card" style="padding:14px;"><b>sunmi</b><div class="mono small" style="margin:6px 0">6e71782df4e8</div><div class="muted small">D3 Pro, D2s KDS · v2 · today</div></div>
+    <div class="cc-card" style="padding:14px;"><b>mega-kiosk</b><div class="mono small" style="margin:6px 0">f4bc0bb15a95</div><div class="muted small">ZC-3568K · v3 · today</div></div>
+    <div class="cc-card" style="padding:14px;border-style:dashed;display:flex;align-items:center;justify-content:center;"><button class="cc-btn" style="font-size:12px;padding:6px 14px;">Add a key</button></div>
+  </div>
+  <p class="note" style="margin-top:8px"><b>Good:</b> room for what each key is for; reads well at a glance.
+  <b>Bad:</b> most space for the least information, and the fetch log has nowhere to live inside it.</p>
+</div>
+
+<div class="cc-card" style="padding:16px;">
+  <b>What I would pick: A.</b>
+  <p class="note muted" style="margin:6px 0 0">The keys are one kind of thing and belong in one list; B's split invites two
+  upload forms that do the same job, and C spends the most room on a fingerprint nobody reads twice. A keeps the fetch log,
+  which is the part that matters when a key leaks — it is the only record of who took one. The "firmware" tag on the
+  default row covers the one thing B is right about.</p>
+</div>
+
+</div></body></html>
