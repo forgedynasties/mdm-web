@@ -274,6 +274,13 @@
   </div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--border-soft);">
     <div>
+      <strong>Daily control probe</strong>
+      <div class="muted small">Send each device one harmless command a day and record whether it came back, so "we can command this fleet" is measured rather than assumed — a device can report healthy telemetry for days while being unable to run anything. Runs in its own queue so it never delays an operator's command, and stays out of the actions history.</div>
+    </div>
+    {{template "settings-toggle" (dict "Action" "/settings/command-canary/toggle" "On" .CommandCanary)}}
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--border-soft);">
+    <div>
       <strong>Ignore Standard MDM check-ins</strong>
       {{if .IgnoreDPCCheckins}}<span class="cc-tag warn">Standard MDM support off</span>{{end}}
       <div class="muted small">Drop check-ins and telemetry from devices running the Standard MDM instead of storing them. The agent still gets a normal reply, so it keeps its usual interval. Those devices already enrolled keep their history and stop updating until this is switched off. Firmware devices are unaffected.</div>

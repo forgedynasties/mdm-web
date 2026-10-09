@@ -18651,6 +18651,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"BaseCases":             baseCases,
 		"ExtraColumns":          h.cfg.Columns(),
 		"LegacyCheckin":         h.cfg.LegacyCheckin(),
+		"CommandCanary":         h.cfg.CommandCanary(),
 		"LegacyBuilds":          h.cfg.LegacyBuilds(),
 		"WlcProducts":           h.cfg.WlcProducts(),
 		"CheckinInterval":       h.cfg.CheckinInterval(),
@@ -18924,6 +18925,15 @@ func (h *Handler) SettingsToggleIgnoreDPC(w http.ResponseWriter, r *http.Request
 	_ = h.cfg.SetIgnoreDPCCheckins(!h.cfg.IgnoreDPCCheckins())
 	h.audit(r, "settings.ignore_dpc_checkins", "", fmt.Sprintf("%t", h.cfg.IgnoreDPCCheckins()))
 	h.settingsToggleResponse(w, r, "/settings/ignore-dpc/toggle", h.cfg.IgnoreDPCCheckins())
+}
+
+// SettingsToggleCommandCanary switches the daily control probe on and off. Off by
+// default: it is one queued command per device per day, which is cheap but is still a
+// decision about the fleet rather than a default.
+func (h *Handler) SettingsToggleCommandCanary(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetCommandCanary(!h.cfg.CommandCanary())
+	h.audit(r, "settings.command_canary", "", fmt.Sprintf("%t", h.cfg.CommandCanary()))
+	h.settingsToggleResponse(w, r, "/settings/command-canary/toggle", h.cfg.CommandCanary())
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
@@ -21977,6 +21987,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/legacy-builds/add", h.requireStrictAdmin(h.SettingsAddLegacyBuild))
 	post("POST /settings/legacy-builds/remove", h.requireStrictAdmin(h.SettingsRemoveLegacyBuild))
 	post("POST /settings/legacy-checkin/toggle", h.requireStrictAdmin(h.SettingsToggleLegacyCheckin))
+	post("POST /settings/command-canary/toggle", h.requireStrictAdmin(h.SettingsToggleCommandCanary))
 	post("POST /settings/ignore-dpc/toggle", h.requireStrictAdmin(h.SettingsToggleIgnoreDPC))
 	post("POST /settings/shell/toggle", h.requireStrictAdmin(h.SettingsToggleShell))
 	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))

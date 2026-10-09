@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sent is not received — command status options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1000px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:830px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:830px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5b16;background:#fdf3d2;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .now{background:rgba(210,170,40,.18);color:#e3c75f;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55;}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+/* queue row mock */
+.qrow{display:flex;align-items:center;gap:12px;padding:10px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);margin-bottom:8px;}
+.qrow .ty{font-weight:700;font-size:13px;min-width:92px;}
+.qrow .sr{color:var(--text-faint);font-size:12px;min-width:150px;}
+.qrow .when{color:var(--text-faint);font-size:12px;margin-left:auto;}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:750;padding:3px 10px;border-radius:99px;}
+.st .dot{width:7px;height:7px;border-radius:50%;}
+.s-sent{background:var(--surface-3);color:var(--text-faint);} .s-sent .dot{background:#9aa0ac;}
+.s-recv{background:var(--info-bg);color:var(--info);} .s-recv .dot{background:var(--info);}
+.s-run{background:var(--warn-bg);color:var(--warn);} .s-run .dot{background:var(--warn);}
+.s-done{background:var(--ok-bg);color:var(--ok);} .s-done .dot{background:var(--ok);}
+.s-stuck{background:var(--danger-bg);color:var(--danger);} .s-stuck .dot{background:var(--danger);}
+/* timeline */
+.tl{margin:10px 0 0;padding:0 0 0 18px;border-left:2px solid var(--border);list-style:none;}
+.tl li{position:relative;font-size:12.5px;line-height:1.5;padding:0 0 11px;color:var(--text-2);}
+.tl li::before{content:"";position:absolute;left:-23px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--border);
+  box-shadow:0 0 0 3px var(--surface);}
+.tl li.ok::before{background:var(--ok);} .tl li.bad::before{background:var(--danger);}
+.tl b{color:var(--text);}
+.tl .t{color:var(--text-faint);font-variant-numeric:tabular-nums;}
+.gap{color:var(--danger);font-weight:700;}
+table{width:100%;border-collapse:collapse;font-size:12.8px;margin-top:8px;}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);}
+@media (max-width:720px){body{padding:20px 16px 80px;}.goodbad{grid-template-columns:1fr;}.qrow{flex-wrap:wrap}.qrow .when{margin-left:0}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl2" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>"Sent" is not "received" — how command status should read</h1>
+<p class="lead">
+The queue shows <b>delivered</b> as soon as the server writes a command to a socket. A half-open
+socket swallows that frame, so the operator is told the device has it when the device has never seen
+it. The delivery query has always known this — it re-delivers anything <code>delivered</code> whose
+<code>received_at</code> is null — but the page never said so. That is what made AT070AABU00077 take
+a day: the evidence was on the screen, reading as success.
+</p>
+<p class="lead">
+The server now records every transition in <code>command_events</code> (created · leased · received ·
+progress · terminal), and <code>received</code> is the ack the device itself sends. Three ways to put
+that on the page. Pick one.
+</p>
+
+<div class="eyebrow">Option A</div>
+<div class="dname">Rename the status only<span class="now">one line of work</span></div>
+<p class="ddesc">
+<code>delivered</code> renders as <b>Sent</b>, and a command that has been acked shows <b>Received</b>.
+No new UI, no timeline — just stop calling an unconfirmed write a delivery.
+</p>
+<div class="panel">
+  <div class="qrow"><span class="ty">shell</span><span class="sr">AT070AABU00077</span>
+    <span class="st s-sent"><span class="dot"></span>Sent</span><span class="when">3m ago</span></div>
+  <div class="qrow"><span class="ty">install_apk</span><span class="sr">AT070AABU00231</span>
+    <span class="st s-recv"><span class="dot"></span>Received</span><span class="when">2m ago</span></div>
+  <div class="qrow"><span class="ty">reboot</span><span class="sr">AT070AABU00318</span>
+    <span class="st s-done"><span class="dot"></span>Completed</span><span class="when">1m ago</span></div>
+  <div class="goodbad">
+    <div><b>Good at</b> Honest immediately, everywhere a status is rendered, at near-zero risk.
+      "Sent" invites the right question where "Delivered" closed it.</div>
+    <div><b>Bad at</b> Says nothing about <em>how long</em> it has been unconfirmed, which is the
+      actual signal — 3 seconds at "Sent" is normal, 20 minutes is a dead socket.</div>
+  </div>
+</div>
+
+<div class="eyebrow">Option B</div>
+<div class="dname">Sent, with the wait called out<span class="rec">my pick</span></div>
+<p class="ddesc">
+Option A plus the thing that distinguishes normal from broken: a command unconfirmed past its
+expected window turns red and says so. No timeline UI, but the page answers "is this stuck?".
+</p>
+<div class="panel">
+  <div class="qrow"><span class="ty">shell</span><span class="sr">AT070AABU00077</span>
+    <span class="st s-stuck"><span class="dot"></span>Sent, unconfirmed 21m</span><span class="when">21m ago</span></div>
+  <div class="qrow"><span class="ty">shell</span><span class="sr">AT070AABU00231</span>
+    <span class="st s-sent"><span class="dot"></span>Sent 4s ago</span><span class="when">4s ago</span></div>
+  <div class="qrow"><span class="ty">install_apk</span><span class="sr">AT070AA2600030</span>
+    <span class="st s-run"><span class="dot"></span>Installing 62%</span><span class="when">2m ago</span></div>
+  <div class="qrow"><span class="ty">screenshot</span><span class="sr">AT070AABU00318</span>
+    <span class="st s-done"><span class="dot"></span>Completed</span><span class="when">1m ago</span></div>
+  <div class="goodbad">
+    <div><b>Good at</b> Turns the status column into a diagnosis. A red "unconfirmed 21m" next to a
+      device the banner already calls unreachable tells the whole story without a click, and it is
+      the exact row that would have been red on 9 Oct.</div>
+    <div><b>Bad at</b> Needs a per-type notion of "too long" (the registry's lease covers it), and
+      one more colour in a column that already carries several.</div>
+  </div>
+</div>
+
+<div class="eyebrow">Option C</div>
+<div class="dname">Full event timeline on the command</div>
+<p class="ddesc">
+Everything in <code>command_events</code>, rendered where a single command is already shown. The gap
+between two events is where the answer lives, so the gap is labelled.
+</p>
+<div class="panel">
+  <ul class="tl">
+    <li class="ok"><b>Queued</b> by Ali Hassan · <span class="t">06:03:38</span></li>
+    <li class="ok"><b>Sent</b> over the WebSocket · <span class="t">06:03:41</span></li>
+    <li class="bad"><b>Never received.</b> <span class="gap">2h 14m</span> with no confirmation from the
+      device — it was checking in over HTTP the whole time, holding no socket.</li>
+    <li><b>Re-sent</b> over its check-in · <span class="t">08:17:52</span></li>
+    <li class="ok"><b>Received</b> by the device · <span class="t">08:17:53</span></li>
+    <li class="ok"><b>Completed</b> · <span class="t">08:17:54</span> · output 1 line</li>
+  </ul>
+  <div class="goodbad">
+    <div><b>Good at</b> The only option that shows <em>where</em> the time went, and the only one that
+      can say "never received" as a fact rather than an inference. Free audit trail: who queued it,
+      which transport carried it, how many attempts.</div>
+    <div><b>Bad at</b> A click away, so it explains after you already suspect something. Needs a
+      place to live (command detail page, or an expanding queue row).</div>
+  </div>
+</div>
+
+<div class="eyebrow">Side by side</div>
+<div class="panel">
+<table>
+  <tr><th>&nbsp;</th><th>A — rename</th><th>B — rename + wait</th><th>C — timeline</th></tr>
+  <tr><td>Stops the queue claiming a delivery that did not happen</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Distinguishes normal from stuck, at a glance</td><td>No</td><td>Yes</td><td>Only once opened</td></tr>
+  <tr><td>Shows where the time went</td><td>No</td><td>Roughly</td><td>Exactly</td></tr>
+  <tr><td>New UI surface</td><td>None</td><td>None</td><td>A panel</td></tr>
+  <tr><td>Work</td><td>Status label map</td><td>Label map + lease-aware threshold</td><td>Query + panel + a place for it</td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>Deployed today:</b> none — the queue still says "delivered" for an unconfirmed write.
+<b>I would ship B now and C next.</b> B because it costs almost nothing and converts the status
+column from reassurance into a diagnosis; C because the event log is already being written and
+leaving it unread wastes the part of the design that answers "when did the device actually get it".
+A is strictly worse than B for the same work, so it only makes sense if the extra colour is
+unwelcome. All three are honest; only B is honest <em>and</em> noticeable without a click.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl2'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark');}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');set('light');
+</script>
+</body></html>
