@@ -94,6 +94,11 @@ const (
 	EnrollEnrolled = "enrolled"
 	EnrollRetired  = "retired"
 	EnrollWiped    = "wiped"
+	// Handed back by an unenroll command: the agent dropped Device Owner and stopped
+	// reporting, and the device kept its data. Out of the fleet like retired and wiped,
+	// but it says which of the three happened — and only this one can be undone by
+	// enrolling the device again from a factory reset.
+	EnrollUnenrolled = "unenrolled"
 )
 
 // IsDPC reports whether the device runs the Device-Owner DPC agent.
@@ -177,9 +182,10 @@ func (d Device) KindLabel() string {
 	return "MDM Firmware" // the system-app client on our own firmware
 }
 
-// Retired reports whether the device has left the fleet (retired or wiped).
+// Retired reports whether the device has left the fleet (retired, wiped or unenrolled).
 func (d Device) Retired() bool {
-	return d.EnrollmentStatus == EnrollRetired || d.EnrollmentStatus == EnrollWiped
+	return d.EnrollmentStatus == EnrollRetired || d.EnrollmentStatus == EnrollWiped ||
+		d.EnrollmentStatus == EnrollUnenrolled
 }
 
 // NeedsOnboarding is true while the device sits in the onboarding inbox.
@@ -1662,7 +1668,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			                              THEN $4::jsonb->'capabilities_degraded' ELSE devices.capabilities_degraded END,
 			    -- A retired device that talks again is back in the fleet (its status,
 			    -- not its inbox state: it keeps the site/group it had).
-			    enrollment_status  = CASE WHEN devices.enrollment_status IN ('retired', 'wiped')
+			    enrollment_status  = CASE WHEN devices.enrollment_status IN ('retired', 'wiped', 'unenrolled')
 			                              THEN CASE WHEN devices.enrolled_via IS NULL THEN 'auto' ELSE 'enrolled' END
 			                              ELSE devices.enrollment_status END,
 			    latest_extra       = %s,
@@ -2496,10 +2502,10 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	// Lifecycle: retired/wiped devices stay out of every list unless asked for.
 	switch f.Lifecycle {
 	case "retired":
-		wheres = append(wheres, "d.enrollment_status IN ('retired', 'wiped')")
+		wheres = append(wheres, "d.enrollment_status IN ('retired', 'wiped', 'unenrolled')")
 	case "all":
 	default:
-		wheres = append(wheres, "d.enrollment_status NOT IN ('retired', 'wiped')")
+		wheres = append(wheres, "d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')")
 	}
 	switch f.Onboarding {
 	case "pending":
@@ -2831,7 +2837,7 @@ func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
 		SELECT serial_number, COALESCE(device_class, ''), COALESCE(product, ''),
 		       COALESCE(latest_extra->>'manufacturer', ''), COALESCE(latest_extra->>'model', '')
 		FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND serial_number <> ''`)
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND serial_number <> ''`)
 	if err != nil {
 		return nil, err
 	}
@@ -3152,10 +3158,10 @@ func (d *DB) FleetCounts(ctx context.Context, excludeDPC bool) (FleetCounts, err
 		kindWhere = " AND agent_kind <> 'dpc'"
 	}
 	err := d.pool.QueryRow(ctx, `
-		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`),
+		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`),
 		       (SELECT COUNT(*) FROM restaurants),
 		       (SELECT COUNT(*) FROM groups),
-		       (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped') AND onboarded_at IS NULL)
+		       (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND onboarded_at IS NULL)
 	`).Scan(&c.Devices, &c.Restaurants, &c.Groups, &c.Inbox)
 	return c, err
 }
@@ -3178,7 +3184,7 @@ func (d *DB) FleetComposition(ctx context.Context, excludeDPC bool) (classes []C
 		SELECT `+derivedClassSQL()+` AS cls,
 		       agent_kind, COUNT(*)
 		FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`
 		GROUP BY 1, 2`)
 	if err != nil {
 		return nil, 0, 0, err
@@ -3232,7 +3238,7 @@ func (d *DB) FleetClassOnline(ctx context.Context, connected []uuid.UUID, exclud
 		SELECT `+derivedClassSQL()+` AS cls,
 		       COUNT(*), COUNT(*) FILTER (WHERE id = ANY($1::uuid[]))
 		FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`
 		GROUP BY 1`, connected)
 	if err != nil {
 		return nil, err
@@ -3280,7 +3286,7 @@ func (d *DB) FleetWall(ctx context.Context, excludeDPC bool) ([]WallDevice, erro
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number, `+derivedClassSQL()+`, restaurant_id, last_seen_at
 		FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`+kindWhere+`
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`
 		ORDER BY serial_number`)
 	if err != nil {
 		return nil, err
@@ -3311,11 +3317,11 @@ func (d *DB) EnrollmentStats(ctx context.Context) (EnrollmentStats, error) {
 	var s EnrollmentStats
 	err := d.pool.QueryRow(ctx, `
 		WITH live AS (SELECT * FROM devices WHERE NOT hidden)
-		SELECT (SELECT COUNT(*) FROM live WHERE onboarded_at IS NULL AND enrollment_status NOT IN ('retired', 'wiped')),
+		SELECT (SELECT COUNT(*) FROM live WHERE onboarded_at IS NULL AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')),
 		       (SELECT COUNT(*) FROM live WHERE enrolled_at > NOW() - INTERVAL '7 days'),
-		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'firmware' AND enrollment_status NOT IN ('retired', 'wiped')),
-		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'dpc' AND enrollment_status NOT IN ('retired', 'wiped')),
-		       (SELECT COUNT(*) FROM live WHERE enrollment_status IN ('retired', 'wiped')),
+		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'firmware' AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')),
+		       (SELECT COUNT(*) FROM live WHERE agent_kind = 'dpc' AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')),
+		       (SELECT COUNT(*) FROM live WHERE enrollment_status IN ('retired', 'wiped', 'unenrolled')),
 		       (SELECT COUNT(*) FROM enrollment_profiles WHERE revoked_at IS NULL
 		          AND (expires_at IS NULL OR expires_at > NOW())
 		          AND (max_enrolls IS NULL OR enroll_count < max_enrolls))
@@ -5684,6 +5690,19 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 			SET status = EXCLUDED.status, progress = NULL, updated_at = NOW()
 			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status)
+	if err != nil {
+		return err
+	}
+	// An unenroll that the device says it carried out is the last thing we will ever hear
+	// from it: the agent has dropped Device Owner, forgotten this server and stopped
+	// reporting. Record that here rather than at one ack endpoint, because devices ack over
+	// several paths — otherwise a device that left would just look like one gone quiet.
+	if status == "completed" || status == "installed" {
+		_, err = d.pool.Exec(ctx, `
+			UPDATE devices SET enrollment_status = $2
+			WHERE id = $1 AND EXISTS (SELECT 1 FROM commands c WHERE c.id = $3 AND c.type = 'unenroll')`,
+			deviceID, EnrollUnenrolled, commandID)
+	}
 	return err
 }
 
@@ -17221,7 +17240,7 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    enrolled_via      = EXCLUDED.enrolled_via,
 		    agent_kind        = 'dpc',
 		    enrollment_status = 'enrolled',
-		    enrolled_at       = CASE WHEN devices.enrollment_status IN ('retired', 'wiped') THEN NOW() ELSE devices.enrolled_at END,
+		    enrolled_at       = CASE WHEN devices.enrollment_status IN ('retired', 'wiped', 'unenrolled') THEN NOW() ELSE devices.enrolled_at END,
 		    hidden            = false,
 		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
 		    device_class      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
@@ -17289,7 +17308,7 @@ func (d *DB) CountOnboardingInbox(ctx context.Context) (int, error) {
 	var n int
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM devices
-		WHERE onboarded_at IS NULL AND NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')`).Scan(&n)
+		WHERE onboarded_at IS NULL AND NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`).Scan(&n)
 	return n, err
 }
 
@@ -17299,7 +17318,7 @@ func (d *DB) CountOnboardingInbox(ctx context.Context) (int, error) {
 func (d *DB) ResolveSerials(ctx context.Context, serials []string) (found, missing []string, err error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT serial_number FROM devices
-		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		  AND LOWER(serial_number) = ANY($1)`, lowerAll(serials))
 	if err != nil {
 		return nil, nil, err

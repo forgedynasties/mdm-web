@@ -287,7 +287,7 @@ func (d *DB) AlertsFiredSince(ctx context.Context, from time.Time) ([]NightAlert
 		JOIN devices dv ON dv.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
 		WHERE a.fired_at >= $1 AND a.severity IN ('warning', 'critical')
-		  AND NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped')
+		  AND NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		ORDER BY a.fired_at`, from)
 	if err != nil {
 		return nil, err
@@ -310,7 +310,7 @@ func (d *DB) OfflineAtOpen(ctx context.Context, connected []uuid.UUID) (map[stri
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.name, COUNT(*)
 		FROM devices dv JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped')
+		WHERE NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		  AND dv.custody_server = ''
 		  AND dv.last_seen_at > NOW() - INTERVAL '7 days'
 		  AND dv.last_seen_at < NOW() - INTERVAL '15 minutes'

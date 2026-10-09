@@ -79,7 +79,7 @@ func (d *DB) ServiceUptime(ctx context.Context, days int, now time.Time) ([]Rest
 		SELECT r.id, r.name, dv.id, dv.created_at, COALESCE(dv.latest_extra->>'timezone', '')
 		FROM restaurants r
 		JOIN devices dv ON dv.restaurant_id = r.id
-		WHERE NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped')
+		WHERE NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		  AND dv.custody_server = ''
 		  AND dv.last_seen_at > $1
 		ORDER BY r.name`, now.Add(-uptimeDormant))

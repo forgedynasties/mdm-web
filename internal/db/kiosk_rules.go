@@ -34,7 +34,7 @@ func (d *DB) ListKioskStates(ctx context.Context) (map[uuid.UUID]KioskState, err
 		       dc.updated_at, d.last_seen_at,
 		       COALESCE(d.latest_extra->>'kiosk_suspended', '') = 'true', dc.kiosk_exited_at
 		FROM devices d LEFT JOIN device_config dc ON dc.device_id = d.id
-		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped')`)
+		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (d *DB) DeviceKeyCounts(ctx context.Context) (own, shared int, err error) {
 	err = d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FILTER (WHERE COALESCE(device_key_hash, '') <> ''),
 		       COUNT(*) FILTER (WHERE COALESCE(device_key_hash, '') = '')
-		FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')
+		FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		  AND last_seen_at > NOW() - INTERVAL '30 days'`).Scan(&own, &shared)
 	return own, shared, err
 }
@@ -249,7 +249,7 @@ const kioskExitSelect = `
 	JOIN devices d ON d.id = dc.device_id
 	LEFT JOIN restaurants r ON r.id = d.restaurant_id
 	LEFT JOIN kiosk_policies p ON p.id = dc.kiosk_exited_rule
-	WHERE dc.kiosk_exited_at IS NOT NULL AND NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped')`
+	WHERE dc.kiosk_exited_at IS NOT NULL AND NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`
 
 func scanKioskExits(rows pgx.Rows) ([]KioskExit, error) {
 	defer rows.Close()

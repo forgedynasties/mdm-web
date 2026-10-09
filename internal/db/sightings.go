@@ -233,7 +233,7 @@ func (d *DB) ScoutCandidates(ctx context.Context, restaurantID uuid.UUID) ([]Sco
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number FROM devices
 		WHERE restaurant_id = $1 AND agent_kind = 'firmware'
-		  AND enrollment_status NOT IN ('retired','wiped')
+		  AND enrollment_status NOT IN ('retired','wiped','unenrolled')
 		ORDER BY last_seen_at DESC`, restaurantID)
 	if err != nil {
 		return nil, err
@@ -256,7 +256,7 @@ func (d *DB) RestaurantsToScan(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT DISTINCT r.id FROM restaurants r
 		JOIN devices d ON d.restaurant_id = r.id AND d.agent_kind = 'firmware'
-		  AND d.enrollment_status NOT IN ('retired','wiped')
+		  AND d.enrollment_status NOT IN ('retired','wiped','unenrolled')
 		WHERE r.scan_enabled`)
 	if err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (d *DB) DeviceKnown(ctx context.Context, serial string) (bool, error) {
 	var ok bool
 	err := d.pool.QueryRow(ctx, `
 		SELECT EXISTS (SELECT 1 FROM devices
-		  WHERE serial_number = $1 AND enrollment_status NOT IN ('retired', 'wiped'))`, serial).Scan(&ok)
+		  WHERE serial_number = $1 AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled'))`, serial).Scan(&ok)
 	return ok, err
 }
 

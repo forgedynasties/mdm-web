@@ -51,7 +51,7 @@ type FleetHygiene struct {
 func (d *DB) GetFleetHygiene(ctx context.Context) (FleetHygiene, error) {
 	var h FleetHygiene
 	err := d.pool.QueryRow(ctx, `
-		WITH f AS (SELECT * FROM devices d WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped'))
+		WITH f AS (SELECT * FROM devices d WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled'))
 		SELECT (SELECT COUNT(*) FROM f),
 		       (SELECT COUNT(*) FROM f d WHERE `+hygieneWhere("silent")+`),
 		       (SELECT COUNT(*) FROM f d WHERE `+hygieneWhere("silent")+` AND d.restaurant_id IS NOT NULL),
@@ -63,7 +63,7 @@ func (d *DB) GetFleetHygiene(ctx context.Context) (FleetHygiene, error) {
 	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.name, COUNT(*) FROM devices d JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped') AND `+hygieneWhere("placed-silent")+`
+		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND `+hygieneWhere("placed-silent")+`
 		GROUP BY r.name ORDER BY COUNT(*) DESC, r.name`)
 	if err != nil {
 		return h, err
@@ -81,7 +81,7 @@ func (d *DB) GetFleetHygiene(ctx context.Context) (FleetHygiene, error) {
 	rows.Close()
 	rows, err = d.pool.Query(ctx, `
 		SELECT d.build_id FROM devices d
-		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped') AND d.build_id <> ''
+		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND d.build_id <> ''
 		  AND d.last_seen_at > NOW() - INTERVAL '14 days'
 		  AND NOT EXISTS (SELECT 1 FROM releases rl WHERE rl.version = d.build_id)
 		GROUP BY d.build_id ORDER BY COUNT(*) DESC, d.build_id`)

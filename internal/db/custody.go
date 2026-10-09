@@ -170,7 +170,7 @@ func (d *DB) DevicesToReconcile(ctx context.Context, quietFor, recheckAfter time
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number, last_seen_at
 		  FROM devices
-		 WHERE enrollment_status NOT IN ('retired', 'wiped')
+		 WHERE enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		   AND serial_number <> ''
 		   AND last_seen_at < NOW() - $1::interval
 		   AND (custody_server = '' OR custody_seen_at IS NULL OR custody_seen_at < NOW() - $2::interval)
@@ -322,7 +322,7 @@ func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deployments
 		  (SELECT COUNT(*) FROM update_devices ud JOIN updates u ON u.id = ud.update_id
 		    WHERE u.status = 'active' AND ud.status IN ('downloading', 'installing', 'verifying', 'finalizing')),
 		  (SELECT COUNT(*) FROM peer_outbox),
-		  (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped')),
+		  (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')),
 		  (SELECT COUNT(*) FROM devices WHERE custody_server <> ''),
 		  (SELECT COUNT(*) FROM alerts WHERE status <> 'resolved')
 	`).Scan(&commandsPending, &deploymentsLive, &otaInFlight, &peerOutbox, &devicesTotal, &devicesElsewhere, &alertsOpen)

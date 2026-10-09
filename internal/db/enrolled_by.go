@@ -16,7 +16,7 @@ type Enroller struct {
 func (d *DB) ListEnrollers(ctx context.Context) ([]Enroller, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT enrolled_by, COUNT(*) FROM devices
-		WHERE enrolled_by <> '' AND enrollment_status NOT IN ('retired', 'wiped')
+		WHERE enrolled_by <> '' AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		GROUP BY enrolled_by ORDER BY COUNT(*) DESC, enrolled_by`)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (d *DB) RecentEnrollments(ctx context.Context, by string, since time.Time, 
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.serial_number, d.device_class, d.agent_kind, COALESCE(r.name, ''), d.enrolled_at, d.enrolled_by
 		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE d.enrollment_status NOT IN ('retired', 'wiped') AND d.agent_kind = 'dpc'
+		WHERE d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND d.agent_kind = 'dpc'
 		  AND ($1 = '' OR d.enrolled_by = $1)
 		  AND ($2::timestamptz IS NULL OR d.enrolled_at >= $2)
 		ORDER BY d.enrolled_at DESC LIMIT $3`, by, nullTime(since), limit)
