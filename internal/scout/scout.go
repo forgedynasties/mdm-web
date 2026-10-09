@@ -413,10 +413,11 @@ func (s *Service) IngestProgress(ctx context.Context, raw []byte) {
 }
 
 type doneFrame struct {
-	Job    string `json:"job"`
-	OK     bool   `json:"ok"`
-	Serial string `json:"serial"`
-	Reason string `json:"reason"`
+	Job      string `json:"job"`
+	OK       bool   `json:"ok"`
+	Serial   string `json:"serial"`
+	Reason   string `json:"reason"`
+	KeyLabel string `json:"key_label"`
 }
 
 func (s *Service) IngestEnrollDone(ctx context.Context, scoutID uuid.UUID, raw []byte) {
@@ -430,6 +431,13 @@ func (s *Service) IngestEnrollDone(ctx context.Context, scoutID uuid.UUID, raw [
 	if f.OK && f.Serial != "" {
 		if scoutSerial, _, err := s.db.DeviceScoutVenue(ctx, scoutID); err == nil {
 			_ = s.db.SetEnrolledViaSerial(ctx, f.Serial, scoutSerial)
+			if f.KeyLabel != "" {
+				// The enrolment itself proves which key this device's image carries — better
+				// evidence than the scan, which may have been a different device at that address.
+				if err := s.db.PutDeviceAdbKey(ctx, f.Serial, f.KeyLabel, "scout", scoutSerial); err != nil {
+					log.Printf("[scout] key label for %s: %v", f.Serial, err)
+				}
+			}
 		}
 	}
 }
