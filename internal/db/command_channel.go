@@ -195,9 +195,18 @@ func (d *DB) DevicesNeedingCanary(ctx context.Context, staleAfter, seenWithin ti
 // is older than staleAfter — i.e. devices we believe we manage and have no evidence we do.
 // Used for the control_stale alert, which is the question nobody could ask before:
 // AT070AABU00077 was in this state for 15 hours and every page called it healthy.
-func (d *DB) StaleControlDevices(ctx context.Context, staleAfter, seenWithin time.Duration) ([]WSMissingDevice, error) {
+// StaleControl is a device we believe we manage with no recent evidence that we do.
+type StaleControl struct {
+	DeviceID uuid.UUID
+	Serial   string
+	// LastOK is the last proven round trip. Zero means none has EVER completed, which is a
+	// different statement from "none lately" and has to be worded as such.
+	LastOK time.Time
+}
+
+func (d *DB) StaleControlDevices(ctx context.Context, staleAfter, seenWithin time.Duration) ([]StaleControl, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, d.serial_number, COALESCE(d.last_round_trip_ok_at, d.created_at)
+		SELECT d.id, d.serial_number, d.last_round_trip_ok_at
 		FROM devices d
 		WHERE NOT d.hidden
 		  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
@@ -209,13 +218,35 @@ func (d *DB) StaleControlDevices(ctx context.Context, staleAfter, seenWithin tim
 		return nil, err
 	}
 	defer rows.Close()
-	var out []WSMissingDevice
+	var out []StaleControl
 	for rows.Next() {
-		var m WSMissingDevice
-		if err := rows.Scan(&m.DeviceID, &m.Serial, &m.Since); err != nil {
+		var m StaleControl
+		var last *time.Time
+		if err := rows.Scan(&m.DeviceID, &m.Serial, &last); err != nil {
 			return nil, err
+		}
+		if last != nil {
+			m.LastOK = *last
 		}
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// ResolveProvenControlAlerts closes control_stale for every device that has since proven a
+// round trip. An alert that cannot clear itself is worse than no alert: it trains people to
+// ignore the list. The condition is "we have no evidence", so evidence must end it.
+func (d *DB) ResolveProvenControlAlerts(ctx context.Context, staleAfter time.Duration) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts a SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE a.type = 'control_stale' AND a.status <> 'resolved'
+		  AND EXISTS (
+			SELECT 1 FROM devices d
+			WHERE d.id = a.device_id
+			  AND d.last_round_trip_ok_at IS NOT NULL
+			  AND d.last_round_trip_ok_at > NOW() - $1::interval)`, staleAfter)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }

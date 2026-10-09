@@ -71,24 +71,47 @@ func (h *Handler) RunCommandCanary(ctx context.Context) {
 // itself never came back, which is as strong a statement as this system can make: the
 // device is alive and we cannot make it do anything.
 func (h *Handler) RunControlStaleAlerts(ctx context.Context) {
+	// Evidence ends the condition: close anything that has since proven a round trip,
+	// before raising new ones. An alert that cannot clear itself trains people to ignore
+	// the list, which costs more than the alert was worth.
+	if n, err := h.db.ResolveProvenControlAlerts(ctx, controlStaleAfter); err != nil {
+		log.Printf("[control-stale] ResolveProvenControlAlerts: %v", err)
+	} else if n > 0 {
+		log.Printf("[control-stale] %d device(s) proved control again — alerts resolved", n)
+		h.hub.PublishAlertUpdate()
+	}
+
 	stale, err := h.db.StaleControlDevices(ctx, controlStaleAfter, canarySeenWithin)
 	if err != nil {
 		log.Printf("[control-stale] StaleControlDevices: %v", err)
 		return
 	}
 	for _, s := range stale {
-		summary := "Reporting for " + roughDuration(time.Since(s.Since)) +
-			" with nothing we sent completing. It is alive and we have no evidence it can be commanded."
+		// "Never" and "not lately" are different statements, and deriving a duration from
+		// the device row's creation time for the first case produced alerts like "reporting
+		// for 18m with nothing completing" against a 48-hour threshold — which reads as a
+		// bug in the alert rather than a fact about the device.
+		summary := "Reporting, and no command has ever completed on it. It is alive and we have no evidence it can be commanded at all."
+		detail := map[string]any{"last_round_trip": nil}
+		if !s.LastOK.IsZero() {
+			summary = "Reporting, but nothing we sent has completed in " + roughDuration(time.Since(s.LastOK)) +
+				". It is alive and we have no recent evidence it can be commanded."
+			detail["last_round_trip"] = s.LastOK.UTC()
+		}
 		inserted, escalated, err := h.db.CreateOrEscalateAlert(ctx, nil, "control_stale", s.DeviceID,
-			"warning", summary, map[string]any{"last_round_trip": s.Since.UTC()})
+			"warning", summary, detail)
 		if err != nil {
 			log.Printf("[control-stale] alert for %s: %v", s.Serial, err)
 			continue
 		}
 		if inserted || escalated {
+			eventAt := s.LastOK
+			if eventAt.IsZero() {
+				eventAt = time.Now()
+			}
 			h.alerts.Dispatch(ctx, []db.AlertNotification{{
 				Type: "control_stale", Severity: "warning", Summary: summary,
-				Serial: s.Serial, DeviceID: s.DeviceID, EventAt: s.Since.UTC(), Escalated: escalated,
+				Serial: s.Serial, DeviceID: s.DeviceID, EventAt: eventAt.UTC(), Escalated: escalated,
 			}})
 			h.hub.PublishAlertUpdate()
 		}
