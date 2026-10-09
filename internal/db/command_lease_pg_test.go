@@ -125,3 +125,64 @@ func TestLeaseHoldsAndReleasesACommand(t *testing.T) {
 		t.Fatal("a completed command did not credit the device with a round trip")
 	}
 }
+
+// Lanes: work serializes against its own kind, not against everything for the device.
+// Before this, one queue per device meant a wedged install held up a screenshot, a reboot
+// and everything else until the hour-long delivery window let it go — which is the
+// opposite of what an operator needs from a device that is misbehaving.
+func TestLanesSerializeOnlyAgainstTheirOwnKind(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	suffix := time.Now().Format("150405.000")
+	b := 80
+	dev, _, _, _, _, err := d.UpsertCheckin(ctx, "LANE-A"+suffix, "v2.1.099", &b, nil, false, "t7")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// An install first (lane "install"), then a shell (lane "shell"). The install is the
+	// long one; the shell must not wait behind it.
+	install, err := d.CreateCommandBy(ctx, "install_apk", "https://example.invalid/a.apk", []byte(`{}`), "devices", []uuid.UUID{dev}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shell, err := d.CreateCommandBy(ctx, "shell", "", []byte(`{"cmd":"true"}`), "devices", []uuid.UUID{dev}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A second shell, which MUST wait: same lane as the first.
+	shell2, err := d.CreateCommandBy(ctx, "shell", "", []byte(`{"cmd":"true"}`), "devices", []uuid.UUID{dev}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pending, err := d.GetPendingCommandsForDevice(ctx, dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[uuid.UUID]bool{}
+	for _, c := range pending {
+		got[c.ID] = true
+	}
+	if !got[install.ID] {
+		t.Error("the install should be deliverable (nothing older in its lane)")
+	}
+	if !got[shell.ID] {
+		t.Error("the shell is in another lane and must not wait behind the install")
+	}
+	if got[shell2.ID] {
+		t.Error("the second shell shares a lane with the first and must wait for it")
+	}
+}
