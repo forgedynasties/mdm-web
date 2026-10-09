@@ -48,6 +48,11 @@ type ExtraColumn struct {
 type Config struct {
 	ExtraColumns    []ExtraColumn `json:"extra_columns"`
 	LegacyCheckinOn bool          `json:"legacy_checkin"`
+	// CommandCanaryOn enqueues a daily no-op command per device, so "we can command this
+	// fleet" becomes something measured rather than assumed. Off by default: it is cheap
+	// but it is still one queued command per device per day, and that is a decision, not a
+	// default. See db.DevicesNeedingCanary.
+	CommandCanaryOn bool          `json:"command_canary"`
 	// Build IDs that identify legacy (WebSocket-incapable) firmware. Devices on these
 	// builds only HTTP check-in, so they never hold a live WS and are shown Offline with a
 	// "Legacy device" tag. Seeded with a default; admins can add/remove via Settings.
@@ -308,6 +313,20 @@ func (c *Config) Columns() []ExtraColumn {
 func (c *Config) Add(col ExtraColumn) error {
 	c.mu.Lock()
 	c.ExtraColumns = append(c.ExtraColumns, col)
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+func (c *Config) CommandCanary() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.CommandCanaryOn
+}
+
+func (c *Config) SetCommandCanary(v bool) error {
+	c.mu.Lock()
+	c.CommandCanaryOn = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

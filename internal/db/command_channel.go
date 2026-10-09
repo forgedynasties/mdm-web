@@ -107,3 +107,99 @@ func AgentReadsHTTPCommands(latestExtra json.RawMessage) bool {
 	}
 	return len(latestExtra) > 0 && json.Unmarshal(latestExtra, &probe) == nil && probe.HTTPCommands
 }
+
+// CommandChannelState returns when this device's socket-less spell started, when a command
+// last completed for it, and the channel its last check-in implied. Read by the device page
+// so the one question an operator has before pressing a button — will this run? — has an
+// answer on the page.
+func (d *DB) CommandChannelState(ctx context.Context, deviceID uuid.UUID) (since, roundTrip time.Time, channel string, err error) {
+	var s, rt *time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT ws_missing_since, last_round_trip_ok_at, command_channel
+		FROM devices WHERE id = $1`, deviceID).Scan(&s, &rt, &channel)
+	if err != nil {
+		return time.Time{}, time.Time{}, "", err
+	}
+	if s != nil {
+		since = *s
+	}
+	if rt != nil {
+		roundTrip = *rt
+	}
+	return since, roundTrip, channel, nil
+}
+
+// CanaryCandidate is a device due a control probe.
+type CanaryCandidate struct {
+	DeviceID uuid.UUID
+	Serial   string
+}
+
+// DevicesNeedingCanary returns devices that are reporting but have no recent proof that a
+// command can actually reach them: nothing has completed for them in staleAfter, and they
+// have no command queued right now.
+//
+// The "nothing queued" condition keeps the probe honest — if there is already work waiting
+// for this device, that work is the measurement, and adding a probe would only measure the
+// probe. Devices that have left the fleet are skipped; so are ones we have not heard from
+// at all, because a powered-off device is plain Offline and already alerted.
+func (d *DB) DevicesNeedingCanary(ctx context.Context, staleAfter, seenWithin time.Duration, limit int) ([]CanaryCandidate, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number
+		FROM devices d
+		WHERE NOT d.hidden
+		  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND d.custody_server = ''
+		  AND d.last_seen_at > NOW() - $2::interval
+		  AND (d.last_round_trip_ok_at IS NULL OR d.last_round_trip_ok_at < NOW() - $1::interval)
+		  AND NOT EXISTS (
+			SELECT 1 FROM command_status cs
+			JOIN commands c ON c.id = cs.command_id
+			WHERE cs.device_id = d.id
+			  AND cs.status NOT IN ('installed', 'failed', 'completed', 'cancelled', 'expired')
+			  AND c.created_at > NOW() - INTERVAL '1 hour')
+		ORDER BY d.last_round_trip_ok_at ASC NULLS FIRST
+		LIMIT $3`, staleAfter, seenWithin, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CanaryCandidate
+	for rows.Next() {
+		var c CanaryCandidate
+		if err := rows.Scan(&c.DeviceID, &c.Serial); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// StaleControlDevices returns devices that are reporting and whose last proven round trip
+// is older than staleAfter — i.e. devices we believe we manage and have no evidence we do.
+// Used for the control_stale alert, which is the question nobody could ask before:
+// AT070AABU00077 was in this state for 15 hours and every page called it healthy.
+func (d *DB) StaleControlDevices(ctx context.Context, staleAfter, seenWithin time.Duration) ([]WSMissingDevice, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, COALESCE(d.last_round_trip_ok_at, d.created_at)
+		FROM devices d
+		WHERE NOT d.hidden
+		  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND d.custody_server = ''
+		  AND d.last_seen_at > NOW() - $2::interval
+		  AND (d.last_round_trip_ok_at IS NULL OR d.last_round_trip_ok_at < NOW() - $1::interval)
+		ORDER BY d.last_round_trip_ok_at ASC NULLS FIRST`, staleAfter, seenWithin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []WSMissingDevice
+	for rows.Next() {
+		var m WSMissingDevice
+		if err := rows.Scan(&m.DeviceID, &m.Serial, &m.Since); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}

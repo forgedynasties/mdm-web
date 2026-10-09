@@ -790,6 +790,12 @@ func main() {
 				// queue does not expire for now (a queued command runs whenever the device next
 				// comes online). The ExpireOverdueCommands handler is kept for when per-type
 				// expiry is layered back on.
+				// Prove we can still command the fleet, rather than inferring it from a
+				// socket: a daily no-op per device whose terminal ack stamps
+				// last_round_trip_ok_at (opt-in, config command_canary), and an alert for
+				// devices that are reporting with nothing we sent ever completing.
+				runJob(bgCtx, "command-canary", time.Minute, apiHandler.RunCommandCanary)
+				runJob(bgCtx, "control-stale-alerts", time.Minute, apiHandler.RunControlStaleAlerts)
 				// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
 				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
 				// Fire any scheduled recipes whose cron time has arrived.

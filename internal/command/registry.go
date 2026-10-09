@@ -34,6 +34,7 @@ const (
 	LaneFirmware = "firmware"
 	LaneShell    = "shell"
 	LaneDevice   = "device"
+	LaneCanary   = "canary"
 )
 
 // Spec is one command type's delivery policy.
@@ -94,6 +95,11 @@ var specs = map[string]Spec{
 	"config": {AtLeastOnce, LaneDefault, 10 * time.Minute, time.Hour, 0, nil, false},
 	// Needs the system partition, so the DPC agent can only refuse it.
 	"update_splash": {AtLeastOnce, LaneDefault, 20 * time.Minute, time.Hour, 0, []string{"splash"}, false},
+
+	// The daily probe: a shell line on the wire (DeviceCommandType maps it), in its own
+	// lane, exempt from the per-device gate in both directions so measuring control can
+	// never delay it. One attempt only — a probe that retries is measuring the retry.
+	"canary": {AtLeastOnce, "canary", 10 * time.Minute, 30 * time.Minute, 1, nil, false},
 
 	// ── live sessions: a queue would be meaningless ────────────────────────────
 	"start_capture": {BestEffortLive, LaneDefault, 0, 0, 0, nil, true},

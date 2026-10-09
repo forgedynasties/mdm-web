@@ -225,6 +225,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .dd-nick>summary svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
         .dd-nick-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);white-space:nowrap}
         .ddc-hero:has(.dd-nick[open]){overflow:visible}
+        /* Reporting-but-unreachable notice. Amber when the device can still be reached over
+           its check-in, red when nothing we send can run — the difference between a note and
+           a site visit, so it must be visible without reading the sentence. */
+        .cmdch-ban{display:flex;gap:12px;align-items:flex-start;margin:14px 0 0;padding:12px 14px;
+          border-radius:11px;background:var(--warn-bg);border:1px solid var(--warn-edge)}
+        .cmdch-ban.bad{background:var(--danger-bg);border-color:var(--danger-edge)}
+        .cmdch-ban .i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+          background:var(--surface);color:var(--warn);flex:none}
+        .cmdch-ban.bad .i{color:var(--danger)}
+        .cmdch-ban .i svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
+          stroke-linecap:round;stroke-linejoin:round}
+        .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
+        .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
         {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
@@ -541,6 +554,28 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   });
 })();
 </script>
+
+{{with .CommandChannel}}
+<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
+  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
+  <div class="t">
+    {{if .Reachable}}
+      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
+      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
+      and will not work until it comes back.
+    {{else}}
+      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
+      commands over the socket only, so anything queued for it will sit at "sent to device" and never
+      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
+      it back.
+    {{end}}
+    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
+    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
+  </div>
+</div>
+{{end}}
 
 {{with .KioskExit}}
 <div class="kx-ban" id="kiosk-exit-notice" role="status">

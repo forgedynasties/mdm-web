@@ -4944,7 +4944,7 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 // type. Every place that serializes a command to a device must route through this.
 func DeviceCommandType(t string) string {
 	// A query and a log bundle are shell commands whose text the server wrote.
-	if t == "query" || t == "collect_logs" {
+	if t == "query" || t == "collect_logs" || t == "canary" {
 		return "shell"
 	}
 	return t
@@ -5078,7 +5078,7 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	// action, not a tracked one-off command.
 	// A shell with no author is the legacy OTA progress probe (legacy_watch.go): not
 	// an action, kept out of every history.
-	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash' AND NOT (type = 'shell' AND created_by = '')`
+	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash' AND type != 'canary' AND NOT (type = 'shell' AND created_by = '')`
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 		// The day window alone doesn't bound the row count — a busy fleet issuing
@@ -5484,14 +5484,20 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- sitting there) is worse than the two racing. The client already serializes actually
 		-- applying an OTA around other work on its own.
 		AND (
-			c.type = 'ota'
+			-- OTA and the daily canary are exempt from the per-device gate in BOTH
+			-- directions (see the c2 filter below). For OTA because a download runs for
+			-- minutes and blocking everything behind it is worse than the two racing; for
+			-- the canary because it exists only to measure whether this device can be
+			-- commanded, and a measurement that delays an operator's command — on exactly
+			-- the devices we are worried about — would be worse than not measuring.
+			c.type IN ('ota', 'canary')
 			-- A blocker must itself be in live: a command past its delivery window (older than an
 			-- hour and not actively downloading/installing) never delivers, so it must not wedge
 			-- the queue behind it — otherwise stale pending commands (e.g. offline-device
 			-- screenshots that pile up) block every newer command forever.
 			OR NOT EXISTS (
 				SELECT 1 FROM live c2
-				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.type <> 'ota'
+				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.type NOT IN ('ota', 'canary')
 				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 			)

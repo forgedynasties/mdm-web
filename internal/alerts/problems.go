@@ -66,6 +66,8 @@ func CauseOf(types []string) Cause {
 		return Cause{"memory", "Low memory", "It is short of memory, which makes apps slow or restart."}
 	case any("wifi_weak", "wifi_unstable"):
 		return Cause{"wifi", "Weak Wi-Fi", "Its Wi-Fi signal is weak or keeps dropping."}
+	case has["control_stale"]:
+		return Cause{"transport", "No proven control", "It is checking in, but nothing we have sent it has completed — including the daily probe. Treat it as unmanageable until a command comes back, whatever the badge says."}
 	case has["no_command_channel"]:
 		return Cause{"transport", "Reporting but unreachable", "It is checking in and its readings are current, but it holds no WebSocket — so commands sent to it do not run. The dashboard shows it Offline although it is plainly alive. It usually clears itself; if it does not, the client's socket thread is gone and only a reboot brings it back."}
 	case has["kiosk_exited"]:
