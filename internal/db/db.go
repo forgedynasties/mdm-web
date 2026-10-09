@@ -13455,6 +13455,18 @@ ALTER TABLE sightings ADD COLUMN IF NOT EXISTS key_label TEXT NOT NULL DEFAULT '
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS unenrolled_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS unenrolled_at TIMESTAMPTZ;
 
+-- Catch up devices that reported an unenroll the server did not act on: one that acked
+-- before this was built, or whose status update was lost to a restart mid-ack. The command
+-- result is the durable record of what the device did, so it — not the ack arriving at the
+-- right moment — decides. Idempotent and filtered, so it costs nothing on later starts.
+UPDATE devices d SET enrollment_status = 'unenrolled',
+       unenrolled_at = COALESCE(d.unenrolled_at, cs.updated_at),
+       unenrolled_by = CASE WHEN d.unenrolled_by = '' THEN COALESCE(c.created_by, '') ELSE d.unenrolled_by END
+FROM command_status cs JOIN commands c ON c.id = cs.command_id
+WHERE cs.device_id = d.id AND c.type = 'unenroll'
+  AND cs.status IN ('completed', 'installed')
+  AND d.enrollment_status <> 'unenrolled';
+
 -- Which adb key a device is known to take (2026-10-09), by serial, whoever found out: the
 -- Enroll apps when they connect, a scout when it scans, the device's own client when it
 -- reads /adb_keys. Kept by serial rather than on the device row because it is usually
