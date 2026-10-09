@@ -383,4 +383,5 @@ func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/app/restaurants", h.requireApp(h.AppRestaurants))
 	mux.HandleFunc("GET /api/v1/app/agent", h.requireApp(h.AppAgent))
 	mux.HandleFunc("GET /api/v1/app/adb-key", h.requireApp(h.AppAdbKey))
+	mux.HandleFunc("POST /api/v1/app/adb-key-seen", h.requireApp(h.AppAdbKeySeen))
 }

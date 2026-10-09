@@ -13429,6 +13429,20 @@ CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_host_noserial
 -- rotated, exactly which devices are affected. '' = unknown (a scout older than vendor keys).
 ALTER TABLE sightings ADD COLUMN IF NOT EXISTS key_label TEXT NOT NULL DEFAULT '';
 
+-- Which adb key a device is known to take (2026-10-09), by serial, whoever found out: the
+-- Enroll apps when they connect, a scout when it scans, the device's own client when it
+-- reads /adb_keys. Kept by serial rather than on the device row because it is usually
+-- learned before the device is enrolled and has a row at all. It answers the question a
+-- leaked key forces: which devices must be reflashed.
+CREATE TABLE IF NOT EXISTS device_adb_key (
+    serial  TEXT PRIMARY KEY,
+    label   TEXT NOT NULL,
+    source  TEXT NOT NULL DEFAULT '',   -- enroll-app | scout | client
+    seen_by TEXT NOT NULL DEFAULT '',   -- the operator, when a person was involved
+    seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_device_adb_key_label ON device_adb_key(label);
+
 -- Per-venue scout controls. scan_enabled gates the scheduled sweep; auto_enroll (phase 3,
 -- super admin, off by default) lets the scout enrol classifiable devices with no approval.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS scan_enabled BOOLEAN NOT NULL DEFAULT TRUE;

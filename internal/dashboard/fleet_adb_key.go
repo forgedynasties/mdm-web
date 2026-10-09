@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,6 +90,31 @@ func (h *Handler) AppAdbKey(w http.ResponseWriter, r *http.Request, s *db.Sessio
 		body[f] = out[0][f]
 	}
 	appJSON(w, http.StatusOK, body)
+}
+
+// AppAdbKeySeen: POST /api/v1/app/adb-key-seen {"serial","label"} — the app telling us which
+// key got it into a device. Cheap, idempotent, and the only way we learn this for a device
+// that is not enrolled yet; a leaked key is answered from these rows.
+func (h *Handler) AppAdbKeySeen(w http.ResponseWriter, r *http.Request, s *db.Session) {
+	var body struct {
+		Serial string `json:"serial"`
+		Label  string `json:"label"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
+		appErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	serial := strings.TrimSpace(body.Serial)
+	label, err := db.CleanFleetAdbKeyLabel(body.Label)
+	if err != nil || serial == "" {
+		appErr(w, http.StatusBadRequest, "serial and label are required")
+		return
+	}
+	if err := h.db.PutDeviceAdbKey(r.Context(), serial, label, "enroll-app", s.Username); err != nil {
+		appErr(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	appJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 // fleetAdbKeyView is what the Settings card shows: metadata and the last fetches, never the key.

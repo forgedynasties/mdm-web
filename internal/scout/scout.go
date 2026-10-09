@@ -337,6 +337,12 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 		log.Printf("[scout] sighting from %s at %s: no serial in the probe, dropped", scoutSerial, f.Host)
 		return
 	}
+	if f.KeyLabel != "" && f.Serial != "" {
+		// The same record the Enroll apps write: which key this device takes, by serial.
+		if err := s.db.PutDeviceAdbKey(ctx, f.Serial, f.KeyLabel, "scout", scoutSerial); err != nil {
+			log.Printf("[scout] key label for %s: %v", f.Serial, err)
+		}
+	}
 	state, reason := classifySighting(f)
 	up := db.SightingUpsert{
 		RestaurantID:    *restaurantID,
