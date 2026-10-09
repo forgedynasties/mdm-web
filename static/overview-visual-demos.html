@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview, visual · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script>
+(function(){var t=(location.search.match(/theme=(light|dark)/)||[])[1];try{t=t||localStorage.getItem('ovdemo-theme');}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+/* ---- demo page chrome ---- */
+body{background:var(--bg);margin:0;padding:28px 16px 120px;color:var(--text)}
+.wrap{max-width:1240px;margin:0 auto}
+.wrap>h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:880px;line-height:1.6}
+.sec{font-size:17px;font-weight:700;margin:56px 0 6px;letter-spacing:-.01em;scroll-margin-top:16px}
+.sec .tag{display:inline-block;font-size:10.5px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:2px;background:var(--surface-3);color:var(--text-2)}
+.sec .tag.live{background:var(--info-bg);color:var(--info)}
+.sec .tag.rec{background:var(--ok-bg);color:var(--ok)}
+.sec .tag.fun{background:var(--accent-2-soft);color:var(--accent-2)}
+.desc{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.6}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0 0}
+.notes div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.notes b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+.notes ul{margin:0;padding-left:16px}
+@media(max-width:1024px){.notes{grid-template-columns:1fr}}
+.themebar{position:fixed;top:14px;right:16px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md)}
+.themebar button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;padding:5px 12px;border-radius:5px;cursor:pointer}
+.themebar button.on{background:var(--surface-3);color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.toc a{font-size:12.5px;font-weight:600;color:var(--text-2);text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 10px}
+.toc a:hover{border-color:var(--rule-2)}
+.toc a.rec{border-color:var(--ok-edge);color:var(--ok)}
+.mock{border:1px solid var(--rule);border-radius:10px;background:var(--bg);overflow-x:auto}
+.mock-in{min-width:1080px;padding:22px 24px 26px;box-sizing:border-box}
+.pick{background:var(--surface);border:1px solid var(--ok-edge);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:var(--text-2);max-width:900px}
+.pick b{color:var(--text)}
+.pick ol{margin:6px 0 0;padding-left:20px}
+
+/* floating tooltip for anything with data-tip */
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:550;padding:5px 8px;border-radius:5px;white-space:nowrap;opacity:0;transition:opacity .08s;box-shadow:var(--shadow-md)}
+#tip.on{opacity:1}
+
+/* ═══ shared bits used by the mocks ═══ */
+.v{font-size:13px;color:var(--text);
+  --st-on:color-mix(in srgb,var(--ok) 62%,var(--surface));
+  --st-warn:var(--warn);--st-off:var(--danger);--st-idle:var(--rule-2);
+  --c1:var(--chart-battery);--c2:var(--chart-temp);--c3:var(--chart-ram);--c4:var(--accent-2);--c5:var(--text-faint);--c6:var(--accent)}
+.v .tn{font-variant-numeric:tabular-nums}
+.v-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px}
+.v-h1{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:0;line-height:1.2}
+.v-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.v-sel{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:550;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;white-space:nowrap}
+.v-sel.on{border-color:var(--rule-2);color:var(--text);background:var(--surface-3)}
+.v-seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface)}
+.v-seg span{font-size:12px;font-weight:600;color:var(--muted);padding:5px 10px;border-left:1px solid var(--border)}
+.v-seg span:first-child{border-left:0}.v-seg span.on{background:var(--surface-3);color:var(--text)}
+.v-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.v-ch{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-soft);min-height:40px;box-sizing:border-box}
+.v-ch h2{font-size:13px;font-weight:650;margin:0}
+.v-ch .m{font-size:12px;color:var(--muted)}
+.v-ch .r{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--st-idle);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--danger)}
+.lg{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--muted);align-items:center}
+.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* queue list */
+.q{list-style:none;margin:0;padding:0}
+.q li{display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:start;padding:9px 14px;border-top:1px solid var(--border-soft)}
+.q li:first-child{border-top:0}
+.q li:hover{background:var(--surface2)}
+.q .dot{margin-top:5px}
+.q .t{font-size:12.5px;font-weight:600;line-height:1.35}
+.q .w{font-size:11.5px;color:var(--muted);margin-top:1px}
+.q .a{font-size:11.5px;color:var(--text-faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* big numbers row */
+.bn{display:flex;gap:34px;align-items:flex-end;flex-wrap:wrap}
+.bn .l{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.bn .n{font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:3px}
+.bn .n small{font-size:14px;color:var(--muted);font-weight:500;margin-left:4px;letter-spacing:0}
+.bn .n.bad{color:var(--danger)}
+.bn .s{font-size:11.5px;color:var(--text-faint);margin-top:2px}
+
+/* ═══ A · Device wall ═══ */
+.wall-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start;margin-top:18px}
+.wall{display:flex;flex-wrap:wrap;gap:14px 18px;padding:14px}
+.wb{display:flex;flex-direction:column;gap:5px}
+.wb .nm{font-size:11px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:5px;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb .nm .dot{width:6px;height:6px}
+.wb .sq{display:grid;gap:2px}
+.wb .sq i{width:10px;height:10px;border-radius:2px;background:var(--st-on);cursor:default}
+.wb .sq i.warn{background:var(--st-warn)}.wb .sq i.off{background:var(--st-off)}.wb .sq i.idle{background:var(--st-idle)}
+.wb.bad .nm{color:var(--danger)}
+.wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
+.wall-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--border-soft)}
+
+/* ═══ B · Treemap ═══ */
+.tm{position:relative;height:470px;border-radius:8px;overflow:hidden;background:var(--border)}
+.tm .tl{position:absolute;box-sizing:border-box;border:1.5px solid var(--bg);padding:6px 7px;overflow:hidden;color:var(--text);cursor:default}
+.tm .tl .nm{font-size:12px;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+.tm .tl .s{font-size:11px;color:var(--text-2);position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.tm .tl .big{font-size:22px;font-weight:650;letter-spacing:-.02em;position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.tm .tl .sub{position:absolute;box-sizing:border-box;border:1px dashed color-mix(in srgb,var(--text) 14%,transparent);font-size:9.5px;color:var(--text-2);padding:2px 3px;overflow:hidden;white-space:nowrap}
+.tm .tl.bad .nm,.tm .tl.bad .s,.tm .tl.bad .big{color:#fff}
+.tm-scale{display:flex;height:8px;border-radius:2px;overflow:hidden;width:220px}
+.tm-scale i{flex:1}
+
+/* ═══ C · Status page ═══ */
+.sp-banner{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:8px;border:1px solid var(--danger-edge);background:var(--danger-bg);margin-bottom:16px}
+.sp-banner .bt{font-size:16px;font-weight:650}
+.sp-banner .bs{font-size:12.5px;color:var(--text-2);margin-top:2px}
+.sp-banner .cnt{margin-left:auto;display:flex;gap:18px;font-size:12.5px;color:var(--text-2)}
+.sp-banner .cnt b{font-size:18px;color:var(--text);display:block;font-variant-numeric:tabular-nums}
+.sp-row{display:grid;grid-template-columns:220px 1fr 70px;gap:14px;align-items:center;padding:8px 14px;border-top:1px solid var(--border-soft)}
+.sp-row:first-child{border-top:0}
+.sp-row .nm{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-row .st{font-size:11px;color:var(--muted);font-weight:500}
+.sp-bars{display:flex;gap:2px;height:24px}
+.sp-bars i{flex:1;border-radius:2px;background:var(--st-on)}
+.sp-bars i.warn{background:var(--st-warn)}.sp-bars i.off{background:var(--st-off)}
+.sp-bars i:hover{opacity:.7}
+.sp-row .up{font-size:12px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.sp-ax{display:grid;grid-template-columns:220px 1fr 70px;gap:14px;padding:6px 14px 10px;font-size:11px;color:var(--text-faint)}
+.sp-ax div:nth-child(2){display:flex;justify-content:space-between}
+.sp-inc{padding:10px 14px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.sp-inc:first-child{border-top:0}
+.sp-inc .d{font-size:11px;color:var(--text-faint)}
+.sp-inc b{font-weight:650}
+.sp-inc .res{color:var(--ok);font-weight:600;font-size:11.5px}
+
+/* ═══ D · Pulse ═══ */
+.pulse svg text{font-family:var(--font);fill:var(--chart-tick);font-size:10.5px}
+.hm{display:grid;grid-template-columns:180px repeat(24,1fr) 54px;gap:2px;align-items:center;font-size:11px}
+.hm .rl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-2);padding-right:8px;font-size:11.5px}
+.hm i{height:13px;border-radius:2px;display:block}
+.hm .rr{font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.hm .hx{font-size:10px;color:var(--text-faint);text-align:left}
+
+/* ═══ E · Map ═══ */
+.map-grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px;align-items:stretch}
+.map-card{position:relative}
+.map-card svg text{font-family:var(--font)}
+.map-ov{position:absolute;left:14px;top:14px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(4px);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.map-ov .bn{gap:22px}.map-ov .bn .n{font-size:24px}
+.map-lg{position:absolute;left:14px;bottom:14px;background:color-mix(in srgb,var(--surface) 88%,transparent);border:1px solid var(--border);border-radius:6px;padding:6px 10px}
+@keyframes ping{0%{r:var(--r0);opacity:.7}100%{r:calc(var(--r0) + 16px);opacity:0}}
+.ping{animation:ping 1.8s var(--ease-out) infinite;fill:none;stroke:var(--danger);stroke-width:2}
+
+/* ═══ F · Orbit ═══ */
+.orb-grid{display:grid;grid-template-columns:720px minmax(0,1fr);gap:14px;align-items:start}
+.orb svg text{font-family:var(--font)}
+
+/* ═══ G · Restaurant twins ═══ */
+.tw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tw{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px 12px}
+.tw.h-bad{border-color:var(--danger-edge);box-shadow:inset 0 3px 0 var(--danger)}
+.tw.h-warn{box-shadow:inset 0 3px 0 var(--warn)}
+.tw .h{display:flex;align-items:baseline;gap:8px}
+.tw .nm{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tw .ct{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tw .city{font-size:11px;color:var(--text-faint);margin-bottom:9px}
+.tw .fl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:5px 4px;min-height:32px}
+.tw .fl .gap{width:8px}
+.tw .fl svg{display:block;cursor:default}
+.tw .why{font-size:11.5px;color:var(--danger);margin-top:9px;font-weight:550}
+.tw.h-warn .why{color:var(--warn)}
+.tw-ok{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tw-ok>span{font-size:11.5px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;display:inline-flex;align-items:center;gap:6px}
+.tw-ok>span b{font-weight:500;color:var(--text-faint);font-variant-numeric:tabular-nums}
+
+/* ═══ H · Firmware river + funnel ═══ */
+.rv-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+.rv svg text{font-family:var(--font);fill:var(--chart-tick);font-size:10.5px}
+.fn{padding:12px 14px 14px}
+.fn-row{display:grid;grid-template-columns:118px 1fr;gap:10px;align-items:center;margin-top:8px}
+.fn-row .l{font-size:12px;color:var(--text-2)}
+.fn-row .b{height:26px;border-radius:3px;background:color-mix(in srgb,var(--info) 30%,var(--surface));display:flex;align-items:center;padding:0 8px;font-size:12.5px;font-weight:650;box-sizing:border-box;font-variant-numeric:tabular-nums;margin:0 auto}
+.fn-drop{font-size:11px;color:var(--danger);padding-left:128px;margin-top:3px}
+.ring-row{display:flex;gap:16px;padding:12px 14px 14px}
+.ring-row .rg{display:flex;align-items:center;gap:10px;flex:1}
+.ring-row .rg .t{font-size:12px;font-weight:650}
+.ring-row .rg .s{font-size:11.5px;color:var(--muted)}
+
+/* ═══ I · NOC wall ═══ */
+.noc{--n-bg:#06080c;--n-fg:#e8ebf2;--n-dim:#7d8496;--n-line:#1a1f2a;--n-ok:#34d27b;--n-warn:#f3b63d;--n-bad:#ff5b5b;
+  background:var(--n-bg);color:var(--n-fg);border-radius:10px;padding:26px 28px 0;font-family:var(--font);overflow:hidden;position:relative}
+.noc .top{display:flex;align-items:flex-start;gap:40px}
+.noc .hero{font-size:112px;font-weight:600;letter-spacing:-.05em;line-height:.9;font-variant-numeric:tabular-nums}
+.noc .hero small{font-size:36px;color:var(--n-dim);letter-spacing:-.02em;font-weight:500}
+.noc .cap{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--n-dim);font-weight:600;margin-bottom:10px}
+.noc .clk{margin-left:auto;text-align:right}
+.noc .clk .tmx{font-size:44px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.noc .clk .dt{font-size:13px;color:var(--n-dim);margin-top:6px}
+.noc .kp{display:flex;gap:34px;margin-top:22px}
+.noc .kp div{font-size:12px;color:var(--n-dim);text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+.noc .kp b{display:block;font-size:40px;color:var(--n-fg);letter-spacing:-.02em;font-weight:600;text-transform:none;font-variant-numeric:tabular-nums}
+.noc .kp b.bad{color:var(--n-bad)}.noc .kp b.warn{color:var(--n-warn)}
+.noc .tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:26px}
+.noc .ti{border-radius:6px;padding:9px 10px;background:#0f1319;border:1px solid var(--n-line);min-height:52px}
+.noc .ti .nm{font-size:11px;color:var(--n-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.noc .ti .n{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.noc .ti .n small{font-size:11px;color:var(--n-dim);font-weight:500}
+.noc .ti.warn{border-color:rgba(243,182,61,.45);background:rgba(243,182,61,.08)}
+.noc .ti.bad{border-color:rgba(255,91,91,.6);background:rgba(255,91,91,.14);animation:nocblink 2.4s ease-in-out infinite}
+.noc .ti.bad .n{color:var(--n-bad)}
+@keyframes nocblink{50%{background:rgba(255,91,91,.24)}}
+.noc .tk{margin:26px -28px 0;border-top:1px solid var(--n-line);background:#0a0d12;overflow:hidden;white-space:nowrap;padding:12px 0}
+.noc .tk .run{display:inline-block;animation:tick 60s linear infinite;font-size:14px}
+.noc .tk span{margin-right:44px;color:var(--n-dim)}
+.noc .tk span b{color:var(--n-fg);font-weight:600}
+.noc .tk span i{font-style:normal;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+@keyframes tick{to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.noc .tk .run,.noc .ti.bad,.ping{animation:none}}
+
+/* ═══ J · Today timeline ═══ */
+.tl svg text{font-family:var(--font)}
+.story{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.story div{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:var(--text-2)}
+.story div b{color:var(--text);font-weight:650}
+.story .when{font-size:11px;color:var(--text-faint);font-variant-numeric:tabular-nums;display:block;margin-bottom:2px}
+
+/* ═══ K · Bento ═══ */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:170px;gap:12px}
+.bento>div{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;overflow:hidden;position:relative;box-sizing:border-box}
+.bento .k{font-size:12px;color:var(--muted);font-weight:550}
+.bento .big{font-size:46px;font-weight:600;letter-spacing:-.03em;line-height:1;margin-top:10px;font-variant-numeric:tabular-nums}
+.bento .big small{font-size:16px;color:var(--muted);font-weight:500;letter-spacing:0}
+.bento .w2{grid-column:span 2}.bento .h2{grid-row:span 2}
+
+/* ═══ Current (stage) shorthand ═══ */
+.cur-strip{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.cur-strip div{padding:12px 16px;border-left:1px solid var(--border-soft);font-size:12px;color:var(--muted)}
+.cur-strip div:first-child{border-left:0}
+.cur-strip b{display:block;font-size:22px;font-weight:600;color:var(--text);margin-top:4px}
+.cur-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.cur-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border-soft)}
+.cur-t td{padding:8px 14px;border-top:1px solid var(--border-soft)}
+</style>
+</head>
+<body>
+<div class="themebar" role="group" aria-label="Theme"><button id="th-l" onclick="setTheme('light')">Light</button><button id="th-d" onclick="setTheme('dark')">Dark</button></div>
+<div id="tip"></div>
+
+<div class="wrap">
+<h1>Overview, the visual round</h1>
+<p class="lead">The Overview on stage (demo D) went all the way to tables to stop looking home-made, and now it reads like a spreadsheet. This round goes the other way: each option leads with one picture of the fleet, and the picture is made of real data (a square is a device, a bar is a day, a dot is a restaurant). Nothing is decoration or an invented score. Every mock uses the same fleet: Orange County restaurants, T7s, kiosks, menu boards, KDS and handhelds. Hover the pictures, they have tooltips.</p>
+<div class="toc">
+<a href="#cur">Current (stage)</a>
+<a href="#a" class="rec">A · Device wall ★</a>
+<a href="#b">B · Treemap</a>
+<a href="#c">C · Status page</a>
+<a href="#d">D · Pulse</a>
+<a href="#e">E · Map</a>
+<a href="#f">F · Orbit</a>
+<a href="#g">G · Restaurant twins</a>
+<a href="#h">H · Firmware river</a>
+<a href="#i">I · NOC wall</a>
+<a href="#j">J · Today</a>
+<a href="#k">K · Bento</a>
+<a href="#pick">Recommendation</a>
+</div>
+
+<!-- ═══════════ CURRENT ═══════════ -->
+<h2 class="sec" id="cur">Current: counts, queue, restaurants table <span class="tag live">On stage</span></h2>
+<p class="desc">Shorthand of what stage serves at <code>/</code> today. Honest, fast to scan, but there is no picture of the fleet anywhere on it. Every option below keeps its good part (every number opens a filtered list) and adds the picture.</p>
+<div class="mock"><div class="mock-in v" id="m-cur"></div></div>
+
+<!-- ═══════════ A ═══════════ -->
+<h2 class="sec" id="a">A · Device wall: every device is one square <span class="tag rec">Recommended</span></h2>
+<p class="desc">Each restaurant is a block and each device in it is a square coloured by its state right now. Close to 500 squares fit on a laptop screen, and a bad restaurant shows up as a red clump before you've read anything. The queue next to it says what the red is.</p>
+<div class="mock"><div class="mock-in v" id="m-a"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The whole fleet in one look, at the level of single devices. Nothing is averaged away.</li><li>Scales: 1,500 devices is still one screen at 8px squares.</li><li>Colour means one thing everywhere: the device's state.</li></ul></div>
+<div><b>Bad at</b><ul><li>Says nothing about trends. Yesterday's outage is gone once it's fixed.</li><li>Restaurant names are small, so it depends on hover and the queue.</li></ul></div>
+<div><b>Data</b><ul><li>All of it exists today: device state, restaurant, class, active alerts. No new queries, just one more <code>SELECT</code> of (id, restaurant, state).</li></ul></div>
+</div>
+
+<!-- ═══════════ B ═══════════ -->
+<h2 class="sec" id="b">B · Treemap: the fleet as a stock-market map</h2>
+<p class="desc">Like a stock-market map: each restaurant is a rectangle sized by how many devices it has, and the colour gets stronger the worse it's doing. Inside, the dashed boxes split it by device type. Big red rectangles are the problems that affect the most devices.</p>
+<div class="mock"><div class="mock-in v" id="m-b"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Weighs problems by size: a 20-device restaurant in trouble takes up more of the screen than a 5-device one.</li><li>Very dense. Every restaurant is on screen with its name.</li></ul></div>
+<div><b>Bad at</b><ul><li>Small restaurants turn into slivers with no room for a label.</li><li>Colour intensity needs a formula, which is close to the "invented score" we removed.</li></ul></div>
+<div><b>Data</b><ul><li>Exists: device counts per restaurant and class, offline and alert counts.</li></ul></div>
+</div>
+
+<!-- ═══════════ C ═══════════ -->
+<h2 class="sec" id="c">C · Status page: 30 days of uptime per restaurant</h2>
+<p class="desc">Borrowed from status pages like GitHub's: a banner that says in one sentence whether things are fine, then one row of daily uptime bars per restaurant, then the incident log. Anyone who has looked at a status page already knows how to read it.</p>
+<div class="mock"><div class="mock-in v" id="m-c"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Shows history. A restaurant that drops every Friday shows up as a pattern.</li><li>You could show the same page to a restaurant owner or support as-is.</li></ul></div>
+<div><b>Bad at</b><ul><li>The unit is a day, so an outage that started 20 minutes ago is one small bar.</li><li>31 rows is long. It needs a "show all" once the fleet grows.</li></ul></div>
+<div><b>Data</b><ul><li><code>device_daily_stats.online_minutes</code> already has uptime per device per day. The incident log comes from resolved alerts.</li></ul></div>
+</div>
+
+<!-- ═══════════ D ═══════════ -->
+<h2 class="sec" id="d">D · Pulse: a week of the fleet, then today hour by hour</h2>
+<p class="desc">A large chart of devices online over 7 days, with rollouts, outages and crash spikes marked on it where they happened. Below it, every restaurant is a row with one cell per hour for the last 24 hours, so an outage looks like a dark run across a row.</p>
+<div class="mock"><div class="mock-in v pulse" id="m-d"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Links cause and effect: "we started the v2.1.021 rollout, then the online count dipped".</li><li>The heatmap catches restaurants that drop off every night or at peak hours.</li></ul></div>
+<div><b>Bad at</b><ul><li>Two charts before any worklist. On a bad day you still have to scroll to see what to do.</li></ul></div>
+<div><b>Data</b><ul><li>Online per hour: <code>device_state_events</code> (the stage fleet chart already draws it). The event markers come from updates and alerts.</li></ul></div>
+</div>
+
+<!-- ═══════════ E ═══════════ -->
+<h2 class="sec" id="e">E · Map: where the trouble is</h2>
+<p class="desc">A hand-drawn map of Orange County (coastline, the 5, 405 and 91 freeways) with no map tiles, no API key and no Google branding. Each dot is a restaurant, sized by device count and coloured by state. Restaurants at risk pulse. We already store latitude and longitude on <code>restaurants</code>.</p>
+<div class="mock"><div class="mock-in v" id="m-e"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The most "wow" option, and it answers "is this one area?" (for example an ISP outage in Anaheim).</li><li>Useful for field techs: which restaurants can I visit on one trip.</li></ul></div>
+<div><b>Bad at</b><ul><li>Clustered cities hide each other. Irvine and Santa Ana overlap at this zoom.</li><li>A new region (another state) needs its own outline, or real map tiles.</li></ul></div>
+<div><b>Data</b><ul><li>Exists: <code>restaurants.latitude/longitude</code>. The outline is a static SVG, a few KB per region.</li></ul></div>
+</div>
+
+<!-- ═══════════ F ═══════════ -->
+<h2 class="sec" id="f">F · Orbit: the fleet as a clock face</h2>
+<p class="desc">Every device is a tick around the ring, grouped by restaurant, worst restaurants starting at 12 o'clock. The inner ring shows device types. Red ticks stick out further, so problems pop off the edge. Only the restaurants with problems get a label.</p>
+<div class="mock"><div class="mock-in v orb" id="m-f"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Memorable. It looks like nothing else in the product, and a demo audience will remember it.</li><li>Same data as the wall, so it's honest.</li></ul></div>
+<div><b>Bad at</b><ul><li>Angles are harder to compare than rows. Takes more reading than A.</li><li>Past ~800 devices the ticks merge, so it needs a zoom.</li></ul></div>
+<div><b>Data</b><ul><li>Same as A.</li></ul></div>
+</div>
+
+<!-- ═══════════ G ═══════════ -->
+<h2 class="sec" id="g">G · Restaurant twins: each site drawn as its hardware <span class="tag fun">Surprise</span></h2>
+<p class="desc">Each restaurant card draws the actual devices it has: tablets, kiosk panels, the menu-board TV, the KDS screen, handhelds. A dark screen with a red dot is offline. You read it the way a support call goes: "the menu board at Taco Loco is dark".</p>
+<div class="mock"><div class="mock-in v" id="m-g"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Matches how support and restaurant owners talk: by device type, not serial.</li><li>A great sales demo. Our own hardware, on screen.</li></ul></div>
+<div><b>Bad at</b><ul><li>Big restaurants (40+ devices) need a "+30" overflow.</li><li>Needs one small icon per device class, and a new class needs a drawing.</li></ul></div>
+<div><b>Data</b><ul><li>Exists: <code>device_class</code> + state per device.</li></ul></div>
+</div>
+
+<!-- ═══════════ H ═══════════ -->
+<h2 class="sec" id="h">H · Firmware river + fleet funnel</h2>
+<p class="desc">For release days. The left chart shows 30 days of which build the T7s ran, so each rollout is a new colour spreading across it. On the right, a funnel from enrolled down to fully healthy and up to date, labelled with how many devices drop out at each step and why.</p>
+<div class="mock"><div class="mock-in v rv" id="m-h"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Rollout progress over time. "Is v2.1.021 actually landing?" is answered without opening Updates.</li><li>The funnel makes "healthy" countable, with every step labelled.</li></ul></div>
+<div><b>Bad at</b><ul><li>A release-manager view more than an on-call one. Better as the Releases landing page, maybe.</li></ul></div>
+<div><b>Data</b><ul><li><code>device_daily_stats.build_id</code> (the last build seen per device per day) gives the river directly.</li></ul></div>
+</div>
+
+<!-- ═══════════ I ═══════════ -->
+<h2 class="sec" id="i">I · NOC wall: for the TV in the office <span class="tag fun">Surprise</span></h2>
+<p class="desc">Not a replacement for the Overview but a second mode (<code>/?tv=1</code>). Always dark, huge numbers you can read across the room, one tile per restaurant that blinks when it's at risk, and a ticker of live events. It refreshes itself and has no controls.</p>
+<div class="mock"><div class="mock-in" id="m-i" style="padding:0"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Makes an outage visible without anyone opening the dashboard.</li><li>Cheap: the same numbers, a different stylesheet, auto-refresh.</li></ul></div>
+<div><b>Bad at</b><ul><li>It's a mode, not an overview. It doesn't solve the main page by itself.</li><li>Needs a logged-in session on the TV (a read-only token link would help).</li></ul></div>
+<div><b>Data</b><ul><li>Exists. The ticker could use the SSE stream the dashboard already has.</li></ul></div>
+</div>
+
+<!-- ═══════════ J ═══════════ -->
+<h2 class="sec" id="j">J · Today: what happened since midnight</h2>
+<p class="desc">A timeline for today with one lane per kind of event: outages, alerts, crashes, commands, rollouts and enrolments, with a "now" line. Restaurant opening hours are shaded. Under it, the four things worth knowing, in plain words.</p>
+<div class="mock"><div class="mock-in v tl" id="m-j"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>Answers what a shift handover actually asks: "what happened today, and is it still going?"</li><li>Shows overlaps: the crash spike started right after the command batch.</li></ul></div>
+<div><b>Bad at</b><ul><li>The command lane gets dense on a busy day and needs grouping into bars.</li><li>Shows no fleet state, only events.</li></ul></div>
+<div><b>Data</b><ul><li>Exists: alerts, crashes (<code>device_events</code>), commands, updates, enrolments, all timestamped.</li></ul></div>
+</div>
+
+<!-- ═══════════ K ═══════════ -->
+<h2 class="sec" id="k">K · Bento: a bit of everything</h2>
+<p class="desc">A grid of tiles in different sizes, each holding a small version of one of the pictures above: the wall, the pulse, the map, the rollout rings, crashes by hour and the queue. Apple / Vercel style.</p>
+<div class="mock"><div class="mock-in v" id="m-k"></div></div>
+<div class="notes">
+<div><b>Good at</b><ul><li>The most visual per square inch. It looks finished and modern.</li><li>You can pick the tiles from any of A to J.</li></ul></div>
+<div><b>Bad at</b><ul><li>Close to the old 11-widget page: every tile has the same weight and there's no obvious place to start.</li><li>The tiles are too small to act on, so everything becomes a link somewhere else.</li></ul></div>
+<div><b>Data</b><ul><li>Whatever the tiles need, all of it covered above.</li></ul></div>
+</div>
+
+<!-- ═══════════ PICK ═══════════ -->
+<h2 class="sec" id="pick">Recommendation: A, the device wall</h2>
+<div class="pick">
+<p style="margin-top:0"><b>A is the one I'd build.</b> It's the only option where the picture is the fleet itself rather than a summary of it. An operator sees the red clump, reads the queue next to it and clicks through, with no chart to decode first. It needs no new data, and it keeps what was good about the current stage page: the counts at the top and the queue.</p>
+<p>What I'd borrow from the others:</p>
+<ol>
+<li><b>From D:</b> the 7-day online chart as a thin strip under the counts, for trend.</li>
+<li><b>From E:</b> a "Wall · Map" toggle on the same card. The map is too good to leave out and costs one SVG.</li>
+<li><b>From I:</b> the TV mode as a separate URL. It's cheap and the office will use it.</li>
+</ol>
+<p style="margin-bottom:0">G (twins) is the runner-up if the page is also meant for sales demos and restaurant owners. C and H fit better as the Restaurants and Releases landing pages than as the Overview. Pick a letter, or a mix like "A + map toggle", and I'll build it on stage.</p>
+</div>
+</div>
+
+<script>
+/* ═════════════ one consistent mock fleet ═════════════ */
+let seed = 11;
+function rnd(){ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+function ri(a,b){ return a + Math.floor(rnd() * (b - a + 1)); }
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
+const CLASSES = [
+  {k:'t7',label:'TSAI',pre:'T7-0'}, {k:'kiosk',label:'Kiosk',pre:'K22-00'},
+  {k:'dongle',label:'Menu board',pre:'MB-0'}, {k:'kds',label:'Kitchen display',pre:'KDS-0'},
+  {k:'mpos',label:'Handheld',pre:'HH-0'}];
+const CLS = Object.fromEntries(CLASSES.map(c => [c.k, c]));
+
+// name, city, lat, lng, fixed counts (optional)
+const RAW = [
+ ['Pho 88','Garden Grove',33.7739,-117.9414,{t7:14,kiosk:2,dongle:2,kds:1,mpos:1}],
+ ['Taco Loco','Anaheim',33.8366,-117.9143,{t7:3,kiosk:1,dongle:1,kds:0,mpos:0}],
+ ['Seoul BBQ','Buena Park',33.8675,-117.9981,{t7:13,kiosk:2,dongle:2,kds:1,mpos:0}],
+ ['Golden Wok','Tustin',33.7458,-117.8262,{t7:11,kiosk:1,dongle:1,kds:1,mpos:1}],
+ ['Sakura Ramen','Irvine',33.6846,-117.8265,{t7:12,kiosk:2,dongle:1,kds:1,mpos:0}],
+ ['Bella Pasta','Costa Mesa',33.6411,-117.9187],
+ ['Blue Fin Sushi','Santa Ana',33.7455,-117.8677],
+ ['Burger Barn','Fullerton',33.8704,-117.9242],
+ ["Mama Rosa's",'Orange',33.7879,-117.8531],
+ ['Saigon Kitchen','Westminster',33.7513,-117.9940],
+ ['Curry House','Irvine Spectrum',33.6500,-117.7430],
+ ['El Toro Grill','Lake Forest',33.6470,-117.6892],
+ ['Harbor Fish Co.','Newport Beach',33.6189,-117.9298],
+ ['Surf City Tacos','Huntington Beach',33.6603,-117.9992],
+ ['Little Seoul','La Habra',33.9319,-117.9462],
+ ['Poke Bar','Laguna Beach',33.5427,-117.7854],
+ ['Bangkok Garden','Fountain Valley',33.7092,-117.9536],
+ ['Tokyo Table','Cypress',33.8170,-118.0373],
+ ['Olive & Vine','Yorba Linda',33.8886,-117.8131],
+ ['Smokehouse 57','Placentia',33.8722,-117.8703],
+ ['Dim Sum Palace','Stanton',33.8025,-117.9931],
+ ['Brew & Bao','Brea',33.9167,-117.9001],
+ ['Casa Verde','San Clemente',33.4270,-117.6120],
+ ['Kebab Corner','Mission Viejo',33.6000,-117.6720],
+ ['Noodle Lab','Aliso Viejo',33.5676,-117.7256],
+ ['Crab Shack','Seal Beach',33.7414,-118.1048],
+ ['Spice Route','Laguna Niguel',33.5225,-117.7076],
+ ['Bistro 22','Rancho Santa Margarita',33.6409,-117.6031],
+ ['Honey Pot Café','Los Alamitos',33.8031,-118.0726],
+ ['Pizza Forno','Dana Point',33.4672,-117.6981],
+ ['Tandoori Nights','Anaheim Hills',33.8520,-117.7600],
+];
+
+const serialN = {t7:120, kiosk:12, dongle:40, kds:20, mpos:30};
+const SITES = RAW.map(([name, city, lat, lng, fixed], idx) => {
+  const c = fixed || {t7:ri(7,16), kiosk:ri(0,3), dongle:1 + (rnd() < .4 ? 1 : 0), kds:rnd() < .65 ? 1 : 0, mpos:rnd() < .35 ? 1 : 0};
+  const devs = [];
+  for (const k of ['t7','kiosk','dongle','kds','mpos'])
+    for (let i = 0; i < (c[k]||0); i++)
+      devs.push({cls:k, serial:CLS[k].pre + String(serialN[k] += ri(1,9)).padStart(3,'0'), st:'on', issue:'', temp:ri(31,39), batt:ri(45,100)});
+  return {id:idx, name, city, lat, lng, devs};
+});
+function site(n){ return SITES.find(s => s.name === n); }
+function setSt(d, st, issue){ d.st = st; d.issue = issue || ''; }
+
+// the stories
+site('Taco Loco').devs.forEach(d => setSt(d, 'off', 'Offline 2 h · whole restaurant'));
+site('Pho 88').devs.filter(d => d.cls === 't7').slice(0,6).forEach(d => setSt(d, 'off', 'Offline 47 min'));
+site('Pho 88').devs.filter(d => d.cls === 't7').slice(6,9).forEach(d => setSt(d, 'warn', 'App crash · com.aioapp.tsai'));
+site('Seoul BBQ').devs.slice(3,5).forEach(d => setSt(d, 'off', 'Offline 25 min'));
+{ const d = site('Golden Wok').devs[4]; d.serial = 'T7-0388'; d.temp = 47; setSt(d, 'warn', 'Battery at 47 °C'); }
+{ const d = site('Golden Wok').devs[7]; d.batt = 9; setSt(d, 'warn', 'Low battery · 9%'); }
+site('Sakura Ramen').devs.slice(1,3).forEach(d => setSt(d, 'warn', 'Crash loop · com.aioapp.tsai'));
+// scattered single faults on otherwise fine sites
+{ const quiet = SITES.slice(5);
+  for (let i = 0; i < 12; i++){ const s = quiet[ri(0, quiet.length-1)]; const d = s.devs[ri(0, s.devs.length-1)];
+    if (d.st === 'on') setSt(d, 'off', 'Offline ' + ri(8,50) + ' h'); }
+  for (let i = 0; i < 3; i++){ const s = quiet[ri(0, quiet.length-1)]; const d = s.devs[ri(0, s.devs.length-1)];
+    if (d.st === 'on' && d.cls === 't7'){ d.batt = ri(6,14); setSt(d, 'warn', 'Low battery · ' + d.batt + '%'); } } }
+
+const UNASSIGNED = {id:-1, name:'Waiting for a restaurant', city:'Enrolment inbox', devs:[1,2,3,4,5].map(i => ({cls:'t7', serial:'T7-09' + (40+i), st:'idle', issue:'Unassigned'}))};
+
+SITES.forEach(s => {
+  s.n = s.devs.length;
+  s.off = s.devs.filter(d => d.st === 'off').length;
+  s.warn = s.devs.filter(d => d.st === 'warn').length;
+  s.on = s.n - s.off;
+  s.health = (s.off >= 3 || s.off / s.n >= .25) ? 'bad' : (s.off >= 2 || s.warn > 0) ? 'warn' : 'ok';
+  s.hot = Math.max(...s.devs.map(d => d.temp||0));
+  s.why = s.off === s.n ? 'All ' + s.n + ' devices offline'
+        : s.off >= 2 ? s.off + ' offline' + (s.warn ? ' · ' + s.warn + ' crashing' : '')
+        : s.warn ? s.devs.find(d => d.st === 'warn').issue
+        : s.off ? '1 offline' : '';
+  s.bad = s.off * 3 + s.warn * 2;
+});
+const BYWORST = SITES.slice().sort((a,b) => ({bad:0,warn:1,ok:2}[a.health] - {bad:0,warn:1,ok:2}[b.health]) || b.bad - a.bad || b.n - a.n);
+const ALL = SITES.flatMap(s => s.devs);
+const T = {
+  total: ALL.length + UNASSIGNED.devs.length,
+  off: ALL.filter(d => d.st === 'off').length,
+  warn: ALL.filter(d => d.st === 'warn').length,
+  sitesOK: SITES.filter(s => s.health === 'ok').length,
+  sitesWarn: SITES.filter(s => s.health === 'warn').length,
+  sitesBad: SITES.filter(s => s.health === 'bad').length,
+  crashes: 37, crashDevices: 9,
+};
+T.on = T.total - T.off;
+T.pct = (T.on * 100 / T.total).toFixed(1);
+const classCount = CLASSES.map(c => ({...c, n: ALL.filter(d => d.cls === c.k).length + (c.k === 't7' ? 5 : 0), on: ALL.filter(d => d.cls === c.k && d.st !== 'off').length + (c.k === 't7' ? 5 : 0)}));
+
+const lowBatt = ALL.filter(d => /Low battery/.test(d.issue)).length;
+const QUEUE = [
+  {sev:'bad', t:'All devices offline', w:'Taco Loco, Anaheim · 5 devices', a:'2 h'},
+  {sev:'bad', t:'Devices offline', w:'Pho 88, Garden Grove · 6 devices', a:'47 min'},
+  {sev:'warn', t:'App crash · com.aioapp.tsai', w:'Pho 88, Garden Grove · 3 devices', a:'1 h'},
+  {sev:'warn', t:'Crash loop · com.aioapp.tsai', w:'Sakura Ramen, Irvine · 2 devices', a:'3 h'},
+  {sev:'warn', t:'Battery at 47 °C', w:'T7-0388 · Golden Wok, Tustin', a:'12 min'},
+  {sev:'warn', t:'Devices offline', w:'Seoul BBQ, Buena Park · 2 devices', a:'25 min'},
+  {sev:'warn', t:'Update failed · v2.1.021', w:'4 devices · 3 restaurants', a:'5 h'},
+  {sev:'warn', t:'Low battery', w:lowBatt + ' devices · ' + lowBatt + ' restaurants', a:'—'},
+  {sev:'', t:'Waiting for a restaurant', w:'5 devices in the enrolment inbox', a:'1 d'},
+];
+const queueHTML = (n) => '<ul class="q">' + QUEUE.slice(0, n || QUEUE.length).map(q =>
+  `<li><span class="dot ${q.sev}"></span><div><div class="t">${esc(q.t)}</div><div class="w">${esc(q.w)}</div></div><span class="a">${q.a}</span></li>`).join('') + '</ul>';
+
+// 7 days hourly online, ending at "now" = T.on
+const NOW_H = 14 + 20/60; // 14:20 today
+const HOURS = 168;
+const pulse = [];
+for (let h = 0; h < HOURS; h++){
+  const hod = (h + 15) % 24; // series starts 7 days ago at 15:00
+  let v = T.total - 16 + ri(-2, 2);
+  if (hod >= 2 && hod < 6) v -= 6 + ri(0,3);       // overnight power-offs on kiosks
+  if (h >= 50 && h <= 58) v -= 14 - Math.abs(h - 54) * 2; // Tue rollout reboots
+  if (h >= 96 && h <= 101) v -= 9;                 // Wed ISP blip, Anaheim
+  if (h >= HOURS - 3) v -= 6;                      // Pho 88 today
+  if (h >= HOURS - 2) v -= 5;                      // Taco Loco today
+  pulse.push(Math.min(v, T.total));
+}
+pulse[HOURS - 1] = T.on;
+const EVENTS = [
+  {h:50, t:'v2.1.021 rollout starts', k:'info'},
+  {h:97, t:'ISP outage · Anaheim', k:'bad'},
+  {h:130, t:'Crash spike · tsai 4.12', k:'warn'},
+  {h:HOURS - 2, t:'Taco Loco down', k:'bad'},
+];
+
+/* ═════════════ helpers ═════════════ */
+const $ = id => document.getElementById(id);
+const stCol = st => st === 'off' ? 'var(--st-off)' : st === 'warn' ? 'var(--st-warn)' : st === 'idle' ? 'var(--st-idle)' : 'var(--st-on)';
+const hCol = h => h === 'bad' ? 'var(--danger)' : h === 'warn' ? 'var(--warn)' : 'var(--ok)';
+const hLabel = h => h === 'bad' ? 'At risk' : h === 'warn' ? 'Watch' : 'Healthy';
+const devTip = (s, d) => `${d.serial} · ${CLS[d.cls].label} · ${s.name}${d.issue ? ' · ' + d.issue : ' · online'}`;
+function polar(cx, cy, r, a){ return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+function arcPath(cx, cy, r, a0, a1){ const [x0,y0] = polar(cx,cy,r,a0), [x1,y1] = polar(cx,cy,r,a1);
+  return `M${x0.toFixed(1)} ${y0.toFixed(1)}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; }
+function head(title, meta, right){
+  return `<div class="v-head"><div><h1 class="v-h1">${title}</h1><div class="v-meta">${meta || 'All restaurants · updated 14:20'}</div></div><div style="display:flex;gap:6px;align-items:center">${right || '<span class="v-sel">All restaurants ▾</span><span class="v-sel">All types ▾</span><span class="v-sel">Export</span>'}</div></div>`;
+}
+function spark(vals, w, h, col, fill){
+  const mn = Math.min(...vals), mx = Math.max(...vals), sx = w / (vals.length - 1), sy = (h - 2) / ((mx - mn) || 1);
+  const pts = vals.map((v,i) => `${(i*sx).toFixed(1)},${(h - 1 - (v - mn) * sy).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${fill ? `<polygon points="0,${h} ${pts} ${w},${h}" fill="${fill}"/>` : ''}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`;
+}
+function bigNums(extra){
+  return `<div class="bn">
+    <div><div class="l"><span class="dot ok"></span>Online</div><div class="n">${T.on}<small>of ${T.total}</small></div><div class="s">${T.pct}% · −4 vs yesterday</div></div>
+    <div><div class="l"><span class="dot bad"></span>Offline</div><div class="n bad">${T.off}</div><div class="s">11 in 2 restaurants</div></div>
+    <div><div class="l"><span class="dot warn"></span>Needs attention</div><div class="n">${QUEUE.length}</div><div class="s">2 critical</div></div>
+    <div><div class="l">Crashes · 24 h</div><div class="n">${T.crashes}</div><div class="s">on ${T.crashDevices} devices</div></div>
+    <div><div class="l">Restaurants</div><div class="n">${T.sitesOK}<small>of ${SITES.length} healthy</small></div><div class="s">${T.sitesBad} at risk · ${T.sitesWarn} to watch</div></div>
+    ${extra || ''}</div>`;
+}
+
+/* ═════════════ Current (stage) ═════════════ */
+$('m-cur').innerHTML = head('Overview', 'All restaurants · updated 14:20', '<span class="v-sel">Export</span>') +
+ `<div class="cur-strip"><div>Online<b>${T.on} <small style="font-size:12px;color:var(--muted)">of ${T.total}</small></b></div><div>Offline<b>${T.off}</b></div><div>Needs attention<b>${QUEUE.length}</b></div><div>Crashes · 24h<b>${T.crashes}</b></div><div>Restaurants healthy<b>${T.sitesOK} <small style="font-size:12px;color:var(--muted)">of ${SITES.length}</small></b></div></div>
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:14px">
+   <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><span class="m">${QUEUE.length} open</span></div><table class="cur-t"><thead><tr><th>Severity</th><th>Issue</th><th>Affected</th><th>Where</th><th>Since</th></tr></thead><tbody>
+   ${QUEUE.slice(0,4).map(q => `<tr><td>${q.sev === 'bad' ? 'Critical' : 'Warning'}</td><td>${esc(q.t)}</td><td>${esc(q.w.split(' · ').pop())}</td><td>${esc(q.w.split(' · ')[0])}</td><td>${q.a}</td></tr>`).join('')}</tbody></table></div>
+   <div class="v-card"><div class="v-ch"><h2>Rollouts</h2></div><div style="padding:12px 14px;font-size:12.5px;color:var(--muted)">v2.1.021 · 188 / 304<br>MDM client 1.4.2 · 380 / 412</div></div>
+  </div>`;
+
+/* ═════════════ A · Device wall ═════════════ */
+function wallHTML(sites, px, showNames){
+  return sites.map(s => {
+    const cols = Math.max(3, Math.ceil(Math.sqrt(s.devs.length * 1.5)));
+    return `<div class="wb ${s.health || ''}">${showNames ? `<div class="nm">${s.health ? `<span class="dot ${s.health}"></span>` : ''}${esc(s.name)}</div>` : ''}
+      <div class="sq" style="grid-template-columns:repeat(${cols},${px}px)">${s.devs.map(d =>
+        `<i class="${d.st === 'on' ? '' : d.st}" style="width:${px}px;height:${px}px" data-tip="${esc(devTip(s, d))}"></i>`).join('')}</div></div>`;
+  }).join('');
+}
+$('m-a').innerHTML = head('Overview') + bigNums(`<div style="margin-left:auto;text-align:right"><div class="l" style="justify-content:flex-end">Online · 7 days</div>${spark(pulse, 190, 44, 'var(--info)', 'color-mix(in srgb,var(--info) 12%,transparent)')}</div>`) +
+ `<div class="wall-grid">
+   <div class="v-card"><div class="v-ch"><h2>Fleet</h2><span class="m">every square is a device · worst restaurants first</span><span class="v-seg" style="margin-left:auto"><span class="on">Wall</span><span>Map</span><span>List</span></span></div>
+     <div class="wall">${wallHTML(BYWORST, 10, true)}${wallHTML([UNASSIGNED], 10, true)}</div>
+     <div class="wall-foot"><div class="lg"><span><i style="background:var(--st-on)"></i>Online</span><span><i style="background:var(--st-warn)"></i>Alert</span><span><i style="background:var(--st-off)"></i>Offline</span><span><i style="background:var(--st-idle)"></i>Unassigned</span></div>
+       <div class="lg">${classCount.map(c => `<span>${c.label} <b style="color:var(--text);font-weight:600">${c.n}</b></span>`).join('')}</div></div>
+   </div>
+   <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><span class="m">${QUEUE.length}</span><a class="r" href="#">Alerts</a></div>${queueHTML()}</div>
+ </div>`;
+
+/* ═════════════ B · Treemap ═════════════ */
+function squarify(items, x, y, w, h){
+  const tot = items.reduce((a,b) => a + b.v, 0), sc = w * h / tot, out = [];
+  let rest = items.map(i => ({...i, a: i.v * sc}));
+  while (rest.length){
+    const sh = Math.min(w, h);
+    const worst = r => { const s = r.reduce((a,b) => a + b.a, 0), mx = Math.max(...r.map(q => q.a)), mn = Math.min(...r.map(q => q.a));
+      return Math.max(sh*sh*mx/(s*s), (s*s)/(sh*sh*mn)); };
+    let row = [rest[0]], i = 1;
+    while (i < rest.length && worst([...row, rest[i]]) <= worst(row)){ row.push(rest[i]); i++; }
+    rest = rest.slice(i);
+    const s = row.reduce((a,b) => a + b.a, 0);
+    if (w >= h){ const cw = s / h; let cy = y; row.forEach(r => { const rh = r.a / cw; out.push({...r, x, y:cy, w:cw, h:rh}); cy += rh; }); x += cw; w -= cw; }
+    else { const rh = s / w; let cx = x; row.forEach(r => { const rw = r.a / rh; out.push({...r, x:cx, y, w:rw, h:rh}); cx += rw; }); y += rh; h -= rh; }
+  }
+  return out;
+}
+function tmColor(s){
+  if (s.health === 'bad') return `color-mix(in srgb,var(--danger) ${s.off === s.n ? 92 : 78}%,var(--surface))`;
+  if (s.health === 'warn') return 'color-mix(in srgb,var(--warn) 34%,var(--surface))';
+  return `color-mix(in srgb,var(--ok) ${s.off ? 12 : 22}%,var(--surface))`;
+}
+function renderTreemap(){
+  const box = $('tm-box'); if (!box) return;
+  const W = box.clientWidth, H = box.clientHeight;
+  const tiles = squarify(SITES.slice().sort((a,b) => b.n - a.n).map(s => ({v:s.n, s})), 0, 0, W, H);
+  box.innerHTML = tiles.map(t => {
+    const s = t.s, big = t.w > 110 && t.h > 70;
+    let subs = '';
+    if (t.w > 90 && t.h > 64){
+      const cc = CLASSES.map(c => ({v: s.devs.filter(d => d.cls === c.k).length, c})).filter(q => q.v).sort((a,b) => b.v - a.v);
+      subs = squarify(cc, 0, 0, t.w - 3, t.h - 3).map(q =>
+        `<div class="sub" style="left:${q.x.toFixed(1)}px;top:${q.y.toFixed(1)}px;width:${q.w.toFixed(1)}px;height:${q.h.toFixed(1)}px">${q.w > 46 && q.h > 16 && q.c.k !== 't7' ? q.c.label + ' ' + q.v : ''}</div>`).join('');
+    }
+    return `<div class="tl ${s.health}" style="left:${t.x.toFixed(1)}px;top:${t.y.toFixed(1)}px;width:${t.w.toFixed(1)}px;height:${t.h.toFixed(1)}px;background:${tmColor(s)}" data-tip="${esc(s.name + ' · ' + s.city + ' · ' + s.on + '/' + s.n + ' online' + (s.why ? ' · ' + s.why : ''))}">${subs}
+      ${t.w > 54 && t.h > 30 ? `<div class="nm">${esc(s.name)}</div>` : ''}
+      ${big ? `<div class="big">${s.on}<span style="font-size:12px;font-weight:500;opacity:.7">/${s.n}</span></div>` : ''}
+      ${t.w > 70 && t.h > 46 ? `<div class="s">${esc(s.why || s.city)}</div>` : ''}</div>`;
+  }).join('');
+}
+$('m-b').innerHTML = head('Overview') + bigNums() +
+ `<div class="v-card" style="margin-top:18px"><div class="v-ch"><h2>Restaurants</h2><span class="m">area = devices · colour = state</span><span class="v-seg" style="margin-left:auto"><span class="on">Size by devices</span><span>Size by alerts</span></span></div>
+   <div style="padding:12px"><div class="tm" id="tm-box"></div></div>
+   <div class="wall-foot"><div class="lg"><span>Healthy</span><div class="tm-scale"><i style="background:color-mix(in srgb,var(--ok) 22%,var(--surface))"></i><i style="background:color-mix(in srgb,var(--ok) 12%,var(--surface))"></i><i style="background:color-mix(in srgb,var(--warn) 34%,var(--surface))"></i><i style="background:color-mix(in srgb,var(--danger) 78%,var(--surface))"></i><i style="background:color-mix(in srgb,var(--danger) 92%,var(--surface))"></i></div><span>All offline</span></div><span class="lg">Dashed boxes: device types inside a restaurant</span></div></div>`;
+
+/* ═════════════ C · Status page ═════════════ */
+function uptimeDays(s){
+  const out = [];
+  for (let d = 0; d < 30; d++){
+    let u = 99.6 + rnd() * .4, k = '';
+    if (rnd() < .035){ u = 96 + rnd() * 3; k = 'warn'; }
+    if (s.name === 'Seoul BBQ' && d % 7 === 4){ u = 94.1; k = 'warn'; }   // every Friday
+    if (s.city === 'Anaheim' || s.city === 'Anaheim Hills' || s.city === 'Fullerton'){ if (d === 25){ u = 81.3; k = 'off'; } }
+    if (d === 29){ u = s.off === s.n ? 72.0 : s.off >= 3 ? 94.5 : s.off >= 2 ? 98.2 : u; k = s.off === s.n ? 'off' : s.off >= 2 ? 'warn' : k; }
+    out.push({u, k});
+  }
+  return out;
+}
+const DAYLBL = d => { const dt = new Date(2026, 8, 29 - (29 - d)); return dt.toLocaleDateString('en-GB', {day:'numeric', month:'short'}); };
+$('m-c').innerHTML = head('Fleet status', 'Last 30 days · all restaurants', '<span class="v-seg"><span>7 d</span><span class="on">30 d</span><span>90 d</span></span>') +
+ `<div class="sp-banner"><span class="dot bad" style="width:12px;height:12px"></span><div><div class="bt">${T.sitesBad} restaurants have an outage</div><div class="bs">Taco Loco (Anaheim) is fully offline since 12:20 · Pho 88 (Garden Grove) has 6 devices down since 13:33</div></div>
+   <div class="cnt"><div><b style="color:var(--ok)">${T.sitesOK}</b>operational</div><div><b style="color:var(--warn)">${T.sitesWarn}</b>degraded</div><div><b style="color:var(--danger)">${T.sitesBad}</b>outage</div></div></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;align-items:start">
+  <div class="v-card"><div class="v-ch"><h2>Restaurants</h2><span class="m">daily uptime · worst first</span><a class="r" href="#">All ${SITES.length}</a></div>
+    ${BYWORST.slice(0, 12).map(s => { const days = uptimeDays(s), avg = days.reduce((a,b) => a + b.u, 0) / 30;
+      return `<div class="sp-row"><div class="nm"><span class="dot ${s.health}"></span>${esc(s.name)} <span class="st">${s.city}</span></div>
+        <div class="sp-bars">${days.map((d,i) => `<i class="${d.k}" data-tip="${esc(s.name + ' · ' + DAYLBL(i) + ' · ' + d.u.toFixed(1) + '% up')}"></i>`).join('')}</div>
+        <div class="up">${avg.toFixed(2)}%</div></div>`; }).join('')}
+    <div class="sp-ax"><div></div><div><span>30 days ago</span><span>Today</span></div><div></div></div>
+    <a href="#" style="display:block;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:12px;font-weight:600;color:var(--accent-text);text-decoration:none">${SITES.length - 12} more restaurants, all above 99.8%</a>
+  </div>
+  <div style="display:grid;gap:14px">
+   <div class="v-card"><div class="v-ch"><h2>Services</h2></div>
+    ${['MDM server','Live connection (WebSocket)','OTA downloads','Check-ins'].map((n,i) => `<div class="sp-row" style="grid-template-columns:1fr auto"><div class="nm"><span class="dot ok"></span>${n}</div><div class="up" style="color:var(--ok)">${['100%','99.98%','100%','99.99%'][i]}</div></div>`).join('')}
+   </div>
+   <div class="v-card"><div class="v-ch"><h2>Incidents</h2></div>
+    <div class="sp-inc"><div class="d">Today, 12:20</div><b>Taco Loco offline</b><div style="color:var(--danger);font-size:11.5px;font-weight:600">Ongoing</div></div>
+    <div class="sp-inc"><div class="d">Wed 24 Sep, 09:10 – 13:40</div><b>ISP outage, Anaheim area</b> · 3 restaurants<div class="res">Resolved</div></div>
+    <div class="sp-inc"><div class="d">Tue 23 Sep</div><b>v2.1.021 rollout reboots</b> · planned<div class="res">Completed</div></div>
+   </div>
+  </div></div>`;
+
+/* ═════════════ D · Pulse ═════════════ */
+(function(){
+  const W = 1030, H = 260, pl = 36, pr = 10, pt = 44, pb = 24;
+  const mn = Math.floor((Math.min(...pulse) - 8) / 10) * 10, mx = Math.ceil((T.total + 2) / 10) * 10, sx = (W - pl - pr) / (HOURS - 1), sy = (H - pt - pb) / (mx - mn);
+  const X = h => pl + h * sx, Y = v => pt + (mx - Math.max(v, mn)) * sy;
+  const pts = pulse.map((v,h) => `${X(h).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  let g = '';
+  for (let v = mn; v <= mx; v += 10) g += `<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--chart-grid)"/><text x="${pl-6}" y="${Y(v)+3.5}" text-anchor="end">${v}</text>`;
+  const days = ['Tue','Wed','Thu','Fri','Sat','Sun','Mon','Today'];
+  for (let d = 0; d < 8; d++){ const h = 9 + d * 24; if (h < HOURS) g += `<line x1="${X(h)}" x2="${X(h)}" y1="${pt}" y2="${H-pb}" stroke="var(--chart-grid)" stroke-dasharray="2 3"/><text x="${X(h)+4}" y="${H-8}">${days[d]}</text>`; }
+  // overnight bands
+  for (let d = 0; d < 7; d++){ const h0 = 11 + d * 24; g += `<rect x="${X(h0)}" y="${pt}" width="${4*sx}" height="${H-pt-pb}" fill="var(--text)" opacity=".035"/>`; }
+  const ev = EVENTS.map((e,i) => { const x = X(e.h), ly = pt - 18 + (i % 2) * 14, c = e.k === 'bad' ? 'var(--danger)' : e.k === 'warn' ? 'var(--warn)' : 'var(--info)';
+    const anchor = x > W - 140 ? 'end' : 'start', tx = anchor === 'end' ? x - 6 : x + 6;
+    return `<line x1="${x}" x2="${x}" y1="${ly}" y2="${H-pb}" stroke="${c}" stroke-width="1.2"/><circle cx="${x}" cy="${ly}" r="4" fill="${c}"/><text x="${tx}" y="${ly+4}" text-anchor="${anchor}" style="fill:var(--text);font-weight:600;font-size:11px">${e.t}</text>`; }).join('');
+  const chart = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${g}
+    <polygon points="${pl},${H-pb} ${pts} ${X(HOURS-1)},${H-pb}" fill="color-mix(in srgb,var(--info) 14%,transparent)"/>
+    <line x1="${pl}" x2="${W-pr}" y1="${Y(T.total)}" y2="${Y(T.total)}" stroke="var(--text-faint)" stroke-dasharray="4 4"/><text x="${W-pr}" y="${Y(T.total)-5}" text-anchor="end">enrolled ${T.total}</text>
+    <polyline points="${pts}" fill="none" stroke="var(--info)" stroke-width="1.8"/>${ev}
+    <circle cx="${X(HOURS-1)}" cy="${Y(T.on)}" r="4" fill="var(--info)" stroke="var(--surface)" stroke-width="2"/></svg>`;
+  // heatmap: last 24 h per restaurant
+  const rows = BYWORST.slice(0, 14).map(s => {
+    const cells = [], since = 24 - ri(4, 16), nightly = s.health === 'ok' && s.name.length % 3 === 0;
+    for (let h = 0; h < 24; h++){
+      let f = 1;
+      if (s.name === 'Taco Loco' && h >= 22) f = 0;
+      if (s.name === 'Pho 88' && h >= 21) f = (s.n - 6) / s.n;
+      if (s.name === 'Seoul BBQ' && h >= 23) f = (s.n - 2) / s.n;
+      if (s.health === 'ok' && s.off && h >= since) f = (s.n - 1) / s.n;
+      if (nightly && h >= 10 && h <= 13) f = Math.min(f, (s.n - 1) / s.n); // a kiosk switched off overnight
+      cells.push(f);
+    }
+    const col = f => f >= .999 ? 'var(--st-on)' : f >= .9 ? 'color-mix(in srgb,var(--warn) 60%,var(--surface))' : f >= .6 ? 'color-mix(in srgb,var(--danger) 55%,var(--surface))' : 'var(--danger)';
+    return `<div class="rl"><span class="dot ${s.health}" style="width:6px;height:6px;margin-right:6px"></span>${esc(s.name)}</div>${cells.map((f,h) =>
+      `<i style="background:${col(f)}" data-tip="${esc(s.name + ' · ' + String((h + 14) % 24).padStart(2,'0') + ':00 · ' + Math.round(f * s.n) + '/' + s.n + ' online')}"></i>`).join('')}<div class="rr">${s.on}/${s.n}</div>`;
+  }).join('');
+  const hx = Array.from({length:24}, (_,h) => `<div class="hx">${h % 3 === 0 ? String((h + 14) % 24).padStart(2,'0') : ''}</div>`).join('');
+  $('m-d').innerHTML = head('Overview') + bigNums() +
+   `<div class="v-card" style="margin-top:18px"><div class="v-ch"><h2>Devices online</h2><span class="m">hourly · 7 days</span><span class="v-seg" style="margin-left:auto"><span>24 h</span><span class="on">7 d</span><span>30 d</span></span></div><div style="padding:8px 10px 4px">${chart}</div></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin-top:14px;align-items:start">
+     <div class="v-card"><div class="v-ch"><h2>Last 24 hours by restaurant</h2><span class="m">each cell is an hour</span><a class="r" href="#">All ${SITES.length}</a></div>
+      <div style="padding:10px 14px 12px"><div class="hm">${rows}<div></div>${hx}<div class="hx" style="text-align:right">now</div></div></div></div>
+     <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><a class="r" href="#">Alerts</a></div>${queueHTML(6)}</div>
+    </div>`;
+})();
+
+/* ═════════════ E · Map ═════════════ */
+function mapSVG(W, H, opts){
+  opts = opts || {};
+  const L0 = -118.14, L1 = -117.56, A1 = 33.96, A0 = 33.40;
+  const k = Math.min(W / ((L1 - L0) * .832), H / (A1 - A0));
+  const ox = (W - (L1 - L0) * .832 * k) / 2, oy = (H - (A1 - A0) * k) / 2;
+  const P = (lat, lng) => [ox + (lng - L0) * .832 * k, oy + (A1 - lat) * k];
+  const line = pts => pts.map(p => P(p[0], p[1]).map(v => v.toFixed(1)).join(',')).join(' ');
+  const coast = [[33.76,-118.14],[33.745,-118.10],[33.72,-118.06],[33.68,-118.02],[33.655,-117.99],[33.63,-117.955],[33.605,-117.91],[33.595,-117.88],[33.58,-117.85],[33.555,-117.81],[33.54,-117.785],[33.51,-117.75],[33.48,-117.72],[33.46,-117.70],[33.45,-117.66],[33.43,-117.625],[33.40,-117.59],[33.38,-117.56]];
+  const ocean = line(coast) + ' ' + P(33.0,-117.3).join(',') + ' ' + P(33.0,-119).join(',') + ' ' + P(33.76,-119).join(',');
+  const fwy = [
+    ['5',[[33.87,-118.03],[33.86,-117.99],[33.84,-117.93],[33.81,-117.90],[33.77,-117.87],[33.74,-117.83],[33.69,-117.78],[33.65,-117.73],[33.61,-117.68],[33.56,-117.66],[33.50,-117.65],[33.44,-117.62],[33.40,-117.59]]],
+    ['405',[[33.80,-118.10],[33.77,-118.05],[33.75,-117.99],[33.72,-117.94],[33.69,-117.90],[33.67,-117.85],[33.65,-117.78],[33.63,-117.73]]],
+    ['91',[[33.87,-118.12],[33.865,-118.03],[33.86,-117.95],[33.86,-117.87],[33.855,-117.79],[33.86,-117.70],[33.88,-117.62]]],
+    ['55',[[33.84,-117.83],[33.78,-117.84],[33.73,-117.86],[33.68,-117.88],[33.64,-117.91]]]];
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;background:var(--surface)">
+    <defs><pattern id="mdots${W}" width="12" height="12" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="var(--rule)"/></pattern></defs>
+    <rect width="${W}" height="${H}" fill="url(#mdots${W})"/>
+    <polygon points="${ocean}" fill="color-mix(in srgb,var(--info) 10%,var(--surface))"/>
+    <polyline points="${line(coast)}" fill="none" stroke="color-mix(in srgb,var(--info) 40%,var(--surface))" stroke-width="1.5"/>`;
+  if (!opts.mini){
+    fwy.forEach(([n, p]) => { s += `<polyline points="${line(p)}" fill="none" stroke="var(--rule-2)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity=".7"/>`;
+      const m = P(...p[Math.floor(p.length / 2)]); s += `<g transform="translate(${m[0]},${m[1]})"><rect x="-11" y="-8" width="22" height="16" rx="3" fill="var(--surface)" stroke="var(--rule-2)"/><text y="4" text-anchor="middle" style="font-size:9.5px;font-weight:700;fill:var(--text-2)">${n}</text></g>`; });
+    const [px, py] = P(33.53, -118.06);
+    s += `<text x="${px}" y="${py}" style="font-size:12px;font-style:italic;letter-spacing:.2em;fill:color-mix(in srgb,var(--info) 55%,var(--surface))">PACIFIC OCEAN</text>`;
+  }
+  // restaurants: ok first so bad ones draw on top
+  SITES.slice().sort((a,b) => ({ok:0,warn:1,bad:2}[a.health] - {ok:0,warn:1,bad:2}[b.health])).forEach(st => {
+    const [x, y] = P(st.lat, st.lng), r = (opts.mini ? 2 : 3.2) + Math.sqrt(st.n) * (opts.mini ? .9 : 1.55);
+    const c = hCol(st.health);
+    if (st.health === 'bad') s += `<circle cx="${x}" cy="${y}" r="${r}" class="ping" style="--r0:${r}px"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="color-mix(in srgb,${c} ${st.health === 'ok' ? 55 : 85}%,var(--surface))" stroke="var(--surface)" stroke-width="1.5" data-tip="${esc(st.name + ' · ' + st.city + ' · ' + st.on + '/' + st.n + ' online' + (st.why ? ' · ' + st.why : ''))}"/>`;
+    if (!opts.mini && (st.health !== 'ok' || opts.labels)){
+      const right = x < W - 170;
+      s += `<text x="${right ? x + r + 6 : x - r - 6}" y="${y + 4}" text-anchor="${right ? 'start' : 'end'}" style="font-size:11.5px;font-weight:650;fill:var(--text);paint-order:stroke;stroke:var(--surface);stroke-width:3px">${esc(st.name)}<tspan style="font-weight:500;fill:${c}"> · ${esc(st.why)}</tspan></text>`;
+    }
+  });
+  return s + '</svg>';
+}
+$('m-e').innerHTML = head('Overview', 'Orange County · 31 restaurants · updated 14:20') +
+ `<div class="map-grid">
+   <div class="v-card map-card">${mapSVG(740, 560)}
+     <div class="map-ov"><div class="bn"><div><div class="l">Online</div><div class="n">${T.on}<small>/${T.total}</small></div></div><div><div class="l">Offline</div><div class="n bad">${T.off}</div></div><div><div class="l">At risk</div><div class="n bad">${T.sitesBad}</div></div></div></div>
+     <div class="map-lg lg"><span><span class="dot ok"></span> Healthy</span><span><span class="dot warn"></span> Watch</span><span><span class="dot bad"></span> At risk</span><span>size = devices</span></div>
+   </div>
+   <div style="display:grid;gap:14px;align-content:start">
+    <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><a class="r" href="#">Alerts</a></div>${queueHTML(6)}</div>
+    <div class="v-card"><div class="v-ch"><h2>By area</h2></div><table class="cur-t"><tbody>
+     ${[['North (Anaheim, Fullerton, Brea)', 'bad', '1 down'], ['Central (Santa Ana, Garden Grove)', 'bad', '6 offline'], ['Coast (Huntington → Dana Point)', 'ok', 'all up'], ['South (Irvine, Mission Viejo)', 'warn', '1 crash loop']].map(r =>
+       `<tr><td><span class="dot ${r[1]}" style="margin-right:8px"></span>${r[0]}</td><td style="text-align:right;color:var(--muted)">${r[2]}</td></tr>`).join('')}
+    </tbody></table></div>
+   </div>
+  </div>`;
+
+/* ═════════════ F · Orbit ═════════════ */
+(function(){
+  const W = 720, H = 540, cx = 285, cy = H / 2, GAP = 3, labels = [];
+  const order = BYWORST;
+  const U = order.reduce((a,s) => a + s.n + GAP, 0), du = Math.PI * 2 / U;
+  let a = -Math.PI / 2 - du * 1.5, g = '';
+  order.forEach(s => {
+    const a0 = a;
+    s.devs.forEach((d, i) => {
+      const ang = a + (i + .5) * du, r1 = 152, r2 = d.st === 'off' ? 204 : d.st === 'warn' ? 190 : 176;
+      const [x1,y1] = polar(cx,cy,r1,ang), [x2,y2] = polar(cx,cy,r2,ang);
+      g += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${stCol(d.st)}" stroke-width="2.4" stroke-linecap="round" data-tip="${esc(devTip(s, d))}"/>`;
+    });
+    a += s.n * du;
+    g += `<path d="${arcPath(cx,cy,145,a0 + du * .2,a - du * .2)}" stroke="${hCol(s.health)}" stroke-width="3" fill="none" opacity="${s.health === 'ok' ? .45 : 1}" data-tip="${esc(s.name + ' · ' + s.on + '/' + s.n + ' online')}"/>`;
+    if (s.health !== 'ok') labels.push({mid:(a0 + a) / 2, s});
+    a += GAP * du;
+  });
+  labels.forEach(l => { l.right = Math.cos(l.mid) >= 0; l.y = cy + 218 * Math.sin(l.mid); });
+  [true, false].forEach(side => { const L = labels.filter(l => l.right === side).sort((p,q) => p.y - q.y);
+    for (let i = 1; i < L.length; i++) if (L[i].y < L[i-1].y + 18) L[i].y = L[i-1].y + 18; });
+  labels.forEach(l => { const [ax,ay] = polar(cx,cy,210,l.mid), sg = l.right ? 1 : -1, lx = cx + sg * 226, s = l.s;
+    const w = s.devs.find(d => d.st === 'warn'), short = s.off === s.n ? 'all offline' : s.off >= 2 ? s.off + ' offline' : w ? w.issue.split(' · ')[0].replace(/^Battery at /,'') : '1 offline';
+    g += `<polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${lx - sg * 10},${l.y.toFixed(1)} ${lx},${l.y.toFixed(1)}" fill="none" stroke="var(--rule-2)"/><text x="${lx + sg * 5}" y="${(l.y + 4).toFixed(1)}" text-anchor="${l.right ? 'start' : 'end'}" style="font-size:11.5px;font-weight:650;fill:var(--text)">${esc(s.name)}<tspan style="font-weight:500;fill:${hCol(s.health)}"> ${esc(short)}</tspan></text>`; });
+  // inner class ring
+  let ca = -Math.PI / 2; const tot = classCount.reduce((x,c) => x + c.n, 0);
+  const pal = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+  classCount.forEach((c, i) => { const span = c.n / tot * Math.PI * 2;
+    g += `<path d="${arcPath(cx,cy,110,ca + .012,ca + span - .012)}" stroke="${pal[i]}" stroke-width="12" fill="none" data-tip="${esc(c.label + ' · ' + c.on + '/' + c.n + ' online')}"/>`; ca += span; });
+  g += `<text x="${cx}" y="${cy - 14}" text-anchor="middle" style="font-size:54px;font-weight:600;letter-spacing:-.03em;fill:var(--text)">${T.on}</text>
+        <text x="${cx}" y="${cy + 10}" text-anchor="middle" style="font-size:13px;fill:var(--muted)">of ${T.total} online</text>
+        <text x="${cx}" y="${cy + 34}" text-anchor="middle" style="font-size:12px;fill:var(--text-2)"><tspan style="fill:var(--danger);font-weight:650">${T.off} offline</tspan> · <tspan style="fill:var(--warn);font-weight:650">${T.warn} alerting</tspan></text>`;
+  const svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block">${g}</svg>`;
+  $('m-f').innerHTML = head('Overview') +
+   `<div class="orb-grid"><div class="v-card" style="padding:4px 0">${svg}</div>
+     <div style="display:grid;gap:14px;align-content:start">
+      <div class="v-card"><div class="v-ch"><h2>Reading the ring</h2></div><div style="padding:12px 14px;font-size:12.5px;line-height:1.7;color:var(--text-2)">
+        Each tick is a device. Ticks are grouped by restaurant, the worst starting at 12 o'clock and going clockwise.<br>
+        <span class="lg" style="margin-top:6px"><span><i style="background:var(--st-on)"></i>online</span><span><i style="background:var(--st-warn)"></i>alert (longer)</span><span><i style="background:var(--st-off)"></i>offline (longest)</span></span>
+        <div class="lg" style="margin-top:8px">${classCount.map((c,i) => `<span><i style="background:${pal[i]}"></i>${c.label} ${c.n}</span>`).join('')}</div></div></div>
+      <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><a class="r" href="#">Alerts</a></div>${queueHTML(7)}</div>
+     </div></div>`;
+})();
+
+/* ═════════════ G · Restaurant twins ═════════════ */
+function devIcon(d, s){
+  const sc = d.st === 'off' ? '#15151c' : d.st === 'warn' ? 'color-mix(in srgb,var(--warn) 75%,var(--surface))' : d.st === 'idle' ? 'var(--surface-3)' : 'color-mix(in srgb,var(--ok) 42%,var(--surface))';
+  const fr = 'fill="var(--surface-3)" stroke="var(--rule-2)" stroke-width="1"';
+  const red = (x, y) => d.st === 'off' ? `<circle cx="${x}" cy="${y}" r="2.6" fill="var(--danger)" stroke="var(--surface)" stroke-width="1"/>` : '';
+  const tip = `data-tip="${esc(devTip(s, d))}"`;
+  switch (d.cls){
+    case 'kiosk': return `<svg width="15" height="30" ${tip}><rect x=".5" y=".5" width="14" height="24" rx="2" ${fr}/><rect x="2.5" y="2.5" width="10" height="17" rx="1" fill="${sc}"/><rect x="5.5" y="25" width="4" height="4.5" fill="var(--rule-2)"/>${red(12,3)}</svg>`;
+    case 'dongle': return `<svg width="34" height="22" ${tip}><rect x=".5" y=".5" width="33" height="18" rx="1.5" ${fr}/><rect x="2" y="2" width="30" height="15" fill="${sc}"/><rect x="24" y="19" width="7" height="2.5" rx="1" fill="var(--rule-2)"/>${red(31,3)}</svg>`;
+    case 'kds': return `<svg width="26" height="22" ${tip}><rect x=".5" y=".5" width="25" height="16" rx="1.5" ${fr}/><rect x="2" y="2" width="22" height="13" fill="${sc}"/><rect x="11" y="17" width="4" height="3" fill="var(--rule-2)"/><rect x="7" y="20" width="12" height="1.5" fill="var(--rule-2)"/>${red(23,3)}</svg>`;
+    case 'mpos': return `<svg width="12" height="20" ${tip}><rect x=".5" y=".5" width="11" height="19" rx="2.5" ${fr}/><rect x="2" y="3" width="8" height="10" rx="1" fill="${sc}"/>${red(9.5,3)}</svg>`;
+    default: return `<svg width="20" height="15" ${tip}><rect x=".5" y=".5" width="19" height="14" rx="2.5" ${fr}/><rect x="2.5" y="2.5" width="15" height="10" rx="1" fill="${sc}"/>${red(17.5,2.8)}</svg>`;
+  }
+}
+function twinCard(s){
+  let fl = '', last = '';
+  s.devs.forEach(d => { if (last && d.cls !== last) fl += '<span class="gap"></span>'; last = d.cls; fl += devIcon(d, s); });
+  return `<div class="tw h-${s.health}"><div class="h"><span class="nm">${esc(s.name)}</span><span class="ct">${s.on}/${s.n}</span></div><div class="city">${esc(s.city)}</div>
+    <div class="fl">${fl}</div>${s.health !== 'ok' ? `<div class="why">${esc(s.why)}</div>` : ''}</div>`;
+}
+{ const shown = BYWORST.slice(0, 12), rest = BYWORST.slice(12);
+  $('m-g').innerHTML = head('Overview') + bigNums() +
+   `<div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px"><h2 style="font-size:13px;margin:0">Restaurants</h2><span style="font-size:12px;color:var(--muted)">worst first</span>
+     <span class="lg" style="margin-left:auto"><span><i style="background:color-mix(in srgb,var(--ok) 42%,var(--surface))"></i>Screen on</span><span><i style="background:color-mix(in srgb,var(--warn) 75%,var(--surface))"></i>Alert</span><span><i style="background:#15151c"></i>Dark = offline</span><span>Tablet · Kiosk · Menu board · KDS · Handheld</span></span></div>
+    <div class="tw-grid">${shown.map(twinCard).join('')}</div>
+    <div class="tw-ok">${rest.map(s => `<span><span class="dot ${s.health}"></span>${esc(s.name)} <b>${s.on}/${s.n}</b></span>`).join('')}</div>`; }
+
+/* ═════════════ H · Firmware river + funnel ═════════════ */
+(function(){
+  const W = 690, H = 300, pl = 34, pr = 96, pt = 16, pb = 26, D = 30;
+  const VERS = [
+    {v:'v2.1.019', col:'var(--c5)'}, {v:'v2.1.020', col:'var(--c1)'}, {v:'v2.1.021', col:'var(--c3)'}, {v:'v2.0.044 · GMS', col:'var(--c4)'}];
+  const lg = (d, mid, k) => 1 / (1 + Math.exp(-(d - mid) / k));
+  const FLEET = 304, GMS = 38, QC = FLEET - GMS;
+  const days = [];
+  for (let d = 0; d < D; d++){
+    const s20 = lg(d, 9, 1.4), s21 = d < 23 ? 0 : lg(d, 26.5, 1.1) * .72;
+    const n21 = Math.round(QC * s21), n20 = Math.round((QC - n21) * s20), n19 = QC - n21 - n20;
+    days.push([n19, n20, n21, GMS]);
+  }
+  const sx = (W - pl - pr) / (D - 1), sy = (H - pt - pb) / FLEET;
+  const X = d => pl + d * sx, Y = v => H - pb - v * sy;
+  let g = '';
+  for (let v = 0; v <= 300; v += 100) g += `<line x1="${pl}" x2="${W-pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--chart-grid)"/><text x="${pl-6}" y="${Y(v)+3.5}" text-anchor="end">${v}</text>`;
+  [0, 7, 14, 21, 29].forEach(d => g += `<text x="${X(d)}" y="${H-8}" text-anchor="middle">${d === 29 ? 'Today' : DAYLBL(d)}</text>`);
+  const base = Array(D).fill(0);
+  VERS.forEach((ver, vi) => {
+    const top = base.map((b, d) => b + days[d][vi]);
+    const up = top.map((v, d) => `${X(d).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+    const dn = base.map((v, d) => `${X(d).toFixed(1)},${Y(v).toFixed(1)}`).reverse().join(' ');
+    g += `<polygon points="${up} ${dn}" fill="color-mix(in srgb,${ver.col} 70%,var(--surface))" stroke="var(--surface)" stroke-width="1" data-tip="${esc(ver.v + ' · ' + days[D-1][vi] + ' devices today')}"/>`;
+    const mid = (base[D-1] + top[D-1]) / 2;
+    if (days[D-1][vi] > 8) g += `<text x="${W-pr+8}" y="${Y(mid)+4}" style="fill:var(--text);font-weight:600">${ver.v.split(' ')[0]} <tspan style="fill:var(--muted);font-weight:500">${days[D-1][vi]}</tspan></text>`;
+    for (let d = 0; d < D; d++) base[d] = top[d];
+  });
+  [[7, 'v2.1.020 rollout'], [23, 'v2.1.021 rollout']].forEach(([d, t]) =>
+    g += `<line x1="${X(d)}" x2="${X(d)}" y1="${pt}" y2="${H-pb}" stroke="var(--text)" stroke-dasharray="3 3" opacity=".5"/><text x="${X(d)+5}" y="${pt+10}" style="fill:var(--text);font-weight:600">${t}</text>`);
+  const river = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${g}</svg>`;
+
+  const steps = [['Enrolled', T.total, ''], ['In a restaurant', T.total - 5, 'waiting for a restaurant'], ['Online', T.on - 5, 'offline'],
+                 ['No active alert', T.on - 5 - T.warn, 'alerting'], ['On latest build', 218, 'behind on firmware or client']];
+  const fn = steps.map((s, i) => `${i && s[2] ? `<div class="fn-drop">−${steps[i-1][1] - s[1]} ${s[2]}</div>` : ''}
+    <div class="fn-row"><div class="l">${s[0]}</div><div class="b" style="width:${(s[1] / T.total * 100).toFixed(1)}%;${i === steps.length - 1 ? 'background:color-mix(in srgb,var(--ok) 38%,var(--surface))' : ''}">${s[1]}</div></div>`).join('');
+
+  const ring = (pct, fail, col) => { const r = 20, c = 2 * Math.PI * r;
+    return `<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="6"/>
+      <circle cx="26" cy="26" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 26 26)"/>
+      ${fail ? `<circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--danger)" stroke-width="6" stroke-dasharray="${c * fail} ${c}" stroke-dashoffset="${-c * pct}" transform="rotate(-90 26 26)"/>` : ''}
+      <text x="26" y="30" text-anchor="middle" style="font-size:11px;font-weight:650;fill:var(--text);font-family:var(--font)">${Math.round(pct * 100)}%</text></svg>`; };
+
+  $('m-h').innerHTML = head('Overview') + bigNums() +
+   `<div class="rv-grid" style="margin-top:18px">
+     <div class="v-card"><div class="v-ch"><h2>TSAI firmware, last 30 days</h2><span class="m">devices per build, by day</span><span class="v-seg" style="margin-left:auto"><span class="on">TSAI</span><span>Kiosk</span><span>MDM client</span><span>Menu board app</span></span></div><div style="padding:10px 8px 6px">${river}</div>
+      <div class="ring-row" style="border-top:1px solid var(--border-soft)">
+       <div class="rg">${ring(.62, .013, 'var(--c3)')}<div><div class="t">v2.1.021 · TSAI</div><div class="s">188 / 304 · 4 failed</div></div></div>
+       <div class="rg">${ring(.92, 0, 'var(--c1)')}<div><div class="t">MDM client 1.4.2</div><div class="s">380 / 412</div></div></div>
+       <div class="rg">${ring(.34, 0, 'var(--c4)')}<div><div class="t">Menu board 3.8</div><div class="s">14 / 41 · staged</div></div></div>
+      </div></div>
+     <div style="display:grid;gap:14px;align-content:start">
+      <div class="v-card"><div class="v-ch"><h2>From enrolled to fully healthy</h2></div><div class="fn">${fn}</div></div>
+      <div class="v-card"><div class="v-ch"><h2>Needs attention</h2><a class="r" href="#">Alerts</a></div>${queueHTML(4)}</div>
+     </div></div>`;
+})();
+
+/* ═════════════ I · NOC wall ═════════════ */
+(function(){
+  const ev = [
+    ['var(--n-bad)','14:18','Taco Loco','still offline · 2 h'], ['var(--n-warn)','14:08','T7-0388','battery 47 °C · Golden Wok'],
+    ['var(--n-ok)','14:02','v2.1.021','installed on T7-0214 · Bella Pasta'], ['var(--n-bad)','13:33','Pho 88','6 devices went offline'],
+    ['var(--n-warn)','13:10','com.aioapp.tsai','crashed 3× · Pho 88'], ['var(--n-ok)','12:55','K22-0031','reconnected · Burger Barn'],
+    ['var(--n-ok)','12:40','Enrolment','2 new T7 waiting for a restaurant'], ['var(--n-warn)','11:20','Sakura Ramen','crash loop on 2 devices']];
+  const tk = ev.map(e => `<span><i style="background:${e[0]}"></i>${e[1]} · <b>${e[2]}</b> ${e[3]}</span>`).join('');
+  const tiles = BYWORST.map(s => `<div class="ti ${s.health === 'ok' ? '' : s.health}"><div class="nm">${esc(s.name)}</div><div class="n">${s.on}<small>/${s.n}</small></div></div>`).join('');
+  $('m-i').innerHTML = `<div class="noc">
+    <div class="top">
+      <div><div class="cap">Devices online</div><div class="hero">${T.on}<small> / ${T.total}</small></div></div>
+      <div style="padding-top:26px">${spark(pulse.slice(-48), 360, 110, '#34d27b', 'rgba(52,210,123,.10)')}<div style="font-size:12px;color:#7d8496;margin-top:4px">last 48 hours</div></div>
+      <div class="clk"><div class="tmx" id="noc-clock">14:20</div><div class="dt">Mon 29 Sep · Orange County</div><div style="margin-top:14px;font-size:12px;color:#7d8496">AIO MDM · live</div></div>
+    </div>
+    <div class="kp"><div>Offline<b class="bad">${T.off}</b></div><div>Alerting<b class="warn">${T.warn}</b></div><div>Crashes 24 h<b>${T.crashes}</b></div><div>At risk<b class="bad">${T.sitesBad}</b></div><div>Rollout v2.1.021<b>62%</b></div></div>
+    <div class="tiles">${tiles}</div>
+    <div class="tk"><div class="run">${tk}${tk}</div></div></div>`;
+  const tick = () => { const c = $('noc-clock'); if (c) c.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); };
+  tick(); setInterval(tick, 10000);
+})();
+
+/* ═════════════ J · Today timeline ═════════════ */
+(function(){
+  const W = 1030, lanes = ['Outages','Alerts','Crashes','Commands','Rollouts','Enrolment'], LH = 44, pt = 26, pl = 92, pr = 16;
+  const H = pt + lanes.length * LH + 22, X = h => pl + h / 24 * (W - pl - pr);
+  let g = `<rect x="${X(10.5)}" y="${pt}" width="${X(22) - X(10.5)}" height="${lanes.length * LH}" fill="var(--text)" opacity=".03"/>
+    <text x="${X(10.5) + 4}" y="${pt - 8}" style="font-size:10.5px;fill:var(--text-faint)">restaurants open 10:30 – 22:00</text>`;
+  lanes.forEach((l, i) => { const y = pt + i * LH;
+    g += `<line x1="${pl}" x2="${W-pr}" y1="${y + LH}" y2="${y + LH}" stroke="var(--border-soft)"/><text x="0" y="${y + LH/2 + 4}" style="font-size:12px;font-weight:600;fill:var(--text-2)">${l}</text>`; });
+  for (let h = 0; h <= 24; h += 3) g += `<line x1="${X(h)}" x2="${X(h)}" y1="${pt}" y2="${pt + lanes.length * LH}" stroke="var(--chart-grid)"/><text x="${X(h)}" y="${H - 4}" text-anchor="middle" style="font-size:10.5px;fill:var(--chart-tick)">${String(h % 24).padStart(2,'0')}:00</text>`;
+  const ly = i => pt + i * LH + LH / 2;
+  const bar = (i, h0, h1, col, label, tip, row) => { const y = ly(i) - 7 + (row || 0) * 9;
+    return `<rect x="${X(h0)}" y="${y}" width="${Math.max(3, X(h1) - X(h0))}" height="${row === undefined ? 14 : 7}" rx="3" fill="${col}" data-tip="${esc(tip)}"/>${label ? `<text x="${X(h0) + 5}" y="${y + 10.5}" style="font-size:10.5px;font-weight:650;fill:#fff">${label}</text>` : ''}`; };
+  // outages
+  g += bar(0, 3.1, 3.6, 'var(--danger)', '', 'Crab Shack · router reboot · 30 min');
+  g += bar(0, 12.33, NOW_H, 'var(--danger)', 'Taco Loco', 'Taco Loco · all 5 offline since 12:20');
+  g += `<rect x="${X(13.55)}" y="${ly(0) + 9}" width="${X(NOW_H) - X(13.55)}" height="6" rx="3" fill="color-mix(in srgb,var(--danger) 60%,var(--surface))" data-tip="Pho 88 · 6 offline since 13:33"/>`;
+  // alerts as short bars on sub-rows
+  [[1.2,2.1,'warn','Low battery · Olive & Vine',0],[6.5,6.9,'warn','Temp 44 °C · Seoul BBQ',-1],[9.8,10.4,'warn','Charger flapping · Poke Bar',0],[11.3,NOW_H,'warn','Crash loop · Sakura Ramen',-1],[12.33,NOW_H,'bad','All offline · Taco Loco',0],[13.55,NOW_H,'bad','Offline · Pho 88',1],[14.0,NOW_H,'warn','Battery 47 °C · Golden Wok',-1],[13.9,NOW_H,'warn','Offline · Seoul BBQ',1]]
+    .forEach(a => g += bar(1, a[0], a[1], a[2] === 'bad' ? 'var(--danger)' : 'var(--warn)', '', a[3], a[4]));
+  // crashes: ticks, a spike around 13:00
+  for (let k = 0; k < 37; k++){ const h = k < 14 ? rnd() * 24 * (NOW_H / 24) : 12.9 + rnd() * .9; const hh = 8 + rnd() * 16;
+    g += `<line x1="${X(h)}" x2="${X(h)}" y1="${ly(2) + 8}" y2="${ly(2) + 8 - hh * .7}" stroke="var(--warn)" stroke-width="1.6" data-tip="${esc('App crash · com.aioapp.tsai · ' + String(Math.floor(h)).padStart(2,'0') + ':' + String(Math.floor(h % 1 * 60)).padStart(2,'0'))}"/>`; }
+  // commands: dots, a batch at 12:45
+  for (let k = 0; k < 60; k++){ const h = k < 34 ? 7 + rnd() * (NOW_H - 7) : 12.72 + rnd() * .12;
+    g += `<circle cx="${X(h)}" cy="${ly(3) + (rnd() - .5) * 18}" r="2.6" fill="color-mix(in srgb,var(--info) 70%,var(--surface))" data-tip="Command · ${k < 34 ? 'screenshot / reboot' : 'batch: clear cache ×26'}"/>`; }
+  g += `<text x="${X(12.8)}" y="${ly(3) - 12}" text-anchor="middle" style="font-size:10.5px;font-weight:650;fill:var(--info)">clear cache ×26</text>`;
+  // rollouts
+  g += bar(4, 2, 5, 'color-mix(in srgb,var(--c3) 80%,var(--surface))', 'v2.1.021 wave 3', 'v2.1.021 · wave 3 · 02:00–05:00 · 61 devices');
+  g += bar(4, 9, NOW_H, 'color-mix(in srgb,var(--c1) 80%,var(--surface))', 'MDM client 1.4.2', 'MDM client 1.4.2 · rolling');
+  // enrolment
+  [[8.6,'T7-0941'],[8.62,'T7-0942'],[11.1,'T7-0943'],[12.7,'T7-0944'],[12.72,'T7-0945']].forEach(e =>
+    g += `<rect x="${X(e[0]) - 4}" y="${ly(5) - 4}" width="8" height="8" transform="rotate(45 ${X(e[0])} ${ly(5)})" fill="var(--accent-2)" data-tip="${e[1]} enrolled · waiting for a restaurant"/>`);
+  // now line
+  g += `<line x1="${X(NOW_H)}" x2="${X(NOW_H)}" y1="${pt - 12}" y2="${pt + lanes.length * LH}" stroke="var(--accent)" stroke-width="1.6"/><text x="${X(NOW_H)}" y="${pt - 14}" text-anchor="middle" style="font-size:10.5px;font-weight:700;fill:var(--accent-text)">now 14:20</text>`;
+  g += `<rect x="${X(NOW_H)}" y="${pt}" width="${X(24) - X(NOW_H)}" height="${lanes.length * LH}" fill="var(--bg)" opacity=".55"/>`;
+  $('m-j').innerHTML = head('Today', 'Monday 29 September · all restaurants', '<span class="v-seg"><span>Yesterday</span><span class="on">Today</span></span><span class="v-sel">All restaurants ▾</span>') + bigNums() +
+   `<div class="v-card" style="margin-top:18px"><div class="v-ch"><h2>Since midnight</h2><span class="m">every mark is an event · hover for detail</span></div><div style="padding:12px 14px 8px"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${g}</svg></div></div>
+    <div class="story">
+     <div><span class="when">12:20 → now</span><b>Taco Loco is fully offline.</b> All 5 devices dropped within a minute, which looks like the network, not the devices.</div>
+     <div><span class="when">12:45 → 13:40</span><b>Crash spike right after a batch command.</b> 23 tsai crashes started 10 minutes after "clear cache ×26".</div>
+     <div><span class="when">02:00 → 05:00</span><b>v2.1.021 wave 3 landed overnight.</b> 61 devices, 4 failed and are in the queue.</div>
+    </div>`;
+})();
+
+/* ═════════════ K · Bento ═════════════ */
+(function(){
+  const cr = Array.from({length:24}, (_, h) => h >= 22 ? ri(4, 9) : ri(0, 2));
+  const mx = Math.max(...cr);
+  const bars = `<svg viewBox="0 0 240 70" width="100%" height="70" style="margin-top:10px">${cr.map((v,i) => `<rect x="${i * 10}" y="${70 - v / mx * 64}" width="7" height="${v / mx * 64 + .5}" rx="1.5" fill="${i >= 22 ? 'var(--warn)' : 'var(--rule-2)'}"/>`).join('')}</svg>`;
+  const rg = (pct, col, t, s) => { const r = 30, c = 2 * Math.PI * r;
+    return `<div style="display:flex;align-items:center;gap:12px;margin-top:10px"><svg width="72" height="72"><circle cx="36" cy="36" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="8"/><circle cx="36" cy="36" r="${r}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 36 36)"/><text x="36" y="41" text-anchor="middle" style="font-size:14px;font-weight:650;fill:var(--text);font-family:var(--font)">${Math.round(pct*100)}%</text></svg><div><div style="font-weight:650;font-size:13px">${t}</div><div style="font-size:11.5px;color:var(--muted)">${s}</div></div></div>`; };
+  $('m-k').innerHTML = head('Overview') +
+   `<div class="bento">
+     <div><div class="k">Devices online</div><div class="big">${T.on}<small> / ${T.total}</small></div><div style="position:absolute;left:0;right:0;bottom:0">${spark(pulse, 300, 54, 'var(--info)', 'color-mix(in srgb,var(--info) 12%,transparent)').replace('width="300"', 'width="100%" preserveAspectRatio="none"')}</div></div>
+     <div class="w2 h2" style="padding:14px"><div class="k" style="margin-bottom:10px">Fleet · every square is a device</div><div class="wall" style="padding:0;gap:10px 12px">${wallHTML(BYWORST, 7, false)}</div></div>
+     <div class="h2" style="padding:0"><div class="k" style="padding:14px 16px 0">Restaurants</div><div style="position:absolute;inset:36px 0 0 0">${mapSVG(300, 330, {mini:true})}</div></div>
+     <div><div class="k">Offline</div><div class="big" style="color:var(--danger)">${T.off}</div><div style="font-size:12px;color:var(--muted);margin-top:8px">11 of them in Taco Loco and Pho 88</div></div>
+     <div><div class="k">Crashes by hour · 24 h</div><div class="big" style="font-size:28px;margin-top:4px">${T.crashes}</div>${bars}</div>
+     <div>${`<div class="k">Rollout</div>` + rg(.62, 'var(--c3)', 'v2.1.021', '188 / 304 · 4 failed')}</div>
+     <div class="w2" style="padding:0"><div class="v-ch"><h2>Needs attention</h2><span class="m">${QUEUE.length}</span><a class="r" href="#">Alerts</a></div>${queueHTML(2)}</div>
+    </div>`;
+})();
+
+/* ═════════════ chrome ═════════════ */
+renderTreemap();
+addEventListener('resize', () => { clearTimeout(window._tmT); window._tmT = setTimeout(renderTreemap, 120); });
+
+const tip = $('tip');
+document.addEventListener('mousemove', e => {
+  const t = e.target.closest && e.target.closest('[data-tip]');
+  if (!t){ tip.classList.remove('on'); return; }
+  tip.textContent = t.getAttribute('data-tip');
+  const w = tip.offsetWidth, x = Math.min(e.clientX + 12, innerWidth - w - 8);
+  tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px'; tip.classList.add('on');
+});
+document.querySelectorAll('.mock a').forEach(a => a.addEventListener('click', e => e.preventDefault()));
+
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('ovdemo-theme', t); } catch (e) {}
+  mark(t);
+}
+function mark(t){ $('th-l').classList.toggle('on', t === 'light'); $('th-d').classList.toggle('on', t === 'dark'); }
+mark(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+</script>
+</body></html>

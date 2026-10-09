@@ -15081,6 +15081,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
+			{Type: "unenroll", Name: "Unenroll", Desc: "stop managing it and keep its data — the device leaves the fleet", Payload: "none", Cap: "DPC only", Destructive: true},
 		}
 		for _, a := range allActions {
 			switch a.Type {

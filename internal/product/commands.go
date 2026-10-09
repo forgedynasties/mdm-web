@@ -137,6 +137,13 @@ var commands = []Command{
 	// accessActionsAdminOnly below.
 	{Type: "wipe", Cap: CapWipe, Roles: rolesAdmin, API: true},
 
+	// Hand a device back without erasing it: the agent drops Device Owner, forgets this
+	// server and stops reporting, leaving everything on the device alone. What you want for
+	// a unit leaving the fleet or a test device being returned — a wipe is for a device
+	// whose contents must not leave with it. Admin-only, like wipe: it ends management, and
+	// the only way back is to enrol the device again from scratch.
+	{Type: "unenroll", Cap: CapUnenroll, Roles: rolesAdmin, API: true},
+
 	// Wireless adb on (payload port, default 5555) or off (port 0), switching itself off
 	// after payload hours (default 24; 0 = stays on). It opens adb to the network, so it is
 	// admin-only and the send paths accept exactly one named device — never all or a group.
@@ -174,6 +181,7 @@ var commands = []Command{
 // were found.
 var accessActionsAdminOnly = map[string]string{
 	"wipe":          "wipe",
+	"unenroll":      "unenroll",
 	"mic_gain_read": "mic_gain_read",
 	"adb_tcp":       "adb_tcp",
 }

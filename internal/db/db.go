@@ -13355,6 +13355,28 @@ CREATE TABLE IF NOT EXISTS fleet_adb_key (
 CREATE TABLE IF NOT EXISTS fleet_adb_key_seq (id INT PRIMARY KEY CHECK (id = 1), last_version INT NOT NULL DEFAULT 0);
 INSERT INTO fleet_adb_key_seq (id, last_version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING;
 
+-- One key per vendor (2026-10-09). A key baked into a vendor's image cannot be changed
+-- without a firmware release, so one key shared by every vendor means one leak reopens the
+-- whole fleet; a key per vendor keeps a leak to that vendor's units. 'default' is the key
+-- that was the only one before this table existed, and is still what the firmware trusts.
+-- The version counter stays global (fleet_adb_key_seq): the apps re-fetch the whole set
+-- when it moves, so any upload tells every app that something changed.
+CREATE TABLE IF NOT EXISTS fleet_adb_keys (
+    label              TEXT PRIMARY KEY,
+    version            INT NOT NULL,
+    fingerprint        TEXT NOT NULL,
+    public_key         TEXT NOT NULL,
+    private_key_sealed TEXT NOT NULL,
+    uploaded_by        TEXT NOT NULL DEFAULT '',
+    uploaded_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Carry the single old row over. ON CONFLICT DO NOTHING so a later deploy cannot put a
+-- stale copy back over a key uploaded since; fleet_adb_key itself is left alone, unread.
+INSERT INTO fleet_adb_keys (label, version, fingerprint, public_key, private_key_sealed, uploaded_by, uploaded_at)
+SELECT 'default', version, fingerprint, public_key, private_key_sealed, uploaded_by, uploaded_at
+FROM fleet_adb_key WHERE id = 1
+ON CONFLICT (label) DO NOTHING;
+
 -- Scout enrolment (plan: "a T7 enrols the other devices in its restaurant"). A firmware
 -- device (the scout) sweeps its restaurant's Wi-Fi on :5555 with the fleet adb key and
 -- reports every device that answers as a sighting; an operator (or, later, the auto-enrol
@@ -13402,6 +13424,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_serial
     ON sightings(restaurant_id, serial) WHERE serial <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS sightings_rest_host_noserial
     ON sightings(restaurant_id, host) WHERE serial = '';
+-- Which of our adb keys the device accepted (2026-10-09). A device trusts the key that was
+-- in its image, so this says which vendor's build it is running — and, when a key has to be
+-- rotated, exactly which devices are affected. '' = unknown (a scout older than vendor keys).
+ALTER TABLE sightings ADD COLUMN IF NOT EXISTS key_label TEXT NOT NULL DEFAULT '';
+
+-- Which adb key a device is known to take (2026-10-09), by serial, whoever found out: the
+-- Enroll apps when they connect, a scout when it scans, the device's own client when it
+-- reads /adb_keys. Kept by serial rather than on the device row because it is usually
+-- learned before the device is enrolled and has a row at all. It answers the question a
+-- leaked key forces: which devices must be reflashed.
+CREATE TABLE IF NOT EXISTS device_adb_key (
+    serial  TEXT PRIMARY KEY,
+    label   TEXT NOT NULL,
+    source  TEXT NOT NULL DEFAULT '',   -- enroll-app | scout | client
+    seen_by TEXT NOT NULL DEFAULT '',   -- the operator, when a person was involved
+    seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_device_adb_key_label ON device_adb_key(label);
 
 -- Per-venue scout controls. scan_enabled gates the scheduled sweep; auto_enroll (phase 3,
 -- super admin, off by default) lets the scout enrol classifiable devices with no approval.

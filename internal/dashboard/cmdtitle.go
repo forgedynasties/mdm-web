@@ -150,6 +150,8 @@ func cmdTitleOf(s cmdShape) (title, hint string) {
 		return "Remote control", ""
 	case "wipe":
 		return "Wipe", "factory reset"
+	case "unenroll":
+		return "Unenroll", "handed back, data kept"
 	}
 	return cmdTypeLabel(s.Type), ""
 }
@@ -169,6 +171,8 @@ func cmdVerbOf(s cmdShape) string {
 		return "switched"
 	case "wipe":
 		return "wiped"
+	case "unenroll":
+		return "unenrolled"
 	}
 	return "delivered"
 }

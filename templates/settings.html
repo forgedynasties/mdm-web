@@ -157,6 +157,7 @@
     <button type="button" data-tab="integrations"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>Integrations</button>
     <button type="button" data-tab="data"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Data</button>
     <button type="button" data-tab="applibrary"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</button>
+    <button type="button" data-tab="enrollment"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg>Enrollment</button>
   </nav>
 
   <div class="settings-panels">
@@ -167,7 +168,7 @@
 {{/* Getting started — the Enroll app's checklist (.cs/.cs.on/.cs.ok), for the three
      things a new server needs before scout enrolment does anything. Shown until all
      three are done; the current step is accent, done ones green, each a link. */}}
-{{$keyOK := and .FleetAdbKey.SecretSet .FleetAdbKey.Key}}{{$apkOK := .AgentAPKHosted}}{{$scanOK := .AnyVenueScanning}}
+{{$keyOK := and .FleetAdbKey.SecretSet .FleetAdbKey.Keys}}{{$apkOK := .AgentAPKHosted}}{{$scanOK := .AnyVenueScanning}}
 {{if not (and $keyOK $apkOK $scanOK)}}
 <div class="cc-card st-start" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{if $keyOK}}1{{else}}0{{end}}{{if $apkOK}}+1{{end}}{{if $scanOK}}+1{{end}} of 3 done</span></div>
@@ -1018,6 +1019,15 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── App library ── -->
   <section class="settings-tab" data-tab="applibrary">
+  {{template "app-library" .}}
+  </section>
+
+
+
+  {{/* ── Enrollment — the adb keys device images trust, one per vendor. The Enroll apps and
+       a scout fetch them to connect with no pairing code. Private keys are sealed at rest
+       (FLEET_ADB_KEY_SECRET) and never shown here. ── */}}
+  <section class="settings-tab" data-tab="enrollment">
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
@@ -1053,34 +1063,45 @@ function kioskAddPkg(pkg, el){
   </div>
 </div>
 
-{{/* ── Fleet adb key: the one key pair the AIO firmware trusts, for the AIO Enroll Android app.
-     The private key is sealed at rest (FLEET_ADB_KEY_SECRET) and never shown here. ── */}}
 {{$fk := .FleetAdbKey}}
 <div class="cc-card" style="margin-bottom:16px;" id="fleet-adb-key">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg></span>
-    <h2>Fleet adb key</h2>
-    {{if $fk.Key}}<span class="cc-tag ok">uploaded · v{{$fk.Key.Version}}</span>{{else}}<span class="cc-tag warn">none uploaded</span>{{end}}
-    {{if not $fk.SecretSet}}<span class="cc-tag danger" title="Set FLEET_ADB_KEY_SECRET in the server env; without it the key can neither be stored nor served">FLEET_ADB_KEY_SECRET unset</span>{{end}}
+    <h2>adb keys</h2>
+    {{if $fk.Keys}}<span class="cc-tag ok">{{len $fk.Keys}} key{{if ne (len $fk.Keys) 1}}s{{end}}</span>{{else}}<span class="cc-tag warn">none uploaded</span>{{end}}
+    {{if not $fk.SecretSet}}<span class="cc-tag danger" title="Set FLEET_ADB_KEY_SECRET in the server env; without it a key can neither be stored nor served">FLEET_ADB_KEY_SECRET unset</span>{{end}}
   </div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small" style="margin-bottom:10px;"><b>What it is.</b> The adb key baked into the firmware images (<span class="mono">/adb_keys</span>). The AIO Enroll Android app fetches it after sign-in so it can <span class="mono">adb connect</span> to firmware devices with no pairing code. Every fetch is logged below. The private key is encrypted at rest and never displayed.</div>
-    {{if $fk.Key}}
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-      <span class="cc-tag ok">fingerprint</span><span class="mono small">{{$fk.Key.Fingerprint}}</span>
-      <span class="muted small">version {{$fk.Key.Version}} · uploaded {{timeSince $fk.Key.UploadedAt}}{{if $fk.Key.UploadedBy}} by {{$fk.Key.UploadedBy}}{{end}}</span>
-      <form action="/settings/fleet-adb-key/remove" method="POST" hx-boost="false" style="display:inline;margin-left:auto;" onsubmit="return confirm('Remove the fleet adb key? The apps lose it on their next sign-in and cannot connect to firmware devices until a key is uploaded again.')"><button type="submit" class="cc-btn" style="font-size:12px;padding:6px 14px;">Remove</button></form>
-    </div>
+    <div class="muted small" style="margin-bottom:10px;"><b>What they are.</b> The adb keys built into device images (<span class="mono">/adb_keys</span>). The Enroll apps fetch them after sign-in and try each one, so a device connects with no pairing code. One key per vendor: a key in a read-only image can only be replaced by a firmware release, so a single shared key would mean one leak reopens every device. Every fetch is logged below; private keys are encrypted at rest and never displayed.</div>
+    {{if $fk.Keys}}
+    <table class="cc-table" style="font-size:12.5px;">
+      <tr><th>Label</th><th>Fingerprint</th><th>Devices</th><th>Uploaded</th><th></th></tr>
+      {{range $fk.Keys}}
+      <tr>
+        <td><b>{{.Label}}</b>{{if eq .Label "default"}} <span class="cc-tag ok" style="font-size:10px;">firmware</span>{{end}}</td>
+        <td class="mono">{{.Fingerprint}}</td>
+        <td class="muted">{{with index $fk.Devices .Label}}{{.}} device{{if ne . 1}}s{{end}}{{else}}—{{end}}</td>
+        <td class="muted" title="{{formatTime .UploadedAt}}">v{{.Version}} · {{timeSince .UploadedAt}}{{if .UploadedBy}} by {{.UploadedBy}}{{end}}</td>
+        <td style="text-align:right;">
+          <form action="/settings/fleet-adb-key/remove" method="POST" hx-boost="false" style="display:inline;" onsubmit="return confirm('Remove the {{.Label}} adb key? The apps lose it on their next sign-in and cannot connect to devices that trust only it until a key is uploaded again.')">
+            <input type="hidden" name="label" value="{{.Label}}">
+            <button type="submit" class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
     {{end}}
-    <form action="/settings/fleet-adb-key" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <form action="/settings/fleet-adb-key" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+      <input class="cc-input" type="text" name="label" placeholder="label, e.g. sunmi" pattern="[a-z0-9][a-z0-9-]{0,30}[a-z0-9]" title="lowercase letters, digits and dashes" style="font-size:12px;padding:6px 10px;width:170px;">
       <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey (private, PEM)<input type="file" name="adbkey" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
       <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey.pub<input type="file" name="adbkey_pub" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
-      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;"{{if not $fk.SecretSet}} disabled{{end}}>{{if $fk.Key}}Replace key{{else}}Upload key{{end}}</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;"{{if not $fk.SecretSet}} disabled{{end}}>Add key</button>
     </form>
-    <div class="muted small" style="margin-top:8px;">Both files come from the machine whose key the firmware trusts: <code>~/.android/adbkey</code> and <code>~/.android/adbkey.pub</code>. RSA 2048-bit or larger.</div>
+    <div class="muted small" style="margin-top:8px;">A label names the lot of devices the key is for — <code>default</code> is the AIO firmware's, the rest are one per vendor. Uploading an existing label replaces that key. Both files are an adb key pair, RSA 2048-bit or larger.</div>
   </div>
   <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:8px;"><b>Last fetches</b> · who pulled the key through the app, from where, on which phone.</div>
+    <div class="muted small" style="margin-bottom:8px;"><b>Last fetches</b> · who pulled the keys through an app, from where, on which machine.</div>
     {{if $fk.Fetches}}
     <table class="cc-table" style="font-size:12.5px;">
       <tr><th>When</th><th>Who</th><th>Key</th><th>From · device</th></tr>
@@ -1089,10 +1110,7 @@ function kioskAddPkg(pkg, el){
     {{else}}<div class="muted small">No fetches yet.</div>{{end}}
   </div>
 </div>
-  {{template "app-library" .}}
   </section>
-
-
 
   </div><!-- /.settings-panels -->
 </div><!-- /.settings-wrap -->
