@@ -114,3 +114,83 @@ func (d *DB) DevicesWithPackage(ctx context.Context, pkg string) ([]DeviceAppRow
 	}
 	return out, rows.Err()
 }
+
+// AppTarget is a resolved install target: the serials to send to, and why they qualified.
+type AppTarget struct {
+	Serials []string
+	// Excluded counts devices deliberately left out because their reported version is
+	// unknown. They are named in the UI rather than quietly included: an install aimed at
+	// a device whose version nobody knows may be a downgrade, and on this fleet that is
+	// half the installs of some packages.
+	Excluded int
+}
+
+// SerialsMissingPackage lists live devices that do NOT report this package. Devices that
+// have never reported an app list are excluded — absence of evidence is not absence of the
+// app, and installing on that basis would be a guess dressed as a fact.
+func (d *DB) SerialsMissingPackage(ctx context.Context, pkg string) (AppTarget, error) {
+	var t AppTarget
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number
+		FROM devices d
+		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND d.custody_server = ''
+		  AND EXISTS (SELECT 1 FROM device_packages dp WHERE dp.device_id = d.id)
+		  AND NOT EXISTS (
+			SELECT 1 FROM device_packages dp
+			WHERE dp.device_id = d.id AND dp.package_name = $1)
+		ORDER BY d.serial_number`, pkg)
+	if err != nil {
+		return t, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return t, err
+		}
+		t.Serials = append(t.Serials, s)
+	}
+	if err := rows.Err(); err != nil {
+		return t, err
+	}
+	// Devices with no inventory at all: reported separately so the dialog can say why the
+	// number is smaller than the fleet.
+	err = d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM devices d
+		WHERE NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND NOT EXISTS (SELECT 1 FROM device_packages dp WHERE dp.device_id = d.id)`).Scan(&t.Excluded)
+	return t, err
+}
+
+// SerialsOnOtherVersion lists live devices that have the package at a version other than
+// want. Devices reporting no version are NOT included — see AppTarget.Excluded.
+func (d *DB) SerialsOnOtherVersion(ctx context.Context, pkg, want string) (AppTarget, error) {
+	var t AppTarget
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, COALESCE(dp.version_name, '') = '' AS unknown
+		FROM device_packages dp
+		JOIN devices d ON d.id = dp.device_id
+		WHERE dp.package_name = $1
+		  AND NOT d.hidden AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND d.custody_server = ''
+		  AND COALESCE(dp.version_name, '') <> $2
+		ORDER BY d.serial_number`, pkg, want)
+	if err != nil {
+		return t, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s string
+		var unknown bool
+		if err := rows.Scan(&s, &unknown); err != nil {
+			return t, err
+		}
+		if unknown {
+			t.Excluded++
+			continue
+		}
+		t.Serials = append(t.Serials, s)
+	}
+	return t, rows.Err()
+}

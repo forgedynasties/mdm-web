@@ -22061,6 +22061,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
 	mux.HandleFunc("GET /apps", h.requireAppLibrary(h.AppLibraryPage))
+	// The store's "Install on…" chooser: fleet-resolved scopes with real counts. Read-only;
+	// the chosen scope posts to POST /commands like every other send.
+	mux.HandleFunc("GET /apps/install-targets", h.requireAppLibrary(h.AppInstallTargets))
 	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	post("POST /apps/families", h.requireAppLibrary(h.AppFamilyCreate))

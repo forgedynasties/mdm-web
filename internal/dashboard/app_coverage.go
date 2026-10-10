@@ -3,8 +3,11 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sort"
+	"strings"
 
+	"github.com/google/uuid"
 	"mdm/internal/db"
 )
 
@@ -222,4 +225,68 @@ func (h *Handler) appCoverage(ctx context.Context, apps []db.App) *coverageView 
 	}
 	v := buildCoverage(installs, apps, totals)
 	return &v
+}
+
+// AppInstallTargets renders the "Install on…" chooser for one package: the scopes that can
+// be resolved from fleet inventory, each with the real device count behind it.
+//
+// Deliberately not a free target picker. Starting from the app means the question is WHERE,
+// and the two answers worth offering are computable: the devices that do not have it, and
+// the devices on a different version. There is no "all devices" option — on this fleet half
+// the installs of some packages report no version, so "everything" would re-push an APK to
+// devices that cannot be checked. Those devices are excluded and named instead.
+//
+// The chosen scope posts to the existing POST /commands with target_serials, so every
+// guard already there applies unchanged: skip-already-installed, APK size/ETag lookup,
+// batching, the per-type role allowlist and the audit entry.
+func (h *Handler) AppInstallTargets(w http.ResponseWriter, r *http.Request) {
+	pkg := strings.TrimSpace(r.URL.Query().Get("pkg"))
+	if pkg == "" {
+		http.Error(w, "pkg is required", http.StatusBadRequest)
+		return
+	}
+	if !h.commandTypeAllowed(h.role(r), "install_apk") {
+		http.Error(w, "Not allowed", http.StatusForbidden)
+		return
+	}
+	apps, _ := h.db.ListApps(r.Context())
+	// The version to install is the library's newest for this package — the same choice
+	// buildLibrary displays as "latest", so the dialog cannot disagree with the tile.
+	var latest db.App
+	for _, a := range apps {
+		if a.PackageName != pkg {
+			continue
+		}
+		if latest.ID == uuid.Nil || (a.VersionName != "" && versionNewer(a.VersionName, latest.VersionName)) {
+			latest = a
+		}
+	}
+	if latest.ID == uuid.Nil {
+		// Installed on devices but absent from the library: there is nothing to send.
+		h.renderCachedHTML(w, r, "app-install-targets", h.withRole(r, map[string]any{
+			"Package": pkg, "NotInLibrary": true,
+		}))
+		return
+	}
+	missing, err := h.db.SerialsMissingPackage(r.Context(), pkg)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	other, err := h.db.SerialsOnOtherVersion(r.Context(), pkg, latest.VersionName)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.renderCachedHTML(w, r, "app-install-targets", h.withRole(r, map[string]any{
+		"Package":         pkg,
+		"App":             latest,
+		"MissingSerials":  strings.Join(missing.Serials, "\n"),
+		"MissingCount":    len(missing.Serials),
+		"NoInventory":     missing.Excluded,
+		"OtherSerials":    strings.Join(other.Serials, "\n"),
+		"OtherCount":      len(other.Serials),
+		"UnknownExcluded": other.Excluded,
+		"Role":            h.role(r),
+	}))
 }

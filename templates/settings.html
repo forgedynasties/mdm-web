@@ -1386,6 +1386,15 @@ document.addEventListener('submit', function (e) {
   .lf-cov{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 0 2px;font-size:12px;}
   .lf-cov-h{color:var(--muted);margin-right:2px;}
   .lf-cov-h b{color:var(--text);font-weight:750;}
+  .ait-wrap{margin:6px 0 2px;}
+  .ait{border:1px solid var(--border);border-radius:11px;margin-top:8px;overflow:hidden;}
+  .ait-h{padding:9px 12px;background:var(--surface-3);font-size:12.5px;border-bottom:1px solid var(--border-soft);}
+  .ait-opt{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--border-soft);}
+  .ait-opt:last-child{border-bottom:0;}
+  .ait-n{font-weight:800;font-size:16px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums;}
+  .ait-t{flex:1;min-width:0;font-size:12.5px;line-height:1.45;}
+  .ait-t .d{display:block;color:var(--muted);font-size:11.5px;margin-top:1px;}
+  .ait-none{font-size:12.5px;color:var(--muted);padding:9px 2px;line-height:1.5;}
   .lib-mode select{font-size:12px;padding:3px 6px;}
 </style>
 {{range .Families}}
@@ -1405,6 +1414,13 @@ document.addEventListener('submit', function (e) {
           <form action="/apps/package/assign" method="POST" onclick="event.stopPropagation()"><input type="hidden" name="next" value="/apps"><input type="hidden" name="package" value="{{.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{.Label}}" class="form-input" style="width:90px;" aria-label="Variant label"><button type="submit" class="cc-btn sm">Rename</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own tile">Detach</button></form>
           {{end}}
         </div>
+        {{if and (canOperate $.Role) $.Coverage}}
+        <div class="ait-wrap">
+          <button type="button" class="cc-btn sm" hx-get="/apps/install-targets?pkg={{.Package}}"
+                  hx-target="next .ait-slot" hx-swap="innerHTML">Install on…</button>
+          <div class="ait-slot"></div>
+        </div>
+        {{end}}
         {{if $.Coverage}}{{$c := $.Coverage.Of .Package}}
         {{if gt $c.Devices 0}}
         <div class="lf-cov">
@@ -1559,4 +1575,42 @@ function libFamClose(m){if(m)m.classList.remove('modal-open');}
   document.addEventListener('drop',function(e){ if(!hasFiles(e)){ try{console.warn('[mdm] drop ignored: no files in dataTransfer', e.dataTransfer&&e.dataTransfer.types);}catch(x){} return; } e.preventDefault(); e.stopPropagation(); depth=0; document.body.classList.remove('lib-dragging'); var c=card(); if(c)c.classList.remove('is-over'); var z=zone(); if(z)z.classList.remove('is-over'); var files=filesOf(e); try{console.info('[mdm] drop:', files.map(function(f){return f.name;}));}catch(x){} if(!files.length){ if(window.showToast)showToast('Nothing droppable in that drag', 'error'); return; } if(typeof libUploadApks==='function')libUploadApks(files); },true);
 })();
 </script>
+{{end}}
+
+{{/* "Install on…" — the scopes that can be resolved from fleet inventory, with the real
+     device count behind each. There is no "all devices": on this fleet half the installs
+     of some packages report no version, so "everything" would re-push an APK to devices
+     that cannot be checked. Those are excluded and named instead of quietly included.
+     Both forms post to the existing POST /commands, so skip-already-installed, the APK
+     size/ETag lookup, batching, the role allowlist and the audit entry all still apply. */}}
+{{define "app-install-targets"}}
+{{if .NotInLibrary}}
+  <div class="ait-none">Installed on devices but not in the library — upload an APK for <span class="mono">{{.Package}}</span> before it can be sent anywhere.</div>
+{{else}}
+<div class="ait">
+  <div class="ait-h">Install <b>{{.App.Name}}</b>{{if .App.VersionName}} <span class="mono">{{.App.VersionName}}</span>{{end}} on…</div>
+
+  <form action="/commands" method="POST" class="ait-opt">
+    <input type="hidden" name="type" value="install_apk">
+    <input type="hidden" name="target_type" value="devices">
+    <input type="hidden" name="apk_url" value="{{.App.ApkURL}}">
+    <input type="hidden" name="target_serials" value="{{.MissingSerials}}">
+    <span class="ait-n">{{.MissingCount}}</span>
+    <span class="ait-t"><b>Devices without it</b>
+      <span class="d">Have reported their apps and do not have this package.{{if .NoInventory}} {{.NoInventory}} device{{if ne .NoInventory 1}}s{{end}} excluded: never reported an app list, so we cannot tell.{{end}}</span></span>
+    <button type="submit" class="cc-btn sm primary" {{if eq .MissingCount 0}}disabled{{end}}>Queue {{.MissingCount}}</button>
+  </form>
+
+  <form action="/commands" method="POST" class="ait-opt">
+    <input type="hidden" name="type" value="install_apk">
+    <input type="hidden" name="target_type" value="devices">
+    <input type="hidden" name="apk_url" value="{{.App.ApkURL}}">
+    <input type="hidden" name="target_serials" value="{{.OtherSerials}}">
+    <span class="ait-n">{{.OtherCount}}</span>
+    <span class="ait-t"><b>Devices on another version</b>
+      <span class="d">Have the package at a version other than {{if .App.VersionName}}<span class="mono">{{.App.VersionName}}</span>{{else}}the library's{{end}}.{{if .UnknownExcluded}} {{.UnknownExcluded}} excluded: no version reported, so an install could be a downgrade.{{end}}</span></span>
+    <button type="submit" class="cc-btn sm" {{if eq .OtherCount 0}}disabled{{end}}>Queue {{.OtherCount}}</button>
+  </form>
+</div>
+{{end}}
 {{end}}
