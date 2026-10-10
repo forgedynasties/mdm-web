@@ -323,8 +323,8 @@ if (!window.__dlRowNav) {
     <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     <div class="ss-grid">
       {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
-      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
-      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
+      <button type="button" class="cc-btn sm" onclick="bulkRun('reboot', null, 'Reboot {n} device(s)? Anyone using one right now loses what is on screen.')" title="Reboot the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
+      <button type="button" class="cc-btn sm" onclick="bulkRun('screenshot')" title="Capture a screenshot on the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
     </div>
     {{else}}
     {{/* A viewer has no Send group at all, so the two things they can always do
@@ -341,7 +341,12 @@ if (!window.__dlRowNav) {
       {{if canAdminOrOperator .Role}}
       <div class="ss-lbl">Send</div>
       <div class="ss-grid">
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkGo('/commands', {type:'install_apk'})" title="Open Actions with Install app and these devices ready; pick the app there"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkShell()" title="Run a shell command on the selected devices">Shell…</button>
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkRun('collect_logs')" title="Collect a log bundle from the selected devices">Collect logs</button>
+        {{/* Install starts from the app, not from a device set: the store knows which
+             devices are missing it and which are on another version, so it can target
+             better than a selection can. */}}
+        <button type="button" class="cc-btn sm ss-w" onclick="window.location.href='/apps'" title="Install an app from the library — the store targets by coverage"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
       </div>
       {{end}}
 
@@ -1583,6 +1588,10 @@ document.addEventListener('click', function (e) {
   navigateDevices({ page: b.dataset.page });
 });
 
+// The last tie to the Actions console: everything the bulk bar needs now runs in place
+// (bulkRun), so this exists only for the verbs that have not been moved yet —
+// query, mic gain, wireless adb, wipe, unenroll. It is what has to go when the console
+// does, and whatever is still reachable only through here is the list of work left.
 function bulkAction() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
@@ -1632,6 +1641,48 @@ function bulkGo(path, extra) {
   Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
   window.location.href = path + '?' + q.toString();
 }
+// Run an action on the selection, here, rather than handing the selection to the Actions
+// console. The set IS the noun: you filter the fleet down to the devices you mean, select
+// them, and act — so there is no page whose whole job is "pick a verb, then pick targets".
+//
+// It posts to the same POST /commands every other send uses, so nothing is reimplemented:
+// the per-type role allowlist, skip-already-installed, the APK size/ETag lookup, batching
+// and the audit entry all still apply, and the response redirects to the action's page
+// where the per-device timeline lives.
+function bulkRun(type, fields, confirmMsg) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var n = serials.length;
+  if (confirmMsg && !window.confirm(confirmMsg.replace('{n}', n) +
+      '\n\n' + serials.slice(0, 8).join('\n') + (n > 8 ? '\n…and ' + (n - 8) + ' more' : ''))) return;
+  var f = document.createElement('form');
+  f.method = 'POST'; f.action = '/commands'; f.style.display = 'none';
+  var add = function (k, v) {
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i);
+  };
+  add('type', type);
+  add('target_type', 'devices');
+  add('target_serials', serials.join('\n'));
+  Object.keys(fields || {}).forEach(function (k) { add(k, fields[k]); });
+  document.body.appendChild(f);
+  f.submit();
+}
+
+// Shell needs its line before it can run, so it gets a prompt rather than a sheet: the
+// bulk bar lives inside a scrollable panel, where an absolutely-positioned popover is
+// clipped (the same reason More expands in place).
+function bulkShell() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var cmd = window.prompt('Shell command to run on ' + serials.length + ' device' +
+    (serials.length === 1 ? '' : 's') + ':\n\nOutput comes back per device on the action page.', '');
+  if (cmd === null) return;
+  cmd = cmd.trim();
+  if (!cmd) return;
+  bulkRun('shell', { shell_cmd: cmd });
+}
+
 function bulkCopySerials() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Where multi-device actions live once Actions is gone · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 140px}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:840px;line-height:1.6}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:840px;line-height:1.55}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5b16;background:#fdf3d2;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a}
+html[data-theme="dark"] .now{background:rgba(210,170,40,.18);color:#e3c75f}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-size:12.8px;margin-top:8px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);vertical-align:top;line-height:1.5}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+td.n{white-space:nowrap;font-weight:650}
+code{font-size:12px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:5px;padding:1px 5px}
+.mock{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)}
+.mock-nav{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border-soft);background:var(--surface-3);font-size:12px}
+.mock-nav span{padding:5px 10px;border-radius:8px;color:var(--text-faint);font-weight:650}
+.mock-nav span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.mock-nav span.gone{text-decoration:line-through;opacity:.45}
+.mock-body{padding:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.f{font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;border:1px solid var(--border);color:var(--text-faint);background:var(--surface)}
+.f.on{background:var(--accent);border-color:transparent;color:#fff}
+.row{display:flex;align-items:center;gap:11px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;margin-bottom:6px;font-size:12.5px}
+.row .cb{width:14px;height:14px;border-radius:4px;border:2px solid var(--border);flex:none}
+.row.sel{background:var(--accent-soft,rgba(122,128,246,.08));border-color:var(--accent-edge)}
+.row.sel .cb{background:var(--accent);border-color:var(--accent)}
+.row .sn{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:650;min-width:148px}
+.row .vn{color:var(--text-faint)}
+.row .st{margin-left:auto;font-size:11.5px;color:var(--text-faint)}
+.bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:11px;background:var(--surface);
+  border:1px solid var(--accent-edge);box-shadow:0 8px 24px rgba(20,22,40,.12);margin-top:10px;flex-wrap:wrap}
+.bar .c{font-weight:750;font-size:13px}
+.btn{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.btn.p{background:var(--accent);border-color:transparent;color:#fff}
+.btn.d{color:var(--danger);border-color:var(--danger-edge);background:var(--danger-bg)}
+.sheet{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 20px 56px rgba(20,22,40,.2);max-width:520px;margin-top:10px;overflow:hidden}
+.sheet-h{padding:11px 14px;border-bottom:1px solid var(--border-soft);font-weight:700;font-size:13px}
+.sheet-b{padding:12px 14px;font-size:12.5px;line-height:1.5}
+.sheet-f{padding:10px 14px;border-top:1px solid var(--border-soft);display:flex;gap:7px;justify-content:flex-end}
+.in{border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--surface-3);margin:6px 0}
+.vlist{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.vlist span{font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--border);color:var(--text-faint)}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.col{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:9px}
+.col h4{margin:0 0 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
+.job{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+.job b{display:block}.job span{color:var(--text-faint);font-size:11px}
+@media(max-width:720px){body{padding:20px 16px 80px}.goodbad{grid-template-columns:1fr}.board{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>Once Actions is gone, where do multi-device actions live?</h1>
+<p class="lead">
+Install, uninstall and client update now start from the app (the store, shipped on stage). Kiosk,
+boot logo and OTA already have pages. Reboot exists per device. That leaves one group with no noun
+to live on: <b>shell, screenshot, collect logs, query, wipe, unenroll — across many devices</b>.
+"Run this on these forty tablets" is about a <em>set</em>, not about a thing.
+</p>
+<p class="lead">
+<b>What already exists, and changes the answer:</b> the Devices page has had multi-select all along —
+checkboxes, a bulk bar, "select all N matching this filter" across pages, and six bulk routes
+(<code>bulk-restaurant</code>, <code>bulk-nickname</code>, <code>bulk-class</code>,
+<code>bulk-retire</code>, <code>bulk-kiosk</code>, <code>bulk-kiosk-apps</code>). Its Reboot,
+Screenshot and Install buttons do not act: they <b>hand off to Actions prefilled</b>
+(<code>bulkGo('/commands', {type:'reboot'})</code>). So the selection machinery for option 2 is
+built; what is missing is doing the work in place instead of bouncing.
+</p>
+
+<!-- 1 -->
+<div class="eyebrow">Option 1</div>
+<div class="dname">A "New job" wizard on the Jobs page<span class="now">least work</span></div>
+<p class="ddesc">Actions disappears as a page and a nav entry, but the console survives one level in,
+as the create step of the Jobs board. Honest framing: this is a rename plus a move, not a deletion.</p>
+<div class="panel">
+  <div class="mock">
+    <div class="mock-nav"><span>Fleet</span><span>Devices</span><span>Apps</span><span class="on">Jobs</span><span>Manage</span><span class="gone">Actions</span></div>
+    <div class="mock-body">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="btn p">+ New job</span><span class="ddesc" style="margin:0">pick what, then who</span></div>
+      <div class="board">
+        <div class="col"><h4>Queued 2</h4><div class="job"><b>Collect logs</b><span>3 devices</span></div></div>
+        <div class="col"><h4>Running 1</h4><div class="job"><b>Shell · echo</b><span>received on 38 of 40</span></div></div>
+        <div class="col"><h4>Needs attention 1</h4><div class="job"><b>Shell</b><span>AT070AABU00077 · sent, unconfirmed 21m</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Nothing is lost and nothing has to be rebuilt — the existing console becomes
+      a step. Fleet-wide sends keep one obvious place, and the board is the natural home for the
+      leases and receipts we just shipped.</div>
+    <div><b>Bad at</b> The verb list survives, one click deeper. Anyone who found Actions confusing
+      will find "New job → pick a type" equally confusing, and the nav change is then cosmetic.</div>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="eyebrow">Option 2</div>
+<div class="dname">The set is the noun — act from the Devices page<span class="rec">my pick</span></div>
+<p class="ddesc">You build the set by filtering, select it, and the action runs from there. No console
+anywhere: the Devices list already <em>is</em> the page for "these devices".</p>
+<div class="panel">
+  <div class="mock">
+    <div class="mock-nav"><span>Fleet</span><span class="on">Devices</span><span>Apps</span><span>Jobs</span><span>Manage</span><span class="gone">Actions</span></div>
+    <div class="mock-body">
+      <div class="filters"><span class="f on">Flights Vegas</span><span class="f on">class: t7</span><span class="f">build: v2.1.031</span><span class="f">offline</span><span class="f">+ filter</span></div>
+      <div class="row sel"><span class="cb"></span><span class="sn">AT070AABU00231</span><span class="vn">t7 · v2.1.025</span><span class="st">just now</span></div>
+      <div class="row sel"><span class="cb"></span><span class="sn">AT070AA2600024</span><span class="vn">t7 · v2.1.031</span><span class="st">2m ago</span></div>
+      <div class="row sel"><span class="cb"></span><span class="sn">AT070AABU00318</span><span class="vn">t7 · v2.0.96l</span><span class="st">6h ago</span></div>
+      <div class="bar">
+        <span class="c">14 selected</span>
+        <span class="btn">Shell…</span><span class="btn">Screenshot</span><span class="btn">Collect logs</span>
+        <span class="btn">Reboot</span><span class="btn">Kiosk…</span><span class="btn">Install app…</span>
+        <span class="btn d">Wipe…</span>
+        <span class="btn" style="margin-left:auto">Copy serials</span>
+      </div>
+      <div class="sheet">
+        <div class="sheet-h">Shell on 14 devices</div>
+        <div class="sheet-b">
+          <div class="in">logcat -d | grep -E "WebSocket|Checkin"</div>
+          Runs as the system user on firmware clients, as the app user on standard clients.
+          Output comes back per device and lands in Jobs.
+          <div class="vlist"><span>11 will run now</span><span>3 offline — run on reconnect</span></div>
+        </div>
+        <div class="sheet-f"><span class="btn">Cancel</span><span class="btn p">Run on 14</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> The only option where "Actions is not there" is literally true. A set is
+      built by filtering rather than by typing serials, which is both safer and how people describe
+      the work ("the Vegas t7s"). Selection, cross-filter select-all and six bulk routes already
+      exist, so this is mostly replacing three hand-offs with real actions. Destructive verbs sit
+      next to the actual device list, not in an abstract console.</div>
+    <div><b>Bad at</b> A device set is not the only target: group and venue sends ("all of Flights
+      Vegas") become "filter by venue, select all" — one extra step, and a different mental model
+      from today's target picker. The bulk bar also gets crowded, so it needs a "more" menu.</div>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="eyebrow">Option 3</div>
+<div class="dname">Both — act from the set, and keep a job wizard for the rest</div>
+<p class="ddesc">Option 2's bulk bar for device sets, plus option 1's wizard for the sends that are
+not naturally a device set (a group, a venue, "all devices", a schedule).</p>
+<div class="panel">
+<table>
+  <tr><th>Send shaped like…</th><th>Where it happens</th></tr>
+  <tr><td class="n">these specific devices</td><td>Devices page → select → act</td></tr>
+  <tr><td class="n">this app, where it is missing or stale</td><td>Apps store → Install on…</td></tr>
+  <tr><td class="n">this venue / group / class</td><td>Devices page → filter → select all N matching</td></tr>
+  <tr><td class="n">every device, now or on a schedule</td><td>Jobs → New job (the only thing left in a wizard)</td></tr>
+</table>
+  <div class="goodbad">
+    <div><b>Good at</b> No capability is cornered, and each shape goes where it reads most naturally.
+      The wizard shrinks to the genuinely fleet-wide cases, which are rare and deserve friction.</div>
+    <div><b>Bad at</b> Two ways to do nearly the same thing, which is how we got here. Needs
+      discipline about what the wizard refuses to do, or it grows back into Actions.</div>
+  </div>
+</div>
+
+<div class="eyebrow">What has to be true before Actions can be deleted</div>
+<div class="panel">
+<table>
+  <tr><th>Capability</th><th>Status</th></tr>
+  <tr><td class="n">install_apk · uninstall · app_update</td><td><b>Done</b> — Apps store, shipped on stage</td></tr>
+  <tr><td class="n">kiosk · boot logo · OTA</td><td>Already on /manage, /boot-logo, Deploy</td></tr>
+  <tr><td class="n">reboot (one device)</td><td>Device page</td></tr>
+  <tr><td class="n">shell · screenshot · collect_logs · query</td><td><b>This decision</b></td></tr>
+  <tr><td class="n">wipe · unenroll</td><td>This decision, with typed confirmation wherever it lands</td></tr>
+  <tr><td class="n">in-flight · needs attention · history · the event timeline</td><td><b>Not built</b> — the Jobs/History page, needed in every option</td></tr>
+  <tr><td class="n">recipes (pins) · schedules</td><td>/schedules stays; pins need a home or retirement</td></tr>
+  <tr><td class="n">three bulk-bar hand-offs to /commands</td><td>Must be replaced or they 404 the day Actions goes</td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>I would build 2, then the Jobs page, then delete Actions</b> — in that order, because the
+hand-offs break the moment the route goes. Option 1 is the cheap path and I would not pick it: it
+keeps the thing we are trying to remove and only hides it. Option 3 is where this probably ends up
+in practice, but starting there means building the wizard before knowing whether anyone misses it —
+so I would ship 2, leave the fleet-wide cases on <code>/schedules</code> and the store, and add a
+wizard only if something turns out to have no home.
+</p>
+<p class="ddesc" style="margin:10px 0 0">
+One correction to my earlier plan: I proposed a <b>Power &amp; reboot</b> page. The code does not
+support it — <code>reboot_behavior='scheduled'</code> exists only as an OTA deployment policy
+(<code>updates</code> + <code>update_devices</code>), and recurring sends come from scheduled
+recipes. There is no fleet reboot-window feature to put on a page, so a Power page today would hold
+one button that already exists on the device page. Dropped.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark')}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');set('light');
+</script>
+</body></html>
