@@ -1323,6 +1323,18 @@ document.addEventListener('submit', function (e) {
       {{if $prod.Latest.VersionName}}<div class="lib-ver">v{{$prod.Latest.VersionName}}{{if ne $prod.Label "prod"}} · {{$prod.Label}}{{end}}</div>{{end}}
       {{if .Grouped}}<div class="lib-pkg" title="{{range .Variants}}{{.Package}}&#10;{{end}}">{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{.Versions}} version{{if ne .Versions 1}}s{{end}}</div>
       {{else}}<div class="lib-pkg mono" title="{{.BasePackage}}">{{.BasePackage}}</div>{{if gt .Versions 1}}<div class="lib-pkg">{{.Versions}} versions</div>{{end}}{{end}}
+      {{/* What the fleet actually has. Unknown versions get their own slice of the bar and
+           are never counted as up to date — an install whose version the device never
+           reported tells us nothing about whether it needs updating. */}}
+      {{if $.Coverage}}{{$cov := $.Coverage}}{{$tot := 0}}{{$unk := 0}}{{$lat := 0}}
+        {{range .Variants}}{{$c := $cov.Of .Package}}{{$tot = add $tot $c.Devices}}{{$unk = add $unk $c.Unknown}}{{$lat = add $lat $c.OnLatest}}{{end}}
+        {{if gt $tot 0}}
+        <div class="lib-cov" title="{{$tot}} device{{if ne $tot 1}}s{{end}} have it · {{$lat}} on the library's newest · {{$unk}} with no version reported">
+          <div class="lib-cov-bar"><i class="ok" style="width:{{pct $lat $cov.Totals.Devices}}%"></i><i class="wn" style="width:{{pct (sub (sub $tot $unk) $lat) $cov.Totals.Devices}}%"></i><i class="un" style="width:{{pct $unk $cov.Totals.Devices}}%"></i></div>
+          <div class="lib-cov-n">on <b>{{$tot}}</b> of {{$cov.Totals.Devices}}{{if gt $unk 0}} · {{$unk}} unknown{{end}}</div>
+        </div>
+        {{end}}
+      {{end}}
     </div>
     {{end}}
   </div>
@@ -1362,6 +1374,18 @@ document.addEventListener('submit', function (e) {
   .lib-sugg-t .mono{font-size:11.5px;}
   .lib-tile.is-family .lib-icon,.lib-tile.is-family .lib-mono{box-shadow:3px 3px 0 0 var(--surface-3),6px 6px 0 0 var(--border);}
   .lib-mode{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-right:8px;}
+  /* Fleet coverage on a library tile. Three slices, never two: on the library's newest,
+     on something else, and version unknown — folding unknown into either of the others
+     would make the bar flatter than the fleet. */
+  .lib-cov{margin-top:7px;width:100%;}
+  .lib-cov-bar{display:flex;height:5px;border-radius:99px;overflow:hidden;background:var(--surface-3);}
+  .lib-cov-bar i{display:block;height:100%;}
+  .lib-cov-bar i.ok{background:var(--ok);} .lib-cov-bar i.wn{background:var(--warn);} .lib-cov-bar i.un{background:var(--border);}
+  .lib-cov-n{font-size:11px;color:var(--muted);margin-top:4px;}
+  .lib-cov-n b{color:var(--text);font-weight:750;}
+  .lf-cov{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 0 2px;font-size:12px;}
+  .lf-cov-h{color:var(--muted);margin-right:2px;}
+  .lf-cov-h b{color:var(--text);font-weight:750;}
   .lib-mode select{font-size:12px;padding:3px 6px;}
 </style>
 {{range .Families}}
@@ -1381,6 +1405,14 @@ document.addEventListener('submit', function (e) {
           <form action="/apps/package/assign" method="POST" onclick="event.stopPropagation()"><input type="hidden" name="next" value="/apps"><input type="hidden" name="package" value="{{.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{.Label}}" class="form-input" style="width:90px;" aria-label="Variant label"><button type="submit" class="cc-btn sm">Rename</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own tile">Detach</button></form>
           {{end}}
         </div>
+        {{if $.Coverage}}{{$c := $.Coverage.Of .Package}}
+        {{if gt $c.Devices 0}}
+        <div class="lf-cov">
+          <span class="lf-cov-h">On <b>{{$c.Devices}}</b> of {{$.Coverage.Totals.Devices}} devices</span>
+          {{range $c.Versions}}<span class="cc-tag {{if .Latest}}ok{{else if eq .Version ""}}warn{{else}}info{{end}}">{{if eq .Version ""}}no version{{else}}{{.Version}}{{end}} · {{.Devices}}</span>{{end}}
+          {{if not $c.InLibrary}}<span class="cc-tag warn">not in the library</span>{{end}}
+        </div>
+        {{end}}{{end}}
         {{range .Versions}}
         <div class="lf-ver"><span class="v">{{if .App.VersionName}}v{{.App.VersionName}}{{else}}unversioned{{end}}</span>{{if .Latest}}<span class="cc-tag ok">latest</span>{{end}}<span class="d">added {{localTime .App.CreatedAt}}</span><a href="{{.App.ApkURL}}" target="_blank" rel="noopener">APK</a>{{if canAdmin $.Role}}<form action="/setup/apps/{{.App.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" class="x" title="Delete this version" aria-label="Delete v{{.App.VersionName}}">&times;</button></form>{{end}}</div>
         {{end}}

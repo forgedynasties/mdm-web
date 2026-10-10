@@ -11,6 +11,40 @@
       <a class="cc-btn" href="/commands"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
     </div>
   </div>
+  {{/* Fleet coverage findings. Empty when the fleet agrees with the library, which is the
+       best thing this panel can say — so it renders nothing rather than an "all good" card. */}}
+  {{with .Coverage}}
+  <style>
+    .cov-panel{margin:0 0 16px}
+    .cov-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 10px}
+    .cov-sum b{color:var(--text);font-weight:750;font-size:13px}
+    .cov-f{display:flex;gap:11px;align-items:flex-start;padding:10px 13px;border:1px solid var(--border);
+      border-radius:11px;background:var(--surface);margin-bottom:7px}
+    .cov-f.warn{background:var(--warn-bg);border-color:var(--warn-edge)}
+    .cov-f.bad{background:var(--danger-bg);border-color:var(--danger-edge)}
+    .cov-f .dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px;background:var(--warn)}
+    .cov-f.bad .dot{background:var(--danger)}
+    .cov-f .t{flex:1;min-width:0;font-size:13px;line-height:1.5}
+    .cov-f .t b{font-weight:700}
+    .cov-f .t .d{display:block;color:var(--text-2);font-size:12px;margin-top:2px;line-height:1.45}
+    .cov-f .n{font-weight:750;font-size:13px;white-space:nowrap}
+    .cov-f .pk{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted)}
+  </style>
+  <div class="cov-panel">
+    <div class="cov-sum">
+      <b>{{.Totals.ReportingApps}} of {{.Totals.Devices}} devices</b> have reported their apps
+      {{if lt .Totals.ReportingApps .Totals.Devices}}· <span>{{sub .Totals.Devices .Totals.ReportingApps}} have not, so they count as missing every app below</span>{{end}}
+      {{if .Findings}}· <span>{{len .Findings}} thing{{if ne (len .Findings) 1}}s{{end}} to look at</span>{{end}}
+    </div>
+    {{range .Findings}}
+    <div class="cov-f {{.Severity}}">
+      <span class="dot"></span>
+      <span class="t"><b>{{.Headline}}</b><span class="d">{{.Detail}}</span><span class="pk">{{.Package}}</span></span>
+      <span class="n">{{.Devices}}</span>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
   {{template "app-library" .}}
 </div>
 {{template "footer" .}}

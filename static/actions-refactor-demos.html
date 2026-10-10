@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Retiring the Actions page — four options · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 140px;}
+.wrap{max-width:1060px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:840px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:840px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5b16;background:#fdf3d2;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .now{background:rgba(210,170,40,.18);color:#e3c75f;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55;}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+table{width:100%;border-collapse:collapse;font-size:12.8px;margin-top:8px;}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;line-height:1.5;}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);}
+td.n{white-space:nowrap;font-weight:650;}
+/* ── mock chrome ── */
+.mock{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);}
+.mock-nav{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border-soft);background:var(--surface-3);font-size:12px;}
+.mock-nav span{padding:5px 10px;border-radius:8px;color:var(--text-faint);font-weight:650;}
+.mock-nav span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+.mock-nav span.new{color:var(--accent-text);}
+.mock-body{padding:14px;}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.tabs span{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);color:var(--text-faint);}
+.tabs span.on{background:var(--accent);border-color:transparent;color:#fff;}
+/* app store grid */
+.store{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+.app{border:1px solid var(--border);border-radius:11px;padding:11px;display:flex;gap:10px;background:var(--surface);}
+.app .ic{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#7a80f6,#f9674e);flex:none;}
+.app .nm{font-weight:700;font-size:13px;}
+.app .mt{color:var(--text-faint);font-size:11.5px;margin-top:1px;line-height:1.4;}
+.app .act{margin-top:7px;}
+.btn{display:inline-block;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:8px;border:1px solid var(--border);color:var(--text);}
+.btn.p{background:var(--accent);border-color:transparent;color:#fff;}
+.btn.ok{background:var(--ok-bg);border-color:var(--ok-edge);color:var(--ok);}
+.cov{height:5px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:7px;}
+.cov i{display:block;height:100%;background:var(--ok);}
+/* capability cards */
+.caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
+.cap{border:1px solid var(--border);border-radius:11px;padding:12px;}
+.cap h4{margin:0 0 3px;font-size:13px;}
+.cap p{margin:0;color:var(--text-faint);font-size:11.5px;line-height:1.45;}
+.cap .st{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--ok);}
+/* jobs board */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.col{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:11px;padding:9px;}
+.col h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);}
+.job{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:7px;font-size:12px;}
+.job b{display:block;font-weight:700;}
+.job span{color:var(--text-faint);font-size:11px;}
+/* launcher */
+.pal{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 18px 50px rgba(20,22,40,.18);overflow:hidden;max-width:520px;margin:0 auto;}
+.pal .q{padding:11px 14px;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-faint);}
+.pal .r{padding:9px 14px;font-size:12.5px;display:flex;gap:10px;align-items:center;}
+.pal .r.on{background:var(--surface-3);}
+.pal .r b{font-weight:650;}
+.pal .r span{color:var(--text-faint);margin-left:auto;font-size:11px;}
+@media (max-width:720px){body{padding:20px 16px 80px;}.goodbad{grid-template-columns:1fr}.board{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>Retiring the Actions page</h1>
+<p class="lead">
+The Actions page is a <em>verb</em> list: pick a command type, pick targets, send. That matches how
+the server is built and not how anyone works — nobody opens the MDM wanting to "send an
+<code>install_apk</code>", they want <em>this app on these tablets</em>, or <em>this kiosk locked to
+that app</em>, or <em>these screens rebooting at 4am</em>. The nouns live on other pages, so the one
+page that performs the work is the one page that knows nothing about what it is working on.
+</p>
+<p class="lead">
+What it can send today: <code>install_apk</code>, <code>uninstall</code>, <code>shell</code>,
+<code>query</code>, <code>screenshot</code>, <code>reboot</code>, <code>collect_logs</code>,
+<code>wipe</code>, <code>unenroll</code> — plus recipes (pins) and schedules. A refactor has to land
+every one of those somewhere; the mapping table at the end is how each option is checked for that.
+</p>
+
+<!-- A -->
+<div class="eyebrow">Option A</div>
+<div class="dname">Keep the page, group it by what you are managing<span class="now">cheapest</span></div>
+<p class="ddesc">
+Same console, four tabs instead of one long type list: Apps · Device · Diagnostics · History. Nothing
+moves, nothing is retired.
+</p>
+<div class="panel">
+  <div class="mock">
+    <div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on">Actions</span><span>Manage</span><span>Clients</span></div>
+    <div class="mock-body">
+      <div class="tabs"><span class="on">Apps</span><span>Device</span><span>Diagnostics</span><span>History</span></div>
+      <div class="store">
+        <div class="app"><div class="ic"></div><div><div class="nm">Install an app</div><div class="mt">from the library, or a URL</div><div class="act"><span class="btn p">Choose</span></div></div></div>
+        <div class="app"><div class="ic"></div><div><div class="nm">Remove an app</div><div class="mt">by package name</div><div class="act"><span class="btn">Choose</span></div></div></div>
+        <div class="app"><div class="ic"></div><div><div class="nm">Update the client</div><div class="mt">firmware · standard</div><div class="act"><span class="btn">Choose</span></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> An afternoon's work, no routes change, no bookmarks break, every capability
+      stays exactly where people last found it. Makes the page scannable, which is most of its
+      current problem.</div>
+    <div><b>Bad at</b> Still a verb list, just a tidier one. "Install this app on the Vegas kiosks"
+      still means knowing to start from Actions rather than from the app or the venue, and fleet
+      coverage ("which devices actually have it?") still has no home.</div>
+  </div>
+</div>
+
+<!-- B -->
+<div class="eyebrow">Option B</div>
+<div class="dname">An app store, plus a page per thing you manage<span class="rec">my pick</span></div>
+<p class="ddesc">
+The App library becomes a <b>store</b>: every app a card showing fleet coverage and an Install
+button that asks <em>where</em>, not <em>what</em>. Everything else moves to the page for the thing
+it affects — Kiosk, Boot &amp; splash, Power &amp; reboot, Diagnostics. Actions survives only as
+<b>History</b>.
+</p>
+<div class="panel">
+  <div class="mock">
+    <div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on new">Apps</span><span class="new">Kiosk</span><span class="new">Power</span><span>Manage</span><span>History</span></div>
+    <div class="mock-body">
+      <div class="store">
+        <div class="app"><div class="ic"></div><div><div class="nm">AIO Order</div><div class="mt">v4.2.1 · on 171 of 188</div>
+          <div class="cov"><i style="width:91%"></i></div><div class="act"><span class="btn p">Install on…</span> <span class="btn">Update 17</span></div></div></div>
+        <div class="app"><div class="ic"></div><div><div class="nm">Kitchen Display</div><div class="mt">v2.0.9 · on 12 of 12</div>
+          <div class="cov"><i style="width:100%"></i></div><div class="act"><span class="btn ok">Up to date</span></div></div></div>
+        <div class="app"><div class="ic"></div><div><div class="nm">Menu Board</div><div class="mt">v1.7.0 · on 4 of 9</div>
+          <div class="cov"><i style="width:44%"></i></div><div class="act"><span class="btn p">Install on…</span> <span class="btn">Remove</span></div></div></div>
+      </div>
+      <div style="margin-top:14px" class="caps">
+        <div class="cap"><h4>Kiosk</h4><p>Lock a device to an app, exit codes, allowlists, what happens on boot.</p><div class="st">142 locked · 3 exited on site</div></div>
+        <div class="cap"><h4>Power &amp; reboot</h4><p>Reboot now, nightly windows, what a device does on mains loss.</p><div class="st">Nightly 04:00 · 186 devices</div></div>
+        <div class="cap"><h4>Boot &amp; splash</h4><p>Boot logo, splash image, first-run behaviour.</p><div class="st">2 pending</div></div>
+        <div class="cap"><h4>Diagnostics</h4><p>Shell, logs, screenshots, wireless adb — per device, where the device is.</p><div class="st">Opens on a device</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Every task starts from the thing it is about, which is how people describe
+      the work. The store answers the question Actions never could — <em>where is this app, and
+      where is it missing</em> — and coverage turns a send-and-hope into a number. Destructive and
+      diagnostic verbs stop sitting one dropdown away from routine ones.</div>
+    <div><b>Bad at</b> The biggest build here: a real store view needs per-device app inventory
+      (the data exists — <code>NeedsAppInventory</code> and the installed-package set), new routes,
+      and three pages that partly exist and partly do not. Bulk "one action, many devices" gets
+      split across pages, so a genuinely cross-cutting send needs the History/Run surface to stay.</div>
+  </div>
+</div>
+
+<!-- C -->
+<div class="eyebrow">Option C</div>
+<div class="dname">No page at all — a launcher, and objects that act on themselves</div>
+<p class="ddesc">
+Actions disappears. Every verb lives on the noun's own page, and one keyboard launcher
+(the ⌘K palette already in the dock) is how you reach any of them from anywhere.
+</p>
+<div class="panel">
+  <div class="pal">
+    <div class="q">install order app on vegas…</div>
+    <div class="r on"><b>Install AIO Order</b> <span>on Flights Vegas · 14 devices</span></div>
+    <div class="r"><b>Install AIO Order</b> <span>on every t7 · 171 devices</span></div>
+    <div class="r"><b>Open AIO Order</b> <span>in the app library</span></div>
+    <div class="r"><b>Lock kiosk to AIO Order</b> <span>Flights Vegas</span></div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Fastest path for anyone who knows what they want, and it removes a whole
+      page rather than redesigning one. Fits the existing palette, so the mechanism is already
+      built and discoverable by typing.</div>
+    <div><b>Bad at</b> Invisible to anyone who does not already know what exists — a launcher
+      cannot teach the fleet's capabilities, and a new operator would have nowhere to browse. Needs
+      per-verb natural-language matching to feel good, which is the expensive, fiddly part.</div>
+  </div>
+</div>
+
+<!-- D -->
+<div class="eyebrow">Option D</div>
+<div class="dname">A jobs board</div>
+<p class="ddesc">
+Keep one place for work, but make it about <em>work in flight</em> rather than about verbs:
+queued · running · finished, with a "New job" wizard. The send form becomes a wizard step, not the
+page's identity.
+</p>
+<div class="panel">
+  <div class="mock"><div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on new">Jobs</span><span>Apps</span><span>Manage</span></div>
+  <div class="mock-body">
+    <div class="board">
+      <div class="col"><h4>Queued 3</h4>
+        <div class="job"><b>Install AIO Order v4.2.1</b><span>17 devices · waiting for 4 offline</span></div>
+        <div class="job"><b>Reboot</b><span>Flights Vegas · tonight 04:00</span></div>
+      </div>
+      <div class="col"><h4>Running 2</h4>
+        <div class="job"><b>OTA v2.1.031</b><span>62% · 44 of 71 installed</span></div>
+        <div class="job"><b>Collect logs</b><span>3 devices</span></div>
+      </div>
+      <div class="col"><h4>Needs attention 1</h4>
+        <div class="job"><b>Shell</b><span>AT070AABU00077 · sent, unconfirmed 21m</span></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="goodbad">
+    <div><b>Good at</b> Makes in-flight work and stuck work the subject, which is what an operator
+      actually comes back to check — and it is the natural home for the new command history and the
+      "sent but unconfirmed" state. Scales to fleet-wide rollouts far better than a form.</div>
+    <div><b>Bad at</b> Does nothing for discovery: "what can I do to a kiosk?" is still unanswered,
+      and the wizard re-creates the verb list one click deeper. Best as a <em>companion</em> to B,
+      not instead of it.</div>
+  </div>
+</div>
+
+<!-- mapping -->
+<div class="eyebrow">Nothing may be lost — where each capability lands</div>
+<div class="panel">
+<table>
+  <tr><th>Today</th><th>A — tabs</th><th>B — store + pages</th><th>C — launcher</th><th>D — jobs</th></tr>
+  <tr><td class="n">install_apk · uninstall</td><td>Apps tab</td><td><b>Store card</b> → Install on…</td><td>Palette verb</td><td>New job wizard</td></tr>
+  <tr><td class="n">app_update (client)</td><td>Apps tab</td><td>Clients page (already there)</td><td>Palette verb</td><td>New job wizard</td></tr>
+  <tr><td class="n">ota</td><td>unchanged (Deploy)</td><td>unchanged (Deploy)</td><td>unchanged</td><td>Job row</td></tr>
+  <tr><td class="n">reboot · scheduled reboot</td><td>Device tab</td><td><b>Power &amp; reboot</b></td><td>Palette verb</td><td>New job wizard</td></tr>
+  <tr><td class="n">kiosk lock / exit codes</td><td>Device tab</td><td><b>Kiosk</b> (exists as Manage)</td><td>Palette verb</td><td>Wizard</td></tr>
+  <tr><td class="n">update_splash</td><td>Device tab</td><td><b>Boot &amp; splash</b> (exists as /boot-logo)</td><td>Palette verb</td><td>Wizard</td></tr>
+  <tr><td class="n">shell · query · collect_logs · screenshot · adb_tcp · mic_gain</td><td>Diagnostics tab</td><td><b>Diagnostics</b>, opened on a device</td><td>Palette verb</td><td>Wizard</td></tr>
+  <tr><td class="n">wipe · unenroll</td><td>Device tab, confirm</td><td>Device page → Danger zone</td><td>Palette, typed in full</td><td>Wizard</td></tr>
+  <tr><td class="n">recipes (pins) · schedules</td><td>History tab</td><td>Kept on Schedules; pins become presets on each page</td><td>Palette favourites</td><td><b>Saved jobs</b></td></tr>
+  <tr><td class="n">in-flight + history + the new event timeline</td><td>History tab</td><td>History page</td><td>Nowhere — needs a page</td><td><b>The board itself</b></td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>Deployed today:</b> the single Actions console (verb list + targets + recipes), with Schedules and
+Manage beside it. <b>I would ship B, with D's board as the History page.</b> B because every task
+then starts from the thing it concerns and the store answers the coverage question nothing answers
+today; D's board because the work we just built — leases, receipts, the per-device event timeline —
+needs a fleet-level home, and "sent, unconfirmed 21m" belongs in a column called Needs attention
+rather than in a row of a history table. A is the right move if this has to be cheap this week; it
+is also a safe first step <em>towards</em> B, since the tabs are the eventual page boundaries. C I
+would not do alone: it makes the fleet's capabilities unteachable.
+</p>
+<p class="ddesc" style="margin:10px 0 0">
+One sequencing note, if B is picked: the store's value is coverage, and coverage needs trustworthy
+per-device app inventory. That already exists (<code>NeedsAppInventory</code>, the installed-package
+set per device) but has never been shown fleet-wide, so the first slice should be <b>read-only
+coverage</b> — one card per app, "on N of M", drill into the missing list. If those numbers look
+right for a week, the Install buttons go on top of something we trust.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark');}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');set('light');
+</script>
+</body></html>

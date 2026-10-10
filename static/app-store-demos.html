@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>App store page — three layouts, real fleet data · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 140px;}
+.wrap{max-width:1060px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:840px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:840px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55;}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px;}
+table{width:100%;border-collapse:collapse;font-size:12.8px;margin-top:8px;}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);vertical-align:top;line-height:1.5;}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);}
+td.n{white-space:nowrap;font-weight:650;}
+code{font-size:12px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:5px;padding:1px 5px;}
+.real{border-left:3px solid var(--accent);padding:2px 0 2px 13px;margin:0 0 15px;}
+.real b{display:block;font-size:13.5px;margin-bottom:3px;}
+.real p{margin:0;color:var(--text-faint);font-size:12.5px;line-height:1.55;}
+/* ── store cards ── */
+.store{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:10px;}
+.app{border:1px solid var(--border);border-radius:11px;padding:12px;background:var(--surface);}
+.app-h{display:flex;gap:10px;align-items:flex-start;}
+.ic{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#7a80f6,#f9674e);flex:none;}
+.ic.g{background:linear-gradient(135deg,#2bb673,#7ad3a4)}
+.ic.o{background:linear-gradient(135deg,#e8822e,#f3c08a)}
+.nm{font-weight:700;font-size:13.5px;line-height:1.3}
+.pk{color:var(--text-faint);font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:1px}
+.cnt{font-size:12.5px;margin-top:9px}
+.cnt b{font-weight:750}
+.bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:7px;display:flex}
+.bar i{display:block;height:100%}
+.bar .ok{background:var(--ok)} .bar .wn{background:var(--warn)} .bar .un{background:var(--border)}
+.lg{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px;font-size:11px;color:var(--text-faint)}
+.lg span{display:inline-flex;align-items:center;gap:4px}
+.lg i{width:7px;height:7px;border-radius:2px;display:inline-block}
+.lg i.ok{background:var(--ok)} .lg i.wn{background:var(--warn)} .lg i.un{background:var(--border)}
+.act{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:8px;border:1px solid var(--border);color:var(--text);background:var(--surface)}
+.btn.p{background:var(--accent);border-color:transparent;color:#fff}
+.btn.w{background:var(--warn-bg);border-color:var(--warn-edge);color:var(--warn)}
+/* grouped family */
+.fam{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
+.fam-h{display:flex;gap:11px;align-items:center;padding:11px 13px;background:var(--surface-3)}
+.fam-h .nm{flex:1}
+.ch{display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.ch .cn{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;min-width:88px}
+.ch .vs{color:var(--text-faint);font-size:11.5px}
+.ch .dv{margin-left:auto;font-weight:700}
+.tag{font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px}
+.tag.un{background:var(--surface-3);color:var(--text-faint)}
+.tag.wn{background:var(--warn-bg);color:var(--warn)}
+.tag.bad{background:var(--danger-bg);color:var(--danger)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+/* dialog */
+.dlg{max-width:470px;border:1px solid var(--border);border-radius:13px;background:var(--surface);box-shadow:0 20px 56px rgba(20,22,40,.2);overflow:hidden}
+.dlg-h{padding:13px 15px;border-bottom:1px solid var(--border-soft);font-weight:700;font-size:13.5px}
+.dlg-b{padding:13px 15px;font-size:12.5px}
+.opt{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px}
+.opt.on{border-color:var(--accent-edge);background:var(--accent-soft,rgba(122,128,246,.08))}
+.opt .r{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);flex:none}
+.opt.on .r{border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 2px var(--surface)}
+.opt .n2{font-weight:650}.opt .m2{color:var(--text-faint);font-size:11.5px}
+.opt .c2{margin-left:auto;font-weight:750}
+.dlg-f{padding:11px 15px;border-top:1px solid var(--border-soft);display:flex;gap:7px;justify-content:flex-end}
+@media (max-width:720px){body{padding:20px 16px 80px}.goodbad{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>The app store page — three layouts, built on the real fleet</h1>
+<p class="lead">
+Option B's core claim is that the App library should answer <em>where is this app, and where is it
+wrong</em>. Every number on this page is a real query against the live fleet
+(<code>device_packages</code> joined to the 187 live devices), not a mock — because the layout
+question turns out to be secondary to what the data actually looks like.
+</p>
+
+<div class="eyebrow">What the live data says</div>
+<div class="panel">
+<div class="real"><b>The inventory is solid.</b><p>186 of 187 live devices report a full app list
+(&gt;20 packages); one reports a thin list; none has never reported. So coverage is a reporting
+problem we do <em>not</em> have — the foundation is there.</p></div>
+
+<div class="real"><b>"Nugget" is five apps, not one.</b><p><code>aio.app.nugget.uatv2</code> 108
+devices · <code>.stagev2</code> 26 · <code>.internal</code> 15 · <code>aio.app.nugget</code> 12 ·
+<code>.qa</code> 7. That is 168 installs of the same product under five package names across a
+187-device fleet. No current page shows this, and it is the single most useful thing the store would
+surface on day one.</p></div>
+
+<div class="real"><b>Half the installs report no version.</b><p>50 of the 108
+<code>uatv2</code> installs have an empty <code>version_name</code>; all 7
+<code>aio.app.mpos.uatv2</code> installs do; 10 of 15 <code>.internal</code>. The store must render
+that as <em>unknown</em> and never fold it into "up to date" — a coverage bar that counts unknowns as
+fine is the dashboard lying again, which is the whole thing we just spent two days fixing.</p></div>
+
+<div class="real"><b>Version strings are not comparable.</b><p>Observed on
+<code>uatv2</code>: <code>117-uatv2</code> (19 devices), <code>46.0.0-uatv2</code> (13),
+<code>47.0.0-uatv2</code> (12), <code>0.0.0-uatv2</code> (11), <code>39.0.0-uatv2</code> (2),
+<code>44.0.0-uatv2</code> (1). Two different schemes plus a <code>0.0.0</code> placeholder, so
+"newer than" cannot be computed. The reference has to be <b>the version the app library declares</b>,
+and everything else is "matches / does not match / unknown".</p></div>
+
+<div class="real"><b>The library itself is ambiguous.</b><p><code>aio.app.nugget.internal</code> has
+<b>two</b> library rows (<code>51.0.0-internal</code> and <code>400-internal</code>), and the
+<code>stagev2</code> devices run <code>19.0.0-stagev2</code> while the library declares
+<code>18.0.0-stagev2</code> — devices are <em>ahead</em>. So "Update" must never be offered blind:
+with no comparable ordering it would be a downgrade.</p></div>
+
+<div class="real"><b>The table outlives devices.</b><p>206 device_ids appear in
+<code>device_packages</code> against 187 live devices, so rows survive hiding/retiring. Every
+coverage query must join the live device set or the denominators are wrong.</p></div>
+</div>
+
+<!-- B1 -->
+<div class="eyebrow">Layout 1</div>
+<div class="dname">Coverage cards, one per package</div>
+<p class="ddesc">A card per package, biggest first. Honest three-part bar: matches the library
+version · differs · version unknown.</p>
+<div class="panel">
+  <div class="store">
+    <div class="app"><div class="app-h"><div class="ic"></div><div><div class="nm">Nugget-uatv2</div><div class="pk">aio.app.nugget.uatv2</div></div></div>
+      <div class="cnt"><b>108</b> of 187 devices</div>
+      <div class="bar"><i class="wn" style="width:54%"></i><i class="un" style="width:46%"></i></div>
+      <div class="lg"><span><i class="wn"></i>58 on 6 versions</span><span><i class="un"></i>50 unknown</span></div>
+      <div class="act"><span class="btn p">Install on…</span><span class="btn w">Reconcile 58</span></div></div>
+
+    <div class="app"><div class="app-h"><div class="ic g"></div><div><div class="nm">Nugget-stagev2</div><div class="pk">aio.app.nugget.stagev2</div></div></div>
+      <div class="cnt"><b>26</b> of 187 devices</div>
+      <div class="bar"><i class="wn" style="width:85%"></i><i class="un" style="width:15%"></i></div>
+      <div class="lg"><span><i class="wn"></i>22 on 19.0.0 — library says 18.0.0</span><span><i class="un"></i>4 unknown</span></div>
+      <div class="act"><span class="btn p">Install on…</span><span class="btn">Library is behind</span></div></div>
+
+    <div class="app"><div class="app-h"><div class="ic o"></div><div><div class="nm">MPOS-UATV2</div><div class="pk">aio.app.mpos.uatv2</div></div></div>
+      <div class="cnt"><b>7</b> of 187 devices</div>
+      <div class="bar"><i class="un" style="width:100%"></i></div>
+      <div class="lg"><span><i class="un"></i>7 unknown — none reports a version</span></div>
+      <div class="act"><span class="btn p">Install on…</span><span class="btn">Ask for inventory</span></div></div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Reads at a glance, scales to a long library, and the bar cannot flatter the
+      fleet — unknown is its own colour rather than silently "fine". Closest to what people mean by
+      "an app store".</div>
+    <div><b>Bad at</b> One card per <em>package</em> means five Nugget cards sitting next to each
+      other with no hint they are the same product, which is the fleet's actual problem. Card count
+      grows with channels, so the noise grows with the mess.</div>
+  </div>
+</div>
+
+<!-- B2 -->
+<div class="eyebrow">Layout 2</div>
+<div class="dname">Grouped by product, channels inside<span class="rec">my pick</span></div>
+<p class="ddesc">One row per product, its channels nested. The thing you need to see — that one
+product is installed five different ways across the fleet — becomes the headline instead of
+something you reconstruct from five cards.</p>
+<div class="panel">
+  <div class="fam">
+    <div class="fam-h"><div class="ic"></div><div class="nm"><div style="font-weight:750;font-size:14px">Nugget</div>
+      <div class="pk">5 channels · 168 installs across 187 devices</div></div>
+      <span class="tag bad">63 unknown versions</span><span class="btn">Open</span></div>
+    <div class="ch"><span class="cn">uatv2</span><span class="tag wn">6 versions</span>
+      <span class="vs">117 ·&nbsp;46.0.0 ·&nbsp;47.0.0 ·&nbsp;0.0.0 ·&nbsp;39.0.0 ·&nbsp;44.0.0 · 50 unknown</span><span class="dv">108</span></div>
+    <div class="ch"><span class="cn">stagev2</span><span class="tag wn">ahead of library</span>
+      <span class="vs">19.0.0 — library declares 18.0.0 · 4 unknown</span><span class="dv">26</span></div>
+    <div class="ch"><span class="cn">internal</span><span class="tag bad">library has 2 entries</span>
+      <span class="vs">62.0.0 · 66.0.0 · 400 · 0.0.0 · 10 unknown</span><span class="dv">15</span></div>
+    <div class="ch"><span class="cn">(prod)</span><span class="tag ok">matches 17.0.0</span>
+      <span class="vs">1 unknown</span><span class="dv">12</span></div>
+    <div class="ch"><span class="cn">qa</span><span class="tag wn">3 versions</span>
+      <span class="vs">55.0.0 · 1 · 0.0.0 · 2 unknown</span><span class="dv">7</span></div>
+  </div>
+  <div class="fam">
+    <div class="fam-h"><div class="ic g"></div><div class="nm"><div style="font-weight:750;font-size:14px">AIO MDM (standard client)</div>
+      <div class="pk">1 channel · 9 installs</div></div><span class="tag ok">all versions known</span><span class="btn">Open</span></div>
+    <div class="ch"><span class="cn">dpc</span><span class="tag ok">2 versions</span><span class="vs">0.2.12 · 0.2.5</span><span class="dv">9</span></div>
+  </div>
+  <div class="goodbad">
+    <div><b>Good at</b> Says the true thing first: one product, five channels, 63 installs whose
+      version nobody knows. Channels collapse, so the library stays short as channels multiply. It is
+      also the shape that makes "consolidate these onto one channel" a visible, pressable job.</div>
+    <div><b>Bad at</b> Needs a notion of "product" that does not exist yet — grouping by package
+      prefix is a heuristic, and a wrong guess groups unrelated apps. Less store-like, more
+      inventory-report; the Install button is one level deeper.</div>
+  </div>
+</div>
+
+<!-- B3 -->
+<div class="eyebrow">Layout 3</div>
+<div class="dname">Only what needs attention</div>
+<p class="ddesc">Not a library at all — a list of findings. Anything matching the declared version
+is hidden, so the page is empty when the fleet is consistent.</p>
+<div class="panel">
+<table>
+  <tr><th>Finding</th><th>App</th><th>Devices</th><th>Action</th></tr>
+  <tr><td class="n"><span class="tag bad">No version reported</span></td><td>Nugget-uatv2</td><td>50</td><td><span class="btn">Ask for inventory</span></td></tr>
+  <tr><td class="n"><span class="tag bad">No version reported</span></td><td>MPOS-UATV2</td><td>7</td><td><span class="btn">Ask for inventory</span></td></tr>
+  <tr><td class="n"><span class="tag wn">6 versions in service</span></td><td>Nugget-uatv2</td><td>58</td><td><span class="btn p">Reconcile…</span></td></tr>
+  <tr><td class="n"><span class="tag wn">Devices ahead of library</span></td><td>Nugget-stagev2</td><td>22</td><td><span class="btn">Update library</span></td></tr>
+  <tr><td class="n"><span class="tag bad">Two library entries</span></td><td>Nugget-INTERNAL</td><td>15</td><td><span class="btn">Fix library</span></td></tr>
+  <tr><td class="n"><span class="tag wn">5 channels of one product</span></td><td>Nugget</td><td>168</td><td><span class="btn">Review</span></td></tr>
+</table>
+  <div class="goodbad">
+    <div><b>Good at</b> Zero reading to find the problem, and it degrades to an empty page when
+      there is nothing wrong — the best property any ops view can have. Would have surfaced all six
+      findings above on its first render.</div>
+    <div><b>Bad at</b> Not a store: you cannot browse or install from it, so it cannot replace the
+      App library — it is a companion panel. Also needs thresholds, and a noisy fleet makes it a
+      wall of rows.</div>
+  </div>
+</div>
+
+<div class="eyebrow">Install on… — what the button opens</div>
+<div class="panel">
+<p class="ddesc">The point of starting from the app is that the dialog asks <b>where</b>, and the
+counts are real before you press anything. <code>DevicesWithPackageInstalled</code> already exists,
+so "the ones that don't have it" is a query, not an estimate.</p>
+<div class="dlg">
+  <div class="dlg-h">Install Nugget-uatv2 · 47.0.0-uatv2</div>
+  <div class="dlg-b">
+    <div class="opt on"><span class="r"></span><div><div class="n2">Devices without it</div><div class="m2">any class, any venue</div></div><span class="c2">79</span></div>
+    <div class="opt"><span class="r"></span><div><div class="n2">Devices on another version</div><div class="m2">58 known · 50 unknown excluded</div></div><span class="c2">58</span></div>
+    <div class="opt"><span class="r"></span><div><div class="n2">A venue</div><div class="m2">pick from 24 restaurants</div></div><span class="c2">—</span></div>
+    <div class="opt"><span class="r"></span><div><div class="n2">A device class</div><div class="m2">t7 · kiosk · kds · pos · mpos</div></div><span class="c2">—</span></div>
+  </div>
+  <div class="dlg-f"><span class="btn">Cancel</span><span class="btn p">Queue for 79 devices</span></div>
+</div>
+<p class="ddesc" style="margin-top:14px">Note what is deliberately <em>not</em> offered: a plain
+"all devices". With 50 unknown versions on this package, "everything" would re-push an APK to
+devices that may already have it and cannot be checked — so the unknowns are excluded from the
+update target and named in the dialog rather than quietly included.</p>
+</div>
+
+<div class="eyebrow">Build order</div>
+<div class="panel">
+<table>
+  <tr><th>Slice</th><th>What</th><th>New work</th><th>Effort</th></tr>
+  <tr><td class="n">1</td><td>Read-only coverage on <code>/apps</code> (layout 2) + the findings panel (layout 3)</td><td>One aggregate query joined to the live device set; no new tables</td><td>~1–2 days</td></tr>
+  <tr><td class="n">2</td><td><em>Install on…</em> / <em>Reconcile</em> with real target counts</td><td>Target-picker dialog over <code>CreateCommandBy</code>; <code>DevicesWithPackageInstalled</code> already filters</td><td>~1 day</td></tr>
+  <tr><td class="n">3</td><td>Product grouping + "consolidate channels" as a job</td><td>Needs a product/channel notion — a stored mapping, not a prefix guess</td><td>~1 day + a decision</td></tr>
+  <tr><td class="n">4</td><td>Power &amp; reboot page, then Actions → History</td><td>Assembles existing reboot + schedule parts</td><td>~1–2 days</td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>Deployed today:</b> <code>/apps</code> is a flat library list with no fleet numbers at all.
+<b>I would ship layout 2 with layout 3's findings panel above it</b>, read-only first. Layout 1 is
+the prettiest and the least true to this fleet: five Nugget cards side by side hide the thing that
+matters. And slice 1 is worth doing even if you later reject the rest of Option B — the six findings
+at the top of this page came out of one query, and nobody can currently see any of them.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark');}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');set('light');
+</script>
+</body></html>

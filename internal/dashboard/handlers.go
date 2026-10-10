@@ -3339,6 +3339,10 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 		"Families":      families,
 		"Suggestions":   suggestions,
 		"AppFamilyMode": mode,
+		// What is actually installed out there, against what the library holds. The page
+		// listed what COULD be installed and said nothing about the fleet, so nobody could
+		// ask "is this app out there, and is it the version we think". See app_coverage.go.
+		"Coverage": h.appCoverage(r.Context(), apps),
 	})
 }
 
