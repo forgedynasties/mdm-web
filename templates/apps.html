@@ -26,12 +26,12 @@
   .st-chip .c{font-variant-numeric:tabular-nums;opacity:.55;font-weight:700}
   .st-chip.on .c{opacity:.7}
 
-  .st-shelf{margin-bottom:24px}
+  .st-shelf{margin-bottom:22px}
   .st-sh{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
   .st-sh h2{margin:0;font-size:15.5px;letter-spacing:-.015em;font-weight:740}
   .st-sh .note{font-size:11.5px;color:var(--muted);line-height:1.4}
-  .st-row{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin}
-  .st-card{flex:none;width:124px;scroll-snap-align:start}
+  .st-row{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  .st-card{flex:none;width:92px;scroll-snap-align:start}
 
   /* The art: a tinted tile with the icon INSET, not stretched across it. Icons come out of
      an APK at 96-192px, so filling a 124px tile with one upscales it and it goes soft —
@@ -41,7 +41,7 @@
   .aa-art::after{content:"";position:absolute;inset:0;border-radius:inherit;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(20,22,40,.07)}
   .aa-art img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(20,22,40,.22))}
-  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);letter-spacing:-.04em;font-size:40px}
+  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);letter-spacing:-.04em;font-size:30px}
   .aa-art-0{background:linear-gradient(145deg,#8f94f8,#f9674e)}
   .aa-art-1{background:linear-gradient(145deg,#34c98a,#1f8f66)}
   .aa-art-2{background:linear-gradient(145deg,#f2a15c,#e8822e)}
@@ -49,18 +49,21 @@
   .aa-art-4{background:linear-gradient(145deg,#ab74ee,#7c4bd0)}
   .aa-art-5{background:linear-gradient(145deg,#f5789f,#e0486f)}
 
-  .st-card .aa-art{width:124px;height:124px;box-shadow:0 4px 14px rgba(20,22,40,.13)}
+  .st-card .aa-art{width:92px;height:92px;border-radius:20px;box-shadow:0 3px 10px rgba(20,22,40,.13)}
   .st-card a{display:block;text-decoration:none;color:inherit}
   .st-card a:hover .aa-art{transform:translateY(-2px);box-shadow:0 10px 22px rgba(20,22,40,.2)}
   .st-card .aa-art{transition:transform .16s ease,box-shadow .16s ease}
-  .st-nm{font-weight:700;font-size:12.5px;margin-top:10px;line-height:1.3;
+  .st-nm{font-weight:700;font-size:12px;margin-top:8px;line-height:1.3;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .st-mt{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35;
+  .st-mt{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.35;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .st-cta{margin-top:8px}
-  .st-cta .cc-btn{border-radius:9px;padding:4px 11px;font-size:11.5px;width:100%;justify-content:center}
+  .st-cta .cc-btn{border-radius:8px;padding:3px 8px;font-size:11px;width:100%;justify-content:center}
   .st-empty{font-size:12.5px;color:var(--muted);padding:12px 2px}
   .st-all{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:20px}
+  /* The dock floats over the bottom of every page; without room for it the last shelf's
+     buttons sit underneath it. */
+  .st-wrap{padding-bottom:96px}
 </style>
 <div class="st-wrap">
   <div class="st-top">

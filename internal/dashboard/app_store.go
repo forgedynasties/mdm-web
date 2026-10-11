@@ -118,7 +118,6 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 		if f.Package == "" || seen[f.Package] {
 			continue
 		}
-		seen[f.Package] = true
 		c := cardFor(f.Package, cov.Of(f.Package), famByPkg[f.Package], varByPkg[f.Package], fleet)
 		switch {
 		case c.Devices > 0 && cov.Of(f.Package).Unknown == c.Devices:
@@ -130,12 +129,15 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 				map[bool]string{true: fmt.Sprintf(" · %d unknown", u), false: ""}[u > 0])
 			c.CTA, c.CTAKind = "Reconcile", "reconcile"
 		case !cov.Of(f.Package).InLibrary:
-			c.Meta = fmt.Sprintf("on %d · not in the library", c.Devices)
-			c.CTA, c.CTAKind = "Open", "open"
+			// Not a fault — it just cannot be managed from here. It gets its own shelf
+			// below rather than crowding out the apps that are genuinely wrong (this
+			// fired 16 times on stage and pushed the three real problems off the screen).
+			continue
 		default:
 			c.Meta = fmt.Sprintf("on %d of %d", c.Devices, fleet)
 			c.CTA, c.CTAKind = "Review", "open"
 		}
+		seen[f.Package] = true
 		attn = append(attn, c)
 	}
 	sv.Attention = len(attn)
@@ -165,6 +167,26 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 	if len(onFleet) > 0 {
 		sv.Shelves = append(sv.Shelves, storeShelf{
 			ID: "fleet", Title: "On your fleet", Note: "by how many devices report it", Cards: onFleet,
+		})
+	}
+
+	// ── Seen on devices, not in the library ──
+	var unmanaged []storeCard
+	for pkg, c := range cov.ByPkg {
+		if c.InLibrary || c.Devices == 0 {
+			continue
+		}
+		card := cardFor(pkg, c, famByPkg[pkg], varByPkg[pkg], fleet)
+		card.Meta = fmt.Sprintf("on %d of %d · no APK here", c.Devices, fleet)
+		card.CTA, card.CTAKind = "Open", "open"
+		unmanaged = append(unmanaged, card)
+	}
+	sort.SliceStable(unmanaged, func(i, j int) bool { return unmanaged[i].Devices > unmanaged[j].Devices })
+	if len(unmanaged) > 0 {
+		sv.Shelves = append(sv.Shelves, storeShelf{
+			ID: "unmanaged", Title: "Seen on devices, not in the library",
+			Note:  "no APK here, so they cannot be installed, updated or removed from the dashboard",
+			Cards: unmanaged,
 		})
 	}
 
