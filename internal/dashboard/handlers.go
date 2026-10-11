@@ -5582,6 +5582,7 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		Label string
 		Count int
 		Pct   int
+		Class string // the template links a row to /devices?class= when set
 	}
 	var products []productRow
 	for _, p := range h.productFilters(r.Context()) {
@@ -5590,7 +5591,8 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 			if summary.Total > 0 {
 				pct = n * 100 / summary.Total
 			}
-			products = append(products, productRow{p.Key, p.Label, n, pct})
+			pr, _ := product.Resolve(p.Key)
+			products = append(products, productRow{p.Key, p.Label, n, pct, pr.Class})
 		}
 	}
 	sort.SliceStable(products, func(i, j int) bool { return products[i].Count > products[j].Count })
