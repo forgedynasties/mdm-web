@@ -7,15 +7,20 @@
   /* Store art. We hold no banners or screenshots, so the art is a gradient keyed off the
      package name (artSlot) with the library icon on top — stable between renders, which
      reads as deliberate rather than random. */
-  .aa-art{display:grid;place-items:center;border-radius:20px;overflow:hidden;flex:none;box-shadow:0 6px 18px rgba(20,22,40,.14)}
-  .aa-art img{width:100%;height:100%;object-fit:cover}
-  .aa-ini{font-weight:800;color:rgba(255,255,255,.94);letter-spacing:-.03em}
-  .aa-art-0{background:linear-gradient(135deg,#7a80f6,#f9674e)}
-  .aa-art-1{background:linear-gradient(135deg,#2bb673,#7ad3a4)}
-  .aa-art-2{background:linear-gradient(135deg,#e8822e,#f3c08a)}
-  .aa-art-3{background:linear-gradient(135deg,#4b86f5,#8fb6f8)}
-  .aa-art-4{background:linear-gradient(135deg,#9b5de5,#c89bf5)}
-  .aa-art-5{background:linear-gradient(135deg,#f25f8f,#f9a8c4)}
+  .aa-art{position:relative;display:grid;place-items:center;border-radius:22px;overflow:hidden;flex:none;
+    box-shadow:0 5px 16px rgba(20,22,40,.14)}
+  .aa-art::after{content:"";position:absolute;inset:0;border-radius:inherit;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(20,22,40,.07)}
+  /* Inset, never stretched: an APK icon is 96-192px and filling an 84px tile edge to edge
+     upscaled it on bigger screens. 62% keeps it at or under its own resolution. */
+  .aa-art img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(20,22,40,.22))}
+  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);letter-spacing:-.04em}
+  .aa-art-0{background:linear-gradient(145deg,#8f94f8,#f9674e)}
+  .aa-art-1{background:linear-gradient(145deg,#34c98a,#1f8f66)}
+  .aa-art-2{background:linear-gradient(145deg,#f2a15c,#e8822e)}
+  .aa-art-3{background:linear-gradient(145deg,#5f95f7,#3b6fd4)}
+  .aa-art-4{background:linear-gradient(145deg,#ab74ee,#7c4bd0)}
+  .aa-art-5{background:linear-gradient(145deg,#f5789f,#e0486f)}
   .ad2-wrap{max-width:980px;margin:0 auto}
   .ad2-top{display:flex;gap:16px;align-items:flex-start;padding:17px;background:var(--surface);
     border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm)}

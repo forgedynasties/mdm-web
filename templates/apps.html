@@ -8,40 +8,59 @@
      Art is a gradient keyed off the package name with the library icon on top; we store no
      banners or screenshots, and a stable generated gradient reads as deliberate. */
   .st-wrap{max-width:1180px;margin:0 auto}
-  .st-top{display:flex;align-items:center;gap:11px;margin:0 0 12px;flex-wrap:wrap}
-  .st-top h1{margin:0;font-size:20px;letter-spacing:-.015em}
-  .st-search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;border:1px solid var(--border);
-    border-radius:99px;padding:8px 15px;background:var(--surface-3)}
+  .st-top{display:flex;align-items:center;gap:11px;margin:0 0 14px;flex-wrap:wrap}
+  .st-top h1{margin:0;font-size:21px;letter-spacing:-.02em;font-weight:780}
+  .st-search{flex:1;min-width:210px;display:flex;align-items:center;gap:9px;border:1px solid var(--border);
+    border-radius:12px;padding:9px 14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
+  .st-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .st-search input{border:0;background:none;outline:none;font:inherit;font-size:13px;color:var(--text);width:100%}
+  .st-search input::placeholder{color:var(--muted)}
   .st-search svg{width:15px;height:15px;color:var(--muted);flex:none}
-  .st-chips{display:flex;gap:7px;overflow:auto;padding-bottom:4px;margin:0 0 16px}
-  .st-chip{font-size:12px;font-weight:650;padding:5px 13px;border-radius:99px;border:1px solid var(--border);
-    background:var(--surface);color:var(--text-2);white-space:nowrap;cursor:pointer;text-decoration:none}
+  .st-chips{display:flex;gap:7px;overflow:auto;padding-bottom:5px;margin:0 0 18px;scrollbar-width:none}
+  .st-chips::-webkit-scrollbar{display:none}
+  .st-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:6px 13px;
+    border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);
+    white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s,color .12s,border-color .12s}
+  .st-chip:hover{border-color:var(--text-faint)}
   .st-chip.on{background:var(--text);color:var(--surface);border-color:transparent}
-  .st-chip .c{opacity:.6;margin-left:4px}
-  .st-shelf{margin-bottom:20px}
-  .st-sh{display:flex;align-items:baseline;gap:9px;margin:0 0 10px}
-  .st-sh h2{margin:0;font-size:15px;letter-spacing:-.015em}
-  .st-sh .note{font-size:11.5px;color:var(--muted)}
-  .st-row{display:flex;gap:12px;overflow:auto;padding:2px 2px 6px}
-  .st-card{flex:none;width:136px;text-decoration:none;color:inherit}
-  .st-card .aa-art{width:136px;height:136px;border-radius:22px}
-  .st-card .aa-ini{font-size:46px}
-  .st-nm{font-weight:700;font-size:12.5px;margin-top:9px;line-height:1.3}
-  .st-mt{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
-  .st-cta{margin-top:7px}
-  .st-cta .cc-btn{border-radius:99px;padding:4px 12px;font-size:11.5px}
-  .st-empty{font-size:12.5px;color:var(--muted);padding:10px 2px}
-  .st-all{border-top:1px solid var(--border-soft);margin-top:4px;padding-top:18px}
-  .aa-art{display:grid;place-items:center;overflow:hidden;flex:none;box-shadow:0 6px 18px rgba(20,22,40,.13)}
-  .aa-art img{width:100%;height:100%;object-fit:cover}
-  .aa-ini{font-weight:800;color:rgba(255,255,255,.94);letter-spacing:-.03em}
-  .aa-art-0{background:linear-gradient(135deg,#7a80f6,#f9674e)}
-  .aa-art-1{background:linear-gradient(135deg,#2bb673,#7ad3a4)}
-  .aa-art-2{background:linear-gradient(135deg,#e8822e,#f3c08a)}
-  .aa-art-3{background:linear-gradient(135deg,#4b86f5,#8fb6f8)}
-  .aa-art-4{background:linear-gradient(135deg,#9b5de5,#c89bf5)}
-  .aa-art-5{background:linear-gradient(135deg,#f25f8f,#f9a8c4)}
+  .st-chip .c{font-variant-numeric:tabular-nums;opacity:.55;font-weight:700}
+  .st-chip.on .c{opacity:.7}
+
+  .st-shelf{margin-bottom:24px}
+  .st-sh{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+  .st-sh h2{margin:0;font-size:15.5px;letter-spacing:-.015em;font-weight:740}
+  .st-sh .note{font-size:11.5px;color:var(--muted);line-height:1.4}
+  .st-row{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  .st-card{flex:none;width:124px;scroll-snap-align:start}
+
+  /* The art: a tinted tile with the icon INSET, not stretched across it. Icons come out of
+     an APK at 96-192px, so filling a 124px tile with one upscales it and it goes soft —
+     which is exactly how this looked before. Inset at 68px it stays at or below its own
+     resolution and reads as an app tile rather than a blurry photo. */
+  .aa-art{position:relative;display:grid;place-items:center;overflow:hidden;flex:none;border-radius:26px}
+  .aa-art::after{content:"";position:absolute;inset:0;border-radius:inherit;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(20,22,40,.07)}
+  .aa-art img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(20,22,40,.22))}
+  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);letter-spacing:-.04em;font-size:40px}
+  .aa-art-0{background:linear-gradient(145deg,#8f94f8,#f9674e)}
+  .aa-art-1{background:linear-gradient(145deg,#34c98a,#1f8f66)}
+  .aa-art-2{background:linear-gradient(145deg,#f2a15c,#e8822e)}
+  .aa-art-3{background:linear-gradient(145deg,#5f95f7,#3b6fd4)}
+  .aa-art-4{background:linear-gradient(145deg,#ab74ee,#7c4bd0)}
+  .aa-art-5{background:linear-gradient(145deg,#f5789f,#e0486f)}
+
+  .st-card .aa-art{width:124px;height:124px;box-shadow:0 4px 14px rgba(20,22,40,.13)}
+  .st-card a{display:block;text-decoration:none;color:inherit}
+  .st-card a:hover .aa-art{transform:translateY(-2px);box-shadow:0 10px 22px rgba(20,22,40,.2)}
+  .st-card .aa-art{transition:transform .16s ease,box-shadow .16s ease}
+  .st-nm{font-weight:700;font-size:12.5px;margin-top:10px;line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .st-mt{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .st-cta{margin-top:8px}
+  .st-cta .cc-btn{border-radius:9px;padding:4px 11px;font-size:11.5px;width:100%;justify-content:center}
+  .st-empty{font-size:12.5px;color:var(--muted);padding:12px 2px}
+  .st-all{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:20px}
 </style>
 <div class="st-wrap">
   <div class="st-top">
