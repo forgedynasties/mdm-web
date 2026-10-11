@@ -7576,15 +7576,11 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.has-child-rail:not(.rail-open) .rail-brand::before { content: ""; display: inline-block;
     width: 28px; height: 28px; background: url("/static/favicon.svg") center/contain no-repeat; }
 
-  /* Open, the app rail is a temporary drawer: it grows over the child rail rather than
-     pushing it, with a shadow and a scrim so it reads as a layer that will go away. The
-     child rail is untouched underneath and back in full the moment the pointer leaves. */
-  body.has-child-rail.rail-open .rail { width: 208px; z-index: 60;
-    box-shadow: 18px 0 38px rgba(0, 0, 0, .28); }
-  .rail-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .16);
-    opacity: 0; pointer-events: none; transition: opacity .18s; }
-  body.has-child-rail.rail-open .rail-scrim { opacity: 1; }
-  :root[data-theme="light"] .rail-scrim { background: rgba(16, 18, 27, .10); }
+  /* Open, the app rail takes exactly what the child rail gives up: 196 + 56 = 56 + 196,
+     so the content never reflows. The child rail collapses to its swatches — a tile
+     tinted from each row's own name — which is the one compressed form that still tells
+     two user-typed names apart. */
+  body.has-child-rail.rail-open .rail { width: 196px; }
   body.has-child-rail.rail-open .rail-brand::before { display: none; }
   /* No hover on a touchscreen, so there it simply stays open. */
   @media (hover: none) { body.has-child-rail .rail { width: 208px; }
@@ -7653,11 +7649,31 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
-  /* The child rail does NOT shrink. Compressing it meant inventing a two-letter
-     abbreviation for user-typed names (venues, groups), which is unreadable and
-     ambiguous — "Al" was both "All" and "Alerts". The app rail floats over it on hover
-     instead (see .rail below): nothing in here changes, nothing reflows, and the page's
-     own nav is intact the moment the pointer leaves. */
+  /* The swap: the child rail folds to a column of swatches while the app rail is open.
+     Letters were tried and dropped — a two-letter abbreviation of a user-typed name says
+     nothing and repeats ("Al" was both All and Alerts). A colour keyed to the name does
+     not. */
+  body.rail-open [data-child-rail] { width: 56px; left: 196px; padding-left: 6px; padding-right: 6px; }
+  body.rail-open [data-child-rail] .cr-t,
+  body.rail-open [data-child-rail] .cr-l > span:not(.cr-sw),
+  body.rail-open [data-child-rail] .cr-l .n,
+  body.rail-open [data-child-rail] button > span:not(.cr-sw),
+  body.rail-open [data-child-rail] .fleet-rail-cap,
+  body.rail-open [data-child-rail] .fleet-rail-empty,
+  body.rail-open [data-child-rail] .nm,
+  body.rail-open [data-child-rail] .ct,
+  body.rail-open [data-child-rail] .ri-go { display: none; }
+  body.rail-open [data-child-rail] .cr-l,
+  body.rail-open [data-child-rail] button,
+  body.rail-open [data-child-rail] .fleet-rail-item,
+  body.rail-open [data-child-rail] .ri-main { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  body.rail-open [data-child-rail] button svg { display: none; }
+  /* The current row keeps its fill so "where am I" survives the fold. */
+  body.rail-open [data-child-rail] .cr-l.on,
+  body.rail-open [data-child-rail] .cr-l.active,
+  body.rail-open [data-child-rail] button.on,
+  body.rail-open [data-child-rail] button.active,
+  body.rail-open [data-child-rail] .fleet-rail-item.on { background: var(--accent-soft); }
 }
 
 }

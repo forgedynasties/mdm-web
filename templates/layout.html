@@ -599,9 +599,6 @@
   <div class="rail-foot" id="rail-foot"></div>
 </nav>
 
-{{/* Dims the page while the app rail is open over a page's own rail, so the rail reads as a
-     passing layer rather than part of the furniture. Never clickable: leaving it is what closes it. */}}
-<div class="rail-scrim" aria-hidden="true"></div>
 
   <nav class="dock dock-s" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
@@ -1328,6 +1325,24 @@
   }
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
+  // A stable colour per row, derived from its own label — the same FNV hash the server
+  // uses for venues and groups, so a row looks the same whoever rendered it. Folded, the
+  // swatch is all that is left of a row, and it is the only mark that tells two
+  // user-typed names apart.
+  function mdmRailSwatches() {
+    document.querySelectorAll('[data-child-rail] .cr-l, [data-child-rail] button').forEach(function (el) {
+      if (el.querySelector('.cr-sw')) return;
+      var label = (el.textContent || '').trim().split('\n')[0];
+      if (!label) return;
+      var h = 2166136261;
+      for (var i = 0; i < label.length; i++) { h ^= label.charCodeAt(i); h = Math.imul(h, 16777619); }
+      var sw = document.createElement('span');
+      sw.className = 'cr-sw';
+      sw.style.setProperty('--h', String(Math.abs(h) % 360));
+      el.insertBefore(sw, el.firstChild);
+    });
+  }
+
   function mdmRailChildSync(path) {
     // Portal every child rail to <body>. position:fixed resolves against the nearest
     // ancestor with a transform, and the entrance animations (.dv-rise-*) are transforms —
@@ -1356,6 +1371,7 @@
         document.body.appendChild(el);
       }
     });
+    mdmRailSwatches();
     var child = document.querySelector('[data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
