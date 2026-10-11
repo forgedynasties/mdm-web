@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIO Enroll for Android · demos</title>
+<style>
+:root{--pg:#f2f2f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:rgba(0,0,0,.08)}
+:root[data-theme=dark]{--pg:#0b0b0d;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--line:rgba(255,255,255,.1)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;padding:28px 16px 80px}
+.page{max-width:1180px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}
+.lead{color:var(--muted);max-width:860px;margin:0 0 16px;line-height:1.5}
+.lead b{color:var(--text)}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:22px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;color:var(--text);font:inherit;padding:5px 14px;border-radius:7px;cursor:pointer}
+.seg button.on{background:#0a84ff;color:#fff}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px 20px;margin-bottom:26px}
+.opt h2{font-size:18px;margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tagr{font-size:11px;font-weight:600;color:#fff;background:#0a84ff;border-radius:5px;padding:1px 7px}
+.why{color:var(--muted);margin:6px 0 14px;max-width:880px;line-height:1.5}
+.why b{color:var(--text)}
+.ctl{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.btn{font:inherit;border:1px solid var(--line);background:var(--pg);color:var(--text);border-radius:8px;padding:5px 12px;cursor:pointer}
+.btn.p{background:#f9674e;color:#fff;border-color:transparent}
+.phones{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 10px}
+.cap{font-size:12px;color:var(--muted);text-align:center;margin-top:6px;max-width:300px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;font-size:12.5px;line-height:1.5}
+.notes div{background:var(--pg);border-radius:10px;padding:9px 12px}
+.notes b{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+
+/* phone frame: Pixel 6 is 1080×2400 → 300×667 here */
+.phone{width:300px;height:667px;border-radius:34px;background:#111;padding:9px;flex:none;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.screen{width:100%;height:100%;border-radius:26px;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:13px}
+.sbar{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:11px;font-weight:600;flex:none}
+.sbar i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.85;display:inline-block}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:middle;flex:none}
+
+/* ===== Option A: Material 3 ===== */
+.m3{--p:#b3261e;--p:#c4432a;--on-p:#fff;--pc:#ffdad3;--on-pc:#3d0700;--s:#fff8f6;--s1:#fdeee9;--s2:#f8e5df;--s3:#f2dfd9;--on-s:#231917;--on-sv:#53433f;--ol:#d8c2bc;--ok:#1b6c3c;--okc:#b8f1c7;--warn:#7a5900;--warnc:#ffdf99;background:var(--s);color:var(--on-s);font-family:Roboto,"Segoe UI",system-ui,sans-serif}
+[data-theme=dark] .m3{--p:#ffb4a5;--on-p:#5f1505;--pc:#7f2b19;--on-pc:#ffdad3;--s:#1a1110;--s1:#271d1b;--s2:#32282a;--s3:#3d3230;--on-s:#f1dfdb;--on-sv:#d8c2bc;--ol:#53433f;--ok:#9cd5ac;--okc:#0d5229;--warn:#f2c14b;--warnc:#5c4300}
+.m3 .top{display:flex;align-items:center;gap:10px;padding:10px 16px 6px}
+.m3 .top h3{font-size:22px;font-weight:400;margin:0;flex:1}
+.m3 .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.m3 .scroll{flex:1;overflow:auto;padding:4px 12px 90px}
+.m3 .lbl{font-size:12px;font-weight:500;color:var(--on-sv);margin:12px 6px 6px;letter-spacing:.02em}
+.m3 .li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:var(--s1);margin-bottom:6px}
+.m3 .li.hl{background:var(--pc);color:var(--on-pc)}
+.m3 .li .lead{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex:none}
+.m3 .li .t{flex:1;min-width:0}
+.m3 .li b{display:block;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .li small{display:block;color:var(--on-sv);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .li.hl small{color:inherit;opacity:.8}
+.m3 .chip{display:inline-block;font-size:11px;font-weight:500;padding:1px 8px;border-radius:8px;margin-top:3px}
+.m3 .chip.ok{background:var(--okc);color:var(--ok)} .m3 .chip.w{background:var(--warnc);color:var(--warn)} .m3 .chip.n{background:var(--s3);color:var(--on-sv)}
+.m3 .tbtn{font:inherit;font-size:13px;font-weight:500;border:0;background:none;color:var(--p);padding:6px 10px;border-radius:18px}
+.m3 .fbtn{font:inherit;font-weight:500;font-size:14px;border:0;background:var(--p);color:var(--on-p);padding:12px 22px;border-radius:24px;width:100%}
+.m3 .obtn{font:inherit;font-weight:500;font-size:14px;border:1px solid var(--ol);background:none;color:var(--p);padding:11px 22px;border-radius:24px}
+.m3 .card{background:var(--s1);border-radius:20px;padding:14px 16px;margin:6px 0 10px}
+.m3 .howto{background:var(--s2);border-radius:20px;padding:14px 16px;margin:8px 0}
+.m3 .howto ol{margin:6px 0 0;padding-left:18px;line-height:1.6}
+.m3 .listen{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--on-sv);margin-top:8px}
+.m3 .dot{width:8px;height:8px;border-radius:50%;background:#34c759;animation:pl 1.5s infinite}
+@keyframes pl{50%{opacity:.3}}
+.m3 .row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--ol)}
+.m3 .row:last-child{border-bottom:0}
+.m3 .row span:first-child{color:var(--on-sv)}
+.m3 .segm{display:flex;border:1px solid var(--ol);border-radius:20px;overflow:hidden}
+.m3 .segm button{flex:1;font:inherit;font-size:12.5px;font-weight:500;border:0;border-right:1px solid var(--ol);background:none;color:var(--on-s);padding:8px 0}
+.m3 .segm button:last-child{border-right:0}
+.m3 .segm button.on{background:var(--pc);color:var(--on-pc)}
+.m3 .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--s1);border-radius:28px 28px 0 0;padding:10px 20px 22px;box-shadow:0 -6px 24px rgba(0,0,0,.18);animation:up .35s cubic-bezier(.2,.9,.25,1)}
+.m3 .sheet .grab{width:32px;height:4px;border-radius:2px;background:var(--ol);margin:0 auto 14px}
+.m3 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.32)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.m3 .code{display:flex;gap:6px;justify-content:center;margin:14px 0}
+.m3 .code span{width:36px;height:46px;border-radius:12px;border:2px solid var(--ol);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:500}
+.m3 .code span.f{border-color:var(--p)}
+.m3 .nav{position:absolute;left:0;right:0;bottom:0;height:72px;background:var(--s2);display:flex;justify-content:space-around;align-items:center}
+.m3 .nav div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:500;color:var(--on-sv)}
+.m3 .nav div i{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:18px;font-style:normal}
+.m3 .nav div.on i{background:var(--pc);color:var(--on-pc)}
+.m3 .nav div.on{color:var(--on-s)}
+.m3 .step{display:flex;gap:10px;align-items:center;padding:7px 0}
+.m3 .step i{width:20px;height:20px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;flex:none}
+.m3 .step.d i{background:var(--ok);color:#fff}
+.m3 .step.n i{border:2px solid var(--p);border-top-color:transparent;background:none;animation:sp .8s linear infinite}
+.m3 .step.t{color:var(--on-sv)}
+@keyframes sp{to{transform:rotate(360deg)}}
+.m3 .snack{position:absolute;left:12px;right:12px;bottom:84px;background:#322f2f;color:#f5efed;border-radius:6px;padding:12px 14px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+
+/* ===== Option B: same look as the desktop app (grouped lists) ===== */
+.mac{--bg:#f2f2f7;--row:#fff;--text:#1d1d1f;--muted:#6e6e73;--sep:rgba(0,0,0,.1);--acc:#f9674e;background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+[data-theme=dark] .mac{--bg:#000;--row:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--sep:rgba(255,255,255,.12)}
+.mac .nb{padding:6px 16px 8px}
+.mac .nb h3{font-size:28px;font-weight:700;margin:4px 0 0;letter-spacing:-.02em}
+.mac .nb .r{display:flex;justify-content:space-between;align-items:center;font-size:15px;color:var(--acc)}
+.mac .scroll{flex:1;overflow:auto;padding:0 14px 30px}
+.mac .gh{font-size:12px;color:var(--muted);text-transform:uppercase;margin:14px 6px 5px;letter-spacing:.02em}
+.mac .grp{background:var(--row);border-radius:12px;overflow:hidden}
+.mac .it{display:flex;align-items:center;gap:11px;padding:9px 12px;position:relative}
+.mac .it+.it::before{content:"";position:absolute;left:52px;right:0;top:0;height:.5px;background:var(--sep)}
+.mac .gl{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex:none}
+.mac .it .t{flex:1;min-width:0}
+.mac .it b{display:block;font-weight:500;font-size:15px}
+.mac .it small{color:var(--muted);font-size:12px;display:block}
+.mac .pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:99px}
+.mac .pill.ok{background:rgba(52,199,89,.15);color:#248a3d} .mac .pill.w{background:rgba(255,159,10,.15);color:#b25000} .mac .pill.n{background:rgba(120,120,128,.14);color:var(--muted)}
+.mac .chev{color:var(--muted)}
+.mac .bigbtn{font:inherit;font-size:16px;font-weight:600;border:0;background:var(--acc);color:#fff;border-radius:12px;padding:13px;width:100%}
+.mac .foot{font-size:12px;color:var(--muted);margin:6px 8px 0;line-height:1.4}
+.mac .kv{display:flex;justify-content:space-between;padding:11px 12px;font-size:15px;position:relative}
+.mac .kv+.kv::before{content:"";position:absolute;left:12px;right:0;top:0;height:.5px;background:var(--sep)}
+.mac .kv span:last-child{color:var(--muted)}
+.mac .sheet{position:absolute;left:8px;right:8px;bottom:8px;background:var(--row);border-radius:22px;padding:16px 18px 18px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);animation:up .35s cubic-bezier(.2,.9,.25,1)}
+.mac .scrim{position:absolute;inset:0;background:rgba(0,0,0,.3)}
+.mac .codebox{font:600 28px ui-monospace,Menlo,monospace;letter-spacing:.3em;background:var(--bg);border-radius:12px;padding:10px 0 10px .3em;margin:12px 0}
+.mac .segm{display:flex;background:rgba(120,120,128,.14);border-radius:9px;padding:2px}
+.mac .segm button{flex:1;font:inherit;font-size:13px;border:0;background:none;color:var(--text);padding:5px 0;border-radius:7px}
+.mac .segm button.on{background:var(--row);box-shadow:0 1px 3px rgba(0,0,0,.2);font-weight:600}
+.mac .stp{display:flex;justify-content:space-between;padding:10px 12px;font-size:14px;position:relative}
+.mac .stp+.stp::before{content:"";position:absolute;left:12px;right:0;top:0;height:.5px;background:var(--sep)}
+.mac .stp.t{color:var(--muted)}
+.mac .ok{color:#34c759;font-weight:700}
+.mac .spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(249,103,78,.25);border-top-color:var(--acc);animation:sp .7s linear infinite;display:inline-block}
+.mac .tab{position:absolute;left:0;right:0;bottom:0;height:62px;background:color-mix(in srgb,var(--row) 92%,transparent);border-top:.5px solid var(--sep);display:flex;justify-content:space-around;padding-top:7px}
+.mac .tab div{display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted);gap:2px}
+.mac .tab div.on{color:var(--acc)}
+.mac .tab div i{font-style:normal;font-size:19px}
+</style></head>
+<body>
+<div class="page">
+  <h1>AIO Enroll for Android</h1>
+  <p class="lead">The same app on a phone: sign in with your MDM account, see the devices on the same Wi-Fi, pair one with its code (or connect an AIO firmware device <b>with no code</b>, using the fleet key the app fetches after sign-in), pick the class and restaurant, enrol, and see it come online. Wi-Fi only. Each option shows the same five moments on a Pixel 6. Press <b>▶ Play</b> to run a pairing and enrolment.</p>
+  <div class="bar"><div class="seg" id="theme"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div></div>
+  <div id="opts"></div>
+</div>
+<script>
+const I = (p) => `<svg class="ic" viewBox="0 0 24 24">${p}</svg>`;
+const PH = I('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>');
+const TAB = I('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M10.5 17h3"/>');
+const POS = I('<path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>');
+const WIFI = I('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>');
+const STORE = I('<path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6"/>');
+const CLOCK = I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+const CHK = I('<path d="M5 12.5l4.5 4.5L19 7.5"/>');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sbar = '<div class="sbar"><span>9:41</span><span><i></i> <i></i> <i></i></span></div>';
+const STEPS = ['Checking the device', 'Getting a token', 'Installing the agent', 'Setting Device Owner', 'Granting permissions', 'Starting the agent', 'Registering with the MDM', 'First check-in'];
+
+// ---------- A: Material 3 ----------
+const A = {
+  name: 'A · Native Android (Material 3)', rec: true,
+  why: 'Looks like the rest of the phone: <b>Material 3</b> lists, a bottom sheet for the code, a bottom bar with <b>Devices · Today · Account</b>, and AIO coral as the colour. Pairing screens and AIO firmware devices on the Wi-Fi turn up at the top by themselves.',
+  good: 'Feels at home on Android: the back gesture, the bottom sheet, the Material 3 controls and Android’s own dark mode all behave as people expect. Big touch targets. One hand.',
+  bad: 'Looks different from the desktop app, so a screenshot of one won’t match the other.',
+  screens: [
+    ['Devices', (st) => `<div class="screen m3">${sbar}<div class="top"><h3>Devices</h3><span class="tbtn">${STORE} Burger Hub</span><div class="av">AH</div></div><div class="scroll">
+      ${st.pairing ? `<div class="lbl">PAIRING REQUEST</div><div class="li hl"><div class="lead" style="background:#0a84ff">${PH}</div><div class="t"><b>Pixel 6</b><small>10.32.2.210 · tap to enter the code</small></div></div>` : ''}
+      <div class="lbl">ON THIS WI-FI</div>
+      <div class="li"><div class="lead" style="background:#f9674e">${TAB}</div><div class="t"><b>AIO T7</b><small>10.32.2.75 · AT070AA2600030</small><span class="chip w">Offline 3 d</span></div><span class="tbtn">Pair</span></div>
+      <div class="li"><div class="lead" style="background:#ff9f0a">${POS}</div><div class="t"><b>SUNMI D3 Pro</b><small>10.32.2.93 · DP02256GJ0499</small><span class="chip w">Known model · pos</span></div><span class="tbtn">Pair</span></div>
+      <div class="li"><div class="lead" style="background:#8e8e93">${PH}</div><div class="t"><b>Phone</b><small>10.32.1.211</small><span class="chip n">Not ours</span></div><span class="tbtn">Pair</span></div>
+      <div class="howto"><b>Add a device</b><ol><li>Same Wi-Fi as this phone.</li><li>On it: Developer options → Wireless debugging → <b>Pair device with pairing code</b>.</li></ol><div class="listen"><span class="dot"></span>Watching for pairing screens</div></div>
+    </div><div class="nav"><div class="on"><i>${PH}</i>Devices</div><div><i>${CLOCK}</i>Today</div><div><i>${I('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>')}</i>Account</div></div></div>`],
+    ['Code sheet', (st) => `<div class="screen m3">${sbar}<div class="top"><h3>Devices</h3><div class="av">AH</div></div><div class="scroll"><div class="lbl">PAIRING REQUEST</div><div class="li hl"><div class="lead" style="background:#0a84ff">${PH}</div><div class="t"><b>Pixel 6</b><small>10.32.2.210</small></div></div></div>
+      <div class="scrim"></div><div class="sheet"><div class="grab"></div><div style="font-size:20px">Pair with Pixel 6</div><div style="color:var(--on-sv);font-size:12px;margin-top:2px">10.32.2.210 · 18121FDF60022T</div>
+      <div class="code">${[0,1,2,3,4,5].map((i) => `<span class="${i === (st.code || '').length ? 'f' : ''}">${(st.code || '')[i] || ''}</span>`).join('')}</div>
+      <div style="color:var(--on-sv);font-size:12.5px;text-align:center;margin-bottom:14px">Type the 6 digits the Pixel 6 shows.</div>
+      <button class="fbtn">${st.pairingNow ? 'Pairing…' : 'Pair'}</button></div></div>`],
+    ['Device', (st) => `<div class="screen m3">${sbar}<div class="top"><span style="font-size:20px">←</span><h3 style="font-size:20px">Pixel 6</h3></div><div class="scroll">
+      <div class="card" style="display:flex;gap:12px;align-items:center"><div class="lead" style="width:52px;height:52px;border-radius:16px;background:#8e8e93;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px">${PH}</div><div><div style="font-size:18px">Pixel 6</div><div style="color:var(--on-sv);font-size:12.5px">Ready to enrol · Android 17</div></div></div>
+      <div class="lbl">USED AS</div><div class="segm"><button>dongle</button><button class="on">pos</button><button>kds</button><button>kiosk</button></div>
+      <div class="card" style="margin-top:12px"><div class="row"><span>Goes to</span><span>Burger Hub · Gulberg</span></div><div class="row"><span>Enrolled by</span><span>Ali Hassan</span></div><div class="row"><span>Connection</span><span>Wi-Fi · 10.32.2.210</span></div></div>
+      <button class="fbtn" style="margin-top:8px">Enrol</button></div></div>`],
+    ['Enrolling', (st) => `<div class="screen m3">${sbar}<div class="top"><span style="font-size:20px">←</span><h3 style="font-size:20px">Pixel 6</h3></div><div class="scroll"><div class="card">
+      ${STEPS.map((s, i) => `<div class="step ${i < (st.step ?? 3) ? 'd' : i === (st.step ?? 3) ? 'n' : 't'}"><i>${i < (st.step ?? 3) ? '✓' : ''}</i>${s}</div>`).join('')}</div>
+      <div style="height:4px;border-radius:2px;background:var(--s3);overflow:hidden;margin:8px 4px"><div style="height:100%;width:${((st.step ?? 3) / 8) * 100}%;background:var(--p);transition:width .4s"></div></div></div></div>`],
+    ['Live', () => `<div class="screen m3">${sbar}<div class="top"><span style="font-size:20px">←</span><h3 style="font-size:20px">Pixel 6</h3></div><div class="scroll">
+      <div style="text-align:center;margin:18px 0 10px"><div style="width:72px;height:72px;border-radius:50%;background:var(--ok);color:#fff;font-size:36px;display:inline-flex;align-items:center;justify-content:center">${CHK}</div><div style="font-size:22px;margin-top:10px">Live on the MDM</div><div style="color:var(--on-sv);font-size:13px">Enrolled as pos · Burger Hub · Gulberg</div></div>
+      <div class="card"><div class="row"><span>Status</span><span style="color:var(--ok)">● Online</span></div><div class="row"><span>First check-in</span><span>just now</span></div><div class="row"><span>Battery</span><span>87%</span></div><div class="row"><span>Agent</span><span>0.2.8</span></div></div>
+      <div style="display:flex;gap:8px"><button class="obtn" style="flex:1">Dashboard</button><button class="fbtn" style="flex:1;width:auto">Next device</button></div></div>
+      <div class="nav"><div class="on"><i>${PH}</i>Devices</div><div><i>${CLOCK}</i>Today</div><div><i>${I('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>')}</i>Account</div></div></div>`],
+  ],
+};
+
+// ---------- B: same look as the desktop app ----------
+const B = {
+  name: 'B · Same look as the desktop app',
+  why: 'The desktop app’s grouped lists, pills and coral buttons, made for a phone: a large title, a tab bar, and the code entered in a card that rises from the bottom.',
+  good: 'One look across desktop and phone, so screenshots and training material match. Very calm and readable.',
+  bad: 'Looks like an iPhone app on an Android phone: the Android back gesture, system dark mode and fonts still work, but the controls don’t look native.',
+  screens: [
+    ['Devices', (st) => `<div class="screen mac">${sbar}<div class="nb"><div class="r"><span>${STORE} Burger Hub</span><span>AH</span></div><h3>Devices</h3></div><div class="scroll">
+      ${st.pairing ? `<div class="gh">Pairing request</div><div class="grp"><div class="it" style="background:rgba(249,103,78,.12)"><div class="gl" style="background:#0a84ff">${PH}</div><div class="t"><b>Pixel 6</b><small>10.32.2.210</small></div><span style="color:var(--acc);font-weight:600">Enter code</span></div></div>` : ''}
+      <div class="gh">On this Wi-Fi</div><div class="grp">
+      <div class="it"><div class="gl" style="background:#f9674e">${TAB}</div><div class="t"><b>AIO T7</b><small>AT070AA2600030</small></div><span class="pill w">Offline 3 d</span></div>
+      <div class="it"><div class="gl" style="background:#ff9f0a">${POS}</div><div class="t"><b>SUNMI D3 Pro</b><small>DP02256GJ0499</small></div><span class="pill w">Known model · pos</span></div>
+      <div class="it"><div class="gl" style="background:#8e8e93">${PH}</div><div class="t"><b>Phone</b><small>10.32.1.211</small></div><span class="pill n">Not ours</span></div></div>
+      <div class="foot">To add one: on it, open Developer options → Wireless debugging → <b>Pair device with pairing code</b>. It shows up here.</div></div>
+      <div class="tab"><div class="on"><i>${PH}</i>Devices</div><div><i>${CLOCK}</i>Today</div><div><i>${I('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>')}</i>Account</div></div></div>`],
+    ['Code card', (st) => `<div class="screen mac">${sbar}<div class="nb"><h3>Devices</h3></div><div class="scroll"></div><div class="scrim"></div><div class="sheet">
+      <div class="gl" style="background:#0a84ff;margin:0 auto 8px;width:44px;height:44px;border-radius:12px;font-size:22px">${PH}</div><div style="font-size:17px;font-weight:600">Pair with Pixel 6</div><div style="color:var(--muted);font-size:12px">10.32.2.210 · 18121FDF60022T</div>
+      <div class="codebox">${(st.code || '').padEnd(6, '•')}</div><button class="bigbtn">${st.pairingNow ? 'Pairing…' : 'Pair'}</button></div></div>`],
+    ['Device', () => `<div class="screen mac">${sbar}<div class="nb"><div class="r"><span>‹ Devices</span></div><h3 style="font-size:24px">Pixel 6</h3></div><div class="scroll">
+      <div class="gh">Enrollment</div><div class="grp"><div class="kv"><span>Status</span><span class="pill w">Not enrolled</span></div><div class="kv"><span>Goes to</span><span>Burger Hub · Gulberg</span></div><div class="kv"><span>Enrolled by</span><span>Ali Hassan</span></div></div>
+      <div class="gh">Used as</div><div class="segm"><button>dongle</button><button class="on">pos</button><button>kds</button><button>kiosk</button></div>
+      <div style="height:16px"></div><button class="bigbtn">Enrol</button>
+      <div class="gh">Connection</div><div class="grp"><div class="kv"><span>Wi-Fi</span><span>10.32.2.210</span></div></div></div></div>`],
+    ['Enrolling', (st) => `<div class="screen mac">${sbar}<div class="nb"><h3 style="font-size:24px">Pixel 6</h3></div><div class="scroll"><div class="gh">Enrolling</div><div class="grp">
+      ${STEPS.map((s, i) => `<div class="stp ${i > (st.step ?? 3) ? 't' : ''}"><span>${s}</span><span>${i < (st.step ?? 3) ? '<span class="ok">✓</span>' : i === (st.step ?? 3) ? '<span class="spin"></span>' : ''}</span></div>`).join('')}</div></div></div>`],
+    ['Live', () => `<div class="screen mac">${sbar}<div class="nb"><h3 style="font-size:24px">Pixel 6</h3></div><div class="scroll">
+      <div style="text-align:center;margin:10px 0"><div style="width:64px;height:64px;border-radius:18px;background:#34c759;color:#fff;font-size:32px;display:inline-flex;align-items:center;justify-content:center">${CHK}</div><div style="font-size:19px;font-weight:600;margin-top:8px">Live on the MDM</div><div style="color:var(--muted);font-size:13px">Enrolled as pos · Burger Hub · Gulberg</div></div>
+      <div class="grp"><div class="kv"><span>Status</span><span class="pill ok">● Online</span></div><div class="kv"><span>First check-in</span><span>just now</span></div><div class="kv"><span>Battery</span><span>87%</span></div></div>
+      <div style="height:14px"></div><button class="bigbtn">Next Device</button></div></div>`],
+  ],
+};
+
+const root = document.getElementById('opts');
+[A, B].forEach((o) => {
+  const el = document.createElement('section'); el.className = 'opt'; root.appendChild(el);
+  let st = { pairing: false, code: '', step: 3 };
+  const draw = () => {
+    el.querySelector('.phones').innerHTML = o.screens.map(([cap, f]) => `<div><div class="phone">${f(st)}</div><div class="cap">${cap}</div></div>`).join('');
+  };
+  el.innerHTML = `<h2>${o.name}${o.rec ? ' <span class="tagr">I’d pick this</span>' : ''}</h2><div class="why">${o.why}</div>
+    <div class="ctl"><button class="btn p" data-play>▶ Play: pair and enrol</button><button class="btn" data-reset>Reset</button></div>
+    <div class="phones"></div><div class="notes"><div><b>GOOD AT</b>${o.good}</div><div><b>WATCH OUT</b>${o.bad}</div></div>`;
+  draw();
+  let busy = false;
+  el.querySelector('[data-play]').onclick = async () => {
+    if (busy) return; busy = true;
+    st = { pairing: false, code: '', step: 0 }; draw(); await sleep(800);
+    st.pairing = true; draw(); await sleep(900);
+    for (const c of '482913') { st.code += c; draw(); await sleep(170); }
+    st.pairingNow = true; draw(); await sleep(900);
+    for (let i = 0; i <= 8; i++) { st.step = i; draw(); await sleep(450); }
+    busy = false;
+  };
+  el.querySelector('[data-reset]').onclick = () => { if (!busy) { st = { pairing: false, code: '', step: 3 }; draw(); } };
+});
+const th = document.getElementById('theme');
+th.querySelectorAll('button').forEach((b) => b.onclick = () => { th.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); document.documentElement.dataset.theme = b.dataset.t; });
+if (matchMedia('(prefers-color-scheme: dark)').matches) th.querySelector('[data-t=dark]').click();
+</script>
+</body></html>

@@ -636,7 +636,6 @@
         <div class="t">Firmware</div>
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}" href="/rollouts" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Rollouts">Rollouts</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="phone" data-cmdk-sec="Firmware" data-cmdk-label="Clients">Clients</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/boot-logo"}} on{{end}}" href="/boot-logo" data-ic="image" data-cmdk-sec="Firmware" data-cmdk-label="Boot logo">Boot logo</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">

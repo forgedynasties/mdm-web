@@ -22038,6 +22038,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
+	// Boot logo is retired from the UI (11 Oct 2026): no nav entry, no link from
+	// Settings. The route, its handlers, the update_splash command and the client
+	// support all stay, so a splash can still be pushed through the API and the page
+	// works for anyone who has the URL — it is simply not offered any more. Do not
+	// re-add it to the directory without asking.
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
 	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))

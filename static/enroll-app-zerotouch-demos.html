@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zero-touch enrolment · demos</title>
+<style>
+:root{--pg:#f2f2f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:rgba(0,0,0,.08)}
+:root[data-theme=dark]{--pg:#0b0b0d;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--line:rgba(255,255,255,.1)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;padding:28px 16px 80px}
+.page{max-width:1180px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}
+.lead{color:var(--muted);max-width:880px;margin:0 0 16px;line-height:1.55}
+.lead b{color:var(--text)}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:22px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;color:var(--text);font:inherit;padding:5px 14px;border-radius:7px;cursor:pointer}
+.seg button.on{background:#0a84ff;color:#fff}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px 20px;margin-bottom:26px}
+.opt h2{font-size:18px;margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tagr{font-size:11px;font-weight:600;color:#fff;background:#0a84ff;border-radius:5px;padding:1px 7px}
+.why{color:var(--muted);margin:6px 0 14px;max-width:900px;line-height:1.55}
+.why b{color:var(--text)}
+.phones{display:flex;gap:18px;overflow-x:auto;padding:4px 2px 10px}
+.cap{font-size:12px;color:var(--muted);text-align:center;margin-top:6px;max-width:300px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;font-size:12.5px;line-height:1.5}
+.notes div{background:var(--pg);border-radius:10px;padding:9px 12px}
+.notes b{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+@media(max-width:720px){.notes{grid-template-columns:1fr}}
+.phone{width:300px;height:667px;border-radius:34px;background:#111;padding:9px;flex:none;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.screen{width:100%;height:100%;border-radius:26px;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:13px}
+.sbar{height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:11px;font-weight:600;flex:none}
+
+.m3{--p:#c4432a;--on-p:#fff;--pc:#ffdad3;--on-pc:#3d0700;--s:#fff8f6;--s1:#fdeee9;--s2:#f8e5df;--s3:#f2dfd9;--on-s:#231917;--on-sv:#53433f;--ol:#d8c2bc;--ok:#1b6c3c;--okc:#b8f1c7;--warn:#7a5900;--warnc:#ffdf99;background:var(--s);color:var(--on-s);font-family:Roboto,"Segoe UI",system-ui,sans-serif}
+[data-theme=dark] .m3{--p:#ffb4a5;--on-p:#5f1505;--pc:#7f2b19;--on-pc:#ffdad3;--s:#1a1110;--s1:#271d1b;--s2:#32282a;--s3:#3d3230;--on-s:#f1dfdb;--on-sv:#d8c2bc;--ol:#53433f;--ok:#9cd5ac;--okc:#0d5229;--warn:#f2c14b;--warnc:#5c4300}
+.m3 .top{display:flex;align-items:center;gap:10px;padding:10px 16px 6px}
+.m3 .top h3{font-size:22px;font-weight:400;margin:0;flex:1}
+.m3 .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.m3 .scroll{flex:1;overflow:auto;padding:4px 12px 90px}
+.m3 .lbl{font-size:12px;font-weight:500;color:var(--on-sv);margin:12px 6px 6px;letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+.m3 .li{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:var(--s1);margin-bottom:6px}
+.m3 .li.rdy{background:var(--okc);color:#0b3d22}
+[data-theme=dark] .m3 .li.rdy{color:#dff3e5}
+.m3 .li .gl{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;flex:none}
+.m3 .li .t{flex:1;min-width:0}
+.m3 .li b{display:block;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .li small{display:block;color:var(--on-sv);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3 .li.rdy small{color:inherit;opacity:.85}
+.m3 .chip{display:inline-block;font-size:11px;font-weight:500;padding:1px 8px;border-radius:8px;margin-top:3px}
+.m3 .chip.ok{background:var(--okc);color:var(--ok)} .m3 .chip.w{background:var(--warnc);color:var(--warn)} .m3 .chip.n{background:var(--s3);color:var(--on-sv)}
+.m3 .chip.zt{background:var(--p);color:var(--on-p)}
+.m3 .tbtn{font:inherit;font-size:13px;font-weight:500;border:0;background:none;color:var(--p);padding:6px 10px;border-radius:18px;flex:none}
+.m3 .sbtn{font:inherit;font-size:13px;font-weight:600;border:0;background:var(--p);color:var(--on-p);padding:8px 16px;border-radius:18px;flex:none}
+.m3 .fbtn{font:inherit;font-weight:500;font-size:14px;border:0;background:var(--p);color:var(--on-p);padding:12px 22px;border-radius:24px;width:100%}
+.m3 .card{background:var(--s1);border-radius:20px;padding:14px 16px;margin:6px 0 10px}
+.m3 .banner{background:var(--pc);color:var(--on-pc);border-radius:20px;padding:14px 16px;margin:8px 0 4px}
+.m3 .banner h4{margin:0 0 4px;font-size:15px;font-weight:600}
+.m3 .banner p{margin:0 0 10px;font-size:12.5px;line-height:1.5;opacity:.9}
+.m3 .listen{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--on-sv);margin-top:8px}
+.m3 .dot{width:8px;height:8px;border-radius:50%;background:#34c759;animation:pl 1.5s infinite;flex:none}
+@keyframes pl{50%{opacity:.3}}
+.m3 .nav{position:absolute;left:0;right:0;bottom:0;height:72px;background:var(--s2);display:flex;justify-content:space-around;align-items:center}
+.m3 .nav div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:500;color:var(--on-sv)}
+.m3 .nav div i{width:56px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:18px;font-style:normal}
+.m3 .nav div.on i{background:var(--pc);color:var(--on-pc)}
+.m3 .nav div.on{color:var(--on-s)}
+.m3 .segm{display:flex;border:1px solid var(--ol);border-radius:20px;overflow:hidden;margin-top:10px}
+.m3 .segm button{flex:1;font:inherit;font-size:12.5px;font-weight:500;border:0;border-right:1px solid var(--ol);background:none;color:var(--on-s);padding:8px 0}
+.m3 .segm button:last-child{border-right:0}
+.m3 .segm button.on{background:var(--pc);color:var(--on-pc)}
+.m3 .cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--ol);flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:transparent}
+.m3 .cb.on{background:var(--p);border-color:var(--p);color:var(--on-p)}
+.m3 .step{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:12.5px}
+.m3 .step i{width:18px;height:18px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:11px;flex:none}
+.m3 .step.d i{background:var(--ok);color:#fff}
+.m3 .step.n i{border:2px solid var(--p);border-top-color:transparent;background:none;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style></head>
+<body><div class="page">
+<h1>Zero-touch enrolment — how an auto-connected device should look</h1>
+<p class="lead">The app now sweeps <b>every address it can see on :5555 with the fleet adb key</b>. A device whose image carries
+our key opens instantly (the T7 mock answers in ~100&nbsp;ms); everything else is rejected or has the port shut. That is the
+vendor contract for devices we don't build ourselves — <b>our key in the image, 5555 always open</b> — and it means
+<b>no pairing code at all</b> for those devices. The screens below are three ways to say that in the list. Today these devices
+land under "Connected" with a Pair button, which is wrong twice over: nothing was paired, and the next thing to do is Enrol.</p>
+
+<div class="bar">
+  <div class="seg"><button class="on" onclick="theme('light',this)">Light</button><button onclick="theme('dark',this)">Dark</button></div>
+  <span style="color:var(--muted);font-size:12.5px">Pick one and I'll build it. Real data: AT070AA2600030 at 10.32.2.75, plus nine other devices on the Wi-Fi that refused the key.</span>
+</div>
+
+<!-- ============ OPTION A ============ -->
+<div class="opt">
+  <h2>Option A — a "Ready to enrol" section at the top <span class="tagr">smallest change</span></h2>
+  <p class="why">The list keeps its three sections but gains a first one: <b>Ready to enrol</b>, for devices that opened with the
+  fleet key. Each row carries an <b>Enrol</b> button, so a device goes from appearing on the Wi-Fi to enrolled in one tap.
+  "Connected" keeps its old meaning — devices you paired by hand with a code.</p>
+  <div class="phones">
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3>Devices</h3><div class="av">HW</div></div>
+        <div class="scroll">
+          <div class="lbl"><span class="dot"></span> Ready to enrol · no code needed</div>
+          <div class="li rdy"><div class="gl" style="background:#1b6c3c">▣</div><div class="t"><b>AIO T7</b><small>10.32.2.75 · AT070AA2600030</small><span class="chip zt">Our key</span></div><button class="sbtn">Enrol</button></div>
+          <div class="li rdy"><div class="gl" style="background:#1b6c3c">▣</div><div class="t"><b>AIO T7</b><small>10.32.0.71 · AT070AABU00226</small><span class="chip zt">Our key</span></div><button class="sbtn">Enrol</button></div>
+          <div class="lbl">On this Wi-Fi</div>
+          <div class="li"><div class="gl" style="background:#7a80f6">▢</div><div class="t"><b>SUNMI D3 Pro</b><small>10.32.1.13 · DP02256HJ0342</small><span class="chip n">Known model · pos</span></div><button class="tbtn">Pair</button></div>
+          <div class="li"><div class="gl" style="background:#8e8e93">▢</div><div class="t"><b>Device</b><small>10.32.0.221 · A3CC008G00100162</small><span class="chip n">Not ours</span></div><button class="tbtn">Pair</button></div>
+          <div class="li"><div class="gl" style="background:#8e8e93">▢</div><div class="t"><b>Device</b><small>10.32.2.234 · K8KVWX</small><span class="chip n">Not ours</span></div><button class="tbtn">Pair</button></div>
+          <div class="listen"><span class="dot"></span> Watching the Wi-Fi · 2 of 10 carry our key</div>
+        </div>
+        <div class="nav"><div class="on"><i>▣</i>Devices</div><div><i>◷</i>Today</div><div><i>☺</i>Account</div></div>
+      </div></div>
+      <div class="cap">Two devices arrived ready. One tap each.</div>
+    </div>
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3 style="font-size:19px">AIO T7</h3></div>
+        <div class="scroll">
+          <div class="card" style="background:var(--okc);color:#0b3d22">
+            <b style="font-size:14px">Connected with our key — no code needed</b>
+            <div style="font-size:12.5px;margin-top:4px;opacity:.85">Its image carries the fleet adb key and 5555 is open, so the app connected on its own.</div>
+          </div>
+          <div class="card"><div style="font-size:12px;color:var(--on-sv)">Used as</div>
+            <div class="segm"><button>dongle</button><button class="on">pos</button><button>kds</button><button>kiosk</button></div>
+          </div>
+          <div class="card"><div style="display:flex;justify-content:space-between"><span style="color:var(--on-sv)">Goes to</span><span>Kitchen&nbsp;01</span></div></div>
+          <button class="fbtn">Enrol this device</button>
+        </div>
+      </div></div>
+      <div class="cap">The device page says plainly why no code was asked for.</div>
+    </div>
+  </div>
+  <div class="notes">
+    <div><b>Wording</b>"Ready to enrol · no code needed", row chip "Our key".</div>
+    <div><b>Keeps</b>"Connected" still means a device you paired with a code by hand.</div>
+    <div><b>Risk</b>Four sections is a lot of list on a small screen when every device is ours.</div>
+    <div><b>Code</b>Split <code>Ui.connected</code> into <code>ready</code> (opened with the fleet key) and <code>connected</code>.</div>
+  </div>
+</div>
+
+<!-- ============ OPTION B ============ -->
+<div class="opt">
+  <h2>Option B — one list, the row says what it is <span class="tagr">least new structure</span></h2>
+  <p class="why">No new section. Every device sits in one list, and an auto-connected one is marked with a green tick and a
+  <b>Zero-touch</b> chip, with <b>Enrol</b> where a Pair button would be. Devices that refused the key keep Pair. The list
+  stops being "what state is my connection in" and becomes "what can I do with this device".</p>
+  <div class="phones">
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3>Devices</h3><div class="av">HW</div></div>
+        <div class="scroll">
+          <div class="lbl">10 on this Wi-Fi</div>
+          <div class="li"><div class="gl" style="background:#1b6c3c">✓</div><div class="t"><b>AIO T7</b><small>10.32.2.75 · AT070AA2600030</small><span class="chip zt">Zero-touch</span></div><button class="sbtn">Enrol</button></div>
+          <div class="li"><div class="gl" style="background:#1b6c3c">✓</div><div class="t"><b>AIO T7</b><small>10.32.0.71 · AT070AABU00226</small><span class="chip zt">Zero-touch</span></div><button class="sbtn">Enrol</button></div>
+          <div class="li"><div class="gl" style="background:#1b6c3c">✓</div><div class="t"><b>AIO T7</b><small>10.32.1.199 · AT070AA2600031</small><span class="chip ok">✓ Enrolled · t7</span></div><button class="tbtn">Open</button></div>
+          <div class="li"><div class="gl" style="background:#7a80f6">▢</div><div class="t"><b>SUNMI D3 Pro</b><small>10.32.1.13 · DP02256HJ0342</small><span class="chip n">Known model · pos</span></div><button class="tbtn">Pair</button></div>
+          <div class="li"><div class="gl" style="background:#8e8e93">▢</div><div class="t"><b>Device</b><small>10.32.0.221</small><span class="chip n">Not ours</span></div><button class="tbtn">Pair</button></div>
+          <div class="li"><div class="gl" style="background:#8e8e93">▢</div><div class="t"><b>Device</b><small>10.32.2.93</small><span class="chip n">Not ours</span></div><button class="tbtn">Pair</button></div>
+          <div class="listen"><span class="dot"></span> Trying our key on everything new</div>
+        </div>
+        <div class="nav"><div class="on"><i>▣</i>Devices</div><div><i>◷</i>Today</div><div><i>☺</i>Account</div></div>
+      </div></div>
+      <div class="cap">One list. The tick means our key opened it.</div>
+    </div>
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3>Devices</h3><div class="av">HW</div></div>
+        <div class="scroll">
+          <div class="lbl">10 on this Wi-Fi · only ours</div>
+          <div class="li rdy"><div class="gl" style="background:#1b6c3c">✓</div><div class="t"><b>AIO T7</b><small>10.32.2.75 · AT070AA2600030</small><span class="chip zt">Zero-touch</span></div><button class="sbtn">Enrol</button></div>
+          <div class="li rdy"><div class="gl" style="background:#1b6c3c">✓</div><div class="t"><b>AIO T7</b><small>10.32.0.71 · AT070AABU00226</small><span class="chip zt">Zero-touch</span></div><button class="sbtn">Enrol</button></div>
+          <div class="card" style="margin-top:14px"><div style="font-size:12.5px;color:var(--on-sv);line-height:1.5">
+            <b style="color:var(--on-s)">8 hidden</b><br>They refused our key, so they are not ours to enrol. Turn off "only ours" to see them.</div></div>
+          <div class="listen"><span class="dot"></span> Watching the Wi-Fi</div>
+        </div>
+        <div class="nav"><div class="on"><i>▣</i>Devices</div><div><i>◷</i>Today</div><div><i>☺</i>Account</div></div>
+      </div></div>
+      <div class="cap">With "only ours" on, the key becomes the filter: a clean rollout list.</div>
+    </div>
+  </div>
+  <div class="notes">
+    <div><b>Wording</b>Row chip "Zero-touch"; the action is Enrol, Open or Pair.</div>
+    <div><b>Bonus</b>"Only ours" gets a far better meaning: devices that actually opened with our key.</div>
+    <div><b>Risk</b>Loses the at-a-glance count of how many are connected right now.</div>
+    <div><b>Code</b><code>Dev</code> gains a <code>zeroTouch</code> flag; one list, three possible actions.</div>
+  </div>
+</div>
+
+<!-- ============ OPTION C ============ -->
+<div class="opt">
+  <h2>Option C — enrol the whole batch at once <span class="tagr">for a rollout</span></h2>
+  <p class="why">Aimed at the real job: a table of new devices from a vendor, all carrying our key. A banner at the top counts
+  what is ready, you pick the class and restaurant <b>once</b>, and <b>Enrol all</b> runs them one after another with a line of
+  progress each. Single devices still work the same way — the banner only appears when two or more are ready.</p>
+  <div class="phones">
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3>Devices</h3><div class="av">HW</div></div>
+        <div class="scroll">
+          <div class="banner">
+            <h4>4 devices ready to enrol</h4>
+            <p>All four opened with our key, so no codes are needed. Pick what they are and send them in one go.</p>
+            <div class="segm" style="margin-bottom:10px"><button>dongle</button><button class="on">pos</button><button>kds</button><button>kiosk</button></div>
+            <button class="fbtn">Enrol all 4 as pos</button>
+          </div>
+          <div class="lbl">Ready · tap to exclude</div>
+          <div class="li"><div class="cb on">✓</div><div class="t"><b>AIO T7</b><small>10.32.2.75 · …600030</small></div></div>
+          <div class="li"><div class="cb on">✓</div><div class="t"><b>AIO T7</b><small>10.32.0.71 · …BU00226</small></div></div>
+          <div class="li"><div class="cb on">✓</div><div class="t"><b>AIO T7</b><small>10.32.1.75 · …600044</small></div></div>
+          <div class="li"><div class="cb on">✓</div><div class="t"><b>SUNMI D3</b><small>10.32.1.186 · …HJ0355</small></div></div>
+          <div class="lbl">Not ours · 6</div>
+          <div class="li"><div class="gl" style="background:#8e8e93">▢</div><div class="t"><b>Device</b><small>10.32.0.221</small></div><button class="tbtn">Pair</button></div>
+        </div>
+        <div class="nav"><div class="on"><i>▣</i>Devices</div><div><i>◷</i>Today</div><div><i>☺</i>Account</div></div>
+      </div></div>
+      <div class="cap">Pick the class once, enrol the batch.</div>
+    </div>
+    <div>
+      <div class="phone"><div class="screen m3">
+        <div class="sbar"><span>9:41</span><span>▲ ▮</span></div>
+        <div class="top"><h3 style="font-size:19px">Enrolling 4 devices</h3></div>
+        <div class="scroll">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--on-sv)"><span>2 done · 1 running · 1 to go</span><span>pos · Kitchen 01</span></div>
+            <div style="height:6px;border-radius:3px;background:var(--s3);margin-top:8px"><div style="width:56%;height:100%;border-radius:3px;background:var(--p)"></div></div>
+          </div>
+          <div class="card">
+            <div class="step d"><i>✓</i><span>AT070AA2600030 · enrolled</span></div>
+            <div class="step d"><i>✓</i><span>AT070AABU00226 · enrolled</span></div>
+            <div class="step n"><i></i><span>AT070AA2600044 · setting Device Owner</span></div>
+            <div class="step t"><i>4</i><span>DP02256HJ0355 · waiting</span></div>
+          </div>
+          <div class="card" style="background:var(--warnc);color:var(--warn)">
+            <b style="font-size:13px">One needs a hand</b>
+            <div style="font-size:12.5px;margin-top:3px">DP02256HJ0355 has a Google account on it — factory reset it, then it will be picked up again.</div>
+          </div>
+        </div>
+        <div class="nav"><div class="on"><i>▣</i>Devices</div><div><i>◷</i>Today</div><div><i>☺</i>Account</div></div>
+      </div></div>
+      <div class="cap">One screen for the batch, with the one that needs attention called out.</div>
+    </div>
+  </div>
+  <div class="notes">
+    <div><b>Wording</b>"4 devices ready to enrol", "Enrol all 4 as pos".</div>
+    <div><b>Why</b>Matches the actual job: a vendor's crate of devices, same class, same restaurant.</div>
+    <div><b>Risk</b>Most work of the three: a queue, per-device outcomes, partial failures.</div>
+    <div><b>Code</b>A batch job in <code>EnrollVm</code> over the ready list, one device at a time.</div>
+  </div>
+</div>
+
+<p class="lead" style="margin-top:4px">All three drop the Pair button for devices that opened with our key, and none of them
+asks for a code on such a device. A and B can ship today; C is the one that pays off when a vendor ships a crate.</p>
+</div>
+<script>function theme(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>

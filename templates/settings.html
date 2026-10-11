@@ -307,16 +307,6 @@
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h2>Boot logo</h2></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-    <div>
-      <strong>Custom boot logo</strong>
-      <div class="muted small">Upload the image devices show while booting.</div>
-    </div>
-    <a href="/boot-logo" class="btn-outline">Manage →</a>
-  </div>
-</div>
-<div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></span><h2>Legacy OTA server</h2><span class="muted small m">{{if .LegacyOTAPort}}port {{.LegacyOTAPort}}{{else}}listener off{{end}}</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
