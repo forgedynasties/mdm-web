@@ -106,7 +106,7 @@
 
 {{$canOp := canAdminOrOperator .Role}}
 {{$inboxN := .Stats.Inbox}}
-<div class="cc-wrap" data-section-rail="Enrollment">
+<div class="cc-wrap">
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Fleet · Enroll</div>
@@ -125,7 +125,7 @@
 
   {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
        any are ready, else profiles — whatever has work, or setup when nothing does. */}}
-  <div class="en-tabs" role="tablist" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
+  <div class="en-tabs" data-child-rail aria-label="Enrollment" role="tablist" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
     <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>

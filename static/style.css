@@ -7586,24 +7586,35 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 }
 
 /* ── Child rails ───────────────────────────────────────────────────────────
-   A page's own rail: the sections, filters or tabs that belong to THIS page, as
-   opposed to the app rail, which moves you between pages. Left of the content,
-   right of the app rail, and it gives up its width when the app rail expands so
-   the content between them never moves.
+   A page's own navigation — its sections, filters or tabs — as opposed to the
+   app rail, which moves you between pages.
 
-   Any page opts in by rendering [data-child-rail]; Fleet's collections rail was
-   the first and keeps its own class for its richer rows. */
-.child-rail { display: none; }
+   It is FLUSH against the app rail: same surface, same full height, no gap, no
+   card border and no radius, separated by one hairline. In the first cut it was
+   an in-flow rounded card sitting in the middle of the page with a gutter of
+   background between it and the app rail, which read as content rather than as
+   navigation — the two are one band of chrome and now look like it.
+
+   A page opts in by carrying [data-child-rail]; pages that already had their own
+   nav (Settings, Enrollment, Fleet, history) carry it on that element rather
+   than growing a second one beside it. */
+[data-child-rail] { display: none; }
 @media (min-width: 1024px) {
-  .child-rail {
+  [data-child-rail] {
     display: flex; flex-direction: column; gap: 1px;
     position: fixed; left: 208px; top: 0; bottom: 0; width: 196px; z-index: 43;
-    padding: 18px 10px; overflow-y: auto; background: var(--surface);
-    border-right: 1px solid var(--border-soft);
+    margin: 0; padding: 16px 10px; overflow-x: hidden; overflow-y: auto;
+    background: var(--surface); border: 0; border-right: 1px solid var(--border-soft);
+    border-radius: 0; box-shadow: none; min-width: 0;
     transition: width .2s cubic-bezier(.4, 0, .2, 1), left .2s cubic-bezier(.4, 0, .2, 1);
   }
-  body.has-child-rail .child-rail { left: 56px; }
-  body.has-child-rail .container { padding-left: 212px; }
+  body.has-child-rail [data-child-rail] { left: 56px; }
+  /* The content starts where the chrome ends — one rule, whichever rail is open,
+     because the two always add up to the same width. */
+  body.has-child-rail .container,
+  body.has-child-rail .settings-wrap,
+  body.has-child-rail .fleet-wrap { padding-left: 216px; }
+
   .cr-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
     color: var(--text-faint); padding: 12px 9px 5px; white-space: nowrap; }
   .cr-t:first-child { padding-top: 0; }
@@ -7612,16 +7623,20 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .cr-l:hover { background: var(--surface-3); color: var(--text); }
   .cr-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
   .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
-  .cr-l.on .n { color: var(--accent-text); }
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
-  /* The swap: the app rail takes the width this gives up. */
-  body.rail-open .child-rail { width: 56px; }
-  body.rail-open .container { padding-left: 212px; }
-  body.rail-open .child-rail .cr-t,
-  body.rail-open .child-rail .cr-l span:not(.cr-ini) { display: none; }
-  body.rail-open .child-rail .cr-l { justify-content: center; padding: 7px 4px; }
-  body.rail-open .child-rail .cr-ini { display: block; }
+  /* The swap: it gives up exactly what the app rail takes, so nothing reflows. */
+  body.rail-open [data-child-rail] { width: 56px; }
+  body.rail-open [data-child-rail] .cr-t,
+  body.rail-open [data-child-rail] .cr-l > span:not(.cr-ini),
+  body.rail-open [data-child-rail] .cr-l .n { display: none; }
+  body.rail-open [data-child-rail] .cr-l { justify-content: center; padding: 7px 4px; }
+  body.rail-open [data-child-rail] .cr-ini { display: block; }
+  /* A page's own nav keeps its markup; collapsed, it shows whatever glyph it has. */
+  body.rail-open [data-child-rail] button > span,
+  body.rail-open [data-child-rail] button:not(:has(svg)) { font-size: 0; }
+  body.rail-open [data-child-rail] button { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.rail-open [data-child-rail] button svg { font-size: 13px; }
 }
 
 /* ── Fleet's collections rail, the first child rail ────────────────────────
@@ -7643,4 +7658,17 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   }
   body.rail-open .fleet-rail .fleet-rail-item.on[data-ini]::after { color: var(--accent-text); }
   body.rail-open .fleet-rail .fleet-rail-list { display: flex; flex-direction: column; gap: 2px; }
+}
+
+/* Pages whose own nav became the child rail: strip the card styling they carried as
+   in-flow panels, so they sit in the chrome band instead of floating in the content. */
+@media (min-width: 1024px) {
+  .settings-nav[data-child-rail] { min-width: 0; position: fixed; }
+  .settings-nav[data-child-rail] button { width: 100%; }
+  .en-tabs[data-child-rail], .hist-tabs[data-child-rail] { flex-direction: column; align-items: stretch; }
+  .en-tabs[data-child-rail] > *, .hist-tabs[data-child-rail] > * { width: 100%; text-align: left; }
+  .fleet-rail[data-child-rail] { border: 0; border-right: 1px solid var(--border-soft);
+    border-radius: 0; box-shadow: none; background: var(--surface); }
+  /* The content column no longer leaves room for an in-flow rail. */
+  body.has-child-rail .fleet-main, body.has-child-rail .fleet-grid { margin-left: 0; }
 }
