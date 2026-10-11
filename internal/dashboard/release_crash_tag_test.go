@@ -23,7 +23,7 @@ func TestReleasesCrashTagRenders(t *testing.T) {
 	funcs["canOperate"] = func(string) bool { return true }
 	funcs["canRelease"] = func(string) bool { return true }
 	funcs["pctOf"] = func(a, b int) int { return 0 }
-	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "ota-progress"}}{{end}}`))
+	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "ota-progress"}}{{end}}{{define "rollout-tabs"}}{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/releases.html"))
 	id := 7046
 	rows := []versionRow{{Version: "v2.0.96l", ReleaseID: &id, Tracked: true, Status: "published", DeviceCount: 59,

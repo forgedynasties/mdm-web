@@ -22129,7 +22129,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/hide", h.requireReleaseAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
-	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
+	// Firmware is one job — what exists, what is going out, where it got to — and it was
+	// three pages that each rendered a slice of the others: /updates drew a "Releases"
+	// section, /releases drew an "Updates in progress" section. They are now one
+	// destination with three tabs, so there is a single answer to "what is rolling out".
+	mux.HandleFunc("GET /rollouts", h.requireAdminOrOperator(h.UpdatesHub))
+	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/rollouts", http.StatusMovedPermanently)
+	}))
 	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(h.UpdatesRollouts))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
 	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.fleetWide(h.LegacyOTAPage)))
