@@ -1278,9 +1278,15 @@
   // Landing somewhere new, the thing worth seeing is where you now are in the nav — so the
   // highlight is legible at the moment it changes, and the page gets the screen back a
   // second later without anyone having to move the mouse.
+  var railFlashedAt = null;
   function mdmRailFlash() {
     var rail = document.querySelector('.rail');
     if (!rail || !document.body.classList.contains('has-child-rail')) return;
+    // Once per page, not once per swap: these pages poll partials, and re-flashing on
+    // every one of those left the rail standing open for good.
+    var here = location.pathname;
+    if (here === railFlashedAt) return;
+    railFlashedAt = here;
     // A swap replaces the rail element and fires a mouseleave on the way out; without a
     // short guard that close lands a quarter-second in and the rail blinks shut.
     railGuardUntil = Date.now() + 400;
