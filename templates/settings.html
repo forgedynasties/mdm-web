@@ -1389,9 +1389,13 @@ document.addEventListener('submit', function (e) {
   .ait-wrap{margin:6px 0 2px;}
   .ait{border:1px solid var(--border);border-radius:11px;margin-top:8px;overflow:hidden;}
   .ait-h{padding:9px 12px;background:var(--surface-3);font-size:12.5px;border-bottom:1px solid var(--border-soft);}
-  .ait-opt{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--border-soft);}
+  .ait-opt{display:grid;grid-template-columns:40px 1fr 118px;align-items:center;gap:11px;
+    padding:10px 12px;border-bottom:1px solid var(--border-soft);}
+  /* A fixed last column: the two Queue buttons carry different counts, and without it they
+     ended up different widths and their left edges did not line up. */
+  .ait-opt .cc-btn{width:100%;justify-content:center;}
   .ait-opt:last-child{border-bottom:0;}
-  .ait-n{font-weight:800;font-size:16px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums;}
+  .ait-n{font-weight:800;font-size:16px;text-align:right;font-variant-numeric:tabular-nums;}
   .ait-t{flex:1;min-width:0;font-size:12.5px;line-height:1.45;}
   .ait-t .d{display:block;color:var(--muted);font-size:11.5px;margin-top:1px;}
   .ait-none{font-size:12.5px;color:var(--muted);padding:9px 2px;line-height:1.5;}
