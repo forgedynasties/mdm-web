@@ -1,51 +1,116 @@
 {{define "apps.html"}}
 {{template "header" .}}
-<div class="cc-wrap">
-  <div class="cc-top">
-    <div>
-      <div class="cc-eyebrow">Actions · app library</div>
-      <h1 class="cc-h1">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}} <span class="hl">ready to install</span></h1>
-      <div class="cc-sub">Upload an APK here, then push it from Actions › Install app. Uploads go straight to storage and are parsed in your browser; nothing installs until you send it.</div>
-    </div>
-    <div class="cc-actions">
-      <a class="cc-btn" href="/commands"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
-    </div>
+<style>
+  /* A store, so the goods come first: search, chips, shelves. What used to sit above the
+     apps — a stale header paragraph, a wall of finding banners, a card header, a merge
+     strip and the upload drawer — is now either a chip, a shelf, or behind a button.
+
+     Art is a gradient keyed off the package name with the library icon on top; we store no
+     banners or screenshots, and a stable generated gradient reads as deliberate. */
+  .st-wrap{max-width:1180px;margin:0 auto}
+  .st-top{display:flex;align-items:center;gap:11px;margin:0 0 12px;flex-wrap:wrap}
+  .st-top h1{margin:0;font-size:20px;letter-spacing:-.015em}
+  .st-search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;border:1px solid var(--border);
+    border-radius:99px;padding:8px 15px;background:var(--surface-3)}
+  .st-search input{border:0;background:none;outline:none;font:inherit;font-size:13px;color:var(--text);width:100%}
+  .st-search svg{width:15px;height:15px;color:var(--muted);flex:none}
+  .st-chips{display:flex;gap:7px;overflow:auto;padding-bottom:4px;margin:0 0 16px}
+  .st-chip{font-size:12px;font-weight:650;padding:5px 13px;border-radius:99px;border:1px solid var(--border);
+    background:var(--surface);color:var(--text-2);white-space:nowrap;cursor:pointer;text-decoration:none}
+  .st-chip.on{background:var(--text);color:var(--surface);border-color:transparent}
+  .st-chip .c{opacity:.6;margin-left:4px}
+  .st-shelf{margin-bottom:20px}
+  .st-sh{display:flex;align-items:baseline;gap:9px;margin:0 0 10px}
+  .st-sh h2{margin:0;font-size:15px;letter-spacing:-.015em}
+  .st-sh .note{font-size:11.5px;color:var(--muted)}
+  .st-row{display:flex;gap:12px;overflow:auto;padding:2px 2px 6px}
+  .st-card{flex:none;width:136px;text-decoration:none;color:inherit}
+  .st-card .aa-art{width:136px;height:136px;border-radius:22px}
+  .st-card .aa-ini{font-size:46px}
+  .st-nm{font-weight:700;font-size:12.5px;margin-top:9px;line-height:1.3}
+  .st-mt{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+  .st-cta{margin-top:7px}
+  .st-cta .cc-btn{border-radius:99px;padding:4px 12px;font-size:11.5px}
+  .st-empty{font-size:12.5px;color:var(--muted);padding:10px 2px}
+  .st-all{border-top:1px solid var(--border-soft);margin-top:4px;padding-top:18px}
+  .aa-art{display:grid;place-items:center;overflow:hidden;flex:none;box-shadow:0 6px 18px rgba(20,22,40,.13)}
+  .aa-art img{width:100%;height:100%;object-fit:cover}
+  .aa-ini{font-weight:800;color:rgba(255,255,255,.94);letter-spacing:-.03em}
+  .aa-art-0{background:linear-gradient(135deg,#7a80f6,#f9674e)}
+  .aa-art-1{background:linear-gradient(135deg,#2bb673,#7ad3a4)}
+  .aa-art-2{background:linear-gradient(135deg,#e8822e,#f3c08a)}
+  .aa-art-3{background:linear-gradient(135deg,#4b86f5,#8fb6f8)}
+  .aa-art-4{background:linear-gradient(135deg,#9b5de5,#c89bf5)}
+  .aa-art-5{background:linear-gradient(135deg,#f25f8f,#f9a8c4)}
+</style>
+<div class="st-wrap">
+  <div class="st-top">
+    <h1>Apps</h1>
+    <label class="st-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="st-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" oninput="stFilter(this.value)">
+    </label>
+    {{if canAppLibrary .Role}}<button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button>{{end}}
   </div>
-  {{/* Fleet coverage findings. Empty when the fleet agrees with the library, which is the
-       best thing this panel can say — so it renders nothing rather than an "all good" card. */}}
-  {{with .Coverage}}
-  <style>
-    .cov-panel{margin:0 0 16px}
-    .cov-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 10px}
-    .cov-sum b{color:var(--text);font-weight:750;font-size:13px}
-    .cov-f{display:flex;gap:11px;align-items:flex-start;padding:10px 13px;border:1px solid var(--border);
-      border-radius:11px;background:var(--surface);margin-bottom:7px}
-    .cov-f.warn{background:var(--warn-bg);border-color:var(--warn-edge)}
-    .cov-f.bad{background:var(--danger-bg);border-color:var(--danger-edge)}
-    .cov-f .dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px;background:var(--warn)}
-    .cov-f.bad .dot{background:var(--danger)}
-    .cov-f .t{flex:1;min-width:0;font-size:13px;line-height:1.5}
-    .cov-f .t b{font-weight:700}
-    .cov-f .t .d{display:block;color:var(--text-2);font-size:12px;margin-top:2px;line-height:1.45}
-    .cov-f .n{font-weight:750;font-size:13px;white-space:nowrap}
-    .cov-f .pk{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted)}
-  </style>
-  <div class="cov-panel">
-    <div class="cov-sum">
-      <b>{{.Totals.ReportingApps}} of {{.Totals.Devices}} devices</b> have reported their apps
-      {{if lt .Totals.ReportingApps .Totals.Devices}}· <span>{{sub .Totals.Devices .Totals.ReportingApps}} have not, so they count as missing every app below</span>{{end}}
-      {{if .Findings}}· <span>{{len .Findings}} thing{{if ne (len .Findings) 1}}s{{end}} to look at</span>{{end}}
+
+  {{with .Store}}
+  <div class="st-chips">
+    <a class="st-chip on" href="#st-all">All apps</a>
+    {{range .Shelves}}<a class="st-chip" href="#st-{{.ID}}">{{.Title}}<span class="c">{{len .Cards}}</span></a>{{end}}
+  </div>
+
+  {{range .Shelves}}
+  <div class="st-shelf" id="st-{{.ID}}" data-shelf>
+    <div class="st-sh"><h2>{{.Title}}</h2>{{if .Note}}<span class="note">{{.Note}}</span>{{end}}</div>
+    <div class="st-row">
+      {{range .Cards}}
+      <div class="st-card" data-card data-search="{{.Search}}">
+        <a href="/apps/{{.Package}}" style="text-decoration:none;color:inherit">
+          {{template "app-art" .}}
+          <div class="st-nm">{{.Name}}</div>
+          <div class="st-mt">{{.Meta}}</div>
+        </a>
+        <div class="st-cta"><a class="cc-btn sm{{if eq .CTAKind "install"}} primary{{end}}" href="/apps/{{.Package}}">{{.CTA}}</a></div>
+      </div>
+      {{end}}
     </div>
-    {{range .Findings}}
-    <div class="cov-f {{.Severity}}">
-      <span class="dot"></span>
-      <span class="t"><b>{{.Headline}}</b><span class="d">{{.Detail}}</span><span class="pk">{{.Package}}</span></span>
-      <span class="n">{{.Devices}}</span>
-    </div>
-    {{end}}
+    <div class="st-empty" data-shelf-empty hidden>Nothing here matches.</div>
   </div>
   {{end}}
-  {{template "app-library" .}}
+  {{end}}
+
+  {{/* Shelves scroll sideways, so they hide things. An inventory you audit needs a view
+       that shows everything — that is this grid, which is what the page already was. */}}
+  <div class="st-all" id="st-all">
+    {{template "app-library" .}}
+  </div>
 </div>
+<script>
+// Search filters every card and tile in place; a shelf with no matches says so rather than
+// collapsing to a mystery gap.
+function stFilter(q) {
+  q = (q || '').trim().toLowerCase();
+  document.querySelectorAll('[data-card]').forEach(function (c) {
+    var hay = (c.getAttribute('data-search') || '').toLowerCase();
+    c.hidden = q !== '' && hay.indexOf(q) === -1;
+  });
+  document.querySelectorAll('[data-shelf]').forEach(function (s) {
+    var any = Array.prototype.some.call(s.querySelectorAll('[data-card]'), function (c) { return !c.hidden; });
+    var empty = s.querySelector('[data-shelf-empty]');
+    if (empty) empty.hidden = any;
+  });
+  // The library grid below carries its own searchable tiles (data-app).
+  document.querySelectorAll('.lib-tile').forEach(function (t) {
+    var hay = (t.getAttribute('data-app') || '').toLowerCase();
+    t.style.display = (q === '' || hay.indexOf(q) !== -1) ? '' : 'none';
+  });
+}
+document.querySelectorAll('.st-chip').forEach(function (a) {
+  a.addEventListener('click', function () {
+    document.querySelectorAll('.st-chip').forEach(function (x) { x.classList.remove('on'); });
+    a.classList.add('on');
+  });
+});
+</script>
 {{template "footer" .}}
 {{end}}

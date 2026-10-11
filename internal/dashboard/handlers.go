@@ -3332,6 +3332,7 @@ func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	families, suggestions, mode := h.libraryData(r.Context())
 	apps, _ := h.db.ListApps(r.Context())
+	cov := h.appCoverage(r.Context(), apps)
 	h.render(w, r, "apps.html", map[string]any{
 		"Title":         "App library",
 		"ActivePage":    "apps",
@@ -3342,7 +3343,10 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 		// What is actually installed out there, against what the library holds. The page
 		// listed what COULD be installed and said nothing about the fleet, so nobody could
 		// ask "is this app out there, and is it the version we think". See app_coverage.go.
-		"Coverage": h.appCoverage(r.Context(), apps),
+		"Coverage": cov,
+		// Shelves: what needs attention, what the fleet runs, what was uploaded and never
+		// rolled out, what arrived recently. See app_store.go.
+		"Store": h.appStore(r.Context(), families, cov, apps),
 	})
 }
 
@@ -22076,6 +22080,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// The store's "Install on…" chooser: fleet-resolved scopes with real counts. Read-only;
 	// the chosen scope posts to POST /commands like every other send.
 	mux.HandleFunc("GET /apps/install-targets", h.requireAppLibrary(h.AppInstallTargets))
+	// One app: every version in service and every device that has it. The page a store is
+	// actually about — see app_detail.go.
+	mux.HandleFunc("GET /apps/{pkg}", h.requireAppLibrary(h.AppDetailPage))
 	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	post("POST /apps/families", h.requireAppLibrary(h.AppFamilyCreate))
