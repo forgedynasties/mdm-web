@@ -30,8 +30,13 @@
   .st-sh{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
   .st-sh h2{margin:0;font-size:15.5px;letter-spacing:-.015em;font-weight:740}
   .st-sh .note{font-size:11.5px;color:var(--muted);line-height:1.4}
-  .st-row{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin}
-  .st-card{flex:none;width:92px;scroll-snap-align:start}
+  .st-row{display:flex;align-items:stretch;gap:12px;overflow-x:auto;padding:2px 2px 8px;
+    scroll-snap-type:x proximity;scrollbar-width:thin}
+  /* A column, so the button sits at the bottom of the card rather than wherever the text
+     above it happens to end. line-clamp caps lines but does not reserve them, so a card
+     with a one-line note pulled its button up and the row looked ragged. */
+  .st-card{flex:none;width:92px;scroll-snap-align:start;display:flex;flex-direction:column}
+  .st-card>a{flex:1 1 auto;display:flex;flex-direction:column}
 
   /* The art: a tinted tile with the icon INSET, not stretched across it. Icons come out of
      an APK at 96-192px, so filling a 124px tile with one upscales it and it goes soft —
@@ -53,11 +58,11 @@
   .st-card a{display:block;text-decoration:none;color:inherit}
   .st-card a:hover .aa-art{transform:translateY(-2px);box-shadow:0 10px 22px rgba(20,22,40,.2)}
   .st-card .aa-art{transition:transform .16s ease,box-shadow .16s ease}
-  .st-nm{font-weight:700;font-size:12px;margin-top:8px;line-height:1.3;
+  .st-nm{font-weight:700;font-size:12px;margin-top:8px;line-height:1.3;min-height:2.6em;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .st-mt{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.35;
+  .st-mt{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.35;min-height:2.7em;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .st-cta{margin-top:8px}
+  .st-cta{margin-top:auto;padding-top:8px}
   .st-cta .cc-btn{border-radius:8px;padding:3px 8px;font-size:11px;width:100%;justify-content:center}
   .st-empty{font-size:12.5px;color:var(--muted);padding:12px 2px}
   .st-all{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:20px}
