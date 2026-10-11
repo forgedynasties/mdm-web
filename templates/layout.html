@@ -563,6 +563,35 @@
   </header>
 
   {{if ne .Role "owner"}}
+  {{/* The rail (option B of the IA review). The dock plus a "More" drawer meant 5 of 31
+       destinations were visible and the rest lived in a cabinet, where Settings and Alert
+       report ranked equally. The rail groups by why you are here — watching, managing,
+       setting up — and nothing that matters daily is behind a disclosure. The dock stays
+       for narrow screens, where a fixed rail would eat the page. */}}
+  <nav class="rail" aria-label="Primary navigation">
+    <div class="rail-g">Watch</div>
+    <a href="/" class="rail-l js-dest{{if eq .ActivePage "overview"}} on{{end}}">Overview</a>
+    <a href="/alerts" class="rail-l js-dest{{if eq .ActivePage "alerts"}} on{{end}}">Alerts{{if .AlertsOpenCount}}<span class="rail-c bad">{{.AlertsOpenCount}}</span>{{end}}</a>
+    <a href="/jobs" class="rail-l js-dest{{if eq .ActivePath "/jobs"}} on{{end}}">Jobs</a>
+
+    <div class="rail-g">Manage</div>
+    <a href="/devices" class="rail-l js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups")}} on{{end}}">Fleet</a>
+    <a href="/apps" class="rail-l js-dest{{if eq .ActivePath "/apps"}} on{{end}}">Apps</a>
+    <a href="/lock" class="rail-l js-dest{{if eq .ActivePage "manage"}} on{{end}}">Lock</a>
+    <a href="/restaurants" class="rail-l js-dest{{if eq .ActivePage "restaurants"}} on{{end}}">Venues</a>
+    {{if canAdminOrOperator .Role}}<a href="/rollouts" class="rail-l js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}">Firmware</a>{{end}}
+    {{if canAdminOrOperator .Role}}<a href="/clients" class="rail-l js-dest{{if eq .ActivePath "/clients"}} on{{end}}">Clients</a>{{end}}
+    <a href="/schedules" class="rail-l js-dest{{if eq .ActivePath "/schedules"}} on{{end}}">Schedules</a>
+
+    <div class="rail-g">Set up</div>
+    <a href="/enrollment" class="rail-l js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}">Enrollment</a>
+    {{if canManageUsers .Role}}<a href="/users" class="rail-l js-dest{{if eq .ActivePath "/users"}} on{{end}}">Users</a>{{end}}
+    {{if canAdmin .Role}}<a href="/settings" class="rail-l js-dest{{if eq .ActivePath "/settings"}} on{{end}}">Settings</a>{{end}}
+    {{/* The long tail — map, health, export, activity, server — keeps the existing
+         directory rather than growing the rail past a screenful. */}}
+    <button type="button" class="rail-l rail-more" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-keyshortcuts="Meta+K Control+K">Everything else<kbd>⌘K</kbd></button>
+  </nav>
+
   <nav class="dock dock-s" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
     <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
