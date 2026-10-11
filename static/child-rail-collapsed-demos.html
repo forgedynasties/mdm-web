@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The child rail while the app rail is open</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 80px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 790px; margin: 0 0 26px; line-height: 1.55; }
+  .opt { margin: 0 0 32px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 790px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--warn-bg); color: var(--warn); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+
+  .mock { display: flex; height: 286px; border: 1px solid var(--border); border-radius: var(--r-4);
+    overflow: hidden; background: var(--bg); box-shadow: var(--shadow-sm); position: relative; }
+  .m-app { width: 196px; flex: none; background: var(--surface); border-right: 1px solid var(--border-soft);
+    padding: 12px 9px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+  .m-brand { font-size: 15px; font-weight: 600; padding: 0 5px 10px; }
+  .m-g { font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 7px 6px 3px; }
+  .m-l { display: flex; align-items: center; gap: 9px; padding: 5px 7px; border-radius: 8px;
+    font-size: 12px; color: var(--muted); }
+  .m-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+  .m-l i, .ic { width: 14px; height: 14px; flex: none; display: inline-block; }
+  .m-l i { border-radius: 4px; background: currentColor; opacity: .4; }
+  .ic svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .m-child { width: 56px; flex: none; background: var(--surface);
+    border-right: 1px solid var(--border-soft); padding: 12px 6px; display: flex;
+    flex-direction: column; gap: 4px; position: relative; }
+  .m-row { height: 30px; border-radius: 8px; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .m-row.on { background: var(--accent-soft); color: var(--accent-text); }
+  .m-body { flex: 1; padding: 16px; min-width: 0; }
+  .m-body .ln { height: 9px; border-radius: 5px; background: var(--surface2); margin-bottom: 9px; }
+  .m-body .ln.a { width: 42%; height: 13px; background: var(--surface-3); }
+  .m-body .ln.b { width: 86%; } .m-body .ln.c { width: 66%; }
+  .m-card { border: 1px solid var(--border-soft); border-radius: 10px; height: 110px; margin-top: 14px;
+    background: var(--surface); }
+  .cap { font-size: 11px; color: var(--text-faint); margin: 7px 0 0; }
+
+  /* C — swatch dots */
+  .sw { width: 22px; height: 22px; border-radius: 7px; }
+  .sw.s1 { background: linear-gradient(135deg,#f0803c,#e2574c); }
+  .sw.s2 { background: linear-gradient(135deg,#4d7cfe,#6f5bd8); }
+  .sw.s3 { background: linear-gradient(135deg,#2fae7e,#3fb7a7); }
+  .sw.s4 { background: linear-gradient(135deg,#8e8e93,#636366); }
+  .m-row.on .sw { box-shadow: 0 0 0 2px var(--accent); }
+
+  /* D — the child rail does not shrink; the app rail floats over the page */
+  .m-float { position: absolute; left: 0; top: 0; bottom: 0; width: 196px; z-index: 5;
+    box-shadow: 18px 0 34px rgba(0,0,0,.34); }
+  .m-scrim { position: absolute; inset: 0 0 0 196px; background: rgba(0,0,0,.18); z-index: 4; }
+  .m-child.full { width: 186px; align-items: stretch; }
+  .m-child.full .m-row { justify-content: flex-start; gap: 9px; padding: 0 9px; font-weight: 600;
+    font-size: 12px; }
+  .m-child.full .ct { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+
+  /* E — ticks */
+  .tick { height: 30px; display: flex; align-items: center; justify-content: center; }
+  .tick span { width: 18px; height: 3px; border-radius: 2px; background: var(--border); }
+  .tick.on span { width: 24px; background: var(--accent); }
+
+  /* F — out of the way entirely */
+  .m-seam { width: 10px; flex: none; background: var(--surface);
+    border-right: 1px solid var(--border-soft); }
+  .m-seam .grip { width: 3px; height: 34px; border-radius: 2px; background: var(--border);
+    margin: 120px auto 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The child rail while the app rail is open</h1>
+  <p class="lede">
+    Hovering the app rail expands it to 196px and squeezes the page's own rail into 56px. The
+    squeeze is what forced two-letter initials — <code>Al Ne In Co</code> — and they are the problem:
+    they name nothing, they repeat (<i>Al</i> is both "All" and "Alerts"), and they look like tags.
+    Every option below is a different answer to <i>what occupies those 56px</i>, or whether the rail
+    should be squeezed at all. The state shown in each mock is <b>mid-hover</b> — pointer on the app
+    rail — because at rest the child rail is already full width with real labels.
+  </p>
+
+  <div class="opt">
+    <h2>A · Two-letter initials <span class="badge live">on stage now — the thing you don't like</span></h2>
+    <p class="note">Shown for comparison. <b>Bad:</b> abbreviations of arbitrary labels, ambiguous
+      and unreadable at a glance.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-row on">Al</div><div class="m-row">AI</div><div class="m-row">te</div><div class="m-row">v2</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>B · An icon per entry</h2>
+    <p class="note">Each child row carries a glyph, exactly as the app rail's rows do, and the
+      collapsed strip is that column of glyphs. Fixed rails (Settings, Alerts, History) get a hand-picked
+      icon per entry; the generated ones (a venue, a group, a build) get the icon of their <i>kind</i>
+      — pin for a venue, people for a group, download for a build — not of the individual row.
+      <b>Good:</b> one visual language with the app rail, nothing to decode, scales to any label.
+      <b>Bad:</b> two venues look identical collapsed; it tells you the kind, not the which.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-row on"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg></span></div>
+        <div class="m-row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></span></div>
+        <div class="m-row"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11a3 3 0 1 0 0-6"/></svg></span></div>
+        <div class="m-row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span></div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+    <p class="cap">Fleet mid-hover: all devices · a venue · a group · a build.</p>
+  </div>
+
+  <div class="opt">
+    <h2>C · Colour swatch per entry</h2>
+    <p class="note">No letters at all: each row keeps a stable colour derived from its name — the same
+      trick the Apps store art uses — and the active one gets a ring. <b>Good:</b> genuinely
+      distinguishes two venues from each other, which icons cannot. <b>Bad:</b> a colour means
+      nothing until you have used the page a few times, and it collides with the status colours
+      (green/amber/red) already in that rail.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-row on"><span class="sw s1"></span></div>
+        <div class="m-row"><span class="sw s2"></span></div>
+        <div class="m-row"><span class="sw s3"></span></div>
+        <div class="m-row"><span class="sw s4"></span></div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>D · Don't squeeze it — the app rail floats over the page <span class="badge pick">my pick</span></h2>
+    <p class="note">The child rail never collapses and never changes: full width, real labels, counts,
+      the lot. Hovering the app rail expands it <i>over</i> the content with a shadow and a faint scrim,
+      the way a temporary drawer does, and it is gone the moment you leave. <b>Good:</b> deletes the
+      problem rather than dressing it — nothing to abbreviate, nothing to learn, and the page's own nav
+      stays usable while you aim at the app rail. <b>Bad:</b> the overlay covers ~140px of the content
+      for as long as you hover, so something you were reading is briefly hidden. That was the original
+      reason for the reciprocal swap — but a swap that makes the rail unreadable costs more than a
+      shadow that passes.</p>
+    <div class="mock">
+      <div class="m-child full">
+        <div class="m-row on">All devices<span class="ct">20</span></div>
+        <div class="m-row">AIO Test Bistro<span class="ct">3</span></div>
+        <div class="m-row">test<span class="ct">0</span></div>
+        <div class="m-row">v2.1.025<span class="ct">8</span></div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+      <div class="m-scrim"></div>
+      <div class="m-app m-float">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+    </div>
+    <p class="cap">The app rail is the floating layer; the child rail underneath is untouched.</p>
+  </div>
+
+  <div class="opt">
+    <h2>E · Position ticks</h2>
+    <p class="note">The strip stops pretending to be readable: one short dash per entry, the current
+      one longer and accented. It is a scrollbar-grade hint — "four things, you are on the first".
+      <b>Good:</b> honest, silent, no vocabulary, no collision with anything. <b>Bad:</b> carries the
+      least information of any option; you can count, not choose.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="tick on"><span></span></div><div class="tick"><span></span></div>
+        <div class="tick"><span></span></div><div class="tick"><span></span></div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>F · It slides away, leaving a seam</h2>
+    <p class="note">The child rail goes off-canvas while the app rail is open; a 10px seam with a grip
+      holds its place, and it slides back when you leave. <b>Good:</b> no half-state to design at all,
+      and the swap stays width-neutral (196 + 10 ≈ 56 + 150, content shifts by a hair). <b>Bad:</b> the
+      page's own nav disappearing on the way to the app nav is exactly the complaint that started this;
+      a seam is thinner than the 56px strip, so it is a weaker promise that it comes back.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-seam"><div class="grip"></div></div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <p class="lede"><b>Pick: D, with B as the fallback.</b> Every lettered or abbreviated strip is an
+    attempt to compress labels that refuse to compress — venues and groups are user-typed names, so
+    there is no abbreviation scheme that works for all of them. Floating the app rail removes the
+    compression entirely and costs a shadow passing over the content for a second. If the overlay is
+    not wanted, B is the only compressed form that stays readable, because it switches from text to
+    the icon vocabulary the app rail already uses.</p>
+</div>
+</body>
+</html>

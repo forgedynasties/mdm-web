@@ -21,3 +21,23 @@
 <div class="rab-empty">No open alerts — every restaurant is quiet.</div>
 {{end}}
 {{end}}
+
+{{/* The same report as a real page, for /reports/alerts-by-restaurant. It is linked from
+     the Alerts rail and from the More directory, so it needs the chrome everything else has. */}}
+{{define "report_alerts.html"}}
+{{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Alerts">
+  <div class="cr-t">Alerts</div>
+  <a href="/alerts" class="cr-l"><span>Open</span></a>
+  <a href="/alerts?status=acknowledged" class="cr-l"><span>Acknowledged</span></a>
+  <a href="/alerts?status=resolved" class="cr-l"><span>Resolved</span></a>
+  <div class="cr-t">Set up</div>
+  <a href="/alert-config" class="cr-l"><span>Alert rules</span></a>
+  <a href="/reports/alerts-by-restaurant" class="cr-l on"><span>By venue</span></a>
+</aside>
+<div class="container">
+  <h1 class="cc-h1" style="margin:0 0 14px;">Open alerts by venue</h1>
+  <div class="cc-card" style="padding:4px 0;">{{template "report-alerts-by-restaurant" .}}</div>
+</div>
+{{template "footer" .}}
+{{end}}

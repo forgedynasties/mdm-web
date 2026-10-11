@@ -744,9 +744,15 @@
           // Both remaining popups hang off the top bar, so they open downward
           // and right-aligned. (The dock's More used to open upward from here;
           // it opens the command palette now and needs no placement.)
-          p.style.top = (r.bottom + 9) + 'px';
-          p.style.left = 'auto';
-          p.style.right = (window.innerWidth - r.right) + 'px';
+          // Open away from the edge the button is nearest. The account chip moved into
+          // the rail foot, where below-and-right put the menu off the bottom of the
+          // screen — it opened, you just could not see it.
+          var up = r.bottom > window.innerHeight * 0.6;
+          var leftish = r.left < window.innerWidth * 0.5;
+          p.style.top = up ? 'auto' : (r.bottom + 9) + 'px';
+          p.style.bottom = up ? (window.innerHeight - r.top + 9) + 'px' : 'auto';
+          p.style.left = leftish ? Math.max(8, r.left) + 'px' : 'auto';
+          p.style.right = leftish ? 'auto' : (window.innerWidth - r.right) + 'px';
         }
         p.removeAttribute('hidden');
       } else {
@@ -1304,10 +1310,11 @@
     // no rail of its own leaves the last page's rail standing — Fleet's collections showed
     // up on the Overview. Clear them when the path changes; on a same-page partial swap
     // they stay, or a poll would tear the rail out from under the pointer.
-    if (path && path !== mdmRailChildSync.at) {
+    var key = (path || location.pathname) + location.search;
+    if (key !== mdmRailChildSync.at) {
       document.querySelectorAll('[data-portaled="1"]').forEach(function (el) { el.remove(); });
     }
-    mdmRailChildSync.at = path || mdmRailChildSync.at;
+    mdmRailChildSync.at = key;
     document.querySelectorAll('[data-child-rail]').forEach(function (el) {
       if (el.parentElement !== document.body) {
         el.dataset.portaled = '1';

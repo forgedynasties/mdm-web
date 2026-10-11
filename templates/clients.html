@@ -2,11 +2,8 @@
 {{template "header" .}}
 <aside class="child-rail" data-child-rail aria-label="Clients">
   <div class="cr-t">Clients</div>
-  <a href="#cl-body" class="cr-l on"><span>Hosted builds</span><span class="cr-ini">Ho</span></a>
-  <a href="#cl-devs" class="cr-l"><span>Devices by version</span><span class="cr-ini">De</span></a>
-  <div class="cr-t">Related</div>
-  <a href="/rollouts" class="cr-l"><span>Firmware</span><span class="cr-ini">Fi</span></a>
-  <a href="/apps" class="cr-l"><span>Apps</span><span class="cr-ini">Ap</span></a>
+  {{range .Rails}}<a href="/clients?slot={{.Slot}}" class="cr-l{{if .Selected}} on{{end}}"><span>{{.Label}}</span><span class="n{{if .Behind}} warn{{end}}"{{if .Behind}} title="{{.Behind}} behind"{{end}}>{{.Devices}}</span></a>
+  {{end}}
 </aside>
 {{/* Clients: the MDM client each device runs, the build this server hosts for it, and
      what has been published to it. The client list stays on the left while you work in
@@ -16,16 +13,15 @@
      visible for any device still on it). A device is only ever offered its own slot's
      build. */}}
 <style>
-.cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
-.cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}
-.cl-si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.cl-split{display:block}
+.cl-slots{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.cl-slot{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);font-size:12.5px;font-weight:650;color:var(--text-2);text-decoration:none}
+.cl-slot.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.cl-slot .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+@media(min-width:1024px){.cl-slots{display:none}}
 .cl-si:hover{background:var(--surface2);color:var(--text)}
 .cl-si.on{background:var(--accent-soft);color:var(--accent-text)}
-.cl-si .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cl-si .n{font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--text-2);border-radius:20px;padding:1px 7px;font-variant-numeric:tabular-nums}
 .cl-si.on .n{background:var(--surface)}
-.cl-si .n.warn{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
-.cl-scap{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:8px 11px 4px}
 .cl-hd{margin-bottom:14px}
 .cl-hd h2{margin:0;font-size:17px;font-weight:600}
 .cl-note{font-size:12.5px;color:var(--muted);margin-top:4px;max-width:74ch;line-height:1.5}
@@ -100,7 +96,7 @@
 .cl-fold:hover{color:var(--text)}
 .cl-tr.dim{opacity:.6}
 .cl-tr.hidden{display:none}
-@media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
+@media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
 
 <div class="cc-wrap">
@@ -113,6 +109,8 @@
   </div>
 </div>
 
+{{/* Under 1024 the child rail is not rendered, so the slot picker rides along here. */}}
+<div class="cl-slots">{{range .Rails}}<a href="/clients?slot={{.Slot}}" class="cl-slot{{if .Selected}} on{{end}}">{{.Label}}<span class="n">{{.Devices}}</span></a>{{end}}</div>
 <div class="cl-split" id="cl-split">
 {{template "clients-split" .}}
 </div>
@@ -227,15 +225,6 @@ function clSkeleton(d) {
     '<div class="cl-sec"><span>Devices</span></div><div class="cl-tbl">' + rows + '</div>';
 }
 
-function clPick(a) {
-  var rail = a && a.closest('.cl-side');
-  if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
-  var d = document.getElementById('cl-detail');
-  if (!d) return;
-  d.innerHTML = '<div class="cl-hd"><div class="skel skel-line skel-w25" style="height:17px"></div>' +
-    '<div class="skel skel-line skel-w60" style="height:11px"></div></div><div id="cl-body"></div>';
-  clSkeleton(document.getElementById('cl-body'));
-}
 </script>
 {{template "footer" .}}
 {{end}}
@@ -244,19 +233,6 @@ function clPick(a) {
      so the header, dock and scroll position stay put. The rail is inside the fragment
      because its selected state changes with the detail. */}}
 {{define "clients-split"}}
-  <nav class="cl-side" aria-label="Clients">
-    <div class="cl-scap">Clients</div>
-    {{range .Rails}}
-    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}" onclick="clPick(this)"
-       hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
-       hx-push-url="/clients?slot={{.Slot}}">
-      <span class="nm">{{.Label}}</span>
-      {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
-      {{else}}<span class="n">{{.Devices}}</span>{{end}}
-    </a>
-    {{end}}
-  </nav>
-
   {{with .Selected}}
   <div id="cl-detail"{{if .Updating}} hx-get="/clients?slot={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-split" hx-swap="innerHTML"{{end}}>
     <div class="cl-hd">

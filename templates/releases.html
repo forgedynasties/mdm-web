@@ -1,5 +1,11 @@
 {{define "releases.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Firmware">
+  <div class="cr-t">Firmware</div>
+  <a href="/rollouts" class="cr-l"><span>Rollouts</span></a>
+  <a href="/releases" class="cr-l on"><span>Releases</span></a>
+  <a href="/packages" class="cr-l"><span>Packages</span></a>
+</aside>
 {{template "rollout-tabs" .}}
 {{/* Lean releases page: a release is just version + product + changelog + update packages.
      Pushing OTA lives on its own page (/updates). QA/sign-off/testing/problems/branches

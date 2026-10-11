@@ -7602,7 +7602,10 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
    A page opts in by carrying [data-child-rail]; pages that already had their own
    nav (Settings, Enrollment, Fleet, history) carry it on that element rather
    than growing a second one beside it. */
-[data-child-rail] { display: none; }
+/* Below 1024 there is no rail band at all: the dock carries navigation. Only the asides
+   written as child rails hide — a page's own nav (Settings' tabs, Fleet's collections)
+   carries data-child-rail too and must stay exactly as it was. */
+.child-rail { display: none; }
 @media (min-width: 1024px) {
   [data-child-rail] {
     display: flex; flex-direction: column; gap: 1px;

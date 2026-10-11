@@ -1,5 +1,11 @@
 {{define "packages.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Firmware">
+  <div class="cr-t">Firmware</div>
+  <a href="/rollouts" class="cr-l"><span>Rollouts</span></a>
+  <a href="/releases" class="cr-l"><span>Releases</span></a>
+  <a href="/packages" class="cr-l on"><span>Packages</span></a>
+</aside>
 {{template "rollout-tabs" .}}
 
 <style>

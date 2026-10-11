@@ -30,13 +30,12 @@
 <div class="sc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Actions · Schedules <span class="beta-pill">Beta</span></div>
+    <div class="cc-eyebrow">Schedules <span class="beta-pill">Beta</span></div>
     <h1 class="cc-h1">{{$active := 0}}{{range .Schedules}}{{if .Enabled}}{{$active = add $active 1}}{{end}}{{end}}{{if gt (len .Schedules) 0}}<span class="hl accent">{{$active}}</span> of {{len .Schedules}} schedule{{if ne (len .Schedules) 1}}s{{end}} active{{else}}No schedules yet{{end}}</h1>
     <div class="cc-sub">Run a saved recipe on a schedule — its target is re-resolved each time it fires.</div>
   </div>
   <div class="cc-actions">
-    <a class="cc-btn" href="/commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
-    <a class="cc-btn" href="/commands#recipes-section"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Recipes</a>
+    <a class="cc-btn" href="/jobs"><svg viewBox="0 0 24 24"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg>Jobs</a>
   </div>
 </div>
 
@@ -135,7 +134,7 @@
     </div>
     <p class="muted small" style="margin:12px 0 0;">Only Install / Uninstall / Reboot / Screenshot / Shell / Boot-logo recipes can be scheduled.</p>
     {{else}}
-    <p class="muted small" style="margin:0;">No schedulable recipes yet. On the <a href="/commands" class="link-detail">Actions</a> page, build an action and <b>Save current as recipe</b> first.</p>
+    <p class="muted small" style="margin:0;">No schedulable recipes yet. A recipe is an action saved for reuse; nothing in the dashboard saves one since the action console was retired, so this stays empty until saving a recipe is rebuilt where the actions now live.</p>
     {{end}}
   </form>
 </div>

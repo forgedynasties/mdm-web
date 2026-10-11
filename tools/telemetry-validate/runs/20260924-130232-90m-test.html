@@ -1,0 +1,314 @@
+<!doctype html><html lang=en data-theme=light><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Validation Report · 20260924-130232-90m-test</title><link rel=icon href=/static/favicon.svg><script>try{var t=localStorage.getItem('mdm-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light')}catch(e){}</script><link rel=stylesheet href=/static/fonts/fonts.css><link rel=stylesheet href=/static/style.css><style>
+body{background:var(--bg,#f7f7f7);color:var(--text,#1a1a1a);margin:0}
+.tv-top{background:var(--surface,#fff);border-bottom:1px solid var(--border,#e9e9ed)}
+.tv-top .in{max-width:1280px;margin:0 auto;padding:11px 24px;display:flex;align-items:center;gap:9px;
+  font-size:14px;font-weight:750;letter-spacing:-.01em}
+.tv-top .sq{width:22px;height:22px;border-radius:7px;background:var(--brand-grad,#f9674e);flex:none}
+main{max-width:1280px;margin:0 auto;padding:22px 24px 48px}
+@media (max-width:720px){main{padding:16px 16px 40px}}
+h2{font-size:16px;font-weight:750;letter-spacing:-.01em;margin:30px 0 6px}
+.mut{color:var(--muted,#5f5f66)}p.mut{font-size:13px;margin:0 0 10px;max-width:90ch;line-height:1.5}
+.scroll{overflow-x:auto;background:var(--surface,#fff);border:1px solid var(--border,#e9e9ed);
+  border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm,none)}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint,#74747c);
+  text-align:left;padding:10px 17px;border-bottom:1px solid var(--border-soft,#f0f0f3);white-space:nowrap;
+  background:color-mix(in srgb,var(--surface2,#f1f1f3) 55%,transparent)}
+td{padding:9px 17px;border-top:1px solid var(--border-soft,#f0f0f3);white-space:nowrap;vertical-align:middle}
+td.ok{color:var(--ok)}td.bad{color:var(--danger);background:var(--danger-bg)}td.warn{color:var(--warn);background:var(--warn-bg)}
+span.bad{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;color:var(--danger);background:var(--danger-bg)}
+.card{margin:12px 0}.card>b{display:block;font-size:13px;margin:0 0 6px}
+.dev{font-size:11.5px;white-space:nowrap}
+.glance h2{margin-top:22px}
+.gl-verdict{border-radius:var(--r-4,14px);padding:16px 20px;margin:8px 0 14px;border:1px solid transparent}
+.gl-verdict.pass{background:var(--ok-bg);border-color:var(--ok-edge,transparent)}
+.gl-verdict.watch{background:var(--warn-bg)}
+.gl-verdict.fail{background:var(--danger-bg)}
+.gl-big{font-size:19px;font-weight:750;letter-spacing:-.01em;line-height:1.35}
+.gl-verdict.pass .gl-big{color:var(--ok)}.gl-verdict.fail .gl-big{color:var(--danger)}.gl-verdict.watch .gl-big{color:var(--warn)}
+.gl-issues{margin:8px 0 0;padding-left:0;list-style:none;font-size:14px;color:var(--text,#1a1a1a)}
+.gl-issues li{margin:5px 0;line-height:1.5}
+.gl-chip{display:inline-block;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;
+  padding:2px 8px;border-radius:99px;vertical-align:1px}
+.gl-chip.pass{color:var(--ok);background:var(--ok-bg)}.gl-chip.watch{color:var(--warn);background:var(--warn-bg)}
+.gl-chip.fail{color:#fff;background:var(--danger,#c62828)}.gl-chip.none{color:var(--muted);background:var(--surface2)}
+.gl-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 14px}
+.gl-kpi{background:var(--surface,#fff);border:1px solid var(--border,#e9e9ed);border-radius:var(--r-4,14px);padding:12px 15px;
+  display:flex;flex-direction:column;gap:3px}
+.gl-kpi span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint,#74747c)}
+.gl-kpi b{font-size:22px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.gl-kpi small{font-size:12px;color:var(--muted,#5f5f66)}
+.gl-table tr.gl-fail td{background:color-mix(in srgb,var(--danger-bg) 60%,transparent)}
+.gl-table tr.gl-watch td{background:color-mix(in srgb,var(--warn-bg) 60%,transparent)}
+.gl-sn{display:block;font-size:11.5px;white-space:normal;max-width:260px;line-height:1.45}
+.gl-table td:last-child{white-space:normal;min-width:150px}
+.gl-foot{margin-top:8px}
+.gl-f{display:block;font-size:11px;margin-top:1px}
+.gl-table th,.gl-table td{padding-left:14px;padding-right:14px}
+.details-h{margin-top:40px;padding-top:18px;border-top:1px solid var(--border,#e9e9ed);font-size:18px}
+.tol{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;padding:14px 17px}
+.tol label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.tol span{display:flex;align-items:center;gap:5px;color:var(--muted,#5f5f66)}
+.tol input{width:76px;font:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--border,#e9e9ed);
+  border-radius:8px;background:var(--surface,#fff);color:var(--text,#1a1a1a)}
+.tol input.changed{border-color:var(--warn,#b7791f);background:var(--warn-bg,#fff7e6)}
+@media (max-width:720px){.tol label{flex:1 1 40%}}
+code{font-family:var(--font-mono,ui-monospace,Menlo,Consolas,monospace);font-size:12px}
+ul{font-size:13px;line-height:1.6;color:var(--text-2,#4f4f4f);padding-left:20px}
+</style></head><body><div class=tv-top><div class=in><span class=sq></span>Telemetry Validation</div></div><main>
+<div class=cc-top><div><div class=cc-eyebrow>AIO · MDM · Validation report</div><h1 class=cc-h1>20260924-130232-90m-test</h1><div class=cc-sub>Firmware-client vitals as the MDM stored them, graded against adb on the same devices.</div></div><div class=cc-actions><div class=cc-facts><span class=cc-fact><b>90m</b> test</span><span class=cc-fact>90m test</span><span class=cc-fact><b>2</b> device(s)</span><span class=cc-fact><b>13:02:33–14:32:33</b> (90 min)</span><span class=cc-fact>clock offset <b>+0.0s</b></span><span class=cc-fact>mdm.dev.aioapp.com</span></div></div></div>
+<section id=glance class=glance></section>
+<script>var REPORT_DATA={"interval":30.0,"span_min":90,"fields":[{"f":"battery_pct","name":"Battery level","rule":"exact (after the firmware's 90-98 \u2192 90-100 remap)","num":true,"unit":"%"},{"f":"charging","name":"Charging state","rule":"exact","num":false,"unit":""},{"f":"charger_type","name":"Charger type","rule":"exact","num":false,"unit":""},{"f":"battery_present","name":"Battery present","rule":"exact","num":false,"unit":""},{"f":"charger_voltage_mv","name":"Battery voltage","rule":"\u00b175 mV (50 mV deadband + 50 mV grid)","num":true,"unit":"mV"},{"f":"battery_temp_c","name":"Battery temperature","rule":"\u00b11.0 \u00b0C (deadband)","num":true,"unit":"\u00b0C"},{"f":"wlc_charging","name":"Wireless charging","rule":"exact","num":false,"unit":""},{"f":"wlc_status","name":"Wireless pad status","rule":"exact (1 s watcher, 120 s cache)","num":false,"unit":""},{"f":"ram_total_mb","name":"RAM total","rule":"\u00b11 MiB","num":true,"unit":"MB"},{"f":"ram_available_mb","name":"RAM available","rule":"\u00b15 % of total","num":true,"unit":"% of total"},{"f":"ram_used_mb","name":"RAM used","rule":"\u00b15 % of total","num":true,"unit":"% of total"},{"f":"storage_free_gb","name":"Free storage","rule":"\u00b10.1 GiB","num":true,"unit":"GB"}],"devices":[{"serial":"2dfcf2ba","server":"live","tot":3630,"acc":{"battery_pct":{"ok":61,"n":61,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"charging":{"ok":61,"n":61,"d":[]},"charger_type":{"ok":61,"n":61,"d":[]},"battery_present":{"ok":61,"n":61,"d":[]},"charger_voltage_mv":{"ok":61,"n":61,"d":[-33,-27,-33,-31,-32,-32,-27,-32,-32,-31,-24,-29,-27,-25,-30,-30,-24,-28,-27,-28,-28,-25,-24,-27,-27,-17,-18,-15,-25,-12,-25,-20,-17,-18,-15,-25,-23,-22,-22,-24,-22,-23,-10,-21,-15,-15,-22,-16,-21,-14,-14,-21,-11,-20,-20,-8,-8,-19,8,7,25]},"battery_temp_c":{"ok":39,"n":61,"d":[-1.5,0.0,0.0,2.7,-0.2,1.2,-1.3,-0.4,-2.6,-0.4,-1.1,-0.4,-0.4,-0.9,-1.0,0.4,-2.3,0.3,-2.6,-0.6,-1.4,-1.5,-1.1,-1.2,0.0,-0.7,0.5,0.7,0.2,0.1,0.2,-1.9,-2.9,-0.0,0.5,-0.2,-1.1,0.0,0.0,0.0,0.2,-0.0,0.0,-0.7,1.6,-0.0,-0.0,0.8,-0.0,0.9,-0.1,-0.0,0.7,0.4,-2.1,-1.3,0.0,3.1,-1.7,1.0,1.1]},"wlc_charging":{"ok":61,"n":61,"d":[]},"wlc_status":{"ok":78,"n":79,"d":[]},"ram_total_mb":{"ok":77,"n":77,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"ram_available_mb":{"ok":77,"n":77,"d":[2,4,-1,0,-1,3,3,-4,1,2,1,2,0,1,-1,1,0,0,-3,1,0,0,0,1,4,0,0,0,2,1,1,1,-1,-1,-1,0,0,-2,1,1,0,-1,-1,-1,1,0,3,1,1,1,-1,-1,-1,2,2,-2,-1,-1,0,1,2,0,-1,3,3,0,-15,21,0,1,3,26,2,1,1,-61,-1]},"ram_used_mb":{"ok":77,"n":77,"d":[-3,-4,0,-1,1,-3,-3,4,-2,-2,-1,-2,0,-1,0,1,-1,-1,2,2,-1,-1,-1,-2,-4,-1,0,0,-3,-1,-1,-2,0,0,0,-1,-1,1,-2,-2,0,1,0,0,-1,-1,-3,-2,-2,-1,1,1,1,-2,-2,1,0,0,0,-2,-3,0,0,-4,-4,0,15,-21,0,-1,-3,-26,-2,-1,-1,61,0]},"storage_free_gb":{"ok":79,"n":79,"d":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}},"hist":{"battery_pct":{"ok":97,"n":97,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"charging":{"ok":97,"n":97,"d":[]},"battery_temp_c":{"ok":53,"n":97,"d":[-1.1,-2.1,0.5,-0.0,-0.6,-1.9,0.2,0.2,-2.0,-2.0,1.0,-1.3,0.2,-0.6,1.3,1.3,1.3,1.3,0.5,1.1,-0.8,0.0,-2.4,0.3,0.3,0.3,0.3,-1.0,-1.4,0.6,-0.6,-2.6,0.3,-0.9,-1.3,-1.3,0.4,-1.0,-1.0,-0.9,-0.9,-1.1,-0.1,-0.4,-2.4,-2.4,-1.3,-1.3,2.7,2.7,-2.0,-2.0,0.0,1.8,-1.5,-0.3,1.4,-0.5,-0.8,-0.8,0.3,-1.8,-1.8,-1.0,-2.1,0.7,-1.0,-1.0,-0.1,0.9,-0.0,-1.1,0.8,-0.0,-0.7,-0.7,-0.7,0.5,0.0,-2.6,2.7,1.5,1.0,1.0,1.5,-1.4,0.2,0.0,0.0,0.0,1.2,-0.1,1.3,1.0,2.6,-3.6,1.0]},"wlc_status":{"ok":76,"n":138,"d":[]},"ram_total_mb":{"ok":135,"n":135,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"ram_used_mb":{"ok":135,"n":135,"d":[-2,-2,1,1,-1,-1,0,0,0,0,0,-2,-2,-2,-1,-3,-3,-3,-3,-3,0,0,0,0,0,-1,-1,-4,-1,-1,-1,-2,-2,1,1,-1,-1,-1,2,2,2,2,2,-1,-1,-1,1,1,0,0,-1,-1,-1,-1,-2,-2,-1,-2,-2,4,4,-3,-4,1,1,1,1,0,0,0,0,-4,-4,-3,-3,3,-4,-4,-4,-18,-18,0,0,1,1,-2,-2,-2,-2,0,0,0,-2,-2,1,1,1,1,-2,-2,-2,-2,-2,-2,-3,-3,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-26,-1,-3,-1,-1,-1,0,0,0,0]},"storage_free_gb":{"ok":138,"n":138,"d":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}},"age":[54.8,24.2,51.5,11.3,41.3,72.7,101.0,4.5,38.2,19.3,7.9,13.3,25.4,55.5,87.1,25.1,11.5,39.7,10.9,39.5,9.6,38.4,4.3,32.6,10.2,11.1,44.4,27.7,27.3,2.7,11.3,40.9,11.0,39.6,11.3,41.3,13.1,25.6,9.4,39.8,9.6,14.1,5.9,35.7,10.4,14.1,2.6,33.2,4.4,15.4,5.9,3.1,3.9,20.7,6.6,34.5,3.5,12.7,3.5,9.3,36.4,65.9,95.4,5.0,3.2,4.9,2.5,15.4,2.8,3.6,3.7,14.9,2.9,34.0,2.8,32.2,2.6,5.4,2.9,20.8,3.9,33.1,2.7,20.3,4.1,35.3,3.1,32.9,2.9,20.0,2.7,32.7,3.1,19.5,52.2,16.7,16.1,15.2,46.4,15.6,44.7,13.6,42.4,14.1,15.5,15.4,28.7,12.4,42.4,14.1,44.3,14.1],"adb_err":67,"api_err":1,"adb_n":114,"api_n":180,"rows":178},{"serial":"AT070AA2600030","server":"live","tot":3627,"acc":{"battery_pct":{"ok":86,"n":86,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"charging":{"ok":86,"n":86,"d":[]},"charger_type":{"ok":86,"n":86,"d":[]},"battery_present":{"ok":86,"n":86,"d":[]},"charger_voltage_mv":{"ok":86,"n":86,"d":[-18,-18,-22,-18,-18,-14,-22,-21,-20,-14,-21,-7,-7,-17,-17,-21,-13,-7,-19,-18,-14,-19,-19,-18,-18,-18,-13,-8,-8,-18,-18,-12,-17,-10,-10,-10,-12,-7,-7,-17,-13,-13,-12,-12,-12,-6,-16,-13,-15,-8,-9,-10,0,6,-12,-12,-12,-11,-12,-7,-1,-1,-6,-9,-1,-11,-4,-10,-11,2,-10,-10,2,2,-3,-2,-2,-7,-2,-7,-3,1,5,-2,-7,-56]},"battery_temp_c":{"ok":54,"n":86,"d":[-0.0,-0.0,-0.3,-1.5,0.1,1.3,-2.7,0.4,0.1,1.8,1.5,-0.1,-0.1,0.5,-0.6,0.8,0.0,-0.4,1.2,-0.3,-0.3,0.0,-2.4,0.1,0.9,0.8,-2.1,-0.0,-1.1,0.0,-0.6,-0.0,0.0,-0.5,0.6,0.0,2.1,1.1,-1.2,-0.3,-3.3,-0.4,0.8,0.0,-1.9,-1.3,-0.0,1.2,0.0,0.0,0.9,-0.0,-0.0,1.0,0.0,1.4,1.9,2.5,-1.3,1.3,0.0,-2.6,-0.9,-2.0,-0.2,-2.1,0.0,0.0,-1.0,0.4,0.1,0.6,-0.8,1.5,-0.6,-1.9,-1.0,0.8,-0.8,0.9,1.3,-2.1,-1.6,-1.2,1.4,1.3]},"wlc_charging":{"ok":86,"n":86,"d":[]},"wlc_status":{"ok":100,"n":103,"d":[]},"ram_total_mb":{"ok":102,"n":102,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"ram_available_mb":{"ok":102,"n":102,"d":[0,11,0,0,1,0,0,2,3,0,1,0,4,1,1,0,0,0,0,1,1,1,15,1,-1,-1,-1,0,-1,0,2,2,-2,1,-2,0,-2,3,0,0,-1,0,-2,2,1,0,-2,1,0,0,10,1,1,2,1,1,1,1,0,0,-4,1,1,1,2,2,2,-1,-1,3,1,1,3,1,-3,1,1,0,4,4,3,1,1,0,1,1,1,2,2,-2,3,0,2,3,1,1,2,2,-8,-2,-1,-17]},"ram_used_mb":{"ok":102,"n":102,"d":[-1,-12,0,0,-1,-1,-1,-3,-3,0,-1,-1,-4,-1,-1,0,-1,0,-1,-2,-2,-1,-15,-2,1,0,0,-1,0,0,-2,-2,1,-2,2,0,1,-4,1,0,1,0,2,-2,-2,-1,2,1,0,0,-11,-2,-2,-2,-1,1,-2,-2,-1,-1,3,-2,-2,-2,-2,-2,-2,1,1,-3,1,1,-4,-1,2,-2,-1,0,-5,-5,-3,-1,2,0,-1,-1,-1,-2,-2,1,-3,-1,-2,-3,-2,-2,-3,-2,7,2,1,17]},"storage_free_gb":{"ok":103,"n":103,"d":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}},"hist":{"battery_pct":{"ok":177,"n":177,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"charging":{"ok":177,"n":177,"d":[]},"battery_temp_c":{"ok":115,"n":177,"d":[-0.6,-0.6,-1.3,1.3,-0.0,-0.0,-0.5,-2.1,-0.0,-1.1,0.8,0.8,1.7,1.7,0.1,-2.4,0.0,-0.3,-0.3,1.3,1.2,0.0,0.0,0.0,-1.4,-0.3,0.8,0.8,-0.6,-0.6,-0.6,-0.6,-0.1,-0.1,1.5,1.8,1.8,0.1,0.1,-0.3,-2.7,-2.7,0.1,0.1,1.3,-0.9,-0.9,0.1,0.1,0.1,0.1,-1.5,-0.1,-0.1,-0.1,-0.1,-0.3,-0.3,-0.0,-0.0,-0.0,1.2,-0.1,-0.1,0.0,-0.9,1.0,-0.0,0.9,0.9,0.0,0.0,0.0,0.0,0.0,-1.7,1.2,1.2,-0.0,-2.3,-1.2,-1.2,-1.3,0.2,-1.9,-0.6,-3.0,0.8,0.8,-0.4,-3.3,-1.7,-0.3,-2.7,-1.2,-0.0,-0.0,2.1,2.1,-1.0,0.0,1.0,-0.5,-0.5,0.6,0.6,-0.5,-0.5,-0.1,-0.1,0.0,-2.2,-0.0,1.3,1.4,0.2,-1.2,-1.6,-1.6,-1.6,1.0,-0.8,-2.3,-0.8,-2.1,-2.1,-1.6,-0.2,-0.2,1.3,-1.8,0.9,0.9,-0.8,-0.8,0.8,0.8,-1.0,0.9,-1.9,-1.9,-0.4,1.5,-1.2,1.5,-0.8,-0.8,-0.8,0.6,-1.4,0.1,0.1,0.4,0.4,2.4,1.4,0.0,0.0,0.0,-1.6,-2.1,-0.6,-0.6,1.0,0.7,-1.0,-2.0,-0.2,-0.9,-0.9,0.3,0.0,-2.2,1.1,1.1,-1.3,-1.8]},"wlc_status":{"ok":114,"n":216,"d":[]},"ram_total_mb":{"ok":215,"n":215,"d":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"ram_used_mb":{"ok":215,"n":215,"d":[2,2,0,0,1,-2,-2,-2,-2,-2,-2,-1,-1,0,0,-4,-4,-1,-1,0,0,1,1,-2,-2,-1,-1,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,0,0,-1,-1,-1,-1,0,0,-1,-1,-4,-141,-1,-1,-1,-1,0,0,-3,-3,1,1,-3,-3,-3,-1,-1,-1,-1,-1,-1,1,1,1,1,0,0,0,-12,-1,-1,-1,-1,-2,-2,-2,-2,0,3,-1,-2,-2,1,1,1,1,-1,-1,-2,-2,-2,-2,1,-2,-2,-2,-11,-11,-11,0,0,1,2,2,-1,-1,-2,4,2,2,2,2,0,0,1,0,0,0,0,0,0,0,1,1,-4,-4,2,2,1,1,0,0,17,1,1,2,2,7,7,7,-25,-23,2,2,2,2,-3,-3,-3,-3,-3,-2,-2,-2,-3,-3,-3,-2,-2,-1,-1,-1,-1,-3,-3,0,1,1,-2,-2,-2,-2,-1,-1,-1,-2,-1,-1,0,0,-1,-1,-3,-3,-5,-5,-5,-5,0,0,-1,-1,-2,-2,2,2,-1,-1,-4,-4,1,1,-3,1,1,1,1,1]},"storage_free_gb":{"ok":216,"n":216,"d":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}},"age":[55.7,7.9,25.7,54.1,16.6,28.7,18.3,10.2,26.8,4.2,10.4,41.4,14.0,45.6,2.7,34.5,6.4,10.1,2.4,33.6,12.3,4.3,35.6,12.5,16.3,45.7,74.3,104.6,9.0,14.1,43.9,72.2,102.6,133.9,11.6,42.1,16.4,45.5,77.3,8.7,10.6,4.2,34.1,12.3,32.2,64.6,95.8,26.2,54.8,4.4,5.5,24.8,52.9,82.8,6.2,7.9,38.4,70.8,6.3,38.3,6.4,36.0,5.6,24.7,7.9,19.0,3.9,33.6,12.0,17.2,14.4,39.2,6.6,4.3,38.3,65.2,94.6,125.7,4.7,3.5,4.6,23.9,25.2,5.3,36.4,68.1,29.8,8.2,7.0,17.5,49.1,24.0,4.5,34.7,5.8,37.8,66.3,95.6,24.1,54.4,87.2,114.3,150.6,178.2,205.8,23.0,13.7,21.4,4.6,39.8,64.3,96.8,127.6,22.5,54.0,82.6,113.9,145.4,19.3,26.9,57.3,21.5,16.8,21.1,9.6,26.1,57.4,22.2,22.3,6.9,39.8,22.7,21.6,47.7,12.7,16.2,24.3,7.0,41.2,6.2,32.7,21.2,53.1,81.1,22.0,52.0,6.5,8.1,20.9,4.7,23.3,53.5,83.8,25.6,51.2,7.9,3.8,5.5,4.1,4.6,9.8,38.8,10.5,20.1,10.6,11.8,40.8,72.1,27.3,57.1,20.8,50.9,80.4,110.6],"adb_err":4,"api_err":2,"adb_n":177,"api_n":179,"rows":216}]};</script>
+<h2>Tolerances</h2><p class=mut>Change an allowance and the summary above and sections 1 and 3 below re-grade on the spot. The miss lists below each table stay at the default rules. The link keeps your values, so it can be shared.</p><div class='scroll tol'>
+<label><code>battery_pct</code><span>±<input type=number min=0 step=1 value=0 data-f=battery_pct data-default=0> %</span></label>
+<label><code>charger_voltage_mv</code><span>±<input type=number min=0 step=5 value=75 data-f=charger_voltage_mv data-default=75> mV</span></label>
+<label><code>battery_temp_c</code><span>±<input type=number min=0 step=0.1 value=1.0 data-f=battery_temp_c data-default=1.0> °C</span></label>
+<label><code>ram_total_mb</code><span>±<input type=number min=0 step=1 value=1 data-f=ram_total_mb data-default=1> MB</span></label>
+<label><code>ram_available_mb</code><span>±<input type=number min=0 step=0.5 value=5 data-f=ram_available_mb data-default=5> % of total</span></label>
+<label><code>ram_used_mb</code><span>±<input type=number min=0 step=0.5 value=5 data-f=ram_used_mb data-default=5> % of total</span></label>
+<label><code>storage_free_gb</code><span>±<input type=number min=0 step=0.1 value=0.1 data-f=storage_free_gb data-default=0.1> GB</span></label>
+<button type=button class='cc-btn sm' id=tolreset>Reset to defaults</button></div>
+<h2 class=details-h>Details</h2><p class=mut>Per device and per field. The summary above is built from these.</p>
+<h2>Devices</h2><div class=scroll><table><tr><th>Serial</th><th>MDM</th><th>adb target</th><th>adb samples</th><th>adb errors</th><th>API reads</th><th>API errors</th><th>Distinct frames</th><th>Frame age p50 / p95 / max (charging)</th><th>(on battery)</th></tr>
+<tr><td><code>2dfcf2ba</code></td><td>mdm.dev.aioapp.com</td><td><code>10.32.0.127:5555</code></td><td>114</td><td>67</td><td>180</td><td>1</td><td>118</td><td>—</td><td>15s / 55s / 101s</td></tr>
+<tr><td><code>AT070AA2600030</code></td><td>mdm.dev.aioapp.com</td><td><code>10.32.2.98:5555</code></td><td>177</td><td>4</td><td>179</td><td>2</td><td>104</td><td>—</td><td>24s / 111s / 3.4m</td></tr>
+</table></div>
+<h2>1 · Accuracy at frame time</h2><p class=mut>Each distinct frame, placed on the adb timeline by its <code>uptime_seconds</code>, checked against the adb snapshots within the field's cache window. Anything under 100% here is a real mismatch. Under each rate: the observed deviation (MDM − adb, against the best-matching snapshot in the window): its range, its median size and its largest size, to compare with the Allowed column.</p><div class=scroll><table><tr><th>Field</th><th>Allowed</th><th>2dfcf2ba</th><th>AT070AA2600030</th></tr>
+<tr><td><code>battery_pct</code></td><td class=mut><span class=allow data-f=battery_pct>exact (after the firmware&#x27;s 90-98 → 90-100 remap)</span></td><td data-f=battery_pct data-tot=3630 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(61/61)</span><br><span class="mut dev">observed ±0 % (all exact)</span></td><td data-f=battery_pct data-tot=3627 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(86/86)</span><br><span class="mut dev">observed ±0 % (all exact)</span></td></tr>
+<tr><td><code>charging</code></td><td class=mut>exact</td><td class="ok">100.0% <span class="mut">(61/61)</span></td><td class="ok">100.0% <span class="mut">(86/86)</span></td></tr>
+<tr><td><code>charger_type</code></td><td class=mut>exact</td><td class="ok">100.0% <span class="mut">(61/61)</span></td><td class="ok">100.0% <span class="mut">(86/86)</span></td></tr>
+<tr><td><code>battery_present</code></td><td class=mut>exact</td><td class="ok">100.0% <span class="mut">(61/61)</span></td><td class="ok">100.0% <span class="mut">(86/86)</span></td></tr>
+<tr><td><code>charger_voltage_mv</code></td><td class=mut><span class=allow data-f=charger_voltage_mv>±75 mV (50 mV deadband + 50 mV grid)</span></td><td data-f=charger_voltage_mv data-tot=3630 data-d='[-33,-27,-33,-31,-32,-32,-27,-32,-32,-31,-24,-29,-27,-25,-30,-30,-24,-28,-27,-28,-28,-25,-24,-27,-27,-17,-18,-15,-25,-12,-25,-20,-17,-18,-15,-25,-23,-22,-22,-24,-22,-23,-10,-21,-15,-15,-22,-16,-21,-14,-14,-21,-11,-20,-20,-8,-8,-19,8,7,25]' class="ok">100.0% <span class="mut">(61/61)</span><br><span class="mut dev">observed -33…+25 mV · median ±23 mV · max ±33 mV</span></td><td data-f=charger_voltage_mv data-tot=3627 data-d='[-18,-18,-22,-18,-18,-14,-22,-21,-20,-14,-21,-7,-7,-17,-17,-21,-13,-7,-19,-18,-14,-19,-19,-18,-18,-18,-13,-8,-8,-18,-18,-12,-17,-10,-10,-10,-12,-7,-7,-17,-13,-13,-12,-12,-12,-6,-16,-13,-15,-8,-9,-10,0,6,-12,-12,-12,-11,-12,-7,-1,-1,-6,-9,-1,-11,-4,-10,-11,2,-10,-10,2,2,-3,-2,-2,-7,-2,-7,-3,1,5,-2,-7,-56]' class="ok">100.0% <span class="mut">(86/86)</span><br><span class="mut dev">observed -56…+6 mV · median ±11.5 mV · max ±56 mV</span></td></tr>
+<tr><td><code>battery_temp_c</code></td><td class=mut><span class=allow data-f=battery_temp_c>±1.0 °C (deadband)</span></td><td data-f=battery_temp_c data-tot=3630 data-d='[-1.5,0.0,0.0,2.7,-0.2,1.2,-1.3,-0.4,-2.6,-0.4,-1.1,-0.4,-0.4,-0.9,-1.0,0.4,-2.3,0.3,-2.6,-0.6,-1.4,-1.5,-1.1,-1.2,0.0,-0.7,0.5,0.7,0.2,0.1,0.2,-1.9,-2.9,-0.0,0.5,-0.2,-1.1,0.0,0.0,0.0,0.2,-0.0,0.0,-0.7,1.6,-0.0,-0.0,0.8,-0.0,0.9,-0.1,-0.0,0.7,0.4,-2.1,-1.3,0.0,3.1,-1.7,1.0,1.1]' class="bad">63.9% <span class="mut">(39/61)</span><br><span class="mut dev">observed -2.9…+3.1 °C · median ±0.6 °C · max ±3.1 °C</span></td><td data-f=battery_temp_c data-tot=3627 data-d='[-0.0,-0.0,-0.3,-1.5,0.1,1.3,-2.7,0.4,0.1,1.8,1.5,-0.1,-0.1,0.5,-0.6,0.8,0.0,-0.4,1.2,-0.3,-0.3,0.0,-2.4,0.1,0.9,0.8,-2.1,-0.0,-1.1,0.0,-0.6,-0.0,0.0,-0.5,0.6,0.0,2.1,1.1,-1.2,-0.3,-3.3,-0.4,0.8,0.0,-1.9,-1.3,-0.0,1.2,0.0,0.0,0.9,-0.0,-0.0,1.0,0.0,1.4,1.9,2.5,-1.3,1.3,0.0,-2.6,-0.9,-2.0,-0.2,-2.1,0.0,0.0,-1.0,0.4,0.1,0.6,-0.8,1.5,-0.6,-1.9,-1.0,0.8,-0.8,0.9,1.3,-2.1,-1.6,-1.2,1.4,1.3]' class="bad">62.8% <span class="mut">(54/86)</span><br><span class="mut dev">observed -3.3…+2.5 °C · median ±0.8 °C · max ±3.3 °C</span></td></tr>
+<tr><td><code>wlc_charging</code></td><td class=mut>exact</td><td class="ok">100.0% <span class="mut">(61/61)</span></td><td class="ok">100.0% <span class="mut">(86/86)</span></td></tr>
+<tr><td><code>wlc_status</code></td><td class=mut>exact (1 s watcher, 120 s cache)</td><td class="warn">98.7% <span class="mut">(78/79)</span></td><td class="warn">97.1% <span class="mut">(100/103)</span></td></tr>
+<tr><td><code>ram_total_mb</code></td><td class=mut><span class=allow data-f=ram_total_mb>±1 MiB</span></td><td data-f=ram_total_mb data-tot=3630 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(77/77)</span><br><span class="mut dev">observed ±0 MB (all exact)</span></td><td data-f=ram_total_mb data-tot=3627 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(102/102)</span><br><span class="mut dev">observed ±0 MB (all exact)</span></td></tr>
+<tr><td><code>ram_available_mb</code></td><td class=mut><span class=allow data-f=ram_available_mb>±5 % of total</span></td><td data-f=ram_available_mb data-tot=3630 data-d='[2,4,-1,0,-1,3,3,-4,1,2,1,2,0,1,-1,1,0,0,-3,1,0,0,0,1,4,0,0,0,2,1,1,1,-1,-1,-1,0,0,-2,1,1,0,-1,-1,-1,1,0,3,1,1,1,-1,-1,-1,2,2,-2,-1,-1,0,1,2,0,-1,3,3,0,-15,21,0,1,3,26,2,1,1,-61,-1]' class="ok">100.0% <span class="mut">(77/77)</span><br><span class="mut dev">observed -61…+26 MB · median ±1 MB · max ±61 MB (1.7% of total)</span></td><td data-f=ram_available_mb data-tot=3627 data-d='[0,11,0,0,1,0,0,2,3,0,1,0,4,1,1,0,0,0,0,1,1,1,15,1,-1,-1,-1,0,-1,0,2,2,-2,1,-2,0,-2,3,0,0,-1,0,-2,2,1,0,-2,1,0,0,10,1,1,2,1,1,1,1,0,0,-4,1,1,1,2,2,2,-1,-1,3,1,1,3,1,-3,1,1,0,4,4,3,1,1,0,1,1,1,2,2,-2,3,0,2,3,1,1,2,2,-8,-2,-1,-17]' class="ok">100.0% <span class="mut">(102/102)</span><br><span class="mut dev">observed -17…+15 MB · median ±1 MB · max ±17 MB (0.5% of total)</span></td></tr>
+<tr><td><code>ram_used_mb</code></td><td class=mut><span class=allow data-f=ram_used_mb>±5 % of total</span></td><td data-f=ram_used_mb data-tot=3630 data-d='[-3,-4,0,-1,1,-3,-3,4,-2,-2,-1,-2,0,-1,0,1,-1,-1,2,2,-1,-1,-1,-2,-4,-1,0,0,-3,-1,-1,-2,0,0,0,-1,-1,1,-2,-2,0,1,0,0,-1,-1,-3,-2,-2,-1,1,1,1,-2,-2,1,0,0,0,-2,-3,0,0,-4,-4,0,15,-21,0,-1,-3,-26,-2,-1,-1,61,0]' class="ok">100.0% <span class="mut">(77/77)</span><br><span class="mut dev">observed -26…+61 MB · median ±1 MB · max ±61 MB (1.7% of total)</span></td><td data-f=ram_used_mb data-tot=3627 data-d='[-1,-12,0,0,-1,-1,-1,-3,-3,0,-1,-1,-4,-1,-1,0,-1,0,-1,-2,-2,-1,-15,-2,1,0,0,-1,0,0,-2,-2,1,-2,2,0,1,-4,1,0,1,0,2,-2,-2,-1,2,1,0,0,-11,-2,-2,-2,-1,1,-2,-2,-1,-1,3,-2,-2,-2,-2,-2,-2,1,1,-3,1,1,-4,-1,2,-2,-1,0,-5,-5,-3,-1,2,0,-1,-1,-1,-2,-2,1,-3,-1,-2,-3,-2,-2,-3,-2,7,2,1,17]' class="ok">100.0% <span class="mut">(102/102)</span><br><span class="mut dev">observed -15…+17 MB · median ±1 MB · max ±17 MB (0.5% of total)</span></td></tr>
+<tr><td><code>storage_free_gb</code></td><td class=mut><span class=allow data-f=storage_free_gb>±0.1 GiB</span></td><td data-f=storage_free_gb data-tot=3630 data-d='[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]' class="ok">100.0% <span class="mut">(79/79)</span><br><span class="mut dev">observed ±0 GB (all exact)</span></td><td data-f=storage_free_gb data-tot=3627 data-d='[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]' class="ok">100.0% <span class="mut">(103/103)</span><br><span class="mut dev">observed ±0 GB (all exact)</span></td></tr>
+</table></div>
+<div class=card><b><code>2dfcf2ba</code> misses</b> (first few per field)<div class=scroll><table><tr><th>Time</th><th>Field</th><th>MDM</th><th>adb (nearest)</th></tr>
+<tr><td>13:02:44</td><td><code>battery_temp_c</code></td><td>33.0°C</td><td>34.5°C</td></tr>
+<tr><td>13:07:29</td><td><code>battery_temp_c</code></td><td>34.4°C</td><td>31.7°C</td></tr>
+<tr><td>13:08:10</td><td><code>battery_temp_c</code></td><td>33.8°C</td><td>32.6°C</td></tr>
+<tr><td>13:09:41</td><td><code>battery_temp_c</code></td><td>32.0°C</td><td>33.3°C</td></tr>
+<tr><td>13:11:26</td><td><code>battery_temp_c</code></td><td>30.9°C</td><td>33.5°C</td></tr>
+<tr><td>13:13:33</td><td><code>battery_temp_c</code></td><td>32.5°C</td><td>33.6°C</td></tr>
+<tr><td>13:16:12</td><td><code>battery_temp_c</code></td><td>32.1°C</td><td>33.1°C</td></tr>
+<tr><td>13:17:26</td><td><code>battery_temp_c</code></td><td>31.4°C</td><td>33.7°C</td></tr>
+<tr><td>13:35:32</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+</table></div></div>
+<div class=card><b><code>AT070AA2600030</code> misses</b> (first few per field)<div class=scroll><table><tr><th>Time</th><th>Field</th><th>MDM</th><th>adb (nearest)</th></tr>
+<tr><td>13:05:57</td><td><code>battery_temp_c</code></td><td>32.6°C</td><td>34.1°C</td></tr>
+<tr><td>13:07:02</td><td><code>battery_temp_c</code></td><td>34.5°C</td><td>33.2°C</td></tr>
+<tr><td>13:07:27</td><td><code>battery_temp_c</code></td><td>31.6°C</td><td>34.3°C</td></tr>
+<tr><td>13:10:30</td><td><code>battery_temp_c</code></td><td>33.9°C</td><td>32.1°C</td></tr>
+<tr><td>13:10:56</td><td><code>battery_temp_c</code></td><td>33.9°C</td><td>32.4°C</td></tr>
+<tr><td>13:19:26</td><td><code>battery_temp_c</code></td><td>33.2°C</td><td>32.0°C</td></tr>
+<tr><td>13:23:06</td><td><code>battery_temp_c</code></td><td>31.0°C</td><td>33.4°C</td></tr>
+<tr><td>13:28:36</td><td><code>battery_temp_c</code></td><td>31.5°C</td><td>33.6°C</td></tr>
+<tr><td>13:11:34</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:23:03</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:28:36</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+</table></div></div>
+<h2>2 · Freshness: how long the dashboard disagreed with the device</h2><p class=mut>% of observed time the server's current value was outside tolerance of the device's current value, and the longest such stretch. Expected on battery: the client stretches its poll to ≥5 min while the WebSocket is healthy.</p><div class=scroll><table><tr><th>Field</th><th>2dfcf2ba</th><th>AT070AA2600030</th></tr>
+<tr><td><code>battery_pct</code></td><td class="ok">0.0%</td><td class="warn">0.6% · longest 0s at 14:30:36 (battery: MDM 50% vs 49%)</td></tr>
+<tr><td><code>charging</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>charger_type</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>battery_present</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>charger_voltage_mv</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>battery_temp_c</code></td><td class="warn">36.2% · longest 2.0m at 13:21:06 (battery: MDM 31.2°C vs 33.3°C)</td><td class="warn">40.1% · longest 3.0m at 13:36:37 (battery: MDM 32.8°C vs 33.9°C)</td></tr>
+<tr><td><code>wlc_charging</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>wlc_status</code></td><td class="warn">0.9% · longest 0s at 13:35:37 (battery: MDM 1 vs 2)</td><td class="warn">1.9% · longest 0s at 13:11:37 (battery: MDM 0 vs 2)</td></tr>
+<tr><td><code>ram_total_mb</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+<tr><td><code>ram_available_mb</code></td><td class="ok">0.0%</td><td class="warn">1.8% · longest 60s at 14:31:36 (battery: MDM 1645 MB vs 1391 MB)</td></tr>
+<tr><td><code>ram_used_mb</code></td><td class="ok">0.0%</td><td class="warn">1.8% · longest 60s at 14:31:36 (battery: MDM 1982 MB vs 2236 MB)</td></tr>
+<tr><td><code>storage_free_gb</code></td><td class="ok">0.0%</td><td class="ok">0.0%</td></tr>
+</table></div>
+<h2>3 · History rows (what the charts and CSV read)</h2><p class=mut>The stored samples returned by <code>GET /api/v1/devices/{serial}</code> inside the collection window, graded the same way. Row gaps below.</p><div class=scroll><table><tr><th>Field</th><th>Allowed</th><th>2dfcf2ba</th><th>AT070AA2600030</th></tr>
+<tr><td><code>battery_pct</code></td><td class=mut><span class=allow data-f=battery_pct>exact (after the firmware&#x27;s 90-98 → 90-100 remap)</span></td><td data-f=battery_pct data-tot=3630 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(97/97)</span><br><span class="mut dev">observed ±0 % (all exact)</span></td><td data-f=battery_pct data-tot=3627 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(177/177)</span><br><span class="mut dev">observed ±0 % (all exact)</span></td></tr>
+<tr><td><code>charging</code></td><td class=mut>exact</td><td class="ok">100.0% <span class="mut">(97/97)</span></td><td class="ok">100.0% <span class="mut">(177/177)</span></td></tr>
+<tr><td><code>charger_type</code></td><td class=mut>exact</td><td class="mut">—</td><td class="mut">—</td></tr>
+<tr><td><code>battery_present</code></td><td class=mut>exact</td><td class="mut">—</td><td class="mut">—</td></tr>
+<tr><td><code>charger_voltage_mv</code></td><td class=mut><span class=allow data-f=charger_voltage_mv>±75 mV (50 mV deadband + 50 mV grid)</span></td><td class="mut">—</td><td class="mut">—</td></tr>
+<tr><td><code>battery_temp_c</code></td><td class=mut><span class=allow data-f=battery_temp_c>±1.0 °C (deadband)</span></td><td data-f=battery_temp_c data-tot=3630 data-d='[-1.1,-2.1,0.5,-0.0,-0.6,-1.9,0.2,0.2,-2.0,-2.0,1.0,-1.3,0.2,-0.6,1.3,1.3,1.3,1.3,0.5,1.1,-0.8,0.0,-2.4,0.3,0.3,0.3,0.3,-1.0,-1.4,0.6,-0.6,-2.6,0.3,-0.9,-1.3,-1.3,0.4,-1.0,-1.0,-0.9,-0.9,-1.1,-0.1,-0.4,-2.4,-2.4,-1.3,-1.3,2.7,2.7,-2.0,-2.0,0.0,1.8,-1.5,-0.3,1.4,-0.5,-0.8,-0.8,0.3,-1.8,-1.8,-1.0,-2.1,0.7,-1.0,-1.0,-0.1,0.9,-0.0,-1.1,0.8,-0.0,-0.7,-0.7,-0.7,0.5,0.0,-2.6,2.7,1.5,1.0,1.0,1.5,-1.4,0.2,0.0,0.0,0.0,1.2,-0.1,1.3,1.0,2.6,-3.6,1.0]' class="bad">54.6% <span class="mut">(53/97)</span><br><span class="mut dev">observed -3.6…+2.7 °C · median ±1 °C · max ±3.6 °C</span></td><td data-f=battery_temp_c data-tot=3627 data-d='[-0.6,-0.6,-1.3,1.3,-0.0,-0.0,-0.5,-2.1,-0.0,-1.1,0.8,0.8,1.7,1.7,0.1,-2.4,0.0,-0.3,-0.3,1.3,1.2,0.0,0.0,0.0,-1.4,-0.3,0.8,0.8,-0.6,-0.6,-0.6,-0.6,-0.1,-0.1,1.5,1.8,1.8,0.1,0.1,-0.3,-2.7,-2.7,0.1,0.1,1.3,-0.9,-0.9,0.1,0.1,0.1,0.1,-1.5,-0.1,-0.1,-0.1,-0.1,-0.3,-0.3,-0.0,-0.0,-0.0,1.2,-0.1,-0.1,0.0,-0.9,1.0,-0.0,0.9,0.9,0.0,0.0,0.0,0.0,0.0,-1.7,1.2,1.2,-0.0,-2.3,-1.2,-1.2,-1.3,0.2,-1.9,-0.6,-3.0,0.8,0.8,-0.4,-3.3,-1.7,-0.3,-2.7,-1.2,-0.0,-0.0,2.1,2.1,-1.0,0.0,1.0,-0.5,-0.5,0.6,0.6,-0.5,-0.5,-0.1,-0.1,0.0,-2.2,-0.0,1.3,1.4,0.2,-1.2,-1.6,-1.6,-1.6,1.0,-0.8,-2.3,-0.8,-2.1,-2.1,-1.6,-0.2,-0.2,1.3,-1.8,0.9,0.9,-0.8,-0.8,0.8,0.8,-1.0,0.9,-1.9,-1.9,-0.4,1.5,-1.2,1.5,-0.8,-0.8,-0.8,0.6,-1.4,0.1,0.1,0.4,0.4,2.4,1.4,0.0,0.0,0.0,-1.6,-2.1,-0.6,-0.6,1.0,0.7,-1.0,-2.0,-0.2,-0.9,-0.9,0.3,0.0,-2.2,1.1,1.1,-1.3,-1.8]' class="bad">65.0% <span class="mut">(115/177)</span><br><span class="mut dev">observed -3.3…+2.4 °C · median ±0.8 °C · max ±3.3 °C</span></td></tr>
+<tr><td><code>wlc_charging</code></td><td class=mut>exact</td><td class="mut">—</td><td class="mut">—</td></tr>
+<tr><td><code>wlc_status</code></td><td class=mut>exact (1 s watcher, 120 s cache)</td><td class="bad">55.1% <span class="mut">(76/138)</span></td><td class="bad">52.8% <span class="mut">(114/216)</span></td></tr>
+<tr><td><code>ram_total_mb</code></td><td class=mut><span class=allow data-f=ram_total_mb>±1 MiB</span></td><td data-f=ram_total_mb data-tot=3630 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(135/135)</span><br><span class="mut dev">observed ±0 MB (all exact)</span></td><td data-f=ram_total_mb data-tot=3627 data-d='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]' class="ok">100.0% <span class="mut">(215/215)</span><br><span class="mut dev">observed ±0 MB (all exact)</span></td></tr>
+<tr><td><code>ram_available_mb</code></td><td class=mut><span class=allow data-f=ram_available_mb>±5 % of total</span></td><td class="mut">—</td><td class="mut">—</td></tr>
+<tr><td><code>ram_used_mb</code></td><td class=mut><span class=allow data-f=ram_used_mb>±5 % of total</span></td><td data-f=ram_used_mb data-tot=3630 data-d='[-2,-2,1,1,-1,-1,0,0,0,0,0,-2,-2,-2,-1,-3,-3,-3,-3,-3,0,0,0,0,0,-1,-1,-4,-1,-1,-1,-2,-2,1,1,-1,-1,-1,2,2,2,2,2,-1,-1,-1,1,1,0,0,-1,-1,-1,-1,-2,-2,-1,-2,-2,4,4,-3,-4,1,1,1,1,0,0,0,0,-4,-4,-3,-3,3,-4,-4,-4,-18,-18,0,0,1,1,-2,-2,-2,-2,0,0,0,-2,-2,1,1,1,1,-2,-2,-2,-2,-2,-2,-3,-3,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-26,-1,-3,-1,-1,-1,0,0,0,0]' class="ok">100.0% <span class="mut">(135/135)</span><br><span class="mut dev">observed -26…+4 MB · median ±1 MB · max ±26 MB (0.7% of total)</span></td><td data-f=ram_used_mb data-tot=3627 data-d='[2,2,0,0,1,-2,-2,-2,-2,-2,-2,-1,-1,0,0,-4,-4,-1,-1,0,0,1,1,-2,-2,-1,-1,-2,-2,-2,-2,-2,-2,-1,-1,-1,-1,0,0,-1,-1,-1,-1,0,0,-1,-1,-4,-141,-1,-1,-1,-1,0,0,-3,-3,1,1,-3,-3,-3,-1,-1,-1,-1,-1,-1,1,1,1,1,0,0,0,-12,-1,-1,-1,-1,-2,-2,-2,-2,0,3,-1,-2,-2,1,1,1,1,-1,-1,-2,-2,-2,-2,1,-2,-2,-2,-11,-11,-11,0,0,1,2,2,-1,-1,-2,4,2,2,2,2,0,0,1,0,0,0,0,0,0,0,1,1,-4,-4,2,2,1,1,0,0,17,1,1,2,2,7,7,7,-25,-23,2,2,2,2,-3,-3,-3,-3,-3,-2,-2,-2,-3,-3,-3,-2,-2,-1,-1,-1,-1,-3,-3,0,1,1,-2,-2,-2,-2,-1,-1,-1,-2,-1,-1,0,0,-1,-1,-3,-3,-5,-5,-5,-5,0,0,-1,-1,-2,-2,2,2,-1,-1,-4,-4,1,1,-3,1,1,1,1,1]' class="ok">100.0% <span class="mut">(215/215)</span><br><span class="mut dev">observed -141…+17 MB · median ±1 MB · max ±141 MB (3.9% of total)</span></td></tr>
+<tr><td><code>storage_free_gb</code></td><td class=mut><span class=allow data-f=storage_free_gb>±0.1 GiB</span></td><td data-f=storage_free_gb data-tot=3630 data-d='[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]' class="ok">100.0% <span class="mut">(138/138)</span><br><span class="mut dev">observed ±0 GB (all exact)</span></td><td data-f=storage_free_gb data-tot=3627 data-d='[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]' class="ok">100.0% <span class="mut">(216/216)</span><br><span class="mut dev">observed ±0 GB (all exact)</span></td></tr>
+</table></div>
+<div class=card><b><code>2dfcf2ba</code> misses</b> (first few per field)<div class=scroll><table><tr><th>Time</th><th>Field</th><th>MDM</th><th>adb (nearest)</th></tr>
+<tr><td>13:32:32</td><td><code>battery_temp_c</code></td><td>32.9°C</td><td>34.0°C</td></tr>
+<tr><td>13:32:30</td><td><code>battery_temp_c</code></td><td>31.9°C</td><td>34.0°C</td></tr>
+<tr><td>13:29:17</td><td><code>battery_temp_c</code></td><td>31.9°C</td><td>33.8°C</td></tr>
+<tr><td>13:28:17</td><td><code>battery_temp_c</code></td><td>31.9°C</td><td>33.9°C</td></tr>
+<tr><td>13:28:13</td><td><code>battery_temp_c</code></td><td>31.9°C</td><td>33.9°C</td></tr>
+<tr><td>13:27:43</td><td><code>battery_temp_c</code></td><td>31.7°C</td><td>33.0°C</td></tr>
+<tr><td>13:26:04</td><td><code>battery_temp_c</code></td><td>33.4°C</td><td>32.1°C</td></tr>
+<tr><td>13:26:04</td><td><code>battery_temp_c</code></td><td>33.4°C</td><td>32.1°C</td></tr>
+<tr><td>13:32:30</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:31:27</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:30:52</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:29:17</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:28:34</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:28:13</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:27:43</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:26:04</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+</table></div></div>
+<div class=card><b><code>AT070AA2600030</code> misses</b> (first few per field)<div class=scroll><table><tr><th>Time</th><th>Field</th><th>MDM</th><th>adb (nearest)</th></tr>
+<tr><td>13:30:46</td><td><code>battery_temp_c</code></td><td>30.7°C</td><td>32.0°C</td></tr>
+<tr><td>13:30:42</td><td><code>battery_temp_c</code></td><td>33.3°C</td><td>32.0°C</td></tr>
+<tr><td>13:28:39</td><td><code>battery_temp_c</code></td><td>31.5°C</td><td>33.6°C</td></tr>
+<tr><td>13:28:31</td><td><code>battery_temp_c</code></td><td>32.5°C</td><td>33.6°C</td></tr>
+<tr><td>13:26:04</td><td><code>battery_temp_c</code></td><td>32.6°C</td><td>30.9°C</td></tr>
+<tr><td>13:26:03</td><td><code>battery_temp_c</code></td><td>32.6°C</td><td>30.9°C</td></tr>
+<tr><td>13:23:07</td><td><code>battery_temp_c</code></td><td>31.0°C</td><td>33.4°C</td></tr>
+<tr><td>13:22:01</td><td><code>battery_temp_c</code></td><td>33.2°C</td><td>31.9°C</td></tr>
+<tr><td>13:31:31</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:30:42</td><td><code>wlc_status</code></td><td>0</td><td>2</td></tr>
+<tr><td>13:29:03</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:28:53</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:28:39</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:28:31</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:27:13</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+<tr><td>13:26:03</td><td><code>wlc_status</code></td><td>1</td><td>2</td></tr>
+</table></div></div>
+<div class=scroll><table><tr><th>Serial</th><th>Rows</th><th>Gap p50</th><th>Gap p95</th><th>Gap max</th></tr>
+<tr><td><code>2dfcf2ba</code></td><td>178</td><td>11s</td><td>95s</td><td>2.1m</td></tr>
+<tr><td><code>AT070AA2600030</code></td><td>216</td><td>6s</td><td>88s</td><td>3.6m</td></tr>
+</table></div>
+<h2>Known client behaviour (not bugs in this test)</h2><ul><li><code>battery_pct</code> is the level the firmware broadcasts: <code>BatteryService</code> remaps 90–98% to 90–100% for display, so <code>dumpsys battery</code> (raw) can read 99 while the status bar and the MDM say 100. adb values are remapped the same way before comparing.</li><li><code>charger_voltage_mv</code> is <code>EXTRA_VOLTAGE</code> — the battery voltage, not the charger's.</li><li><code>battery_temp_c</code> only moves once the reading has moved ≥1 °C from the last reported value; RAM is cached 30 s, storage 120 s.</li><li>On battery with a healthy WebSocket the client polls every ≥5 min; charging edges and WLC changes are pushed immediately.</li><li>The server stores no device timestamp; this report times frames by <code>uptime_seconds</code> vs <code>/proc/uptime</code>.</li></ul>
+</main>
+<script>
+window.renderGlance = function(){
+  var R = window.REPORT_DATA, el = document.getElementById('glance');
+  if (!R || !el) return;
+  function tol(f){ var i = document.querySelector('.tol input[data-f="'+f+'"]'); return i ? parseFloat(i.value) : NaN; }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function lim(F, dev){ var t = tol(F.f); return /% of total/.test(F.unit) ? t / 100 * dev.tot : t; }
+  function grade(F, dev, key){                       // {ok, n, diffs} for one device
+    var a = dev[key][F.f]; if (!a) return null;
+    if (F.num && a.d.length === a.n && !isNaN(tol(F.f))) {
+      var L = lim(F, dev);
+      return {ok: a.d.filter(function(x){ return Math.abs(x) <= L + 1e-6; }).length, n: a.n, d: a.d};
+    }
+    return {ok: a.ok, n: a.n, d: a.d || []};
+  }
+  function med(xs){ if (!xs.length) return null; xs = xs.slice().sort(function(a,b){return a-b}); return xs[Math.floor(xs.length/2)]; }
+  function r2(x){ return Math.round(x * 100) / 100; }
+  function unitOf(F){ return F.unit === '% of total' ? ' MB' : (F.unit ? (F.unit === '%' ? '%' : ' ' + F.unit) : ''); }
+  function mins(s){ return s == null ? '—' : s < 90 ? Math.round(s) + ' s' : (s / 60).toFixed(1) + ' min'; }
+  function status(p){ return p == null ? 'none' : p >= 99.95 ? 'pass' : p >= 95 ? 'watch' : 'fail'; }
+  var LABEL = {pass: 'Pass', watch: 'Watch', fail: 'Fail', none: 'No data'};
+
+  var rows = [], bad = [], watch = [], passN = 0;
+  R.fields.forEach(function(F){
+    var ok = 0, n = 0, hok = 0, hn = 0, diffs = [], failing = [];
+    R.devices.forEach(function(dev){
+      var g = grade(F, dev, 'acc'), h = grade(F, dev, 'hist');
+      if (g) { ok += g.ok; n += g.n; diffs = diffs.concat(g.d); if (g.ok < g.n) failing.push(dev.serial); }
+      if (h) { hok += h.ok; hn += h.n; }
+    });
+    var p = n ? 100 * ok / n : null, hp = hn ? 100 * hok / hn : null;
+    var st = status(p == null ? hp : Math.min(p, hp == null ? 100 : hp));
+    var abs = diffs.map(Math.abs), typ = med(abs), worst = abs.length ? Math.max.apply(null, abs) : null;
+    var row = {F: F, p: p, ok: ok, n: n, hp: hp, hok: hok, hn: hn, st: st, typ: typ, worst: worst, failing: failing};
+    rows.push(row);
+    if (st === 'fail') bad.push(row); else if (st === 'watch') watch.push(row); else if (st === 'pass') passN++;
+  });
+  var graded = rows.filter(function(r){ return r.st !== 'none'; }).length;
+
+  // pooled numbers
+  var ages = [], adbE = 0, apiE = 0, adbN = 0, apiN = 0, srv = {};
+  R.devices.forEach(function(d){ ages = ages.concat(d.age); adbE += d.adb_err; apiE += d.api_err; adbN += d.adb_n; apiN += d.api_n;
+    srv[d.server] = (srv[d.server] || 0) + 1; });
+  ages.sort(function(a,b){return a-b});
+  var a50 = ages.length ? ages[Math.floor(ages.length/2)] : null, a95 = ages.length ? ages[Math.max(0, Math.ceil(ages.length*.95)-1)] : null;
+  var tOk = 0, tN = 0; rows.forEach(function(r){ tOk += r.ok; tN += r.n; });
+
+  function why(r){
+    var s = esc(r.F.name) + ' — within ' + esc(r.F.num ? '±' + tol(r.F.f) + ' ' + r.F.unit : r.F.rule) + ' only '
+      + (r.p == null ? '—' : r.p.toFixed(0) + '%') + ' of the time live'
+      + (r.hp == null ? '' : ', ' + r.hp.toFixed(0) + '% in chart history');
+    if (r.typ != null && r.worst) s += ' (typically ' + r2(r.typ) + unitOf(r.F) + ' off, worst ' + r2(r.worst) + unitOf(r.F) + ')';
+    return s + ', on ' + r.failing.length + ' of ' + R.devices.length + ' devices';
+  }
+  var tone = bad.length ? 'fail' : watch.length ? 'watch' : 'pass';
+  var head = bad.length || watch.length
+    ? passN + ' of ' + graded + ' fields match on every device. ' + (bad.length + watch.length) + ' need' + (bad.length + watch.length === 1 ? 's' : '') + ' attention.'
+    : 'All ' + graded + ' fields match adb on every device.';
+  var lines = bad.concat(watch).map(function(r){ return '<li><span class="gl-chip ' + r.st + '">' + LABEL[r.st] + '</span> ' + why(r) + '</li>'; }).join('');
+
+  var h = '<h2>At a glance · all devices</h2>'
+    + '<div class="gl-verdict ' + tone + '"><div class="gl-big">' + esc(head) + '</div>'
+    + (lines ? '<ul class=gl-issues>' + lines + '</ul>' : '') + '</div>'
+    + '<div class=gl-kpis>'
+    + kpi('Devices', R.devices.length, Object.keys(srv).map(function(k){ return srv[k] + ' on ' + k; }).join(' · '))
+    + kpi('Accurate readings', tN ? (100 * tOk / tN).toFixed(1) + '%' : '—', tOk + ' of ' + tN + ' checks, all fields')
+    + kpi('Dashboard behind device', mins(a50), '95% of the time under ' + mins(a95))
+    + kpi('Test', R.span_min + ' min', 'sampled every ' + (R.interval || '?') + ' s')
+    + kpi('Read errors', adbE + apiE, adbE + ' adb of ' + adbN + ' · ' + apiE + ' API of ' + apiN)
+    + '</div>'
+    + '<div class=scroll><table class=gl-table><tr><th>Field</th><th>Allowed</th><th>Result</th><th>Live value</th>'
+    + '<th>Chart history</th><th>Typical error</th><th>Worst error</th><th>Devices off</th></tr>'
+    + rows.map(function(r){
+        var allowed = r.F.num ? '±' + tol(r.F.f) + ' ' + r.F.unit : r.F.rule;
+        return '<tr class="gl-' + r.st + '"><td><b>' + esc(r.F.name) + '</b><code class="mut gl-f">' + r.F.f + '</code></td>'
+          + '<td class=mut>' + esc(allowed) + '</td>'
+          + '<td><span class="gl-chip ' + r.st + '">' + LABEL[r.st] + '</span></td>'
+          + '<td>' + (r.p == null ? '—' : r.p.toFixed(1) + '% <span class=mut>(' + r.ok + '/' + r.n + ')</span>') + '</td>'
+          + '<td>' + (r.hp == null ? '—' : r.hp.toFixed(1) + '% <span class=mut>(' + r.hok + '/' + r.hn + ')</span>') + '</td>'
+          + '<td>' + (r.F.num && r.typ != null ? '±' + r2(r.typ) + unitOf(r.F) : '—') + '</td>'
+          + '<td>' + (r.F.num && r.worst != null ? '±' + r2(r.worst) + unitOf(r.F) : '—') + '</td>'
+          + '<td>' + (r.failing.length ? r.failing.length + ' of ' + R.devices.length + ' <span class="mut gl-sn">' + r.failing.map(esc).join(', ') + '</span>' : '<span class=mut>none</span>') + '</td></tr>';
+      }).join('') + '</table></div>'
+    + '<p class="mut gl-foot">Live value: the MDM\'s current value checked against adb when the device built it. '
+    + 'Chart history: the stored rows behind the dashboard charts. Pass = 100%, Watch = 95% or more, Fail = under 95%. '
+    + 'Errors are measured against the closest adb reading in the field\'s cache window.</p>';
+  el.innerHTML = h;
+  function kpi(label, big, sub){ return '<div class=gl-kpi><span>' + esc(label) + '</span><b>' + esc(big) + '</b><small>' + esc(sub) + '</small></div>'; }
+};
+</script>
+<script>
+(function(){
+  var inputs = [].slice.call(document.querySelectorAll('.tol input'));
+  function tolOf(f){ var i = document.querySelector('.tol input[data-f="'+f+'"]'); return i ? parseFloat(i.value) : NaN; }
+  function unitOf(f){ var i = document.querySelector('.tol input[data-f="'+f+'"]'); return i ? i.parentNode.textContent.replace(/^±\s*/, '').trim() : ''; }
+  function regrade(){
+    var hash = [];
+    inputs.forEach(function(i){
+      var f = i.dataset.f, v = parseFloat(i.value), d = parseFloat(i.dataset.default);
+      if (!isNaN(v) && v !== d) hash.push(f + '=' + v);
+      i.classList.toggle('changed', !isNaN(v) && v !== d);
+      document.querySelectorAll('.allow[data-f="'+f+'"]').forEach(function(s){
+        s.textContent = isNaN(v) ? '—' : ('±' + v + ' ' + unitOf(f) + (v !== d ? ' (default ±' + d + ')' : ''));
+      });
+    });
+    try { history.replaceState(null, '', hash.length ? '#' + hash.join('&') : location.pathname); } catch (e) {}
+    document.querySelectorAll('td[data-d]').forEach(function(td){
+      var f = td.dataset.f, tol = tolOf(f), diffs = JSON.parse(td.dataset.d), tot = parseFloat(td.dataset.tot);
+      if (isNaN(tol)) return;
+      var lim = /% of total/.test(unitOf(f)) ? tol / 100 * tot : tol;
+      var n = diffs.length, ok = diffs.filter(function(x){ return Math.abs(x) <= lim + 1e-6; }).length;
+      var p = 100 * ok / n;
+      td.className = ok === n ? 'ok' : p >= 95 ? 'warn' : 'bad';
+      var first = td.firstChild;           // "63.9% "
+      var cnt = td.querySelector('span.mut:not(.dev)');
+      first.nodeValue = p.toFixed(1) + '% ';
+      if (cnt) cnt.textContent = '(' + ok + '/' + n + ')';
+    });
+    if (window.renderGlance) window.renderGlance();
+  }
+  (location.hash.slice(1) || '').split('&').forEach(function(kv){
+    var m = kv.split('='), i = m[0] && document.querySelector('.tol input[data-f="'+m[0]+'"]');
+    if (i && m[1] !== undefined && !isNaN(parseFloat(m[1]))) i.value = parseFloat(m[1]);
+  });
+  inputs.forEach(function(i){ i.addEventListener('input', regrade); });
+  document.getElementById('tolreset').addEventListener('click', function(){
+    inputs.forEach(function(i){ i.value = i.dataset.default; }); regrade();
+  });
+  regrade();
+})();
+</script></body></html>

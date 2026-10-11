@@ -1,0 +1,13 @@
+collecting 6 device(s) -> /home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/runs/20260924-151015.jsonl
+Traceback (most recent call last):
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 281, in <module>
+    main()
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 276, in main
+    th.join(timeout=30)
+  File "/usr/lib/python3.8/threading.py", line 1015, in join
+    self._wait_for_tstate_lock(timeout=max(timeout, 0))
+  File "/usr/lib/python3.8/threading.py", line 1027, in _wait_for_tstate_lock
+    elif lock.acquire(block, timeout):
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 245, in _stop
+    raise KeyboardInterrupt
+KeyboardInterrupt

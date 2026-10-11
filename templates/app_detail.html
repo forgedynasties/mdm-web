@@ -2,6 +2,12 @@
 
 {{define "app_detail.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Apps">
+  <div class="cr-t">Apps</div>
+  <a href="/apps" class="cr-l"><span>All apps</span></a>
+  <a href="/apps#st-attn" class="cr-l"><span>Needs attention</span></a>
+  <a href="/apps#st-fleet" class="cr-l"><span>On your fleet</span></a>
+</aside>
 {{$a := .App}}
 <style>
   /* Store art. We hold no banners or screenshots, so the art is a gradient keyed off the

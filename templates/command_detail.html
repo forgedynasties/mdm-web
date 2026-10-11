@@ -170,6 +170,12 @@
 
 {{define "command_detail.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Work">
+  <div class="cr-t">Work</div>
+  <a href="/jobs" class="cr-l"><span>Needs attention</span></a>
+  <a href="/jobs#cmd-timeline" class="cr-l"><span>In flight</span></a>
+  <a href="/commands/history" class="cr-l on"><span>All history</span></a>
+</aside>
 {{$cmd := .Command}}
 <style>
   .ad-wrap{max-width:1180px;margin:0 auto}

@@ -7350,9 +7350,14 @@ func (h *Handler) ReportAlertsByRestaurant(w http.ResponseWriter, r *http.Reques
 		more = len(shown) - 8
 		shown = shown[:8]
 	}
-	h.tmpl.ExecuteTemplate(w, "report-alerts-by-restaurant", map[string]any{
-		"Rows": shown, "Total": total, "More": more,
-	})
+	data := map[string]any{"Rows": shown, "Total": total, "More": more}
+	// The bare fragment is what the Overview card embeds; a direct visit gets the
+	// page, with the chrome and the Alerts rail around it.
+	if r.Header.Get("HX-Request") != "" && r.Header.Get("HX-Boosted") == "" {
+		h.tmpl.ExecuteTemplate(w, "report-alerts-by-restaurant", data)
+		return
+	}
+	h.render(w, r, "report_alerts.html", data)
 }
 
 // DeploymentEvents streams SSE notifications to open deployment pages so OTA
