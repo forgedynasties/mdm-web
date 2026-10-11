@@ -389,10 +389,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{/* A kiosk rule on the Policies page covers this device. */}}
         <div class="kiosk-rule-note" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:var(--surface-3);font-size:13px">
           {{if .KioskOverride}}
-          <span>Set by hand here. The kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
+          <span>Set by hand here. The kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
           {{if canAdminOrOperator .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/kiosk/follow-rule" style="margin:0 0 0 auto"><button type="submit" class="cc-btn sm">Follow the rule again</button></form>{{end}}
           {{else}}
-          <span>Managed by the kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
+          <span>Managed by the kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
           {{end}}
         </div>
         {{end}}
@@ -580,7 +580,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 {{with .KioskExit}}
 <div class="kx-ban" id="kiosk-exit-notice" role="status">
   <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
-  <div class="t"><b>Taken out of kiosk on site</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/manage" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  <div class="t"><b>Taken out of kiosk on site</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
   {{if canAdminOrOperator $.Role}}<div class="a">
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>

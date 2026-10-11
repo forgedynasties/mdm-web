@@ -21946,7 +21946,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Work in flight and what has run — the Actions page's other half, on its own route so
 	// the console can be removed without taking it along.
 	mux.HandleFunc("GET /jobs", h.requireAuth(h.CommandList))
-	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
+	// Kiosk: the page is called Kiosk, so the URL is /kiosk. It answered to /manage for
+	// historical reasons, which made the one safety-critical feature in the product the
+	// one page whose address did not match its name. /manage still answers — bookmarks
+	// and old links are not worth breaking — and redirects.
+	mux.HandleFunc("GET /kiosk", h.requireAuth(h.Manage))
+	mux.HandleFunc("GET /manage", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/kiosk", http.StatusMovedPermanently)
+	}))
 	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
 	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
@@ -21966,11 +21973,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /kiosk/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /manage/policies/preview", h.requireAuth(h.ManagePolicyPreview))
+	mux.HandleFunc("GET /kiosk/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
+	mux.HandleFunc("GET /kiosk/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	post("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
+	post("POST /kiosk/policies", h.requireAuth(h.ManagePolicySave))
 	post("POST /manage/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
+	post("POST /kiosk/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
 	post("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
+	post("POST /kiosk/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))

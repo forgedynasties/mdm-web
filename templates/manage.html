@@ -64,7 +64,7 @@
       <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} {{if .Exits}} · <a href="#kiosk-exits" style="color:var(--warn);font-weight:650">{{len .Exits}} taken out on site</a>{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
     </div>
     <div class="cc-actions">
-      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
+      {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
     </div>
   </div>
 
@@ -77,8 +77,8 @@
     <div class="kx-dev">
       <div class="id"><a href="/devices/{{.Serial}}">{{.Serial}}</a><small>{{if .Restaurant}}{{.Restaurant}} · {{end}}was locked to {{.AppName}}{{if .RuleName}} by the rule "{{.RuleName}}"{{else}} by hand{{end}} · taken out <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span></small></div>
       {{if $.CanEdit}}<div class="a">
-        <form method="POST" action="/devices/{{.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/manage"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
-        <form method="POST" action="/devices/{{.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/manage"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/kiosk"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/kiosk"><button type="submit" class="cc-btn sm">Leave it out</button></form>
       </div>{{end}}
     </div>
     {{end}}
@@ -90,9 +90,9 @@
     {{range .Rules}}
     <div class="kr-row">
       <div class="kr-ord">
-        {{if $.CanEdit}}<form method="POST" action="/manage/policies/{{.ID}}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="Move up" aria-label="Move {{.Name}} up"{{if .First}} disabled{{end}}>▲</button></form>{{end}}
+        {{if $.CanEdit}}<form method="POST" action="/kiosk/policies/{{.ID}}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="Move up" aria-label="Move {{.Name}} up"{{if .First}} disabled{{end}}>▲</button></form>{{end}}
         <b title="Rule {{.Pos}}: a device covered by more than one rule follows the highest">{{.Pos}}</b>
-        {{if $.CanEdit}}<form method="POST" action="/manage/policies/{{.ID}}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="Move down" aria-label="Move {{.Name}} down"{{if .Last}} disabled{{end}}>▼</button></form>{{end}}
+        {{if $.CanEdit}}<form method="POST" action="/kiosk/policies/{{.ID}}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="Move down" aria-label="Move {{.Name}} down"{{if .Last}} disabled{{end}}>▼</button></form>{{end}}
       </div>
       <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{slice .AppName 0 1}}{{end}}</span>
       <div>
@@ -112,8 +112,8 @@
       <div class="kr-acts">
         <a href="{{.TargetHref}}" class="cc-btn sm">Devices</a>
         {{if $.CanEdit}}
-        <a href="/manage/policies/{{.ID}}/edit" class="cc-btn sm">Edit</a>
-        <form method="POST" action="/manage/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its devices follow the next rule that covers them, or are unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
+        <a href="/kiosk/policies/{{.ID}}/edit" class="cc-btn sm">Edit</a>
+        <form method="POST" action="/kiosk/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its devices follow the next rule that covers them, or are unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
         {{end}}
       </div>
     </div>
@@ -124,14 +124,14 @@
     <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
     <b>No kiosk rules yet</b>
     Lock a restaurant, a group or a device to one app. The rule keeps applying: devices that join are locked, devices that leave are released.
-    {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
+    {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
   </div></div>
   {{end}}
 
   <div class="kr-else">
     <span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
     <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
-    {{if .CanEdit}}<a href="/manage/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
+    {{if .CanEdit}}<a href="/kiosk/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
   </div>
 </div>
 

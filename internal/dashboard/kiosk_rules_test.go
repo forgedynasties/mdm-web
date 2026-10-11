@@ -106,7 +106,7 @@ func TestKioskPagesRender(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{"16 locked", "4 waiting", "1 taken out on site", "1 device was taken out of kiosk on site",
-		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by the rule "Flights Vegas · Nugget"`, "/manage/policies/" + id.String() + "/move", "161 devices no rule covers"} {
+		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by the rule "Flights Vegas · Nugget"`, "/kiosk/policies/" + id.String() + "/move", "161 devices no rule covers"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list missing %q", want)
 		}

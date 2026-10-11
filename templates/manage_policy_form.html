@@ -49,10 +49,10 @@
 </style>
 
 <div class="ke-wrap cc-wrap">
-  <a href="/manage" class="ke-back">← Kiosk</a>
+  <a href="/kiosk" class="ke-back">← Kiosk</a>
   <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New kiosk rule{{end}}</h1>
 
-  <form id="ke-form" method="POST" action="/manage/policies" hx-boost="false">
+  <form id="ke-form" method="POST" action="/kiosk/policies" hx-boost="false">
     <input type="hidden" name="id" id="ke-id" value="{{if $p}}{{$p.ID}}{{end}}">
     <input type="hidden" name="target_type" id="ke-tt" value="{{if $p}}{{$p.TargetType}}{{end}}">
     <input type="hidden" name="target_id" id="ke-tid" value="{{if $p}}{{if $p.TargetID}}{{$p.TargetID}}{{end}}{{end}}">
@@ -99,7 +99,7 @@
 
         <div class="ke-foot">
           <span class="ke-err" id="ke-err" role="alert"></span>
-          <a href="/manage" class="cc-btn">Cancel</a>
+          <a href="/kiosk" class="cc-btn">Cancel</a>
           <button type="submit" class="cc-btn primary" id="ke-save" disabled>Save</button>
         </div>
       </div>
