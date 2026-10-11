@@ -2161,7 +2161,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
-	case strings.HasPrefix(path, "/manage"):
+	case strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
 		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
@@ -9532,6 +9532,9 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
 	data["ScopesJSON"] = h.pickerScopesJSON(r)
+	// Kiosk belongs on the venue: "the tablets at this restaurant run the ordering app"
+	// is the sentence the business says. See venue_kiosk.go.
+	data["Kiosk"] = h.venueKiosk(r, id)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return
@@ -17445,7 +17448,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		ids = kept
 	}
 	if len(ids) == 0 {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
+		h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
 		return
 	}
 	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
@@ -17463,7 +17466,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		verb = "Disabled"
 	}
 	h.audit(r, "device.kiosk_bulk", verb, fmt.Sprintf("devices=%d, package=%s", len(ids), pkg))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
 }
 
 // resolvePolicyTargetIDs resolves a stored kiosk policy's target to the matching
@@ -21908,6 +21911,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantEdit)))
+	post("POST /restaurants/{id}/kiosk", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantKioskSave)))
 	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicesModal)))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDailyStatsJSON)))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantMembers)))

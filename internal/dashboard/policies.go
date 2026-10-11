@@ -383,7 +383,7 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 	}
 	n := h.reconcileKiosk(ctx)
 	h.audit(r, "kiosk_rule.save", name, fmt.Sprintf("rule=%s app=%s target=%s devices_changed=%d", id, pkg, tt, n))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Saved %q.", name)))
+	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("Saved %q.", name)))
 }
 
 // ManagePolicyDelete removes a rule; its devices fall to the next rule that covers
@@ -414,7 +414,7 @@ func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	n := h.reconcileKiosk(ctx)
 	h.audit(r, "kiosk_rule.delete", p.Name, fmt.Sprintf("devices_changed=%d", n))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q.", p.Name)))
+	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q.", p.Name)))
 }
 
 // ManagePolicyMove moves a rule up or down the order. Order decides which rule a
@@ -461,7 +461,7 @@ func (h *Handler) ManagePolicyMove(w http.ResponseWriter, r *http.Request) {
 	}
 	h.reconcileKiosk(ctx)
 	h.audit(r, "kiosk_rule.move", id.String(), map[bool]string{true: "up", false: "down"}[up])
-	h.hxRedirect(w, r, "/manage")
+	h.hxRedirect(w, r, "/kiosk")
 }
 
 // kioskPolicyInScope refuses a kiosk rule that reaches a device the user may not
