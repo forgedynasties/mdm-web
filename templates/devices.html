@@ -239,8 +239,11 @@ if (!window.__dlRowNav) {
      changes (partial swaps) re-render it out-of-band instead of leaving the counts
      from the first page load. */}}
 {{define "fleet-headline"}}{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
-  <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
-  <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}{{if .RefusedSerials}} · <span class="fl-unident">{{len .RefusedSerials}} unidentified</span>{{end}}</div>
+  {{/* A venue or group view is about the collections, not the device count. */}}
+  {{if eq .View "restaurants"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailRestaurants}}</span> venue{{if ne (len .RailRestaurants) 1}}s{{end}}</h1>
+  {{else if eq .View "groups"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailGroups}}</span> group{{if ne (len .RailGroups) 1}}s{{end}}</h1>
+  {{else}}<h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>{{end}}
+  <div class="cc-sub">{{if eq .View "restaurants"}}Every venue{{else if eq .View "groups"}}Every group{{else}}Viewing <b>{{.SelectedCollection}}</b>{{end}} · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}{{if .RefusedSerials}} · <span class="fl-unident">{{len .RefusedSerials}} unidentified</span>{{end}}</div>
 {{end}}
 
 {{/* Product tabs above the roster: stack with the rail's collection and the quick
