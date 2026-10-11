@@ -1,5 +1,11 @@
 {{define "users_access.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="People">
+  <div class="cr-t">People</div>
+  <a href="/users" class="cr-l{{if eq .ActivePath "/users"}} on{{end}}"><span>People</span></a>
+  <a href="/activity" class="cr-l{{if eq .ActivePath "/activity"}} on{{end}}"><span>Activity</span></a>
+  <a href="/users/access" class="cr-l{{if hasPrefix .ActivePath "/users/access"}} on{{end}}"><span>Access control</span></a>
+</aside>
 <style>
 .ual-row{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background var(--dur)}
 .ual-row:first-child{border-top:none}

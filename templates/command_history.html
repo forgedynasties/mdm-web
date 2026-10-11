@@ -176,12 +176,16 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
   .adm-toggle input{margin:0}
 </style>
-<nav class="hist-tabs child-rail" data-child-rail aria-label="History">
-  <div class="cr-t">History</div>
-  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all"><span>All</span><span class="cr-ini">Al</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
-  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention"><span>Needs attention</span><span class="cr-ini">Ne</span><span class="n">{{.AttnCount}}</span></a>
-  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress"><span>In progress</span><span class="cr-ini">In</span><span class="n">{{.ProgCount}}</span></a>
-  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed"><span>Completed</span><span class="cr-ini">Co</span><span class="n">{{.DoneCount}}</span></a>
+<nav class="hist-tabs child-rail" data-child-rail aria-label="Work">
+  <div class="cr-t">Work</div>
+  <a class="cr-l" href="/jobs"><span>Needs attention</span>{{if gt .AttnCount 0}}<span class="n">{{.AttnCount}}</span>{{end}}</a>
+  <a class="cr-l" href="/jobs#cmd-timeline"><span>In flight</span>{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
+  <a class="cr-l on" href="/commands/history"><span>All history</span></a>
+  <div class="cr-t">Filter history</div>
+  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
+  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
+  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress"><span>In progress</span><span class="n">{{.ProgCount}}</span></a>
+  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed"><span>Completed</span><span class="n">{{.DoneCount}}</span></a>
 </nav>
 
 <div class="card cc-card">

@@ -7564,11 +7564,13 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
      "Everything else" did exactly that. Hidden, not faded: a 0-opacity label
      still takes its width and still gets read out. */
   body.has-child-rail:not(.rail-open) .rail .rail-t,
-  body.has-child-rail:not(.rail-open) .rail .rail-g,
   body.has-child-rail:not(.rail-open) .rail .rail-c,
   body.has-child-rail:not(.rail-open) .rail-more kbd,
   body.has-child-rail:not(.rail-open) .rail-foot .who { display: none; }
   body.has-child-rail:not(.rail-open) .rail-l { justify-content: center; padding: 7px 4px; }
+  /* The group captions keep their box when collapsed — hidden, not removed — so every
+     icon stays on the same line it is on when the rail is open. Nothing jumps on hover. */
+  body.has-child-rail:not(.rail-open) .rail .rail-g { visibility: hidden; }
   /* The wordmark will not fit either, so the brand is the product's own favicon. */
   body.has-child-rail:not(.rail-open) .rail-brand { font-size: 0; padding: 2px 0 14px; text-align: center; }
   body.has-child-rail:not(.rail-open) .rail-brand::before { content: ""; display: inline-block;
@@ -7625,9 +7627,11 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.has-child-rail [data-child-rail] { left: 56px; }
   /* The content starts where the chrome ends — one rule, whichever rail is open,
      because the two always add up to the same width. */
-  body.has-child-rail .container,
-  body.has-child-rail .settings-wrap,
-  body.has-child-rail .fleet-wrap { padding-left: 216px; }
+  /* One offset, on the page's outermost box only. Applying it to .container and to a
+     wrap nested inside it indented Settings twice — 432px of gutter. */
+  body.has-child-rail main,
+  body.has-child-rail > .settings-wrap,
+  body.has-child-rail > .fleet-wrap { padding-left: 216px; }
 
   .cr-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
     color: var(--text-faint); padding: 12px 9px 5px; white-space: nowrap; }
@@ -7652,6 +7656,11 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 /* Pages whose own nav became the child rail: strip the card styling they carried as
    in-flow panels, so they sit in the chrome band instead of floating in the content. */
 @media (min-width: 1024px) {
+  [data-child-rail] button { border-bottom: 0; }
+  [data-child-rail] button.on, [data-child-rail] button.active {
+    background: var(--accent-soft); color: var(--accent-text); font-weight: 700; border-radius: 8px; }
+  [data-child-rail] button:focus { outline: none; }
+  [data-child-rail] button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .settings-nav[data-child-rail] { min-width: 0; position: fixed; }
   .settings-nav[data-child-rail] button { width: 100%; }
   .en-tabs[data-child-rail], .hist-tabs[data-child-rail] { flex-direction: column; align-items: stretch; }

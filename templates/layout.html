@@ -1359,6 +1359,26 @@
   document.body.addEventListener('htmx:afterSwap', function () { mdmSyncDockActive(); });
   window.addEventListener('resize', function () { mdmRailAdopt(); });
 
+  // Warm a child-rail destination on hover. Moving inside a section is the most
+  // frequent navigation there is, and these pages are small; the server marks the
+  // boosted response privately cacheable for ten seconds (prefetchableTemplates),
+  // so the click reuses the response the hover already fetched. Once per URL per
+  // page, and never on a slow or metered connection.
+  (function () {
+    var warmed = {};
+    var conn = navigator.connection || {};
+    if (conn.saveData || /2g/.test(conn.effectiveType || '')) return;
+    document.addEventListener('pointerenter', function (e) {
+      var a = e.target && e.target.closest && e.target.closest('[data-child-rail] a[href^="/"]');
+      if (!a) return;
+      var href = a.getAttribute('href');
+      if (!href || href.charAt(0) === '#' || warmed[href]) return;
+      warmed[href] = 1;
+      fetch(href, { headers: { 'HX-Request': 'true', 'HX-Boosted': 'true' }, credentials: 'same-origin' })
+        .catch(function () {});
+    }, true);
+  })();
+
   // ── Role-locked controls ────────────────────────────────────────────────────
   // A control the viewer's role can't use is still rendered, so people can see
   // what the product does and know what to ask for. Three things have to be true

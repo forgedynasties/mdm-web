@@ -2199,6 +2199,15 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 var prefetchableTemplates = map[string]bool{
 	"overview.html": true, "devices.html": true, "health.html": true,
 	"commands.html": true, "updates.html": true,
+	// Child-rail destinations: moving within a section is the most common
+	// navigation in the dashboard, and the rail warms the next page on hover.
+	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
+	"apps.html": true, "app_detail.html": true, "jobs.html": true,
+	"command_history.html": true, "clients.html": true, "manage.html": true,
+	"enrollment.html": true, "groups.html": true, "restaurants.html": true,
+	"settings.html": true, "updates_rollouts.html": true, "releases.html": true,
+	"packages.html": true, "users.html": true, "activity.html": true,
+	"users_access.html": true,
 }
 
 // pageViewSkip are full-page templates that are not "the user looked at
