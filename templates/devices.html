@@ -651,7 +651,7 @@ a.fleet-rail-item{min-height:40px}
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices" data-ini="All">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
@@ -661,7 +661,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="restaurants">
     {{range .RailRestaurants}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}">
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
       <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
@@ -675,7 +675,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a><a href="/groups/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="groups">
     {{range .RailGroups}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}">
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
       <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
@@ -693,7 +693,7 @@ a.fleet-rail-item{min-height:40px}
          manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
     <div class="fleet-rail-list" data-sec="releases">
     {{range .RailReleases}}{{if gt .DeviceCount 0}}
-    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}">
+    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Version}}">
       <a class="ri-main" href="/devices?build={{.Version}}"><span class="dot ok"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span></a>
       <a class="ri-go" href="/releases/{{.ID}}" title="Manage {{.Version}}" aria-label="Manage {{.Version}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>

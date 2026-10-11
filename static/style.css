@@ -7584,3 +7584,26 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.has-child-rail .rail-pin { display: inline-grid; place-items: center; }
   body.rail-pinned .rail-pin { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-edge); }
 }
+
+/* ── The child side of the reciprocal swap ─────────────────────────────────
+   When the app rail expands, the page's own rail gives up the same width so the
+   content between them never moves. It keeps the status dot and two initials, so
+   the venue you are filtered to is still identifiable while collapsed — losing
+   that was the reason not to simply overlay the app rail on top of it. */
+@media (min-width: 1024px) {
+  .fleet-rail { transition: width .2s cubic-bezier(.4, 0, .2, 1); }
+  body.rail-open .fleet-rail { width: 56px; min-width: 56px; overflow: hidden; }
+  body.rail-open .fleet-rail .nm,
+  body.rail-open .fleet-rail .ct,
+  body.rail-open .fleet-rail .ri-go,
+  body.rail-open .fleet-rail .fleet-rail-cap,
+  body.rail-open .fleet-rail .fleet-rail-empty,
+  body.rail-open .fleet-rail .fr-more { display: none; }
+  body.rail-open .fleet-rail .fleet-rail-item { justify-content: center; padding: 6px 4px; gap: 5px; }
+  body.rail-open .fleet-rail .fleet-rail-item[data-ini]::after {
+    content: attr(data-ini); font-size: 10.5px; font-weight: 750; color: var(--text-faint);
+    letter-spacing: -.02em;
+  }
+  body.rail-open .fleet-rail .fleet-rail-item.on[data-ini]::after { color: var(--accent-text); }
+  body.rail-open .fleet-rail .fleet-rail-list { display: flex; flex-direction: column; gap: 2px; }
+}
