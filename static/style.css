@@ -7642,6 +7642,15 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .cr-l.on, .cr-l.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
   /* Settings drives its tabs with .active; the rail styles .on. Both mean current. */
   .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+  /* A rail row's mark: a tile tinted from the name itself, with the health dot as a pip
+     in its corner. Venue and group names are user-typed, so no abbreviation or icon can
+     tell two of them apart — a stable colour can, and it is read before the word is. */
+  .cr-sw { position: relative; width: 20px; height: 20px; flex: none; border-radius: 6px;
+    background: linear-gradient(135deg, hsl(var(--h) 62% 58%), hsl(calc(var(--h) + 24) 58% 46%)); }
+  .cr-sw .dot { position: absolute; right: -2px; bottom: -2px; width: 8px; height: 8px;
+    border-radius: 50%; border: 2px solid var(--surface); }
+  .fleet-rail-item.on .cr-sw { box-shadow: 0 0 0 2px var(--accent); }
+
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
   /* The child rail does NOT shrink. Compressing it meant inventing a two-letter

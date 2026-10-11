@@ -813,6 +813,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return ""
 		},
+		// swatchHue is a stable colour for a user-typed name — a venue, a group. Two
+		// venues are told apart in a rail by their mark before their name is read, and
+		// the same venue keeps the same colour on every page and every session, because
+		// it is derived from the name rather than stored anywhere.
+		"swatchHue": func(name string) int {
+			var hsum uint32 = 2166136261 // FNV-1a: short, stable, and spreads short strings
+			for i := 0; i < len(name); i++ {
+				hsum ^= uint32(name[i])
+				hsum *= 16777619
+			}
+			return int(hsum % 360)
+		},
 		// pct returns done/total as an integer percentage (0-100), for progress bars.
 		"pct": func(done, total int) int {
 			if total <= 0 {
@@ -1853,6 +1865,16 @@ func parseOrigins(raw string) []string {
 // links that must work outside the current request's context (device-fetched APK
 // URLs, emailed verify/reset links). Prefers the configured PUBLIC_ORIGIN;
 // falls back to the request's own scheme+host.
+// publicBase is baseURL with no request to read: what a background job must use when it
+// puts a URL in a command. Without a configured PUBLIC_ORIGIN there is nothing truthful
+// to say, so it falls back to the loopback the box itself can always reach.
+func (h *Handler) publicBase() string {
+	if len(h.publicOrigins) > 0 {
+		return h.publicOrigins[0]
+	}
+	return "http://127.0.0.1:8080"
+}
+
 func (h *Handler) baseURL(r *http.Request) string {
 	if len(h.publicOrigins) > 0 {
 		return h.publicOrigins[0]
@@ -21934,6 +21956,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
 	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
+	post("POST /clients/auto-update", h.requireAdmin(h.ClientAutoUpdateSet))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))

@@ -1273,21 +1273,23 @@
   // content between them never moves. Delays on both edges, because without them the
   // rail flickers every time the pointer crosses it on its way to the page.
   var railT = null, RAIL_IN = 120, RAIL_OUT = 220;
-  var railHold = null, railStayUntil = 0, railGuardUntil = 0;
-  // Behaviour B: a click on a rail destination keeps the rail open through the swap. It
-  // folds when the pointer leaves it, or by itself if the pointer never does.
-  function mdmRailStay() {
+  var railHold = null, railGuardUntil = 0, RAIL_FLASH = 1100;
+  // Behaviour D: every arrival shows the rail open for a beat, then it folds by itself.
+  // Landing somewhere new, the thing worth seeing is where you now are in the nav — so the
+  // highlight is legible at the moment it changes, and the page gets the screen back a
+  // second later without anyone having to move the mouse.
+  function mdmRailFlash() {
     var rail = document.querySelector('.rail');
-    if (!rail) return;
-    railStayUntil = Date.now() + 4000;
-    // The swap replaces the rail element, which fires a mouseleave on the way out; without
-    // a short guard that close lands a quarter-second after the click and the rail blinks shut.
-    railGuardUntil = Date.now() + 1200;
+    if (!rail || !document.body.classList.contains('has-child-rail')) return;
+    // A swap replaces the rail element and fires a mouseleave on the way out; without a
+    // short guard that close lands a quarter-second in and the rail blinks shut.
+    railGuardUntil = Date.now() + 400;
     clearTimeout(railT); clearTimeout(railHold);
     document.body.classList.add('rail-open');
     railHold = setTimeout(function () {
-      if (!rail.matches(':hover')) { railGuardUntil = 0; railOpen(false); }
-    }, 2500);
+      railGuardUntil = 0;
+      if (!rail.matches(':hover')) railOpen(false);
+    }, RAIL_FLASH);
   }
   function railOpen(on) {
     if (!on && Date.now() < railGuardUntil) return;
@@ -1307,15 +1309,11 @@
       var child = e.target.closest && e.target.closest('[data-child-rail]');
       if (child && document.body.classList.contains('rail-open')) railOpen(false);
     });
-    rail.addEventListener('mouseenter', function () { clearTimeout(railHold); railOpen(true); });
+    rail.addEventListener('mouseenter', function () { clearTimeout(railHold); railGuardUntil = 0; railOpen(true); });
     rail.addEventListener('mouseleave', function () { railOpen(false); });
     // Navigating from the rail leaves it open: two or three hops in a row are one
     // gesture, and nothing should move while the page is still swapping. It folds when
     // the pointer leaves — or by itself if the pointer never does.
-    rail.addEventListener('click', function (e) {
-      if (!e.target.closest('a[href]')) return;
-      mdmRailStay();
-    });
     // Keyboard users never hover, so focus has to open it or the rail is untabbable.
     rail.addEventListener('focusin', function () { document.body.classList.add('rail-open'); });
     rail.addEventListener('focusout', function (e) {
@@ -1361,7 +1359,7 @@
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
     mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync(p);
-    if (Date.now() < railStayUntil) mdmRailStay();
+    mdmRailFlash();
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {

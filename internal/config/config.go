@@ -53,6 +53,13 @@ type Config struct {
 	// but it is still one queued command per device per day, and that is a decision, not a
 	// default. See db.DevicesNeedingCanary.
 	CommandCanaryOn bool          `json:"command_canary"`
+
+	// ClientAutoUpdates is the standing instruction per client slot: keep devices on
+	// the build this server hosts. A press of "update all behind" only reached whoever
+	// happened to be online that second, which on a restaurant fleet is most of it
+	// missing — boxes are off overnight, a venue's wifi is out, a unit is unplugged for
+	// a week. A policy is satisfied whenever each device next appears instead.
+	ClientAutoUpdates map[string]ClientAutoUpdate `json:"client_auto_updates,omitempty"`
 	// Build IDs that identify legacy (WebSocket-incapable) firmware. Devices on these
 	// builds only HTTP check-in, so they never hold a live WS and are shown Offline with a
 	// "Legacy device" tag. Seeded with a default; admins can add/remove via Settings.
@@ -1556,6 +1563,65 @@ func (c *Config) SetOTAConfigPublished(body string, at time.Time) error {
 	c.mu.Lock()
 	c.OTAConfigLastJSONVal = body
 	c.OTAConfigLastAtVal = at.UTC().Format(time.RFC3339)
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// ClientAutoUpdate is one slot's standing instruction. Zero value = off, which is what
+// every slot starts as: nothing installs itself until someone says so.
+type ClientAutoUpdate struct {
+	On     bool `json:"on"`
+	Paused bool `json:"paused"` // keeps the target, stops handing it out
+	// WindowStart/End are "HH:MM" in the device's own timezone, so a kiosk updates at
+	// 03:00 where it stands, not 03:00 in us-west-2. Empty means any time.
+	WindowStart string `json:"window_start,omitempty"`
+	WindowEnd   string `json:"window_end,omitempty"`
+	// By and At record who set it, for the Clients page and the audit trail.
+	By string    `json:"by,omitempty"`
+	At time.Time `json:"at,omitempty"`
+}
+
+// Active is the only question the sweep asks of a policy.
+func (a ClientAutoUpdate) Active() bool { return a.On && !a.Paused }
+
+// Allows reports whether now, in the device's zone, is inside the window. An unset or
+// unparseable window allows every hour: the policy is still a policy, it just has no
+// quiet period.
+func (a ClientAutoUpdate) Allows(now time.Time) bool {
+	s, okS := parseHHMM(a.WindowStart)
+	e, okE := parseHHMM(a.WindowEnd)
+	if !okS || !okE || s == e {
+		return true
+	}
+	m := now.Hour()*60 + now.Minute()
+	if s < e {
+		return m >= s && m < e
+	}
+	// Wraps midnight (22:00–05:00), which is the common shape for service hours.
+	return m >= s || m < e
+}
+
+func parseHHMM(v string) (int, bool) {
+	t, err := time.Parse("15:04", strings.TrimSpace(v))
+	if err != nil {
+		return 0, false
+	}
+	return t.Hour()*60 + t.Minute(), true
+}
+
+func (c *Config) ClientAutoUpdate(slot string) ClientAutoUpdate {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ClientAutoUpdates[slot]
+}
+
+func (c *Config) SetClientAutoUpdate(slot string, v ClientAutoUpdate) error {
+	c.mu.Lock()
+	if c.ClientAutoUpdates == nil {
+		c.ClientAutoUpdates = map[string]ClientAutoUpdate{}
+	}
+	c.ClientAutoUpdates[slot] = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

@@ -681,7 +681,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="restaurants">
     {{range .RailRestaurants}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
-      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -695,7 +695,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="groups">
     {{range .RailGroups}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
-      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>

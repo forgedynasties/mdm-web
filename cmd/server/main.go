@@ -800,6 +800,10 @@ func main() {
 				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
 				// Fire any scheduled recipes whose cron time has arrived.
 				runJob(bgCtx, "scheduled-recipes", time.Minute, dash.ProcessDueScheduledRecipes)
+				// Keep each client slot on the build this server hosts, for the slots
+				// where that was switched on. A device that was away collects it the
+				// first minute it is seen again — see client_autoupdate.go.
+				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
 			}
 		}
 	})
