@@ -591,7 +591,7 @@
     {{if canAdmin .Role}}<a href="/settings" class="rail-l js-dest{{if eq .ActivePath "/settings"}} on{{end}}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg><span class="rail-t">Settings</span></a>{{end}}
     {{/* The long tail — map, health, export, activity, server — keeps the existing
          directory rather than growing the rail past a screenful. */}}
-    <button type="button" class="rail-l rail-more" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-keyshortcuts="Meta+K Control+K">Everything else<kbd>⌘K</kbd></button>
+    <button type="button" class="rail-l rail-more" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg><span class="rail-t">Everything else</span><kbd>⌘K</kbd></button>
     {{/* The header's contents live here now: its only job was the brand, the theme
        toggle and the account, and the rail can hold all three. #rail-foot is where
        layout.js moves the real controls, so nothing is duplicated and every binding

@@ -7558,27 +7558,27 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
      never reflows. Reaching for the nav must not move what you were reading. */
   body.has-child-rail { padding-left: 56px; }
   body.has-child-rail .rail { width: 56px; }
-  body.has-child-rail .rail .rail-t,
-  body.has-child-rail .rail .rail-g,
-  body.has-child-rail .rail .rail-c,
-  body.has-child-rail .rail-more kbd,
 
-  /* Collapsed, the wordmark will not fit, so the rail shows the product's own favicon
-     rather than an anonymous gradient square. */
+  /* Collapsed, the rail is icons and nothing else: every label, group caption,
+     count, shortcut hint and the account name go, or they spill out of 56px —
+     "Everything else" did exactly that. Hidden, not faded: a 0-opacity label
+     still takes its width and still gets read out. */
+  body.has-child-rail:not(.rail-open) .rail .rail-t,
+  body.has-child-rail:not(.rail-open) .rail .rail-g,
+  body.has-child-rail:not(.rail-open) .rail .rail-c,
+  body.has-child-rail:not(.rail-open) .rail-more kbd,
+  body.has-child-rail:not(.rail-open) .rail-foot .who { display: none; }
+  body.has-child-rail:not(.rail-open) .rail-l { justify-content: center; padding: 7px 4px; }
+  /* The wordmark will not fit either, so the brand is the product's own favicon. */
   body.has-child-rail:not(.rail-open) .rail-brand { font-size: 0; padding: 2px 0 14px; text-align: center; }
   body.has-child-rail:not(.rail-open) .rail-brand::before { content: ""; display: inline-block;
     width: 28px; height: 28px; background: url("/static/favicon.svg") center/contain no-repeat; }
+
   body.has-child-rail.rail-open .rail { width: 196px; }  /* 196+56 = 56+196: the swap is width-neutral */
-  body.has-child-rail.rail-open .rail .rail-t,
-  body.has-child-rail.rail-open .rail .rail-g,
-  body.has-child-rail.rail-open .rail .rail-c,
-  body.has-child-rail.rail-open .rail-more kbd { opacity: 1; pointer-events: auto; }
-  body.has-child-rail.rail-open .rail-brand { font-size: 19px; padding: 2px 9px 14px; text-align: left; }
   body.has-child-rail.rail-open .rail-brand::before { display: none; }
-  .rail .rail-t, .rail .rail-g, .rail .rail-c { transition: opacity .15s; }
   /* No hover on a touchscreen, so there it simply stays open. */
   @media (hover: none) { body.has-child-rail .rail { width: 208px; }
-    body.has-child-rail .rail .rail-t, body.has-child-rail .rail .rail-g { opacity: 1; } }
+    body.has-child-rail .rail .rail-t, body.has-child-rail .rail .rail-g { display: block; } }
 }
 
 /* ── Child rails ───────────────────────────────────────────────────────────
