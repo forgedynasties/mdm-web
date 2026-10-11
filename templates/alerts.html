@@ -1,5 +1,14 @@
 {{define "alerts.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Alerts">
+  <div class="cr-t">Alerts</div>
+  <a href="/alerts" class="cr-l{{if not .Status}} on{{end}}"><span>Open</span><span class="cr-ini">Op</span></a>
+  <a href="/alerts?status=acknowledged" class="cr-l{{if eq .Status "acknowledged"}} on{{end}}"><span>Acknowledged</span><span class="cr-ini">Ac</span></a>
+  <a href="/alerts?status=resolved" class="cr-l{{if eq .Status "resolved"}} on{{end}}"><span>Resolved</span><span class="cr-ini">Re</span></a>
+  <div class="cr-t">Set up</div>
+  <a href="/alert-config" class="cr-l"><span>Alert rules</span><span class="cr-ini">Ru</span></a>
+  <a href="/reports/alerts-by-restaurant" class="cr-l"><span>By venue</span><span class="cr-ini">Ve</span></a>
+</aside>
 
 <style>
 /* ── Alerts · command center ────────────────────────────── */

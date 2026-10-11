@@ -7585,12 +7585,49 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-pinned .rail-pin { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-edge); }
 }
 
-/* ── The child side of the reciprocal swap ─────────────────────────────────
-   When the app rail expands, the page's own rail gives up the same width so the
-   content between them never moves. It keeps the status dot and two initials, so
-   the venue you are filtered to is still identifiable while collapsed — losing
-   that was the reason not to simply overlay the app rail on top of it. */
+/* ── Child rails ───────────────────────────────────────────────────────────
+   A page's own rail: the sections, filters or tabs that belong to THIS page, as
+   opposed to the app rail, which moves you between pages. Left of the content,
+   right of the app rail, and it gives up its width when the app rail expands so
+   the content between them never moves.
+
+   Any page opts in by rendering [data-child-rail]; Fleet's collections rail was
+   the first and keeps its own class for its richer rows. */
+.child-rail { display: none; }
 @media (min-width: 1024px) {
+  .child-rail {
+    display: flex; flex-direction: column; gap: 1px;
+    position: fixed; left: 208px; top: 0; bottom: 0; width: 196px; z-index: 43;
+    padding: 18px 10px; overflow-y: auto; background: var(--surface);
+    border-right: 1px solid var(--border-soft);
+    transition: width .2s cubic-bezier(.4, 0, .2, 1), left .2s cubic-bezier(.4, 0, .2, 1);
+  }
+  body.has-child-rail .child-rail { left: 56px; }
+  body.has-child-rail .container { padding-left: 212px; }
+  .cr-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 12px 9px 5px; white-space: nowrap; }
+  .cr-t:first-child { padding-top: 0; }
+  .cr-l { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); text-decoration: none; white-space: nowrap; }
+  .cr-l:hover { background: var(--surface-3); color: var(--text); }
+  .cr-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+  .cr-l.on .n { color: var(--accent-text); }
+  .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
+
+  /* The swap: the app rail takes the width this gives up. */
+  body.rail-open .child-rail { width: 56px; }
+  body.rail-open .container { padding-left: 212px; }
+  body.rail-open .child-rail .cr-t,
+  body.rail-open .child-rail .cr-l span:not(.cr-ini) { display: none; }
+  body.rail-open .child-rail .cr-l { justify-content: center; padding: 7px 4px; }
+  body.rail-open .child-rail .cr-ini { display: block; }
+}
+
+/* ── Fleet's collections rail, the first child rail ────────────────────────
+   It keeps its own markup (status dots, counts, a manage arrow per row) and
+   collapses to the dot plus two initials, so the venue you are filtered to is
+   still identifiable while the app rail is open. */
   .fleet-rail { transition: width .2s cubic-bezier(.4, 0, .2, 1); }
   body.rail-open .fleet-rail { width: 56px; min-width: 56px; overflow: hidden; }
   body.rail-open .fleet-rail .nm,

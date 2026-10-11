@@ -1195,6 +1195,58 @@
   <script>
   // Keep the dock's active highlight in sync after a boosted (main-only) swap:
   // the dock lives outside <main>, so it isn't re-rendered on navigation.
+  // ── Section rails ──────────────────────────────────────────────────────────
+  // A page that is a long column of cards (Settings has 24) opts in with
+  // data-section-rail and gets a child rail built from its own <h2>s: one entry per
+  // section, scroll-spied. Built here rather than written into each template because
+  // the sections ARE the headings — a hand-maintained list would drift the first time
+  // someone adds a card.
+  function mdmSectionRail() {
+    var host = document.querySelector('main [data-section-rail]');
+    document.querySelectorAll('.child-rail[data-auto]').forEach(function (n) { n.remove(); });
+    if (!host || !window.matchMedia('(min-width: 1024px)').matches) return;
+    var heads = Array.prototype.slice.call(host.querySelectorAll('h2')).filter(function (h) {
+      return (h.textContent || '').trim().length > 1;
+    });
+    if (heads.length < 3) return;
+    var rail = document.createElement('aside');
+    rail.className = 'child-rail';
+    rail.setAttribute('data-child-rail', '');
+    rail.setAttribute('data-auto', '');
+    rail.setAttribute('aria-label', 'Sections');
+    var cap = document.createElement('div');
+    cap.className = 'cr-t';
+    cap.textContent = host.getAttribute('data-section-rail') || 'On this page';
+    rail.appendChild(cap);
+    heads.forEach(function (h, i) {
+      if (!h.id) h.id = 'sec-' + i + '-' + (h.textContent || '').trim().toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28);
+      var a = document.createElement('a');
+      a.className = 'cr-l';
+      a.href = '#' + h.id;
+      var label = (h.textContent || '').trim();
+      a.innerHTML = '<span>' + label.replace(/[<>&]/g, '') + '</span>' +
+        '<span class="cr-ini">' + label.slice(0, 2) + '</span>';
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        h.scrollIntoView({behavior: 'smooth', block: 'start'});
+        history.replaceState(null, '', '#' + h.id);
+      });
+      rail.appendChild(a);
+    });
+    document.body.appendChild(rail);
+    document.body.classList.add('has-child-rail');
+    // Scroll spy: the section whose heading last crossed the top is the current one.
+    var links = rail.querySelectorAll('.cr-l');
+    function spy() {
+      var best = 0;
+      heads.forEach(function (h, i) { if (h.getBoundingClientRect().top <= 120) best = i; });
+      links.forEach(function (l, i) { l.classList.toggle('on', i === best); });
+    }
+    spy();
+    window.addEventListener('scroll', spy, {passive: true});
+  }
+
   // ── The rail ───────────────────────────────────────────────────────────────
   // The header's only jobs were the brand, the theme toggle and the account, and the
   // rail holds all three now. The controls are MOVED, not copied: every listener and
@@ -1242,7 +1294,9 @@
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
   function mdmRailChildSync() {
-    var child = document.querySelector('main .fleet-rail, main [data-child-rail]');
+    // Child rails render either inside <main> (Fleet's collections) or as a sibling of
+    // it (every page that uses the shared component, since it is position:fixed).
+    var child = document.querySelector('main .fleet-rail, [data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
   }
@@ -1255,7 +1309,7 @@
 
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
-    mdmRailAdopt(); mdmRailBind(); mdmRailChildSync();
+    mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync();
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
@@ -3596,21 +3650,14 @@
 {{define "nav-products"}}<a href="/products" class="{{.cls}}{{if eq .active "products"}} active{{end}}" data-cmdk-label="Products"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Products</span></a>{{end}}
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
 
-{{/* One header for the three firmware views. They were separate nav entries that each
-     rendered part of the others' job; tabs make the relationship visible and leave one
-     thing in the directory instead of three. */}}
+{{/* The three firmware views as this page's own rail: they were separate nav entries
+     that each rendered part of the others' job. A child rail states the relationship in
+     the same vocabulary every other page uses. */}}
 {{define "rollout-tabs"}}
-<style>
-  .rt-tabs{display:flex;gap:4px;margin:0 0 16px;border-bottom:1px solid var(--border);padding-bottom:0}
-  .rt-tabs a{font-size:13px;font-weight:650;color:var(--text-2);text-decoration:none;padding:8px 14px;
-    border-radius:9px 9px 0 0;border:1px solid transparent;border-bottom:0;position:relative;top:1px}
-  .rt-tabs a:hover{color:var(--text)}
-  .rt-tabs a.on{background:var(--surface);border-color:var(--border);color:var(--text)}
-  .rt-tabs .sp{margin-left:auto;display:flex;align-items:center;gap:8px;padding-bottom:7px}
-</style>
-<div class="rt-tabs">
-  <a href="/rollouts" class="{{if or (eq .ActivePath "/rollouts") (eq .ActivePath "/updates")}}on{{end}}">Rollouts</a>
-  <a href="/releases" class="{{if eq .ActivePath "/releases"}}on{{end}}">Releases</a>
-  {{if canAdmin .Role}}<a href="/packages" class="{{if eq .ActivePath "/packages"}}on{{end}}">Packages</a>{{end}}
-</div>
+<aside class="child-rail" data-child-rail aria-label="Firmware">
+  <div class="cr-t">Firmware</div>
+  <a href="/rollouts" class="cr-l{{if or (eq .ActivePath "/rollouts") (eq .ActivePath "/updates")}} on{{end}}"><span>Rollouts</span><span class="cr-ini">Ro</span></a>
+  <a href="/releases" class="cr-l{{if eq .ActivePath "/releases"}} on{{end}}"><span>Releases</span><span class="cr-ini">Re</span></a>
+  {{if canAdmin .Role}}<a href="/packages" class="cr-l{{if eq .ActivePath "/packages"}} on{{end}}"><span>Packages</span><span class="cr-ini">Pa</span></a>{{end}}
+</aside>
 {{end}}
