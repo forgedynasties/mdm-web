@@ -596,11 +596,7 @@
        toggle and the account, and the rail can hold all three. #rail-foot is where
        layout.js moves the real controls, so nothing is duplicated and every binding
        they already have keeps working. */}}
-  <div class="rail-foot" id="rail-foot">
-    {{/* Someone working in the nav for a minute should be able to lock it open; the
-         choice sticks per person. Only meaningful where the rail collapses. */}}
-    <button type="button" class="rail-pin" onclick="window.mdmRailPin()" aria-label="Keep the navigation open" title="Keep the navigation open">⇥</button>
-  </div>
+  <div class="rail-foot" id="rail-foot"></div>
 </nav>
 
   <nav class="dock dock-s" aria-label="Primary navigation">
@@ -1270,7 +1266,6 @@
   function railOpen(on) {
     clearTimeout(railT);
     railT = setTimeout(function () {
-      if (document.body.classList.contains('rail-pinned')) return;
       document.body.classList.toggle('rail-open', on);
     }, on ? RAIL_IN : RAIL_OUT);
   }
@@ -1292,11 +1287,6 @@
     rail.addEventListener('focusout', function (e) {
       if (!rail.contains(e.relatedTarget)) railOpen(false);
     });
-    try {
-      if (localStorage.getItem('mdm-rail-pinned') === '1') {
-        document.body.classList.add('rail-pinned', 'rail-open');
-      }
-    } catch (e) {}
   }
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
@@ -1316,12 +1306,7 @@
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
   }
-  window.mdmRailPin = function () {
-    var on = !document.body.classList.contains('rail-pinned');
-    document.body.classList.toggle('rail-pinned', on);
-    document.body.classList.toggle('rail-open', on);
-    try { localStorage.setItem('mdm-rail-pinned', on ? '1' : '0'); } catch (e) {}
-  };
+
 
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
