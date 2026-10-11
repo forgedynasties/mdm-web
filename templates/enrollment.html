@@ -383,7 +383,8 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       if (push) { try { var u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); } catch (e) {} }
     }
     var want = new URLSearchParams(location.search).get('tab');
-    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : strip.dataset.default, false);
+    var fallback = strip.dataset.default || (tabs[0] && tabs[0].dataset.tab);
+    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : fallback, false);
     tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab, true); }); });
     // One ⋯ menu open at a time; a click anywhere else closes it.
     document.addEventListener('click', function (e) {

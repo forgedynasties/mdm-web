@@ -1273,6 +1273,7 @@
   // content between them never moves. Delays on both edges, because without them the
   // rail flickers every time the pointer crosses it on its way to the page.
   var railT = null, RAIL_IN = 120, RAIL_OUT = 220;
+  var railHold = null;
   function railOpen(on) {
     clearTimeout(railT);
     railT = setTimeout(function () {
@@ -1290,8 +1291,20 @@
       var child = e.target.closest && e.target.closest('[data-child-rail]');
       if (child && document.body.classList.contains('rail-open')) railOpen(false);
     });
-    rail.addEventListener('mouseenter', function () { railOpen(true); });
+    rail.addEventListener('mouseenter', function () { clearTimeout(railHold); railOpen(true); });
     rail.addEventListener('mouseleave', function () { railOpen(false); });
+    // Navigating from the rail leaves it open: two or three hops in a row are one
+    // gesture, and nothing should move while the page is still swapping. It folds when
+    // the pointer leaves — or by itself if the pointer never does.
+    rail.addEventListener('click', function (e) {
+      if (!e.target.closest('a[href]')) return;
+      clearTimeout(railT);
+      document.body.classList.add('rail-open');
+      clearTimeout(railHold);
+      railHold = setTimeout(function () {
+        if (!rail.matches(':hover')) railOpen(false);
+      }, 2500);
+    });
     // Keyboard users never hover, so focus has to open it or the rail is untabbable.
     rail.addEventListener('focusin', function () { document.body.classList.add('rail-open'); });
     rail.addEventListener('focusout', function (e) {
