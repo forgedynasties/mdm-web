@@ -1273,7 +1273,19 @@
   // content between them never moves. Delays on both edges, because without them the
   // rail flickers every time the pointer crosses it on its way to the page.
   var railT = null, RAIL_IN = 120, RAIL_OUT = 220;
-  var railHold = null;
+  var railHold = null, railStayUntil = 0;
+  // Behaviour B: a click on a rail destination keeps the rail open through the swap. It
+  // folds when the pointer leaves it, or by itself if the pointer never does.
+  function mdmRailStay() {
+    var rail = document.querySelector('.rail');
+    if (!rail) return;
+    railStayUntil = Date.now() + 4000;
+    clearTimeout(railT); clearTimeout(railHold);
+    document.body.classList.add('rail-open');
+    railHold = setTimeout(function () {
+      if (!rail.matches(':hover')) railOpen(false);
+    }, 2500);
+  }
   function railOpen(on) {
     clearTimeout(railT);
     railT = setTimeout(function () {
@@ -1298,12 +1310,7 @@
     // the pointer leaves — or by itself if the pointer never does.
     rail.addEventListener('click', function (e) {
       if (!e.target.closest('a[href]')) return;
-      clearTimeout(railT);
-      document.body.classList.add('rail-open');
-      clearTimeout(railHold);
-      railHold = setTimeout(function () {
-        if (!rail.matches(':hover')) railOpen(false);
-      }, 2500);
+      mdmRailStay();
     });
     // Keyboard users never hover, so focus has to open it or the rail is untabbable.
     rail.addEventListener('focusin', function () { document.body.classList.add('rail-open'); });
@@ -1350,6 +1357,7 @@
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
     mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync(p);
+    if (Date.now() < railStayUntil) mdmRailStay();
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
