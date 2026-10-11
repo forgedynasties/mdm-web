@@ -84,7 +84,7 @@
     </a>
     <div class="dvp-actions-row">
       <a href="/devices/{{.SerialNumber}}/logcat/live" class="btn-outline cc-btn">Realtime logs</a>
-      <a href="/commands?serials={{.SerialNumber}}" class="btn-outline cc-btn">Send action</a>
+      <a href="/devices/{{.SerialNumber}}" class="btn-outline cc-btn">Open device</a>
     </div>
     {{if canAdmin $.Role}}
     <div class="dvp-actions-row dvp-admin-row">

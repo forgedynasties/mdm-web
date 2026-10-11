@@ -19,7 +19,7 @@
        selection on the Devices page. This page is where they are watched, not started. */}}
   <div class="cc-card" style="padding:0;overflow:hidden">
     <div id="cmd-timeline" class="hist-wrap"
-         hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
+         hx-get="/jobs?partial=histlive" hx-target="this" hx-swap="innerHTML"
          hx-trigger="command-updated from:body, every 30s">
       {{template "cmd-timeline-inner" .}}
     </div>

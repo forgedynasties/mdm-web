@@ -320,7 +320,7 @@ if (!window.__dlRowNav) {
          be clipped, and portalling one to <body> is exactly the machinery that
          made this panel render itself twice. */}}
     {{if canAdminOrOperator .Role}}
-    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>More actions</button>
     <div class="ss-grid">
       {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
       <button type="button" class="cc-btn sm" onclick="bulkRun('reboot', null, 'Reboot {n} device(s)? Anyone using one right now loses what is on screen.')" title="Reboot the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
@@ -342,11 +342,31 @@ if (!window.__dlRowNav) {
       <div class="ss-lbl">Send</div>
       <div class="ss-grid">
         <button type="button" class="cc-btn sm ss-w" onclick="bulkShell()" title="Run a shell command on the selected devices">Shell…</button>
+        {{if $.Queries}}
+        {{/* The vetted checks: the only multi-device verb left that the console still owned.
+             Its payload is rebuilt server-side from the catalog, so nothing here can send
+             an arbitrary command under the Query name. */}}
+        <select id="bulk-query" class="form-input ss-w" style="font-size:12px" aria-label="Run a check on the selected devices"
+                onchange="if(this.value){bulkRun('query',{query_id:this.value});this.value='';}">
+          <option value="">Run a check…</option>
+          {{range $.Queries}}<option value="{{.ID}}">{{.Label}}</option>{{end}}
+        </select>
+        {{end}}
         <button type="button" class="cc-btn sm ss-w" onclick="bulkRun('collect_logs')" title="Collect a log bundle from the selected devices">Collect logs</button>
         {{/* Install starts from the app, not from a device set: the store knows which
              devices are missing it and which are on another version, so it can target
              better than a selection can. */}}
         <button type="button" class="cc-btn sm ss-w" onclick="window.location.href='/apps'" title="Install an app from the library — the store targets by coverage"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+      </div>
+      {{end}}
+
+      {{if canAdmin $.Role}}
+      <div class="ss-lbl">Danger</div>
+      <div class="ss-grid">
+        {{/* Typed confirmation, not a yes/no: these are the two actions in the product that
+             cannot be undone, and a selection can carry hundreds of devices. */}}
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('wipe','WIPE')" style="color:var(--danger)">Wipe…</button>
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('unenroll','UNENROLL')" style="color:var(--danger)">Unenroll…</button>
       </div>
       {{end}}
 
@@ -1588,14 +1608,15 @@ document.addEventListener('click', function (e) {
   navigateDevices({ page: b.dataset.page });
 });
 
-// The last tie to the Actions console: everything the bulk bar needs now runs in place
-// (bulkRun), so this exists only for the verbs that have not been moved yet —
-// query, mic gain, wireless adb, wipe, unenroll. It is what has to go when the console
-// does, and whatever is still reachable only through here is the list of work left.
+// Every verb the console owned now runs from here or from the thing it acts on, so the
+// primary button opens the rest of them rather than another page.
 function bulkAction() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
-  window.location.href = '/commands?serials=' + encodeURIComponent(serials.join(','));
+  var more = document.getElementById('ss-more-btn');
+  if (more && more.getAttribute('aria-expanded') !== 'true') ssToggleMore(more);
+  var panel = document.getElementById('ss-more');
+  if (panel && panel.scrollIntoView) panel.scrollIntoView({block: 'nearest'});
 }
 
 function bulkExport() {
@@ -1681,6 +1702,20 @@ function bulkShell() {
   cmd = cmd.trim();
   if (!cmd) return;
   bulkRun('shell', { shell_cmd: cmd });
+}
+
+// Wipe and unenroll cannot be undone and a selection can carry hundreds of devices, so
+// these ask for the word rather than for a click.
+function bulkDestructive(type, word) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var n = serials.length;
+  var answer = window.prompt(
+    (type === 'wipe' ? 'Factory-reset' : 'Unenroll') + ' ' + n + ' device' + (n === 1 ? '' : 's') +
+    '. This cannot be undone.\n\n' + serials.slice(0, 6).join('\n') + (n > 6 ? '\n…and ' + (n - 6) + ' more' : '') +
+    '\n\nType ' + word + ' to confirm:', '');
+  if (answer === null || answer.trim().toUpperCase() !== word) return;
+  bulkRun(type);
 }
 
 function bulkCopySerials() {

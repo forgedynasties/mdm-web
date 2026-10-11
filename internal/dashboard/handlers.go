@@ -5096,6 +5096,17 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "fleet-headline-oob", rd)
 		return
 	}
+	// The vetted checks, for the selection's "Run a check" — the catalog is the only thing
+	// multi-device query needed that the Devices page did not already have.
+	if qs, err := h.db.ListDeviceQueries(r.Context()); err == nil {
+		var enabled []db.DeviceQuery
+		for _, q := range qs {
+			if q.Enabled {
+				enabled = append(enabled, q)
+			}
+		}
+		data["Queries"] = enabled
+	}
 	h.render(w, r, "devices.html", data)
 }
 
@@ -21946,7 +21957,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.fleetWide(h.ProductionExportCSV)))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
-	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
+	// The console is gone. Every verb it owned now starts from the thing it acts on — an
+	// install from the app in the library, diagnostics and the destructive pair from a
+	// device selection, kiosk from the venue — and /jobs is where the work is watched.
+	// The page itself redirects; POST /commands stays, because it is the one send path
+	// every one of those surfaces posts to, and /commands/{id} stays for deep links.
+	mux.HandleFunc("GET /commands", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/jobs", http.StatusMovedPermanently)
+	}))
 	// Work in flight and what has run — the Actions page's other half, on its own route so
 	// the console can be removed without taking it along.
 	mux.HandleFunc("GET /jobs", h.requireAuth(h.CommandList))
