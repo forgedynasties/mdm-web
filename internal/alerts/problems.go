@@ -71,7 +71,7 @@ func CauseOf(types []string) Cause {
 	case has["no_command_channel"]:
 		return Cause{"transport", "Reporting but unreachable", "It is checking in and its readings are current, but it holds no WebSocket — so commands sent to it do not run. The dashboard shows it Offline although it is plainly alive. It usually clears itself; if it does not, the client's socket thread is gone and only a reboot brings it back."}
 	case has["kiosk_exited"]:
-		return Cause{"kiosk", "Taken out of kiosk on site", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
+		return Cause{"kiosk", "Unlocked on the device", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
 	case has["identity_conflict"]:
 		return Cause{"identity", "Possible impersonation", "Something used this device's serial with the shared key and this device has already had its key reset automatically several times today, so it was refused. Either something is looping on this serial, or someone is using it: look before pressing Reset."}
 	case has["hardware_serial_changed"]:

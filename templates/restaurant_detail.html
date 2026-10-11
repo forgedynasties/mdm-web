@@ -98,28 +98,28 @@
   </p>
 </div>
 
-{{/* Kiosk, where the business thinks about it. The rule has always been expressible as a
-     restaurant-scoped kiosk policy; it could only be reached from the fleet-wide rules
+{{/* Device lock, where the business thinks about it. The rule has always been expressible as a
+     restaurant-scoped lock rule; it could only be reached from the fleet-wide rules
      page, so the sentence "this venue's tablets run the ordering app" had nowhere to be
      said. What the rule says and what the devices are actually doing are shown together,
-     because a device can be taken out of kiosk on site and that disagreement is the thing
+     because a device can be unlocked on the device and that disagreement is the thing
      worth seeing. */}}
 {{with .Kiosk}}
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch">
     <span class="ic mut"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <h2>Kiosk</h2>
+    <h2>Device lock</h2>
     <div class="card-header-actions" style="margin-left:auto">
-      <a class="cc-btn sm" href="/kiosk">All kiosk rules</a>
+      <a class="cc-btn sm" href="/kiosk">All lock rules</a>
     </div>
   </div>
   <div style="padding:14px 16px">
     {{if .Package}}
       <div style="font-size:13.5px;line-height:1.55">These tablets lock to <b>{{.Package}}</b>.
         <span class="muted">{{.Locked}} of {{.Total}} locked{{if .Exited}} · <span style="color:var(--danger)">{{.Exited}} taken out on site</span>{{end}}</span></div>
-      {{if .Disagree}}<div class="muted small" style="margin-top:5px">{{sub .Total .Locked}} device{{if ne (sub .Total .Locked) 1}}s are{{else}} is{{end}} not locked — either it has not checked in since the rule was set, or someone exited kiosk on the device.</div>{{end}}
+      {{if .Disagree}}<div class="muted small" style="margin-top:5px">{{sub .Total .Locked}} device{{if ne (sub .Total .Locked) 1}}s are{{else}} is{{end}} not locked — either it has not checked in since the rule was set, or someone unlocked the device.</div>{{end}}
     {{else}}
-      <div style="font-size:13.5px">No kiosk rule for this venue. <span class="muted">{{.Locked}} of {{.Total}} tablet{{if ne .Total 1}}s are{{else}} is{{end}} locked by another rule or by hand.</span></div>
+      <div style="font-size:13.5px">No lock rule for this venue. <span class="muted">{{.Locked}} of {{.Total}} tablet{{if ne .Total 1}}s are{{else}} is{{end}} locked by another rule or by hand.</span></div>
     {{end}}
 
     {{if canAdminOrOperator $.Role}}

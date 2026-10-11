@@ -10,7 +10,7 @@ import (
 	"mdm/internal/db"
 )
 
-// Kiosk rules: the Policies page's kiosk policies, enforced continuously. A device
+// Lock rules: the Policies page's kiosk policies, enforced continuously. A device
 // follows the first rule (in order) whose target covers it — a restaurant, a group, a
 // device, or every device. The enforcer runs every minute and after any rule change,
 // so a device that joins a restaurant is locked and one that leaves is released. It
@@ -148,7 +148,7 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 			continue // someone decided this device by hand
 		}
 		if st.ExitedAt != nil {
-			continue // taken out of kiosk on site: stays out until someone answers it
+			continue // unlocked on the device: stays out until someone answers it
 		}
 		switch {
 		case k.Rule == nil:

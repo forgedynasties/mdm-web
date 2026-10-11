@@ -105,7 +105,7 @@ func TestKioskPagesRender(t *testing.T) {
 		t.Fatalf("manage.html: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"16 locked", "4 waiting", "1 taken out on site", "1 device was taken out of kiosk on site",
+	for _, want := range []string{"16 locked", "4 waiting", "1 taken out on site", "1 device was unlocked on the device",
 		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by the rule "Flights Vegas · Nugget"`, "/kiosk/policies/" + id.String() + "/move", "161 devices no rule covers"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list missing %q", want)
@@ -124,7 +124,7 @@ func TestKioskPagesRender(t *testing.T) {
 		t.Fatalf("form: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`value="aio.app.nugget.uatv2"`, `data-id="` + rest.String() + `"`, "Power five times", "stays out of kiosk until someone locks it again", "Every device"} {
+	for _, want := range []string{`value="aio.app.nugget.uatv2"`, `data-id="` + rest.String() + `"`, "Power five times", "stays unlocked until someone locks it again", "Every device"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("form missing %q", want)
 		}

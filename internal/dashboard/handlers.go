@@ -856,7 +856,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"roleLabel":      roleLabel,
 		"roleLevel":      roleLevel,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
-		// for group/restaurant creation and kiosk mode. Used to show those controls.
+		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,
@@ -2161,7 +2161,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
-	case strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
+	case strings.HasPrefix(path, "/lock"), strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
 		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
@@ -2508,7 +2508,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		}
 		if on && !d.KioskEnabled {
 			todos = append(todos, todo{Sev: "info", Kind: "kiosk", Station: st.Name, Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
-				Body: "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."})
+				Body: "Guests can leave the app. Ask the MDM team to turn locked mode back on."})
 		}
 		if st.Crashes >= 3 {
 			todos = append(todos, todo{Sev: "warn", Kind: "crashes", Station: st.Name, Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
@@ -2821,7 +2821,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 				needGroups[i].Body = "The MDM team can see the details; a restart usually helps in the meantime."
 			case "kiosk":
 				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " not locked to the app"
-				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."
+				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn locked mode back on."
 			}
 			if n > 6 {
 				needGroups[i].More = n - 6
@@ -3274,7 +3274,7 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // requireAdminOrOperator extends requireAdmin (admin/dev) to also allow operators, for
 // the fleet-organisation tasks the test team owns: creating groups and restaurants
-// and setting kiosk mode. Viewers and operators still can't reach these.
+// and setting locked mode. Viewers and operators still can't reach these.
 func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -6349,7 +6349,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		h.mapViews.Add(1)
 	}
 
-	// Kiosk locked-app choices: this device's app-drawer apps (launchable, when
+	// App locked-app choices: this device's app-drawer apps (launchable, when
 	// the client reports it) filtered by the kiosk allowlist (empty allowlist =
 	// all apps). Keeps the picker to apps a person could actually be locked into.
 	kioskApps := make([]db.DevicePackage, 0, len(installedPkgs))
@@ -6370,7 +6370,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
-	// The kiosk rule covering this device, and whether it was overridden by hand.
+	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)
 	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
 	if kioskRule == nil {
@@ -11232,7 +11232,7 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"checkin_interval_seconds": interval,
 		})
 		h.hub.Push(id, msg)
-		// Enabling kiosk locks the device to one app — wake the screen too, so a device
+		// Enabling app locks the device to one app — wake the screen too, so a device
 		// that was asleep doesn't sit locked to a black screen until something else wakes
 		// it. The client already handles this frame for remote-control capture; reused
 		// as-is here, no new client support needed.
@@ -11282,7 +11282,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 	if enabled && pkg == "" {
-		http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+		http.Error(w, "Kiosk package is required when enabling locked mode", http.StatusBadRequest)
 		return
 	}
 	if !enabled {
@@ -15105,7 +15105,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "collect_logs", Name: "Collect logs", Desc: "logcat, dumpsys, getprop, OTA log — a file per device", Payload: "none", Cap: "system app"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
-			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
+			{Type: "set_kiosk", Name: "Locked mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
 			{Type: "unenroll", Name: "Unenroll", Desc: "stop managing it and keep its data — the device leaves the fleet", Payload: "none", Cap: "DPC only", Destructive: true},
@@ -17430,14 +17430,14 @@ func (h *Handler) resolveScopeDeviceIDs(r *http.Request) ([]uuid.UUID, error) {
 	return ids, nil
 }
 
-// applyKioskForTargets sets (or clears) kiosk mode on the resolved target devices and
+// applyKioskForTargets sets (or clears) locked mode on the resolved target devices and
 // pushes the config so they pick it up on the next check-in. Mirrors BulkKioskUpdate,
 // but resolves its target from the Actions composer's target section.
 func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 	if enabled && pkg == "" {
-		http.Error(w, "Pick an app to lock to when enabling kiosk mode.", http.StatusBadRequest)
+		http.Error(w, "Pick an app to lock to when enabling locked mode.", http.StatusBadRequest)
 		return
 	}
 	if !enabled {
@@ -17482,7 +17482,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
 }
 
-// resolvePolicyTargetIDs resolves a stored kiosk policy's target to the matching
+// resolvePolicyTargetIDs resolves a stored lock rule's target to the matching
 // device IDs AT THIS MOMENT — a snapshot, not a live binding (same convention as
 // resolveTargetDeviceIDs uses for the "all" target elsewhere: a device added to a
 // target group later doesn't retroactively pick up the policy without a re-save).
@@ -19168,12 +19168,12 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// overnight digest goes out at opening; both are cheap until there is work.
 	h.alerts.DispatchResolved(ctx)
 	h.alerts.MaybeSendMorningDigest(ctx, connected)
-	// Kiosk rules are enforced, not applied once: devices that joined or left a
+	// Lock rules are enforced, not applied once: devices that joined or left a
 	// rule's target, or installed its app, are brought in line every minute.
 	h.reconcileKiosk(ctx)
 	h.checkKeyResets(ctx)
 	// A device locked again by any path (its dialog, bulk kiosk, a rule save) answers
-	// its "taken out of kiosk" alert.
+	// its "taken unlocked" alert.
 	if n, err := h.db.ResolveAnsweredKioskExitAlerts(ctx); err == nil && n > 0 {
 		h.hub.PublishAlertUpdate()
 	}
@@ -19723,7 +19723,7 @@ func (h *Handler) otaBuildRows(ctx context.Context) []otaBuildRow {
 	return rows
 }
 
-// SettingsSetKioskAllowlist replaces the kiosk locked-app allowlist from a free-form
+// SettingsSetKioskAllowlist replaces the app locked-app allowlist from a free-form
 // field (patterns separated by newlines, commas, or spaces). Empty = allow all.
 func (h *Handler) SettingsSetKioskAllowlist(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -20067,7 +20067,7 @@ func alertTypeCatalog() []alertTypeGroup {
 	add("Security", "key_not_registered", "Key not registered after a reset")
 	add("Security", "hardware_serial_changed", "Hardware serial mismatch")
 	add("Security", "key_recovered", "Key reset automatically")
-	add("Kiosk", "kiosk_exited", "Taken out of kiosk on site")
+	add("Kiosk", "kiosk_exited", "Unlocked on the device")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -20923,7 +20923,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 
-	// Kiosk mode: single app (classic), multi-app (extra packages allowed in
+	// Locked mode: single app (classic), multi-app (extra packages allowed in
 	// lock-task), or browser (locked browser on a URL). Older callers that don't
 	// send a mode keep the classic single-app behaviour.
 	mode := r.FormValue("kiosk_mode")
@@ -20932,11 +20932,11 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	case "":
 		mode = "app"
 	default:
-		http.Error(w, "Unknown kiosk mode", http.StatusBadRequest)
+		http.Error(w, "Unknown locked mode", http.StatusBadRequest)
 		return
 	}
 
-	// Browser kiosk locks to the agent's built-in browser, not an installed app.
+	// Browser app locks to the agent's built-in browser, not an installed app.
 	kioskURL := strings.TrimSpace(r.FormValue("kiosk_url"))
 	var urlAllow []string
 	var extraPkgs []string
@@ -20955,7 +20955,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		kioskURL = ""
 		if enabled && pkg == "" {
-			http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+			http.Error(w, "Kiosk package is required when enabling locked mode", http.StatusBadRequest)
 			return
 		}
 	}
@@ -21005,7 +21005,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Set by hand. If a kiosk rule covers this device, this is now an exception to it
+	// Set by hand. If a lock rule covers this device, this is now an exception to it
 	// that the enforcer leaves alone (the device page offers "follow the rule again").
 	rule := h.kioskRuleFor(r.Context(), *device)
 	_ = h.db.MarkKioskManual(r.Context(), device.ID, rule != nil)
@@ -21974,7 +21974,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// historical reasons, which made the one safety-critical feature in the product the
 	// one page whose address did not match its name. /manage still answers — bookmarks
 	// and old links are not worth breaking — and redirects.
-	mux.HandleFunc("GET /kiosk", h.requireAuth(h.Manage))
+	// "Kiosk" is a product here — the Kiosk 18/22/27 wall panels, and device_class
+	// 'kiosk' — so the feature that locks ANY device to one app (T7s and KDS included)
+	// is called Lock in the UI. The config keys, the policy table and the device class
+	// keep their names: they are the wire protocol to clients in the field and the
+	// product's own taxonomy, neither of which is a label.
+	mux.HandleFunc("GET /lock", h.requireAuth(h.Manage))
+	mux.HandleFunc("GET /kiosk", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/lock", http.StatusMovedPermanently)
+	}))
 	mux.HandleFunc("GET /manage", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/kiosk", http.StatusMovedPermanently)
 	}))
@@ -21998,16 +22006,22 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /kiosk/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /lock/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /manage/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /kiosk/policies/preview", h.requireAuth(h.ManagePolicyPreview))
+	mux.HandleFunc("GET /lock/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	mux.HandleFunc("GET /kiosk/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
+	mux.HandleFunc("GET /lock/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	post("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
 	post("POST /kiosk/policies", h.requireAuth(h.ManagePolicySave))
+	post("POST /lock/policies", h.requireAuth(h.ManagePolicySave))
 	post("POST /manage/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
 	post("POST /kiosk/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
+	post("POST /lock/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
 	post("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	post("POST /kiosk/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
+	post("POST /lock/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))

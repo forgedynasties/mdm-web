@@ -20,9 +20,9 @@ import (
 // This does not invent a model: kiosk_policies has carried target_type 'restaurant' all
 // along. It puts the existing capability where it belongs and shows, beside it, what is
 // actually true on the venue's devices — which is not the same thing as what the rule
-// says, because a device can be taken out of kiosk on site.
+// says, because a device can be unlocked on the device.
 
-// RestaurantKioskSave sets or clears the venue's kiosk rule.
+// RestaurantKioskSave sets or clears the venue's lock rule.
 func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 	if !roleCanOperate(h.role(r)) {
 		http.Error(w, "Forbidden", http.StatusForbidden)

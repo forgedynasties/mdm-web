@@ -49,7 +49,7 @@
 </style>
 
 <div class="ke-wrap cc-wrap">
-  <a href="/kiosk" class="ke-back">← Kiosk</a>
+  <a href="/kiosk" class="ke-back">← Lock</a>
   <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New kiosk rule{{end}}</h1>
 
   <form id="ke-form" method="POST" action="/kiosk/policies" hx-boost="false">
@@ -88,7 +88,7 @@
           <ol class="kx-steps">
             <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
             <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
-            <li><span>The device <b>stays out of kiosk until someone locks it again</b> here. The Kiosk page and the device's page show that it was taken out.</span></li>
+            <li><span>The device <b>stays unlocked until someone locks it again</b> here. The Lock page and the device's page show that it was unlocked.</span></li>
           </ol>
         </div>
 

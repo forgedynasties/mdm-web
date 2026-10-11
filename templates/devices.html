@@ -86,7 +86,7 @@ if (!window.__dlRowNav) {
       {{end}}
     </div>
     <div class="dl-id">
-      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}</div>
+      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Locked mode" aria-label="Locked mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}</div>
       {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
@@ -644,7 +644,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
   </div>
 
-  {{/* ── KPI strip: online / offline / low battery / out of kiosk ── */}}
+  {{/* ── KPI strip: online / offline / low battery / unlocked ── */}}
   
 </div>
 
@@ -2859,7 +2859,7 @@ document.addEventListener('keydown', function(e) {
           <span class="muted small">Pinned to the foreground in lock-task mode. Applied when saved. Apps common to every selected device are listed first; greyed apps are on only some.</span>
           <div id="bulk-kiosk-warn" class="form-hint" style="display:none;margin-top:6px;color:var(--warn,#9a6512);font-weight:600;"></div>
         </div>
-        <button type="submit" class="btn-primary" style="margin-top:14px;">Apply Kiosk</button>
+        <button type="submit" class="btn-primary" style="margin-top:14px;">Apply lock</button>
       </form>
     </div>
   </div>

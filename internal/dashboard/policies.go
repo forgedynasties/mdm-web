@@ -12,7 +12,7 @@ import (
 	"mdm/internal/db"
 )
 
-// The Policies page is kiosk rules and nothing else (30 Sep): an ordered list where
+// The Policies page is lock rules and nothing else (30 Sep): an ordered list where
 // each rule shows what actually happened on its devices, and a three-question editor
 // (where, which app, how staff get out) with a live preview. Enforcement lives in
 // kiosk_rules.go.
@@ -52,7 +52,7 @@ func kioskTargetHref(p db.KioskPolicy) string {
 	return "/devices"
 }
 
-// Manage renders the kiosk rules list.
+// Manage renders the lock rules list.
 func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	rules, devs, err := h.kioskSnapshot(ctx)
@@ -168,7 +168,7 @@ func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := h.kioskEditorData(r)
-	data["Title"] = "New kiosk rule"
+	data["Title"] = "New lock rule"
 	h.render(w, r, "manage_policy_form.html", data)
 }
 
@@ -188,7 +188,7 @@ func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := h.kioskEditorData(r)
-	data["Title"] = "Edit kiosk rule"
+	data["Title"] = "Edit lock rule"
 	data["Policy"] = p
 	h.render(w, r, "manage_policy_form.html", data)
 }
@@ -464,7 +464,7 @@ func (h *Handler) ManagePolicyMove(w http.ResponseWriter, r *http.Request) {
 	h.hxRedirect(w, r, "/kiosk")
 }
 
-// kioskPolicyInScope refuses a kiosk rule that reaches a device the user may not
+// kioskPolicyInScope refuses a lock rule that reaches a device the user may not
 // kiosk-lock. A rule is standing on its whole target, so it is not narrowed the way a
 // one-off command is: all of it must be theirs.
 func (h *Handler) kioskPolicyInScope(w http.ResponseWriter, r *http.Request, ids []uuid.UUID) bool {
@@ -473,7 +473,7 @@ func (h *Handler) kioskPolicyInScope(w http.ResponseWriter, r *http.Request, ids
 		return true
 	}
 	if _, dropped := acc.filterDevices("kiosk", ids); dropped > 0 {
-		h.denied(r, "kiosk", nil, decision{Reason: "kiosk rule reaches devices outside the policy"})
+		h.denied(r, "kiosk", nil, decision{Reason: "lock rule reaches devices outside the policy"})
 		http.Error(w, fmt.Sprintf("This rule reaches %d device(s) outside your access policy.", dropped), http.StatusForbidden)
 		return false
 	}
@@ -495,5 +495,5 @@ func (h *Handler) DeviceKioskFollowRule(w http.ResponseWriter, r *http.Request) 
 	}
 	h.reconcileKiosk(r.Context())
 	h.audit(r, "kiosk_rule.follow", serial, "")
-	h.hxRedirect(w, r, "/devices/"+url.PathEscape(serial)+"?flash="+url.QueryEscape("Following its kiosk rule again."))
+	h.hxRedirect(w, r, "/devices/"+url.PathEscape(serial)+"?flash="+url.QueryEscape("Following its lock rule again."))
 }

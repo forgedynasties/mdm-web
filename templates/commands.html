@@ -628,7 +628,7 @@ window.CMD_PREFILL = {{.Prefill}};
     device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
     dot: '<circle cx="12" cy="12" r="8"/>'
   };
-  // Fleet-wide console offers only the broad-safe actions. Kiosk mode, boot splash,
+  // Fleet-wide console offers only the broad-safe actions. Locked mode, boot splash,
   // shell and factory wipe are per-device decisions and live on the device page.
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
@@ -713,7 +713,7 @@ window.CMD_PREFILL = {{.Prefill}};
       case 'pkgs': if (!S.pkgs.length) return { msg: 'Choose at least one package to uninstall.' }; break;
       case 'shell': if (!S.shell.trim()) return { msg: 'Enter a shell command.' }; break;
       case 'query': if (!S.query) return { msg: 'Pick a query to run.' }; break;
-      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { msg: 'Pick kiosk mode — lock to an app, or unlock.' }; break;
+      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { msg: 'Pick locked mode — lock to an app, or unlock.' }; break;
       case 'splash': if (!S.splash.trim()) return { msg: 'Paste the splash image URL.' }; break;
     }
     if (S.action.destr && DS.requireReason && !S.reason.trim()) return { msg: 'A reason is required for this action.', focus: 'co-reason' };
@@ -1014,7 +1014,7 @@ window.CMD_PREFILL = {{.Prefill}};
     var ref = el('co-refine');
     ref.hidden = !scoped;
     if (scoped) {
-      ref.innerHTML = refBtn('status', 'online', 'Online only') + refBtn('battery', 'low', 'Low battery') + refBtn('kiosk', 'enabled', 'In kiosk');
+      ref.innerHTML = refBtn('status', 'online', 'Online only') + refBtn('battery', 'low', 'Low battery') + refBtn('kiosk', 'enabled', 'Locked');
     }
     renderMix();
   }
@@ -1282,7 +1282,7 @@ window.CMD_PREFILL = {{.Prefill}};
     updateSendLabel();
   }
 
-  // ── Strip dropdown menu (apps / packages / kiosk app / shell suggestions) ──
+  // ── Strip dropdown menu (apps / packages / locked app / shell suggestions) ──
   var menu = { kind: null, anchor: null };
   function closeMenu() { menu.kind = null; menu.anchor = null; menuEl.classList.remove('on'); }
 

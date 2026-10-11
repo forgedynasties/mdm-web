@@ -11,7 +11,7 @@ import (
 	"mdm/internal/db"
 )
 
-// Kiosk exits on site (kiosk-exit demo: the strip on the Kiosk page, the notice on the
+// Devices unlocked on site (kiosk-exit demo: the strip on the Kiosk page, the notice on the
 // device page, and an alert). A technician who leaves kiosk on the device with the exit
 // PIN or code takes it out until someone here answers: "Lock again" puts it back to what
 // locked it (its rule, or its own setting), "Leave it out" keeps it unlocked and, under
@@ -49,7 +49,7 @@ func (h *Handler) DeviceKioskRelock(w http.ResponseWriter, r *http.Request) {
 		// Back under its rule: the enforcer locks it to whatever the rule says now.
 		_ = h.db.SetKioskOverride(ctx, dev.ID, false)
 		h.reconcileKiosk(ctx)
-		how = "its kiosk rule"
+		how = "its lock rule"
 	} else if ex.Package != "" {
 		if err := h.db.SetKioskConfig(ctx, dev.ID, true, ex.Package, 0); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -88,7 +88,7 @@ func (h *Handler) DeviceKioskLeaveOut(w http.ResponseWriter, r *http.Request) {
 	_, _ = h.db.ResolveOpenAlert(ctx, "kiosk_exited", dev.ID)
 	h.hub.PublishAlertUpdate()
 	h.auditDev(r, "kiosk.leave_out", dev.ID, serial, "after an exit on site")
-	h.hxRedirect(w, r, withFlash(back, "Left out of kiosk."))
+	h.hxRedirect(w, r, withFlash(back, "Left unlocked."))
 }
 
 // withFlash adds the page's flash message to a local URL.

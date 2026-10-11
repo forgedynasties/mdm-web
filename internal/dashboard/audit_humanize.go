@@ -39,11 +39,11 @@ func humanizeAudit(e db.AuditEntry) string {
 		// detail is "enabled (single_app)" or "disabled".
 		if strings.HasPrefix(d, "enabled") {
 			if mode := inParens(d); mode != "" {
-				return "enabled kiosk mode (" + mode + ")"
+				return "enabled locked mode (" + mode + ")"
 			}
-			return "enabled kiosk mode"
+			return "enabled locked mode"
 		}
-		return "disabled kiosk mode"
+		return "disabled locked mode"
 
 	// ── device identity and placement ─────────────────────────────────────────
 	case "device.nickname":

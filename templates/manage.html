@@ -2,7 +2,7 @@
 {{template "header" .}}
 
 <style>
-/* ── Kiosk rules ─────────────────────────────────────────────
+/* ── Lock rules ─────────────────────────────────────────────
    One job: which app each device is locked to. Rules are in order; a device
    covered by two follows the higher one. Each row shows what happened on its
    devices, not just the intent. */
@@ -32,7 +32,7 @@
 .kr-acts form{margin:0}
 .kr-else{display:flex;gap:12px;align-items:center;padding:14px 17px;border:1px dashed var(--border);border-radius:var(--r-4);margin-top:12px;color:var(--muted);font-size:13px}
 .kr-else b{color:var(--text)}
-/* Taken out of kiosk on site: stays out until someone answers it. */
+/* Unlocked on the device: stays out until someone answers it. */
 .kx-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:14px;overflow:hidden}
 .kx-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px}
 .kx-strip-h h2{font-size:13.5px;font-weight:700;margin:0}
@@ -60,7 +60,7 @@
 <div class="kr-wrap cc-wrap">
   <div class="cc-top">
     <div>
-      <h1 class="cc-h1">Kiosk</h1>
+      <h1 class="cc-h1">Device lock</h1>
       <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} {{if .Exits}} · <a href="#kiosk-exits" style="color:var(--warn);font-weight:650">{{len .Exits}} taken out on site</a>{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
     </div>
     <div class="cc-actions">
@@ -72,7 +72,7 @@
 
   {{if .Exits}}
   <div class="kx-strip" id="kiosk-exits">
-    <div class="kx-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div><h2>{{len .Exits}} device{{if ne (len .Exits) 1}}s were{{else}} was{{end}} taken out of kiosk on site</h2><small>Someone used the exit PIN or code on the device. {{if ne (len .Exits) 1}}They stay{{else}}It stays{{end}} unlocked until you lock {{if ne (len .Exits) 1}}them{{else}}it{{end}} again.</small></div></div>
+    <div class="kx-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div><h2>{{len .Exits}} device{{if ne (len .Exits) 1}}s were{{else}} was{{end}} unlocked on the device</h2><small>Someone used the exit PIN or code on the device. {{if ne (len .Exits) 1}}They stay{{else}}It stays{{end}} unlocked until you lock {{if ne (len .Exits) 1}}them{{else}}it{{end}} again.</small></div></div>
     {{range .Exits}}
     <div class="kx-dev">
       <div class="id"><a href="/devices/{{.Serial}}">{{.Serial}}</a><small>{{if .Restaurant}}{{.Restaurant}} · {{end}}was locked to {{.AppName}}{{if .RuleName}} by the rule "{{.RuleName}}"{{else}} by hand{{end}} · taken out <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span></small></div>
@@ -122,7 +122,7 @@
   {{else}}
   <div class="cc-card"><div class="cc-empty tall">
     <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <b>No kiosk rules yet</b>
+    <b>No lock rules yet</b>
     Lock a restaurant, a group or a device to one app. The rule keeps applying: devices that join are locked, devices that leave are released.
     {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
   </div></div>
