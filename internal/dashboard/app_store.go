@@ -129,9 +129,9 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 				map[bool]string{true: fmt.Sprintf(" · %d unknown", u), false: ""}[u > 0])
 			c.CTA, c.CTAKind = "Reconcile", "reconcile"
 		case !cov.Of(f.Package).InLibrary:
-			// Not a fault — it just cannot be managed from here. It gets its own shelf
-			// below rather than crowding out the apps that are genuinely wrong (this
-			// fired 16 times on stage and pushed the three real problems off the screen).
+			// Not a fault, and not actionable from here either — there is no APK to send.
+			// It fired 16 times on stage and buried the three apps that are genuinely
+			// wrong, so it is not surfaced on this page at all.
 			continue
 		default:
 			c.Meta = fmt.Sprintf("on %d of %d", c.Devices, fleet)
@@ -167,49 +167,6 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 	if len(onFleet) > 0 {
 		sv.Shelves = append(sv.Shelves, storeShelf{
 			ID: "fleet", Title: "On your fleet", Note: "by how many devices report it", Cards: onFleet,
-		})
-	}
-
-	// ── Seen on devices, not in the library ──
-	var unmanaged []storeCard
-	for pkg, c := range cov.ByPkg {
-		if c.InLibrary || c.Devices == 0 {
-			continue
-		}
-		card := cardFor(pkg, c, famByPkg[pkg], varByPkg[pkg], fleet)
-		card.Meta = fmt.Sprintf("on %d of %d · no APK here", c.Devices, fleet)
-		card.CTA, card.CTAKind = "Open", "open"
-		unmanaged = append(unmanaged, card)
-	}
-	sort.SliceStable(unmanaged, func(i, j int) bool { return unmanaged[i].Devices > unmanaged[j].Devices })
-	if len(unmanaged) > 0 {
-		sv.Shelves = append(sv.Shelves, storeShelf{
-			ID: "unmanaged", Title: "Seen on devices, not in the library",
-			Note:  "no APK here, so they cannot be installed, updated or removed from the dashboard",
-			Cards: unmanaged,
-		})
-	}
-
-	// ── In the library, on no device: where uploads go to die ──
-	var unused []storeCard
-	for pkg, v := range varByPkg {
-		if cov.Of(pkg).Devices > 0 {
-			continue
-		}
-		card := cardFor(pkg, cov.Of(pkg), famByPkg[pkg], v, fleet)
-		card.Meta = "never installed"
-		if v.Latest.VersionName != "" {
-			card.Meta = v.Latest.VersionName + " · never installed"
-		}
-		card.CTA, card.CTAKind = "Install on…", "install"
-		unused = append(unused, card)
-	}
-	sort.SliceStable(unused, func(i, j int) bool { return unused[i].Name < unused[j].Name })
-	if len(unused) > 0 {
-		sv.Shelves = append(sv.Shelves, storeShelf{
-			ID: "unused", Title: "In the library, on no device",
-			Note:  "uploaded and never rolled out — nothing else in the dashboard shows this",
-			Cards: unused,
 		})
 	}
 
