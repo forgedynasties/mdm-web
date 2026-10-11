@@ -7686,20 +7686,27 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding: 12px 9px 5px; }
 }
 
-/* Collapsed, a child rail is a column of initials — which says nothing about what it is
-   or that it comes back. A caption and a cursor do. */
+/* Collapsed, a child rail is a column of initials. It keeps the resize cursor as its
+   affordance; a title stub with a chevron was tried and read as clutter. */
 @media (min-width: 1024px) {
   body.rail-open [data-child-rail] { cursor: e-resize; }
-  body.rail-open [data-child-rail] .cr-t:first-child { display: block; font-size: 9px;
-    padding: 0 0 8px; text-align: center; color: var(--text-faint); }
-  body.rail-open [data-child-rail] .cr-t:first-child::after { content: " ›"; }
 }
+
 
 /* The account chip in the rail foot: a row of icon buttons plus the user, which needs the
    full width to show a name at all — in the header it had the whole bar. */
 @media (min-width: 1024px) {
   .rail-foot { flex-direction: column; align-items: stretch; gap: 8px; }
   .rail-foot .appbar-right { flex-wrap: wrap; justify-content: flex-start; }
+  /* The account row: avatar, then name over role, both clipped to one line. Left to wrap
+     it broke "Ali Hassan" across three lines and pushed the avatar off to the right. */
+  .rail-foot #acct-wrap { width: 100%; min-width: 0; }
+  .rail-foot .appbar-acct { display: flex; align-items: center; gap: 8px; width: 100%;
+    flex-wrap: nowrap; min-width: 0; }
+  .rail-foot .appbar-acct .av { order: 1; flex: none; }
+  .rail-foot .appbar-acct .who { order: 2; flex: 1; min-width: 0; text-align: left; }
+  .rail-foot .who .n, .rail-foot .who .r { display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
   .rail-foot .who { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
   .rail-foot .who .n { font-size: 12.5px; font-weight: 650; color: var(--text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

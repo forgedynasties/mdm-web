@@ -1290,12 +1290,20 @@
   }
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
-  function mdmRailChildSync() {
+  function mdmRailChildSync(path) {
     // Portal every child rail to <body>. position:fixed resolves against the nearest
     // ancestor with a transform, and the entrance animations (.dv-rise-*) are transforms —
     // so a rail rendered inside one anchored itself to that box and floated 380px into the
     // content instead of sitting flush at 56px. Measured on /devices and /restaurants;
     // every page whose rail was already a direct child of <body> was correct.
+    // A portalled rail lives on <body>, not in <main>, so an htmx swap to a page that has
+    // no rail of its own leaves the last page's rail standing — Fleet's collections showed
+    // up on the Overview. Clear them when the path changes; on a same-page partial swap
+    // they stay, or a poll would tear the rail out from under the pointer.
+    if (path && path !== mdmRailChildSync.at) {
+      document.querySelectorAll('[data-portaled="1"]').forEach(function (el) { el.remove(); });
+    }
+    mdmRailChildSync.at = path || mdmRailChildSync.at;
     document.querySelectorAll('[data-child-rail]').forEach(function (el) {
       if (el.parentElement !== document.body) {
         el.dataset.portaled = '1';
@@ -1310,7 +1318,7 @@
 
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
-    mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync();
+    mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync(p);
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
