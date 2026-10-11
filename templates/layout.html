@@ -1186,6 +1186,17 @@
   // the dock lives outside <main>, so it isn't re-rendered on navigation.
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
+    // The rail is outside <main> too, so it needs the same treatment or it keeps the
+    // highlight from the page you first landed on.
+    document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
+      var h = a.getAttribute('href'), on;
+      if (h === '/') on = (p === '/');
+      else if (h === '/devices') on = /^\/(devices|groups)(\/|$)/.test(p);
+      else if (h === '/lock') on = /^\/(lock|kiosk|manage)(\/|$)/.test(p);
+      else if (h === '/rollouts') on = /^\/(rollouts|updates|releases|packages)(\/|$)/.test(p);
+      else on = (p === h || p.indexOf(h + '/') === 0);
+      a.classList.toggle('on', on);
+    });
     document.querySelectorAll('.dock .nav-link').forEach(function (a) {
       var h = a.getAttribute('href'), on;
       if (h === '/') on = (p === '/');

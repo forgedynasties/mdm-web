@@ -64,7 +64,7 @@
       <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} {{if .Exits}} · <a href="#kiosk-exits" style="color:var(--warn);font-weight:650">{{len .Exits}} taken out on site</a>{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
     </div>
     <div class="cc-actions">
-      {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
+      {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New lock rule</a>{{end}}
     </div>
   </div>
 
@@ -124,7 +124,7 @@
     <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
     <b>No lock rules yet</b>
     Lock a restaurant, a group or a device to one app. The rule keeps applying: devices that join are locked, devices that leave are released.
-    {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New kiosk rule</a>{{end}}
+    {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New lock rule</a>{{end}}
   </div></div>
   {{end}}
 

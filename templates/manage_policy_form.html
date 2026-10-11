@@ -50,7 +50,7 @@
 
 <div class="ke-wrap cc-wrap">
   <a href="/kiosk" class="ke-back">← Lock</a>
-  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New kiosk rule{{end}}</h1>
+  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New lock rule{{end}}</h1>
 
   <form id="ke-form" method="POST" action="/kiosk/policies" hx-boost="false">
     <input type="hidden" name="id" id="ke-id" value="{{if $p}}{{$p.ID}}{{end}}">
