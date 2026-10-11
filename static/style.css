@@ -7628,7 +7628,8 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .cr-l { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 8px;
     font-size: 12.5px; font-weight: 600; color: var(--text-2); text-decoration: none; white-space: nowrap; }
   .cr-l:hover { background: var(--surface-3); color: var(--text); }
-  .cr-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .cr-l.on, .cr-l.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  /* Settings drives its tabs with .active; the rail styles .on. Both mean current. */
   .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
@@ -7678,4 +7679,21 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     border-radius: 0; box-shadow: none; background: var(--surface); }
   /* The content column no longer leaves room for an in-flow rail. */
   body.has-child-rail .fleet-main, body.has-child-rail .fleet-grid { margin-left: 0; }
+}
+
+/* Fleet's rows carry a status dot, a count and a manage arrow, so they keep their own
+   markup inside the shared band — these just align them with .cr-l's metrics. */
+@media (min-width: 1024px) {
+  .fleet-rail[data-child-rail] .fleet-rail-item { border-radius: 8px; padding: 6px 9px; }
+  .fleet-rail[data-child-rail] .fleet-rail-cap { font-size: 10px; font-weight: 800;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding: 12px 9px 5px; }
+}
+
+/* Collapsed, a child rail is a column of initials — which says nothing about what it is
+   or that it comes back. A caption and a cursor do. */
+@media (min-width: 1024px) {
+  body.rail-open [data-child-rail] { cursor: e-resize; }
+  body.rail-open [data-child-rail] .cr-t:first-child { display: block; font-size: 9px;
+    padding: 0 0 8px; text-align: center; color: var(--text-faint); }
+  body.rail-open [data-child-rail] .cr-t:first-child::after { content: " ›"; }
 }

@@ -31,6 +31,17 @@
 .cmd-timeline .ht-by{display:inline-flex;font-size:10.5px;color:var(--text-faint);margin-top:2px}
 /* status tabs → cc-seg look */
 .hist-tabs{margin-bottom:12px}
+@media (min-width: 1024px) {
+  .hist-tabs[data-child-rail] {
+    position: fixed; left: 208px; top: 0; bottom: 0; width: 196px;
+    flex-direction: column; align-items: stretch; gap: 2px; margin: 0; padding: 16px 10px;
+    border: 0; border-right: 1px solid var(--border-soft); border-bottom: 0;
+    overflow-x: hidden; overflow-y: auto; z-index: 43;
+  }
+  .hist-tabs[data-child-rail] > * { width: 100%; text-align: left; white-space: nowrap; }
+  body.has-child-rail .hist-tabs[data-child-rail] { left: 56px; }
+  body.rail-open .hist-tabs[data-child-rail] { width: 56px; }
+}
 @media(max-width:600px){
   .ch-wrap{max-width:100%}
   .cc-top{gap:10px}.cc-h1{font-size:20px}
@@ -166,12 +177,13 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
   .adm-toggle input{margin:0}
 </style>
-<div class="hist-tabs" data-child-rail aria-label="History">
-  <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
-  <a class="hist-tab{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention">Needs attention <span class="cnt">{{.AttnCount}}</span></a>
-  <a class="hist-tab{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress">In progress <span class="cnt">{{.ProgCount}}</span></a>
-  <a class="hist-tab{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed">Completed <span class="cnt">{{.DoneCount}}</span></a>
-</div>
+<nav class="hist-tabs child-rail" data-child-rail aria-label="History">
+  <div class="cr-t">History</div>
+  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all"><span>All</span><span class="cr-ini">Al</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
+  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention"><span>Needs attention</span><span class="cr-ini">Ne</span><span class="n">{{.AttnCount}}</span></a>
+  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress"><span>In progress</span><span class="cr-ini">In</span><span class="n">{{.ProgCount}}</span></a>
+  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed"><span>Completed</span><span class="cr-ini">Co</span><span class="n">{{.DoneCount}}</span></a>
+</nav>
 
 <div class="card cc-card">
   <div class="card-header cc-ch">

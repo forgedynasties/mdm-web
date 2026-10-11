@@ -1278,6 +1278,13 @@
     var rail = document.querySelector('.rail');
     if (!rail || rail.dataset.bound) return;
     rail.dataset.bound = '1';
+    // Hovering the child rail closes the app rail again. Without this the swap is
+    // one-way: once the app rail takes the width there is nothing to aim at to get the
+    // page's own rail back, and a column of initials does not suggest it can return.
+    document.addEventListener('mouseover', function (e) {
+      var child = e.target.closest && e.target.closest('[data-child-rail]');
+      if (child && document.body.classList.contains('rail-open')) railOpen(false);
+    });
     rail.addEventListener('mouseenter', function () { railOpen(true); });
     rail.addEventListener('mouseleave', function () { railOpen(false); });
     // Keyboard users never hover, so focus has to open it or the rail is untabbable.
