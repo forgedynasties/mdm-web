@@ -1,5 +1,13 @@
 {{define "clients.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Clients">
+  <div class="cr-t">Clients</div>
+  <a href="#cl-body" class="cr-l on"><span>Hosted builds</span><span class="cr-ini">Ho</span></a>
+  <a href="#cl-devs" class="cr-l"><span>Devices by version</span><span class="cr-ini">De</span></a>
+  <div class="cr-t">Related</div>
+  <a href="/rollouts" class="cr-l"><span>Firmware</span><span class="cr-ini">Fi</span></a>
+  <a href="/apps" class="cr-l"><span>Apps</span><span class="cr-ini">Ap</span></a>
+</aside>
 {{/* Clients: the MDM client each device runs, the build this server hosts for it, and
      what has been published to it. The client list stays on the left while you work in
      one of them. A slot exists per thing that must be signed differently: the standard
@@ -95,7 +103,7 @@
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
 
-<div class="cc-wrap" data-section-rail="Clients">
+<div class="cc-wrap">
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Fleet · Clients</div>

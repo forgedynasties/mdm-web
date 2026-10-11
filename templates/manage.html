@@ -1,5 +1,13 @@
 {{define "manage.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Device lock">
+  <div class="cr-t">Device lock</div>
+  <a href="#lock-rules" class="cr-l on"><span>Lock rules</span><span class="cr-ini">Ru</span>{{if .Rules}}<span class="n">{{len .Rules}}</span>{{end}}</a>
+  <a href="#kiosk-exits" class="cr-l"><span>Unlocked on site</span><span class="cr-ini">Un</span>{{if .Exits}}<span class="n">{{len .Exits}}</span>{{end}}</a>
+  <a href="#lock-uncovered" class="cr-l"><span>No rule covers</span><span class="cr-ini">No</span>{{if .NotCovered}}<span class="n">{{.NotCovered}}</span>{{end}}</a>
+  <div class="cr-t">Set it per venue</div>
+  <a href="/restaurants" class="cr-l"><span>Venues</span><span class="cr-ini">Ve</span></a>
+</aside>
 
 <style>
 /* ── Lock rules ─────────────────────────────────────────────
@@ -85,6 +93,7 @@
   </div>
   {{end}}
 
+  <div id="lock-rules"></div>
   {{if .Rules}}
   <div class="cc-card kr-list">
     {{range .Rules}}
@@ -128,7 +137,8 @@
   </div></div>
   {{end}}
 
-  <div class="kr-else">
+  <div id="lock-uncovered"></div>
+    <div class="kr-else">
     <span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
     <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
     {{if .CanEdit}}<a href="/kiosk/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
