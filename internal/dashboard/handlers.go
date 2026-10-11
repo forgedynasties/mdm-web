@@ -3334,7 +3334,7 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	apps, _ := h.db.ListApps(r.Context())
 	h.render(w, r, "apps.html", map[string]any{
 		"Title":         "App library",
-		"ActivePage":    "commands",
+		"ActivePage":    "apps",
 		"Apps":          apps,
 		"Families":      families,
 		"Suggestions":   suggestions,
@@ -15384,6 +15384,15 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		h.renderCachedHTML(w, r, "cmd-timeline-inner", h.withRole(r, data))
 		return
 	}
+	// /jobs is the same data without the send console: in flight, needs attention, and
+	// what has run. The console is being dismantled (its verbs are moving to the thing
+	// they act on — the app for installs, the device selection for diagnostics), and this
+	// is the half that has to survive it, because nothing else shows work in flight.
+	if r.URL.Path == "/jobs" {
+		data["JobsView"] = true
+		h.render(w, r, "jobs.html", data)
+		return
+	}
 	h.render(w, r, "commands.html", data)
 }
 
@@ -21930,6 +21939,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
+	// Work in flight and what has run — the Actions page's other half, on its own route so
+	// the console can be removed without taking it along.
+	mux.HandleFunc("GET /jobs", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
 	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))

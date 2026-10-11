@@ -1,0 +1,29 @@
+{{define "jobs.html"}}
+{{template "header" .}}
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Fleet · work</div>
+      <h1 class="cc-h1">{{if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> job{{if ne .ProgCount 1}}s{{end}} in flight{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <a href="#hist-attn" style="color:inherit;text-decoration:none" title="Jump to the Needs attention list"><span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention</a>{{end}}</h1>
+      <div class="cc-sub">Everything sent to the fleet: what is running, what needs looking at, and what has finished. Open a job for its per-device history — when each device was handed the command, when it confirmed receipt, and how long each step took.</div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn" href="/devices" title="Filter the fleet, select devices, and act on the selection">Devices</a>
+      <a class="cc-btn" href="/apps" title="Install and update apps, targeted by fleet coverage">Apps</a>
+      <a class="cc-btn" href="/schedules" title="Saved and scheduled sends"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
+    </div>
+  </div>
+
+  {{/* Jobs start where the thing they act on lives: an install from the app's card in the
+       library (which knows which devices are missing it), a shell or reboot from a device
+       selection on the Devices page. This page is where they are watched, not started. */}}
+  <div class="cc-card" style="padding:0;overflow:hidden">
+    <div id="cmd-timeline" class="hist-wrap"
+         hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
+         hx-trigger="command-updated from:body, every 30s">
+      {{template "cmd-timeline-inner" .}}
+    </div>
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}
