@@ -599,6 +599,10 @@
   <div class="rail-foot" id="rail-foot"></div>
 </nav>
 
+{{/* Dims the page while the app rail is open over a page's own rail, so the rail reads as a
+     passing layer rather than part of the furniture. Never clickable: leaving it is what closes it. */}}
+<div class="rail-scrim" aria-hidden="true"></div>
+
   <nav class="dock dock-s" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
     <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>

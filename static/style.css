@@ -7574,7 +7574,15 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.has-child-rail:not(.rail-open) .rail-brand::before { content: ""; display: inline-block;
     width: 28px; height: 28px; background: url("/static/favicon.svg") center/contain no-repeat; }
 
-  body.has-child-rail.rail-open .rail { width: 196px; }  /* 196+56 = 56+196: the swap is width-neutral */
+  /* Open, the app rail is a temporary drawer: it grows over the child rail rather than
+     pushing it, with a shadow and a scrim so it reads as a layer that will go away. The
+     child rail is untouched underneath and back in full the moment the pointer leaves. */
+  body.has-child-rail.rail-open .rail { width: 208px; z-index: 60;
+    box-shadow: 18px 0 38px rgba(0, 0, 0, .28); }
+  .rail-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .16);
+    opacity: 0; pointer-events: none; transition: opacity .18s; }
+  body.has-child-rail.rail-open .rail-scrim { opacity: 1; }
+  :root[data-theme="light"] .rail-scrim { background: rgba(16, 18, 27, .10); }
   body.has-child-rail.rail-open .rail-brand::before { display: none; }
   /* No hover on a touchscreen, so there it simply stays open. */
   @media (hover: none) { body.has-child-rail .rail { width: 208px; }
@@ -7629,40 +7637,13 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
-  /* The swap: it gives up exactly what the app rail takes, so nothing reflows. */
-  body.rail-open [data-child-rail] { width: 56px; left: 196px; }
-  /* left tracks the app rail's width, or the expanded rail covers it: 196+56 = 56+196. */
-  body.rail-open [data-child-rail] .cr-t,
-  body.rail-open [data-child-rail] .cr-l > span:not(.cr-ini),
-  body.rail-open [data-child-rail] .cr-l .n { display: none; }
-  body.rail-open [data-child-rail] .cr-l { justify-content: center; padding: 7px 4px; }
-  body.rail-open [data-child-rail] .cr-ini { display: block; }
-  /* A page's own nav keeps its markup; collapsed, it shows whatever glyph it has. */
-  body.rail-open [data-child-rail] button > span,
-  body.rail-open [data-child-rail] button:not(:has(svg)) { font-size: 0; }
-  body.rail-open [data-child-rail] button { justify-content: center; padding-left: 0; padding-right: 0; }
-  body.rail-open [data-child-rail] button svg { font-size: 13px; }
+  /* The child rail does NOT shrink. Compressing it meant inventing a two-letter
+     abbreviation for user-typed names (venues, groups), which is unreadable and
+     ambiguous — "Al" was both "All" and "Alerts". The app rail floats over it on hover
+     instead (see .rail below): nothing in here changes, nothing reflows, and the page's
+     own nav is intact the moment the pointer leaves. */
 }
 
-/* ── Fleet's collections rail, the first child rail ────────────────────────
-   It keeps its own markup (status dots, counts, a manage arrow per row) and
-   collapses to the dot plus two initials, so the venue you are filtered to is
-   still identifiable while the app rail is open. */
-  .fleet-rail { transition: width .2s cubic-bezier(.4, 0, .2, 1); }
-  body.rail-open .fleet-rail { width: 56px; min-width: 56px; overflow: hidden; }
-  body.rail-open .fleet-rail .nm,
-  body.rail-open .fleet-rail .ct,
-  body.rail-open .fleet-rail .ri-go,
-  body.rail-open .fleet-rail .fleet-rail-cap,
-  body.rail-open .fleet-rail .fleet-rail-empty,
-  body.rail-open .fleet-rail .fr-more { display: none; }
-  body.rail-open .fleet-rail .fleet-rail-item { justify-content: center; padding: 6px 4px; gap: 5px; }
-  body.rail-open .fleet-rail .fleet-rail-item[data-ini]::after {
-    content: attr(data-ini); font-size: 10.5px; font-weight: 750; color: var(--text-faint);
-    letter-spacing: -.02em;
-  }
-  body.rail-open .fleet-rail .fleet-rail-item.on[data-ini]::after { color: var(--accent-text); }
-  body.rail-open .fleet-rail .fleet-rail-list { display: flex; flex-direction: column; gap: 2px; }
 }
 
 /* Pages whose own nav became the child rail: strip the card styling they carried as
@@ -7686,10 +7667,6 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding: 12px 9px 5px; }
 }
 
-/* Collapsed, a child rail is a column of initials. It keeps the resize cursor as its
-   affordance; a title stub with a chevron was tried and read as clutter. */
-@media (min-width: 1024px) {
-  body.rail-open [data-child-rail] { cursor: e-resize; }
 }
 
 
