@@ -1301,9 +1301,18 @@
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
   function mdmRailChildSync() {
-    // Child rails render either inside <main> (Fleet's collections) or as a sibling of
-    // it (every page that uses the shared component, since it is position:fixed).
-    var child = document.querySelector('main .fleet-rail, [data-child-rail]');
+    // Portal every child rail to <body>. position:fixed resolves against the nearest
+    // ancestor with a transform, and the entrance animations (.dv-rise-*) are transforms —
+    // so a rail rendered inside one anchored itself to that box and floated 380px into the
+    // content instead of sitting flush at 56px. Measured on /devices and /restaurants;
+    // every page whose rail was already a direct child of <body> was correct.
+    document.querySelectorAll('[data-child-rail]').forEach(function (el) {
+      if (el.parentElement !== document.body) {
+        el.dataset.portaled = '1';
+        document.body.appendChild(el);
+      }
+    });
+    var child = document.querySelector('[data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
   }

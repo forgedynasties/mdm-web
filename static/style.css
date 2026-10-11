@@ -7566,7 +7566,7 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.has-child-rail .rail-brand { font-size: 0; padding-left: 4px; }
   body.has-child-rail .rail-brand::before { content: ""; display: block; width: 28px; height: 28px;
     border-radius: 8px; background: var(--brand-grad); }
-  body.has-child-rail.rail-open .rail { width: 208px; }
+  body.has-child-rail.rail-open .rail { width: 196px; }  /* 196+56 = 56+196: the swap is width-neutral */
   body.has-child-rail.rail-open .rail .rail-t,
   body.has-child-rail.rail-open .rail .rail-g,
   body.has-child-rail.rail-open .rail .rail-c,
