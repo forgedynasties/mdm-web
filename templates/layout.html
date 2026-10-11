@@ -1326,7 +1326,10 @@
     // a rail of its own, every portalled one goes first; if it brought none and the
     // page changed, they go too. Only a same-page partial swap keeps them, or a poll
     // would tear the rail out from under the pointer.
-    var key = (path || location.pathname) + location.search;
+    // Keyed on the path only. A query-only change (?tab=recent, ?status=open) is the same
+    // page: if it swaps in a partial with no rail of its own, the portalled one must stay
+    // — keying on the query dropped Enrollment's rail when a tab rewrote the URL.
+    var key = (path || location.pathname).split('?')[0];
     var fresh = document.querySelectorAll('main [data-child-rail]').length > 0;
     if (fresh || key !== mdmRailChildSync.at) {
       document.querySelectorAll('[data-portaled="1"]').forEach(function (el) { el.remove(); });
