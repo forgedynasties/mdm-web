@@ -7604,6 +7604,13 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     display: flex; flex-direction: column; gap: 1px;
     position: fixed; left: 208px; top: 0; bottom: 0; width: 196px; z-index: 43;
     margin: 0; padding: 16px 10px; overflow-x: hidden; overflow-y: auto;
+    /* ── The one-line option ──────────────────────────────────────────────
+       Shipped as A: the child rail is the same surface as the app rail, one
+       hairline between them. If the two scopes read as too alike once people
+       use it, B is this single line — swap var(--surface) for the recess and
+       the child rail sits a shade darker, the way a nested panel does:
+         background: color-mix(in srgb, var(--surface) 84%, var(--bg));
+       Nothing else changes. */
     background: var(--surface); border: 0; border-right: 1px solid var(--border-soft);
     border-radius: 0; box-shadow: none; min-width: 0;
     transition: width .2s cubic-bezier(.4, 0, .2, 1), left .2s cubic-bezier(.4, 0, .2, 1);
