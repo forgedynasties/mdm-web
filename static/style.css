@@ -7668,12 +7668,33 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-open [data-child-rail] .fleet-rail-item,
   body.rail-open [data-child-rail] .ri-main { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
   body.rail-open [data-child-rail] button svg { display: none; }
-  /* The current row keeps its fill so "where am I" survives the fold. */
-  body.rail-open [data-child-rail] .cr-l.on,
-  body.rail-open [data-child-rail] .cr-l.active,
-  body.rail-open [data-child-rail] button.on,
-  body.rail-open [data-child-rail] button.active,
-  body.rail-open [data-child-rail] .fleet-rail-item.on { background: var(--accent-soft); }
+  /* Folded, the strip stops pretending to be readable: one dash per row, the current one
+     longer and accented. It is a scrollbar-grade hint — four things, you are on the
+     first — and it claims nothing a colour or an abbreviation would have to be learned
+     for. The swatches stay where they mean something, next to the names, open. */
+  body.rail-open [data-child-rail] .cr-sw,
+  body.rail-open [data-child-rail] .dot { display: none; }
+  body.rail-open [data-child-rail] .cr-l,
+  body.rail-open [data-child-rail] button,
+  body.rail-open [data-child-rail] .fleet-rail-item {
+    min-height: 0; height: 20px; padding: 0; margin: 0; border: 0;
+    background: transparent; box-shadow: none; }
+  body.rail-open [data-child-rail] .cr-l::after,
+  body.rail-open [data-child-rail] button::after,
+  body.rail-open [data-child-rail] .fleet-rail-item::after {
+    content: ""; display: block; width: 18px; height: 3px; border-radius: 2px;
+    background: var(--border); transition: width .15s, background .15s; }
+  body.rail-open [data-child-rail] .cr-l:hover::after,
+  body.rail-open [data-child-rail] button:hover::after,
+  body.rail-open [data-child-rail] .fleet-rail-item:hover::after { background: var(--text-faint); }
+  body.rail-open [data-child-rail] .cr-l.on::after,
+  body.rail-open [data-child-rail] .cr-l.active::after,
+  body.rail-open [data-child-rail] button.on::after,
+  body.rail-open [data-child-rail] button.active::after,
+  body.rail-open [data-child-rail] .fleet-rail-item.on::after {
+    width: 26px; height: 4px; background: var(--accent); }
+  /* A caption's rows are a run of dashes; the gap between runs is what groups them. */
+  body.rail-open [data-child-rail] .fleet-rail-list { gap: 4px; }
 }
 
 }
