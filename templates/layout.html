@@ -1319,6 +1319,12 @@
       document.querySelectorAll('[data-portaled="1"]').forEach(function (el) { el.remove(); });
     }
     mdmRailChildSync.at = key;
+    document.querySelectorAll('[data-child-rail]').forEach(function (el) {
+      if (el.parentElement !== document.body) {
+        el.dataset.portaled = '1';
+        document.body.appendChild(el);
+      }
+    });
     var child = document.querySelector('[data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rail behaviour — how it opens, closes and follows you</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 90px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 820px; margin: 0 0 24px; line-height: 1.55; }
+  .opt { margin: 0 0 34px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; max-width: 820px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--ok-bg); color: var(--ok); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+  .hint { font-size: 11.5px; color: var(--accent-text); font-weight: 600; margin: 0 0 8px; }
+
+  .mock { position: relative; height: 330px; border: 1px solid var(--border); border-radius: var(--r-4);
+    overflow: hidden; background: var(--bg); box-shadow: var(--shadow-sm); user-select: none; }
+  .k-app { position: absolute; left: 0; top: 0; bottom: 0; width: 56px; background: var(--surface);
+    border-right: 1px solid var(--border-soft); padding: 12px 8px; display: flex; flex-direction: column;
+    gap: 2px; z-index: 6; overflow: hidden; white-space: nowrap;
+    transition: width .2s cubic-bezier(.4,0,.2,1), box-shadow .2s; }
+  .k-app.open { width: 200px; box-shadow: 18px 0 38px rgba(0,0,0,.28); }
+  .k-brand { height: 26px; display: flex; align-items: center; gap: 10px; font-size: 14.5px;
+    font-weight: 600; padding: 0 4px 0 5px; margin-bottom: 10px; cursor: pointer; }
+  .k-brand .fav { width: 26px; height: 26px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg,#f0803c,#e2574c); }
+  .k-brand .wm, .k-l span, .k-g { opacity: 0; transition: opacity .14s; }
+  .k-app.open .k-brand .wm, .k-app.open .k-l span, .k-app.open .k-g { opacity: 1; }
+  .k-g { font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 7px 6px 3px; visibility: hidden; }
+  .k-app.open .k-g { visibility: visible; }
+  .k-l { display: flex; align-items: center; gap: 11px; padding: 6px 7px; border-radius: 8px;
+    font-size: 12.5px; color: var(--muted); cursor: pointer; }
+  .k-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+  .k-l i { width: 15px; height: 15px; border-radius: 4px; background: currentColor; opacity: .42; flex: none; }
+  .k-child { position: absolute; left: 56px; top: 0; bottom: 0; width: 196px; z-index: 3;
+    background: var(--surface); border-right: 1px solid var(--border-soft); padding: 14px 10px;
+    display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  .k-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 10px 9px 5px; white-space: nowrap; }
+  .k-t:first-child { padding-top: 0; }
+  .k-r { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  .k-r.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .k-body { position: absolute; left: 252px; right: 0; top: 0; bottom: 0; padding: 20px; }
+  .k-body h3 { font-size: 17px; margin: 0 0 12px; }
+  .k-body .ln { height: 10px; border-radius: 5px; background: var(--surface2); margin-bottom: 10px; }
+  .k-body .ln.b { width: 82%; } .k-body .ln.c { width: 58%; }
+  .k-card { border: 1px solid var(--border-soft); border-radius: 10px; height: 120px; margin-top: 14px;
+    background: var(--surface); }
+  .k-scrim { position: absolute; inset: 0; z-index: 5; background: rgba(0,0,0,.16); opacity: 0;
+    pointer-events: none; transition: opacity .18s; }
+  .k-app.open ~ .k-scrim { opacity: 1; }
+  .state { position: absolute; right: 10px; top: 10px; z-index: 8; font-family: var(--mono);
+    font-size: 10.5px; color: var(--text-faint); background: var(--surface); border: 1px solid var(--border-soft);
+    border-radius: 7px; padding: 3px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rail behaviour — opening, closing, and what happens when you navigate</h1>
+  <p class="lede">
+    Each mock is live: hover the left edge, and click a nav row to "navigate". The content and the
+    child rail change as they would on the real thing, so the question each option answers is
+    <i>what should the app rail do at the moment you arrive somewhere new</i>. A is what is on stage.
+  </p>
+
+  <div class="opt" id="a">
+    <h2>A · Snap shut on arrival <span class="badge live">on stage now</span></h2>
+    <p class="note">Hover opens it, moving away closes it, and clicking a destination closes it at once —
+      the new page arrives with the rail already folded. <b>Good:</b> the page you asked for gets the
+      whole screen immediately, and the rule is one sentence. <b>Bad:</b> if you meant to click the row
+      below, you have to re-open; and the close fires while the page is still loading, so the rail
+      appears to flinch away before the new content lands.</p>
+    <p class="hint">↓ hover the rail, then click a row</p>
+    <div class="mock" data-mode="snap"></div>
+  </div>
+
+  <div class="opt" id="b">
+    <h2>B · Stay open until you leave it <span class="badge pick">my pick</span></h2>
+    <p class="note">Clicking a destination navigates but leaves the rail open; it folds when the pointer
+      leaves the rail, or after a short grace period if the pointer never moves. <b>Good:</b> two or
+      three hops in a row cost one gesture, which is how nav actually gets used, and nothing moves
+      while the page is still swapping. <b>Bad:</b> the new page is briefly under the drawer, so the
+      first thing you see is covered by ~200px until you move the mouse.</p>
+    <p class="hint">↓ click a row — the rail stays until you move off it</p>
+    <div class="mock" data-mode="stay"></div>
+  </div>
+
+  <div class="opt" id="c">
+    <h2>C · Remembered, not hovered</h2>
+    <p class="note">Hover does nothing. The brand mark toggles the rail open or shut, and that choice
+      sticks across pages and sessions. <b>Good:</b> nothing ever moves unless you ask; the best option
+      for a screen someone watches all day, and for anyone who finds hover menus twitchy.
+      <b>Bad:</b> navigation costs an extra click when the rail is shut, and a person who never finds
+      the toggle lives with icons forever.</p>
+    <p class="hint">↓ click the logo to toggle; hover does nothing</p>
+    <div class="mock" data-mode="pin"></div>
+  </div>
+
+  <div class="opt" id="d">
+    <h2>D · Open on arrival, fold after a beat</h2>
+    <p class="note">Every navigation lands with the rail open for about a second, then it folds by
+      itself. <b>Good:</b> you always see where you are in the nav right after you move, which is the
+      moment the highlight matters. <b>Bad:</b> motion the person did not ask for, on every single page
+      load — the kind of thing that is charming twice and irritating after that.</p>
+    <p class="hint">↓ click a row — the rail opens itself, then folds</p>
+    <div class="mock" data-mode="flash"></div>
+  </div>
+
+  <p class="lede"><b>Pick: B.</b> A is correct about giving the page the screen, but it optimises the
+    rarest case — one hop, then reading — and punishes the common one. B keeps the drawer under the
+    pointer that is already there, and the cover is temporary by definition because the drawer closes
+    the moment you move toward the content you asked for. C is worth keeping as a preference on top of
+    B rather than instead of it.</p>
+</div>
+
+<script>
+// Each mock is the same little app: an app rail, a page rail, and a body. The mode decides
+// only what happens to the app rail on hover and on click.
+var PAGES = {
+  fleet:   { title: 'Fleet',    rail: ['Collections', 'All devices', 'AIO Test Bistro', 'Lab bench'] },
+  apps:    { title: 'Apps',     rail: ['Apps', 'All apps', 'Needs attention', 'On your fleet'] },
+  alerts:  { title: 'Alerts',   rail: ['Alerts', 'Open', 'Acknowledged', 'Resolved'] },
+  lock:    { title: 'Lock',     rail: ['Device lock', 'Lock rules', 'Unlocked on site', 'No rule covers'] }
+};
+var ORDER = ['fleet', 'apps', 'alerts', 'lock'];
+
+document.querySelectorAll('.mock').forEach(function (m) {
+  var mode = m.dataset.mode, open = false, pinned = false, cur = 'fleet', t = null;
+  m.innerHTML =
+    '<div class="k-child"></div><div class="k-body"></div><div class="k-scrim"></div>' +
+    '<div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>' +
+    '<div class="k-g">Watch</div>' +
+    '<div class="k-l" data-p="alerts"><i></i><span>Alerts</span></div>' +
+    '<div class="k-g">Manage</div>' +
+    '<div class="k-l" data-p="fleet"><i></i><span>Fleet</span></div>' +
+    '<div class="k-l" data-p="apps"><i></i><span>Apps</span></div>' +
+    '<div class="k-l" data-p="lock"><i></i><span>Lock</span></div></div>' +
+    '<div class="state"></div>';
+  var app = m.querySelector('.k-app'), child = m.querySelector('.k-child'),
+      body = m.querySelector('.k-body'), state = m.querySelector('.state');
+
+  function paint() {
+    var p = PAGES[cur];
+    child.innerHTML = p.rail.map(function (r, i) {
+      return i === 0 ? '<div class="k-t">' + r + '</div>'
+                     : '<div class="k-r' + (i === 1 ? ' on' : '') + '">' + r + '</div>';
+    }).join('');
+    body.innerHTML = '<h3>' + p.title + '</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div>';
+    m.querySelectorAll('.k-l').forEach(function (l) { l.classList.toggle('on', l.dataset.p === cur); });
+    app.classList.toggle('open', open);
+    state.textContent = mode + (open ? ' · open' : ' · folded');
+  }
+  function set(v) { open = v; paint(); }
+
+  if (mode !== 'pin') {
+    app.addEventListener('pointerenter', function () { clearTimeout(t); if (!pinned) set(true); });
+    app.addEventListener('pointerleave', function () { clearTimeout(t); if (!pinned) t = setTimeout(function () { set(false); }, 220); });
+  }
+  m.querySelector('.k-brand').addEventListener('click', function () {
+    if (mode === 'pin') { pinned = !pinned; set(pinned); }
+  });
+  m.addEventListener('click', function (e) {
+    var l = e.target.closest('.k-l'); if (!l) return;
+    cur = l.dataset.p;
+    if (mode === 'snap') { set(false); }
+    else if (mode === 'stay') { paint(); }                                  // stays as it is
+    else if (mode === 'pin') { paint(); }                                   // only the toggle moves it
+    else if (mode === 'flash') { set(true); clearTimeout(t); t = setTimeout(function () { set(false); }, 1100); }
+  });
+  paint();
+});
+</script>
+</body>
+</html>
