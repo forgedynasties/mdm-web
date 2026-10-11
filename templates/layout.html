@@ -1306,21 +1306,19 @@
     // so a rail rendered inside one anchored itself to that box and floated 380px into the
     // content instead of sitting flush at 56px. Measured on /devices and /restaurants;
     // every page whose rail was already a direct child of <body> was correct.
-    // A portalled rail lives on <body>, not in <main>, so an htmx swap to a page that has
-    // no rail of its own leaves the last page's rail standing — Fleet's collections showed
-    // up on the Overview. Clear them when the path changes; on a same-page partial swap
-    // they stay, or a poll would tear the rail out from under the pointer.
+    // A portalled rail lives on <body>, not in <main>, so an htmx swap leaves the old
+    // one standing: on a different page that means the last page's rail (Fleet's
+    // collections once showed up on the Overview), and on the same page — clicking the
+    // rail entry you are already on — it meant two. So: if the swapped-in page brought
+    // a rail of its own, every portalled one goes first; if it brought none and the
+    // page changed, they go too. Only a same-page partial swap keeps them, or a poll
+    // would tear the rail out from under the pointer.
     var key = (path || location.pathname) + location.search;
-    if (key !== mdmRailChildSync.at) {
+    var fresh = document.querySelectorAll('main [data-child-rail]').length > 0;
+    if (fresh || key !== mdmRailChildSync.at) {
       document.querySelectorAll('[data-portaled="1"]').forEach(function (el) { el.remove(); });
     }
     mdmRailChildSync.at = key;
-    document.querySelectorAll('[data-child-rail]').forEach(function (el) {
-      if (el.parentElement !== document.body) {
-        el.dataset.portaled = '1';
-        document.body.appendChild(el);
-      }
-    });
     var child = document.querySelector('[data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
