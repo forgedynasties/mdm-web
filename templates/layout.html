@@ -569,28 +569,39 @@
        setting up — and nothing that matters daily is behind a disclosure. The dock stays
        for narrow screens, where a fixed rail would eat the page. */}}
   <nav class="rail" aria-label="Primary navigation">
+    <a href="/" class="rail-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">
+      <span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span></a>
     <div class="rail-g">Watch</div>
-    <a href="/" class="rail-l js-dest{{if eq .ActivePage "overview"}} on{{end}}">Overview</a>
-    <a href="/alerts" class="rail-l js-dest{{if eq .ActivePage "alerts"}} on{{end}}">Alerts{{if .AlertsOpenCount}}<span class="rail-c bad">{{.AlertsOpenCount}}</span>{{end}}</a>
-    <a href="/jobs" class="rail-l js-dest{{if eq .ActivePath "/jobs"}} on{{end}}">Jobs</a>
+    <a href="/" class="rail-l js-dest{{if eq .ActivePage "overview"}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span class="rail-t">Overview</span></a>
+    <a href="/alerts" class="rail-l js-dest{{if eq .ActivePage "alerts"}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg><span class="rail-t">Alerts</span>{{if .AlertsOpenCount}}<span class="rail-c bad">{{.AlertsOpenCount}}</span>{{end}}</a>
+    <a href="/jobs" class="rail-l js-dest{{if eq .ActivePath "/jobs"}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><span class="rail-t">Jobs</span></a>
 
     <div class="rail-g">Manage</div>
-    <a href="/devices" class="rail-l js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups")}} on{{end}}">Fleet</a>
-    <a href="/apps" class="rail-l js-dest{{if eq .ActivePath "/apps"}} on{{end}}">Apps</a>
-    <a href="/lock" class="rail-l js-dest{{if eq .ActivePage "manage"}} on{{end}}">Lock</a>
-    <a href="/restaurants" class="rail-l js-dest{{if eq .ActivePage "restaurants"}} on{{end}}">Venues</a>
-    {{if canAdminOrOperator .Role}}<a href="/rollouts" class="rail-l js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}">Firmware</a>{{end}}
-    {{if canAdminOrOperator .Role}}<a href="/clients" class="rail-l js-dest{{if eq .ActivePath "/clients"}} on{{end}}">Clients</a>{{end}}
-    <a href="/schedules" class="rail-l js-dest{{if eq .ActivePath "/schedules"}} on{{end}}">Schedules</a>
+    <a href="/devices" class="rail-l js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups")}} on{{end}}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg><span class="rail-t">Fleet</span></a>
+    <a href="/apps" class="rail-l js-dest{{if eq .ActivePath "/apps"}} on{{end}}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="rail-t">Apps</span></a>
+    <a href="/lock" class="rail-l js-dest{{if eq .ActivePage "manage"}} on{{end}}"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span class="rail-t">Lock</span></a>
+    <a href="/restaurants" class="rail-l js-dest{{if eq .ActivePage "restaurants"}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg><span class="rail-t">Venues</span></a>
+    {{if canAdminOrOperator .Role}}<a href="/rollouts" class="rail-l js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span class="rail-t">Firmware</span></a>{{end}}
+    {{if canAdminOrOperator .Role}}<a href="/clients" class="rail-l js-dest{{if eq .ActivePath "/clients"}} on{{end}}"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><span class="rail-t">Clients</span></a>{{end}}
+    <a href="/schedules" class="rail-l js-dest{{if eq .ActivePath "/schedules"}} on{{end}}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="rail-t">Schedules</span></a>
 
     <div class="rail-g">Set up</div>
-    <a href="/enrollment" class="rail-l js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}">Enrollment</a>
-    {{if canManageUsers .Role}}<a href="/users" class="rail-l js-dest{{if eq .ActivePath "/users"}} on{{end}}">Users</a>{{end}}
-    {{if canAdmin .Role}}<a href="/settings" class="rail-l js-dest{{if eq .ActivePath "/settings"}} on{{end}}">Settings</a>{{end}}
+    <a href="/enrollment" class="rail-l js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="rail-t">Enrollment</span></a>
+    {{if canManageUsers .Role}}<a href="/users" class="rail-l js-dest{{if eq .ActivePath "/users"}} on{{end}}"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11a3 3 0 1 0 0-6"/></svg><span class="rail-t">Users</span></a>{{end}}
+    {{if canAdmin .Role}}<a href="/settings" class="rail-l js-dest{{if eq .ActivePath "/settings"}} on{{end}}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg><span class="rail-t">Settings</span></a>{{end}}
     {{/* The long tail — map, health, export, activity, server — keeps the existing
          directory rather than growing the rail past a screenful. */}}
     <button type="button" class="rail-l rail-more" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-keyshortcuts="Meta+K Control+K">Everything else<kbd>⌘K</kbd></button>
-  </nav>
+    {{/* The header's contents live here now: its only job was the brand, the theme
+       toggle and the account, and the rail can hold all three. #rail-foot is where
+       layout.js moves the real controls, so nothing is duplicated and every binding
+       they already have keeps working. */}}
+  <div class="rail-foot" id="rail-foot">
+    {{/* Someone working in the nav for a minute should be able to lock it open; the
+         choice sticks per person. Only meaningful where the rail collapses. */}}
+    <button type="button" class="rail-pin" onclick="window.mdmRailPin()" aria-label="Keep the navigation open" title="Keep the navigation open">⇥</button>
+  </div>
+</nav>
 
   <nav class="dock dock-s" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
@@ -1184,8 +1195,67 @@
   <script>
   // Keep the dock's active highlight in sync after a boosted (main-only) swap:
   // the dock lives outside <main>, so it isn't re-rendered on navigation.
+  // ── The rail ───────────────────────────────────────────────────────────────
+  // The header's only jobs were the brand, the theme toggle and the account, and the
+  // rail holds all three now. The controls are MOVED, not copied: every listener and
+  // popover they already have keeps working, and there is no second copy to drift.
+  function mdmRailAdopt() {
+    var foot = document.getElementById('rail-foot');
+    var right = document.querySelector('.appbar .appbar-right');
+    if (!foot || !right) return;
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      if (right.parentElement !== foot) foot.appendChild(right);
+    } else if (right.parentElement === foot) {
+      var bar = document.querySelector('.appbar');
+      if (bar) bar.appendChild(right); // narrow screens keep the header and the dock
+    }
+  }
+
+  // The reciprocal swap: the app rail and the page's own rail trade width, so the
+  // content between them never moves. Delays on both edges, because without them the
+  // rail flickers every time the pointer crosses it on its way to the page.
+  var railT = null, RAIL_IN = 120, RAIL_OUT = 220;
+  function railOpen(on) {
+    clearTimeout(railT);
+    railT = setTimeout(function () {
+      if (document.body.classList.contains('rail-pinned')) return;
+      document.body.classList.toggle('rail-open', on);
+    }, on ? RAIL_IN : RAIL_OUT);
+  }
+  function mdmRailBind() {
+    var rail = document.querySelector('.rail');
+    if (!rail || rail.dataset.bound) return;
+    rail.dataset.bound = '1';
+    rail.addEventListener('mouseenter', function () { railOpen(true); });
+    rail.addEventListener('mouseleave', function () { railOpen(false); });
+    // Keyboard users never hover, so focus has to open it or the rail is untabbable.
+    rail.addEventListener('focusin', function () { document.body.classList.add('rail-open'); });
+    rail.addEventListener('focusout', function (e) {
+      if (!rail.contains(e.relatedTarget)) railOpen(false);
+    });
+    try {
+      if (localStorage.getItem('mdm-rail-pinned') === '1') {
+        document.body.classList.add('rail-pinned', 'rail-open');
+      }
+    } catch (e) {}
+  }
+  // A page with its own rail is the only place the app rail collapses; everywhere else
+  // it stays open, so this is decided from the page that was just swapped in.
+  function mdmRailChildSync() {
+    var child = document.querySelector('main .fleet-rail, main [data-child-rail]');
+    document.body.classList.toggle('has-child-rail', !!child);
+    if (!child) document.body.classList.remove('rail-open');
+  }
+  window.mdmRailPin = function () {
+    var on = !document.body.classList.contains('rail-pinned');
+    document.body.classList.toggle('rail-pinned', on);
+    document.body.classList.toggle('rail-open', on);
+    try { localStorage.setItem('mdm-rail-pinned', on ? '1' : '0'); } catch (e) {}
+  };
+
   function mdmSyncDockActive(path) {
     var p = path || location.pathname;
+    mdmRailAdopt(); mdmRailBind(); mdmRailChildSync();
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
@@ -1209,6 +1279,11 @@
   document.body.addEventListener('htmx:pushedIntoHistory', function () { mdmSyncDockActive(); });
   document.body.addEventListener('htmx:historyRestore', function () { mdmSyncDockActive(); });
   window.addEventListener('popstate', function () { setTimeout(function () { mdmSyncDockActive(); }, 0); });
+  // First paint, and after every swap: the rail is outside <main>, so it is never
+  // re-rendered and has to be told when the page under it changed.
+  mdmSyncDockActive();
+  document.body.addEventListener('htmx:afterSwap', function () { mdmSyncDockActive(); });
+  window.addEventListener('resize', function () { mdmRailAdopt(); });
 
   // ── Role-locked controls ────────────────────────────────────────────────────
   // A control the viewer's role can't use is still rendered, so people can see

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The rail — logo, icons, no header, and the Fleet page's second rail · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);margin:0;padding:26px 36px 120px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:23px;margin:0 0 5px;letter-spacing:-.025em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 9px;max-width:860px;line-height:1.6}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 9px}
+.dname{font-weight:750;font-size:16px;margin:7px 0 3px;letter-spacing:-.015em}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 13px;max-width:860px;line-height:1.55}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:13px 0 0;font-size:12.5px;line-height:1.55}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+/* ── mock shell ── */
+.shell{display:flex;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg);min-height:420px}
+.r{width:206px;flex:none;background:var(--surface);border-right:1px solid var(--border-soft);display:flex;flex-direction:column;padding:14px 11px 12px}
+.r.right{border-right:0;border-left:1px solid var(--border-soft)}
+.brand{font-size:19px;font-weight:700;letter-spacing:-.02em;padding:2px 9px 14px}
+.brand .a{background:linear-gradient(90deg,#9b7cf6,#f9674e);-webkit-background-clip:text;background-clip:text;color:transparent}
+.g{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);padding:13px 9px 5px}
+.g:first-of-type{padding-top:2px}
+.l{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:9px;font-size:13px;font-weight:600;color:var(--text-2);text-decoration:none}
+.l svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.l:hover{background:var(--surface-3);color:var(--text)}
+.l.on{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
+.l .c{margin-left:auto;font-size:11px;font-weight:800;border-radius:99px;padding:1px 7px;background:var(--danger-bg);color:var(--danger)}
+.foot{margin-top:auto;border-top:1px solid var(--border-soft);padding-top:10px;display:flex;align-items:center;gap:8px}
+.av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#9b7cf6,#f9674e);flex:none;display:grid;place-items:center;color:#fff;font-weight:750;font-size:12px}
+.who{min-width:0;font-size:12px;line-height:1.25}.who b{display:block;font-weight:650}.who span{color:var(--text-faint);font-size:10.5px}
+.ico{margin-left:auto;display:flex;gap:4px}
+.ico i{width:26px;height:26px;border-radius:8px;border:1px solid var(--border);display:grid;place-items:center;color:var(--text-faint);font-style:normal;font-size:12px}
+.body{flex:1;min-width:0;padding:20px 22px}
+.h1m{font-size:26px;font-weight:780;letter-spacing:-.025em;margin:0 0 6px}
+.sub{color:var(--text-faint);font-size:13px;margin:0 0 16px}
+.ph{border:1px dashed var(--border);border-radius:12px;height:150px;display:grid;place-items:center;color:var(--text-faint);font-size:12.5px}
+.appbar-mock{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;color:var(--text-faint)}
+.cols{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.col{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);color:var(--text-2)}
+.col.on{background:var(--text);color:var(--surface);border-color:transparent}
+.fr{width:184px;flex:none;padding:14px 11px;font-size:12.5px}
+.fr .t{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);padding:10px 8px 5px}
+.fr a{display:flex;justify-content:space-between;padding:5px 8px;border-radius:7px;color:var(--text-2);text-decoration:none}
+.fr a.on{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.fr a span{color:var(--text-faint)}
+@media(max-width:860px){.goodbad{grid-template-columns:1fr}.shell{flex-direction:column}.r,.fr{width:auto}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl">Light</button><button id="td" class="on">Dark</button></div>
+<div class="wrap">
+
+<h1>The rail: logo, icons, no header — and the Fleet page's second rail</h1>
+<p class="lead">
+Four things from the screenshot. The frozen highlight and the leftover "New kiosk rule" buttons
+were plain bugs and are already fixed on stage. These are the design calls: where the logo and the
+account controls go once the header is gone, and what happens on Fleet, which has a rail of its own.
+</p>
+
+<div class="eyebrow">1 · The rail itself</div>
+<div class="dname">Logo at the top, icons on every row, account at the bottom, no header<span class="rec">my pick</span></div>
+<p class="ddesc">The header exists to hold three things: the brand, the theme toggle and the account
+menu. The rail can hold all three, and the page gets its full height back.</p>
+<div class="shell">
+  <div class="r">
+    <div class="brand"><span class="a">AIO</span> MDM</div>
+    <div class="g">Watch</div>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Overview</a>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>Alerts<span class="c">5</span></a>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg>Jobs</a>
+    <div class="g">Manage</div>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg>Fleet</a>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Apps</a>
+    <a class="l on"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Lock</a>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Venues</a>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Firmware</a>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Clients</a>
+    <a class="l"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
+    <div class="g">Set up</div>
+    <a class="l"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Enrollment</a>
+    <a class="l"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11a3 3 0 1 0 0-6"/></svg>Users</a>
+    <a class="l"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 0 0-1.7-1L14.5 3h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.5L6 10.5a7 7 0 0 0 0 3l-2 1.5 2 3.5 2.3-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.5-2-1.5c.1-.3.1-.7.1-1z"/></svg>Settings</a>
+    <div class="foot">
+      <span class="av">A</span>
+      <span class="who"><b>Ali Hassan</b><span>Super admin</span></span>
+      <span class="ico"><i>☀</i><i>⌘</i></span>
+    </div>
+  </div>
+  <div class="body">
+    <h2 class="h1m">Device lock</h2>
+    <p class="sub">Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.</p>
+    <div class="ph">the page, with its full height back</div>
+  </div>
+</div>
+<div class="goodbad">
+  <div><b>Good at</b> One piece of chrome instead of two, and the rail earns its width by holding
+    everything the header did. Icons make the groups scannable without reading. The brand sits where
+    a product's brand normally sits.</div>
+  <div><b>Bad at</b> The account menu and theme toggle are further from where people expect them
+    (top-right). On short screens the rail scrolls, and the account can fall below the fold unless
+    it is pinned — which is what the footer does here.</div>
+</div>
+
+<div class="eyebrow">2 · Fleet has a rail of its own</div>
+<p class="ddesc">The Fleet page carries a collections rail — restaurants and groups — so with the
+app rail there are two left rails against each other. Three ways out.</p>
+
+<div class="dname">A — collections move to the right<span class="rec">my pick</span></div>
+<p class="ddesc">Navigation on the left, filtering on the right. They stop competing because they
+are different kinds of thing: one moves you between pages, the other narrows what is on this one.</p>
+<div class="shell">
+  <div class="r" style="width:168px"><div class="brand" style="font-size:16px"><span class="a">AIO</span> MDM</div>
+    <a class="l on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg>Fleet</a>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Apps</a>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Lock</a>
+  </div>
+  <div class="body"><h2 class="h1m" style="font-size:21px">187 devices</h2>
+    <div class="ph" style="height:210px">the device list — full width, nothing between it and the nav</div></div>
+  <div class="r right fr">
+    <div class="t">Restaurants</div>
+    <a class="on">All devices <span>187</span></a><a>Flights Vegas <span>14</span></a><a>Harbor Grill <span>9</span></a><a>Lab <span>21</span></a>
+    <div class="t">Groups</div><a>Pilot <span>4</span></a><a>Drive-thru <span>12</span></a>
+  </div>
+</div>
+<div class="goodbad">
+  <div><b>Good at</b> The two rails stop fighting, and the split is meaningful — left moves you,
+    right filters. The device list gets the middle, which is what people came for.</div>
+  <div><b>Bad at</b> Filters on the right is less conventional than on the left, and on a 1280px
+    screen two rails plus content leaves the list about 700px wide.</div>
+</div>
+
+<div class="dname" style="margin-top:20px">B — collections become a strip above the list</div>
+<p class="ddesc">No second rail at all: venue and group become chips across the top, like the Apps
+page's chips.</p>
+<div class="shell">
+  <div class="r" style="width:168px"><div class="brand" style="font-size:16px"><span class="a">AIO</span> MDM</div>
+    <a class="l on"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg>Fleet</a>
+    <a class="l"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Apps</a>
+  </div>
+  <div class="body"><h2 class="h1m" style="font-size:21px">187 devices</h2>
+    <div class="cols"><span class="col on">All 187</span><span class="col">Flights Vegas 14</span><span class="col">Harbor Grill 9</span><span class="col">Lab 21</span><span class="col">Pilot 4</span><span class="col">+ group</span></div>
+    <div class="ph" style="height:180px">the device list — the full width of the page</div></div>
+</div>
+<div class="goodbad">
+  <div><b>Good at</b> Widest list of the three, one navigation idea on the page, and it matches the
+    chips already on Apps — the product gets more consistent.</div>
+  <div><b>Bad at</b> Twenty-four venues plus groups do not fit in a strip; it needs an overflow menu
+    or horizontal scrolling, and a long venue list is genuinely easier to scan vertically.</div>
+</div>
+
+<div class="dname" style="margin-top:20px">C — the app rail collapses to icons on Fleet</div>
+<p class="ddesc">Keep both rails, but the app rail shrinks to a 56px icon strip on pages that have
+their own, and expands on hover.</p>
+<div class="shell">
+  <div style="width:56px;flex:none;background:var(--surface);border-right:1px solid var(--border-soft);padding:14px 8px;display:flex;flex-direction:column;gap:6px;align-items:center">
+    <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#9b7cf6,#f9674e);margin-bottom:8px"></div>
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--accent-text);fill:none;stroke-width:1.9"><rect x="3" y="4" width="12" height="16" rx="2"/><rect x="17" y="8" width="4" height="12" rx="1.3"/></svg>
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--text-faint);fill:none;stroke-width:1.9"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--text-faint);fill:none;stroke-width:1.9"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+  </div>
+  <div class="r fr" style="width:184px;border-right:1px solid var(--border-soft)">
+    <div class="t">Restaurants</div><a class="on">All devices <span>187</span></a><a>Flights Vegas <span>14</span></a><a>Harbor Grill <span>9</span></a>
+  </div>
+  <div class="body"><h2 class="h1m" style="font-size:21px">187 devices</h2><div class="ph" style="height:180px">the device list</div></div>
+</div>
+<div class="goodbad">
+  <div><b>Good at</b> Nothing moves conceptually — both rails keep their place and meaning, and the
+    page recovers ~150px.</div>
+  <div><b>Bad at</b> A nav that changes width per page is disorienting, and icon-only loses the
+    group labels (Watch / Manage / Set up) that make the rail readable in the first place.</div>
+</div>
+
+<div class="eyebrow">3 · What I would ship</div>
+<div class="goodbad" style="grid-template-columns:1fr">
+  <div><b>Recommendation</b>
+    Rail as in §1 — logo top, icons throughout, account pinned at the bottom, header gone — and
+    <b>A</b> on Fleet, with the collections rail moving to the right. Left moves you between pages,
+    right narrows the page you are on; that rule is easy to hold and survives the next page that
+    wants a filter rail. If the 700px list turns out too tight in use, B is the fallback and the
+    chips already exist on Apps to copy.</div>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark')}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');
+</script>
+</body></html>
