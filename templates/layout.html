@@ -1289,11 +1289,13 @@
   var railFlashedAt = null;
   // Moving within a page's own rail is not an arrival: you asked for that rail, so the
   // next page must not open the app rail over it and fold it again under your pointer.
-  var railNoFlashUntil = 0;
+  // On window, not in this closure: a boosted swap replaces the body and re-runs this
+  // script, so anything kept here is forgotten exactly when it is needed — which is why
+  // the suppression worked on the first hop and not the second.
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (t && t.closest && t.closest('[data-child-rail]')) {
-      railNoFlashUntil = Date.now() + 5000;
+      window.__railNoFlashUntil = Date.now() + 5000;
       railGuardUntil = 0;
       clearTimeout(railT); clearTimeout(railHold);
       document.body.classList.remove('rail-open');
@@ -1302,7 +1304,7 @@
   function mdmRailFlash() {
     var rail = document.querySelector('.rail');
     if (!rail || !document.body.classList.contains('has-child-rail')) return;
-    if (Date.now() < railNoFlashUntil) { document.body.classList.remove('rail-open'); return; }
+    if (Date.now() < (window.__railNoFlashUntil || 0)) { document.body.classList.remove('rail-open'); return; }
     // Once per page, not once per swap: these pages poll partials, and re-flashing on
     // every one of those left the rail standing open for good.
     var here = location.pathname;
