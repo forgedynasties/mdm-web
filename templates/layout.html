@@ -1368,6 +1368,42 @@
     });
   }
 
+  // Which paths bring a child rail. The destination's shape is known before its HTML
+  // arrives, so the space is reserved at the moment of the click and the skeleton is
+  // drawn where the page will actually land — instead of rendering 216px to the left
+  // and sliding over once the response shows up.
+  var RAIL_PATHS = [/^\/devices/, /^\/restaurants/, /^\/groups/, /^\/enrollment/, /^\/alerts/,
+    /^\/alert-config/, /^\/reports\/alerts-by-restaurant/, /^\/clients/, /^\/jobs/, /^\/commands/,
+    /^\/schedules/, /^\/settings/, /^\/users/, /^\/activity/, /^\/rollouts/, /^\/releases/,
+    /^\/packages/, /^\/updates/];
+  function mdmRailPredict(href) {
+    var path;
+    try { path = new URL(href, location.origin).pathname; } catch (e) { return; }
+    var willHave = RAIL_PATHS.some(function (re) { return re.test(path); });
+    document.body.classList.toggle('has-child-rail', willHave);
+    if (!willHave) {
+      document.querySelectorAll('[data-ghost-rail]').forEach(function (el) { el.remove(); });
+      return;
+    }
+    if (document.querySelector('[data-child-rail]')) return; // the real one is still up
+    var ph = document.createElement('aside');
+    ph.className = 'child-rail cr-ghost';
+    ph.setAttribute('data-child-rail', '');
+    ph.setAttribute('data-ghost-rail', '');
+    ph.setAttribute('aria-hidden', 'true');
+    ph.dataset.portaled = '1';  // cleared with the rest when the page lands
+    var rows = '';
+    for (var i = 0; i < 5; i++) rows += '<div class="cr-l"><span class="cr-sw"></span><span class="gl"></span></div>';
+    ph.innerHTML = '<div class="cr-t"><span class="gl short"></span></div>' + rows;
+    document.body.appendChild(ph);
+  }
+  document.body.addEventListener('htmx:beforeRequest', function (e) {
+    var el = e.target;
+    if (!el || !el.closest) return;
+    var a = el.closest('a[href]');
+    if (a && a.getAttribute('href') && a.getAttribute('href').charAt(0) === '/') mdmRailPredict(a.getAttribute('href'));
+  });
+
   function mdmRailChildSync(path) {
     // Portal every child rail to <body>. position:fixed resolves against the nearest
     // ancestor with a transform, and the entrance animations (.dv-rise-*) are transforms —

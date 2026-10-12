@@ -7647,6 +7647,14 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     border-radius: 50%; border: 2px solid var(--surface); }
   .fleet-rail-item.on .cr-sw { box-shadow: 0 0 0 2px var(--accent); }
 
+  /* The placeholder rail, up only while the next page is in flight: the right width in
+     the right place, and plainly not real. */
+  .cr-ghost .gl { display: block; height: 10px; border-radius: 5px; background: var(--surface2);
+    flex: 1; min-width: 0; }
+  .cr-ghost .gl.short { width: 54px; flex: none; height: 8px; }
+  .cr-ghost .cr-sw { background: var(--surface2); }
+  .cr-ghost .cr-l { opacity: .75; }
+
   .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
 
   /* The swap: the child rail folds to a column of swatches while the app rail is open.
