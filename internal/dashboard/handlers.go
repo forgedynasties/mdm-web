@@ -947,6 +947,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// stalledFor: true when t is older than n minutes (an in-flight OTA row with
 		// no progress that long is treated as stuck and offered Retry).
 		"stalledFor": func(t time.Time, mins int) bool { return time.Since(t) > time.Duration(mins)*time.Minute },
+		// otaErrorText renders 'stalled' differently depending on whether the device was
+		// still checking in when the sweep gave up on it: a live device whose download
+		// died is a different fault from a device that vanished, and the operator does
+		// different things about each.
+		"stallKind": func(t UpdateTargetLike) string {
+			if time.Since(t.GetLastSeenAt()) > 15*time.Minute {
+				return "the device stopped checking in"
+			}
+			return "the download stopped while the device stayed online"
+		},
 		"nowUTC": func() time.Time {
 			return time.Now().UTC()
 		},
@@ -13908,6 +13918,9 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 // they answer different questions: SeenAt is the last time the device said anything
 // (is it still there?), AdvancedAt the last time the percent moved (is it getting
 // anywhere?). Conflating them is what called a slow download dead.
+// UpdateTargetLike is the little a stall explanation needs from a row.
+type UpdateTargetLike interface{ GetLastSeenAt() time.Time }
+
 type otaRowView struct {
 	Phase      string
 	Percent    int

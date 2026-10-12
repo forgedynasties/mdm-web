@@ -60,7 +60,11 @@
              still reporting but the percent has not moved, which a big package on a poor
              link does for a while and is not yet a problem. */}}
         {{if and (eq .Status "downloading") (stalledFor .UpdatedAt 30)}}
-          <span class="muted small" title="Nothing heard from this device for over 30 minutes — it may have rebooted or lost the network mid-download">silent</span>
+          {{if stalledFor .LastSeenAt 15}}
+            <span class="muted small" title="The device itself has not checked in for over 15 minutes — it may have rebooted or lost the network mid-download">device offline</span>
+          {{else}}
+            <span class="muted small" title="The device is checking in normally, but its download has reported nothing for over 30 minutes — the transfer died without saying so">download stopped · device online</span>
+          {{end}}
         {{else if and (eq .Status "downloading") $progress (stalledFor $progress.AdvancedAt 15)}}
           <span class="muted small" title="Still reporting, but the percentage has not moved for 15 minutes">stuck at {{$progress.Percent}}%</span>
         {{end}}
