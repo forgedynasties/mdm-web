@@ -180,14 +180,15 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 <nav class="hist-tabs child-rail" data-child-rail aria-label="Jobs">
   <div class="cr-t">Jobs</div>
   <a class="cr-l" href="/jobs"><span>In flight</span>{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
-  {{/* No "on" here: the filter group below says which history you are looking at, and
-       two lit rows in one rail reads as two selections. */}}
-  <a class="cr-l" href="/jobs/history"><span>History</span></a>
-  <div class="cr-t">Filter history</div>
-  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/jobs/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
-  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/jobs/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
-  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/jobs/history?status=inprogress"><span>In progress</span><span class="n">{{.ProgCount}}</span></a>
-  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/jobs/history?status=completed"><span>Completed</span><span class="n">{{.DoneCount}}</span></a>
+  {{/* The page you are on is not a row competing with its own filters: it is the
+       heading they sit under. One fill in the rail, and it is always the filter. */}}
+  <div class="cr-page">History<span class="cr-here">here</span></div>
+  <div class="cr-sub">
+    <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/jobs/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
+    <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/jobs/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
+    <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/jobs/history?status=inprogress"><span>In progress</span><span class="n">{{.ProgCount}}</span></a>
+    <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/jobs/history?status=completed"><span>Completed</span><span class="n">{{.DoneCount}}</span></a>
+  </div>
 </nav>
 
 <div class="card cc-card">
