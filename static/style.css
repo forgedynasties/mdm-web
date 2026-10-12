@@ -7753,7 +7753,7 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     flex-wrap: nowrap; min-width: 0; }
   .rail-foot .appbar-acct .av { order: 1; flex: none; }
   .rail-foot .appbar-acct .who { order: 2; flex: 1; min-width: 0; text-align: left; }
-  .rail-foot .who .n, .rail-foot .who .r { display: block; overflow: hidden;
+  .rail-foot .who .n { display: block; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; }
   /* The chip is a name and a face, nothing else: the role was a second line of small
      type under it in a 196px column, which read as clutter and said what the menu
@@ -7761,6 +7761,6 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .rail-foot .who { display: flex; align-items: center; line-height: 1.3; min-width: 0; }
   .rail-foot .who .n { font-size: 12.5px; font-weight: 600; color: var(--text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .rail-foot .who .r { display: none; }
+  .rail-foot .appbar-acct .who .r { display: none; }
   body.rail-open .rail-foot .who, body:not(.has-child-rail) .rail-foot .who { display: flex; }
 }
