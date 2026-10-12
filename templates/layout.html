@@ -1270,6 +1270,9 @@
   // content between them never moves. Delays on both edges, because without them the
   // rail flickers every time the pointer crosses it on its way to the page.
   var railT = null, RAIL_IN = 120, RAIL_OUT = 220;
+  // Opening is gated on intent: RAIL_VMAX is how fast the pointer may still be moving
+  // rightward (px/ms) and RAIL_DWELL how long it must stay in the column first.
+  var RAIL_VMAX = 0.25, RAIL_DWELL = 90;
   var railHold = null, railGuardUntil = 0, RAIL_FLASH = 1100;
   // Behaviour D: every arrival shows the rail open for a beat, then it folds by itself.
   // Landing somewhere new, the thing worth seeing is where you now are in the nav — so the
@@ -1312,11 +1315,31 @@
       var child = e.target.closest && e.target.closest('[data-child-rail]');
       if (child && document.body.classList.contains('rail-open')) railOpen(false);
     });
-    rail.addEventListener('mouseenter', function () { clearTimeout(railHold); railGuardUntil = 0; railOpen(true); });
+    // Intent, not proximity. A rail that opens whenever the pointer crosses it opens
+    // mostly by accident: on a wide screen the left edge is on the way to everything.
+    // So it opens when the pointer is *aiming* at it — inside the icon column, not
+    // travelling fast, and still there after RAIL_DWELL — and ignores a fly-by. The
+    // close is unchanged: leaving folds it.
+    if (!document.body.dataset.railIntent) {
+      document.body.dataset.railIntent = '1';
+      var lastX = 1e4, lastT = 0, dwell = null;
+      document.addEventListener('pointermove', function (e) {
+        var now = e.timeStamp || performance.now();
+        var vx = (e.clientX - lastX) / Math.max(1, now - lastT); // px/ms, negative = heading left
+        lastX = e.clientX; lastT = now;
+        var r = document.querySelector('.rail');
+        if (!r || document.body.classList.contains('rail-open')) return;
+        var inside = e.clientX <= r.getBoundingClientRect().right;
+        if (inside && vx < RAIL_VMAX) {
+          if (!dwell) dwell = setTimeout(function () {
+            dwell = null;
+            if (lastX <= (document.querySelector('.rail') || {getBoundingClientRect: function () { return {right: 0}; }})
+                .getBoundingClientRect().right) { clearTimeout(railHold); railGuardUntil = 0; railOpen(true); }
+          }, RAIL_DWELL);
+        } else if (dwell) { clearTimeout(dwell); dwell = null; }
+      }, { passive: true });
+    }
     rail.addEventListener('mouseleave', function () { railOpen(false); });
-    // Navigating from the rail leaves it open: two or three hops in a row are one
-    // gesture, and nothing should move while the page is still swapping. It folds when
-    // the pointer leaves — or by itself if the pointer never does.
     // Keyboard users never hover, so focus has to open it or the rail is untabbable.
     rail.addEventListener('focusin', function () { document.body.classList.add('rail-open'); });
     rail.addEventListener('focusout', function (e) {
