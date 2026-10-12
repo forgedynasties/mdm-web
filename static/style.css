@@ -7668,33 +7668,46 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-open [data-child-rail] .fleet-rail-item,
   body.rail-open [data-child-rail] .ri-main { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
   body.rail-open [data-child-rail] button svg { display: none; }
-  /* Folded, the strip stops pretending to be readable: one dash per row, the current one
-     longer and accented. It is a scrollbar-grade hint — four things, you are on the
-     first — and it claims nothing a colour or an abbreviation would have to be learned
-     for. The swatches stay where they mean something, next to the names, open. */
-  body.rail-open [data-child-rail] .cr-sw,
-  body.rail-open [data-child-rail] .dot { display: none; }
+  /* Folded, the strip is health: one dot per row, in the colours the rest of the
+     dashboard already uses. The thing worth interrupting yourself for is the thing that
+     survives the fold — and on a rail of venues it means you can see a site going bad
+     while reaching for the nav. Rows with no health of their own (Settings' tabs, a
+     status filter) sit neutral, which is honest: they have nothing to report. */
+  body.rail-open [data-child-rail] .cr-sw { width: auto; height: auto; background: none;
+    border-radius: 0; box-shadow: none; display: flex; }
+  body.rail-open [data-child-rail] .cr-sw .dot { position: static; width: 10px; height: 10px;
+    border: 0; right: auto; bottom: auto; }
+  /* Rows that carry no status get the same dot, drawn quiet. */
+  body.rail-open [data-child-rail] .cr-l .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button .cr-sw:empty::after {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text-faint); opacity: .5; }
   body.rail-open [data-child-rail] .cr-l,
   body.rail-open [data-child-rail] button,
   body.rail-open [data-child-rail] .fleet-rail-item {
-    min-height: 0; height: 20px; padding: 0; margin: 0; border: 0;
-    background: transparent; box-shadow: none; }
-  body.rail-open [data-child-rail] .cr-l::after,
-  body.rail-open [data-child-rail] button::after,
-  body.rail-open [data-child-rail] .fleet-rail-item::after {
-    content: ""; display: block; width: 18px; height: 3px; border-radius: 2px;
-    background: var(--border); transition: width .15s, background .15s; }
-  body.rail-open [data-child-rail] .cr-l:hover::after,
-  body.rail-open [data-child-rail] button:hover::after,
-  body.rail-open [data-child-rail] .fleet-rail-item:hover::after { background: var(--text-faint); }
-  body.rail-open [data-child-rail] .cr-l.on::after,
-  body.rail-open [data-child-rail] .cr-l.active::after,
-  body.rail-open [data-child-rail] button.on::after,
-  body.rail-open [data-child-rail] button.active::after,
-  body.rail-open [data-child-rail] .fleet-rail-item.on::after {
-    width: 26px; height: 4px; background: var(--accent); }
-  /* A caption's rows are a run of dashes; the gap between runs is what groups them. */
-  body.rail-open [data-child-rail] .fleet-rail-list { gap: 4px; }
+    min-height: 0; height: 26px; padding: 0; margin: 0; border: 0;
+    background: transparent; box-shadow: none; border-radius: 7px; }
+  body.rail-open [data-child-rail] .cr-l:hover .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button:hover .cr-sw:empty::after { opacity: .9; }
+  /* Where you are: the dot keeps its colour and gains a ring, so health and position are
+     two different marks rather than one fighting the other. */
+  body.rail-open [data-child-rail] .cr-l.on,
+  body.rail-open [data-child-rail] .cr-l.active,
+  body.rail-open [data-child-rail] button.on,
+  body.rail-open [data-child-rail] button.active,
+  body.rail-open [data-child-rail] .fleet-rail-item.on { background: var(--accent-soft); }
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw .dot,
+  body.rail-open [data-child-rail] .fleet-rail-item.on .cr-sw .dot,
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] .cr-l.active .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.active .cr-sw:empty::after {
+    box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); opacity: 1; }
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] .cr-l.active .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.active .cr-sw:empty::after { background: var(--accent); }
+  body.rail-open [data-child-rail] .fleet-rail-list { gap: 3px; }
 }
 
 }
