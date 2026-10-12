@@ -9841,11 +9841,9 @@ var restaurantTimezones = []tzOption{
 }
 
 func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
-	// The standalone list is retired — Restaurants now live in the Fleet
-	// collections rail / in-shell grid. Redirect old links/bookmarks there.
-	http.Redirect(w, r, "/devices?view=restaurants", http.StatusFound)
-	return
-
+	// Venues is a place of its own again. Sending it to the Fleet shell meant the
+	// rail's "Venues" opened a page headed "9 of 20 devices online" with a Collections
+	// rail — the nav said one thing and the page said another.
 	restaurants, err := h.db.ListRestaurants(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)

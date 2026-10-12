@@ -7815,3 +7815,19 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
    only thing the wall encodes now, in colour, with one legend. */
 .ovd-wall .sq a.shape-circle, .ovd-wall .sq a { border-radius: 3px; }
 .ovd-wfoot-cls { display: none; }
+
+
+/* ── Notifications, top right ───────────────────────────────────────────────
+   The bell is the one control that interrupts you, so it sits where people look when
+   something changes — the top right of the page — rather than at the foot of a rail
+   that is folded most of the time. Fixed, above the content, out of the scroll. */
+.top-right { display: none; }
+@media (min-width: 1024px) {
+  .top-right { display: flex; align-items: center; gap: 8px;
+    position: fixed; top: 14px; right: 20px; z-index: 46; }
+  .top-right .appbar-icon { background: var(--surface); border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm); width: 34px; height: 34px; border-radius: 50%; }
+  .top-right .appbar-icon:hover { background: var(--surface2); }
+  /* Its popover hangs below and to the left, inside the viewport. */
+  .top-right .nbar-pop { right: 0; left: auto; top: calc(100% + 9px); }
+}

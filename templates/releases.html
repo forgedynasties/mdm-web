@@ -98,31 +98,8 @@ a.rl-crash:hover{text-decoration:underline}
      blocks outright. That threw on every poll tick and broke htmx's click handling
      for the rest of the page along with it (FW-2026-000XXX: clicking any boosted
      link on /releases silently did nothing once this fired). */}}
-<div id="ota-progress-live" data-morph
-     hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
-     hx-target="this" hx-swap="innerHTML" hx-select="unset">
-  {{template "ota-progress" .}}
-</div>
-<script>
-(function () {
-  var el = document.getElementById('ota-progress-live');
-  if (!el) return;
-  var idleTicks = 0;
-  var sync = function () { window.otaActive = !!el.querySelector('.card'); };
-  sync();
-  document.body.addEventListener('htmx:beforeRequest', function (evt) {
-    if (!evt.detail || evt.detail.elt !== el) return;
-    if (window.otaActive) { idleTicks = 0; return; }
-    // Idle: let roughly 1 in 8 ticks through (~30s at the 4s base interval) instead
-    // of every one.
-    idleTicks++;
-    if (idleTicks % 8 !== 0) evt.preventDefault();
-  });
-  document.body.addEventListener('htmx:afterSwap', function (evt) {
-    if (evt.detail && evt.detail.target === el) sync();
-  });
-})();
-</script>
+{{/* The live "updates in progress" card used to sit here. It belongs on Updates: this
+     page is the catalogue of releases, that one is the state of what is going out. */}}
 
 {{if .Versions}}
 <div class="rl-toggles">

@@ -606,6 +606,8 @@
        they already have keeps working. */}}
   <div class="rail-foot" id="rail-foot"></div>
 </nav>
+{{/* Notifications live here on desktop: top right, above the page, outside the rail. */}}
+<div class="top-right" id="top-right"></div>
 
 
   <nav class="dock dock-s" aria-label="Primary navigation">
@@ -1266,11 +1268,24 @@
     var foot = document.getElementById('rail-foot');
     var right = document.querySelector('.appbar .appbar-right');
     if (!foot || !right) return;
-    if (window.matchMedia('(min-width: 1024px)').matches) {
+    var wide = window.matchMedia('(min-width: 1024px)').matches;
+    if (wide) {
       if (right.parentElement !== foot) foot.appendChild(right);
     } else if (right.parentElement === foot) {
       var bar = document.querySelector('.appbar');
       if (bar) bar.appendChild(right); // narrow screens keep the header and the dock
+    }
+    // The alerts bell goes further: top right of the page, where a notification is
+    // looked for. Everything else (theme, account) stays in the rail foot.
+    var perch = document.getElementById('top-right');
+    var bell = document.getElementById('alerts-indicator');
+    var wrap = bell && bell.closest('.nbar-wrap') ? bell.closest('.nbar-wrap') : bell;
+    if (perch && wrap) {
+      if (wide) {
+        if (wrap.parentElement !== perch) perch.appendChild(wrap);
+      } else if (wrap.parentElement === perch) {
+        right.insertBefore(wrap, right.firstChild);
+      }
     }
   }
 
@@ -3791,8 +3806,8 @@
 {{define "rollout-tabs"}}
 <aside class="child-rail" data-child-rail aria-label="Firmware">
   <div class="cr-t">Firmware</div>
-  <a href="/rollouts" class="cr-l{{if or (eq .ActivePath "/rollouts") (eq .ActivePath "/updates")}} on{{end}}"><span>Rollouts</span><span class="cr-ini">Ro</span></a>
-  <a href="/releases" class="cr-l{{if eq .ActivePath "/releases"}} on{{end}}"><span>Releases</span><span class="cr-ini">Re</span></a>
-  {{if canAdmin .Role}}<a href="/packages" class="cr-l{{if eq .ActivePath "/packages"}} on{{end}}"><span>Packages</span><span class="cr-ini">Pa</span></a>{{end}}
+  <a href="/rollouts" class="cr-l{{if or (eq .ActivePath "/rollouts") (eq .ActivePath "/updates")}} on{{end}}"><span>Updates</span></a>
+  <a href="/releases" class="cr-l{{if eq .ActivePath "/releases"}} on{{end}}"><span>Releases</span></a>
+  {{if canAdmin .Role}}<a href="/packages" class="cr-l{{if eq .ActivePath "/packages"}} on{{end}}"><span>Packages</span></a>{{end}}
 </aside>
 {{end}}
