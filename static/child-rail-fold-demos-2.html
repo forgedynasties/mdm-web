@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The folded child rail — second round</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 90px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 830px; margin: 0 0 24px; line-height: 1.55; }
+  .opt { margin: 0 0 34px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; max-width: 830px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--warn-bg); color: var(--warn); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+  .hint { font-size: 11.5px; color: var(--accent-text); font-weight: 600; margin: 0 0 8px; }
+
+  /* real metrics: 56 app rail, 196 child rail, they trade on hover */
+  .mock { position: relative; height: 320px; border: 1px solid var(--border); border-radius: var(--r-4);
+    overflow: hidden; background: var(--bg); box-shadow: var(--shadow-sm); }
+  .k-app { position: absolute; left: 0; top: 0; bottom: 0; width: 56px; background: var(--surface);
+    border-right: 1px solid var(--border-soft); padding: 12px 8px; z-index: 4; overflow: hidden;
+    white-space: nowrap; transition: width .2s cubic-bezier(.4,0,.2,1); }
+  .mock:hover .k-app { width: 196px; }
+  .k-brand { height: 26px; display: flex; align-items: center; gap: 10px; font-size: 14.5px;
+    font-weight: 600; padding: 0 4px 0 5px; margin-bottom: 10px; }
+  .k-brand .fav { width: 26px; height: 26px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg,#f0803c,#e2574c); }
+  .k-brand .wm, .k-l span { opacity: 0; transition: opacity .14s; }
+  .mock:hover .k-brand .wm, .mock:hover .k-l span { opacity: 1; }
+  .k-l { display: flex; align-items: center; gap: 11px; padding: 6px 7px; border-radius: 8px;
+    font-size: 12.5px; color: var(--muted); }
+  .k-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+  .k-l i { width: 15px; height: 15px; border-radius: 4px; background: currentColor; opacity: .42; flex: none; }
+
+  .k-child { position: absolute; left: 56px; top: 0; bottom: 0; width: 196px; z-index: 3;
+    background: var(--surface); border-right: 1px solid var(--border-soft); padding: 14px 10px;
+    display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+    transition: width .2s cubic-bezier(.4,0,.2,1), left .2s cubic-bezier(.4,0,.2,1); }
+  .mock:hover .k-child { left: 196px; width: 56px; padding-left: 6px; padding-right: 6px; }
+  .k-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 9px 9px 4px; white-space: nowrap; }
+  .k-t:first-child { padding-top: 0; }
+  .mock:hover .k-t { visibility: hidden; height: 10px; padding: 2px 0; }
+  .k-r { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  .k-r.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .k-r .ct { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .k-r .nm { overflow: hidden; text-overflow: ellipsis; }
+  .sw { width: 20px; height: 20px; border-radius: 6px; flex: none;
+    background: linear-gradient(135deg, hsl(var(--h) 62% 58%), hsl(calc(var(--h) + 24) 58% 46%)); }
+  .k-body { position: absolute; left: 252px; right: 0; top: 0; bottom: 0; padding: 18px; }
+  .k-body h3 { font-size: 16px; margin: 0 0 10px; }
+  .k-body .ln { height: 10px; border-radius: 5px; background: var(--surface2); margin-bottom: 9px; }
+  .k-body .ln.b { width: 80%; } .k-body .ln.c { width: 56%; }
+  .k-card { border: 1px solid var(--border-soft); border-radius: 10px; height: 120px; margin-top: 14px; background: var(--surface); }
+
+  /* ── G · numbered ─────────────────────────────────────────── */
+  #g .mock:hover .k-r { justify-content: center; padding: 4px 0; }
+  #g .mock:hover .k-r .nm, #g .mock:hover .k-r .ct, #g .mock:hover .k-r .sw { display: none; }
+  #g .mock:hover .k-r::after { content: attr(data-n); font-family: var(--mono); font-size: 12px;
+    font-weight: 700; color: var(--text-faint); }
+  #g .mock:hover .k-r.on::after { color: var(--accent-text); }
+  #g .mock:hover .k-r.on { background: var(--accent-soft); }
+
+  /* ── H · weight bars ──────────────────────────────────────── */
+  #h .mock:hover .k-r { justify-content: flex-start; padding: 5px 0; }
+  #h .mock:hover .k-r .nm, #h .mock:hover .k-r .ct, #h .mock:hover .k-r .sw { display: none; }
+  #h .mock:hover .k-r::after { content: ""; display: block; height: 7px; border-radius: 99px;
+    width: calc(6px + var(--w) * 36px); background: var(--text-faint); opacity: .55; }
+  #h .mock:hover .k-r.on::after { background: var(--accent); opacity: 1; }
+  #h .mock:hover .k-r.on { background: transparent; }
+
+  /* ── I · health column ────────────────────────────────────── */
+  #i .mock:hover .k-r { justify-content: center; padding: 5px 0; }
+  #i .mock:hover .k-r .nm, #i .mock:hover .k-r .ct, #i .mock:hover .k-r .sw { display: none; }
+  #i .mock:hover .k-r::after { content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--st, var(--text-faint)); }
+  #i .mock:hover .k-r.on { background: var(--accent-soft); }
+  #i .mock:hover .k-r.on::after { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent); }
+
+  /* ── J · only the current row survives ────────────────────── */
+  #j .mock:hover .k-r { display: none; }
+  #j .mock:hover .k-r.on { display: flex; justify-content: center; padding: 6px 0; }
+  #j .mock:hover .k-r.on .nm, #j .mock:hover .k-r.on .ct { display: none; }
+  #j .mock:hover .k-child::after { content: "4 more"; position: absolute; left: 0; right: 0;
+    top: 92px; text-align: center; font-size: 9px; font-weight: 700; color: var(--text-faint);
+    letter-spacing: .02em; }
+
+  /* ── K · spine ────────────────────────────────────────────── */
+  #k .mock:hover .k-child { width: 26px; left: 196px; padding: 10px 0; }
+  #k .mock:hover .k-r, #k .mock:hover .k-t { display: none; }
+  #k .mock:hover .k-child::before { content: "COLLECTIONS"; writing-mode: vertical-rl;
+    font-size: 9px; font-weight: 800; letter-spacing: .16em; color: var(--text-faint);
+    margin: 4px auto 0; }
+  #k .mock:hover .k-child::after { content: ""; position: absolute; left: 50%; bottom: 14px;
+    transform: translateX(-50%); width: 4px; height: 26px; border-radius: 2px; background: var(--accent); }
+  #k .mock:hover .k-body { left: 222px; }
+
+  /* ── L · horizontal while open ────────────────────────────── */
+  #l .mock:hover .k-child { left: 196px; top: 0; bottom: auto; width: calc(100% - 196px);
+    height: 42px; flex-direction: row; align-items: center; gap: 6px; padding: 0 14px;
+    border-right: 0; border-bottom: 1px solid var(--border-soft); }
+  #l .mock:hover .k-t { display: none; }
+  #l .mock:hover .k-r { padding: 4px 10px; }
+  #l .mock:hover .k-r .ct, #l .mock:hover .k-r .sw { display: none; }
+  #l .mock:hover .k-body { left: 196px; top: 42px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The folded child rail — second round</h1>
+  <p class="lede">
+    Ticks are out. These six are different answers to the same 56px, and none of them is a
+    letter: each is built from something the row actually has — its position, its count, its
+    health, or whether it is the one you are on. Hover any mock to fold it, as the real thing
+    does. For reference, what is on stage now is the tick column you did not like.
+  </p>
+
+  <div class="opt" id="g">
+    <h2>G · Numbered, and the numbers are real shortcuts <span class="badge pick">my pick</span></h2>
+    <p class="note">Folded, the strip is 1–9 in the mono face, the current one accented. The number
+      is not decoration: <b>⌘1…⌘9 jumps to that row</b>, open or folded, which is the thing a rail of
+      filters is actually for once you know the page. <b>Good:</b> teaches a faster way to use the
+      dashboard simply by being visible; stable, countable, never ambiguous. <b>Bad:</b> a number
+      means nothing on your first day — it is a power-user affordance that the first week spends
+      ignoring. Caps out at nine rows; the rest are just dashes.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r on" data-n="1"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r" data-n="2"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r" data-n="3"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r" data-n="4"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+        <div class="k-r" data-n="5"><span class="sw" style="--h:96"></span><span class="nm">test</span><span class="ct">0</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <div class="opt" id="h">
+    <h2>H · Weight bars — the fold carries the data</h2>
+    <p class="note">Each row folds to a bar as long as its share of the fleet: the venue with 6
+      devices is visibly bigger than the one with 3, and an empty group is a stub. <b>Good:</b> the
+      only option here that is <i>more</i> informative folded than a label would be — you can see the
+      shape of the fleet while reaching for the nav. <b>Bad:</b> it answers "how big" when you are
+      usually asking "which one", and two venues of equal size look identical.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r on" style="--w:1"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r" style="--w:.35"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r" style="--w:.6"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r" style="--w:.45"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+        <div class="k-r" style="--w:.05"><span class="sw" style="--h:96"></span><span class="nm">test</span><span class="ct">0</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <div class="opt" id="i">
+    <h2>I · Health column</h2>
+    <p class="note">Folded, every row is just its status dot — green, amber, red, grey — so the strip
+      becomes a column of fleet health that happens to be navigation. <b>Good:</b> the one piece of
+      information you would interrupt yourself for is the one that survives the fold, and it reuses
+      a vocabulary the whole dashboard already speaks. <b>Bad:</b> on a page whose rows have no
+      health (Settings tabs, alert filters) it degrades to a column of identical grey dots.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r on" style="--st:var(--ok)"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r" style="--st:var(--warn)"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r" style="--st:var(--ok)"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r" style="--st:var(--danger)"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+        <div class="k-r"><span class="sw" style="--h:96"></span><span class="nm">test</span><span class="ct">0</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <div class="opt" id="j">
+    <h2>J · Only where you are</h2>
+    <p class="note">Folded, the strip keeps one thing: the row you are on, as its swatch, with a
+      quiet "4 more" under it. Everything else goes. <b>Good:</b> answers the only question the fold
+      has to answer — <i>am I still in the venue I filtered to?</i> — and spends nothing on the rest.
+      <b>Bad:</b> you cannot switch rows without opening it again, so the fold is purely a reminder,
+      not a target.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r on"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+        <div class="k-r"><span class="sw" style="--h:96"></span><span class="nm">test</span><span class="ct">0</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <div class="opt" id="k">
+    <h2>K · Spine — it folds to 26px and says its name</h2>
+    <p class="note">Not a list at all: the rail collapses to a narrow spine carrying the rail's own
+      name sideways and an accent mark where the current row sits. The content gains the 30px.
+      <b>Good:</b> no fake list, no per-row cipher, and the one word it shows ("Collections",
+      "Settings") is the thing initials were trying and failing to say. <b>Bad:</b> rows disappear
+      entirely, so you lose the position cue, and rotated type is the one typographic trick used
+      nowhere else here.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r on"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <div class="opt" id="l">
+    <h2>L · It rotates — vertical rail becomes a top strip</h2>
+    <p class="note">While the app rail is open the page's rail does not shrink, it <i>moves</i>: the
+      same rows run along the top of the content as a strip, full names and all. Leave the app rail
+      and it swings back down the side. <b>Good:</b> nothing is abbreviated, nothing is hidden, and
+      the content keeps its full width because the strip costs 42px of height it mostly has to
+      spare. <b>Bad:</b> the biggest motion of any option — two rails changing axis at once — and
+      long rails (Settings' eight tabs) will scroll sideways.</p>
+    <p class="hint">↓ hover to fold</p>
+    <div class="mock">
+      <div class="k-child">
+        <div class="k-t">Collections</div>
+        <div class="k-r on"><span class="sw" style="--h:18"></span><span class="nm">All devices</span><span class="ct">20</span></div>
+        <div class="k-t">Restaurants</div>
+        <div class="k-r"><span class="sw" style="--h:212"></span><span class="nm">AIO Test Bistro</span><span class="ct">3</span></div>
+        <div class="k-r"><span class="sw" style="--h:142"></span><span class="nm">Harbour Grill</span><span class="ct">6</span></div>
+        <div class="k-t">Groups</div>
+        <div class="k-r"><span class="sw" style="--h:288"></span><span class="nm">Lab bench</span><span class="ct">4</span></div>
+      </div>
+      <div class="k-body"><h3>Fleet</h3><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div></div>
+      <div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>
+        <div class="k-l"><i></i><span>Overview</span></div><div class="k-l"><i></i><span>Alerts</span></div>
+        <div class="k-l on"><i></i><span>Fleet</span></div><div class="k-l"><i></i><span>Apps</span></div>
+        <div class="k-l"><i></i><span>Lock</span></div></div>
+    </div>
+  </div>
+
+  <p class="lede"><b>Pick: G, with I's dot kept as a pip.</b> A number is the only mark here that is
+    unambiguous, countable and stable for every kind of rail — and making it a real shortcut turns a
+    dead 56px into the fastest way to move around a page you use daily. L is the one I would build if
+    you want "nothing is ever abbreviated" taken literally; K is the quietest; H is the most fun and
+    the least useful.</p>
+</div>
+</body>
+</html>
