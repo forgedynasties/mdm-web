@@ -1,11 +1,6 @@
 {{define "apps.html"}}
 {{template "header" .}}
 {{with .Store}}
-<aside class="child-rail" data-child-rail aria-label="Apps">
-  <div class="cr-t">Apps</div>
-  <a href="#st-all" class="cr-l on"><span>All apps</span><span class="cr-ini">Al</span></a>
-  {{range .Shelves}}<a href="#st-{{.ID}}" class="cr-l"><span>{{.Title}}</span><span class="cr-ini">{{printf "%.2s" .Title}}</span><span class="n">{{len .Cards}}</span></a>{{end}}
-</aside>
 {{end}}
 <style>
   /* A store, so the goods come first: search, chips, shelves. What used to sit above the

@@ -180,7 +180,6 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 <nav class="hist-tabs child-rail" data-child-rail aria-label="Work">
   <div class="cr-t">Work</div>
   <a class="cr-l" href="/jobs"><span>Needs attention</span>{{if gt .AttnCount 0}}<span class="n">{{.AttnCount}}</span>{{end}}</a>
-  <a class="cr-l" href="/jobs#cmd-timeline"><span>In flight</span>{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
   <a class="cr-l" href="/commands/history"><span>All history</span></a>
   <div class="cr-t">Filter history</div>
   <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
