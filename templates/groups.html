@@ -1,11 +1,9 @@
 {{define "groups.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="Fleet">
-  <div class="cr-t">Fleet</div>
-  <a href="/devices" class="cr-l"><span>All devices</span></a>
-  <a href="/restaurants" class="cr-l"><span>Venues</span></a>
-  <a href="/groups" class="cr-l on"><span>Groups</span></a>
-  <a href="/enrollment" class="cr-l"><span>Enrollment</span></a>
+<aside class="child-rail" data-child-rail aria-label="Venues">
+  <div class="cr-t">Venues</div>
+  <a href="/devices?view=restaurants" class="cr-l"><span>All venues</span></a>
+  <a href="/devices?view=groups" class="cr-l on"><span>Groups</span></a>
 </aside>
 
 <style>

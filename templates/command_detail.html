@@ -170,10 +170,10 @@
 
 {{define "command_detail.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="Work">
-  <div class="cr-t">Work</div>
-  <a href="/jobs" class="cr-l"><span>Needs attention</span></a>
-  <a href="/commands/history" class="cr-l on"><span>All history</span></a>
+<aside class="child-rail" data-child-rail aria-label="Jobs">
+  <div class="cr-t">Jobs</div>
+  <a href="/jobs" class="cr-l"><span>In flight</span></a>
+  <a href="/jobs/history" class="cr-l"><span>History</span></a>
 </aside>
 {{$cmd := .Command}}
 <style>

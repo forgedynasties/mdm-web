@@ -2,12 +2,10 @@
 {{template "header" .}}
 <aside class="child-rail" data-child-rail aria-label="Alerts">
   <div class="cr-t">Alerts</div>
-  <a href="/alerts" class="cr-l{{if not .Status}} on{{end}}"><span>Open</span><span class="cr-ini">Op</span></a>
-  <a href="/alerts?status=acknowledged" class="cr-l{{if eq .Status "acknowledged"}} on{{end}}"><span>Acknowledged</span><span class="cr-ini">Ac</span></a>
-  <a href="/alerts?status=resolved" class="cr-l{{if eq .Status "resolved"}} on{{end}}"><span>Resolved</span><span class="cr-ini">Re</span></a>
-  <div class="cr-t">Set up</div>
-  <a href="/alert-config" class="cr-l"><span>Alert rules</span><span class="cr-ini">Ru</span></a>
-  <a href="/reports/alerts-by-restaurant" class="cr-l"><span>By venue</span><span class="cr-ini">Ve</span></a>
+  <a href="/alerts" class="cr-l{{if not .View}} on{{end}}"><span>Everything</span>{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
+  <a href="/alerts?view=needs" class="cr-l{{if eq .View "needs"}} on{{end}}"><span>Needs action</span>{{if .NeedsCount}}<span class="n">{{.NeedsCount}}</span>{{end}}</a>
+  <a href="/alerts?view=watching" class="cr-l{{if eq .View "watching"}} on{{end}}"><span>Watching</span>{{if .WatchCount}}<span class="n">{{.WatchCount}}</span>{{end}}</a>
+  <a href="/alerts?view=crashes" class="cr-l{{if eq .View "crashes"}} on{{end}}"><span>Crashes</span>{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
 </aside>
 
 <style>
@@ -124,16 +122,9 @@
     </div>
   </div>
 
-  <div class="cc-kpis">
-    <a class="cc-kpi{{if eq .View "needs"}} on{{end}}" href="/alerts?view=needs{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Needs action</span><div class="v {{if gt .NeedsCount 0}}danger{{end}}">{{.NeedsCount}}</div></a>
-    <a class="cc-kpi{{if eq .View "watching"}} on{{end}}" href="/alerts?view=watching{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Watching</span><div class="v {{if gt .WatchCount 0}}warn{{end}}">{{.WatchCount}}</div></a>
-    <a class="cc-kpi{{if eq .View "crashes"}} on{{end}}" href="/alerts?view=crashes{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes</span><div class="v {{if gt .CrashCount 0}}danger{{end}}">{{.CrashCount}}</div></a>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolved</span><div class="v ok">{{.Summary.Resolved}}</div></div>
-  </div>
 
   {{$dev := ""}}{{if .DeviceFilter}}{{$dev = printf "&device=%s" .DeviceFilter}}{{end}}
   <div class="al-controls">
-    {{if .View}}<a class="cc-btn sm" href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}">All alerts{{if .ActiveCount}} · {{.ActiveCount}}{{end}}</a>{{end}}
     <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
     <button type="button" class="cc-btn sm" data-copy-serials="#alerts-live" title="Copy the serials of every device in this list, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
   </div>

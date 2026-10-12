@@ -151,7 +151,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 @media(max-width:480px){#cmd-history-table .htrow{grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"ic body when" ". by act"}#cmd-history-table .ht-body{grid-area:body}#cmd-history-table .ht-by{grid-area:by;text-align:left}#cmd-history-table .ht-when{grid-area:when}#cmd-history-table .hact{grid-area:act}}
 </style>
 <div id="hist-live" data-morph
-     hx-get="/commands/history?partial=histlive&status={{.Status}}&type={{.FilterType}}"
+     hx-get="/jobs/history?partial=histlive&status={{.Status}}&type={{.FilterType}}"
      hx-target="this" hx-swap="outerHTML" hx-select="unset"
      hx-trigger="commands-feed-update from:body, every 30s">
 
@@ -177,15 +177,15 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
   .adm-toggle input{margin:0}
 </style>
-<nav class="hist-tabs child-rail" data-child-rail aria-label="Work">
-  <div class="cr-t">Work</div>
-  <a class="cr-l" href="/jobs"><span>Needs attention</span>{{if gt .AttnCount 0}}<span class="n">{{.AttnCount}}</span>{{end}}</a>
-  <a class="cr-l" href="/commands/history"><span>All history</span></a>
+<nav class="hist-tabs child-rail" data-child-rail aria-label="Jobs">
+  <div class="cr-t">Jobs</div>
+  <a class="cr-l" href="/jobs"><span>In flight</span>{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
+  <a class="cr-l on" href="/jobs/history"><span>History</span></a>
   <div class="cr-t">Filter history</div>
-  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
-  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
-  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress"><span>In progress</span><span class="n">{{.ProgCount}}</span></a>
-  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed"><span>Completed</span><span class="n">{{.DoneCount}}</span></a>
+  <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/jobs/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
+  <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/jobs/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
+  <a class="cr-l{{if eq .Status "inprogress"}} on{{end}}" href="/jobs/history?status=inprogress"><span>In progress</span><span class="n">{{.ProgCount}}</span></a>
+  <a class="cr-l{{if eq .Status "completed"}} on{{end}}" href="/jobs/history?status=completed"><span>Completed</span><span class="n">{{.DoneCount}}</span></a>
 </nav>
 
 <div class="card cc-card">
@@ -197,7 +197,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
         <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
       </div>
-      <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="location.href='/commands/history?status={{.Status}}&type='+encodeURIComponent(this.value)">
+      <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="location.href='/jobs/history?status={{.Status}}&type='+encodeURIComponent(this.value)">
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
         <option value="install_apk"{{if eq .FilterType "install_apk"}} selected{{end}}>Install app</option>
         <option value="uninstall"{{if eq .FilterType "uninstall"}} selected{{end}}>Uninstall</option>

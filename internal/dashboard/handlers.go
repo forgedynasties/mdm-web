@@ -22100,7 +22100,16 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /lock/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
-	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
+	// History is a view of Jobs, so it lives under it: a child rail must only ever point
+	// at pages beneath the page it belongs to, or the rail reads as a second nav.
+	mux.HandleFunc("GET /jobs/history", h.requireAuth(h.CommandHistory))
+	mux.HandleFunc("GET /commands/history", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.RawQuery
+		if q != "" {
+			q = "?" + q
+		}
+		http.Redirect(w, r, "/jobs/history"+q, http.StatusMovedPermanently)
+	}))
 	// Static route wins over /commands/{id}, so this is the global live feed the
 	// history page subscribes to (not a per-command stream).
 	mux.HandleFunc("GET /commands/events", h.requireAuth(drainable(h.CommandsFeedEvents)))

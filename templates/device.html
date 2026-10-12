@@ -179,13 +179,6 @@
 
 {{define "device.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="Fleet">
-  <div class="cr-t">Fleet</div>
-  <a href="/devices" class="cr-l on"><span>All devices</span></a>
-  <a href="/devices?view=restaurants" class="cr-l"><span>Venues</span></a>
-  <a href="/devices?view=groups" class="cr-l"><span>Groups</span></a>
-  <a href="/enrollment" class="cr-l"><span>Enrollment</span></a>
-</aside>
 
 {{/* Chart.js is loaded here rather than in layout.html so pages without charts
      don't pay for it. That makes ordering the caller's problem: on a full page

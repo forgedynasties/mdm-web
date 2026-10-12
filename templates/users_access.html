@@ -2,8 +2,7 @@
 {{template "header" .}}
 <aside class="child-rail" data-child-rail aria-label="People">
   <div class="cr-t">People</div>
-  <a href="/users" class="cr-l{{if eq .ActivePath "/users"}} on{{end}}"><span>People</span></a>
-  <a href="/activity" class="cr-l{{if eq .ActivePath "/activity"}} on{{end}}"><span>Activity</span></a>
+  <a href="/users" class="cr-l{{if eq .ActivePath "/users"}} on{{end}}"><span>Everyone</span></a>
   <a href="/users/access" class="cr-l{{if hasPrefix .ActivePath "/users/access"}} on{{end}}"><span>Access control</span></a>
 </aside>
 <style>
