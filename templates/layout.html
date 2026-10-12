@@ -1295,7 +1295,11 @@
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (t && t.closest && t.closest('[data-child-rail]')) {
-      window.__railNoFlashUntil = Date.now() + 5000;
+      window.__railNoFlashUntil = Date.now() + 8000;
+      // Also across a hard load: a child-rail link that is not boosted (or a reload
+      // right after one) otherwise lands on a fresh page with no memory of the intent,
+      // and the arrival flash folds the rail the person was just working in.
+      try { sessionStorage.setItem('mdm-rail-noflash', String(Date.now())); } catch (e) {}
       railGuardUntil = 0;
       clearTimeout(railT); clearTimeout(railHold);
       document.body.classList.remove('rail-open');
@@ -1304,7 +1308,17 @@
   function mdmRailFlash() {
     var rail = document.querySelector('.rail');
     if (!rail || !document.body.classList.contains('has-child-rail')) return;
-    if (Date.now() < (window.__railNoFlashUntil || 0)) { document.body.classList.remove('rail-open'); return; }
+    var recent = window.__railNoFlashUntil || 0;
+    if (!recent) {
+      try {
+        var at = parseInt(sessionStorage.getItem('mdm-rail-noflash') || '0', 10);
+        if (at && Date.now() - at < 8000) recent = at + 8000;
+      } catch (e) {}
+    }
+    if (Date.now() < recent) { document.body.classList.remove('rail-open'); return; }
+    // Nor while the pointer is in the page's own rail: someone is reading it.
+    var child = document.querySelector('[data-child-rail]');
+    if (child && child.matches(':hover')) return;
     // Once per page, not once per swap: these pages poll partials, and re-flashing on
     // every one of those left the rail standing open for good.
     var here = location.pathname;
