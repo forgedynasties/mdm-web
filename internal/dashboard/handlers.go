@@ -13843,6 +13843,20 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
 }
 
+// otaRowView is one device's live OTA state on the deployment page. Two clocks, because
+// they answer different questions: SeenAt is the last time the device said anything
+// (is it still there?), AdvancedAt the last time the percent moved (is it getting
+// anywhere?). Conflating them is what called a slow download dead.
+type otaRowView struct {
+	Phase      string
+	Percent    int
+	SeenAt     time.Time
+	AdvancedAt time.Time
+}
+
+// UpdatedAt keeps the template's older field name pointing at the advance clock.
+func (v otaRowView) UpdatedAt() time.Time { return v.AdvancedAt }
+
 func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	_ = h.db.CompleteSettledDeployments(r.Context())
 	relID, err := strconv.Atoi(r.PathValue("id"))
@@ -13878,6 +13892,12 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	upd.Targets = targets
 
 	otaProgress := make(map[string]any)
+	// What the devices have actually reported, from command_status — written on every
+	// progress frame. In-memory progress (shell.Manager) is a cache: it is empty after a
+	// restart and holds nothing for a device reporting over HTTP to another replica, and
+	// relying on it alone is what made a whole deployment read "stalled" while every
+	// device in it was downloading.
+	dbProgress, _ := h.db.OTAProgressForUpdate(r.Context(), did)
 	counts := make(map[string]int)
 	done := 0
 	durSum, durCount := 0, 0
@@ -13893,14 +13913,33 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		switch t.Status {
 		case "installed", "failed", "canceled", "reboot_sent", "awaiting_reboot":
 		default:
+			v := otaRowView{}
 			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
-				otaProgress[t.DeviceID.String()] = p
-				// The row's updated_at only moves at status checkpoints; progress
-				// frames land in memory. Let the freshest progress frame count as the
-				// row's last update so "Updated" and the 10-minute "stalled" check
-				// reflect a download that is actually moving.
-				if p.UpdatedAt.After(targets[i].UpdatedAt) {
-					targets[i].UpdatedAt = p.UpdatedAt
+				// Memory knows when the percent last *advanced* — it deliberately keeps
+				// the old timestamp while a device repeats the same frame.
+				v.Phase, v.Percent, v.AdvancedAt, v.SeenAt = p.Phase, p.Percent, p.UpdatedAt, p.UpdatedAt
+			}
+			if p, ok := dbProgress[t.DeviceID]; ok {
+				if p.ReportAt.After(v.SeenAt) {
+					v.SeenAt = p.ReportAt // last contact of any kind
+				}
+				if v.Phase == "" || p.Percent > v.Percent {
+					v.Phase, v.Percent = p.Status, p.Percent
+					if v.AdvancedAt.IsZero() {
+						v.AdvancedAt = p.ReportAt
+					}
+				}
+			}
+			if !v.SeenAt.IsZero() || v.Percent > 0 {
+				if v.AdvancedAt.IsZero() {
+					v.AdvancedAt = v.SeenAt
+				}
+				otaProgress[t.DeviceID.String()] = v
+				// The row's updated_at only moves at status checkpoints, so on its own it
+				// says nothing about a download in flight. Last contact is the honest
+				// clock for "is this device still working on it".
+				if v.SeenAt.After(targets[i].UpdatedAt) {
+					targets[i].UpdatedAt = v.SeenAt
 				}
 			}
 		}

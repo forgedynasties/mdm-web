@@ -54,8 +54,15 @@
         {{else}}
           <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
         {{end}}
-        {{if and (eq .Status "downloading") (stalledFor .UpdatedAt 10)}}
-          <span class="muted small" title="No progress reported for over 10 minutes (the device may have rebooted mid-download)">stalled</span>
+        {{/* Two different failures, two different words. "Silent" means the device has
+             said nothing for half an hour — the same window after which the server's own
+             sweep fails the row, so the page and the sweep agree. "Stuck" means it is
+             still reporting but the percent has not moved, which a big package on a poor
+             link does for a while and is not yet a problem. */}}
+        {{if and (eq .Status "downloading") (stalledFor .UpdatedAt 30)}}
+          <span class="muted small" title="Nothing heard from this device for over 30 minutes — it may have rebooted or lost the network mid-download">silent</span>
+        {{else if and (eq .Status "downloading") $progress (stalledFor $progress.AdvancedAt 15)}}
+          <span class="muted small" title="Still reporting, but the percentage has not moved for 15 minutes">stuck at {{$progress.Percent}}%</span>
         {{end}}
       </div>
       <div class="dpl-r2">
@@ -100,9 +107,11 @@
           </form>
         {{end}}
         {{if and (eq .Status "downloading") (canOperate $.Role)}}
-          {{if stalledFor .UpdatedAt 10}}
+          {{/* Retry only once the device has gone quiet. Offering it next to a download
+               that is still reporting invites throwing away real progress. */}}
+          {{if stalledFor .UpdatedAt 30}}
           <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-            <button type="submit" class="btn-outline btn-sm" title="Start the download again">Retry</button>
+            <button type="submit" class="btn-outline btn-sm" title="Nothing heard for over 30 minutes — start the download again">Retry</button>
           </form>
           {{end}}
           <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
@@ -230,7 +239,7 @@
             <button type="submit" class="btn-outline btn-sm">Remove</button>
           </form>
           {{else if eq .Status "downloading"}}
-          {{if stalledFor .UpdatedAt 10}}<form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act"><button type="submit" class="btn-outline btn-sm" title="No progress for over 10 minutes — start the download again">Retry</button></form>{{end}}
+          {{if stalledFor .UpdatedAt 30}}<form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act"><button type="submit" class="btn-outline btn-sm" title="Nothing heard for over 30 minutes — start the download again">Retry</button></form>{{end}}
           <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
                 hx-confirm="Cancel the download on {{.SerialNumber}}? The row is marked failed so you can retry.">
             <button type="submit" class="btn-outline btn-sm">Cancel</button>

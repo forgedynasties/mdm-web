@@ -17713,3 +17713,45 @@ func (d *DB) TopPagesForUser(ctx context.Context, actor string, window time.Dura
 	}
 	return out, rows.Err()
 }
+
+// OTARowProgress is what a device last told us about one deployment's OTA: the phase it
+// reported, how far it had got, and when that report landed. It comes from
+// command_status, which is written on every progress frame — unlike update_devices,
+// whose updated_at only moves at status checkpoints and so cannot tell a long download
+// from a dead one.
+type OTARowProgress struct {
+	Status   string
+	Percent  int
+	ReportAt time.Time
+}
+
+// OTAProgressForUpdate returns the latest OTA report per device for a deployment. The
+// OTA command is matched to the deployment the same way the stall sweep matches it, so
+// the page and the sweep can never disagree about who is still moving.
+func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.UUID]OTARowProgress, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (cs.device_id)
+		       cs.device_id, cs.status, COALESCE(cs.progress, 0), cs.updated_at
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id
+		JOIN command_targets ct ON ct.target_id = ud.device_id
+		JOIN commands c ON c.id = ct.command_id AND c.type = 'ota' AND c.created_at >= u.created_at
+		JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
+		WHERE ud.update_id = $1
+		ORDER BY cs.device_id, c.created_at DESC, cs.updated_at DESC
+	`, updateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]OTARowProgress{}
+	for rows.Next() {
+		var id uuid.UUID
+		var p OTARowProgress
+		if err := rows.Scan(&id, &p.Status, &p.Percent, &p.ReportAt); err != nil {
+			return nil, err
+		}
+		out[id] = p
+	}
+	return out, rows.Err()
+}
