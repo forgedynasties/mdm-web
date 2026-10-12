@@ -1403,10 +1403,10 @@
   }
 
 
-  function mdmSyncDockActive(path) {
+  function mdmSyncDockActive(path, railsToo) {
     var p = path || location.pathname;
-    mdmRailAdopt(); mdmRailBind(); mdmSectionRail(); mdmRailChildSync(p);
-    mdmRailFlash();
+    mdmRailAdopt(); mdmRailBind(); mdmSectionRail();
+    if (railsToo !== false) { mdmRailChildSync(p); mdmRailFlash(); }
     // The rail is outside <main> too, so it needs the same treatment or it keeps the
     // highlight from the page you first landed on.
     document.querySelectorAll('.rail .rail-l[href]').forEach(function (a) {
@@ -1427,7 +1427,9 @@
     });
   }
   // Call with no arg so it reads the (now-current) location.pathname — not the event.
-  document.body.addEventListener('htmx:pushedIntoHistory', function () { mdmSyncDockActive(); });
+  // URL first, content later: only the highlights move now, so the layout holds still
+  // while the next page loads.
+  document.body.addEventListener('htmx:pushedIntoHistory', function () { mdmSyncDockActive(null, false); });
   document.body.addEventListener('htmx:historyRestore', function () { mdmSyncDockActive(); });
   window.addEventListener('popstate', function () { setTimeout(function () { mdmSyncDockActive(); }, 0); });
   // First paint, and after every swap: the rail is outside <main>, so it is never
