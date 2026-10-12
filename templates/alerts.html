@@ -6,6 +6,8 @@
   <a href="/alerts?view=needs" class="cr-l{{if eq .View "needs"}} on{{end}}"><span>Needs action</span>{{if .NeedsCount}}<span class="n">{{.NeedsCount}}</span>{{end}}</a>
   <a href="/alerts?view=watching" class="cr-l{{if eq .View "watching"}} on{{end}}"><span>Watching</span>{{if .WatchCount}}<span class="n">{{.WatchCount}}</span>{{end}}</a>
   <a href="/alerts?view=crashes" class="cr-l{{if eq .View "crashes"}} on{{end}}"><span>Crashes</span>{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
+  <div class="cr-t">Set up</div>
+  <a href="/alert-config" class="cr-l"><span>Alert rules</span></a>
 </aside>
 
 <style>
@@ -102,7 +104,6 @@
       <div class="cc-sub">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}}</b> need a decision now. {{end}}{{if gt .WatchCount 0}}<b>{{.WatchCount}}</b> more worth watching.{{else}}Nothing else is flagged.{{end}}{{if .AlertCount}} From {{.AlertCount}} open alert{{if ne .AlertCount 1}}s{{end}}, grouped by device.{{end}}</div>
     </div>
     <div class="cc-actions">
-      <a href="/alert-config" class="cc-btn{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Alert rules</a>
       {{if .ActiveCount}}
       {{/* Acknowledge is the action that sticks: it keeps one row per condition and stops
            it re-appearing as new, where Clear all deletes the rows and the evaluator
@@ -114,9 +115,6 @@
            condition still holds simply fires again, which is the honest outcome. */}}
       <form action="/alerts/resolve-all" method="POST" hx-confirm="Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.">
         <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
-      </form>
-      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear the list? Every open alert is resolved and snoozed for 24 hours. Nothing is deleted, and a condition that is still true stays quiet until the snooze ends.">
-        <button type="submit" class="cc-btn danger{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>Clear all</button>
       </form>
       {{end}}
     </div>

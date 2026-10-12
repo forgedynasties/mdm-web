@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A sub-page and its filters in one rail</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 90px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 820px; margin: 0 0 24px; line-height: 1.55; }
+  .opt { margin: 0 0 32px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 820px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--warn-bg); color: var(--warn); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+
+  .mock { display: flex; gap: 0; height: 300px; border: 1px solid var(--border);
+    border-radius: var(--r-4); overflow: hidden; background: var(--bg); box-shadow: var(--shadow-sm); }
+  .rl { width: 212px; flex: none; background: var(--surface); border-right: 1px solid var(--border-soft);
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 10px 9px 5px; }
+  .t:first-child { padding-top: 0; }
+  .l { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+  .l .n { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .bd { flex: 1; padding: 18px; }
+  .bd h3 { font-size: 16px; margin: 0 0 4px; }
+  .bd .sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .bd .ln { height: 10px; border-radius: 5px; background: var(--surface2); margin-bottom: 9px; }
+  .bd .ln.b { width: 78%; } .bd .ln.c { width: 54%; }
+  .bd .card { border: 1px solid var(--border-soft); border-radius: 10px; height: 96px; background: var(--surface); margin-top: 12px; }
+
+  /* A — current page as a heading, filters nested under it */
+  .page-head { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 700; color: var(--text); background: var(--surface-3); }
+  .page-head .cur { margin-left: auto; font-size: 9.5px; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--text-faint); }
+  .nest { margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border); display: flex;
+    flex-direction: column; gap: 2px; margin-top: 2px; }
+  .nest .l { font-size: 12px; font-weight: 550; padding: 6px 9px; }
+
+  /* B — breadcrumb title */
+  .crumb { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-faint); padding: 0 9px 6px; }
+  .crumb b { color: var(--text-2); }
+  .back { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; color: var(--muted); }
+
+  /* C — page rows keep a left bar, filters keep the fill */
+  .l.cur { color: var(--text); font-weight: 700; box-shadow: inset 2.5px 0 0 var(--accent); border-radius: 0 8px 8px 0; }
+
+  /* D — filters out of the rail, into the content as a segmented control */
+  .seg { display: inline-flex; background: var(--surface2); border-radius: 99px; padding: 3px; gap: 2px; margin-bottom: 12px; }
+  .seg span { font-size: 12px; font-weight: 600; color: var(--muted); padding: 5px 12px; border-radius: 99px; }
+  .seg span.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+  /* E — filter as a select in the rail */
+  .sel { display: flex; align-items: center; gap: 7px; margin: 4px 9px 2px; padding: 6px 9px;
+    border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-2);
+    background: var(--surface2); }
+  .sel .cv { margin-left: auto; color: var(--text-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>A sub-page and its filters in one rail</h1>
+  <p class="lede">
+    On <code>/jobs/history</code> the rail has to say two things at once: <i>you are on History</i>,
+    which is a page, and <i>you are looking at Everything</i>, which is a filter of that page. Lighting
+    both reads as two selections; lighting only the filter loses the page. Five ways to tell the two
+    levels apart — the body in each mock shows History with its "Everything" filter on.
+  </p>
+
+  <div class="opt">
+    <h2>Today <span class="badge live">on stage</span></h2>
+    <p class="note">Both rows in the same flat list, only the filter lit — so "History" looks
+      unvisited even though you are on it.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="t">Jobs</div>
+        <div class="l">In flight<span class="n">3</span></div>
+        <div class="l">History</div>
+        <div class="t">Filter history</div>
+        <div class="l on">Everything<span class="n">212</span></div>
+        <div class="l">Needs attention<span class="n">4</span></div>
+        <div class="l">In progress<span class="n">3</span></div>
+        <div class="l">Completed<span class="n">205</span></div>
+      </div>
+      <div class="bd"><h3>History</h3><div class="sub">212 jobs</div><div class="ln b"></div><div class="ln c"></div><div class="card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>A · The page becomes the heading its filters sit under <span class="badge pick">my pick</span></h2>
+    <p class="note">The rail still lists the section's pages. The one you are on stops being a row and
+      becomes the heading of its own filter list, nested under a hairline. One fill in the rail — the
+      active filter — and the page is stated, not competed with. <b>Good:</b> the hierarchy is visible,
+      it scales to any page with filters, and nothing is lit twice. <b>Bad:</b> the current page is no
+      longer a clickable row, so "show me History unfiltered" has to be the first filter
+      ("Everything"), which it already is.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="t">Jobs</div>
+        <div class="l">In flight<span class="n">3</span></div>
+        <div class="page-head">History<span class="cur">here</span></div>
+        <div class="nest">
+          <div class="l on">Everything<span class="n">212</span></div>
+          <div class="l">Needs attention<span class="n">4</span></div>
+          <div class="l">In progress<span class="n">3</span></div>
+          <div class="l">Completed<span class="n">205</span></div>
+        </div>
+      </div>
+      <div class="bd"><h3>History</h3><div class="sub">212 jobs</div><div class="ln b"></div><div class="ln c"></div><div class="card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>B · The rail's title is the breadcrumb</h2>
+    <p class="note">On a sub-page the rail re-titles itself <i>Jobs › History</i>, offers one way back
+      up, and lists only the filters. <b>Good:</b> the least furniture of any option, and the title
+      area was doing nothing anyway. <b>Bad:</b> the section's other pages disappear while you are in
+      a sub-page, so moving from History to In flight is two steps.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="crumb">Jobs › <b>History</b></div>
+        <div class="back">← All jobs</div>
+        <div class="t">Show</div>
+        <div class="l on">Everything<span class="n">212</span></div>
+        <div class="l">Needs attention<span class="n">4</span></div>
+        <div class="l">In progress<span class="n">3</span></div>
+        <div class="l">Completed<span class="n">205</span></div>
+      </div>
+      <div class="bd"><h3>History</h3><div class="sub">212 jobs</div><div class="ln b"></div><div class="ln c"></div><div class="card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>C · Two weights: a bar for the page, a fill for the filter</h2>
+    <p class="note">Everything stays in one flat list, but the two levels are drawn differently — the
+      page you are on carries an accent bar on its edge, the active filter keeps the soft fill.
+      <b>Good:</b> smallest change to what ships today, and both rows stay clickable. <b>Bad:</b> it
+      asks people to learn that a bar and a fill mean different things; at a glance it is still two
+      marked rows.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="t">Jobs</div>
+        <div class="l">In flight<span class="n">3</span></div>
+        <div class="l cur">History</div>
+        <div class="t">Filter history</div>
+        <div class="l on">Everything<span class="n">212</span></div>
+        <div class="l">Needs attention<span class="n">4</span></div>
+        <div class="l">In progress<span class="n">3</span></div>
+        <div class="l">Completed<span class="n">205</span></div>
+      </div>
+      <div class="bd"><h3>History</h3><div class="sub">212 jobs</div><div class="ln b"></div><div class="ln c"></div><div class="card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>D · Filters are not navigation — put them on the page</h2>
+    <p class="note">The rail holds pages only; the filter becomes a segmented control at the top of
+      the content, where the thing it filters is. <b>Good:</b> the cleanest separation — the rail
+      answers "where", the page answers "what of it" — and it matches how filters already work on
+      Fleet and Apps. <b>Bad:</b> the filter leaves the rail, so the count per state is no longer
+      visible from the nav, and the control scrolls away with the page unless pinned.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="t">Jobs</div>
+        <div class="l">In flight<span class="n">3</span></div>
+        <div class="l on">History<span class="n">212</span></div>
+      </div>
+      <div class="bd">
+        <h3>History</h3><div class="sub">212 jobs</div>
+        <div class="seg"><span class="on">Everything</span><span>Needs attention</span><span>In progress</span><span>Completed</span></div>
+        <div class="ln b"></div><div class="ln c"></div><div class="card"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>E · The filter is a control in the rail, not a list of rows</h2>
+    <p class="note">One row per page, and under the current page a single select showing the filter in
+      force. <b>Good:</b> shortest rail of the five, and it reads unambiguously — a control is clearly
+      not a destination. <b>Bad:</b> hides the other states and their counts behind a click, which is
+      exactly what a four-item filter should not need.</p>
+    <div class="mock">
+      <div class="rl">
+        <div class="t">Jobs</div>
+        <div class="l">In flight<span class="n">3</span></div>
+        <div class="l on">History<span class="n">212</span></div>
+        <div class="sel">Everything<span class="cv">▾</span></div>
+      </div>
+      <div class="bd"><h3>History</h3><div class="sub">212 jobs</div><div class="ln b"></div><div class="ln c"></div><div class="card"></div></div>
+    </div>
+  </div>
+
+  <p class="lede"><b>Pick: A, with D as the alternative.</b> A keeps both levels visible and lights
+    exactly one thing, and the nesting is a pattern that works for every page that grows filters
+    later — Alerts, Clients, Fleet. D is the purist answer and the right one if you would rather the
+    rail never hold anything but destinations; the cost is losing the per-state counts from the nav.</p>
+</div>
+</body>
+</html>

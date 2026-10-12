@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installing an app from the store</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 90px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 840px; margin: 0 0 24px; line-height: 1.55; }
+  .opt { margin: 0 0 34px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 840px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--warn-bg); color: var(--warn); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4);
+    box-shadow: var(--shadow-sm); padding: 16px 18px; }
+  .art { width: 54px; height: 54px; border-radius: 13px; flex: none;
+    background: linear-gradient(135deg, hsl(var(--h,18) 62% 58%), hsl(calc(var(--h,18) + 26) 58% 46%)); }
+  .art.sm { width: 38px; height: 38px; border-radius: 10px; }
+  .apphead { display: flex; gap: 13px; align-items: center; }
+  .apphead .nm { font-size: 15px; font-weight: 700; }
+  .apphead .pk { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 99px;
+    border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; font-weight: 650;
+    color: var(--text); }
+  .btn.pri { background: var(--accent); border-color: transparent; color: #fff; }
+  .btn.sm { padding: 5px 11px; font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 11px; padding: 10px 2px; border-top: 1px solid var(--border-soft); }
+  .row:first-of-type { border-top: 0; }
+  .row .g { flex: 1; min-width: 0; }
+  .row .g b { font-size: 13px; font-weight: 650; display: block; }
+  .row .g span { font-size: 11.5px; color: var(--muted); }
+  .chk { width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid var(--border); flex: none; }
+  .chk.on { background: var(--accent); border-color: transparent; position: relative; }
+  .chk.on::after { content: "✓"; position: absolute; inset: 0; color: #fff; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .tag.ok { background: var(--ok-bg); color: var(--ok); }
+  .tag.warn { background: var(--warn-bg); color: var(--warn); }
+  .sheet { border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
+    box-shadow: var(--shadow-lg); padding: 16px 18px; max-width: 520px; }
+  .sheet h4 { margin: 0 0 3px; font-size: 14.5px; }
+  .sheet .s { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; } .bar .done { background: var(--ok); } .bar .run { background: var(--accent); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+  .cap { font-size: 11.5px; color: var(--text-faint); margin-top: 8px; }
+  .seg { display: inline-flex; background: var(--surface2); border-radius: 99px; padding: 3px; gap: 2px; }
+  .seg span { font-size: 12px; font-weight: 600; color: var(--muted); padding: 5px 12px; border-radius: 99px; }
+  .seg span.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Installing an app from the store</h1>
+  <p class="lede">
+    The store shows what is in the library and what is already out there. What it does not have is a
+    way to put an app <i>on</i> something — today that still means leaving for a device or a device
+    set. These are five shapes for "install", from the smallest to the one that matches how a
+    restaurant fleet actually behaves: devices are offline half the time, so an install is rarely a
+    thing that finishes while you watch.
+  </p>
+
+  <div class="opt">
+    <h2>A · Install button → target sheet</h2>
+    <p class="note">Every app card and the app's own page get <b>Install</b>. It opens one sheet:
+      pick venues, groups or individual devices, see how many that is, send. <b>Good:</b> obvious,
+      one gesture from where you already are, nothing new to learn. <b>Bad:</b> it is a one-shot
+      command — the devices that are offline right now simply do not get it, and the sheet says
+      nothing about that.</p>
+    <div class="cols">
+      <div class="panel">
+        <div class="apphead"><span class="art" style="--h:212"></span>
+          <div class="g"><div class="nm">Nugget POS</div><div class="pk">com.nugget.pos · 4.1.2</div></div>
+          <span class="btn pri">Install</span></div>
+      </div>
+      <div class="sheet">
+        <h4>Install Nugget POS</h4>
+        <div class="s">Version 4.1.2 · 38 MB</div>
+        <div class="row"><span class="chk on"></span><div class="g"><b>AIO Test Bistro</b><span>3 devices · 2 online</span></div></div>
+        <div class="row"><span class="chk"></span><div class="g"><b>Harbour Grill</b><span>6 devices · 6 online</span></div></div>
+        <div class="row"><span class="chk on"></span><div class="g"><b>Lab bench</b><span>4 devices · 4 online</span></div></div>
+        <div class="foot"><span class="btn">Cancel</span><span class="btn pri">Install on 7 devices</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>B · Install as a standing rule <span class="badge pick">my pick</span></h2>
+    <p class="note">You do not install an app on devices, you say <b>where this app belongs</b> — on
+      every kiosk, at these venues, on this group — and the server keeps that true: a device that is
+      offline tonight gets it when it checks in, a device added to the venue next month gets it on
+      enrolment. Same model as the client auto-update you just switched on. <b>Good:</b> survives the
+      fleet being half offline, makes "who should have this" answerable, and uninstall is the same
+      sentence in reverse. <b>Bad:</b> more to think about on the first install, and a rule that is
+      wrong is wrong everywhere — so it shows the resulting device list before you save.</p>
+    <div class="panel">
+      <div class="apphead" style="margin-bottom:14px;"><span class="art" style="--h:212"></span>
+        <div class="g"><div class="nm">Nugget POS</div><div class="pk">com.nugget.pos · 4.1.2</div></div>
+        <span class="tag ok">on 24 of 26 devices</span></div>
+      <div class="row"><div class="g"><b>Belongs on</b><span>Every POS terminal, plus the Lab bench group</span></div><span class="btn sm">Edit</span></div>
+      <div class="row"><div class="g"><b>Keep on this version</b><span>4.1.2 — a device on an older build updates on its next check-in</span></div><span class="tag ok">on</span></div>
+      <div class="row"><div class="g"><b>Waiting</b><span>2 devices have not checked in since the rule was set</span></div><span class="tag warn">2</span></div>
+      <div class="bar" style="margin-top:12px;"><i class="done" style="width:92%"></i><i class="run" style="width:8%"></i></div>
+      <div class="cap">24 installed · 2 waiting for their next check-in</div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>C · Pick the devices first, then the app</h2>
+    <p class="note">The reverse order: from Fleet you select a set of devices, and the store opens
+      filtered to "apps these devices do not have". <b>Good:</b> matches a real errand — <i>this new
+      venue needs its four apps</i> — and the targets are already in hand. <b>Bad:</b> it is a Fleet
+      flow wearing a store's clothes; from the store itself you still need A or B.</p>
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span class="tag">7 devices selected</span><span class="seg"><span class="on">Missing here</span><span>All apps</span></span>
+      </div>
+      <div class="row"><span class="art sm" style="--h:142"></span><div class="g"><b>Kitchen Display</b><span>not on 7 of 7</span></div><span class="btn sm pri">Install</span></div>
+      <div class="row"><span class="art sm" style="--h:288"></span><div class="g"><b>AIO Menu Board</b><span>not on 5 of 7</span></div><span class="btn sm pri">Install</span></div>
+      <div class="row"><span class="art sm" style="--h:18"></span><div class="g"><b>Nugget POS</b><span>on all 7 · 4.0.9, newer available</span></div><span class="btn sm">Update</span></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>D · Staged install, like a firmware rollout</h2>
+    <p class="note">Install reuses the rollout machinery: a canary group, then the rest, each step
+      gated on the previous reporting healthy. <b>Good:</b> a bad APK stops at four devices instead
+      of the fleet, and the vocabulary already exists on the firmware side. <b>Bad:</b> heavy for a
+      38 MB app that is usually fine, and a stalled stage needs a human.</p>
+    <div class="panel">
+      <div class="apphead" style="margin-bottom:12px;"><span class="art" style="--h:142"></span>
+        <div class="g"><div class="nm">Kitchen Display 2.7</div><div class="pk">stage 2 of 3</div></div></div>
+      <div class="row"><div class="g"><b>1 · Lab bench</b><span>4 devices</span></div><span class="tag ok">4 healthy</span></div>
+      <div class="row"><div class="g"><b>2 · AIO Test Bistro</b><span>3 devices</span></div><span class="tag warn">2 of 3 installed</span></div>
+      <div class="row"><div class="g"><b>3 · Everyone else</b><span>19 devices</span></div><span class="tag">waiting</span></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>E · One basket, one send</h2>
+    <p class="note">Tick several apps while browsing the store, then send them to one set of targets
+      in a single step — the way you kit out a new site. <b>Good:</b> four apps to a new venue is one
+      action instead of four. <b>Bad:</b> a basket is a mode, and a half-filled one left on the page
+      is a trap; it only pays off on the rare "new site" day.</p>
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="art sm" style="--h:212"></span><span class="art sm" style="--h:142"></span><span class="art sm" style="--h:288"></span>
+        <div class="g"><b style="font-size:13px;">3 apps ready to send</b><span style="font-size:11.5px;color:var(--muted);">Nugget POS · Kitchen Display · AIO Menu Board</span></div>
+        <span class="btn">Clear</span><span class="btn pri">Choose targets</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="lede"><b>Pick: B, with A kept for the one-off.</b> A standing rule is the only shape that
+    survives a fleet where half the devices are off at any moment — the same reason the client
+    auto-update became a policy rather than a button. A stays as the quick "put this here now" and is
+    the smaller build, so it can ship first; C is worth adding later because it matches the new-venue
+    errand; D only once an app install can plausibly cost a site visit.</p>
+</div>
+</body>
+</html>
