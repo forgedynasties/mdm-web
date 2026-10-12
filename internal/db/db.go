@@ -482,7 +482,11 @@ type UpdateTarget struct {
 	StartedAt    *time.Time `json:"started_at"`     // when the device began downloading (nil if not yet)
 	CompletedAt  *time.Time `json:"completed_at"`   // when the device reported installed (nil if not yet)
 	RebootSentAt *time.Time `json:"reboot_sent_at"` // when the applying reboot was pushed to the device (nil if not yet)
+	LastSeenAt   time.Time  `json:"last_seen_at"`   // the device's own last check-in, joined from devices
 }
+
+// GetLastSeenAt lets the dashboard ask a row whether its device is still there.
+func (t UpdateTarget) GetLastSeenAt() time.Time { return t.LastSeenAt }
 
 // DurationSeconds returns how long this device took to update (download → installed),
 // or -1 if it hasn't both started and completed.
@@ -15403,7 +15407,7 @@ func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
 // GetUpdateTargets returns the device targets for an update.
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at,
+		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at, d.last_seen_at,
 		       ud.started_at, ud.completed_at, ud.reboot_sent_at
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
@@ -15418,7 +15422,7 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	var out []UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
-		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt); err != nil {
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.LastSeenAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -15529,6 +15533,17 @@ func (d *DB) TryCreateOTACommand(ctx context.Context, upd *Update, deviceID uuid
 	payload, err := json.Marshal(p)
 	if err != nil {
 		return nil, err
+	}
+	// Admission control. Sixteen devices pulling a multi-hundred-megabyte package
+	// through one restaurant's access point is how a rollout fails: on 12 Oct three
+	// devices stopped reporting within two minutes of each other, and the weakest-signal
+	// units failed the same download four times in a row. A device that is refused here
+	// is not failed — it stays pending and is handed the update on a later check-in, so
+	// the deployment drains in waves without anyone scheduling them.
+	if ok, err := d.OTAWaveAllows(ctx, upd.ID, deviceID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, nil
 	}
 	cmd, err := d.CreateOTACommandIfNone(ctx, deviceID, payload)
 	if err != nil || cmd == nil {
@@ -17737,6 +17752,10 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 		JOIN command_targets ct ON ct.target_id = ud.device_id
 		JOIN commands c ON c.id = ct.command_id AND c.type = 'ota' AND c.created_at >= u.created_at
 		JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
+		  -- A terminal ack for the previous attempt can land against the new command
+		  -- (seen on 12 Oct: a 'failed' stamped 12:02 attached to a command created at
+		  -- 12:05), which then shows "failed 0%" beside a row that is downloading fine.
+		  AND cs.updated_at >= c.created_at
 		WHERE ud.update_id = $1
 		ORDER BY cs.device_id, c.created_at DESC, cs.updated_at DESC
 	`, updateID)
@@ -17754,4 +17773,48 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 		out[id] = p
 	}
 	return out, rows.Err()
+}
+
+
+// How many devices a deployment may have downloading at once. Per venue, because the
+// access point is the thing that saturates; and across the fleet, because the package
+// host and the uplink are shared too. Both are deliberately small: an OTA that takes
+// twice as long but lands is better than four that race and all fail.
+const (
+	otaWavePerSite  = 3
+	otaWavePerFleet = 8
+	// A command sent but never acknowledged holds its slot for this long, after which
+	// the slot is reused — otherwise one device that went dark freezes a wave.
+	otaWaveSlotHold = 30 * time.Minute
+)
+
+// OTAWaveAllows reports whether this device may start downloading now. In flight means
+// a row that is downloading, or one that has been handed the command recently and has
+// not reported back yet.
+func (d *DB) OTAWaveAllows(ctx context.Context, updateID int, deviceID uuid.UUID) (bool, error) {
+	var site, fleet int
+	err := d.pool.QueryRow(ctx, `
+		WITH mine AS (SELECT restaurant_id FROM devices WHERE id = $2),
+		inflight AS (
+		    SELECT ud.device_id, dev.restaurant_id
+		    FROM update_devices ud
+		    JOIN devices dev ON dev.id = ud.device_id
+		    WHERE ud.update_id = $1
+		      AND ud.device_id <> $2
+		      AND (ud.status = 'downloading'
+		           OR (ud.status = 'pending' AND EXISTS (
+		                 SELECT 1 FROM commands c
+		                 JOIN command_targets ct ON ct.command_id = c.id
+		                 WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		                   AND c.created_at > NOW() - $3::interval)))
+		)
+		SELECT
+		  count(*) FILTER (WHERE restaurant_id IS NOT DISTINCT FROM (SELECT restaurant_id FROM mine)),
+		  count(*)
+		FROM inflight
+	`, updateID, deviceID, otaWaveSlotHold).Scan(&site, &fleet)
+	if err != nil {
+		return false, err
+	}
+	return site < otaWavePerSite && fleet < otaWavePerFleet, nil
 }
