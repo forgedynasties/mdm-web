@@ -384,6 +384,10 @@ type OTAPackage struct {
 	Wipe            bool      `json:"wipe"`   // installing it factory-resets the device
 	CreatedAt       time.Time `json:"created_at"`
 	DeploymentCount int       `json:"deployment_count,omitempty"` // populated by ListOTAPackages
+	// PayloadSize is the package's size in bytes where known — filled when the package
+	// is made, or learned later from the host (see LearnPackageSize). It is what turns a
+	// device's percent into a figure a person can read.
+	PayloadSize int64 `json:"payload_size,omitempty"`
 }
 
 // QFILPackage is a Qualcomm Flash Image Loader bundle attached to a release — the
@@ -5793,6 +5797,13 @@ func (d *DB) CancelDeviceCommand(ctx context.Context, commandID, deviceID uuid.U
 // command on a device, with an optional percent (0-100, meaningful while
 // downloading). Terminal statuses go through AckCommand instead.
 func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UUID, status string, progress *int) error {
+	return d.SetCommandProgressBytes(ctx, commandID, deviceID, status, progress, 0, 0)
+}
+
+// SetCommandProgressBytes is SetCommandProgress plus the byte counters a client sends
+// when it has them. Zero means "not reported": the previous figures are kept, so a
+// client that reports bytes once and then falls back to percent does not blank them.
+func (d *DB) SetCommandProgressBytes(ctx context.Context, commandID, deviceID uuid.UUID, status string, progress *int, bytesDone, bytesTotal int64) error {
 	targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID)
 	if err != nil {
 		return err
@@ -5812,12 +5823,15 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 	// Interim progress must never overwrite a terminal state (a late 'downloading'
 	// arriving after 'installed' would revert the row).
 	_, err = d.pool.Exec(ctx, `
-		INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
-		VALUES ($1, $2, $3, $4, NOW())
+		INSERT INTO command_status (command_id, device_id, status, progress, bytes_done, bytes_total, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
-			SET status = EXCLUDED.status, progress = EXCLUDED.progress, updated_at = NOW()
+			SET status = EXCLUDED.status, progress = EXCLUDED.progress,
+			    bytes_done  = CASE WHEN EXCLUDED.bytes_done  > 0 THEN EXCLUDED.bytes_done  ELSE command_status.bytes_done  END,
+			    bytes_total = CASE WHEN EXCLUDED.bytes_total > 0 THEN EXCLUDED.bytes_total ELSE command_status.bytes_total END,
+			    updated_at = NOW()
 			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
-	`, commandID, deviceID, status, progress)
+	`, commandID, deviceID, status, progress, bytesDone, bytesTotal)
 	return err
 }
 
@@ -13706,6 +13720,11 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_security TEXT NOT NU
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_app_package   TEXT NOT NULL DEFAULT '';
 ALTER TABLE devices     ADD COLUMN IF NOT EXISTS table_label         TEXT NOT NULL DEFAULT '';
 
+-- Percent is too coarse to watch: one percent of a two-gigabyte image is twenty
+-- megabytes, so a download that is working looks frozen for many minutes. Devices that
+-- report bytes get a real figure on the page; older clients keep the percent.
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS bytes_done  BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS bytes_total BIGINT NOT NULL DEFAULT 0;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -14683,7 +14702,8 @@ func (d *DB) SetReleaseSkipBaseTests(ctx context.Context, id int, skip bool) err
 // ListPackagesByRelease returns the packages (full + incrementals) of a release.
 func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, wipe, created_at
+		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, wipe, created_at,
+		       COALESCE(payload_size, 0)
 		FROM ota_packages WHERE release_id = $1
 		ORDER BY (type = 'full') DESC, source_build_id, created_at DESC
 	`, releaseID)
@@ -14694,12 +14714,19 @@ func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPac
 	var out []OTAPackage
 	for rows.Next() {
 		var p OTAPackage
-		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.Wipe, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.Wipe, &p.CreatedAt, &p.PayloadSize); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// SetPackageSize records a package's size once something has measured it. Packages made
+// before the size was recorded carry 0, and the host is the only place left to ask.
+func (d *DB) SetPackageSize(ctx context.Context, id int, size int64) error {
+	_, err := d.pool.Exec(ctx, `UPDATE ota_packages SET payload_size = $2 WHERE id = $1 AND COALESCE(payload_size,0) = 0`, id, size)
+	return err
 }
 
 // ── Updates (Deployments) ─────────────────────────────────────────────────────
@@ -17735,9 +17762,11 @@ func (d *DB) TopPagesForUser(ctx context.Context, actor string, window time.Dura
 // whose updated_at only moves at status checkpoints and so cannot tell a long download
 // from a dead one.
 type OTARowProgress struct {
-	Status   string
-	Percent  int
-	ReportAt time.Time
+	Status     string
+	Percent    int
+	BytesDone  int64
+	BytesTotal int64
+	ReportAt   time.Time
 }
 
 // OTAProgressForUpdate returns the latest OTA report per device for a deployment. The
@@ -17746,7 +17775,7 @@ type OTARowProgress struct {
 func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.UUID]OTARowProgress, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT DISTINCT ON (cs.device_id)
-		       cs.device_id, cs.status, COALESCE(cs.progress, 0), cs.updated_at
+		       cs.device_id, cs.status, COALESCE(cs.progress, 0), cs.bytes_done, cs.bytes_total, cs.updated_at
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id
 		JOIN command_targets ct ON ct.target_id = ud.device_id
@@ -17767,7 +17796,7 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 	for rows.Next() {
 		var id uuid.UUID
 		var p OTARowProgress
-		if err := rows.Scan(&id, &p.Status, &p.Percent, &p.ReportAt); err != nil {
+		if err := rows.Scan(&id, &p.Status, &p.Percent, &p.BytesDone, &p.BytesTotal, &p.ReportAt); err != nil {
 			return nil, err
 		}
 		out[id] = p

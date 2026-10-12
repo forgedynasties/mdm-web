@@ -72,7 +72,9 @@
       <div class="dpl-r2">
         {{if $progress}}
           <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
-          <span class="muted small dpl-rowpct">{{if $progress.Phase}}{{$progress.Phase}} {{end}}{{$progress.Percent}}%</span>
+          {{/* Size first: it is what tells you a download is moving. The percent is the
+               coarse figure the device reports and stays as the smaller number. */}}
+          <span class="muted small dpl-rowpct">{{if $progress.Phase}}{{$progress.Phase}} {{end}}{{with $progress.Size}}{{.}} · {{end}}{{$progress.Percent}}%</span>
         {{end}}
         {{if and (eq .Status "failed") .ErrorCode}}
           <span class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></span>

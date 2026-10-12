@@ -68,6 +68,9 @@ type Manager struct {
 	// for its whole duration and RedriveStuckDeliveries repeatedly re-pushes it
 	// as "stuck" every ~90s even though the device is actively working on it.
 	OnOTAProgress func(deviceID, commandID uuid.UUID)
+	// OnOTABytes carries the byte counters a client reports with its percent, so the
+	// server can store a real figure instead of a number that moves once per 20MB.
+	OnOTABytes func(deviceID, commandID uuid.UUID, phase string, percent int, done, total int64)
 
 	// OnCommandDone, if set, fires when a shell command's live output stream
 	// closes (the device's "command_done" frame, carrying its exit code). Shell is
@@ -94,8 +97,10 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		CommandID uuid.UUID `json:"command_id"`
 		Chunk     string    `json:"chunk"`
 		ExitCode  int       `json:"exit_code"`
-		Phase     string    `json:"phase"`
-		Percent   int       `json:"percent"`
+		Phase      string   `json:"phase"`
+		Percent    int      `json:"percent"`
+		Bytes      int64    `json:"bytes"`
+		BytesTotal int64    `json:"bytes_total"`
 	}
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return
@@ -111,6 +116,9 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		}
 	case "ota_progress":
 		m.updateOTAProgress(deviceID, frame.CommandID, frame.Phase, frame.Percent)
+		if m.OnOTABytes != nil && (frame.Bytes > 0 || frame.BytesTotal > 0) {
+			m.OnOTABytes(deviceID, frame.CommandID, frame.Phase, frame.Percent, frame.Bytes, frame.BytesTotal)
+		}
 	}
 }
 

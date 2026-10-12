@@ -2434,6 +2434,8 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		Status       string `json:"status"` // downloading | installing | installed | failed | completed
 		Output       string `json:"output"`
 		Progress     *int   `json:"progress"` // 0-100, meaningful while downloading
+		Bytes        int64  `json:"bytes"`       // bytes fetched so far, when the client counts them
+		BytesTotal   int64  `json:"bytes_total"` // the package's size, as the client sees it
 		Package      string `json:"package"`  // package the APK installed (learned on 'installed')
 	}
 	if err := decodeDeviceJSON(r.Body, &body); err != nil || body.SerialNumber == "" {
@@ -2473,7 +2475,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	// Interim progress updates the live status/percent without finalizing.
 	if interim {
-		if err := h.db.SetCommandProgress(r.Context(), cmdID, device.ID, body.Status, body.Progress); err != nil {
+		if err := h.db.SetCommandProgressBytes(r.Context(), cmdID, device.ID, body.Status, body.Progress, body.Bytes, body.BytesTotal); err != nil {
 			if errors.Is(err, db.ErrCommandNotTargeted) {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
 				return
@@ -2531,6 +2533,8 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 		CommandID    uuid.UUID `json:"command_id"`
 		Phase        string    `json:"phase"`
 		Percent      int       `json:"percent"`
+		Bytes        int64     `json:"bytes"`       // fetched so far, when the client counts
+		BytesTotal   int64     `json:"bytes_total"` // the package's size, as the client sees it
 	}
 	if err := decodeDeviceJSON(r.Body, &body); err != nil || body.SerialNumber == "" || body.CommandID == uuid.Nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
@@ -2548,6 +2552,17 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.shell.SetOTAProgress(device.ID, body.CommandID, body.Phase, body.Percent)
+	if body.Bytes > 0 || body.BytesTotal > 0 {
+		st := body.Phase
+		if st != "installing" {
+			st = "downloading"
+		}
+		p := body.Percent
+		if err := h.db.SetCommandProgressBytes(r.Context(), body.CommandID, device.ID, st, &p, body.Bytes, body.BytesTotal); err != nil &&
+			!errors.Is(err, db.ErrCommandNotTargeted) {
+			log.Printf("[ota] progress bytes for %s: %v", body.SerialNumber, err)
+		}
+	}
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
