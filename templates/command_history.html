@@ -180,7 +180,9 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 <nav class="hist-tabs child-rail" data-child-rail aria-label="Jobs">
   <div class="cr-t">Jobs</div>
   <a class="cr-l" href="/jobs"><span>In flight</span>{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
-  <a class="cr-l on" href="/jobs/history"><span>History</span></a>
+  {{/* No "on" here: the filter group below says which history you are looking at, and
+       two lit rows in one rail reads as two selections. */}}
+  <a class="cr-l" href="/jobs/history"><span>History</span></a>
   <div class="cr-t">Filter history</div>
   <a class="cr-l{{if eq .Status "all"}} on{{end}}" href="/jobs/history?status=all"><span>Everything</span><span class="n">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
   <a class="cr-l{{if eq .Status "attention"}} on{{end}}" href="/jobs/history?status=attention"><span>Needs attention</span><span class="n">{{.AttnCount}}</span></a>
