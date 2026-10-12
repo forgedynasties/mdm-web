@@ -3772,8 +3772,9 @@
 </div>
 {{end}}
 
+{{/* Kept for the pages that still call it, minus its own <h1>: each page titles itself,
+     and the four destinations below are in the rails now. */}}
 {{define "fleet-tabs"}}
-<div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Fleet</h1></div>
 <div class="fleet-tabs">
   <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
   <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
