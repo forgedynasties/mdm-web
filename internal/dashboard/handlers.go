@@ -13914,6 +13914,32 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
 }
 
+// learnPackageSizes asks the package host how big each package is and remembers it. A
+// HEAD costs nothing and only happens while a size is still unknown.
+func (h *Handler) learnPackageSizes(pkgs []db.OTAPackage) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	for _, p := range pkgs {
+		if p.PayloadSize > 0 || p.UpdateURL == "" {
+			continue
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, p.UpdateURL, nil)
+		if err != nil {
+			continue
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.ContentLength > 0 {
+			if err := h.db.SetPackageSize(ctx, p.ID, resp.ContentLength); err != nil {
+				log.Printf("[ota] remember package %d size: %v", p.ID, err)
+			}
+		}
+	}
+}
+
 // otaRowView is one device's live OTA state on the deployment page. Two clocks, because
 // they answer different questions: SeenAt is the last time the device said anything
 // (is it still there?), AdvancedAt the last time the percent moved (is it getting
@@ -13924,8 +13950,38 @@ type UpdateTargetLike interface{ GetLastSeenAt() time.Time }
 type otaRowView struct {
 	Phase      string
 	Percent    int
+	BytesDone  int64
+	BytesTotal int64
 	SeenAt     time.Time
 	AdvancedAt time.Time
+}
+
+// Size renders what the page should say about how far a download has got: real figures
+// when the client counts bytes, and an estimate from the package's own size when it only
+// sends a percent — because one percent of a two-gigabyte image is twenty megabytes, and
+// "1%" for twenty minutes reads as a dead transfer.
+func (v otaRowView) Size() string {
+	done, total := v.BytesDone, v.BytesTotal
+	approx := ""
+	if done == 0 && total > 0 && v.Percent > 0 {
+		done, approx = total*int64(v.Percent)/100, "about "
+	}
+	switch {
+	case done > 0 && total > 0:
+		return approx + humanBytes(done) + " of " + humanBytes(total)
+	case total > 0:
+		return humanBytes(total) + " to fetch"
+	}
+	return ""
+}
+
+// humanBytes is deliberately coarse: MB up to a gigabyte, then one decimal of GB.
+func humanBytes(n int64) string {
+	const mb = 1 << 20
+	if n < 1<<30 {
+		return strconv.FormatInt((n+mb/2)/mb, 10) + " MB"
+	}
+	return strconv.FormatFloat(float64(n)/float64(int64(1)<<30), 'f', 1, 64) + " GB"
 }
 
 // UpdatedAt keeps the template's older field name pointing at the advance clock.
@@ -13972,6 +14028,21 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// relying on it alone is what made a whole deployment read "stalled" while every
 	// device in it was downloading.
 	dbProgress, _ := h.db.OTAProgressForUpdate(r.Context(), did)
+	// Older clients send only a percent. The package's size turns that into something
+	// legible; it is an estimate and the page says so.
+	var pkgSize int64
+	if pkgs, err := h.db.ListPackagesByRelease(r.Context(), relID); err == nil {
+		for _, p := range pkgs {
+			if p.PayloadSize > pkgSize {
+				pkgSize = p.PayloadSize
+			}
+		}
+		if pkgSize == 0 {
+			// Nothing recorded the size when these packages were made. Ask the host
+			// once, in the background, so the next render has a denominator.
+			go h.learnPackageSizes(pkgs)
+		}
+	}
 	counts := make(map[string]int)
 	done := 0
 	durSum, durCount := 0, 0
@@ -13997,12 +14068,16 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 				if p.ReportAt.After(v.SeenAt) {
 					v.SeenAt = p.ReportAt // last contact of any kind
 				}
+				v.BytesDone, v.BytesTotal = p.BytesDone, p.BytesTotal
 				if v.Phase == "" || p.Percent > v.Percent {
 					v.Phase, v.Percent = p.Status, p.Percent
 					if v.AdvancedAt.IsZero() {
 						v.AdvancedAt = p.ReportAt
 					}
 				}
+			}
+			if v.BytesTotal == 0 {
+				v.BytesTotal = pkgSize
 			}
 			if !v.SeenAt.IsZero() || v.Percent > 0 {
 				if v.AdvancedAt.IsZero() {

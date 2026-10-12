@@ -168,6 +168,22 @@ func main() {
 	// for the whole download/install and RedriveStuckDeliveries repeatedly re-pushes
 	// it as "stuck" every ~90s even while the device is actively working on it. See
 	// shell.Manager.OnOTAProgress.
+	// A client that counts bytes gets them stored next to the percent, so the page can
+	// say "214 MB of 1.6 GB" instead of a number that moves once per twenty megabytes.
+	shellMgr.OnOTABytes = func(deviceID, commandID uuid.UUID, phase string, percent int, done, total int64) {
+		if commandID == uuid.Nil {
+			return
+		}
+		st := phase
+		if st != "installing" {
+			st = "downloading"
+		}
+		p := percent
+		if err := database.SetCommandProgressBytes(context.Background(), commandID, deviceID, st, &p, done, total); err != nil &&
+			!errors.Is(err, db.ErrCommandNotTargeted) {
+			log.Printf("OnOTABytes: %v", err)
+		}
+	}
 	shellMgr.OnOTAProgress = func(deviceID, commandID uuid.UUID) {
 		if commandID == uuid.Nil { // legacy OTA progress has no command behind it
 			return
