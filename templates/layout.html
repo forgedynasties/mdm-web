@@ -399,7 +399,13 @@
                  (d.elt && d.elt.getAttribute && d.elt.getAttribute('href')) || '';
       // Highlight the destination in the dock immediately (don't wait for the
       // page to load) — mdmSyncDockActive is defined in the footer script.
-      if (window.mdmSyncDockActive) window.mdmSyncDockActive(path.split('?')[0].split('#')[0]);
+      var dest = path.split('?')[0].split('#')[0];
+      // Highlights follow the URL now; the rails must not. Re-syncing them here tore the
+      // current page's rail off mid-request — which is what slid the skeleton sideways.
+      if (window.mdmSyncDockActive) window.mdmSyncDockActive(dest, false);
+      // Reserve the destination's rail column instead, so the skeleton is drawn where the
+      // page will actually land.
+      if (window.mdmRailPredict) window.mdmRailPredict(dest);
       // Only reveal the skeleton once the response is clearly slow. On a LAN/local
       // server most pages return in well under this, so a fast nav goes straight
       // content→content (crossfaded) and never flashes a blank/skeleton frame.
@@ -1376,7 +1382,7 @@
     /^\/alert-config/, /^\/reports\/alerts-by-restaurant/, /^\/clients/, /^\/jobs/, /^\/commands/,
     /^\/schedules/, /^\/settings/, /^\/users/, /^\/activity/, /^\/rollouts/, /^\/releases/,
     /^\/packages/, /^\/updates/];
-  function mdmRailPredict(href) {
+  window.mdmRailPredict = function (href) {
     var path;
     try { path = new URL(href, location.origin).pathname; } catch (e) { return; }
     var willHave = RAIL_PATHS.some(function (re) { return re.test(path); });
@@ -1396,7 +1402,7 @@
     for (var i = 0; i < 5; i++) rows += '<div class="cr-l"><span class="cr-sw"></span><span class="gl"></span></div>';
     ph.innerHTML = '<div class="cr-t"><span class="gl short"></span></div>' + rows;
     document.body.appendChild(ph);
-  }
+  };
   document.body.addEventListener('htmx:beforeRequest', function (e) {
     var d = e.detail || {}, info = d.pathInfo || {};
     // The anchor is not always the event target — some rail links go through htmx.ajax,
@@ -1409,7 +1415,7 @@
     if (!path || path.charAt(0) !== '/') return;
     if (path.indexOf('/api/') === 0 || path.indexOf('partial=') > -1 || path.indexOf('/recent') > -1) return;
     if (d.verb && d.verb.toLowerCase() !== 'get') return;
-    mdmRailPredict(path);
+    window.mdmRailPredict(path);
   });
 
   function mdmRailChildSync(path) {
