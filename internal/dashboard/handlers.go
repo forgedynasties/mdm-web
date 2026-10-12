@@ -14057,7 +14057,15 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		case "installed", "failed", "canceled", "reboot_sent", "awaiting_reboot":
 		default:
 			v := otaRowView{}
-			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
+			// When this attempt began. Anything the caches remember from before it
+			// describes a download that no longer exists: the in-memory progress has no
+			// TTL, so a fresh attempt inherited an hours-old "last advanced" and was
+			// called stuck within a minute of starting.
+			started := t.StartedAt
+			if p, ok := dbProgress[t.DeviceID]; ok && !p.CmdAt.IsZero() {
+				started = &p.CmdAt
+			}
+			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil && (started == nil || !p.UpdatedAt.Before(*started)) {
 				// Memory knows when the percent last *advanced* — it deliberately keeps
 				// the old timestamp while a device repeats the same frame.
 				v.Phase, v.Percent, v.AdvancedAt, v.SeenAt = p.Phase, p.Percent, p.UpdatedAt, p.UpdatedAt
@@ -14080,6 +14088,10 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			if !v.SeenAt.IsZero() || v.Percent > 0 {
 				if v.AdvancedAt.IsZero() {
 					v.AdvancedAt = v.SeenAt
+				}
+				// A download cannot have been stuck for longer than it has existed.
+				if started != nil && v.AdvancedAt.Before(*started) {
+					v.AdvancedAt = *started
 				}
 				otaProgress[t.DeviceID.String()] = v
 				// The row's updated_at only moves at status checkpoints, so on its own it

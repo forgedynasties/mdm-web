@@ -17883,6 +17883,9 @@ type OTARowProgress struct {
 	BytesDone  int64
 	BytesTotal int64
 	ReportAt   time.Time
+	// CmdAt is when the attempt this report belongs to was sent. Everything older than
+	// it belongs to a previous attempt and must not describe this one.
+	CmdAt time.Time
 }
 
 // OTAProgressForUpdate returns the latest OTA report per device for a deployment. The
@@ -17891,7 +17894,7 @@ type OTARowProgress struct {
 func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.UUID]OTARowProgress, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT DISTINCT ON (cs.device_id)
-		       cs.device_id, cs.status, COALESCE(cs.progress, 0), cs.bytes_done, cs.bytes_total, cs.updated_at
+		       cs.device_id, cs.status, COALESCE(cs.progress, 0), cs.bytes_done, cs.bytes_total, cs.updated_at, c.created_at
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id
 		JOIN command_targets ct ON ct.target_id = ud.device_id
@@ -17912,7 +17915,7 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 	for rows.Next() {
 		var id uuid.UUID
 		var p OTARowProgress
-		if err := rows.Scan(&id, &p.Status, &p.Percent, &p.BytesDone, &p.BytesTotal, &p.ReportAt); err != nil {
+		if err := rows.Scan(&id, &p.Status, &p.Percent, &p.BytesDone, &p.BytesTotal, &p.ReportAt, &p.CmdAt); err != nil {
 			return nil, err
 		}
 		out[id] = p
