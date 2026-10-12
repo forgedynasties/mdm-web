@@ -7685,11 +7685,21 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
     border-radius: 0; box-shadow: none; display: flex; }
   body.rail-open [data-child-rail] .cr-sw .dot { position: static; width: 10px; height: 10px;
     border: 0; right: auto; bottom: auto; }
-  /* Rows that carry no status get the same dot, drawn quiet. */
+  /* Rows that carry no status — Settings' tabs, a status filter — get the same dot,
+     drawn quiet. They have nothing to report and should not pretend otherwise: a
+     coloured tile on "Profiles" or "Enrollments" was decoration standing in for data. */
+  body.rail-open [data-child-rail] .cr-l:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button:not(:has(.cr-sw))::after,
   body.rail-open [data-child-rail] .cr-l .cr-sw:empty::after,
   body.rail-open [data-child-rail] button .cr-sw:empty::after {
     content: ""; width: 10px; height: 10px; border-radius: 50%;
     background: var(--text-faint); opacity: .5; }
+  body.rail-open [data-child-rail] .cr-l.on:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] .cr-l.active:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button.on:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button.active:not(:has(.cr-sw))::after {
+    background: var(--accent); opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); }
   body.rail-open [data-child-rail] .cr-l,
   body.rail-open [data-child-rail] button,
   body.rail-open [data-child-rail] .fleet-rail-item {
@@ -7772,3 +7782,16 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   .rail-foot .appbar-acct .who .r { display: none; }
   body.rail-open .rail-foot .who, body:not(.has-child-rail) .rail-foot .who { display: flex; }
 }
+
+/* The by-venue report as a page: its fragment header belongs to the Overview card it was
+   written for, where there is no page title to say the same thing. */
+.rab-page > .rab-h { display: none; }
+.rab-page .rab-list { gap: 2px; }
+.rab-page .rab-row { padding: 11px 12px; }
+
+/* The device wall is one shape: a square per device. Battery/mains was carried by circle
+   vs square and read as two kinds of status at a glance when it is a hardware fact, and
+   it cost a second legend to explain. State — online, alert, offline, dormant — is the
+   only thing the wall encodes now, in colour, with one legend. */
+.ovd-wall .sq a.shape-circle, .ovd-wall .sq a { border-radius: 3px; }
+.ovd-wfoot-cls { display: none; }

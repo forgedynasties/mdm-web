@@ -1287,9 +1287,22 @@
   // highlight is legible at the moment it changes, and the page gets the screen back a
   // second later without anyone having to move the mouse.
   var railFlashedAt = null;
+  // Moving within a page's own rail is not an arrival: you asked for that rail, so the
+  // next page must not open the app rail over it and fold it again under your pointer.
+  var railNoFlashUntil = 0;
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('[data-child-rail]')) {
+      railNoFlashUntil = Date.now() + 5000;
+      railGuardUntil = 0;
+      clearTimeout(railT); clearTimeout(railHold);
+      document.body.classList.remove('rail-open');
+    }
+  }, true);
   function mdmRailFlash() {
     var rail = document.querySelector('.rail');
     if (!rail || !document.body.classList.contains('has-child-rail')) return;
+    if (Date.now() < railNoFlashUntil) { document.body.classList.remove('rail-open'); return; }
     // Once per page, not once per swap: these pages poll partials, and re-flashing on
     // every one of those left the rail standing open for good.
     var here = location.pathname;
@@ -1356,68 +1369,6 @@
   }
   // A page with its own rail is the only place the app rail collapses; everywhere else
   // it stays open, so this is decided from the page that was just swapped in.
-  // A stable colour per row, derived from its own label — the same FNV hash the server
-  // uses for venues and groups, so a row looks the same whoever rendered it. Folded, the
-  // swatch is all that is left of a row, and it is the only mark that tells two
-  // user-typed names apart.
-  function mdmRailSwatches() {
-    document.querySelectorAll('[data-child-rail] .cr-l, [data-child-rail] button').forEach(function (el) {
-      if (el.querySelector('.cr-sw')) return;
-      var label = (el.textContent || '').trim().split('\n')[0];
-      if (!label) return;
-      var h = 2166136261;
-      for (var i = 0; i < label.length; i++) { h ^= label.charCodeAt(i); h = Math.imul(h, 16777619); }
-      var sw = document.createElement('span');
-      sw.className = 'cr-sw';
-      sw.style.setProperty('--h', String(Math.abs(h) % 360));
-      el.insertBefore(sw, el.firstChild);
-    });
-  }
-
-  // Which paths bring a child rail. The destination's shape is known before its HTML
-  // arrives, so the space is reserved at the moment of the click and the skeleton is
-  // drawn where the page will actually land — instead of rendering 216px to the left
-  // and sliding over once the response shows up.
-  var RAIL_PATHS = [/^\/devices/, /^\/restaurants/, /^\/groups/, /^\/enrollment/, /^\/alerts/,
-    /^\/alert-config/, /^\/reports\/alerts-by-restaurant/, /^\/clients/, /^\/jobs/, /^\/commands/,
-    /^\/schedules/, /^\/settings/, /^\/users/, /^\/activity/, /^\/rollouts/, /^\/releases/,
-    /^\/packages/, /^\/updates/];
-  window.mdmRailPredict = function (href) {
-    var path;
-    try { path = new URL(href, location.origin).pathname; } catch (e) { return; }
-    var willHave = RAIL_PATHS.some(function (re) { return re.test(path); });
-    document.body.classList.toggle('has-child-rail', willHave);
-    if (!willHave) {
-      document.querySelectorAll('[data-ghost-rail]').forEach(function (el) { el.remove(); });
-      return;
-    }
-    if (document.querySelector('[data-child-rail]')) return; // the real one is still up
-    var ph = document.createElement('aside');
-    ph.className = 'child-rail cr-ghost';
-    ph.setAttribute('data-child-rail', '');
-    ph.setAttribute('data-ghost-rail', '');
-    ph.setAttribute('aria-hidden', 'true');
-    ph.dataset.portaled = '1';  // cleared with the rest when the page lands
-    var rows = '';
-    for (var i = 0; i < 5; i++) rows += '<div class="cr-l"><span class="cr-sw"></span><span class="gl"></span></div>';
-    ph.innerHTML = '<div class="cr-t"><span class="gl short"></span></div>' + rows;
-    document.body.appendChild(ph);
-  };
-  document.body.addEventListener('htmx:beforeRequest', function (e) {
-    var d = e.detail || {}, info = d.pathInfo || {};
-    // The anchor is not always the event target — some rail links go through htmx.ajax,
-    // where the request path is the only thing that names the destination.
-    var path = info.finalRequestPath || info.requestPath || '';
-    if (!path && e.target && e.target.closest) {
-      var a = e.target.closest('a[href]');
-      path = a ? a.getAttribute('href') : '';
-    }
-    if (!path || path.charAt(0) !== '/') return;
-    if (path.indexOf('/api/') === 0 || path.indexOf('partial=') > -1 || path.indexOf('/recent') > -1) return;
-    if (d.verb && d.verb.toLowerCase() !== 'get') return;
-    window.mdmRailPredict(path);
-  });
-
   function mdmRailChildSync(path) {
     // Portal every child rail to <body>. position:fixed resolves against the nearest
     // ancestor with a transform, and the entrance animations (.dv-rise-*) are transforms —
@@ -1446,7 +1397,6 @@
         document.body.appendChild(el);
       }
     });
-    mdmRailSwatches();
     var child = document.querySelector('[data-child-rail]');
     document.body.classList.toggle('has-child-rail', !!child);
     if (!child) document.body.classList.remove('rail-open');
